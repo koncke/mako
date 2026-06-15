@@ -9,7 +9,8 @@ import {
   estadoMadurezLead,
   labelMadurez,
   textoCohorteJ1,
-  contarVslPlays,
+  getVslEngagement,
+  type VslEngagement,
   type Lead,
 } from '@/lib/leads';
 import { getPagosByLead } from '@/lib/pagos';
@@ -45,7 +46,7 @@ export default async function LeadDetailPage({
   if (!lead) notFound();
 
   // Comportamiento VSL (Fase 7): cuántas veces vio el video este lead
-  const vslPlays = await contarVslPlays(lead.visitor_id);
+  const vslEng = await getVslEngagement(lead.visitor_id);
 
   // Plan de pagos / cuotas (Fase 8-bis)
   const pagos = await getPagosByLead(lead.id);
@@ -101,7 +102,7 @@ export default async function LeadDetailPage({
 
       {/* ORIGEN Y COMPORTAMIENTO (read-only, Fase 7) */}
       <div className="mb-6">
-        <OrigenCard lead={lead} vslPlays={vslPlays} />
+        <OrigenCard lead={lead} vslEng={vslEng} />
       </div>
 
       {/* FORM */}
@@ -130,7 +131,7 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
   }
 }
 
-function OrigenCard({ lead, vslPlays }: { lead: Lead; vslPlays: number }) {
+function OrigenCard({ lead, vslEng }: { lead: Lead; vslEng: VslEngagement }) {
   const tieneAtribucion =
     lead.origen_lead ||
     lead.meta_campaign_name ||
@@ -139,10 +140,12 @@ function OrigenCard({ lead, vslPlays }: { lead: Lead; vslPlays: number }) {
     lead.utm_campaign ||
     lead.utm_source;
   const tieneComportamiento = lead.visitor_id !== null;
+  const vio = vslEng.plays > 0;
 
-  // Señal clave: agendó sin ver el VSL (se saltó el filtro)
+  // Señal clave recalibrada (v3 Fase A): agendó Y tiene visitor con 0 plays.
+  // Sin visitor_id no afirmamos nada (mostramos "sin datos de VSL").
   const agendoSinVerVsl =
-    lead.fecha_agenda !== null && tieneComportamiento && vslPlays === 0;
+    lead.fecha_agenda !== null && tieneComportamiento && !vio;
 
   if (!tieneAtribucion && !tieneComportamiento) {
     return (
@@ -228,12 +231,14 @@ function OrigenCard({ lead, vslPlays }: { lead: Lead; vslPlays: number }) {
                 <span style={{ color: 'var(--text-dim)' }}>Vio el VSL: </span>
                 <span
                   style={{
-                    color: vslPlays > 0 ? 'var(--accent-green)' : 'var(--accent-orange)',
+                    color: vio ? 'var(--accent-green)' : 'var(--accent-orange)',
                     fontWeight: 600,
                   }}
                 >
-                  {vslPlays > 0
-                    ? `Sí — ${vslPlays} ${vslPlays === 1 ? 'vez' : 'veces'}`
+                  {vio
+                    ? vslEng.max_pct !== null
+                      ? `Sí — vio hasta el ${vslEng.max_pct}%`
+                      : `Sí — ${vslEng.plays} ${vslEng.plays === 1 ? 'vez' : 'veces'}`
                     : 'No'}
                 </span>
               </div>

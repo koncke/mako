@@ -12,7 +12,7 @@ import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha } from './date-utils';
 import {
-  contarVslPlays,
+  getVslEngagement,
   estadoMadurezLead,
   type Lead,
   type EstadoLead,
@@ -890,8 +890,12 @@ export async function getFunnelEtapas(
       label: 'Landing → VSL',
       bloque: 'marketing',
       entrada: mkt.landing_page_views,
+      // Fuente del VSL (v3 Fase A): el % del funnel y los plays totales salen
+      // de PANDA (agregado, con historia). El "quién vio" por persona sale del
+      // BEACON (vsl_events / getVslEngagement). Son widgets distintos a propósito:
+      // Panda no conoce el visitor_id; el beacon sí pero arrancó sin historia.
       salida: mkt.vsl_views ?? 0,
-      benchmark: 'Referencia interna: <20% es flojo. Comparalo contra tu propio número mes a mes.',
+      benchmark: 'Referencia interna: <20% es flojo. Comparalo contra tu propio número mes a mes. (Plays de Panda — agregado; el "quién vio" por persona sale del beacon.)',
       umbral: { rojo: 20, ambar: 35, max: 100 },
       fuenteKey: 'vsl_panda',
     },
@@ -1645,7 +1649,10 @@ export type JuntaProxima = {
     cuando_empezar: string | null;
   };
   vsl_plays: number;
-  agendo_sin_vsl: boolean;
+  vsl_max_pct: number | null;
+  // tri-estado (v3 Fase A): 'vio' / 'sin_ver' (agendó y 0 plays) / 'sin_datos'
+  // (no hay visitor_id vinculado — no afirmar que no vio).
+  vsl_estado: 'vio' | 'sin_ver' | 'sin_datos';
   origen: string;
   madurez: EstadoMadurez;
   estado_lead: EstadoLead;
@@ -1681,7 +1688,14 @@ export async function getJuntasProximas(
     ];
     for (const c of candidatas) {
       if (!c.fecha || !fechasSet.has(c.fecha)) continue;
-      const plays = await contarVslPlays(lead.visitor_id);
+      const eng = await getVslEngagement(lead.visitor_id);
+      // Flag recalibrado (v3 Fase A): sin visitor_id → 'sin_datos' (no afirmar);
+      // con visitor pero 0 plays → 'sin_ver'; con plays → 'vio'.
+      const vsl_estado: JuntaProxima['vsl_estado'] = eng.sin_datos
+        ? 'sin_datos'
+        : eng.plays > 0
+        ? 'vio'
+        : 'sin_ver';
       juntas.push({
         lead_id: lead.id,
         tipo: c.tipo,
@@ -1695,8 +1709,9 @@ export async function getJuntasProximas(
           objetivo: lead.respuesta_objetivo,
           cuando_empezar: lead.respuesta_cuando_empezar,
         },
-        vsl_plays: plays,
-        agendo_sin_vsl: plays === 0,
+        vsl_plays: eng.plays,
+        vsl_max_pct: eng.max_pct,
+        vsl_estado,
         origen: origenLegible(lead),
         madurez: estadoMadurezLead(lead),
         estado_lead: lead.estado_lead,

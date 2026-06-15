@@ -1,13 +1,15 @@
 // =============================================================================
 // Tracking del VSL — recibe eventos de la landing (Lovable)
 // =============================================================================
-// La landing (multiplicatusresultados.com) manda un POST cuando alguien
-// reproduce el VSL:
-//   { visitor_id, event: 'vsl_play', timestamp, play_count }
+// La landing escucha los eventos nativos de Panda (panda_play, panda_watchtime)
+// y reenvía acá, con profundidad de visualización (v3 Fase A):
+//   { visitor_id, tipo_evento: 'play'|'p10'..'p100', porcentaje, video_id, timestamp }
+// Compat: también acepta el payload viejo { visitor_id, event, play_count }.
 //
 // El visitor_id es un UUID anónimo de la cookie nqe_visitor_id. El mismo
 // UUID llega como utm_term cuando la persona agenda en Calendly — el
-// webhook lo guarda en leads.visitor_id y así cruzamos comportamiento.
+// webhook lo guarda en leads.visitor_id y así cruzamos comportamiento por
+// persona (Panda mide agregado y anónimo; este beacon mide quién).
 //
 // Diseño: errores SIEMPRE silenciosos hacia el cliente (200 con ok:false a
 // lo sumo). Un fallo de tracking jamás debe romper la experiencia de la
@@ -33,11 +35,19 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+// Milestones válidos del watchtime de Panda.
+const TIPOS_VALIDOS = new Set([
+  'play', 'p10', 'p20', 'p30', 'p40', 'p50', 'p60', 'p70', 'p80', 'p90', 'p100',
+]);
+
 export async function POST(request: NextRequest) {
   let payload: {
     visitor_id?: unknown;
-    event?: unknown;
-    play_count?: unknown;
+    tipo_evento?: unknown;
+    porcentaje?: unknown;
+    video_id?: unknown;
+    event?: unknown;       // legacy
+    play_count?: unknown;  // legacy
   };
 
   try {
@@ -52,11 +62,28 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
   }
 
-  const event =
-    typeof payload.event === 'string' && payload.event.trim()
-      ? payload.event.trim().slice(0, 64)
-      : 'vsl_play';
+  // tipo_evento nuevo (play|p10..p100); compat: si llega el legacy 'event',
+  // lo tratamos como play.
+  let tipoEvento =
+    typeof payload.tipo_evento === 'string' ? payload.tipo_evento.trim().toLowerCase() : '';
+  if (!tipoEvento) {
+    tipoEvento = typeof payload.event === 'string' && payload.event.trim() ? 'play' : 'play';
+  }
+  if (!TIPOS_VALIDOS.has(tipoEvento)) {
+    // tipo desconocido → lo guardamos como play para no perder la señal de vista
+    tipoEvento = 'play';
+  }
 
+  // porcentaje (0-100). Si no viene, derivar del milestone pXX.
+  let porcentaje: number | null = null;
+  if (typeof payload.porcentaje === 'number' && Number.isFinite(payload.porcentaje)) {
+    porcentaje = Math.max(0, Math.min(100, Math.round(payload.porcentaje)));
+  } else if (/^p\d{1,3}$/.test(tipoEvento)) {
+    porcentaje = Math.min(100, Number(tipoEvento.slice(1)));
+  }
+
+  // `event` legacy derivado para que contarVslPlays (event='vsl_play') siga sirviendo.
+  const event = tipoEvento === 'play' ? 'vsl_play' : 'vsl_watch';
   const playCount =
     typeof payload.play_count === 'number' && Number.isFinite(payload.play_count)
       ? Math.max(0, Math.floor(payload.play_count))
@@ -67,6 +94,8 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.from('vsl_events').insert({
       visitor_id: visitorId,
       event,
+      tipo_evento: tipoEvento,
+      porcentaje,
       play_count: playCount,
     });
     if (error) {
@@ -88,7 +117,7 @@ export async function GET() {
     {
       ok: true,
       endpoint: 'vsl tracking',
-      usage: "POST { visitor_id, event: 'vsl_play', play_count }",
+      usage: "POST { visitor_id, tipo_evento: 'play'|'p10'..'p100', porcentaje, video_id }",
     },
     { headers: CORS_HEADERS },
   );

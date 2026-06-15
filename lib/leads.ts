@@ -847,3 +847,31 @@ export async function contarVslPlays(visitorId: string | null): Promise<number> 
   }
   return count ?? 0;
 }
+
+/**
+ * Engagement del VSL por persona (v3 Fase A): plays + el % MÁXIMO alcanzado.
+ * Reemplaza el conteo simple en la ficha, las cards de juntas y la cola.
+ *   - plays: eventos de tipo 'play' (compat: event='vsl_play').
+ *   - max_pct: mayor `porcentaje` de los milestones de watchtime (null si no hay).
+ *   - sin_datos: true si el visitor_id es null (no afirmar que no vio).
+ * @returns { plays:0, max_pct:null, sin_datos:true } si visitorId es null.
+ */
+export type VslEngagement = { plays: number; max_pct: number | null; sin_datos: boolean };
+
+export async function getVslEngagement(visitorId: string | null): Promise<VslEngagement> {
+  if (!visitorId) return { plays: 0, max_pct: null, sin_datos: true };
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('vsl_events')
+    .select('tipo_evento, porcentaje, event')
+    .eq('visitor_id', visitorId);
+  if (error) {
+    console.error(`[getVslEngagement] falló: ${error.message}`);
+    return { plays: 0, max_pct: null, sin_datos: true };
+  }
+  const rows = (data ?? []) as Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null }>;
+  const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
+  const pcts = rows.map((r) => r.porcentaje).filter((p): p is number => typeof p === 'number');
+  const max_pct = pcts.length > 0 ? Math.max(...pcts) : null;
+  return { plays, max_pct, sin_datos: false };
+}

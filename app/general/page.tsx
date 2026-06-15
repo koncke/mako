@@ -478,16 +478,20 @@ function JuntaCard({ junta }: { junta: JuntaProxima }) {
           >
             {junta.tipo} · {junta.dia}
           </span>
-          {junta.agendo_sin_vsl ? (
+          {junta.vsl_estado === 'sin_ver' ? (
             <span
               className="px-2.5 py-1 rounded-full text-sm font-semibold"
               style={{ background: 'rgba(255,107,53,0.15)', color: 'var(--accent-orange)' }}
             >
               ⚠ agendó sin ver el VSL
             </span>
-          ) : (
+          ) : junta.vsl_estado === 'vio' ? (
             <span className="text-sm" style={{ color: 'var(--text-dim)' }}>
-              vio el VSL {junta.vsl_plays}×
+              vio el VSL{junta.vsl_max_pct !== null ? ` hasta ${junta.vsl_max_pct}%` : ` ${junta.vsl_plays}×`}
+            </span>
+          ) : (
+            <span className="text-sm" style={{ color: 'var(--text-pending)' }}>
+              sin datos de VSL
             </span>
           )}
         </div>
