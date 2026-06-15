@@ -192,3 +192,33 @@ export function extractAnswer(
   );
   return found?.answer?.trim() || null;
 }
+
+/**
+ * Extrae la respuesta por FRASE DISTINTIVA, no por keyword suelta (Fase B v3).
+ *
+ * El bug de v2: extractAnswer tomaba la PRIMERA pregunta que contuviera una
+ * keyword. "equipo" matcheaba "...multiplicar los resultados de tu equipo" (Q3
+ * inversión) antes que "¿Cuántos colaboradores tienes?" (Q4) → respuestas
+ * cruzadas. Acá, entre TODAS las preguntas que contengan alguna de las frases,
+ * elegimos la coincidencia MÁS LARGA (la más específica), no la primera.
+ */
+export function extractRespuestaPorFrase(
+  qa: CalendlyInviteePayload['questions_and_answers'] | undefined,
+  frases: string[],
+): string | null {
+  if (!qa) return null;
+  const lowered = frases.map((f) => f.toLowerCase());
+  let mejor: { answer: string | null | undefined; largo: number } | null = null;
+  for (const item of qa) {
+    if (!item.question) continue;
+    const q = item.question.toLowerCase();
+    let largoMax = 0;
+    for (const f of lowered) {
+      if (q.includes(f) && f.length > largoMax) largoMax = f.length;
+    }
+    if (largoMax > 0 && (mejor === null || largoMax > mejor.largo)) {
+      mejor = { answer: item.answer, largo: largoMax };
+    }
+  }
+  return mejor?.answer?.trim() || null;
+}

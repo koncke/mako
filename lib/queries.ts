@@ -2152,3 +2152,47 @@ export async function getTendencias(
     ],
   };
 }
+
+// =============================================================================
+// Nombre de campaña desde el ID numérico (Mejoras v3, Fase B bug 2)
+// =============================================================================
+// Los leads de Calendly traen utm_campaign con el ID numérico de Meta, no el
+// nombre. Las métricas a nivel anuncio (Fase 1 v2) sí tienen campaign_id +
+// campaign_name: cruzamos para mostrar un nombre legible.
+
+/** Mapa campaign_id → campaign_name (el más reciente). */
+export async function getCampaignNameMap(): Promise<Record<string, string>> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('marketing_metrics_daily')
+    .select('campaign_id, campaign_name, fecha')
+    .eq('plataforma', 'meta')
+    .not('campaign_id', 'is', null)
+    .not('campaign_name', 'is', null)
+    .order('fecha', { ascending: false });
+  if (error) throw new Error(`getCampaignNameMap falló: ${error.message}`);
+  const map: Record<string, string> = {};
+  for (const r of (data ?? []) as Array<{ campaign_id: string; campaign_name: string }>) {
+    if (!map[r.campaign_id]) map[r.campaign_id] = r.campaign_name; // orden desc → primera = más reciente
+  }
+  return map;
+}
+
+/**
+ * Resuelve el nombre de la campaña a partir de utm_campaign.
+ * - Si es texto (no numérico) → tal cual.
+ * - Si es ID numérico y está en el mapa → el nombre.
+ * - Si es numérico sin nombre → "Campaña <id> (sin nombre)" + id en tooltip.
+ * Nunca devuelve un ID numérico pelado.
+ */
+export function resolverNombreCampana(
+  utmCampaign: string | null,
+  map: Record<string, string>,
+): { texto: string | null; tooltip: string | null } {
+  const v = utmCampaign?.trim();
+  if (!v) return { texto: null, tooltip: null };
+  if (!/^\d+$/.test(v)) return { texto: v, tooltip: null };
+  const nombre = map[v];
+  if (nombre) return { texto: nombre, tooltip: v };
+  return { texto: `Campaña ${v} (sin nombre)`, tooltip: v };
+}

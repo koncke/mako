@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { listLeads, estadoMadurezLead, type Lead } from '@/lib/leads';
-import { getPendientesDeMarcar, type PendienteItem } from '@/lib/queries';
+import { getPendientesDeMarcar, getCampaignNameMap, resolverNombreCampana, type PendienteItem } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { PendienteActions } from './PendienteActions';
 import { LeadsBrowser, type EnrichedLead, type LeadsParams } from './LeadsBrowser';
@@ -12,12 +12,19 @@ import { LeadsBrowser, type EnrichedLead, type LeadsParams } from './LeadsBrowse
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// Origen SIEMPRE legible (Fase 12): nombre del anuncio > campaña > utm >
-// "Directo". Nunca un ID pelado: si solo hay ID Meta, "Meta · sin nombre"
-// con el ID en tooltip.
-function origenLegibleLista(lead: Lead): { texto: string; tooltip: string | null } {
-  const nombre = lead.meta_ad_name?.trim() || lead.meta_campaign_name?.trim() || lead.utm_campaign?.trim();
-  if (nombre) return { texto: nombre, tooltip: null };
+// Origen SIEMPRE legible (Fase 12 + v3 Fase B): nombre del anuncio > campaña
+// Meta > utm_campaign (resuelto a nombre si es ID numérico) > "Directo".
+// Nunca un ID pelado.
+function origenLegibleLista(
+  lead: Lead,
+  campMap: Record<string, string>,
+): { texto: string; tooltip: string | null } {
+  const nombreMeta = lead.meta_ad_name?.trim() || lead.meta_campaign_name?.trim();
+  if (nombreMeta) return { texto: nombreMeta, tooltip: null };
+  if (lead.utm_campaign?.trim()) {
+    const r = resolverNombreCampana(lead.utm_campaign, campMap);
+    if (r.texto) return { texto: r.texto, tooltip: r.tooltip };
+  }
   if (lead.meta_lead_id || lead.meta_ad_id) {
     return { texto: 'Meta · sin nombre', tooltip: lead.meta_ad_id ?? lead.meta_lead_id };
   }
@@ -40,9 +47,10 @@ export default async function LeadsPage({
 
   let leads: Awaited<ReturnType<typeof listLeads>> = [];
   let pendientesItems: PendienteItem[] = [];
+  let campMap: Record<string, string> = {};
   let errorMsg: string | null = null;
   try {
-    leads = await listLeads();
+    [leads, campMap] = await Promise.all([listLeads(), getCampaignNameMap()]);
     if (soloPendientes) {
       pendientesItems = (await getPendientesDeMarcar(hoyEnTijuana())).items;
     }
@@ -185,7 +193,7 @@ export default async function LeadsPage({
           </Link>
         </div>
       ) : (
-        <LeadsBrowser leads={leads.map(enriquecer)} initial={sp} />
+        <LeadsBrowser leads={leads.map((l) => enriquecer(l, campMap))} initial={sp} />
       )}
     </main>
   );
@@ -193,11 +201,11 @@ export default async function LeadsPage({
 
 // Enriquece un lead con la madurez y el origen legible (lib/leads es
 // server-only, así que esto se calcula acá y se pasa ya listo al cliente).
-function enriquecer(lead: Lead): EnrichedLead {
+function enriquecer(lead: Lead, campMap: Record<string, string>): EnrichedLead {
   return {
     ...lead,
     _madurez: estadoMadurezLead(lead),
-    _origen: origenLegibleLista(lead),
+    _origen: origenLegibleLista(lead, campMap),
     _origenClase: origenClase(lead),
   };
 }

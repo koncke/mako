@@ -531,10 +531,12 @@ function MotivoSugerencias({
 // ─────────────────────────────────────────────────────────────────────────────
 function RespuestasCalendlyCard({ lead }: { lead: Lead }) {
   const rows: Array<{ label: string; value: string | null }> = [
-    { label: 'Facturación / Presupuesto', value: lead.respuesta_facturacion },
-    { label: 'Tamaño del equipo',         value: lead.respuesta_colaboradores },
-    { label: '¿Qué quiere lograr?',       value: lead.respuesta_objetivo },
-    { label: '¿Cuándo quiere empezar?',   value: lead.respuesta_cuando_empezar },
+    { label: '¿Qué quiere lograr?',        value: lead.respuesta_objetivo },
+    { label: '¿Puede invertir?',           value: lead.respuesta_inversion },
+    { label: '¿Cuántos colaboradores?',    value: lead.respuesta_colaboradores },
+    { label: '¿Factura +$20M MXN?',        value: lead.respuesta_facturacion },
+    { label: '¿Alguien más decide?',       value: lead.respuesta_decisor },
+    { label: '¿Cuándo quiere empezar?',    value: lead.respuesta_cuando_empezar },
   ];
 
   const hayAlguna = rows.some((r) => r.value && r.value.trim());

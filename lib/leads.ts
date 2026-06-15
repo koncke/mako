@@ -73,6 +73,8 @@ export type Lead = {
   respuesta_colaboradores: string | null;
   respuesta_objetivo: string | null;
   respuesta_cuando_empezar: string | null;
+  respuesta_inversion: string | null;   // Q3 (Fase B v3)
+  respuesta_decisor: string | null;      // Q6 (Fase B v3)
 
   // Meta Lead Ads (instant form) — atribución del anuncio de origen
   meta_lead_id: string | null;
@@ -106,6 +108,8 @@ export type LeadCreateInput = {
   respuesta_colaboradores?: string | null;
   respuesta_objetivo?: string | null;
   respuesta_cuando_empezar?: string | null;
+  respuesta_inversion?: string | null;
+  respuesta_decisor?: string | null;
   meta_lead_id?: string | null;
   meta_ad_id?: string | null;
   meta_ad_name?: string | null;
@@ -620,6 +624,8 @@ export async function upsertLeadFromCalendly(
     respuesta_colaboradores?: string | null;
     respuesta_objetivo?: string | null;
     respuesta_cuando_empezar?: string | null;
+    respuesta_inversion?: string | null;
+    respuesta_decisor?: string | null;
     visitor_id?: string | null;
   },
   opts?: {
@@ -702,6 +708,8 @@ export async function upsertLeadFromCalendly(
       setIfEmpty('respuesta_colaboradores', input.respuesta_colaboradores);
       setIfEmpty('respuesta_objetivo', input.respuesta_objetivo);
       setIfEmpty('respuesta_cuando_empezar', input.respuesta_cuando_empezar);
+      setIfEmpty('respuesta_inversion', input.respuesta_inversion);
+      setIfEmpty('respuesta_decisor', input.respuesta_decisor);
       setIfEmpty('visitor_id', input.visitor_id);
 
       // Nada que completar → no escribir
@@ -720,6 +728,8 @@ export async function upsertLeadFromCalendly(
       if (input.respuesta_colaboradores)  extraUpdates.respuesta_colaboradores  = input.respuesta_colaboradores;
       if (input.respuesta_objetivo)       extraUpdates.respuesta_objetivo       = input.respuesta_objetivo;
       if (input.respuesta_cuando_empezar) extraUpdates.respuesta_cuando_empezar = input.respuesta_cuando_empezar;
+      if (input.respuesta_inversion)      extraUpdates.respuesta_inversion      = input.respuesta_inversion;
+      if (input.respuesta_decisor)        extraUpdates.respuesta_decisor        = input.respuesta_decisor;
       if (input.visitor_id)               extraUpdates.visitor_id               = input.visitor_id;
       updatePayload = { ...basePayload, ...extraUpdates };
     }
@@ -746,6 +756,8 @@ export async function upsertLeadFromCalendly(
     respuesta_colaboradores:  input.respuesta_colaboradores  ?? null,
     respuesta_objetivo:       input.respuesta_objetivo       ?? null,
     respuesta_cuando_empezar: input.respuesta_cuando_empezar ?? null,
+    respuesta_inversion:      input.respuesta_inversion      ?? null,
+    respuesta_decisor:        input.respuesta_decisor        ?? null,
     visitor_id:               input.visitor_id               ?? null,
     // Backdatear created_at SOLO en backfill, para reflejar cuándo agendó
     ...(opts?.fechaCreacion ? { created_at: opts.fechaCreacion } : {}),

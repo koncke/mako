@@ -14,6 +14,7 @@ import {
   type Lead,
 } from '@/lib/leads';
 import { getPagosByLead } from '@/lib/pagos';
+import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
 import { EditLeadForm } from './EditLeadForm';
 import { CobranzaPlanCard } from './CobranzaPlanCard';
 
@@ -50,6 +51,10 @@ export default async function LeadDetailPage({
 
   // Plan de pagos / cuotas (Fase 8-bis)
   const pagos = await getPagosByLead(lead.id);
+
+  // Nombre de campaña desde el ID numérico de utm_campaign (v3 Fase B bug 2)
+  const campMap = await getCampaignNameMap();
+  const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
 
   const estado = estadoMadurezLead(lead);
   const { emoji, label, color } = labelMadurez(estado);
@@ -102,7 +107,7 @@ export default async function LeadDetailPage({
 
       {/* ORIGEN Y COMPORTAMIENTO (read-only, Fase 7) */}
       <div className="mb-6">
-        <OrigenCard lead={lead} vslEng={vslEng} />
+        <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
       </div>
 
       {/* FORM */}
@@ -131,7 +136,15 @@ function labelOrigen(origen: string | null): { texto: string; color: string } {
   }
 }
 
-function OrigenCard({ lead, vslEng }: { lead: Lead; vslEng: VslEngagement }) {
+function OrigenCard({
+  lead,
+  vslEng,
+  campana,
+}: {
+  lead: Lead;
+  vslEng: VslEngagement;
+  campana: { texto: string | null; tooltip: string | null };
+}) {
   const tieneAtribucion =
     lead.origen_lead ||
     lead.meta_campaign_name ||
@@ -170,10 +183,10 @@ function OrigenCard({ lead, vslEng }: { lead: Lead; vslEng: VslEngagement }) {
   const origen = labelOrigen(lead.origen_lead);
 
   const filas: Array<{ label: string; value: string | null }> = [
-    { label: 'Campaña (Meta)', value: lead.meta_campaign_name },
+    // Campaña: nombre Meta directo, o el utm_campaign resuelto a nombre (v3 Fase B).
+    { label: 'Campaña', value: lead.meta_campaign_name ?? campana.texto },
     { label: 'Adset (Meta)', value: lead.meta_adset_name },
     { label: 'Anuncio (Meta)', value: lead.meta_ad_name },
-    { label: 'UTM campaign', value: lead.utm_campaign },
     { label: 'UTM source', value: lead.utm_source },
   ].filter((f) => f.value);
 

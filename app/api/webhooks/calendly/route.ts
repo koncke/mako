@@ -15,6 +15,7 @@ import {
   verifyCalendlySignature,
   isoToFechaTijuana,
   extractAnswer,
+  extractRespuestaPorFrase,
   clasificarJunta,
   CalendlySignatureError,
   type CalendlyWebhookPayload,
@@ -151,20 +152,27 @@ export async function POST(request: NextRequest) {
         const empresa = extractAnswer(payload.questions_and_answers, ['empresa', 'company', 'organiz']);
         const telefono = extractAnswer(payload.questions_and_answers, ['tel', 'phone', 'celular', 'móvil', 'movil']);
 
-        // Respuestas de calificación — Fase 2 del segundo plan del mentor.
-        // Keywords flexibles porque el texto exacto del form puede variar.
-        // extractAnswer hace substring match case-insensitive.
-        const respuesta_facturacion = extractAnswer(payload.questions_and_answers, [
-          'facturación', 'facturacion', 'presupuesto', 'budget', 'ingreso anual', 'ingresos',
+        // Respuestas de calificación (Fase B v3): mapeo por FRASE DISTINTIVA,
+        // no keyword suelta. Antes "equipo" cruzaba inversión↔colaboradores.
+        // extractRespuestaPorFrase elige la coincidencia más larga/específica.
+        const qa = payload.questions_and_answers;
+        const respuesta_objetivo = extractRespuestaPorFrase(qa, [
+          'qué quieres lograr', 'que quieres lograr', 'qué querés lograr', 'que queres lograr',
         ]);
-        const respuesta_colaboradores = extractAnswer(payload.questions_and_answers, [
-          'colaborador', 'equipo', 'empleado', 'tamaño', 'tamano', 'cuántas personas', 'cuantas personas',
+        const respuesta_inversion = extractRespuestaPorFrase(qa, [
+          'posibilidad de invertir', 'invertir para superar',
         ]);
-        const respuesta_objetivo = extractAnswer(payload.questions_and_answers, [
-          'objetivo', 'lograr', 'meta', 'qué quieres', 'que quieres', 'qué querés', 'que queres',
+        const respuesta_colaboradores = extractRespuestaPorFrase(qa, [
+          'cuántos colaboradores', 'cuantos colaboradores', 'colaboradores tienes actualmente', 'colaboradores tienes',
         ]);
-        const respuesta_cuando_empezar = extractAnswer(payload.questions_and_answers, [
-          'cuándo empezar', 'cuando empezar', 'cuándo iniciar', 'cuando iniciar', 'cuándo te gustaría', 'cuando te gustaria', 'urgencia', 'cuándo comenzar', 'cuando comenzar',
+        const respuesta_facturacion = extractRespuestaPorFrase(qa, [
+          '20 millones', '$20', 'es tu caso',
+        ]);
+        const respuesta_decisor = extractRespuestaPorFrase(qa, [
+          'participar en la decisión', 'participar en la decision', 'alguien más', 'alguien mas',
+        ]);
+        const respuesta_cuando_empezar = extractRespuestaPorFrase(qa, [
+          'cuándo quieres empezar', 'cuando quieres empezar', 'cuándo querés empezar', 'cuando queres empezar',
         ]);
 
         // UTMs — vienen de la landing (Lovable) que los pasa al booking de
@@ -194,6 +202,8 @@ export async function POST(request: NextRequest) {
           respuesta_colaboradores,
           respuesta_objetivo,
           respuesta_cuando_empezar,
+          respuesta_inversion,
+          respuesta_decisor,
           visitor_id,
         });
 
