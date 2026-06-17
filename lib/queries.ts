@@ -1964,6 +1964,9 @@ export type ObjetivoProgreso = {
   cierres_meta: number | null;
   cash_actual: number;
   cash_meta: number | null;
+  // Sold = lo FIRMADO (Σ monto_cierre_usd de los ganados) — referencia, no es
+  // cash cobrado (v3 Fase H).
+  sold_actual: number;
   // Ritmo: cierres en los últimos 30 días → semanas estimadas para la meta
   cierres_30d: number;
   semanas_estimadas: number | null;
@@ -1987,13 +1990,14 @@ export async function getObjetivoProgreso(
   // Cierres ganados desde `desde` (incluye ganados sin fecha_cierre cargada).
   const { data: ganados, error: gErr } = await supabase
     .from('leads')
-    .select('fecha_cierre')
+    .select('fecha_cierre, monto_cierre_usd')
     .eq('estado_lead', 'ganado');
   if (gErr) throw new Error(`Query objetivo cierres falló: ${gErr.message}`);
-  const ganadosRows = (ganados ?? []) as Array<{ fecha_cierre: string | null }>;
-  const cierres_actual = ganadosRows.filter(
-    (g) => g.fecha_cierre === null || g.fecha_cierre >= desde,
-  ).length;
+  const ganadosRows = (ganados ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>;
+  const cuentan = ganadosRows.filter((g) => g.fecha_cierre === null || g.fecha_cierre >= desde);
+  const cierres_actual = cuentan.length;
+  // Sold = total firmado de esos cierres (lo vendido, no lo cobrado).
+  const sold_actual = cuentan.reduce((s, g) => s + Number(g.monto_cierre_usd ?? 0), 0);
 
   // Cash: Σ pagos pagado=true con fecha_pago en [desde, hoy].
   const cash_actual = await getCashCollectedPeriodo(desde, hoy);
@@ -2021,6 +2025,7 @@ export async function getObjetivoProgreso(
     cierres_meta: cierresMeta,
     cash_actual,
     cash_meta: cashMeta,
+    sold_actual,
     cierres_30d,
     semanas_estimadas,
     cumplido,

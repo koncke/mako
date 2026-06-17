@@ -359,13 +359,13 @@ function GeneralContent({
 
   return (
     <div className="space-y-6 md:space-y-8">
-      {/* 1) PENDIENTES (alerta, arriba de todo — lleva al tab Pendientes) */}
-      {alertaPendientes && <AlertaCard alerta={alertaPendientes} />}
-
-      {/* 2) OBJETIVO GLOBAL (acumulado, no atado al filtro) */}
+      {/* 1) OBJETIVO HERO — Vista General arranca por el objetivo (v3 Fase H) */}
       {objetivo && <ObjetivoBloque progreso={objetivo} />}
 
-      {/* 5) VEREDICTO + diagnóstico */}
+      {/* 2) PENDIENTES (alerta — lleva al tab Pendientes) */}
+      {alertaPendientes && <AlertaCard alerta={alertaPendientes} />}
+
+      {/* 3) VEREDICTO + diagnóstico */}
       <section
         className="rounded-xl border p-6 md:p-8 flex flex-wrap items-center justify-between gap-4"
         style={{ background: 'var(--card-bg)', borderColor: veredicto.color, borderWidth: 2 }}

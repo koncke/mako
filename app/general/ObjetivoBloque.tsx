@@ -1,11 +1,12 @@
 'use client';
 
 // =============================================================================
-// ObjetivoBloque — objetivo global acumulado + pacing (Fase 14)
+// ObjetivoBloque — objetivo HERO de Vista General (v3 Fase H, antes Fase 14)
 // =============================================================================
-// Dos barras (cierres y cash) contra la meta, ritmo estimado y edición inline
-// de los tres valores. NO se ata al filtro de rango global: es acumulado desde
-// objetivo_desde, siempre. Sirve también de auditoría del conteo de cierres.
+// Lo primero y más destacado de Vista General: titular con la meta, avance
+// grande, tres progresos (cierres · cash collected · sold/firmado), ritmo y
+// edición inline. NO se ata al filtro de rango: acumulado desde objetivo_desde.
+// Tono motivacional pero sobrio (panel de trabajo, sin confeti).
 // =============================================================================
 
 import { useState, useTransition } from 'react';
@@ -47,32 +48,57 @@ export function ObjetivoBloque({ progreso }: { progreso: ObjetivoProgreso }) {
     });
   };
 
+  const cumplido = progreso.cumplido;
+  const faltanCierres =
+    progreso.cierres_meta !== null ? Math.max(progreso.cierres_meta - progreso.cierres_actual, 0) : null;
+
+  const titular = cumplido
+    ? 'Objetivo cumplido'
+    : progreso.cierres_meta !== null
+      ? `Camino a los ${progreso.cierres_meta} cierres`
+      : 'Tu objetivo';
+
   return (
     <section
-      className="rounded-xl border p-6 md:p-8"
-      style={{ background: 'var(--card-bg)', borderColor: progreso.cumplido ? 'var(--accent-green)' : 'var(--card-border)' }}
+      className="rounded-2xl border p-7 md:p-10"
+      style={{
+        background: cumplido
+          ? 'linear-gradient(180deg, rgba(62,207,142,0.08), var(--card-bg))'
+          : 'linear-gradient(180deg, rgba(240,198,10,0.06), var(--card-bg))',
+        borderColor: cumplido ? 'var(--accent-green)' : 'var(--card-border)',
+        borderWidth: 2,
+      }}
     >
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
-        <h2 className="text-[28px]" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>
-          Objetivo {progreso.cumplido && <span style={{ color: 'var(--accent-green)' }}>· cumplido 🎉</span>}
-        </h2>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <div className="text-sm uppercase tracking-widest mb-1" style={{ color: 'var(--text-dim)' }}>
+            Objetivo del negocio
+          </div>
+          <h2
+            className="text-[40px] md:text-[56px] leading-none tracking-tight"
+            style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500, color: cumplido ? 'var(--accent-green)' : 'var(--text)' }}
+          >
+            {titular}
+          </h2>
+        </div>
         <button
           type="button"
           onClick={() => setEditando((v) => !v)}
-          className="text-sm"
+          className="text-sm shrink-0"
           style={{ color: 'var(--text-dim)' }}
         >
           {editando ? 'cancelar' : '✎ editar'}
         </button>
       </div>
-      <p className="text-sm mb-5" style={{ color: 'var(--text-dim)' }}>
+
+      <p className="text-base mt-2 mb-6" style={{ color: 'var(--text-dim)' }}>
         Acumulado desde {fmtFecha(progreso.desde)} · no depende del filtro de fechas.
       </p>
 
       {editando ? (
         <div className="space-y-4">
           <EditRow label="Meta de cierres">
-            <input type="number" min="1" value={cierresMeta} onChange={(e) => setCierresMeta(e.target.value)} className="num-input" style={inputStyle} />
+            <input type="number" min="1" value={cierresMeta} onChange={(e) => setCierresMeta(e.target.value)} style={inputStyle} />
           </EditRow>
           <EditRow label="Meta de cash (USD)">
             <input type="number" min="0" value={cashMeta} onChange={(e) => setCashMeta(e.target.value)} style={inputStyle} />
@@ -92,33 +118,64 @@ export function ObjetivoBloque({ progreso }: { progreso: ObjetivoProgreso }) {
           </button>
         </div>
       ) : (
-        <div className="space-y-5">
-          <Barra
-            titulo="Cierres"
-            actual={progreso.cierres_actual}
-            meta={progreso.cierres_meta}
-            texto={progreso.cierres_meta !== null
-              ? `${progreso.cierres_actual} de ${progreso.cierres_meta} — ${progreso.cierres_actual >= progreso.cierres_meta ? '¡listo!' : `faltan ${progreso.cierres_meta - progreso.cierres_actual}`}`
-              : `${progreso.cierres_actual} cierres (sin meta cargada)`}
-          />
-          <Barra
+        <div className="space-y-7">
+          {/* CIERRES — avance grande + barra prominente */}
+          <div>
+            <div className="flex items-end justify-between gap-3 flex-wrap mb-2">
+              <div className="flex items-baseline gap-3">
+                <span
+                  className="leading-none tabular-nums"
+                  style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 600, fontSize: 'clamp(56px, 9vw, 88px)', color: cumplido ? 'var(--accent-green)' : 'var(--accent-yellow)' }}
+                >
+                  {progreso.cierres_actual}
+                </span>
+                {progreso.cierres_meta !== null && (
+                  <span className="text-2xl md:text-3xl" style={{ color: 'var(--text-dim)' }}>
+                    de {progreso.cierres_meta} cierres
+                  </span>
+                )}
+              </div>
+              {faltanCierres !== null && (
+                <span className="text-lg" style={{ color: faltanCierres === 0 ? 'var(--accent-green)' : 'var(--text-dim)' }}>
+                  {faltanCierres === 0 ? '¡Meta alcanzada!' : `faltan ${faltanCierres}`}
+                </span>
+              )}
+            </div>
+            <BarraGrande actual={progreso.cierres_actual} meta={progreso.cierres_meta} completo={cumplido} alto={16} />
+          </div>
+
+          {/* CASH COLLECTED — barra prominente */}
+          <Progreso
             titulo="Cash collected"
+            sub="lo cobrado (de los pagos)"
             actual={progreso.cash_actual}
             meta={progreso.cash_meta}
             texto={progreso.cash_meta !== null
-              ? `${fmtUSD(progreso.cash_actual)} de ${fmtUSD(progreso.cash_meta)} — ${progreso.cash_actual >= progreso.cash_meta ? '¡listo!' : `faltan ${fmtUSD(progreso.cash_meta - progreso.cash_actual)}`}`
+              ? `${fmtUSD(progreso.cash_actual)} de ${fmtUSD(progreso.cash_meta)}${progreso.cash_actual >= progreso.cash_meta ? ' — ¡listo!' : ` · faltan ${fmtUSD(progreso.cash_meta - progreso.cash_actual)}`}`
               : `${fmtUSD(progreso.cash_actual)} (sin meta cargada)`}
-            esDinero
           />
+
+          {/* SOLD — referencia secundaria, claramente rotulada */}
+          <div className="rounded-xl border px-5 py-4 flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--card-border)', background: '#0f0f0f' }}>
+            <div>
+              <div className="text-sm uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Vendido (firmado)</div>
+              <div className="text-sm" style={{ color: 'var(--text-pending)' }}>Lo comprometido en contratos — aún no cobrado, no confundir con el cash.</div>
+            </div>
+            <div className="text-[28px] tabular-nums" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500, color: 'var(--text)' }}>
+              {fmtUSD(progreso.sold_actual)}
+            </div>
+          </div>
+
+          {/* RITMO + cumplido */}
           {progreso.semanas_estimadas !== null && (
             <p className="text-base" style={{ color: 'var(--text-dim)' }}>
-              A este ritmo ({progreso.cierres_30d} cierre{progreso.cierres_30d === 1 ? '' : 's'} en 30 días) llegás en{' '}
+              A este ritmo ({progreso.cierres_30d} cierre{progreso.cierres_30d === 1 ? '' : 's'} en los últimos 30 días) llegás en{' '}
               <strong style={{ color: 'var(--text)' }}>~{progreso.semanas_estimadas} semana{progreso.semanas_estimadas === 1 ? '' : 's'}</strong>.
             </p>
           )}
-          {progreso.cumplido && (
+          {cumplido && (
             <p className="text-base" style={{ color: 'var(--accent-green)' }}>
-              Objetivo cumplido. Definí el próximo con ✎ editar.
+              ✓ Objetivo cumplido. Cargá el próximo con ✎ editar.
             </p>
           )}
         </div>
@@ -148,33 +205,34 @@ function EditRow({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-function Barra({
-  titulo,
-  actual,
-  meta,
-  texto,
-  esDinero = false,
+function Progreso({
+  titulo, sub, actual, meta, texto,
 }: {
-  titulo: string;
-  actual: number;
-  meta: number | null;
-  texto: string;
-  esDinero?: boolean;
+  titulo: string; sub: string; actual: number; meta: number | null; texto: string;
 }) {
-  const pct = meta && meta > 0 ? Math.min((actual / meta) * 100, 100) : 0;
   const completo = meta !== null && actual >= meta;
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-1.5">
-        <span className="text-base" style={{ fontWeight: 600 }}>{titulo}</span>
-        <span className="text-sm" style={{ color: 'var(--text-dim)' }}>{texto}</span>
+      <div className="flex items-end justify-between gap-3 mb-1.5 flex-wrap">
+        <div>
+          <span className="text-lg" style={{ fontWeight: 600 }}>{titulo}</span>
+          <span className="text-sm ml-2" style={{ color: 'var(--text-pending)' }}>{sub}</span>
+        </div>
+        <span className="text-base tabular-nums" style={{ color: 'var(--text-dim)' }}>{texto}</span>
       </div>
-      <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: '#1a1a1a' }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: completo ? 'var(--accent-green)' : esDinero ? 'var(--accent-yellow)' : 'var(--accent-yellow)' }}
-        />
-      </div>
+      <BarraGrande actual={actual} meta={meta} completo={completo} alto={12} />
+    </div>
+  );
+}
+
+function BarraGrande({ actual, meta, completo, alto }: { actual: number; meta: number | null; completo: boolean; alto: number }) {
+  const pct = meta && meta > 0 ? Math.min((actual / meta) * 100, 100) : 0;
+  return (
+    <div className="w-full rounded-full overflow-hidden" style={{ background: '#1a1a1a', height: alto }}>
+      <div
+        className="h-full rounded-full transition-all"
+        style={{ width: `${pct}%`, background: completo ? 'var(--accent-green)' : 'var(--accent-yellow)' }}
+      />
     </div>
   );
 }
