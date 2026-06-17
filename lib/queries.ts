@@ -1311,52 +1311,80 @@ export type TramoSCL = {
 export type TramosSCL = {
   tramos: TramoSCL[];
   tramo_mas_lento: string | null;
+  // Ciclo completo: suma de los tramos con datos (v3 Fase I). Null si ninguno.
+  total_dias: number | null;
 };
 
 export async function getTramosSCL(): Promise<TramosSCL> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('leads')
-    .select('fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago');
+    .select('created_at, meta_lead_id, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago');
   if (error) throw new Error(`Tramos SCL falló: ${error.message}`);
 
   const dias = (a: string | null, b: string | null): number | null => {
     if (!a || !b) return null;
-    const [ay, am, ad] = a.split('-').map(Number);
-    const [by, bm, bd] = b.split('-').map(Number);
+    const [ay, am, ad] = a.slice(0, 10).split('-').map(Number);
+    const [by, bm, bd] = b.slice(0, 10).split('-').map(Number);
     const d = Math.floor((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
     return d >= 0 ? d : null;
   };
 
-  const defs: Array<{ label: string; from: string; to: string }> = [
+  type Row = {
+    created_at: string | null;
+    meta_lead_id: string | null;
+    fecha_agenda: string | null;
+    fecha_junta_1: string | null;
+    fecha_junta_2: string | null;
+    fecha_confirmacion: string | null;
+    fecha_primer_pago: string | null;
+  };
+  const rows = (data ?? []) as Row[];
+
+  const promedioDe = (vals: number[]) =>
+    vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+
+  // Primer tramo (v3 Fase I): Formulario → Agenda. Solo instant forms
+  // (meta_lead_id) — para esos, created_at ≈ el momento del formulario.
+  const formVals: number[] = [];
+  for (const r of rows) {
+    if (!r.meta_lead_id) continue;
+    const d = dias(r.created_at, r.fecha_agenda);
+    if (d !== null) formVals.push(d);
+  }
+  const tramoForm: TramoSCL = {
+    label: 'Formulario → Agenda',
+    n: formVals.length,
+    dias_promedio: promedioDe(formVals),
+  };
+
+  const defs: Array<{ label: string; from: keyof Row; to: keyof Row }> = [
     { label: 'Agenda → Junta 1', from: 'fecha_agenda', to: 'fecha_junta_1' },
     { label: 'Junta 1 → Junta 2', from: 'fecha_junta_1', to: 'fecha_junta_2' },
     { label: 'Junta 2 → Confirmó', from: 'fecha_junta_2', to: 'fecha_confirmacion' },
     { label: 'Confirmó → Primer pago', from: 'fecha_confirmacion', to: 'fecha_primer_pago' },
   ];
 
-  type Row = Record<string, string | null>;
-  const rows = (data ?? []) as Row[];
-
-  const tramos: TramoSCL[] = defs.map((def) => {
+  const tramosResto: TramoSCL[] = defs.map((def) => {
     const vals: number[] = [];
     for (const r of rows) {
       const d = dias(r[def.from], r[def.to]);
       if (d !== null) vals.push(d);
     }
-    return {
-      label: def.label,
-      n: vals.length,
-      dias_promedio: vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : null,
-    };
+    return { label: def.label, n: vals.length, dias_promedio: promedioDe(vals) };
   });
+
+  const tramos: TramoSCL[] = [tramoForm, ...tramosResto];
 
   const conDatos = tramos.filter((t) => t.dias_promedio !== null);
   const tramo_mas_lento = conDatos.length > 0
     ? conDatos.reduce((max, t) => ((t.dias_promedio ?? 0) > (max.dias_promedio ?? 0) ? t : max)).label
     : null;
+  const total_dias = conDatos.length > 0
+    ? conDatos.reduce((s, t) => s + (t.dias_promedio ?? 0), 0)
+    : null;
 
-  return { tramos, tramo_mas_lento };
+  return { tramos, tramo_mas_lento, total_dias };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

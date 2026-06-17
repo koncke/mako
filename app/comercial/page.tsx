@@ -652,105 +652,147 @@ function KPIsComercial({ maduras, scl }: { maduras: ResumenComercialMaduras; scl
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SCL como línea de tiempo (8C) — tramos promedio del ciclo de venta
+// SCL como línea de tiempo (v3 Fase I) — SVG con nodos sobre una línea continua,
+// etiquetas con flecha alternadas arriba/abajo, días por tramo + total del ciclo.
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Nombres bonitos para los nodos derivados de las etiquetas de tramo.
+const NODO_NICE: Record<string, string> = {
+  Formulario: 'Formulario completado',
+  Agenda: 'Agenda J1',
+};
+
 function SCLTimeline({ scl, tramos }: { scl: SCL | null; tramos: TramosSCL | null }) {
   const sinDatos = !scl || scl.count < 3;
+  const tramoList = tramos?.tramos ?? [];
+  const masLento = tramos?.tramo_mas_lento ?? null;
+
+  // Nodos: origen del primer tramo + el destino de cada tramo.
+  const nodos: string[] =
+    tramoList.length > 0
+      ? [
+          tramoList[0].label.split('→')[0].trim(),
+          ...tramoList.map((t) => t.label.split('→')[1].trim()),
+        ]
+      : [];
+
+  // Geometría del SVG (scrollea en horizontal si no entra).
+  const segW = 168;
+  const padX = 92;
+  const baseY = 124;
+  const W = padX * 2 + Math.max(nodos.length - 1, 1) * segW;
+  const H = 214;
+  const nodeX = (i: number) => padX + i * segW;
 
   return (
     <section
       className="rounded-xl border p-6 md:p-8"
       style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
     >
-      <h2 className="text-[28px]" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>
-        SCL — línea de tiempo del ciclo de venta
-      </h2>
-      <p className="text-base mt-1 mb-6" style={{ color: 'var(--text-dim)' }}>
-        Días promedio entre cada hito. Cada tramo se calcula solo con los leads
-        que tienen ambas fechas.
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+        <h2 className="text-[28px]" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>
+          SCL — línea de tiempo del ciclo de venta
+        </h2>
+        {tramos?.total_dias != null && (
+          <div
+            className="rounded-lg px-4 py-2 border text-right"
+            style={{ borderColor: 'var(--accent-green)', background: 'rgba(62,207,142,0.08)' }}
+          >
+            <div className="text-xs uppercase tracking-wider" style={{ color: 'var(--text-dim)' }}>Ciclo completo</div>
+            <div className="text-2xl tabular-nums" style={{ color: 'var(--accent-green)', fontWeight: 600 }}>
+              ~{tramos.total_dias.toFixed(0)} días
+            </div>
+          </div>
+        )}
+      </div>
+      <p className="text-base mt-1 mb-5" style={{ color: 'var(--text-dim)' }}>
+        Días promedio entre cada hito. Cada tramo se calcula solo con los leads que tienen ambas fechas.
       </p>
 
-      {sinDatos && (
-        <p className="text-lg mb-6" style={{ color: 'var(--text-pending)' }}>
-          SCL global: — (pocos datos: {scl?.count ?? 0} de 3 leads mínimos con
-          fecha de primer pago). Los tramos abajo se muestran con la data
-          disponible.
-        </p>
+      {nodos.length === 0 ? (
+        <p className="text-base" style={{ color: 'var(--text-pending)' }}>Sin datos de ciclo todavía.</p>
+      ) : (
+        <div className="overflow-x-auto pb-2">
+          <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ maxWidth: 'none' }} role="img" aria-label="Línea de tiempo del ciclo de venta">
+            {/* Línea base continua */}
+            <line x1={nodeX(0)} y1={baseY} x2={nodeX(nodos.length - 1)} y2={baseY} stroke="var(--card-border)" strokeWidth={2} />
+
+            {/* Tramos: segmento resaltado si es el más lento + etiqueta de días */}
+            {tramoList.map((t, i) => {
+              const x1 = nodeX(i);
+              const x2 = nodeX(i + 1);
+              const mid = (x1 + x2) / 2;
+              const tieneDato = t.dias_promedio !== null;
+              const esLento = masLento === t.label && tieneDato;
+              return (
+                <g key={`tramo-${t.label}`}>
+                  {esLento && <line x1={x1} y1={baseY} x2={x2} y2={baseY} stroke="var(--accent-orange)" strokeWidth={4} />}
+                  <text x={mid} y={baseY - 14} textAnchor="middle" fontSize={14}
+                    fill={tieneDato ? (esLento ? 'var(--accent-orange)' : 'var(--text)') : 'var(--text-pending)'}
+                    fontWeight={esLento ? 700 : 500}>
+                    {tieneDato ? `+${t.dias_promedio!.toFixed(1)}d` : 's/d'}
+                  </text>
+                  <text x={mid} y={baseY + 22} textAnchor="middle" fontSize={11} fill="var(--text-pending)">
+                    n={t.n}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Nodos: punto sobre la línea + etiqueta con conector alternado arriba/abajo */}
+            {nodos.map((raw, i) => {
+              const x = nodeX(i);
+              const arriba = i % 2 === 0;
+              const incoming = i === 0 ? null : tramoList[i - 1];
+              const activo = i === 0 || (incoming?.dias_promedio ?? null) !== null;
+              const fill = i === 0 ? 'var(--accent-yellow)' : activo ? 'var(--accent-green)' : '#2a2a2a';
+              const label = NODO_NICE[raw] ?? raw;
+              const partes = label.length > 14 ? label.split(' ') : [label];
+              const connY = arriba ? baseY - 10 : baseY + 10;
+              const labelBaseY = arriba ? baseY - 50 : baseY + 56;
+              return (
+                <g key={`nodo-${i}`}>
+                  <line x1={x} y1={arriba ? baseY - 8 : baseY + 8} x2={x} y2={connY + (arriba ? -22 : 22)} stroke="var(--card-border)" strokeWidth={1} />
+                  <circle cx={x} cy={baseY} r={7} fill={fill} stroke="var(--bg)" strokeWidth={2} />
+                  {partes.map((p, k) => (
+                    <text key={k} x={x} y={labelBaseY + k * 15} textAnchor="middle" fontSize={13} fill="var(--text)" fontWeight={600}>
+                      {p}
+                    </text>
+                  ))}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       )}
 
-      {/* Línea de tiempo horizontal */}
-      <div className="flex flex-wrap items-stretch gap-0 overflow-x-auto pb-2">
-        <TimelineNodo label="Día 0" sub="Agenda J1" />
-        {(tramos?.tramos ?? []).map((t) => (
-          <TimelineTramo key={t.label} tramo={t} esMasLento={tramos?.tramo_mas_lento === t.label} />
-        ))}
-      </div>
-
-      {!sinDatos && scl && (
-        <p className="text-base mt-5" style={{ color: 'var(--text-dim)' }}>
-          SCL total promedio:{' '}
-          <strong style={{ color: 'var(--accent-green)' }}>{scl.avg_dias!.toFixed(1)} días</strong>
-          {' '}· P90 (los lentos):{' '}
-          <strong style={{ color: 'var(--accent-yellow)' }}>{scl.p90_dias} días</strong>
-          {tramos?.tramo_mas_lento && (
-            <>
-              {' '}· Tramo más lento:{' '}
-              <strong style={{ color: 'var(--accent-orange)' }}>{tramos.tramo_mas_lento}</strong>
-            </>
-          )}
+      {/* Resumen: total + medición por lead + tramo más lento */}
+      <p className="text-base mt-4" style={{ color: 'var(--text-dim)' }}>
+        {tramos?.total_dias != null && (
+          <>
+            Ciclo completo (suma de tramos):{' '}
+            <strong style={{ color: 'var(--accent-green)' }}>~{tramos.total_dias.toFixed(0)} días</strong>
+          </>
+        )}
+        {!sinDatos && scl && (
+          <>
+            {' '}· Medido por lead (agenda→pago):{' '}
+            <strong style={{ color: 'var(--text)' }}>{scl.avg_dias!.toFixed(1)} días</strong>
+            {' '}· P90: <strong style={{ color: 'var(--accent-yellow)' }}>{scl.p90_dias} días</strong>
+          </>
+        )}
+        {masLento && (
+          <>
+            {' '}· Tramo más lento: <strong style={{ color: 'var(--accent-orange)' }}>{masLento}</strong>
+          </>
+        )}
+      </p>
+      {sinDatos && (
+        <p className="text-sm mt-1" style={{ color: 'var(--text-pending)' }}>
+          La medición por lead aún tiene pocos datos ({scl?.count ?? 0} de 3 con fecha de primer pago); los tramos usan toda la data disponible.
         </p>
       )}
     </section>
-  );
-}
-
-function TimelineNodo({ label, sub }: { label: string; sub: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center px-3 py-2 shrink-0">
-      <div
-        className="w-4 h-4 rounded-full mb-2"
-        style={{ background: 'var(--accent-yellow)' }}
-      />
-      <div className="text-base font-semibold">{label}</div>
-      <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{sub}</div>
-    </div>
-  );
-}
-
-function TimelineTramo({ tramo, esMasLento }: { tramo: { label: string; dias_promedio: number | null; n: number }; esMasLento: boolean }) {
-  const [, destino] = tramo.label.split('→').map((s) => s.trim());
-  const tieneDato = tramo.dias_promedio !== null;
-  return (
-    <div className="flex items-center shrink-0">
-      {/* Conector con días */}
-      <div className="flex flex-col items-center px-1">
-        <div
-          className="text-sm mb-1 tabular-nums px-2 py-0.5 rounded"
-          style={{
-            color: tieneDato ? (esMasLento ? 'var(--accent-orange)' : 'var(--text)') : 'var(--text-pending)',
-            background: esMasLento && tieneDato ? '#2a1410' : 'transparent',
-          }}
-          title={`${tramo.n} lead${tramo.n === 1 ? '' : 's'} con ambas fechas`}
-        >
-          {tieneDato ? `+${tramo.dias_promedio!.toFixed(1)}d` : 's/d'}
-        </div>
-        <div
-          className="h-0.5 w-16 md:w-24"
-          style={{ background: tieneDato ? 'var(--card-border)' : '#1a1a1a' }}
-        />
-        <div className="text-[10px] mt-1" style={{ color: 'var(--text-pending)' }}>
-          n={tramo.n}
-        </div>
-      </div>
-      {/* Nodo destino */}
-      <div className="flex flex-col items-center justify-center px-3 py-2">
-        <div
-          className="w-4 h-4 rounded-full mb-2"
-          style={{ background: tieneDato ? 'var(--accent-green)' : '#1a1a1a' }}
-        />
-        <div className="text-base font-semibold">{destino}</div>
-      </div>
-    </div>
   );
 }
 
