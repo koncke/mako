@@ -140,19 +140,21 @@ function construirAlertas(
     });
   }
 
-  // ── Etapas de MARKETING del mes (8E: diagnóstico por etapa) ──
+  // ── Etapas del CAMINO PRINCIPAL de marketing (8E + v3 Fase D) ──
+  // Solo el camino real Impresión→Click→Formulario→Agenda dispara alertas. Las
+  // etapas de contexto (landing/VSL) son informativas y NO se diagnostican
+  // como cuello — por eso no están en este mapa.
   const diagnosticos: Record<string, string> = {
     imp_click:
       'CTR de link bajo: pocos clicks por impresión. Revisá el creativo, el copy y la segmentación.',
-    click_landing:
-      'Clickean pero no cargan la landing. Revisá velocidad de la página y que el anuncio prometa lo mismo que muestra.',
-    landing_vsl:
-      'Entran a la landing pero no ven el VSL. Revisá: ¿el video se ve al entrar sin scrollear? ¿la página carga rápido? ¿el anuncio promete lo mismo que muestra la landing?',
-    vsl_agenda:
-      'Ven el VSL pero no agendan. Revisá el CTA del video y la fricción del calendario.',
+    click_form:
+      'Clickean pero pocos completan el instant form. Revisá que el form no sea largo y que el anuncio prometa lo mismo que pide el formulario.',
+    form_agenda:
+      'Completan el formulario pero no agendan la J1. Revisá el seguimiento tras el form (WhatsApp/email) y el CTA del VSL para agendar.',
   };
 
   for (const etapa of funnel.etapas) {
+    if (etapa.contexto) continue; // contexto (landing/VSL) nunca es cuello (v3 Fase D)
     if (!(etapa.key in diagnosticos)) continue; // comerciales se evalúan con maduras
     if (etapa.salud !== 'rojo' && etapa.salud !== 'ambar') continue;
     const esCuello = funnel.cuelloKey === etapa.key;

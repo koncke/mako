@@ -39,6 +39,7 @@ export type MarketingWindow = {
   // Métricas Meta auxiliares
   clicks: number;
   link_clicks: number;
+  leads_count: number;            // instant forms completados (Meta Insights) — etapa Click→Formulario (v3 Fase D)
   reach: number;
   spend_usd: number;
 
@@ -81,6 +82,7 @@ type MetaRow = {
   landing_page_views: number | null;
   clicks: number | null;
   link_clicks: number | null;
+  leads_count: number | null;
   reach: number | null;
   spend: number | null;
 };
@@ -144,7 +146,7 @@ export async function getMarketingWindow(
   const [metaRes, ytRes, pandaRes, leadsRes, cierresRes] = await Promise.all([
     supabase
       .from('marketing_metrics_daily')
-      .select('fecha, impressions, landing_page_views, clicks, link_clicks, reach, spend')
+      .select('fecha, impressions, landing_page_views, clicks, link_clicks, leads_count, reach, spend')
       .eq('plataforma', 'meta')
       .gte('fecha', start)
       .lte('fecha', end),
@@ -191,6 +193,9 @@ export async function getMarketingWindow(
   const landing_page_views = sum(metaRows.map((r) => r.landing_page_views));
   const clicks = sum(metaRows.map((r) => r.clicks));
   const link_clicks = sum(metaRows.map((r) => r.link_clicks));
+  // Instant forms completados (Meta Insights) — denominador/numerador de las
+  // etapas Click→Formulario y Formulario→Agenda (v3 Fase D).
+  const leads_count = sum(metaRows.map((r) => r.leads_count));
   const reach = sum(metaRows.map((r) => r.reach));
   // Meta devuelve spend en MXN (la cuenta está en MXN). Convertimos a USD
   // ANTES de cualquier cálculo para que los ratios sean válidos contra el
@@ -265,6 +270,7 @@ export async function getMarketingWindow(
 
     clicks,
     link_clicks,
+    leads_count,
     reach,
     spend_usd,
 
@@ -822,6 +828,10 @@ export type FunnelEtapa = {
   fuenteKey: string | null;    // qué fuente alimenta esta etapa (null = carga manual)
   fuente_pendiente: boolean;   // true si su fuente está off (Fase 7) → no es 0%, no existe
   muestra_chica: boolean;      // true si el denominador < 3 → mostrar conteo, no %
+  // v3 Fase D: etapas de CONTENIDO (landing/VSL) que viven fuera del camino
+  // principal Click→Formulario→Agenda. Son informativas y NO compiten por ser
+  // el cuello de botella (el instant form vive ANTES de la landing).
+  contexto: boolean;
 };
 
 export type FunnelMes = {
@@ -864,7 +874,10 @@ export async function getFunnelEtapas(
   // umbral {rojo, ambar, max} — del que se derivan la salud y las bandas del
   // bullet bar.
   const defs: Array<Omit<FunnelEtapa, 'pct' | 'salud' | 'fuente_pendiente' | 'muestra_chica'>> = [
-    // ── BLOQUE MARKETING (meta_insights / vsl_panda) ──
+    // ── CAMINO PRINCIPAL · MARKETING (meta_insights) ──
+    // v3 Fase D: el camino real es Impresión→Click→Formulario→Agenda. El
+    // instant form es un paso de fricción INTENCIONAL antes de la landing, así
+    // que la landing/VSL salen del camino principal (van a "contexto", abajo).
     {
       key: 'imp_click',
       label: 'Impresión → Click',
@@ -874,41 +887,30 @@ export async function getFunnelEtapas(
       benchmark: 'CTR de link 0.9–1.5% para B2B en MX. <0.5% bajo, >1.5% fuerte. Es link_clicks, no clicks totales.',
       umbral: { rojo: 0.5, ambar: 0.9, max: 3 },
       fuenteKey: 'meta_insights',
+      contexto: false,
     },
     {
-      key: 'click_landing',
-      label: 'Click → Landing',
+      key: 'click_form',
+      label: 'Click → Formulario',
       bloque: 'marketing',
       entrada: mkt.link_clicks,
-      salida: mkt.landing_page_views,
-      benchmark: 'De los que clickean, cuántos cargan la landing. Bajo = la página tarda o pierde gente al entrar.',
-      umbral: { rojo: 50, ambar: 70, max: 100 },
+      salida: mkt.leads_count, // instant forms completados (Meta Insights)
+      benchmark: 'De los clics al link, cuántos completan el instant form. Sano 8–15% en instant forms de Meta. <8% flojo (form largo o mensaje del anuncio que no engancha).',
+      umbral: { rojo: 8, ambar: 12, max: 30 },
       fuenteKey: 'meta_insights',
+      contexto: false,
     },
+    // ── FILA PUENTE (Meta forms → Calendly) ──
     {
-      key: 'landing_vsl',
-      label: 'Landing → VSL',
-      bloque: 'marketing',
-      entrada: mkt.landing_page_views,
-      // Fuente del VSL (v3 Fase A): el % del funnel y los plays totales salen
-      // de PANDA (agregado, con historia). El "quién vio" por persona sale del
-      // BEACON (vsl_events / getVslEngagement). Son widgets distintos a propósito:
-      // Panda no conoce el visitor_id; el beacon sí pero arrancó sin historia.
-      salida: mkt.vsl_views ?? 0,
-      benchmark: 'Referencia interna: <20% es flojo. Comparalo contra tu propio número mes a mes. (Plays de Panda — agregado; el "quién vio" por persona sale del beacon.)',
-      umbral: { rojo: 20, ambar: 35, max: 100 },
-      fuenteKey: 'vsl_panda',
-    },
-    // ── FILA PUENTE (cruza dos sistemas de medición) ──
-    {
-      key: 'vsl_agenda',
-      label: 'VSL → Agenda',
+      key: 'form_agenda',
+      label: 'Formulario → Agenda',
       bloque: 'puente',
-      entrada: mkt.vsl_views ?? 0,
+      entrada: mkt.leads_count,
       salida: mkt.agendamientos,
-      benchmark: 'Cruza dos sistemas de medición (Panda → Calendly): tomalo como tendencia, no como número exacto. Subirlo = mejor oferta/CTA del VSL.',
-      umbral: { rojo: 1, ambar: 3, max: 10 },
-      fuenteKey: 'vsl_panda',
+      benchmark: 'Del instant form a agendar la J1 — el puente clave del camino principal. Cruza Meta (forms) y Calendly (agendas): tomalo como tendencia. Subirlo = mejor seguimiento y CTA del VSL.',
+      umbral: { rojo: 25, ambar: 45, max: 100 },
+      fuenteKey: 'meta_insights',
+      contexto: false,
     },
     // ── BLOQUE COMERCIAL (calendly + carga manual) ──
     {
@@ -920,6 +922,7 @@ export async function getFunnelEtapas(
       benchmark: 'No-show >35% (asistencia <65%) sugiere problema de recordatorios o calificación previa.',
       umbral: { rojo: 65, ambar: 75, max: 100 },
       fuenteKey: 'calendly',
+      contexto: false,
     },
     {
       key: 'asistio_calificado',
@@ -930,6 +933,7 @@ export async function getFunnelEtapas(
       benchmark: 'Mide la calidad del lead que llega a J1. Bajo = atraes al perfil equivocado.',
       umbral: { rojo: 40, ambar: 60, max: 100 },
       fuenteKey: null, // carga manual — siempre "disponible"
+      contexto: false,
     },
     {
       key: 'calificado_cierre',
@@ -940,6 +944,36 @@ export async function getFunnelEtapas(
       benchmark: 'Ratio joya. ≥30% sano, 20-30% mixto, <20% problema de venta (J2, oferta, objeciones).',
       umbral: { rojo: 20, ambar: 30, max: 100 },
       fuenteKey: null,
+      contexto: false,
+    },
+    // ── CONTEXTO DE CONTENIDO (landing / VSL) ──
+    // No es el camino principal: el instant form vive ANTES de la landing, así
+    // que esta caída es esperable. Informativo, NO compite por ser el cuello.
+    {
+      key: 'click_landing',
+      label: 'Click → Landing',
+      bloque: 'marketing',
+      entrada: mkt.link_clicks,
+      salida: mkt.landing_page_views,
+      benchmark: 'Informativo, no es cuello: muchos completan el instant form sin pasar por la landing del VSL (o llegan después), así que esta caída es esperable por diseño del embudo.',
+      umbral: { rojo: 50, ambar: 70, max: 100 },
+      fuenteKey: 'meta_insights',
+      contexto: true,
+    },
+    {
+      key: 'landing_vsl',
+      label: 'Landing → VSL',
+      bloque: 'marketing',
+      entrada: mkt.landing_page_views,
+      // Fuente del VSL (v3 Fase A): el % del funnel y los plays totales salen
+      // de PANDA (agregado, con historia). El "quién vio" por persona sale del
+      // BEACON (vsl_events / getVslEngagement). Son widgets distintos a propósito:
+      // Panda no conoce el visitor_id; el beacon sí pero arrancó sin historia.
+      salida: mkt.vsl_views ?? 0,
+      benchmark: 'De los que llegan a la landing, cuántos reproducen el VSL. Referencia interna: <20% flojo. Plays de Panda (agregado); el "quién vio" por persona sale del beacon.',
+      umbral: { rojo: 20, ambar: 35, max: 100 },
+      fuenteKey: 'vsl_panda',
+      contexto: true,
     },
   ];
 
@@ -960,13 +994,14 @@ export async function getFunnelEtapas(
     return { ...d, pct, salud, fuente_pendiente, muestra_chica };
   });
 
-  // Cuello de botella: solo etapas con fuente ok y muestra suficiente
-  // (las sin_datos ya quedan excluidas porque su salud es 'sin_datos').
-  // Tiebreak por SEVERIDAD normalizada contra el propio umbral — así no
-  // gana siempre la etapa de escala chica (el CTR ~1%) frente a una de
-  // escala grande (el cierre ~30%).
-  const rojas = etapas.filter((e) => e.salud === 'rojo');
-  const ambars = etapas.filter((e) => e.salud === 'ambar');
+  // Cuello de botella: solo etapas del CAMINO PRINCIPAL (contexto excluido,
+  // v3 Fase D) con fuente ok y muestra suficiente (las sin_datos ya quedan
+  // fuera porque su salud es 'sin_datos'). Así "Click→Landing" deja de
+  // aparecer como cuello falso. Tiebreak por SEVERIDAD normalizada contra el
+  // propio umbral — así no gana siempre la etapa de escala chica (CTR ~1%)
+  // frente a una de escala grande (el cierre ~30%).
+  const rojas = etapas.filter((e) => e.salud === 'rojo' && !e.contexto);
+  const ambars = etapas.filter((e) => e.salud === 'ambar' && !e.contexto);
   const pool = rojas.length > 0 ? rojas : ambars;
   const severidad = (e: FunnelEtapa): number => {
     const ref = rojas.length > 0 ? e.umbral.rojo : e.umbral.ambar;
@@ -1004,7 +1039,7 @@ export async function getFunnelSeries(
   const [metaRes, pandaRes, agendaRes, j1Res] = await Promise.all([
     supabase
       .from('marketing_metrics_daily')
-      .select('fecha, impressions, link_clicks, landing_page_views')
+      .select('fecha, impressions, link_clicks, landing_page_views, leads_count')
       .eq('plataforma', 'meta')
       .gte('fecha', rangoInicio)
       .lte('fecha', rangoFin),
@@ -1034,16 +1069,16 @@ export async function getFunnelSeries(
   const semanaDe = (fecha: string): string => lunesDeFecha(fecha);
 
   // Acumuladores por semana
-  type Acc = { imp: number; clk: number; land: number; vsl: number; agenda: number; j1: number; asis: number; lmp: number; cie: number };
+  type Acc = { imp: number; clk: number; form: number; land: number; vsl: number; agenda: number; j1: number; asis: number; lmp: number; cie: number };
   const porSemana = new Map<string, Acc>();
-  for (const s of inicios) porSemana.set(s, { imp: 0, clk: 0, land: 0, vsl: 0, agenda: 0, j1: 0, asis: 0, lmp: 0, cie: 0 });
+  for (const s of inicios) porSemana.set(s, { imp: 0, clk: 0, form: 0, land: 0, vsl: 0, agenda: 0, j1: 0, asis: 0, lmp: 0, cie: 0 });
   const add = (semana: string, f: (a: Acc) => void) => {
     const a = porSemana.get(semana);
     if (a) f(a);
   };
 
-  for (const r of (metaRes.data ?? []) as Array<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null }>) {
-    add(semanaDe(r.fecha), (a) => { a.imp += r.impressions ?? 0; a.clk += r.link_clicks ?? 0; a.land += r.landing_page_views ?? 0; });
+  for (const r of (metaRes.data ?? []) as Array<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; leads_count: number | null }>) {
+    add(semanaDe(r.fecha), (a) => { a.imp += r.impressions ?? 0; a.clk += r.link_clicks ?? 0; a.land += r.landing_page_views ?? 0; a.form += r.leads_count ?? 0; });
   }
   for (const r of (pandaRes.data ?? []) as Array<{ fecha: string; video_plays: number | null }>) {
     add(semanaDe(r.fecha), (a) => { a.vsl += r.video_plays ?? 0; });
@@ -1067,9 +1102,12 @@ export async function getFunnelSeries(
 
   return {
     imp_click: serie((a) => ratio(a.clk, a.imp)),
+    // Camino principal (v3 Fase D): Click→Formulario→Agenda
+    click_form: serie((a) => ratio(a.form, a.clk)),
+    form_agenda: serie((a) => ratio(a.agenda, a.form)),
+    // Contexto de contenido (no es el camino principal)
     click_landing: serie((a) => ratio(a.land, a.clk)),
     landing_vsl: serie((a) => ratio(a.vsl, a.land)),
-    vsl_agenda: serie((a) => ratio(a.agenda, a.vsl)),
     agenda_asistio: serie((a) => ratio(a.asis, a.j1)),
     asistio_calificado: serie((a) => ratio(a.lmp, a.asis)),
     calificado_cierre: serie((a) => ratio(a.cie, a.lmp)),

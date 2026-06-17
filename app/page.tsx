@@ -427,9 +427,12 @@ function EtapaFila({ etapa, serie, esCuello }: { etapa: FunnelEtapa; serie: Arra
 }
 
 function FunnelEtapasList({ funnel, series, periodo }: { funnel: FunnelMes; series: FunnelSeries; periodo: string }) {
-  const marketing = funnel.etapas.filter((e) => e.bloque === 'marketing');
-  const puente = funnel.etapas.filter((e) => e.bloque === 'puente');
-  const comercial = funnel.etapas.filter((e) => e.bloque === 'comercial');
+  // v3 Fase D: el camino PRINCIPAL es Impresión→Click→Formulario→Agenda. Las
+  // etapas de contexto (landing/VSL) viven en un grupo aparte, informativo.
+  const marketing = funnel.etapas.filter((e) => e.bloque === 'marketing' && !e.contexto);
+  const puente = funnel.etapas.filter((e) => e.bloque === 'puente' && !e.contexto);
+  const comercial = funnel.etapas.filter((e) => e.bloque === 'comercial' && !e.contexto);
+  const contexto = funnel.etapas.filter((e) => e.contexto);
   const fila = (e: FunnelEtapa) => (
     <EtapaFila key={e.key} etapa={e} serie={series[e.key] ?? []} esCuello={funnel.cuelloKey === e.key} />
   );
@@ -439,19 +442,31 @@ function FunnelEtapasList({ funnel, series, periodo }: { funnel: FunnelMes; seri
         Funnel — etapas de conversión
       </h2>
       <p className="text-base mt-1 mb-5" style={{ color: 'var(--text-dim)' }}>
-        {periodo}. Barra sobre bandas rojo/ámbar/verde del benchmark · tendencia de 12 semanas. Tocá la (i) para el detalle.
+        {periodo}. Camino principal Click→Formulario→Agenda · barra sobre bandas rojo/ámbar/verde del benchmark · tendencia de 12 semanas. Tocá la (i) para el detalle.
       </p>
 
       <BloqueTitulo>Marketing</BloqueTitulo>
       <div className="divide-y" style={{ borderColor: 'var(--card-border)' }}>{marketing.map(fila)}</div>
 
       <div className="my-2 px-3 py-2 rounded-lg" style={{ background: '#0f0f0f' }}>
-        <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-pending)' }}>Puente · cruza dos sistemas de medición</p>
+        <p className="text-xs uppercase tracking-wider mb-1" style={{ color: 'var(--text-pending)' }}>Puente · del formulario a la agenda (Meta → Calendly)</p>
         {puente.map(fila)}
       </div>
 
       <BloqueTitulo>Comercial</BloqueTitulo>
       <div className="divide-y" style={{ borderColor: 'var(--card-border)' }}>{comercial.map(fila)}</div>
+
+      {contexto.length > 0 && (
+        <div className="mt-5 pt-4 border-t" style={{ borderColor: 'var(--card-border)' }}>
+          <h3 className="text-sm uppercase tracking-wider mb-1" style={{ color: 'var(--text-dim)' }}>
+            Contenido · landing y VSL
+          </h3>
+          <p className="text-sm mb-2" style={{ color: 'var(--text-pending)' }}>
+            Informativo, no es el cuello: el instant form vive antes de la landing, así que esta caída es esperable. Mide cuánta gente que llega a la landing ve el video.
+          </p>
+          <div className="divide-y opacity-80" style={{ borderColor: 'var(--card-border)' }}>{contexto.map(fila)}</div>
+        </div>
+      )}
     </section>
   );
 }

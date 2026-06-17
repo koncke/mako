@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Material de especificación (no versionar)
+Mejoras_v3_MauricioBustos.pdf
+*.mejoras.pdf
