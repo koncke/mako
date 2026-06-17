@@ -19,7 +19,7 @@ import { sendMetaCAPIEvent } from './meta-capi';
 //   - perdido:        lo trabajamos y no compró (cerro=false)
 //   - descalificado:  no era buen fit (cerro=false)
 // `cerro` se mantiene en sync (lo derivan las queries de Revenue).
-export type EstadoLead = 'abierto' | 'ganado' | 'perdido' | 'descalificado';
+export type EstadoLead = 'abierto' | 'ganado' | 'perdido' | 'descalificado' | 'no_responde';
 
 export type Lead = {
   id: number;
@@ -89,6 +89,10 @@ export type Lead = {
   // Cruza con vsl_events para saber si el lead vio el VSL.
   visitor_id: string | null;
 
+  // Nutrición (v3 Fase G): true si se corrió la serie WhatsApp+email de 7 días
+  // sobre un form que no agendó.
+  nutricion_realizada: boolean;
+
   created_at: string;
   updated_at: string;
 };
@@ -139,6 +143,9 @@ export type LeadUpdateInput = {
   // Desenlace (Fase 8). Si viene estado_lead, manda él y deriva cerro.
   estado_lead?: EstadoLead;
   motivo_perdida?: string | null;
+
+  // Nutrición (v3 Fase G)
+  nutricion_realizada?: boolean;
 
   monto_cierre_usd?: number | null;
   fecha_cierre?: string | null;
@@ -248,7 +255,13 @@ export async function updateLead(
   // derivamos el estado desde cerro.
   if (input.estado_lead !== undefined) {
     if (merged.estado_lead === 'ganado') merged.cerro = true;
-    else if (merged.estado_lead === 'perdido' || merged.estado_lead === 'descalificado') merged.cerro = false;
+    // perdido / descalificado / no_responde: desenlaces que NO cerraron venta.
+    else if (
+      merged.estado_lead === 'perdido' ||
+      merged.estado_lead === 'descalificado' ||
+      merged.estado_lead === 'no_responde'
+    )
+      merged.cerro = false;
     else merged.cerro = null; // abierto
   } else if (input.cerro !== undefined) {
     if (merged.cerro === true) merged.estado_lead = 'ganado';
@@ -318,6 +331,7 @@ export async function updateLead(
     cerro: merged.cerro,
     estado_lead: merged.estado_lead,
     motivo_perdida: merged.motivo_perdida,
+    nutricion_realizada: merged.nutricion_realizada,
     monto_cierre_usd: merged.monto_cierre_usd,
     fecha_cierre: merged.fecha_cierre,
     fecha_confirmacion: merged.fecha_confirmacion,

@@ -1864,30 +1864,8 @@ export async function getColaDeAccion(
     });
   }
 
-  // ── 5) form_sin_agenda: dejó el instant form y no agendó (1–7 días) ──
-  const d7 = restarDiasISO(hoy, 7);
-  const d1 = restarDiasISO(hoy, 1);
-  const { data: formRows, error: fErr } = await supabase
-    .from('leads')
-    .select('id, nombre, created_at, fecha_agenda, meta_lead_id')
-    .not('meta_lead_id', 'is', null)
-    .is('fecha_agenda', null)
-    .gte('created_at', d7)
-    .lt('created_at', hoy);
-  if (fErr) throw new Error(`Query form sin agenda falló: ${fErr.message}`);
-  for (const r of (formRows ?? []) as Array<{ id: number; nombre: string; created_at: string }>) {
-    const cd = r.created_at.slice(0, 10);
-    if (cd > d1) continue; // demasiado fresco (<1 día)
-    items.push({
-      tipo: 'form_sin_agenda',
-      lead_id: r.id,
-      lead_nombre: r.nombre,
-      titulo: `${r.nombre} dejó el formulario y no agendó`,
-      detalle: 'Mandale el link de Calendly para que reserve su Junta 1.',
-      accion: 'Mandar link',
-      link: `/leads/${r.id}`,
-    });
-  }
+  // (form_sin_agenda salió de la cola en v3 Fase G: ahora es su propio bloque
+  //  con flujo de nutrición — ver getFormulariosSinAgenda.)
 
   // ── 6) j1_sin_j2 (tipo B): tuvo J1, sigue abierto, sin J2 ni resolución ──
   for (const p of tipoB) {
@@ -1909,6 +1887,67 @@ export async function getColaDeAccion(
 function fmtUSDcola(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+}
+
+// =============================================================================
+// FORMULARIOS SIN AGENDA — su propio bloque con nutrición (v3 Fase G)
+// =============================================================================
+// Instant forms (meta_lead_id) que NO agendaron y siguen abiertos. Salen de la
+// lista al resolverse (no_responde / perdido / descalificado) o al agendar.
+// Orden: más viejos primero (los que llevan más días sin agendar pesan más).
+
+export type FormSinAgenda = {
+  lead_id: number;
+  nombre: string;
+  empresa: string | null;
+  fecha_form: string;            // YYYY-MM-DD del instant form
+  dias: number;                  // días desde el form
+  nutricion_realizada: boolean;
+  origen: string | null;         // anuncio/campaña para contexto
+};
+
+export async function getFormulariosSinAgenda(
+  hoy: string = new Date().toISOString().slice(0, 10),
+): Promise<FormSinAgenda[]> {
+  const supabase = getSupabaseServer();
+  const desde = restarDiasISO(hoy, 30); // ventana amplia para no perder rezagados
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, created_at, nutricion_realizada, meta_ad_name, meta_campaign_name')
+    .not('meta_lead_id', 'is', null)
+    .is('fecha_agenda', null)
+    .eq('estado_lead', 'abierto')
+    .gte('created_at', desde)
+    .order('created_at', { ascending: true }); // más viejos primero
+  if (error) throw new Error(`Formularios sin agenda falló: ${error.message}`);
+
+  const diff = (a: string, b: string) => {
+    const [ay, am, ad] = a.split('-').map(Number);
+    const [by, bm, bd] = b.split('-').map(Number);
+    return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+  };
+
+  return (data ?? []).map((r) => {
+    const cd = (r.created_at as string).slice(0, 10);
+    return {
+      lead_id: r.id as number,
+      nombre: (r.nombre as string) ?? 'Sin nombre',
+      empresa: (r.empresa as string | null) ?? null,
+      fecha_form: cd,
+      dias: diff(cd, hoy),
+      nutricion_realizada: (r.nutricion_realizada as boolean) ?? false,
+      origen: (r.meta_ad_name as string | null) ?? (r.meta_campaign_name as string | null) ?? null,
+    };
+  });
+}
+
+// Total para el badge del tab Pendientes (v3 Fase G): filas accionables en la
+// cola + formularios sin agenda.
+export async function getPendientesBadge(
+  hoy: string = new Date().toISOString().slice(0, 10),
+): Promise<number> {
+  const [cola, forms] = await Promise.all([getColaDeAccion(hoy), getFormulariosSinAgenda(hoy)]);
+  return cola.length + forms.length;
 }
 
 // =============================================================================

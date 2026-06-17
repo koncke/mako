@@ -37,7 +37,7 @@ export type LeadsParams = {
 type SortKey = 'creado' | 'j1' | 'estado' | 'monto' | 'nombre' | 'agendo';
 
 const ESTADO_ORDEN: Record<EstadoLead, number> = {
-  abierto: 0, ganado: 1, perdido: 2, descalificado: 3,
+  abierto: 0, ganado: 1, perdido: 2, descalificado: 3, no_responde: 4,
 };
 
 function fmtFechaCorta(yyyy_mm_dd: string | null): string {
@@ -156,7 +156,7 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
           style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
         />
         <Select value={estado} onChange={(v) => navegar({ estado: v })} placeholder="Estado"
-          options={[['abierto', 'Abierto'], ['ganado', 'Ganado'], ['perdido', 'Perdido'], ['descalificado', 'Descalificado']]} />
+          options={[['abierto', 'Abierto'], ['ganado', 'Ganado'], ['perdido', 'Perdido'], ['descalificado', 'Descalificado'], ['no_responde', 'No responde']]} />
         <Select value={madurez} onChange={(v) => navegar({ madurez: v })} placeholder="Madurez"
           options={[['reciente', 'Reciente'], ['madurando', 'Madurando'], ['madura', 'Madura']]} />
         <Select value={origen} onChange={(v) => navegar({ origen: v })} placeholder="Origen"
@@ -283,6 +283,8 @@ function EstadoChip({ lead }: { lead: EnrichedLead }) {
       return <span className={base} style={{ background: 'rgba(255,107,53,0.10)', color: 'var(--accent-orange)' }} title={lead.motivo_perdida ?? undefined}>Perdido</span>;
     case 'descalificado':
       return <span className={base} style={{ background: '#1a1a1a', color: 'var(--text-dim)' }} title={lead.motivo_perdida ?? undefined}>Descalificado</span>;
+    case 'no_responde':
+      return <span className={base} style={{ background: '#1a1a1a', color: 'var(--text-pending)' }}>No responde</span>;
     default:
       return <span style={{ color: 'var(--text-pending)' }}>—</span>;
   }
