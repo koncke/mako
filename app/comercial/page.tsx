@@ -21,7 +21,7 @@ import {
   type ResumenComercialMaduras,
   type TramosSCL,
 } from '@/lib/queries';
-import { ayerEnTijuana } from '@/lib/date-utils';
+import { ayerEnTijuana, hoyEnTijuana, esFechaValida } from '@/lib/date-utils';
 import Link from 'next/link';
 import { DashboardHeader } from '../_components/DashboardHeader';
 import { DashboardTabs } from '../_components/DashboardTabs';
@@ -94,8 +94,28 @@ function emojiMadurez(e: EstadoMadurezCohorte): string {
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default async function ComercialPage() {
+export default async function ComercialPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string; hasta?: string }>;
+}) {
   const fechaAyer = ayerEnTijuana();
+  const hoyReal = hoyEnTijuana();
+
+  // Filtro global (Fase C): cuando hay rango válido, las tablas de cohortes
+  // se acotan a las cohortes cuyo periodo de J1 cae dentro del rango.
+  const params = await searchParams;
+  const desdeParam = params.desde;
+  const hastaParam = params.hasta;
+  const filtroActivo =
+    !!desdeParam &&
+    !!hastaParam &&
+    esFechaValida(desdeParam) &&
+    esFechaValida(hastaParam) &&
+    desdeParam <= hastaParam &&
+    hastaParam <= hoyReal;
+  const rangoDesde = filtroActivo ? desdeParam! : null;
+  const rangoHasta = filtroActivo ? hastaParam! : null;
 
   let semanales: CohorteSemana[] = [];
   let mensuales: CohorteMes[] = [];
@@ -116,52 +136,94 @@ export default async function ComercialPage() {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
 
+  // Una cohorte entra si su periodo [inicio, fin] intersecta el rango activo.
+  const enRango = (c: CohorteSemana | CohorteMes): boolean => {
+    if (!rangoDesde || !rangoHasta) return true;
+    const r = rangoCohorte(c);
+    return r.hasta >= rangoDesde && r.desde <= rangoHasta;
+  };
+  const semanalesVis = filtroActivo ? semanales.filter(enRango) : semanales;
+  const mensualesVis = filtroActivo ? mensuales.filter(enRango) : mensuales;
+  const hayDatos = semanales.length > 0 || mensuales.length > 0;
+  const sinCohortesEnRango =
+    filtroActivo && semanalesVis.length === 0 && mensualesVis.length === 0;
+
   return (
     <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
-      <DashboardHeader fechaAyer={fechaAyer} />
+      <DashboardHeader fechaAyer={fechaAyer} hoyReal={hoyReal} />
       <DashboardTabs active="comercial" />
 
       {errorMsg ? (
         <ErrorCard message={errorMsg} />
-      ) : semanales.length === 0 && mensuales.length === 0 ? (
+      ) : !hayDatos ? (
         <EmptyState />
       ) : (
         <div className="space-y-8">
+          {/* Aviso de filtro activo (Fase C): el rango acota las tablas de
+              cohortes; los KPIs de arriba son globales sobre cohortes maduras. */}
+          {filtroActivo && (
+            <div
+              className="rounded-xl border px-5 py-4 text-base"
+              style={{ borderColor: 'var(--accent-yellow)', background: '#1a1a10' }}
+            >
+              <span style={{ color: 'var(--accent-yellow)' }}>
+                📅 Filtro activo: {rangoDesde} → {rangoHasta}.
+              </span>{' '}
+              <span style={{ color: 'var(--text-dim)' }}>
+                Las tablas de cohortes muestran solo las que caen en el rango.
+                Los indicadores de arriba (ratio joya, no-show, SCL) son
+                globales sobre cohortes maduras y no cambian con el filtro.
+              </span>
+            </div>
+          )}
+
           {/* KPIs ESTRELLA (8C) */}
           {maduras && <KPIsComercial maduras={maduras} scl={scl} />}
 
           {/* SCL — línea de tiempo de tramos (8C) */}
           <SCLTimeline scl={scl} tramos={tramos} />
 
-          <CohortesTable
-            title="Cohortes mensuales"
-            subtitle="Últimos 6 meses, agrupados por el mes de Junta 1"
-            cohortes={mensuales}
-            fechaColLabel="Mes"
-            fechaFormat={fmtMes}
-            showCiclo={true}
-          />
-
-          {/* Semanales colapsadas (Fase 18A): con ~20 leads/mes son ruido —
-              cohortes de 1-2 leads con porcentajes gigantes. */}
-          <details>
-            <summary
-              className="cursor-pointer select-none px-5 py-3 rounded-lg border text-base inline-block"
-              style={{ borderColor: 'var(--card-border)', color: 'var(--text-dim)' }}
+          {sinCohortesEnRango ? (
+            <div
+              className="rounded-xl border p-10 text-center text-lg"
+              style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-dim)' }}
             >
-              Ver cohortes semanales ▾
-            </summary>
-            <div className="mt-3">
-              <CohortesTable
-                title="Cohortes semanales"
-                subtitle="Últimas 8 semanas, agrupadas por la semana de Junta 1. Con pocos leads por semana, los porcentajes son ruidosos — usá las mensuales para decidir."
-                cohortes={semanales}
-                fechaColLabel="Semana de"
-                fechaFormat={fmtSemana}
-                showCiclo={false}
-              />
+              Sin cohortes dentro del rango seleccionado. Ampliá el rango o
+              elegí “Máximo” en el filtro de fecha.
             </div>
-          </details>
+          ) : (
+            <>
+              <CohortesTable
+                title="Cohortes mensuales"
+                subtitle="Últimos 6 meses, agrupados por el mes de Junta 1"
+                cohortes={mensualesVis}
+                fechaColLabel="Mes"
+                fechaFormat={fmtMes}
+                showCiclo={true}
+              />
+
+              {/* Semanales colapsadas (Fase 18A): con ~20 leads/mes son ruido —
+                  cohortes de 1-2 leads con porcentajes gigantes. */}
+              <details>
+                <summary
+                  className="cursor-pointer select-none px-5 py-3 rounded-lg border text-base inline-block"
+                  style={{ borderColor: 'var(--card-border)', color: 'var(--text-dim)' }}
+                >
+                  Ver cohortes semanales ▾
+                </summary>
+                <div className="mt-3">
+                  <CohortesTable
+                    title="Cohortes semanales"
+                    subtitle="Últimas 8 semanas, agrupadas por la semana de Junta 1. Con pocos leads por semana, los porcentajes son ruidosos — usá las mensuales para decidir."
+                    cohortes={semanalesVis}
+                    fechaColLabel="Semana de"
+                    fechaFormat={fmtSemana}
+                    showCiclo={false}
+                  />
+                </div>
+              </details>
+            </>
+          )}
 
           <p className="text-base" style={{ color: 'var(--text-pending)' }}>
             🟢 Madura (≥14d desde último J1, tasa confiable) · 🟡 Madurando

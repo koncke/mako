@@ -33,6 +33,7 @@ import { TendenciasSection } from './_components/TendenciasSection';
 import { ReconPanel } from './_components/ReconPanel';
 import {
   ayerEnTijuana,
+  hoyEnTijuana,
   esFechaValida,
   primerDiaDelMesDeFecha,
   diasAntes,
@@ -40,7 +41,6 @@ import {
 import { getDataSources, sourcesToMap } from '@/lib/sources';
 import { DashboardHeader } from './_components/DashboardHeader';
 import { DashboardTabs } from './_components/DashboardTabs';
-import { FechaSelector } from './_components/FechaSelector';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -78,6 +78,7 @@ export default async function Page({
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
   const ayerReal = ayerEnTijuana();
+  const hoyReal = hoyEnTijuana();
   const params = await searchParams;
   const desdeParam = params.desde;
   const hastaParam = params.hasta;
@@ -87,7 +88,7 @@ export default async function Page({
     esFechaValida(desdeParam) &&
     esFechaValida(hastaParam) &&
     desdeParam <= hastaParam &&
-    hastaParam <= ayerReal;
+    hastaParam <= hoyReal;
 
   const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
   const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
@@ -125,10 +126,8 @@ export default async function Page({
 
   return (
     <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
-      <DashboardHeader fechaAyer={ayerReal} />
+      <DashboardHeader fechaAyer={ayerReal} hoyReal={hoyReal} />
       <DashboardTabs active="marketing" />
-
-      <FechaSelector fechaActualReal={ayerReal} />
 
       {errorMsg || !mkt || !funnel ? (
         <div

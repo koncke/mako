@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { getDataSources } from '@/lib/sources';
 import { SourceStrip } from './SourceStrip';
+import { FechaFiltroGlobal } from './FechaFiltroGlobal';
 
 function fmtFechaCorta(yyyy_mm_dd: string): string {
   const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
@@ -16,7 +17,13 @@ function fmtFechaCorta(yyyy_mm_dd: string): string {
   }).format(fecha);
 }
 
-export async function DashboardHeader({ fechaAyer }: { fechaAyer: string }) {
+export async function DashboardHeader({
+  fechaAyer,
+  hoyReal,
+}: {
+  fechaAyer: string;
+  hoyReal: string;
+}) {
   let sources: Awaited<ReturnType<typeof getDataSources>> = [];
   try {
     sources = await getDataSources();
@@ -38,17 +45,21 @@ export async function DashboardHeader({ fechaAyer }: { fechaAyer: string }) {
             Mauricio Bustos · Datos actualizados a {fmtFechaCorta(fechaAyer)}
           </p>
         </div>
-        <Link
-          href="/leads"
-          className="px-5 py-3 rounded-lg font-medium text-lg border"
-          style={{
-            background: 'transparent',
-            borderColor: 'var(--accent-yellow)',
-            color: 'var(--accent-yellow)',
-          }}
-        >
-          Leads →
-        </Link>
+        {/* Filtro de fecha global (Fase C) + acceso a Leads, arriba a la derecha */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <FechaFiltroGlobal hoyReal={hoyReal} />
+          <Link
+            href="/leads"
+            className="px-5 py-3 rounded-lg font-medium text-lg border"
+            style={{
+              background: 'transparent',
+              borderColor: 'var(--accent-yellow)',
+              color: 'var(--accent-yellow)',
+            }}
+          >
+            Leads →
+          </Link>
+        </div>
       </header>
       {sources.length > 0 && <SourceStrip sources={sources} />}
     </>

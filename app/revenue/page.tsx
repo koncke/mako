@@ -27,7 +27,6 @@ import {
 import Link from 'next/link';
 import { DashboardHeader } from '../_components/DashboardHeader';
 import { DashboardTabs } from '../_components/DashboardTabs';
-import { FechaSelector } from '../_components/FechaSelector';
 
 function fmtFechaCorta(yyyy_mm_dd: string | null): string {
   if (!yyyy_mm_dd) return '—';
@@ -66,6 +65,7 @@ export default async function RevenuePage({
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
   const ayerReal = ayerEnTijuana();
+  const hoyReal = hoyEnTijuana();
   const params = await searchParams;
   const desdeParam = params.desde;
   const hastaParam = params.hasta;
@@ -75,7 +75,7 @@ export default async function RevenuePage({
     esFechaValida(desdeParam) &&
     esFechaValida(hastaParam) &&
     desdeParam <= hastaParam &&
-    hastaParam <= ayerReal;
+    hastaParam <= hoyReal;
 
   const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
   const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
@@ -95,10 +95,8 @@ export default async function RevenuePage({
 
   return (
     <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
-      <DashboardHeader fechaAyer={ayerReal} />
+      <DashboardHeader fechaAyer={ayerReal} hoyReal={hoyReal} />
       <DashboardTabs active="revenue" />
-
-      <FechaSelector fechaActualReal={ayerReal} />
 
       {errorMsg || !revenue ? (
         <div

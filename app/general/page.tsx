@@ -301,7 +301,7 @@ export default async function GeneralPage() {
 
   return (
     <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
-      <DashboardHeader fechaAyer={ayerReal} />
+      <DashboardHeader fechaAyer={ayerReal} hoyReal={hoyReal} />
       <DashboardTabs active="general" />
 
       {errorMsg || !funnel || !maduras || !pipeline || !comparativo ? (
