@@ -19,7 +19,6 @@ import {
   getTendencias,
   getSenalesRecon,
   getResumenComparativo,
-  getVslSerie,
   type MarketingWindow,
   type FunnelMes,
   type FunnelEtapa,
@@ -27,7 +26,6 @@ import {
   type Tendencias,
   type SenalRecon,
   type ResumenComparativo,
-  type VslSerie,
 } from '@/lib/queries';
 import { TendenciasSection } from './_components/TendenciasSection';
 import { ReconPanel } from './_components/ReconPanel';
@@ -97,10 +95,8 @@ export default async function Page({
   let funnel: FunnelMes | null = null;
   let funnelSeries: FunnelSeries = {};
   let senales: SenalRecon[] = [];
-  let tendSemanal: Tendencias | null = null;
-  let tendMensual: Tendencias | null = null;
+  let tendencias: Tendencias | null = null;
   let comparativo: ResumenComparativo | null = null;
-  let vslSerie: VslSerie | null = null;
   let errorMsg: string | null = null;
 
   // Recon mira siempre los últimos 14 días (no depende del filtro de rango).
@@ -108,17 +104,16 @@ export default async function Page({
 
   try {
     const sourceMap = sourcesToMap(await getDataSources());
-    [mkt, funnel, funnelSeries, senales, tendSemanal, tendMensual, comparativo, vslSerie] = await Promise.all([
+    [mkt, funnel, funnelSeries, senales, tendencias, comparativo] = await Promise.all([
       getMarketingWindow(rangoDesde, rangoHasta),
       getFunnelEtapas(rangoDesde, rangoHasta, sourceMap),
       getFunnelSeries(rangoHasta, 12),
       getSenalesRecon(reconDesde, rangoHasta),
-      getTendencias('semanal', rangoHasta),
-      getTendencias('mensual', rangoHasta),
+      // Tendencias respeta el filtro global (v3 Fase E): mismo rango que el resto.
+      getTendencias(rangoDesde, rangoHasta),
       filtroActivo
         ? Promise.resolve(null)
         : getResumenComparativo(ayerReal),
-      getVslSerie(56),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -149,13 +144,9 @@ export default async function Page({
           {/* 2 — FUNNEL EN LISTA DE ETAPAS (Fase 15) */}
           <FunnelEtapasList funnel={funnel} series={funnelSeries} periodo={filtroActivo ? `${rangoDesde} → ${rangoHasta}` : 'Mes en curso'} />
 
-          {/* 2.5 — CARD VSL (Panda) */}
-          {vslSerie && <VslCard serie={vslSerie} />}
-
-          {/* 2.6 — TENDENCIAS (Fase 16): reemplaza el chart de CAC de una barra */}
-          {tendSemanal && tendMensual && (
-            <TendenciasSection semanal={tendSemanal} mensual={tendMensual} />
-          )}
+          {/* 2.5 — TENDENCIAS (v3 Fase E): un gráfico grande con selector de
+              métrica. El VSL es una métrica más (ya no hay card separada). */}
+          {tendencias && <TendenciasSection tendencias={tendencias} />}
 
           {/* 3 — PANEL RECON (Fase 17): reemplaza Anuncios ganadores */}
           <ReconPanel senales={senales} />
@@ -545,116 +536,5 @@ function EficienciaSecundaria({ mkt }: { mkt: MarketingWindow }) {
         ))}
       </div>
     </section>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Card VSL (Panda Video) — Fase 5 v2
-// ─────────────────────────────────────────────────────────────────────────────
-
-function VslCard({ serie }: { serie: VslSerie }) {
-  const hayDatos = serie.dias.length > 0 && serie.total_plays > 0;
-
-  // Sparkline SVG de plays diarios
-  const W = 600;
-  const H = 60;
-  const maxPlays = Math.max(1, ...serie.dias.map((d) => d.plays));
-  const n = serie.dias.length;
-  const puntos = serie.dias.map((d, i) => {
-    const x = n > 1 ? (i / (n - 1)) * W : W / 2;
-    const y = H - (d.plays / maxPlays) * (H - 6) - 3;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-
-  return (
-    <section
-      className="rounded-xl border p-6 md:p-8"
-      style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-[28px]" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>
-            VSL — reproducciones
-          </h2>
-          <p className="text-base" style={{ color: 'var(--text-dim)' }}>
-            Plays diarios (últimas 8 semanas). YouTube aporta la historia, Panda el presente.
-          </p>
-        </div>
-        {!serie.fuente_panda_activa && (
-          <span className="text-sm px-3 py-1 rounded" style={{ background: '#1a1a1a', color: 'var(--text-pending)' }}>
-            Panda: fuente conectándose
-          </span>
-        )}
-      </div>
-
-      {!hayDatos ? (
-        <p className="text-base py-4" style={{ color: 'var(--text-pending)' }}>
-          Aún sin reproducciones registradas. El cron de Panda corre a las 6:45 AM TJ.
-        </p>
-      ) : (
-        <>
-          {/* Sparkline */}
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{ height: 60 }}>
-            <polyline
-              points={puntos.join(' ')}
-              fill="none"
-              stroke="var(--accent-green)"
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          {/* Métricas */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-            <VslKpi label="Plays totales" value={fmtNumber(serie.total_plays)} accent="green" />
-            <VslKpi
-              label="Espectadores únicos"
-              value={serie.unique_viewers !== null ? fmtNumber(serie.unique_viewers) : '—'}
-              hint={serie.unique_viewers === null ? 'solo Panda' : undefined}
-            />
-            <VslKpi
-              label="Retención media"
-              value={serie.retention_pct !== null ? `${serie.retention_pct.toFixed(0)}%` : '—'}
-              accent="yellow"
-            />
-            <VslKpi
-              label="Tiempo promedio"
-              value={
-                serie.avg_watch_seconds !== null
-                  ? `${Math.floor(serie.avg_watch_seconds / 60)}:${String(Math.round(serie.avg_watch_seconds % 60)).padStart(2, '0')}`
-                  : '—'
-              }
-              hint="min:seg"
-            />
-          </div>
-        </>
-      )}
-    </section>
-  );
-}
-
-function VslKpi({
-  label,
-  value,
-  accent,
-  hint,
-}: {
-  label: string;
-  value: string;
-  accent?: 'green' | 'yellow';
-  hint?: string;
-}) {
-  const color = accent === 'green' ? 'var(--accent-green)' : accent === 'yellow' ? 'var(--accent-yellow)' : 'var(--text)';
-  return (
-    <div className="rounded-lg border p-4" style={{ borderColor: 'var(--card-border)', background: '#0f0f0f' }}>
-      <div className="text-sm uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>
-        {label}
-      </div>
-      <div className="text-[26px] font-semibold tabular-nums" style={{ color }}>
-        {value}
-      </div>
-      {hint && <div className="text-sm mt-1" style={{ color: 'var(--text-pending)' }}>{hint}</div>}
-    </div>
   );
 }

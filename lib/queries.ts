@@ -2094,9 +2094,26 @@ export async function getTramoJ1J2Reciente(
 // =============================================================================
 
 export type FormatoSerie = 'usd' | 'num' | 'pct';
-export type SerieMetrica = { key: string; label: string; formato: FormatoSerie; valores: Array<number | null> };
+// Cuadro de contexto bajo el gráfico (v3 Fase E). `texto` permite un valor ya
+// formateado (ej. tiempo m:ss) que ignora `valor`/`formato`. valor null → el
+// cliente lo omite (no mostramos ceros/sin datos).
+export type CuadroContexto = {
+  label: string;
+  valor: number | null;
+  formato: FormatoSerie;
+  hint?: string;
+  texto?: string;
+};
+export type SerieMetrica = {
+  key: string;
+  label: string;
+  formato: FormatoSerie;
+  valores: Array<number | null>;
+  cuadros: CuadroContexto[];          // contexto específico de esta métrica (v3 Fase E)
+};
+export type GranularidadTendencia = 'diario' | 'semanal' | 'mensual';
 export type Tendencias = {
-  granularidad: 'semanal' | 'mensual';
+  granularidad: GranularidadTendencia;
   periodos: string[];                 // etiquetas eje X
   marketing: SerieMetrica[];
   comercial: SerieMetrica[];
@@ -2112,29 +2129,36 @@ function diaCorto(yyyy_mm_dd: string): string {
 }
 
 export async function getTendencias(
-  granularidad: 'semanal' | 'mensual' = 'semanal',
+  start: string,
   end: string = new Date().toISOString().slice(0, 10),
 ): Promise<Tendencias> {
   const supabase = getSupabaseServer();
 
-  // Períodos (viejo → nuevo)
+  // Helpers de fecha locales
+  const primerDiaMes = (s: string) => { const [y, m] = s.split('-').map(Number); return `${y}-${String(m).padStart(2, '0')}-01`; };
+  const finDeMes = (s: string) => { const [y, m] = s.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
+  const addMes = (s: string, k: number) => { const [y, m] = s.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`; };
+  const diffDias = (a: string, b: string) => { const [ay, am, ad] = a.split('-').map(Number); const [by, bm, bd] = b.split('-').map(Number); return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000); };
+
+  // Granularidad derivada del LARGO del rango (v3 Fase E, PASO 2): rangos
+  // cortos → diario; medianos → semanal; largos → mensual.
+  const span = Math.max(0, diffDias(start, end));
+  const granularidad: GranularidadTendencia = span <= 31 ? 'diario' : span <= 180 ? 'semanal' : 'mensual';
+
+  // Períodos que cubren [start, end] (viejo → nuevo).
   const periodos: Array<{ inicio: string; fin: string; label: string }> = [];
-  if (granularidad === 'semanal') {
-    const ultimoLunes = lunesDeFecha(end);
-    for (let i = 11; i >= 0; i--) {
-      const inicio = restarDiasISO(ultimoLunes, i * 7);
-      periodos.push({ inicio, fin: restarDiasISO(inicio, -6), label: diaCorto(inicio) });
-    }
+  if (granularidad === 'diario') {
+    let cur = start;
+    while (cur <= end) { periodos.push({ inicio: cur, fin: cur, label: diaCorto(cur) }); cur = restarDiasISO(cur, -1); }
+  } else if (granularidad === 'semanal') {
+    let cur = lunesDeFecha(start);
+    while (cur <= end) { periodos.push({ inicio: cur, fin: restarDiasISO(cur, -6), label: diaCorto(cur) }); cur = restarDiasISO(cur, -7); }
   } else {
-    const [y, m] = end.split('-').map(Number);
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(Date.UTC(y, m - 1 - i, 1));
-      const py = d.getUTCFullYear(), pm = d.getUTCMonth() + 1;
-      const inicio = `${py}-${String(pm).padStart(2, '0')}-01`;
-      const fin = new Date(Date.UTC(py, pm, 0)).toISOString().slice(0, 10);
-      periodos.push({ inicio, fin, label: nombreMesCorto(inicio) });
-    }
+    let cur = primerDiaMes(start);
+    while (cur <= end) { periodos.push({ inicio: cur, fin: finDeMes(cur), label: nombreMesCorto(cur) }); cur = addMes(cur, 1); }
   }
+  if (periodos.length === 0) periodos.push({ inicio: start, fin: end, label: diaCorto(start) });
+
   const rangoInicio = periodos[0].inicio;
   const rangoFin = periodos[periodos.length - 1].fin;
   const idxDe = (fecha: string): number => {
@@ -2144,17 +2168,28 @@ export async function getTendencias(
   const n = periodos.length;
   const z = () => Array.from({ length: n }, () => 0);
 
-  const [metaRes, leadsRes, pagosRes] = await Promise.all([
+  const [metaRes, pandaRes, leadsRes, pagosRes] = await Promise.all([
     supabase.from('marketing_metrics_daily').select('fecha, impressions, link_clicks, landing_page_views, spend, leads_count').eq('plataforma', 'meta').gte('fecha', rangoInicio).lte('fecha', rangoFin),
+    supabase.from('marketing_metrics_daily').select('fecha, video_plays, video_unique_viewers, video_retention_p50, video_avg_watch_seconds').eq('plataforma', 'panda').gte('fecha', rangoInicio).lte('fecha', rangoFin),
     supabase.from('leads').select('fecha_agenda, fecha_junta_1, asistio_j1, fecha_cierre, estado_lead').or(`fecha_agenda.gte.${rangoInicio},fecha_junta_1.gte.${rangoInicio},fecha_cierre.gte.${rangoInicio}`),
     supabase.from('pagos').select('fecha_pago, monto_usd, pagado').eq('pagado', true).gte('fecha_pago', rangoInicio).lte('fecha_pago', rangoFin),
   ]);
-  for (const r of [metaRes, leadsRes, pagosRes]) if (r.error) throw new Error(`getTendencias falló: ${r.error.message}`);
+  for (const r of [metaRes, pandaRes, leadsRes, pagosRes]) if (r.error) throw new Error(`getTendencias falló: ${r.error.message}`);
 
   const imp = z(), clk = z(), land = z(), spendMxn = z(), leads = z();
   for (const r of (metaRes.data ?? []) as Array<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; spend: number | null; leads_count: number | null }>) {
     const i = idxDe(r.fecha); if (i < 0) continue;
     imp[i] += r.impressions ?? 0; clk[i] += r.link_clicks ?? 0; land[i] += r.landing_page_views ?? 0; spendMxn[i] += Number(r.spend ?? 0); leads[i] += r.leads_count ?? 0;
+  }
+  // VSL — plays por período + resumen (únicos/retención/tiempo) para sus cuadros.
+  const vslPlays = z();
+  let uniqueTotal = 0, retSum = 0, retN = 0, watchSum = 0, watchN = 0;
+  const pandaRows = (pandaRes.data ?? []) as Array<{ fecha: string; video_plays: number | null; video_unique_viewers: number | null; video_retention_p50: number | null; video_avg_watch_seconds: number | null }>;
+  for (const r of pandaRows) {
+    const i = idxDe(r.fecha); if (i >= 0) vslPlays[i] += Number(r.video_plays ?? 0);
+    uniqueTotal += Number(r.video_unique_viewers ?? 0);
+    if (r.video_retention_p50 != null) { retSum += Number(r.video_retention_p50); retN++; }
+    if (r.video_avg_watch_seconds != null) { watchSum += Number(r.video_avg_watch_seconds); watchN++; }
   }
   const agendas = z(), asistencias = z(), cierres = z();
   for (const r of (leadsRes.data ?? []) as Array<{ fecha_agenda: string | null; fecha_junta_1: string | null; asistio_j1: boolean | null; fecha_cierre: string | null; estado_lead: string }>) {
@@ -2163,30 +2198,103 @@ export async function getTendencias(
     if (r.fecha_cierre && r.estado_lead === 'ganado') { const i = idxDe(r.fecha_cierre); if (i >= 0) cierres[i] += 1; }
   }
   const cash = z();
+  let numPagos = 0;
   for (const r of (pagosRes.data ?? []) as Array<{ fecha_pago: string | null; monto_usd: number | null }>) {
-    if (!r.fecha_pago) continue; const i = idxDe(r.fecha_pago); if (i >= 0) cash[i] += Number(r.monto_usd ?? 0);
+    if (!r.fecha_pago) continue; const i = idxDe(r.fecha_pago); if (i >= 0) { cash[i] += Number(r.monto_usd ?? 0); numPagos++; }
   }
 
   const spendUsd = spendMxn.map((s) => s / TIPO_DE_CAMBIO_USD_MXN);
   const ratio = (num: number[], den: number[], k = 100): Array<number | null> => num.map((v, i) => (den[i] > 0 ? (v / den[i]) * k : null));
+  const ctr = ratio(clk, imp);
+  const cpl = spendUsd.map((s, i) => (leads[i] > 0 ? s / leads[i] : null));
+  const cac = spendUsd.map((s, i) => (cierres[i] > 0 ? s / cierres[i] : null));
+
+  // ── Cuadros de contexto por métrica (v3 Fase E, PASO 3) ──
+  const palabra = granularidad === 'diario' ? 'día' : granularidad === 'semanal' ? 'semana' : 'mes';
+  const sumDe = (a: number[]) => a.reduce((s, v) => s + v, 0);
+  const nn = (a: Array<number | null>) => a.filter((v): v is number => v !== null && Number.isFinite(v));
+  const promDe = (a: Array<number | null>) => { const x = nn(a); return x.length ? x.reduce((s, v) => s + v, 0) / x.length : null; };
+  const ultimoDe = (a: Array<number | null>) => { const x = nn(a); return x.length ? x[x.length - 1] : null; };
+  const extremo = (a: Array<number | null>, menor: boolean) => { let bi = -1, bv = menor ? Infinity : -Infinity; a.forEach((v, i) => { if (v != null && Number.isFinite(v) && (menor ? v < bv : v > bv)) { bv = v; bi = i; } }); return bi < 0 ? null : { valor: bv, label: periodos[bi].label }; };
+
+  const cuadrosSuma = (a: number[], formato: FormatoSerie): CuadroContexto[] => {
+    const total = sumDe(a);
+    if (total === 0) return [];
+    const out: CuadroContexto[] = [
+      { label: 'Total del período', valor: total, formato },
+      { label: `Promedio por ${palabra}`, valor: promDe(a), formato },
+    ];
+    const pico = extremo(a, false);
+    if (pico) out.push({ label: `Mejor ${palabra}`, valor: pico.valor, formato, hint: pico.label });
+    return out;
+  };
+  const cuadrosTasa = (a: Array<number | null>, formato: FormatoSerie, menorEsMejor = false): CuadroContexto[] => {
+    if (promDe(a) === null) return [];
+    const out: CuadroContexto[] = [{ label: 'Promedio del período', valor: promDe(a), formato }];
+    const mejor = extremo(a, menorEsMejor);
+    if (mejor) out.push({ label: `${menorEsMejor ? 'Menor' : 'Mejor'} ${palabra}`, valor: mejor.valor, formato, hint: mejor.label });
+    out.push({ label: 'Último período', valor: ultimoDe(a), formato });
+    return out;
+  };
+  const cuadrosLeads = (): CuadroContexto[] => {
+    if (sumDe(leads) === 0) return [];
+    const cplProm = sumDe(leads) > 0 ? sumDe(spendUsd) / sumDe(leads) : null;
+    const out: CuadroContexto[] = [
+      { label: 'Total del período', valor: sumDe(leads), formato: 'num' },
+      { label: 'CPL promedio', valor: cplProm, formato: 'usd' },
+    ];
+    const pico = extremo(leads, false);
+    if (pico) out.push({ label: `Mejor ${palabra}`, valor: pico.valor, formato: 'num', hint: pico.label });
+    return out;
+  };
+  const cuadrosAgendas = (): CuadroContexto[] => {
+    if (sumDe(agendas) === 0) return [];
+    const tasa = sumDe(leads) > 0 ? (sumDe(agendas) / sumDe(leads)) * 100 : null;
+    const out: CuadroContexto[] = [
+      { label: 'Total del período', valor: sumDe(agendas), formato: 'num' },
+      { label: 'Tasa form → agenda', valor: tasa, formato: 'pct', hint: 'agendas ÷ forms del período' },
+    ];
+    const pico = extremo(agendas, false);
+    if (pico) out.push({ label: `Mejor ${palabra}`, valor: pico.valor, formato: 'num', hint: pico.label });
+    return out;
+  };
+  const cuadrosCash = (): CuadroContexto[] => {
+    if (sumDe(cash) === 0) return [];
+    const ticket = numPagos > 0 ? sumDe(cash) / numPagos : null;
+    return [
+      { label: 'Total del período', valor: sumDe(cash), formato: 'usd' },
+      { label: 'Ticket promedio', valor: ticket, formato: 'usd', hint: 'cash ÷ nº de pagos' },
+      { label: 'Nº de pagos', valor: numPagos, formato: 'num' },
+    ];
+  };
+  const cuadrosVsl = (): CuadroContexto[] => {
+    if (sumDe(vslPlays) === 0) return [];
+    const watchTexto = watchN > 0 ? `${Math.floor((watchSum / watchN) / 60)}:${String(Math.round((watchSum / watchN) % 60)).padStart(2, '0')}` : undefined;
+    const out: CuadroContexto[] = [{ label: 'Plays totales', valor: sumDe(vslPlays), formato: 'num' }];
+    if (pandaRows.length > 0) out.push({ label: 'Espectadores únicos', valor: uniqueTotal, formato: 'num', hint: 'solo Panda' });
+    if (retN > 0) out.push({ label: 'Retención media', valor: retSum / retN, formato: 'pct' });
+    if (watchTexto) out.push({ label: 'Tiempo promedio', valor: watchSum / watchN, formato: 'num', texto: watchTexto, hint: 'min:seg' });
+    return out;
+  };
 
   return {
     granularidad,
     periodos: periodos.map((p) => p.label),
     marketing: [
-      { key: 'impresiones', label: 'Impresiones', formato: 'num', valores: imp },
-      { key: 'landing', label: 'Visitas a la landing', formato: 'num', valores: land },
-      { key: 'ctr_link', label: 'CTR de link', formato: 'pct', valores: ratio(clk, imp) },
-      { key: 'spend', label: 'Spend (USD)', formato: 'usd', valores: spendUsd },
-      { key: 'leads', label: 'Leads', formato: 'num', valores: leads },
-      { key: 'cpl', label: 'CPL (USD)', formato: 'usd', valores: spendUsd.map((s, i) => (leads[i] > 0 ? s / leads[i] : null)) },
+      { key: 'impresiones', label: 'Impresiones', formato: 'num', valores: imp, cuadros: cuadrosSuma(imp, 'num') },
+      { key: 'landing', label: 'Visitas a la landing', formato: 'num', valores: land, cuadros: cuadrosSuma(land, 'num') },
+      { key: 'ctr_link', label: 'CTR de link', formato: 'pct', valores: ctr, cuadros: cuadrosTasa(ctr, 'pct') },
+      { key: 'spend', label: 'Spend (USD)', formato: 'usd', valores: spendUsd, cuadros: cuadrosSuma(spendUsd, 'usd') },
+      { key: 'leads', label: 'Leads (forms)', formato: 'num', valores: leads, cuadros: cuadrosLeads() },
+      { key: 'cpl', label: 'CPL (USD)', formato: 'usd', valores: cpl, cuadros: cuadrosTasa(cpl, 'usd', true) },
+      { key: 'vsl_plays', label: 'Plays del VSL', formato: 'num', valores: vslPlays, cuadros: cuadrosVsl() },
     ],
     comercial: [
-      { key: 'agendas', label: 'Agendas', formato: 'num', valores: agendas },
-      { key: 'asistencias', label: 'Asistencias a J1', formato: 'num', valores: asistencias },
-      { key: 'cierres', label: 'Cierres', formato: 'num', valores: cierres },
-      { key: 'cash', label: 'Cash collected', formato: 'usd', valores: cash },
-      { key: 'cac', label: 'CAC', formato: 'usd', valores: spendUsd.map((s, i) => (cierres[i] > 0 ? s / cierres[i] : null)) },
+      { key: 'agendas', label: 'Agendas', formato: 'num', valores: agendas, cuadros: cuadrosAgendas() },
+      { key: 'asistencias', label: 'Asistencias a J1', formato: 'num', valores: asistencias, cuadros: cuadrosSuma(asistencias, 'num') },
+      { key: 'cierres', label: 'Cierres', formato: 'num', valores: cierres, cuadros: cuadrosSuma(cierres, 'num') },
+      { key: 'cash', label: 'Cash collected', formato: 'usd', valores: cash, cuadros: cuadrosCash() },
+      { key: 'cac', label: 'CAC', formato: 'usd', valores: cac, cuadros: cuadrosTasa(cac, 'usd', true) },
     ],
   };
 }
