@@ -52,12 +52,36 @@ export function AnuncioCard({ s, rank }: { s: SenalRecon; rank: number }) {
     ...(validada ? { boxShadow: '0 0 0 1px var(--good)' } : {}),
   };
 
+  const hasThumb = !!s.ad_thumbnail_url;
+  const hasLink = !!s.ad_permalink && !s.ad_creative_sin_enlace;
+  const boxStyle: CSSProperties = { width: 96, flex: 'none', aspectRatio: '9 / 16', position: 'relative', overflow: 'hidden', background: 'var(--surface-2)', display: 'block' };
+  const rankBadge = (
+    <span style={{ position: 'absolute', top: 10, left: 10, zIndex: 2, fontFamily: MONO, fontSize: 11, fontWeight: 600, color: '#F3F0E7', background: 'rgba(23,21,17,.78)', padding: '2px 7px', borderRadius: 6 }}>#{String(rank).padStart(2, '0')}</span>
+  );
+  const thumbInner = (
+    <>
+      {rankBadge}
+      {hasThumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={s.ad_thumbnail_url!} alt={s.ad_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(45deg,var(--surface-2) 0 11px,var(--border) 11px 12px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(26,24,19,.4)" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.6" /><path d="M21 15l-5-5L5 21" /></svg>
+        </div>
+      )}
+      {hasLink && (
+        <span style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 2, width: 20, height: 20, borderRadius: 6, background: 'rgba(23,21,17,.72)', color: '#F3F0E7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>↗</span>
+      )}
+    </>
+  );
+
   return (
     <div style={cardStyle}>
-      <div style={{ width: 96, flex: 'none', aspectRatio: '9 / 16', background: 'repeating-linear-gradient(45deg,var(--surface-2) 0 11px,var(--border) 11px 12px)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ position: 'absolute', top: 10, left: 10, fontFamily: MONO, fontSize: 11, fontWeight: 600, color: '#F3F0E7', background: 'rgba(23,21,17,.78)', padding: '2px 7px', borderRadius: 6 }}>#{String(rank).padStart(2, '0')}</span>
-        <svg width="40" height="40" viewBox="0 0 46 46"><circle cx="23" cy="23" r="22" fill="rgba(26,24,19,.12)" /><polygon points="19,15 33,23 19,31" fill="rgba(26,24,19,.5)" /></svg>
-      </div>
+      {hasLink ? (
+        <a href={s.ad_permalink!} target="_blank" rel="noopener noreferrer" title="Abrir anuncio en Facebook/Instagram" style={{ ...boxStyle, cursor: 'pointer', textDecoration: 'none' }}>{thumbInner}</a>
+      ) : (
+        <div title={hasThumb ? 'Sin enlace disponible (anuncio de stories o dinámico)' : undefined} style={boxStyle}>{thumbInner}</div>
+      )}
       <div style={{ flex: 1, minWidth: 0, padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
         <div>
           <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.ad_name}</div>

@@ -59,6 +59,11 @@ export type MarketingMetricRow = {
   youtube_minutes_watched?: number | null;
   youtube_avg_view_duration?: number | null;
 
+  // Preview del creativo (migración 0022) — solo nivel anuncio Meta
+  ad_thumbnail_url?: string | null;
+  ad_permalink?: string | null;
+  ad_creative_sin_enlace?: boolean | null;
+
   // Payload crudo de la API origen (para debug y reconstrucción)
   raw_payload?: Record<string, unknown> | null;
 };

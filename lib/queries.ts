@@ -1153,6 +1153,10 @@ export type SenalRecon = {
   ctr_link: number | null;
   cpl_usd: number | null;
   frequency: number | null;
+  // Preview del creativo (0022) — valor más reciente del anuncio
+  ad_thumbnail_url: string | null;
+  ad_permalink: string | null;
+  ad_creative_sin_enlace: boolean;
 };
 
 export async function getSenalesRecon(
@@ -1163,7 +1167,7 @@ export async function getSenalesRecon(
   const [adsRes, budgetRes, leadsRes] = await Promise.all([
     supabase
       .from('marketing_metrics_daily')
-      .select('fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, impressions, link_clicks, video_3s_views, video_thruplay, frequency')
+      .select('fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, impressions, link_clicks, video_3s_views, video_thruplay, frequency, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace')
       .eq('plataforma', 'meta')
       .not('ad_id', 'is', null)
       .gte('fecha', start)
@@ -1180,7 +1184,7 @@ export async function getSenalesRecon(
   ]);
   for (const r of [adsRes, budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
 
-  type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null };
+  type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null; ad_thumbnail_url: string | null; ad_permalink: string | null; ad_creative_sin_enlace: boolean | null };
   const adRows = (adsRes.data ?? []) as AdRow[];
 
   // Gasto diario por adset (suma de sus anuncios) — para la señal de ritmo.
@@ -1212,10 +1216,17 @@ export async function getSenalesRecon(
   }
 
   // Agregar por anuncio
-  type Acc = { ad_name: string | null; campana: string | null; adset_id: string | null; adset_name: string | null; spendMxn: number; leads: number; imp: number; clk: number; v3: number; thru: number; freqVals: number[]; diasSpend: Set<string>; fechasSpend: string[] };
+  type Acc = { ad_name: string | null; campana: string | null; adset_id: string | null; adset_name: string | null; spendMxn: number; leads: number; imp: number; clk: number; v3: number; thru: number; freqVals: number[]; diasSpend: Set<string>; fechasSpend: string[]; thumb: string | null; permalink: string | null; sinEnlace: boolean; lastFecha: string };
   const porAd = new Map<string, Acc>();
   for (const r of adRows) {
-    const a = porAd.get(r.ad_id) ?? { ad_name: r.ad_name, campana: r.campaign_name, adset_id: r.adset_id, adset_name: r.adset_name, spendMxn: 0, leads: 0, imp: 0, clk: 0, v3: 0, thru: 0, freqVals: [], diasSpend: new Set<string>(), fechasSpend: [] };
+    const a = porAd.get(r.ad_id) ?? { ad_name: r.ad_name, campana: r.campaign_name, adset_id: r.adset_id, adset_name: r.adset_name, spendMxn: 0, leads: 0, imp: 0, clk: 0, v3: 0, thru: 0, freqVals: [], diasSpend: new Set<string>(), fechasSpend: [], thumb: null, permalink: null, sinEnlace: false, lastFecha: '' };
+    // Creativo: tomar el valor de la fila más reciente del anuncio.
+    if (r.fecha >= a.lastFecha) {
+      a.lastFecha = r.fecha;
+      a.thumb = r.ad_thumbnail_url ?? null;
+      a.permalink = r.ad_permalink ?? null;
+      a.sinEnlace = r.ad_creative_sin_enlace ?? false;
+    }
     const sp = Number(r.spend ?? 0);
     a.spendMxn += sp;
     a.leads += Number(r.leads_count ?? 0);
@@ -1292,6 +1303,9 @@ export async function getSenalesRecon(
       ctr_link: a.imp > 0 ? (a.clk / a.imp) * 100 : null,
       cpl_usd: a.leads > 0 ? spendUsd / a.leads : null,
       frequency: a.freqVals.length > 0 ? a.freqVals.reduce((s, v) => s + v, 0) / a.freqVals.length : null,
+      ad_thumbnail_url: a.thumb,
+      ad_permalink: a.permalink,
+      ad_creative_sin_enlace: a.sinEnlace,
     });
   }
 

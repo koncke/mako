@@ -290,9 +290,85 @@ export function parseInsightsToMetrics(
       youtube_minutes_watched: null,
       youtube_avg_view_duration: null,
 
+      // Creativo (0022): se rellenan después con applyCreatives (fetchAdCreatives).
+      ad_thumbnail_url: null,
+      ad_permalink: null,
+      ad_creative_sin_enlace: null,
+
       raw_payload: ins as unknown as Record<string, unknown>,
     };
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Creativos: miniatura + permalink por anuncio (0022)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CreativeInfo = {
+  thumbnail_url: string | null;
+  permalink: string | null;
+  sin_enlace: boolean;
+};
+
+type CreativeResponse = {
+  creative?: {
+    thumbnail_url?: string;
+    effective_object_story_id?: string;
+    instagram_permalink_url?: string;
+  };
+  error?: { message: string; code?: number };
+};
+
+/**
+ * Trae el creativo (miniatura + permalink) de cada ad_id, UNA vez por anuncio.
+ * - permalink: instagram_permalink_url; si no, https://www.facebook.com/{story_id};
+ *   si no hay ninguno (stories / Audience Network / DCO) → null + sin_enlace.
+ * - thumbnail se refresca siempre (las URLs de Meta expiran).
+ * Falla suave por anuncio: si una llamada falla, loguea y sigue.
+ */
+export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, CreativeInfo>> {
+  const out = new Map<string, CreativeInfo>();
+  const unique = [...new Set(adIds.filter(Boolean))];
+  if (unique.length === 0) return out;
+
+  const apiVersion = getEnv('META_API_VERSION');
+  const token = getEnv('META_ACCESS_TOKEN');
+
+  for (const adId of unique) {
+    try {
+      const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
+      url.searchParams.set('fields', 'creative{thumbnail_url,effective_object_story_id,instagram_permalink_url}');
+      url.searchParams.set('access_token', token);
+
+      const res = await fetch(url.toString(), { method: 'GET' });
+      const body = (await res.json()) as CreativeResponse;
+      if (body.error) {
+        console.warn(`[meta] creative ${adId}: ${body.error.message}`);
+        continue;
+      }
+      const c = body.creative;
+      const thumbnail_url = c?.thumbnail_url ?? null;
+      let permalink: string | null = null;
+      if (c?.instagram_permalink_url) permalink = c.instagram_permalink_url;
+      else if (c?.effective_object_story_id) permalink = `https://www.facebook.com/${c.effective_object_story_id}`;
+      out.set(adId, { thumbnail_url, permalink, sin_enlace: permalink === null });
+    } catch (err) {
+      console.warn(`[meta] creative ${adId} falló: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return out;
+}
+
+/** Aplica los creativos traídos sobre las filas de métricas (in place). */
+export function applyCreatives(metrics: MarketingMetricRow[], creatives: Map<string, CreativeInfo>): void {
+  for (const m of metrics) {
+    if (!m.ad_id) continue;
+    const c = creatives.get(m.ad_id);
+    if (!c) continue;
+    m.ad_thumbnail_url = c.thumbnail_url;
+    m.ad_permalink = c.permalink;
+    m.ad_creative_sin_enlace = c.sin_enlace;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

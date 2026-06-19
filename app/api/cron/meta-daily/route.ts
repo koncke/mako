@@ -17,6 +17,8 @@ import {
   parseInsightsToMetrics,
   upsertMetrics,
   fetchAdsetBudgets,
+  fetchAdCreatives,
+  applyCreatives,
   MetaTokenError,
   MetaRateLimitError,
   MetaApiError,
@@ -55,6 +57,18 @@ export async function GET(request: NextRequest) {
   try {
     const insights = await fetchMetaInsights(fecha);
     const metrics = parseInsightsToMetrics(insights, fecha);
+
+    // Creativo (miniatura + permalink) por anuncio. Si falla, NO romper el cron:
+    // las métricas se guardan igual, solo sin preview.
+    try {
+      const creatives = await fetchAdCreatives(
+        metrics.map((m) => m.ad_id).filter((v): v is string => !!v),
+      );
+      applyCreatives(metrics, creatives);
+    } catch (err) {
+      console.error(`[cron:meta-daily] creativos falló (no fatal): ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     const inserted = await upsertMetrics(metrics);
 
     // Presupuestos de adsets (Fase 1 v2) — si falla, loguear y NO romper
