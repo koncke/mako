@@ -61,6 +61,8 @@ export type CrmLead = {
   fathom: FathomLink[];
   motivo: string;
   calendly: { q: string; a: string }[];
+  landingVisitas: number;
+  landingDias: number;
 };
 export type CrmJunta = {
   id: string;

@@ -113,7 +113,6 @@ export default async function GeneralPage() {
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
         <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Vista General</h1>
-        <button style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 14.5, fontWeight: 500, cursor: 'pointer' }}>Todo el periodo <span style={{ fontSize: 10, opacity: 0.5 }}>▾</span></button>
       </header>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>

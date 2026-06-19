@@ -66,6 +66,20 @@ export async function POST(request: NextRequest) {
   // lo tratamos como play.
   let tipoEvento =
     typeof payload.tipo_evento === 'string' ? payload.tipo_evento.trim().toLowerCase() : '';
+
+  // Visita a la landing → tabla propia (landing_visits), NO vsl_events.
+  // Se intercepta antes de la coerción a 'play' de tipos desconocidos.
+  if (tipoEvento === 'pageview') {
+    try {
+      const supabase = getSupabaseServer();
+      const { error } = await supabase.from('landing_visits').insert({ visitor_id: visitorId });
+      if (error) console.error(`[track:vsl] landing_visits insert falló: ${error.message}`);
+    } catch (err) {
+      console.error(`[track:vsl] landing_visits error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS });
+  }
+
   if (!tipoEvento) {
     tipoEvento = typeof payload.event === 'string' && payload.event.trim() ? 'play' : 'play';
   }

@@ -1017,3 +1017,78 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   const { error } = await supabase.from('leads').update(payload).eq('id', id);
   if (error) throw new Error(`Error guardando datos del lead ${id}: ${error.message}`);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Landing visits (migración 0021) — pageviews de la landing, aparte del VSL
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type VisitasLanding = {
+  total_visitas: number;
+  dias_distintos: number;
+  primera_visita: string | null;
+  ultima_visita: string | null;
+  fechas: string[]; // YYYY-MM-DD distintas, ascendente
+};
+
+const SIN_VISITAS: VisitasLanding = {
+  total_visitas: 0, dias_distintos: 0, primera_visita: null, ultima_visita: null, fechas: [],
+};
+
+function resumirVisitas(rows: Array<{ created_at: string }>): VisitasLanding {
+  if (rows.length === 0) return { ...SIN_VISITAS };
+  const ordenadas = rows.map((r) => r.created_at).sort();
+  const fechas = [...new Set(ordenadas.map((c) => c.slice(0, 10)))].sort();
+  return {
+    total_visitas: rows.length,
+    dias_distintos: fechas.length,
+    primera_visita: ordenadas[0],
+    ultima_visita: ordenadas[ordenadas.length - 1],
+    fechas,
+  };
+}
+
+/**
+ * Resumen de visitas a la landing de UN visitor_id. No toca vsl_events.
+ */
+export async function contarVisitasLanding(visitorId: string | null): Promise<VisitasLanding> {
+  if (!visitorId) return { ...SIN_VISITAS };
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('landing_visits')
+    .select('created_at')
+    .eq('visitor_id', visitorId);
+  if (error) {
+    console.error(`[contarVisitasLanding] falló: ${error.message}`);
+    return { ...SIN_VISITAS };
+  }
+  return resumirVisitas((data ?? []) as Array<{ created_at: string }>);
+}
+
+/**
+ * Versión por lote: visitas por visitor_id para una lista (evita N queries en
+ * la tabla del CRM). Devuelve un Map visitor_id → VisitasLanding.
+ */
+export async function getVisitasLandingMap(
+  visitorIds: Array<string | null | undefined>,
+): Promise<Map<string, VisitasLanding>> {
+  const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
+  const out = new Map<string, VisitasLanding>();
+  if (ids.length === 0) return out;
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('landing_visits')
+    .select('visitor_id, created_at')
+    .in('visitor_id', ids);
+  if (error) {
+    console.error(`[getVisitasLandingMap] falló: ${error.message}`);
+    return out;
+  }
+  const porVisitor = new Map<string, Array<{ created_at: string }>>();
+  for (const r of (data ?? []) as Array<{ visitor_id: string; created_at: string }>) {
+    const arr = porVisitor.get(r.visitor_id) ?? [];
+    arr.push({ created_at: r.created_at });
+    porVisitor.set(r.visitor_id, arr);
+  }
+  for (const [vid, rows] of porVisitor) out.set(vid, resumirVisitas(rows));
+  return out;
+}

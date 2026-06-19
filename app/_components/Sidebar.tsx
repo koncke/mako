@@ -110,7 +110,7 @@ export function Sidebar() {
 
   useEffect(() => {
     let alive = true;
-    fetch('/api/pendientes-count')
+    fetch('/api/datos-sin-marcar-count')
       .then((r) => r.json())
       .then((d) => {
         if (alive && typeof d?.total === 'number') setBadge(d.total);

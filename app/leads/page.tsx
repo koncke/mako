@@ -2,7 +2,7 @@
 // /leads — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
 // =============================================================================
 
-import { listLeads, getPipelineStages, type Lead } from '@/lib/leads';
+import { listLeads, getPipelineStages, getVisitasLandingMap, type Lead } from '@/lib/leads';
 import {
   getCampaignNameMap,
   resolverNombreCampana,
@@ -73,6 +73,10 @@ export default async function LeadsPage() {
     stages = DEFAULT_STAGES;
   }
 
+  const visitasMap = await getVisitasLandingMap(leads.map((l) => l.visitor_id)).catch(
+    () => new Map<string, { total_visitas: number; dias_distintos: number }>(),
+  );
+
   const telById = new Map(leads.map((l) => [l.id, l.telefono]));
 
   const crmLeads: CrmLead[] = leads.map((l) => ({
@@ -97,6 +101,8 @@ export default async function LeadsPage() {
     fathom: (l.fathom_links as { label: string; url: string }[] | null) ?? [],
     motivo: l.motivo_perdida ?? '',
     calendly: calendlyDe(l),
+    landingVisitas: visitasMap.get(l.visitor_id ?? '')?.total_visitas ?? 0,
+    landingDias: visitasMap.get(l.visitor_id ?? '')?.dias_distintos ?? 0,
   }));
 
   const juntas: CrmJunta[] = juntasRaw.map((j) => ({

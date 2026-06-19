@@ -14,12 +14,13 @@ import {
   getTendencias,
   getSenalesRecon,
   getResumenComparativo,
+  getRevenuePeriod,
+  type RevenuePeriod,
   type MarketingWindow,
   type FunnelMes,
   type FunnelSeries,
   type Tendencias,
   type SenalRecon,
-  type ReconVeredicto,
   type ResumenComparativo,
 } from '@/lib/queries';
 import {
@@ -30,8 +31,10 @@ import {
   diasAntes,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
+import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
+import { AnuncioCard, tieneSenal, compararCombo } from './AnuncioCard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -112,6 +115,7 @@ export default async function Page({
   let senales: SenalRecon[] = [];
   let tendencias: Tendencias | null = null;
   let comparativo: ResumenComparativo | null = null;
+  let revenue: RevenuePeriod | null = null;
   let errorMsg: string | null = null;
 
   // Recon mira siempre los últimos 14 días (no depende del filtro de rango).
@@ -119,13 +123,14 @@ export default async function Page({
 
   try {
     const sourceMap = sourcesToMap(await getDataSources());
-    [mkt, funnel, funnelSeries, senales, tendencias, comparativo] = await Promise.all([
+    [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue] = await Promise.all([
       getMarketingWindow(rangoDesde, rangoHasta),
       getFunnelEtapas(rangoDesde, rangoHasta, sourceMap),
       getFunnelSeries(rangoHasta, 12),
       getSenalesRecon(reconDesde, rangoHasta),
       getTendencias(rangoDesde, rangoHasta),
       filtroActivo ? Promise.resolve(null) : getResumenComparativo(ayerReal),
+      getRevenuePeriod(rangoDesde, rangoHasta),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -154,7 +159,7 @@ export default async function Page({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          <KpisEstrella mkt={mkt} comparativo={comparativo} filtroActivo={filtroActivo} />
+          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} />
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} />
 
@@ -178,10 +183,12 @@ export default async function Page({
 function KpisEstrella({
   mkt,
   comparativo,
+  revenue,
   filtroActivo,
 }: {
   mkt: MarketingWindow;
   comparativo: ResumenComparativo | null;
+  revenue: RevenuePeriod | null;
   filtroActivo: boolean;
 }) {
   // Inversión: spend del rango. Delta = factor vs mismo período del mes anterior.
@@ -194,18 +201,11 @@ function KpisEstrella({
   }
   const etiquetaAnt = comparativo?.etiqueta_anterior ?? null;
 
-  // CAC real: spend ÷ cierres en la ventana (query ya lo calcula).
-  const cacReal = mkt.cac;
-
-  // ROAS cash: cash collected ÷ spend. Solo disponible sin filtro (MTD del
-  // comparativo). Con filtro de rango no tenemos cash del rango → '—'.
-  const cashAct = comparativo?.cash_usd.actual ?? null;
-  const roasCash =
-    !filtroActivo && cashAct !== null && spend > 0 ? cashAct / spend : null;
-
-  // ROAS sold: sold (firmado) ÷ spend. Estas queries no exponen sold del rango
-  // → mostramos '—' en vez de inventar el número.
-  const roasSold: number | null = null;
+  // CAC real y ROAS: los toma getRevenuePeriod, que calcula sold/cash/spend del
+  // MISMO rango (con o sin filtro) — así dejan de quedar en '—' al filtrar.
+  const cacReal = revenue?.cac_usd ?? mkt.cac;
+  const roasCash = revenue?.roas_cash ?? null;
+  const roasSold = revenue?.roas_sold ?? null;
 
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
@@ -378,22 +378,6 @@ function SaludDelFunnel({ mkt, funnel }: { mkt: MarketingWindow; funnel: FunnelM
 // 4 — Anuncios ganadores (cards desde getSenalesRecon)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VEREDICTO_BADGE: Record<ReconVeredicto, { label: string; bg: string; color: string }> = {
-  validada: { label: 'Validada — escalar', bg: 'var(--good)', color: '#fff' },
-  falso_positivo: { label: 'Falso positivo', bg: 'var(--warn-bg)', color: 'var(--warn)' },
-  apagar: { label: 'Apagar', bg: 'var(--bad-bg)', color: 'var(--bad)' },
-  explorando: { label: 'Explorando', bg: 'var(--surface-2)', color: 'var(--dim)' },
-  pausada: { label: 'Pausada', bg: 'var(--surface-2)', color: 'var(--faint)' },
-};
-
-function tieneSenal(s: SenalRecon): boolean {
-  return s.leads > 0 || s.agendas > 0 || s.spend_usd > 0;
-}
-function compararCombo(a: SenalRecon, b: SenalRecon): number {
-  if (b.agendas !== a.agendas) return b.agendas - a.agendas;
-  if (b.cierres !== a.cierres) return b.cierres - a.cierres;
-  return b.leads - a.leads;
-}
 
 function AnunciosGanadores({ senales }: { senales: SenalRecon[] }) {
   const conSenal = senales.filter(tieneSenal).sort(compararCombo);
@@ -404,7 +388,7 @@ function AnunciosGanadores({ senales }: { senales: SenalRecon[] }) {
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
         <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h2>
-        <button style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>Ver los {totalConSenal} →</button>
+        <Link href="/marketing/anuncios" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', textDecoration: 'none' }}>Ver los {totalConSenal} →</Link>
       </div>
 
       {top.length === 0 ? (
@@ -422,55 +406,3 @@ function AnunciosGanadores({ senales }: { senales: SenalRecon[] }) {
   );
 }
 
-function AnuncioCard({ s, rank }: { s: SenalRecon; rank: number }) {
-  const v = VEREDICTO_BADGE[s.veredicto];
-  const validada = s.veredicto === 'validada';
-  const pct = Math.min((s.leads / Math.max(s.meta_leads, 1)) * 100, 100);
-  const metaOk = s.leads >= s.meta_leads;
-  const barColor = metaOk ? 'var(--good)' : 'var(--warn-fill)';
-  const ritmoTexto = s.ritmo === 'verde' ? '✓ ritmo' : s.ritmo === 'cruz' ? '✗ ritmo' : '· ritmo';
-  const ritmoColor = s.ritmo === 'verde' ? 'var(--good)' : 'var(--dim)';
-  const agendaColor = s.agendas > 0 ? 'var(--good)' : 'var(--faint)';
-
-  const cardStyle: CSSProperties = {
-    display: 'flex',
-    border: `1px solid ${validada ? 'var(--good)' : 'var(--border)'}`,
-    borderRadius: 14,
-    overflow: 'hidden',
-    background: 'var(--surface)',
-    ...(validada ? { boxShadow: '0 0 0 1px var(--good)' } : {}),
-  };
-
-  return (
-    <div style={cardStyle}>
-      <div style={{ width: 96, flex: 'none', aspectRatio: '9 / 16', background: 'repeating-linear-gradient(45deg,var(--surface-2) 0 11px,var(--border) 11px 12px)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ position: 'absolute', top: 10, left: 10, fontFamily: MONO, fontSize: 11, fontWeight: 600, color: '#F3F0E7', background: 'rgba(23,21,17,.78)', padding: '2px 7px', borderRadius: 6 }}>#{String(rank).padStart(2, '0')}</span>
-        <svg width="40" height="40" viewBox="0 0 46 46"><circle cx="23" cy="23" r="22" fill="rgba(26,24,19,.12)" /><polygon points="19,15 33,23 19,31" fill="rgba(26,24,19,.5)" /></svg>
-      </div>
-      <div style={{ flex: 1, minWidth: 0, padding: '15px 16px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-        <div>
-          <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.ad_name}</div>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: validada ? 'var(--good)' : 'var(--dim)', marginTop: 4 }}>
-            {fmtUSD(s.spend_usd, 0)} · {s.dias_corriendo}d · <span style={{ color: ritmoColor }}>{ritmoTexto}</span>
-          </div>
-        </div>
-        <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: v.bg, color: v.color }}>{v.label}</span>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, marginTop: 'auto' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--dim)', marginBottom: 6 }}>
-              <span>Intención</span>
-              <span style={{ fontFamily: MONO, color: 'var(--ink)' }}>{s.leads} / {s.meta_leads}</span>
-            </div>
-            <div style={{ height: 6, borderRadius: 3, background: 'var(--surface-2)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: barColor }} />
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontWeight: 600, fontSize: 26, lineHeight: 0.9, color: agendaColor, fontVariantNumeric: 'tabular-nums' }}>{s.agendas}</div>
-            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 2 }}>{s.agendas === 1 ? 'agenda' : 'agendas'}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

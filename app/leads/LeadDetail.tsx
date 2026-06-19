@@ -193,9 +193,19 @@ export function LeadDetail({
           <details style={{ ...card, padding: '0 18px' }}>
             <summary style={summary}>Comportamiento<span style={{ fontSize: 11 }}>▾</span></summary>
             <div style={{ padding: '0 0 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-              {[['Visitas a la landing', '—'], ['Sesiones', '—'], ['Retención del VSL', '—']].map(([l2, v]) => (
-                <div key={l2} style={miniCard}><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{l2}</div><div style={{ fontSize: 22, color: l2.includes('VSL') ? 'var(--accent)' : 'var(--ink)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{v}</div></div>
-              ))}
+              <div style={miniCard}>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Visitó la landing</div>
+                <div style={{ fontSize: 22, color: 'var(--ink)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{lead.landingVisitas}<span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}> {lead.landingVisitas === 1 ? 'vez' : 'veces'}</span></div>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{lead.landingDias} {lead.landingDias === 1 ? 'día distinto' : 'días distintos'}</div>
+              </div>
+              <div style={miniCard}>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Sesiones</div>
+                <div style={{ fontSize: 22, color: 'var(--ink)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>—</div>
+              </div>
+              <div style={miniCard}>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Retención del VSL</div>
+                <div style={{ fontSize: 22, color: 'var(--accent)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>—</div>
+              </div>
             </div>
           </details>
 
