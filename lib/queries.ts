@@ -1164,14 +1164,25 @@ export async function getSenalesRecon(
   end: string,
 ): Promise<SenalRecon[]> {
   const supabase = getSupabaseServer();
-  const [adsRes, budgetRes, leadsRes] = await Promise.all([
+  // Columnas del creativo (migración 0022). Si la migración aún no se aplicó,
+  // la query falla con "column ... does not exist" → reintentamos sin ellas para
+  // no romper toda la pantalla de Marketing (degradación elegante).
+  const BASE_ADS = 'fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, impressions, link_clicks, video_3s_views, video_thruplay, frequency';
+  const adsQuery = (cols: string) =>
     supabase
       .from('marketing_metrics_daily')
-      .select('fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, impressions, link_clicks, video_3s_views, video_thruplay, frequency, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace')
+      .select(cols)
       .eq('plataforma', 'meta')
       .not('ad_id', 'is', null)
       .gte('fecha', start)
-      .lte('fecha', end),
+      .lte('fecha', end);
+
+  let adsRes = await adsQuery(`${BASE_ADS}, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace`);
+  if (adsRes.error && /ad_thumbnail_url|ad_permalink|ad_creative_sin_enlace/.test(adsRes.error.message)) {
+    adsRes = await adsQuery(BASE_ADS);
+  }
+
+  const [budgetRes, leadsRes] = await Promise.all([
     supabase
       .from('adset_budget_daily')
       .select('fecha, adset_id, daily_budget_mxn')
@@ -1185,7 +1196,7 @@ export async function getSenalesRecon(
   for (const r of [adsRes, budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
 
   type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null; ad_thumbnail_url: string | null; ad_permalink: string | null; ad_creative_sin_enlace: boolean | null };
-  const adRows = (adsRes.data ?? []) as AdRow[];
+  const adRows = (adsRes.data ?? []) as unknown as AdRow[];
 
   // Gasto diario por adset (suma de sus anuncios) — para la señal de ritmo.
   const adsetDaySpendMxn = new Map<string, number>(); // key `${adset_id}|${fecha}`
