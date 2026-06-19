@@ -99,7 +99,7 @@ export function TendenciasSection({ tendencias }: { tendencias: Tendencias }) {
             <XAxis dataKey="x" tick={{ fill: 'var(--text-dim)', fontSize: 12 }} interval="preserveStartEnd" minTickGap={24} />
             <YAxis tick={{ fill: 'var(--text-dim)', fontSize: 12 }} width={56} tickFormatter={(v: number) => fmt(v, serie.formato)} />
             <Tooltip
-              contentStyle={{ background: '#0a0a0a', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }}
+              contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }}
               labelStyle={{ color: 'var(--text-dim)' }}
               formatter={(value) => [fmt(typeof value === 'number' ? value : null, serie.formato), serie.label] as [string, string]}
             />
@@ -112,7 +112,7 @@ export function TendenciasSection({ tendencias }: { tendencias: Tendencias }) {
       {cuadros.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
           {cuadros.map((c) => (
-            <div key={c.label} className="rounded-lg border p-4" style={{ borderColor: 'var(--card-border)', background: '#0f0f0f' }}>
+            <div key={c.label} className="rounded-lg border p-4" style={{ borderColor: 'var(--card-border)', background: 'var(--surface-2)' }}>
               <div className="text-sm uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>{c.label}</div>
               <div className="text-[24px] font-semibold tabular-nums" style={{ color: 'var(--text)' }}>{fmtCuadro(c)}</div>
               {c.hint && <div className="text-sm mt-1" style={{ color: 'var(--text-pending)' }}>{c.hint}</div>}
@@ -143,7 +143,7 @@ function FamiliaSelector({
             style={{
               borderColor: activo ? 'var(--accent-yellow)' : 'var(--card-border)',
               color: activo ? 'var(--accent-yellow)' : 'var(--text-dim)',
-              background: activo ? '#1a1a1a' : 'transparent',
+              background: activo ? 'var(--surface-2)' : 'transparent',
             }}
           >
             {s.label}

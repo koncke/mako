@@ -36,6 +36,7 @@ import {
   esFechaValida,
   primerDiaDelMesDeFecha,
 } from '@/lib/date-utils';
+import { FechaFiltro } from '../_components/FechaFiltro';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -175,25 +176,7 @@ export default async function ComercialPage({
         <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
           Comercial
         </h1>
-        <button
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 9,
-            padding: '11px 17px',
-            borderRadius: 11,
-            border: '1px solid var(--border-strong)',
-            background: 'var(--surface)',
-            color: 'var(--dim)',
-            fontFamily: "'Geist', sans-serif",
-            fontSize: 14.5,
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}
-        >
-          {filtroActivo ? `${revDesde} → ${revHasta}` : 'Todo el periodo'}{' '}
-          <span style={{ fontSize: 10, opacity: 0.5 }}>▾</span>
-        </button>
+        <FechaFiltro hoyReal={hoyReal} />
       </header>
 
       {errorMsg ? (

@@ -18,8 +18,6 @@ import {
   type FunnelMes,
   type FunnelSeries,
   type Tendencias,
-  type SerieMetrica,
-  type FormatoSerie,
   type SenalRecon,
   type ReconVeredicto,
   type ResumenComparativo,
@@ -32,6 +30,8 @@ import {
   diasAntes,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
+import { FechaFiltro } from '../_components/FechaFiltro';
+import { TendenciasSection } from '../_components/TendenciasSection';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -62,16 +62,6 @@ function fmtUSD(n: number | null | undefined, decimals?: number): string {
 function fmtX(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return `${n.toFixed(2)}x`;
-}
-
-function fmtSerie(v: number | null | undefined, f: FormatoSerie): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
-  if (f === 'usd') {
-    const dec = Math.abs(v) < 100 ? 2 : 0;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: dec, minimumFractionDigits: dec }).format(v);
-  }
-  if (f === 'pct') return `${v < 10 ? v.toFixed(1) : v.toFixed(0)}%`;
-  return new Intl.NumberFormat('es-MX').format(Math.round(v));
 }
 
 function fmtPeriodoLabel(desde: string, hasta: string): string {
@@ -153,9 +143,7 @@ export default async function Page({
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Marketing</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          <button style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '11px 17px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14.5, fontWeight: 500, cursor: 'pointer' }}>
-            {filtroActivo ? 'Rango filtrado' : 'Todo el periodo'} <span style={{ fontSize: 10, opacity: 0.5 }}>▾</span>
-          </button>
+          <FechaFiltro hoyReal={hoyReal} />
         </div>
       </header>
 
@@ -170,7 +158,7 @@ export default async function Page({
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} />
 
-          {tendencias && <TendenciaSection tendencias={tendencias} />}
+          {tendencias && <TendenciasSection tendencias={tendencias} />}
 
           <AnunciosGanadores senales={senales} />
 
@@ -385,170 +373,6 @@ function SaludDelFunnel({ mkt, funnel }: { mkt: MarketingWindow; funnel: FunnelM
 // con su línea/área calculadas en el servidor. Los chips se muestran como en el
 // diseño, con la métrica activa resaltada.
 
-function niceMax(m: number): number {
-  if (!(m > 0)) return 1;
-  const p = Math.pow(10, Math.floor(Math.log10(m)));
-  const r = m / p;
-  const nice = r <= 1 ? 1 : r <= 2 ? 2 : r <= 5 ? 5 : 10;
-  return nice * p;
-}
-
-function TendenciaSection({ tendencias }: { tendencias: Tendencias }) {
-  const todas = [...tendencias.marketing, ...tendencias.comercial];
-  const sel: SerieMetrica | undefined = tendencias.marketing[0] ?? todas[0];
-
-  if (!sel || tendencias.periodos.length === 0) {
-    return (
-      <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Tendencia</h2>
-        <p style={{ fontSize: 14, color: 'var(--faint)', marginTop: 16 }}>Sin datos en el rango seleccionado.</p>
-      </section>
-    );
-  }
-
-  const labels = tendencias.periodos;
-  const n = labels.length;
-  const vals = sel.valores;
-  const noNulos = vals.filter((v): v is number => v !== null && Number.isFinite(v));
-
-  // Headline + delta vs período anterior.
-  const total = noNulos.reduce((a, c) => a + c, 0);
-  const esTasa = sel.formato === 'pct' || sel.key === 'cpl' || sel.key === 'cac';
-  const headline = esTasa ? (noNulos.length > 0 ? total / noNulos.length : null) : total;
-  const headlineSub = esTasa ? 'promedio del período' : 'total del período';
-  const ultimo = noNulos.length > 0 ? noNulos[noNulos.length - 1] : null;
-  const previo = noNulos.length > 1 ? noNulos[noNulos.length - 2] : null;
-  let variacion: number | null = null;
-  if (ultimo !== null && previo !== null && previo !== 0) variacion = ((ultimo - previo) / previo) * 100;
-  const menosEsMejor = sel.key === 'cpl' || sel.key === 'cac';
-  const buena = variacion === null ? true : menosEsMejor ? variacion <= 0 : variacion >= 0;
-  const deltaText = variacion === null ? '→' : `${variacion >= 0 ? '↑ ' : '↓ '}${Math.abs(variacion).toFixed(0)}%`;
-  const deltaStyle: CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 14, fontWeight: 600,
-    padding: '6px 13px', borderRadius: 9, fontVariantNumeric: 'tabular-nums',
-    color: variacion === null ? 'var(--dim)' : buena ? 'var(--good)' : 'var(--bad)',
-    background: variacion === null ? 'var(--surface-2)' : buena ? 'var(--good-bg)' : 'var(--bad-bg)',
-  };
-
-  // Geometría del SVG (viewBox 1000x300), igual que el prototipo.
-  const W = 1000, H = 300, padT = 14;
-  const yMax = niceMax(Math.max(...noNulos, 0.0001));
-  const xAt = (i: number) => (n <= 1 ? 0 : (i / (n - 1)) * W);
-  const yAt = (v: number) => padT + (1 - v / yMax) * (H - padT);
-
-  // Segmentos continuos (nulls = huecos).
-  const segs: string[] = [];
-  let cur: string[] = [];
-  vals.forEach((v, i) => {
-    if (v === null || !Number.isFinite(v)) {
-      if (cur.length) { segs.push(cur.join(' ')); cur = []; }
-    } else {
-      cur.push(`${cur.length ? 'L' : 'M'} ${xAt(i).toFixed(1)} ${yAt(v).toFixed(1)}`);
-    }
-  });
-  if (cur.length) segs.push(cur.join(' '));
-  const linePath = segs.join(' ');
-  // Área: solo si hay una serie contigua razonable; usamos los puntos válidos.
-  const validPts = vals.map((v, i) => ({ v, i })).filter((p): p is { v: number; i: number } => p.v !== null && Number.isFinite(p.v));
-  const areaPath =
-    validPts.length >= 2
-      ? 'M ' + validPts.map((p) => `${xAt(p.i).toFixed(1)} ${yAt(p.v).toFixed(1)}`).join(' L ') +
-        ` L ${xAt(validPts[validPts.length - 1].i).toFixed(1)} ${H} L ${xAt(validPts[0].i).toFixed(1)} ${H} Z`
-      : '';
-
-  const fr = [1, 0.75, 0.5, 0.25, 0];
-  const yTicks = fr.map((f) => ({ label: fmtSerie(yMax * f, sel.formato), y: yAt(yMax * f) }));
-
-  const xIdx = n <= 1 ? [0] : [0, Math.round((n - 1) / 3), Math.round((2 * (n - 1)) / 3), n - 1];
-  const xTicks = Array.from(new Set(xIdx)).map((i) => ({ label: labels[i], left: n <= 1 ? 50 : (i / (n - 1)) * 100 }));
-
-  // Cuadros de contexto de la métrica.
-  const cuadros = sel.cuadros.filter((c) => c.texto !== undefined || (c.valor !== null && Number.isFinite(c.valor)));
-
-  const chipStyle = (active: boolean): CSSProperties => ({
-    padding: '7px 13px', borderRadius: 9, fontSize: 13, cursor: 'default', fontFamily: SANS,
-    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-    color: active ? 'var(--ink)' : 'var(--dim)',
-    background: active ? 'var(--warn-bg)' : 'transparent',
-    fontWeight: active ? 600 : 500,
-  });
-
-  return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Tendencia</h2>
-
-      {/* chips de métricas (visual; la activa es la primera de marketing) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, margin: '20px 0 24px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', width: 64, flex: 'none' }}>Mkt</span>
-          {tendencias.marketing.map((m) => (
-            <span key={m.key} style={chipStyle(m.key === sel.key)}>{m.label}</span>
-          ))}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', width: 64, flex: 'none' }}>Com</span>
-          {tendencias.comercial.map((m) => (
-            <span key={m.key} style={chipStyle(false)}>{m.label}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* headline */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{sel.label}</div>
-          <div style={{ fontWeight: 600, fontSize: 50, lineHeight: 0.95, letterSpacing: '-0.03em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', marginTop: 6 }}>{fmtSerie(headline, sel.formato)}</div>
-          <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', marginTop: 6 }}>{headlineSub}</div>
-        </div>
-        <span style={deltaStyle}>{deltaText}</span>
-      </div>
-
-      {/* gráfico */}
-      <div style={{ display: 'flex', gap: 14 }}>
-        <div style={{ width: 54, flex: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 300, padding: '8px 0', textAlign: 'right' }}>
-          {yTicks.map((t, i) => (
-            <span key={i} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{t.label}</span>
-          ))}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ position: 'relative', height: 300, width: '100%' }}>
-            <svg viewBox="0 0 1000 300" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block', overflow: 'visible' }}>
-              <defs>
-                <linearGradient id="tendGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--line)" stopOpacity="0.22" />
-                  <stop offset="100%" stopColor="var(--line)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {yTicks.map((t, i) => (
-                <line key={i} x1="0" y1={t.y} x2="1000" y2={t.y} stroke="var(--border)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-              ))}
-              {areaPath && <path d={areaPath} fill="url(#tendGrad)" />}
-              {linePath && <path d={linePath} fill="none" stroke="var(--line)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
-            </svg>
-          </div>
-          <div style={{ position: 'relative', height: 16, marginTop: 10 }}>
-            {xTicks.map((x, i) => (
-              <span key={i} style={{ position: 'absolute', left: `${x.left}%`, transform: 'translateX(-50%)', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{x.label}</span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* cuadros de contexto */}
-      {cuadros.length > 0 && (
-        <div style={{ display: 'flex', gap: 36, marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
-          {cuadros.map((b) => (
-            <div key={b.label}>
-              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 7 }}>{b.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{b.texto ?? fmtSerie(b.valor, b.formato)}</div>
-              {b.hint && <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{b.hint}</div>}
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4 — Anuncios ganadores (cards desde getSenalesRecon)

@@ -21,6 +21,7 @@ import {
 } from '@/lib/queries';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
+import { EditarMeta } from './EditarMeta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -116,7 +117,7 @@ export default async function GeneralPage() {
       </header>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-        <HeroGoal meta={meta} actual={actual} faltan={faltan} cierres30={objetivo?.cierres_30d ?? 0} semanas={objetivo?.semanas_estimadas ?? null} cashActual={cashActual} cashMeta={cashMeta} cashPct={cashPct} sold={sold} />
+        <HeroGoal meta={meta} actual={actual} faltan={faltan} cierres30={objetivo?.cierres_30d ?? 0} semanas={objetivo?.semanas_estimadas ?? null} cashActual={cashActual} cashMeta={cashMeta} cashPct={cashPct} sold={sold} cierresMetaRaw={objetivo?.cierres_meta ?? null} cashMetaRaw={objetivo?.cash_meta ?? null} desde={objetivo?.desde ?? ''} />
 
         {comparativo && <ResumenMes c={comparativo} />}
 
@@ -132,9 +133,10 @@ export default async function GeneralPage() {
   );
 }
 
-function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMeta, cashPct, sold }: {
+function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMeta, cashPct, sold, cierresMetaRaw, cashMetaRaw, desde }: {
   meta: number; actual: number; faltan: number; cierres30: number; semanas: number | null;
   cashActual: number; cashMeta: number; cashPct: number; sold: number;
+  cierresMetaRaw: number | null; cashMetaRaw: number | null; desde: string;
 }) {
   const blocks = Math.min(meta, 40);
   return (
@@ -149,7 +151,7 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
             </div>
             <h2 style={{ fontWeight: 700, fontSize: 46, letterSpacing: '-0.03em', lineHeight: 1, margin: 0, color: 'var(--on-sidebar)' }}>Camino a los {meta} cierres</h2>
           </div>
-          <button style={{ background: 'rgba(243,240,231,.06)', border: '1px solid rgba(243,240,231,.12)', color: 'var(--sidebar-text)', fontSize: 13, padding: '8px 14px', borderRadius: 10, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>✎ editar meta</button>
+          <EditarMeta cierresMeta={cierresMetaRaw} cashMeta={cashMetaRaw} desde={desde} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap', margin: '34px 0 18px' }}>
