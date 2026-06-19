@@ -28,6 +28,12 @@ export type CAPIEventParams = {
   email: string | null;
   phone: string | null;
   customData?: Record<string, unknown>;
+  /** Clave de deduplicación pixel↔CAPI (mismo event_name + event_id = 1 evento). */
+  eventId?: string;
+  /** URL de origen (para action_source='website'). */
+  eventSourceUrl?: string;
+  /** Por defecto 'system_generated'; usar 'website' para deduplicar con el pixel. */
+  actionSource?: CAPIDataEntry['action_source'];
 };
 
 // Forma del payload que Meta espera dentro de "data: [...]"
@@ -35,6 +41,8 @@ type CAPIDataEntry = {
   event_name: string;
   event_time: number;
   action_source: 'system_generated' | 'website' | 'email' | 'app';
+  event_id?: string;
+  event_source_url?: string;
   user_data: {
     em?: string[];
     ph?: string[];
@@ -116,7 +124,9 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<void> 
   const entry: CAPIDataEntry = {
     event_name: params.eventName,
     event_time: Math.floor(Date.now() / 1000),
-    action_source: 'system_generated',
+    action_source: params.actionSource ?? 'system_generated',
+    ...(params.eventId ? { event_id: params.eventId } : {}),
+    ...(params.eventSourceUrl ? { event_source_url: params.eventSourceUrl } : {}),
     user_data,
     ...(params.customData ? { custom_data: params.customData } : {}),
   };

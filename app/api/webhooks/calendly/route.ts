@@ -28,6 +28,7 @@ import {
 } from '@/lib/leads';
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { hoyEnTijuana } from '@/lib/date-utils';
+import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 
 // Identificadores de los event types de Calendly (Fase 10). Si no están
 // seteados, todo cae al flujo J1 actual (compatibilidad).
@@ -210,6 +211,22 @@ export async function POST(request: NextRequest) {
         console.log(
           `[webhook:calendly] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} email=${email} fecha_j1=${fechaJ1} utm_campaign=${utm_campaign ?? '—'} ms=${ms}`,
         );
+
+        // CAPI: evento "Schedule" server-side (la verdad del agendamiento) para
+        // que Meta optimice sobre reservas reales. event_id determinístico por
+        // reserva (email + hora de inicio) → deduplica reintentos y permite
+        // deduplicar con el pixel del navegador si éste envía el mismo id.
+        await sendMetaCAPIEvent({
+          eventName: 'Schedule',
+          email,
+          phone: telefono,
+          actionSource: 'website',
+          eventId: `schedule:${email.toLowerCase()}:${startTimeIso}`,
+          customData: {
+            lead_type: 'agenda_j1',
+            ...(utm_campaign ? { utm_campaign } : {}),
+          },
+        });
 
         return Response.json({
           ok: true,

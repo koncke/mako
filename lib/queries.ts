@@ -2265,13 +2265,15 @@ export async function getTendencias(
   const n = periodos.length;
   const z = () => Array.from({ length: n }, () => 0);
 
-  const [metaRes, pandaRes, leadsRes, pagosRes] = await Promise.all([
+  const [metaRes, pandaRes, ytRes, leadsRes, pagosRes] = await Promise.all([
     supabase.from('marketing_metrics_daily').select('fecha, impressions, link_clicks, landing_page_views, spend, leads_count').eq('plataforma', 'meta').gte('fecha', rangoInicio).lte('fecha', rangoFin),
     supabase.from('marketing_metrics_daily').select('fecha, video_plays, video_unique_viewers, video_retention_p50, video_avg_watch_seconds').eq('plataforma', 'panda').gte('fecha', rangoInicio).lte('fecha', rangoFin),
+    // VSL en YouTube (historia, antes de migrar a Panda) — para que la serie de plays no arranque de cero.
+    supabase.from('marketing_metrics_daily').select('fecha, youtube_views').eq('plataforma', 'youtube').eq('youtube_video_type', 'vsl').gte('fecha', rangoInicio).lte('fecha', rangoFin),
     supabase.from('leads').select('fecha_agenda, fecha_junta_1, asistio_j1, fecha_cierre, estado_lead').or(`fecha_agenda.gte.${rangoInicio},fecha_junta_1.gte.${rangoInicio},fecha_cierre.gte.${rangoInicio}`),
     supabase.from('pagos').select('fecha_pago, monto_usd, pagado').eq('pagado', true).gte('fecha_pago', rangoInicio).lte('fecha_pago', rangoFin),
   ]);
-  for (const r of [metaRes, pandaRes, leadsRes, pagosRes]) if (r.error) throw new Error(`getTendencias falló: ${r.error.message}`);
+  for (const r of [metaRes, pandaRes, ytRes, leadsRes, pagosRes]) if (r.error) throw new Error(`getTendencias falló: ${r.error.message}`);
 
   const imp = z(), clk = z(), land = z(), spendMxn = z(), leads = z();
   for (const r of (metaRes.data ?? []) as Array<{ fecha: string; impressions: number | null; link_clicks: number | null; landing_page_views: number | null; spend: number | null; leads_count: number | null }>) {
@@ -2287,6 +2289,10 @@ export async function getTendencias(
     uniqueTotal += Number(r.video_unique_viewers ?? 0);
     if (r.video_retention_p50 != null) { retSum += Number(r.video_retention_p50); retN++; }
     if (r.video_avg_watch_seconds != null) { watchSum += Number(r.video_avg_watch_seconds); watchN++; }
+  }
+  // YouTube (historia del VSL) — se suma a la misma serie de plays.
+  for (const r of (ytRes.data ?? []) as Array<{ fecha: string; youtube_views: number | null }>) {
+    const i = idxDe(r.fecha); if (i >= 0) vslPlays[i] += Number(r.youtube_views ?? 0);
   }
   const agendas = z(), asistencias = z(), cierres = z();
   for (const r of (leadsRes.data ?? []) as Array<{ fecha_agenda: string | null; fecha_junta_1: string | null; asistio_j1: boolean | null; fecha_cierre: string | null; estado_lead: string }>) {
