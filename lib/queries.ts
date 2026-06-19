@@ -166,8 +166,8 @@ export async function getMarketingWindow(
     supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
-      .gte('fecha_agenda', start)
-      .lte('fecha_agenda', end),
+      .gte('fecha_junta_1', start)
+      .lte('fecha_junta_1', end),
     supabase
       .from('leads')
       .select('id', { count: 'exact', head: true })
@@ -1051,9 +1051,9 @@ export async function getFunnelSeries(
       .lte('fecha', rangoFin),
     supabase
       .from('leads')
-      .select('fecha_agenda')
-      .gte('fecha_agenda', rangoInicio)
-      .lte('fecha_agenda', rangoFin),
+      .select('fecha_junta_1')
+      .gte('fecha_junta_1', rangoInicio)
+      .lte('fecha_junta_1', rangoFin),
     supabase
       .from('leads')
       .select('fecha_junta_1, asistio_j1, calificado, estado_lead')
@@ -1083,8 +1083,8 @@ export async function getFunnelSeries(
   for (const r of (pandaRes.data ?? []) as Array<{ fecha: string; video_plays: number | null }>) {
     add(semanaDe(r.fecha), (a) => { a.vsl += r.video_plays ?? 0; });
   }
-  for (const r of (agendaRes.data ?? []) as Array<{ fecha_agenda: string | null }>) {
-    if (r.fecha_agenda) add(semanaDe(r.fecha_agenda), (a) => { a.agenda += 1; });
+  for (const r of (agendaRes.data ?? []) as Array<{ fecha_junta_1: string | null }>) {
+    if (r.fecha_junta_1) add(semanaDe(r.fecha_junta_1), (a) => { a.agenda += 1; });
   }
   for (const r of (j1Res.data ?? []) as Array<{ fecha_junta_1: string | null; asistio_j1: boolean | null; calificado: boolean | null; estado_lead: string }>) {
     if (!r.fecha_junta_1) continue;
@@ -1175,7 +1175,7 @@ export async function getSenalesRecon(
       .lte('fecha', end),
     supabase
       .from('leads')
-      .select('meta_ad_id, fecha_agenda, estado_lead, total_cobrado_usd')
+      .select('meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd')
       .not('meta_ad_id', 'is', null),
   ]);
   for (const r of [adsRes, budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
@@ -1202,10 +1202,10 @@ export async function getSenalesRecon(
 
   // Downstream por ad_id (leads reales matcheados)
   const downByAd = new Map<string, { agendas: number; cierres: number; cash: number }>();
-  for (const l of (leadsRes.data ?? []) as Array<{ meta_ad_id: string | null; fecha_agenda: string | null; estado_lead: string; total_cobrado_usd: number | null }>) {
+  for (const l of (leadsRes.data ?? []) as Array<{ meta_ad_id: string | null; fecha_junta_1: string | null; estado_lead: string; total_cobrado_usd: number | null }>) {
     if (!l.meta_ad_id) continue;
     const d = downByAd.get(l.meta_ad_id) ?? { agendas: 0, cierres: 0, cash: 0 };
-    if (l.fecha_agenda) d.agendas += 1;
+    if (l.fecha_junta_1) d.agendas += 1;
     if (l.estado_lead === 'ganado') d.cierres += 1;
     d.cash += Number(l.total_cobrado_usd ?? 0);
     downByAd.set(l.meta_ad_id, d);
@@ -2265,7 +2265,7 @@ export async function getTendencias(
   }
   const agendas = z(), asistencias = z(), cierres = z();
   for (const r of (leadsRes.data ?? []) as Array<{ fecha_agenda: string | null; fecha_junta_1: string | null; asistio_j1: boolean | null; fecha_cierre: string | null; estado_lead: string }>) {
-    if (r.fecha_agenda) { const i = idxDe(r.fecha_agenda); if (i >= 0) agendas[i] += 1; }
+    if (r.fecha_junta_1) { const i = idxDe(r.fecha_junta_1); if (i >= 0) agendas[i] += 1; }
     if (r.fecha_junta_1 && r.asistio_j1 === true) { const i = idxDe(r.fecha_junta_1); if (i >= 0) asistencias[i] += 1; }
     if (r.fecha_cierre && r.estado_lead === 'ganado') { const i = idxDe(r.fecha_cierre); if (i >= 0) cierres[i] += 1; }
   }
