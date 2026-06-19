@@ -19,7 +19,7 @@ type Preset = { key: string; label: string; desde: string; hasta: string };
 
 // Fecha mínima para "Máximo": cubre todo el histórico (la operación arrancó
 // en dic-2025; 2025-01-01 deja margen de sobra sin recortar datos reales).
-const FECHA_MINIMA = '2025-01-01';
+const FECHA_MINIMA = '2025-11-01';
 
 // Construye los 12 presets relativos a `hoy` (pasado por el server en zona
 // Tijuana, para no depender del reloj del navegador).

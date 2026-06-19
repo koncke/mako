@@ -2231,6 +2231,10 @@ export async function getTendencias(
 ): Promise<Tendencias> {
   const supabase = getSupabaseServer();
 
+  // Piso de datos: no mostrar nada anterior a noviembre 2025.
+  const PISO_TENDENCIAS = '2025-11-01';
+  if (start < PISO_TENDENCIAS) start = PISO_TENDENCIAS;
+
   // Helpers de fecha locales
   const primerDiaMes = (s: string) => { const [y, m] = s.split('-').map(Number); return `${y}-${String(m).padStart(2, '0')}-01`; };
   const finDeMes = (s: string) => { const [y, m] = s.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };

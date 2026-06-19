@@ -15,8 +15,6 @@ import {
   getSenalesRecon,
   getResumenComparativo,
   getRevenuePeriod,
-  listCACMensual,
-  type CACMensualEntry,
   type RevenuePeriod,
   type MarketingWindow,
   type FunnelMes,
@@ -37,7 +35,6 @@ import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
 import { AnuncioCard, tieneSenal, compararCombo } from './AnuncioCard';
-import { CacChart } from './CacChart';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -119,7 +116,6 @@ export default async function Page({
   let tendencias: Tendencias | null = null;
   let comparativo: ResumenComparativo | null = null;
   let revenue: RevenuePeriod | null = null;
-  let cacMensual: CACMensualEntry[] = [];
   let errorMsg: string | null = null;
 
   // Recon mira siempre los últimos 14 días (no depende del filtro de rango).
@@ -136,7 +132,6 @@ export default async function Page({
       filtroActivo ? Promise.resolve(null) : getResumenComparativo(ayerReal),
       getRevenuePeriod(rangoDesde, rangoHasta),
     ]);
-    cacMensual = await listCACMensual(12).catch(() => []);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
@@ -169,8 +164,6 @@ export default async function Page({
           <SaludDelFunnel mkt={mkt} funnel={funnel} />
 
           {tendencias && <TendenciasSection tendencias={tendencias} />}
-
-          <CacChart data={cacMensual} />
 
           <AnunciosGanadores senales={senales} />
 
