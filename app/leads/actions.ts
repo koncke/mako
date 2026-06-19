@@ -13,8 +13,13 @@ import {
   createLead,
   updateLead,
   deleteLead,
+  setPipelineStage,
+  saveLeadMeta,
+  savePipelineStages,
   type LeadUpdateInput,
+  type LeadMetaInput,
 } from '@/lib/leads';
+import type { Stage } from '@/lib/pipeline';
 import { savePlanPagos, marcarPago, type PlanPagos } from '@/lib/pagos';
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
@@ -98,4 +103,31 @@ export async function deleteLeadAction(id: number): Promise<void> {
   await deleteLead(id);
   revalidatePath('/leads');
   redirect('/leads');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rediseño CRM — pipeline editable + Closer/Setter/Fathom
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Mueve un lead a una etapa del Kanban (drag&drop o chips de la ficha). */
+export async function setLeadStageAction(
+  id: number,
+  stageKey: string,
+  opts?: { monto?: number | null; motivo?: string | null },
+): Promise<void> {
+  await setPipelineStage(id, stageKey, opts);
+  revalidatePath('/leads');
+  revalidatePath('/general');
+}
+
+/** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
+export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
+  await saveLeadMeta(id, meta);
+  revalidatePath('/leads');
+}
+
+/** Persiste el set completo de etapas del pipeline (modal "Gestionar etapas"). */
+export async function savePipelineStagesAction(stages: Stage[]): Promise<void> {
+  await savePipelineStages(stages);
+  revalidatePath('/leads');
 }

@@ -1,22 +1,22 @@
 import type { Metadata } from 'next';
-import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
+import type { CSSProperties } from 'react';
 import './globals.css';
-
-const cormorant = Cormorant_Garamond({
-  variable: '--font-cormorant',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
-
-const dmSans = DM_Sans({
-  variable: '--font-dm-sans',
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
+import { Sidebar } from './_components/Sidebar';
 
 export const metadata: Metadata = {
-  title: 'Dashboard Marketing — Mauricio Bustos',
-  description: 'Funnel de marketing y comercial con cohortes por J1',
+  title: 'Marketing OS — Mauricio Bustos',
+  description: 'CRM, marketing y comercial — Mauricio Bustos',
+};
+
+// Contenedor raíz: sidebar fijo + el <main> que aporta cada pantalla.
+// Réplica del rootStyle del prototipo (display:flex; align-items:flex-start).
+const rootStyle: CSSProperties = {
+  minHeight: '100vh',
+  background: 'var(--bg)',
+  color: 'var(--ink)',
+  fontFamily: "'Geist', system-ui, sans-serif",
+  display: 'flex',
+  alignItems: 'flex-start',
 };
 
 export default function RootLayout({
@@ -25,11 +25,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="es"
-      className={`${cormorant.variable} ${dmSans.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="es" className="h-full antialiased">
+      <body>
+        {/* Geist vía CDN: deja que los estilos en línea del diseño usen
+            font-family:'Geist' / 'Geist Mono' tal cual. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+        <div style={rootStyle}>
+          <Sidebar />
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

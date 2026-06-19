@@ -1,34 +1,126 @@
 @import "tailwindcss";
 
+/*
+  Rediseño "Marketing OS" — tema claro (Geist) exportado desde Claude Design.
+  Los tokens de diseño viven acá; las pantallas los consumen vía var(--token)
+  o estilos en línea idénticos a los del prototipo, para fidelidad pixel-perfect.
+*/
+
 :root {
-  /* Tema oscuro fijo — el dashboard no respeta prefers-color-scheme */
-  --bg: #0a0a0a;
-  --card-bg: #111111;
-  --card-border: #222222;
-  --text: #f5f5f5;
-  --text-dim: #999999;
-  --text-pending: #555555;
-  --accent-yellow: #F0C60A;
-  --accent-green: #3ECF8E;
-  --accent-orange: #ff9966;
+  /* ── Tokens del diseño (claro) ── */
+  --bg: #F2F0EA;
+  --surface: #FFFFFF;
+  --surface-2: #FAF8F2;
+  --border: #E7E3D9;
+  --border-strong: #D8D3C6;
+  --ink: #1A1813;
+  --dim: #6B675C;
+  --faint: #A39E91;
+  --sidebar: #171511;
+  --sidebar-2: #23201A;
+  --sidebar-text: #A8A296;
+  --on-sidebar: #F3F0E7;
+  --line: #C8870C;
+  --accent: #C8870C;
+  --accent-soft: #F0C60A;
+  --good: #1C8A54;
+  --good-bg: #E5F2EA;
+  --warn: #A8770F;
+  --warn-bg: #FAF0D4;
+  --warn-fill: #E8B30B;
+  --bad: #CF4E29;
+  --bad-bg: #FAE6DD;
+  --card-pad: 28px;
+  --sect-gap: 22px;
+
+  /* Acentos por etapa de WhatsApp/Email (burbujas) */
+  --wa: #1C8A54;
+  --wa-bubble: #DDF3E4;
+  --auto-bubble: #FBEFCF;
+
+  /* ── Alias de compatibilidad ──
+     Las pantallas heredadas (revenue, pendientes, ficha y alta de lead) usan
+     estos nombres antiguos. Apuntándolos a los tokens nuevos adoptan el tema
+     claro sin reescribirlas por completo. */
+  --text: var(--ink);
+  --text-dim: var(--dim);
+  --text-pending: var(--faint);
+  --card-bg: var(--surface);
+  --card-border: var(--border);
+  --accent-yellow: var(--accent-soft);
+  --accent-green: var(--good);
+  --accent-orange: var(--bad);
+  --font-cormorant: 'Geist', system-ui, sans-serif;
+  --font-dm-sans: 'Geist', system-ui, sans-serif;
 }
 
 @theme inline {
   --color-bg: var(--bg);
-  --color-card-bg: var(--card-bg);
-  --color-card-border: var(--card-border);
-  --color-text: var(--text);
-  --color-text-dim: var(--text-dim);
-  --color-text-pending: var(--text-pending);
-  --color-accent-yellow: var(--accent-yellow);
-  --color-accent-green: var(--accent-green);
-  --color-accent-orange: var(--accent-orange);
-  --font-display: var(--font-cormorant);
-  --font-body: var(--font-dm-sans);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  /* alias antiguos para utilidades Tailwind existentes */
+  --color-card-bg: var(--surface);
+  --color-card-border: var(--border);
+  --color-text: var(--ink);
+  --color-text-dim: var(--dim);
+  --color-text-pending: var(--faint);
+  --color-accent-yellow: var(--accent-soft);
+  --color-accent-green: var(--good);
+  --color-accent-orange: var(--bad);
+  --font-display: 'Geist', system-ui, sans-serif;
+  --font-body: 'Geist', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+::selection {
+  background: rgba(200, 135, 12, 0.18);
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+@keyframes pulseRed {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(207, 78, 41, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 9px rgba(207, 78, 41, 0);
+  }
+}
+
+@keyframes konckeGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(200, 135, 12, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(200, 135, 12, 0);
+  }
 }
 
 body {
   background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  color: var(--ink);
+  font-family: 'Geist', system-ui, sans-serif;
 }

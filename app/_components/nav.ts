@@ -1,0 +1,40 @@
+// =============================================================================
+// Definición de la navegación del sidebar (rediseño Marketing OS)
+// =============================================================================
+// Una sola fuente de verdad para el sidebar compartido. `match` decide el
+// estado activo a partir del pathname.
+
+export type NavItem = {
+  key: string;
+  label: string;
+  href: string;
+  /** glifo a la izquierda (Koncke usa ✦); si no, se usa el cuadrito de color */
+  glyph?: string;
+  /** muestra el badge rojo de "datos sin marcar" (solo CRM) */
+  badge?: boolean;
+  /** prefijos de ruta que marcan este item como activo */
+  match: (pathname: string) => boolean;
+};
+
+const starts = (p: string) => (pathname: string) =>
+  pathname === p || pathname.startsWith(p + '/');
+
+export const MAIN_NAV: NavItem[] = [
+  { key: 'general', label: 'Vista General', href: '/general', match: starts('/general') },
+  { key: 'crm', label: 'CRM', href: '/leads', badge: true, match: starts('/leads') },
+  { key: 'marketing', label: 'Marketing', href: '/marketing', match: starts('/marketing') },
+  { key: 'comercial', label: 'Comercial', href: '/comercial', match: starts('/comercial') },
+];
+
+export const TOOLS_NAV: NavItem[] = [
+  { key: 'closing', label: 'Closing Analysis', href: '/closing', match: starts('/closing') },
+  { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', match: starts('/whatsapp') },
+  { key: 'email', label: 'Email Marketing', href: '/email', match: starts('/email') },
+  {
+    key: 'koncke',
+    label: 'Preguntale a Koncke™',
+    href: '/koncke',
+    glyph: '✦',
+    match: starts('/koncke'),
+  },
+];

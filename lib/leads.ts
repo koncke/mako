@@ -8,6 +8,8 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { sendMetaCAPIEvent } from './meta-capi';
+import type { Stage, StageTone } from './pipeline';
+import { DEFAULT_STAGES, terminalEstadoFor } from './pipeline';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -93,9 +95,18 @@ export type Lead = {
   // sobre un form que no agendó.
   nutricion_realizada: boolean;
 
+  // Rediseño CRM (migración 0020) — opcionales por compatibilidad si la
+  // migración aún no se aplicó.
+  pipeline_stage?: string | null;   // override manual de la columna del Kanban
+  closer?: string | null;           // closer asignado (Datos comerciales)
+  setter?: string | null;           // setter asignado (Nutrición - Manual)
+  fathom_links?: FathomLink[] | null;
+
   created_at: string;
   updated_at: string;
 };
+
+export type FathomLink = { label: string; url: string };
 
 export type LeadCreateInput = {
   nombre: string;
@@ -900,4 +911,109 @@ export async function getVslEngagement(visitorId: string | null): Promise<VslEng
   const pcts = rows.map((r) => r.porcentaje).filter((p): p is number => typeof p === 'number');
   const max_pct = pcts.length > 0 ? Math.max(...pcts) : null;
   return { plays, max_pct, sin_datos: false };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pipeline del CRM — etapas editables + Closer/Setter/Fathom (migración 0020)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lee las etapas del pipeline desde `pipeline_stages`. Si la tabla no existe o
+ * está vacía (migración 0020 sin aplicar), cae a las etapas por defecto — la UI
+ * sigue funcionando.
+ */
+export async function getPipelineStages(): Promise<Stage[]> {
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase
+      .from('pipeline_stages')
+      .select('key,label,dot,tone,sort,custom')
+      .order('sort', { ascending: true });
+    if (error || !data || data.length === 0) return DEFAULT_STAGES;
+    return data.map((r) => ({
+      key: String(r.key),
+      label: String(r.label),
+      dot: String(r.dot),
+      tone: (r.tone as StageTone) ?? 'neutral',
+      custom: !!r.custom,
+    }));
+  } catch {
+    return DEFAULT_STAGES;
+  }
+}
+
+/** Reemplaza el set completo de etapas (borra y reinserta en orden). */
+export async function savePipelineStages(stages: Stage[]): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error: delErr } = await supabase.from('pipeline_stages').delete().neq('key', '');
+  if (delErr) throw new Error(`Error limpiando etapas: ${delErr.message}`);
+  const rows = stages.map((s, i) => ({
+    key: s.key,
+    label: s.label,
+    dot: s.dot,
+    tone: s.tone,
+    sort: i,
+    custom: !!s.custom,
+  }));
+  const { error } = await supabase.from('pipeline_stages').insert(rows);
+  if (error) throw new Error(`Error guardando etapas: ${error.message}`);
+}
+
+/**
+ * Mueve un lead a una etapa del tablero. Persiste el override `pipeline_stage`
+ * y, en desenlaces terminales, sincroniza estado_lead (vía updateLead) para que
+ * Revenue/CAPI sigan correctos. Para "ganado" exige monto.
+ */
+export async function setPipelineStage(
+  id: number,
+  stageKey: string,
+  opts?: { monto?: number | null; motivo?: string | null },
+): Promise<void> {
+  const supabase = getSupabaseServer();
+  const estado = terminalEstadoFor(stageKey);
+
+  // 1) Guardar el override de la columna del tablero.
+  const { error } = await supabase
+    .from('leads')
+    .update({ pipeline_stage: stageKey })
+    .eq('id', id);
+  if (error) throw new Error(`Error moviendo lead ${id} a ${stageKey}: ${error.message}`);
+
+  // 2) Sincronizar el desenlace canónico cuando aplica.
+  const sync: LeadUpdateInput = { estado_lead: estado };
+  if (estado === 'ganado' && opts?.monto != null) sync.monto_cierre_usd = opts.monto;
+  if ((estado === 'perdido' || estado === 'descalificado') && opts?.motivo != null) {
+    sync.motivo_perdida = opts.motivo;
+  }
+  // En etapas de nutrición marcamos la bandera para los pendientes/tab Nutrición.
+  if (['noshow', 'nutri', 'nopaga', 'manual', 'postagenda'].includes(stageKey)) {
+    sync.nutricion_realizada = true;
+  }
+  try {
+    await updateLead(id, sync);
+  } catch (err) {
+    // No romper el movimiento del tablero si la sincronización del desenlace
+    // falla (p.ej. ganado sin monto): el override ya quedó guardado.
+    console.error(`[setPipelineStage] sync estado falló para lead ${id}:`, err);
+  }
+}
+
+/** Campos editables desde la ficha del rediseño (Closer/Setter/Fathom/motivo). */
+export type LeadMetaInput = {
+  closer?: string | null;
+  setter?: string | null;
+  fathom_links?: FathomLink[];
+  motivo_perdida?: string | null;
+};
+
+export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {
+  const supabase = getSupabaseServer();
+  const payload: Record<string, unknown> = {};
+  if (meta.closer !== undefined) payload.closer = meta.closer;
+  if (meta.setter !== undefined) payload.setter = meta.setter;
+  if (meta.fathom_links !== undefined) payload.fathom_links = meta.fathom_links;
+  if (meta.motivo_perdida !== undefined) payload.motivo_perdida = meta.motivo_perdida;
+  if (Object.keys(payload).length === 0) return;
+  const { error } = await supabase.from('leads').update(payload).eq('id', id);
+  if (error) throw new Error(`Error guardando datos del lead ${id}: ${error.message}`);
 }
