@@ -311,15 +311,19 @@ export async function getCashCollectedPeriodo(start: string, end: string): Promi
   return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 
-/** Outstanding del período: Σ cuotas NO pagadas que vencen en [start, end]. */
-export async function getOutstandingPeriodo(start: string, end: string): Promise<number> {
+/**
+ * Outstanding del período: Σ cuotas NO pagadas con vencimiento DESDE el inicio
+ * del rango (sin tope superior — las cuotas futuras son receivables válidos, así
+ * que "Máximo" trae el total). Un inicio más tardío excluye las ya vencidas
+ * de antes del período.
+ */
+export async function getOutstandingPeriodo(start: string, _end: string): Promise<number> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('pagos')
     .select('monto_usd')
     .eq('pagado', false)
-    .gte('fecha_esperada', start)
-    .lte('fecha_esperada', end);
+    .gte('fecha_esperada', start);
   if (error) throw new Error(`Error sumando outstanding del período: ${error.message}`);
   return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }

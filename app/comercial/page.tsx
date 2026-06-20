@@ -276,7 +276,7 @@ function RevenueSection({
           label="Outstanding"
           value={fmtUSD(out)}
           color="var(--bad)"
-          sub="cuotas no pagadas que vencen en el período"
+          sub="cuotas por cobrar (vencen desde el inicio del rango)"
         />
       </div>
 
