@@ -7,7 +7,7 @@
 // alimenta de /api/pendientes-count (si falla, no aparece).
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MAIN_NAV, TOOLS_NAV, type NavItem } from './nav';
 
@@ -32,10 +32,12 @@ function NavLink({
   item,
   active,
   badge,
+  query,
 }: {
   item: NavItem;
   active: boolean;
   badge: number;
+  query: string;
 }) {
   const base: CSSProperties = {
     display: 'flex',
@@ -79,7 +81,7 @@ function NavLink({
   );
 
   return (
-    <Link href={item.href} style={base}>
+    <Link href={item.href + query} style={base}>
       <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
         {marker}
         {item.label}
@@ -106,7 +108,13 @@ function NavLink({
 
 export function Sidebar() {
   const pathname = usePathname() || '';
+  const searchParams = useSearchParams();
   const [badge, setBadge] = useState(0);
+
+  // Mantener el filtro de fecha global (?desde&hasta) al navegar entre secciones.
+  const desde = searchParams.get('desde');
+  const hasta = searchParams.get('hasta');
+  const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
   useEffect(() => {
     let alive = true;
@@ -171,7 +179,7 @@ export function Sidebar() {
       {/* Navegación */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {MAIN_NAV.map((item) => (
-          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badge} />
+          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badge} query={dateQuery} />
         ))}
 
         <div
@@ -189,7 +197,7 @@ export function Sidebar() {
         </div>
 
         {TOOLS_NAV.map((item) => (
-          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badge} />
+          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badge} query={dateQuery} />
         ))}
       </nav>
 

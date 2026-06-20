@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import type { CSSProperties } from 'react';
+import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
 
@@ -36,7 +36,11 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <div style={rootStyle}>
-          <Sidebar />
+          {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense
+              evita el error de prerender en cualquier ruta estática. */}
+          <Suspense fallback={null}>
+            <Sidebar />
+          </Suspense>
           {children}
         </div>
       </body>

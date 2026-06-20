@@ -2,11 +2,14 @@
 // /marketing/anuncios — todos los anuncios ganadores (vista completa)
 // =============================================================================
 // El botón "Ver los N" de Marketing redirige acá. Misma data (getSenalesRecon)
-// y misma tarjeta (AnuncioCard) que el panel resumido.
+// y misma tarjeta (AnuncioCard) que el panel resumido. Respeta el filtro global
+// de fecha (?desde&hasta) — mismo criterio que /marketing — y lo mantiene en el
+// link de regreso.
 
 import Link from 'next/link';
 import { getSenalesRecon, type SenalRecon } from '@/lib/queries';
-import { ayerEnTijuana, diasAntes } from '@/lib/date-utils';
+import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha } from '@/lib/date-utils';
+import { FechaFiltro } from '../../_components/FechaFiltro';
 import { AnuncioCard, tieneSenal, compararCombo } from '../AnuncioCard';
 
 export const dynamic = 'force-dynamic';
@@ -14,14 +17,40 @@ export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
 
-export default async function AnunciosPage() {
-  const ayer = ayerEnTijuana();
-  const desde = diasAntes(ayer, 14);
+function fmtPeriodoLabel(desde: string, hasta: string): string {
+  const f = (s: string) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+  };
+  return `${f(desde)} – ${f(hasta)}`;
+}
+
+export default async function AnunciosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ desde?: string; hasta?: string }>;
+}) {
+  const ayerReal = ayerEnTijuana();
+  const hoyReal = hoyEnTijuana();
+  const params = await searchParams;
+  const desdeParam = params.desde;
+  const hastaParam = params.hasta;
+  const filtroActivo =
+    !!desdeParam &&
+    !!hastaParam &&
+    esFechaValida(desdeParam) &&
+    esFechaValida(hastaParam) &&
+    desdeParam <= hastaParam &&
+    hastaParam <= hoyReal;
+
+  const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
+  const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
+  const backHref = filtroActivo ? `/marketing?desde=${rangoDesde}&hasta=${rangoHasta}` : '/marketing';
 
   let senales: SenalRecon[] = [];
   let errorMsg: string | null = null;
   try {
-    senales = await getSenalesRecon(desde, ayer);
+    senales = await getSenalesRecon(rangoDesde, rangoHasta);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
@@ -29,12 +58,15 @@ export default async function AnunciosPage() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ marginBottom: 28 }}>
-        <Link href="/marketing" style={{ fontSize: 13.5, color: 'var(--dim)', textDecoration: 'none' }}>← Marketing</Link>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 8 }}>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h1>
-          <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{conSenal.length} con señal · últimos 14 días</span>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 28 }}>
+        <div>
+          <Link href={backHref} style={{ fontSize: 13.5, color: 'var(--dim)', textDecoration: 'none' }}>← Marketing</Link>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 8 }}>
+            <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h1>
+            <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{conSenal.length} con señal · {fmtPeriodoLabel(rangoDesde, rangoHasta)}</span>
+          </div>
         </div>
+        <FechaFiltro hoyReal={hoyReal} />
       </header>
 
       {errorMsg ? (

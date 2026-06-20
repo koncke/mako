@@ -28,7 +28,6 @@ import {
   hoyEnTijuana,
   esFechaValida,
   primerDiaDelMesDeFecha,
-  diasAntes,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
 import Link from 'next/link';
@@ -118,16 +117,14 @@ export default async function Page({
   let revenue: RevenuePeriod | null = null;
   let errorMsg: string | null = null;
 
-  // Recon mira siempre los últimos 14 días (no depende del filtro de rango).
-  const reconDesde = diasAntes(rangoHasta, 14);
-
   try {
     const sourceMap = sourcesToMap(await getDataSources());
     [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue] = await Promise.all([
       getMarketingWindow(rangoDesde, rangoHasta),
       getFunnelEtapas(rangoDesde, rangoHasta, sourceMap),
       getFunnelSeries(rangoHasta, 12),
-      getSenalesRecon(reconDesde, rangoHasta),
+      // Anuncios ganadores respeta el filtro global de fecha (antes: 14 días fijos).
+      getSenalesRecon(rangoDesde, rangoHasta),
       getTendencias(rangoDesde, rangoHasta),
       filtroActivo ? Promise.resolve(null) : getResumenComparativo(ayerReal),
       getRevenuePeriod(rangoDesde, rangoHasta),
@@ -165,7 +162,7 @@ export default async function Page({
 
           {tendencias && <TendenciasSection tendencias={tendencias} />}
 
-          <AnunciosGanadores senales={senales} />
+          <AnunciosGanadores senales={senales} filtroActivo={filtroActivo} desde={rangoDesde} hasta={rangoHasta} />
 
           <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
             Datos automáticos · Meta · YouTube · Calendly · Meta Lead Ads. Montos en USD.
@@ -379,16 +376,18 @@ function SaludDelFunnel({ mkt, funnel }: { mkt: MarketingWindow; funnel: FunnelM
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-function AnunciosGanadores({ senales }: { senales: SenalRecon[] }) {
+function AnunciosGanadores({ senales, filtroActivo, desde, hasta }: { senales: SenalRecon[]; filtroActivo: boolean; desde: string; hasta: string }) {
   const conSenal = senales.filter(tieneSenal).sort(compararCombo);
   const top = conSenal.slice(0, 6);
   const totalConSenal = conSenal.length;
+  // Llevar el filtro de fecha a la vista completa.
+  const verTodosHref = filtroActivo ? `/marketing/anuncios?desde=${desde}&hasta=${hasta}` : '/marketing/anuncios';
 
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
         <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h2>
-        <Link href="/marketing/anuncios" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', textDecoration: 'none' }}>Ver los {totalConSenal} →</Link>
+        <Link href={verTodosHref} style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', textDecoration: 'none' }}>Ver los {totalConSenal} →</Link>
       </div>
 
       {top.length === 0 ? (
