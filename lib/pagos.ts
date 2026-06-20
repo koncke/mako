@@ -326,7 +326,7 @@ export type OutstandingLead = {
   vendido_usd: number | null;
   cobrado_usd: number;
   pendiente_usd: number;
-  proxima_cuota: { numero: number; monto_usd: number; fecha_esperada: string | null } | null;
+  proxima_cuota: { pago_id: number; numero: number; monto_usd: number; fecha_esperada: string | null } | null;
   dias_desde_cierre: number | null;
   fecha_cierre: string | null;
 };
@@ -341,10 +341,11 @@ export async function getOutstandingDetalle(
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('pagos')
-    .select('lead_id, numero, monto_usd, fecha_esperada, pagado, leads(nombre, monto_cierre_usd, fecha_cierre)');
+    .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, leads(nombre, monto_cierre_usd, fecha_cierre)');
   if (error) throw new Error(`Error leyendo detalle de outstanding: ${error.message}`);
 
   type Row = {
+    id: number;
     lead_id: number;
     numero: number;
     monto_usd: number;
@@ -384,7 +385,7 @@ export async function getOutstandingDetalle(
       vendido_usd: rel?.monto_cierre_usd ?? null,
       cobrado_usd: cobrado,
       pendiente_usd: pendiente,
-      proxima_cuota: prox ? { numero: prox.numero, monto_usd: Number(prox.monto_usd), fecha_esperada: prox.fecha_esperada } : null,
+      proxima_cuota: prox ? { pago_id: prox.id, numero: prox.numero, monto_usd: Number(prox.monto_usd), fecha_esperada: prox.fecha_esperada } : null,
       dias_desde_cierre: dias,
       fecha_cierre: fechaCierre,
     });
