@@ -1,16 +1,16 @@
 // =============================================================================
 // /marketing/anuncios — todos los anuncios ganadores (vista completa)
 // =============================================================================
-// Misma data (getSenalesRecon) y tarjeta (AnuncioCard) que el panel resumido.
 // Respeta el filtro global de fecha (?desde&hasta) y lo mantiene en el link de
-// regreso. Agrupa los anuncios por Campaña → Adset y muestra arriba el
-// comparador de agendas (Meta vs CRM).
+// regreso. Muestra el comparador de agendas (Meta vs CRM) y delega el filtro
+// por campaña/adset, el orden y el modal de detalle a AnunciosBrowser (cliente).
 
 import Link from 'next/link';
 import { getSenalesRecon, getAgendasComparador, type SenalRecon, type AgendasComparador } from '@/lib/queries';
 import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha } from '@/lib/date-utils';
 import { FechaFiltro } from '../../_components/FechaFiltro';
-import { AnuncioCard, tieneSenal, compararCombo } from '../AnuncioCard';
+import { tieneSenal } from '../AnuncioCard';
+import { AnunciosBrowser } from './AnunciosBrowser';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,29 +23,6 @@ function fmtPeriodoLabel(desde: string, hasta: string): string {
     return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
   };
   return `${f(desde)} – ${f(hasta)}`;
-}
-
-// Agrupa señales por campaña → adset, preservando el orden (ya viene ordenado
-// por señal). Ordena campañas y adsets por su total de agendas (Meta) desc.
-function agrupar(senales: SenalRecon[]) {
-  const porCampana = new Map<string, Map<string, SenalRecon[]>>();
-  for (const s of senales) {
-    const camp = s.campana ?? 'Sin campaña';
-    const adset = s.adset_name ?? 'Sin adset';
-    if (!porCampana.has(camp)) porCampana.set(camp, new Map());
-    const m = porCampana.get(camp)!;
-    if (!m.has(adset)) m.set(adset, []);
-    m.get(adset)!.push(s);
-  }
-  const sumAgendas = (arr: SenalRecon[]) => arr.reduce((n, s) => n + s.agendas, 0);
-  return [...porCampana.entries()]
-    .map(([campana, adsets]) => {
-      const grupos = [...adsets.entries()]
-        .map(([adset, ads]) => ({ adset, ads: ads.sort(compararCombo), agendas: sumAgendas(ads) }))
-        .sort((a, b) => b.agendas - a.agendas);
-      return { campana, grupos, agendas: sumAgendas([...adsets.values()].flat()) };
-    })
-    .sort((a, b) => b.agendas - a.agendas);
 }
 
 export default async function AnunciosPage({
@@ -81,9 +58,7 @@ export default async function AnunciosPage({
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
-  const conSenal = senales.filter(tieneSenal).sort(compararCombo);
-  const grupos = agrupar(conSenal);
-  let rank = 0;
+  const conSenal = senales.filter(tieneSenal);
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
@@ -105,35 +80,8 @@ export default async function AnunciosPage({
           <p style={{ fontWeight: 600, fontSize: 18, margin: '0 0 4px', color: 'var(--bad)' }}>Error consultando datos</p>
           <p style={{ fontFamily: MONO, fontSize: 14, margin: 0, color: 'var(--dim)' }}>{errorMsg}</p>
         </div>
-      ) : conSenal.length === 0 ? (
-        <p style={{ fontSize: 14.5, color: 'var(--faint)' }}>Aún sin anuncios con gasto en el rango.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 30 }}>
-          {grupos.map((g) => (
-            <section key={g.campana}>
-              <h2 style={{ fontWeight: 600, fontSize: 19, letterSpacing: '-0.01em', margin: '0 0 2px', color: 'var(--ink)' }}>{g.campana}</h2>
-              <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', marginBottom: 14 }}>
-                {g.agendas} {g.agendas === 1 ? 'agenda' : 'agendas'} (Meta) · {g.grupos.length} adset{g.grupos.length === 1 ? '' : 's'}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                {g.grupos.map((sub) => (
-                  <div key={sub.adset}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 10px' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 2, background: 'var(--accent)', flex: 'none' }} />
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--dim)' }}>{sub.adset}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>· {sub.ads.length} anuncio{sub.ads.length === 1 ? '' : 's'}</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14 }}>
-                      {sub.ads.map((s) => (
-                        <AnuncioCard key={s.ad_id} s={s} rank={++rank} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <AnunciosBrowser senales={conSenal} />
       )}
     </main>
   );

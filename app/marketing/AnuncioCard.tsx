@@ -33,7 +33,7 @@ export function compararCombo(a: SenalRecon, b: SenalRecon): number {
   return b.leads - a.leads;
 }
 
-export function AnuncioCard({ s, rank }: { s: SenalRecon; rank: number }) {
+export function AnuncioCard({ s, rank, disableLink = false }: { s: SenalRecon; rank: number; disableLink?: boolean }) {
   const v = VEREDICTO_BADGE[s.veredicto];
   const validada = s.veredicto === 'validada';
   const pct = Math.min((s.leads / Math.max(s.meta_leads, 1)) * 100, 100);
@@ -53,7 +53,9 @@ export function AnuncioCard({ s, rank }: { s: SenalRecon; rank: number }) {
   };
 
   const hasThumb = !!s.ad_thumbnail_url;
-  const hasLink = !!s.ad_permalink && !s.ad_creative_sin_enlace;
+  // disableLink: la card se usa dentro de un contenedor clickeable (abre modal);
+  // el enlace a Meta vive en el modal para no competir con el clic.
+  const hasLink = !disableLink && !!s.ad_permalink && !s.ad_creative_sin_enlace;
   const boxStyle: CSSProperties = { width: 96, flex: 'none', aspectRatio: '9 / 16', position: 'relative', overflow: 'hidden', background: 'var(--surface-2)', display: 'block' };
   const rankBadge = (
     <span style={{ position: 'absolute', top: 10, left: 10, zIndex: 2, fontFamily: MONO, fontSize: 11, fontWeight: 600, color: '#F3F0E7', background: 'rgba(23,21,17,.78)', padding: '2px 7px', borderRadius: 6 }}>#{String(rank).padStart(2, '0')}</span>
