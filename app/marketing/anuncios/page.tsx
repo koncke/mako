@@ -81,7 +81,7 @@ export default async function AnunciosPage({
           <p style={{ fontFamily: MONO, fontSize: 14, margin: 0, color: 'var(--dim)' }}>{errorMsg}</p>
         </div>
       ) : (
-        <AnunciosBrowser senales={conSenal} />
+        <AnunciosBrowser senales={conSenal} desde={rangoDesde} hasta={rangoHasta} />
       )}
     </main>
   );
