@@ -313,17 +313,51 @@ export type CreativeInfo = {
 type CreativeResponse = {
   creative?: {
     thumbnail_url?: string;
+    image_url?: string;
     effective_object_story_id?: string;
     instagram_permalink_url?: string;
+    object_story_spec?: {
+      video_data?: { image_url?: string };
+      link_data?: { picture?: string };
+      photo_data?: { url?: string };
+    };
+    asset_feed_spec?: {
+      images?: Array<{ url?: string }>;
+      videos?: Array<{ thumbnail_url?: string }>;
+    };
   };
   error?: { message: string; code?: number };
 };
 
+// Resolución del thumbnail pedida a Meta cuando solo hay thumbnail_url (respaldo).
+const THUMB_SIZE = 1080;
+
+/**
+ * Elige la imagen de MAYOR resolución disponible para el anuncio.
+ * Orden: la imagen del video (endpoint /ads/image, full-res) → imagen del
+ * creativo → picture del link → foto → assets dinámicos → thumbnail_url (que
+ * pedimos a 1080 como último recurso). El thumbnail_url crudo de Meta es ~64px
+ * y se ve borroso; los primeros campos son de resolución completa.
+ */
+function bestImage(c: NonNullable<CreativeResponse['creative']>): string | null {
+  return (
+    c.object_story_spec?.video_data?.image_url ??
+    c.image_url ??
+    c.object_story_spec?.link_data?.picture ??
+    c.object_story_spec?.photo_data?.url ??
+    c.asset_feed_spec?.images?.[0]?.url ??
+    c.asset_feed_spec?.videos?.[0]?.thumbnail_url ??
+    c.thumbnail_url ??
+    null
+  );
+}
+
 /**
  * Trae el creativo (miniatura + permalink) de cada ad_id, UNA vez por anuncio.
+ * - thumbnail: la imagen de mayor resolución disponible (ver bestImage).
  * - permalink: instagram_permalink_url; si no, https://www.facebook.com/{story_id};
  *   si no hay ninguno (stories / Audience Network / DCO) → null + sin_enlace.
- * - thumbnail se refresca siempre (las URLs de Meta expiran).
+ * - se refresca siempre (las URLs de Meta expiran).
  * Falla suave por anuncio: si una llamada falla, loguea y sigue.
  */
 export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, CreativeInfo>> {
@@ -334,10 +368,17 @@ export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, Cre
   const apiVersion = getEnv('META_API_VERSION');
   const token = getEnv('META_ACCESS_TOKEN');
 
+  const fields =
+    'creative{thumbnail_url,image_url,effective_object_story_id,instagram_permalink_url,' +
+    'object_story_spec{video_data{image_url},link_data{picture},photo_data{url}},' +
+    'asset_feed_spec{images{url},videos{thumbnail_url}}}';
+
   for (const adId of unique) {
     try {
       const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
-      url.searchParams.set('fields', 'creative{thumbnail_url,effective_object_story_id,instagram_permalink_url}');
+      url.searchParams.set('fields', fields);
+      url.searchParams.set('thumbnail_width', String(THUMB_SIZE));
+      url.searchParams.set('thumbnail_height', String(THUMB_SIZE));
       url.searchParams.set('access_token', token);
 
       const res = await fetch(url.toString(), { method: 'GET' });
@@ -347,7 +388,7 @@ export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, Cre
         continue;
       }
       const c = body.creative;
-      const thumbnail_url = c?.thumbnail_url ?? null;
+      const thumbnail_url = c ? bestImage(c) : null;
       let permalink: string | null = null;
       if (c?.instagram_permalink_url) permalink = c.instagram_permalink_url;
       else if (c?.effective_object_story_id) permalink = `https://www.facebook.com/${c.effective_object_story_id}`;
