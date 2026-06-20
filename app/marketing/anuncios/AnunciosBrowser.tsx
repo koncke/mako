@@ -195,16 +195,32 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
   const [err, setErr] = useState<string | null>(null);
   const [met, setMet] = useState<MetKey>('spend_usd');
   const [bdMet, setBdMet] = useState<BdKey>('impressions');
+  // Re-generación de la transcripción con instrucción opcional.
+  const [regen, setRegen] = useState<AdInsights['transcript']>(null);
+  const [instruccion, setInstruccion] = useState('');
+  const [regenLoading, setRegenLoading] = useState(false);
+  const [regenErr, setRegenErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    setData(null); setErr(null);
+    setData(null); setErr(null); setRegen(null); setInstruccion(''); setRegenErr(null);
     fetch(`/api/ad-insights?ad_id=${encodeURIComponent(s.ad_id)}&desde=${desde}&hasta=${hasta}`)
       .then((r) => r.json())
       .then((j) => { if (!alive) return; if (j.error) setErr(j.error); else setData(j); })
       .catch((e) => { if (alive) setErr(String(e)); });
     return () => { alive = false; };
   }, [s.ad_id, desde, hasta]);
+
+  const regenerar = async () => {
+    setRegenLoading(true); setRegenErr(null);
+    try {
+      const r = await fetch('/api/regenerate-transcript', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: s.ad_id, instruccion }) });
+      const j = await r.json();
+      if (j.error) setRegenErr(j.error); else setRegen(j);
+    } catch (e) { setRegenErr(String(e)); }
+    finally { setRegenLoading(false); }
+  };
+  const tr = regen ?? data?.transcript ?? null;
 
   const p = data?.period;
   const metricaActiva = METRICAS.find((m) => m.key === met)!;
@@ -410,14 +426,16 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
               {/* transcripción (desplegable) */}
               <details style={card}>
                 <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <span style={sectLabel}>{data.transcript?.tipo === 'imagen' ? 'Lectura de la imagen' : 'Transcripción'}{data.transcript?.idioma ? ` · ${data.transcript.idioma}` : ''}</span>
+                  <span style={sectLabel}>{tr?.tipo === 'imagen' ? 'Lectura de la imagen' : 'Transcripción'}{tr?.idioma ? ` · ${tr.idioma}` : ''}{regen ? ' · regenerada' : ''}</span>
                   <span style={{ fontSize: 12, color: 'var(--faint)' }}>▾ ver</span>
                 </summary>
                 <div style={{ marginTop: 12 }}>
-                  {data.transcript?.status === 'ok' ? (
-                    data.transcript.secciones && data.transcript.secciones.length > 0 ? (
+                  {regenLoading ? (
+                    <div style={{ fontSize: 13, color: 'var(--faint)' }}>Regenerando con OpenAI…</div>
+                  ) : tr?.status === 'ok' ? (
+                    tr.secciones && tr.secciones.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {data.transcript.secciones.map((sec, i) => (
+                        {tr.secciones.map((sec, i) => (
                           <div key={i}>
                             <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#9A6A09', marginBottom: 3 }}>{sec.titulo}</div>
                             <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{sec.texto}</div>
@@ -425,11 +443,26 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
                         ))}
                       </div>
                     ) : (
-                      <div style={{ maxHeight: 260, overflowY: 'auto', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{data.transcript.transcript}</div>
+                      <div style={{ maxHeight: 260, overflowY: 'auto', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{tr.transcript}</div>
                     )
                   ) : (
-                    <div style={{ fontSize: 13, color: 'var(--faint)' }}>{txtTranscript(data.transcript?.status)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--faint)' }}>{txtTranscript(tr?.status)}</div>
                   )}
+                </div>
+
+                {/* re-generar con instrucción */}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      value={instruccion}
+                      onChange={(e) => setInstruccion(e.target.value)}
+                      placeholder="Instrucción para OpenAI (opcional): ej. 'el producto se llama X', 'corrige los nombres', 'enfócate en la oferta'…"
+                      style={{ flex: 1, minWidth: 220, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' }}
+                    />
+                    <button type="button" onClick={regenerar} disabled={regenLoading} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: regenLoading ? 'wait' : 'pointer', opacity: regenLoading ? 0.6 : 1, whiteSpace: 'nowrap' }}>{regenLoading ? 'Regenerando…' : '↻ Re-generar'}</button>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>Vuelve a transcribir/estructurar este anuncio (video o imagen) aplicando tu instrucción. Guarda el resultado.</div>
+                  {regenErr && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 6 }}>Error: {regenErr}</div>}
                 </div>
               </details>
             </>
