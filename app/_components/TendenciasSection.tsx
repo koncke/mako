@@ -7,7 +7,7 @@
 // esa métrica; el check al final = sumarla para comparar (hasta 4). Cada gráfico
 // tiene su color. CAC se excluye (no aplica a línea). Rango: filtro global.
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import type { Tendencias, SerieMetrica, FormatoSerie, CuadroContexto } from '@/lib/queries';
 
@@ -29,7 +29,7 @@ function fmtCuadro(c: CuadroContexto): string {
   return fmt(c.valor, c.formato);
 }
 
-export function TendenciasSection({ tendencias }: { tendencias: Tendencias }) {
+export function TendenciasSection({ tendencias, accion }: { tendencias: Tendencias; accion?: ReactNode }) {
   // CAC excluido de Tendencias.
   const marketing = tendencias.marketing.filter((s) => s.key !== 'cac');
   const comercial = tendencias.comercial.filter((s) => s.key !== 'cac');
@@ -67,7 +67,10 @@ export function TendenciasSection({ tendencias }: { tendencias: Tendencias }) {
     <section className="rounded-xl border p-6 md:p-8" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
       {/* Encabezado: título + selector desplegable a la derecha */}
       <div className="flex items-start justify-between gap-3 mb-5">
-        <h2 className="text-[28px]" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>Tendencias</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <h2 className="text-[28px]" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>Tendencias</h2>
+          {accion}
+        </div>
         <div style={{ position: 'relative' }}>
           <button
             type="button"

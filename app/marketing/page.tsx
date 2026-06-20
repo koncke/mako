@@ -34,6 +34,7 @@ import { getDataSources, sourcesToMap } from '@/lib/sources';
 import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
+import { MakoButton } from '../_components/ChartIA';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { tieneSenal, compararCombo } from './AnuncioCard';
 import { ResumenCreativos } from './ResumenCreativos';
@@ -131,6 +132,14 @@ export default async function Page({
 
   const periodoLabel = fmtPeriodoLabel(rangoDesde, rangoHasta);
 
+  // Contexto de Tendencias para MaKo.
+  const ctxTendencias = tendencias
+    ? [
+        `Tendencias por período (${periodoLabel}). Períodos: ${tendencias.periodos.join(', ')}.`,
+        ...[...tendencias.marketing, ...tendencias.comercial].map((s) => `${s.label} (${s.formato}): ${s.valores.map((v) => (v ?? '—')).join(', ')}`),
+      ].join('\n')
+    : '';
+
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
@@ -156,7 +165,7 @@ export default async function Page({
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} senales={senales} />
 
-          {tendencias && <TendenciasSection tendencias={tendencias} />}
+          {tendencias && <TendenciasSection tendencias={tendencias} accion={<MakoButton chartKey="marketing-tendencias" titulo="Tendencias" contexto={ctxTendencias} />} />}
 
           <ResumenCreativos desde={rangoDesde} hasta={rangoHasta} />
 
@@ -345,9 +354,19 @@ function SaludDelFunnel({ mkt, funnel, senales }: { mkt: MarketingWindow; funnel
     { label: 'Costo / VSL View', valor: fmtUSD(costoVsl, 2), sub: 'por play del VSL' },
   ];
 
+  const ctxFunnelMkt = [
+    'Funnel de marketing (Meta) del período.',
+    `Impresión: ${fmtNum(mkt.impressions)} | Click: ${fmtNum(mkt.link_clicks)} | Landing: ${fmtNum(mkt.landing_page_views)} | VSL: ${fmtNum(mkt.vsl_views)}`,
+    `CTR de link: ${ctrLink !== null ? ctrLink.toFixed(1) : '—'}% | llega a landing: ${clickLanding !== null ? clickLanding.toFixed(1) : '—'}% | ve el video: ${landingVsl !== null ? landingVsl.toFixed(1) : '—'}%`,
+    `CPM: ${fmtUSD(mkt.cpm_global, 2)} | CPC: ${fmtUSD(mkt.cpc_global, 2)} | Costo/Landing: ${fmtUSD(mkt.cpl_global, 2)} | Costo/VSL: ${fmtUSD(costoVsl, 2)} | Ad Spend: ${fmtUSD(mkt.spend_usd, 0)}`,
+  ].join('\n');
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 22px', color: 'var(--ink)' }}>Salud del Funnel — Marketing</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Salud del Funnel — Marketing</h2>
+        <MakoButton chartKey="marketing-funnel" titulo="Salud del Funnel — Marketing" contexto={ctxFunnelMkt} />
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 34, alignItems: 'stretch' }}>
         {/* funnel chart · trapezoides con borde */}

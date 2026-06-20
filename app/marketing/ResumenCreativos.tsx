@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { BreakdownCharts, type Breakdowns } from './ad-charts';
+import { MakoButton } from '../_components/ChartIA';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -28,9 +29,23 @@ export function ResumenCreativos({ desde, hasta }: { desde: string; hasta: strin
 
   const vacio = !!data && data.demograficos.length === 0 && data.plataformas.length === 0 && data.regiones.length === 0;
 
+  const ctx = data && !vacio
+    ? [
+        'Audiencia de la cuenta (Meta) en el período (toda la cuenta sumada).',
+        'Edad/género (impresiones): ' + data.demograficos.map((d) => `${d.age}/${d.genero}=${d.impressions}`).join(', '),
+        'Plataformas (impresiones): ' + data.plataformas.map((p) => `${p.label}=${p.impressions}`).join(', '),
+        'Top regiones (impresiones): ' + data.regiones.slice(0, 10).map((r) => `${r.label}=${r.impressions}`).join(', '),
+      ].join('\n')
+    : '';
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 18px', color: 'var(--ink)' }}>Audiencia y alcance</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Audiencia y alcance</h2>
+        {data && !vacio && (
+          <MakoButton chartKey="marketing-audiencia" titulo="Audiencia y alcance" contexto={ctx} chart={<BreakdownCharts demograficos={data.demograficos} plataformas={data.plataformas} regiones={data.regiones} />} />
+        )}
+      </div>
 
       {err &&<div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', color: 'var(--bad)', fontSize: 13 }}>No se pudo cargar de Meta: {err}</div>}
       {!data && !err && <div style={{ fontSize: 13.5, color: 'var(--faint)', fontFamily: MONO, padding: '8px 0' }}>Cargando desgloses de Meta…</div>}

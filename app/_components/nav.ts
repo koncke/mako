@@ -31,10 +31,10 @@ export const TOOLS_NAV: NavItem[] = [
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', match: starts('/whatsapp') },
   { key: 'email', label: 'Email Marketing', href: '/email', match: starts('/email') },
   {
-    key: 'koncke',
-    label: 'Preguntale a Koncke™',
-    href: '/koncke',
-    glyph: '✦',
-    match: starts('/koncke'),
+    key: 'mako',
+    label: 'Preguntale a MaKo',
+    href: '/mako',
+    glyph: '✨',
+    match: starts('/mako'),
   },
 ];

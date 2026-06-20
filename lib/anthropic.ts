@@ -1,26 +1,28 @@
 // =============================================================================
-// anthropic — cliente mínimo de Claude (Messages API)
+// anthropic — cliente de Claude (Messages API) con extended thinking
 // =============================================================================
-// Regla del proyecto: OpenAI para tareas simples, Claude para análisis/tareas
-// complejas (ej. conclusiones sobre gráficos). La API key va en ANTHROPIC_API_KEY
-// (.env.local + Vercel, nunca commiteada).
+// MaKo = analista. Siempre el modelo más capaz y con el máximo "esfuerzo"
+// (extended thinking con budget alto). La key va en ANTHROPIC_API_KEY.
 
 import 'server-only';
 
-// Opus 4.8: máximo análisis para las conclusiones de los gráficos.
+// Opus 4.8: el modelo más pensante disponible.
 const MODEL = 'claude-opus-4-8';
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
+// Esfuerzo en MAX: budget de razonamiento alto.
+const THINKING_BUDGET = 16000;
 
 export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };
 
 export async function chatClaude(
   system: string,
   messages: ClaudeMsg[],
-  opts: { maxTokens?: number; model?: string } = {},
+  opts: { model?: string; thinkingBudget?: number } = {},
 ): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
+  const budget = opts.thinkingBudget ?? THINKING_BUDGET;
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -30,9 +32,10 @@ export async function chatClaude(
     },
     body: JSON.stringify({
       model: opts.model ?? MODEL,
-      max_tokens: opts.maxTokens ?? 1024,
+      max_tokens: budget + 4000,
       system,
       messages,
+      thinking: { type: 'enabled', budget_tokens: budget },
     }),
     cache: 'no-store',
   });
@@ -41,6 +44,7 @@ export async function chatClaude(
   if (!res.ok || body.error) {
     throw new Error(body?.error?.message ?? `Anthropic ${res.status}`);
   }
+  // Quedarse solo con el texto (descartar los bloques de "thinking").
   const text = (body.content ?? [])
     .filter((c: { type?: string }) => c.type === 'text')
     .map((c: { text?: string }) => c.text ?? '')

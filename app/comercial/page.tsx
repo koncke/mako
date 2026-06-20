@@ -40,7 +40,7 @@ import {
 import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
 import { RevenueKpis, type RevCard } from './RevenueKpis';
 import { DesgloseTrigger, type DesgloseData, type DesgloseItem } from '../_components/Desglose';
-import { ChartIA } from '../_components/ChartIA';
+import { ChartIA, MakoButton } from '../_components/ChartIA';
 import { RevenueMensualChart } from './RevenueMensualChart';
 import { fmtUSD, fmtNum } from '@/lib/format';
 import {
@@ -423,9 +423,19 @@ function SaludFunnel({ maduras, cac, funnelLeads }: { maduras: ResumenComercialM
     { pct: pctCierran, nota: 'cierran', verde: false },
   ];
 
+  const ctxFunnel = [
+    'Embudo comercial sobre cohortes maduras (tasa confiable).',
+    `Agenda (J1): ${maduras.total_j1} | Asistió: ${maduras.asistencias} | Calificado: ${maduras.limpias} | Cierre: ${maduras.cierres}`,
+    `Conversiones: asisten a J1 ${pctAsisten !== null ? Math.round(pctAsisten) : '—'}% | califican ${pctCalifican !== null ? Math.round(pctCalifican) : '—'}% | cierran ${pctCierran !== null ? Math.round(pctCierran) : '—'}%`,
+    `No-show: ${noShow !== null ? Math.round(noShow) : '—'}% | Tasa de cierre madura: ${tasa !== null ? Math.round(tasa) : '—'}% | CAC acumulado: ${cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—'}`,
+  ].join('\n');
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 22px', color: 'var(--ink)' }}>Salud del Funnel — Comercial</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Salud del Funnel — Comercial</h2>
+        <MakoButton chartKey="comercial-funnel" titulo="Salud del Funnel — Comercial" contexto={ctxFunnel} />
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 34, alignItems: 'stretch' }}>
         {/* Embudo */}
@@ -573,10 +583,20 @@ function SCLTimeline({ scl, tramos, sclDesglose }: { scl: SCL | null; tramos: Tr
   const sclProm = scl && scl.avg_dias !== null ? `${scl.avg_dias.toFixed(1)} días` : '—';
   const p90 = scl && scl.p90_dias !== null ? `${scl.p90_dias}d` : '—';
 
+  const ctxScl = [
+    'SCL = ciclo de venta (días de agenda → primer pago).',
+    `SCL promedio: ${sclProm} · P90: ${p90}`,
+    'Tramos (días promedio entre etapas):',
+    ...tramoList.map((t) => `  ${t.label}: ${t.dias_promedio !== null ? `${t.dias_promedio.toFixed(1)}d` : 's/d'} (n=${t.n})${masLento === t.label ? ' ← el más lento' : ''}`),
+  ].join('\n');
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>SCL — ciclo de venta</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>SCL — ciclo de venta</h2>
+          <MakoButton chartKey="comercial-scl" titulo="SCL — ciclo de venta" contexto={ctxScl} />
+        </div>
         {(() => {
           const box = (
             <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '11px 18px', textAlign: 'right' }}>
