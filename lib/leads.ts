@@ -181,15 +181,25 @@ export type EstadoMadurez = 'madura' | 'madurando' | 'reciente' | 'sin_j1';
 /**
  * Lista todos los leads ordenados por created_at desc (más nuevos primero).
  */
+// Solo las columnas que consume el CRM (mapToCrmLead + pipelineStageOf +
+// origenLegible + calendlyDe). Antes traía select('*') (~50 cols, incl. payloads
+// crudos y campos de cobranza que el board no usa).
+const LISTA_COLS =
+  'id, nombre, email, empresa, telefono, created_at, estado_lead, pipeline_stage, nutricion_realizada, ' +
+  'fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, ' +
+  'monto_cierre_usd, total_cobrado_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
+  'meta_ad_name, meta_campaign_name, meta_lead_id, meta_ad_id, utm_campaign, ' +
+  'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
+
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });
 async function _listLeads(): Promise<Lead[]> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('leads')
-    .select('*')
+    .select(LISTA_COLS)
     .order('created_at', { ascending: false });
   if (error) throw new Error(`Error listando leads: ${error.message}`);
-  return (data ?? []) as Lead[];
+  return (data ?? []) as unknown as Lead[];
 }
 
 /**

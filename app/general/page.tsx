@@ -24,6 +24,7 @@ import {
   type AgendaItem,
   type SenalRecon,
 } from '@/lib/queries';
+import { fmtUSD, fmtNum } from '@/lib/format';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
 import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
@@ -34,15 +35,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
-
-function fmtUSD(n: number | null | undefined): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-}
-function fmtNum(n: number | null | undefined): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('es-MX').format(Math.round(n));
-}
 function fmtDMY(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-').map(Number);

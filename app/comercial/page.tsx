@@ -38,6 +38,7 @@ import {
 import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
 import { RevenueKpis, type RevCard } from './RevenueKpis';
 import { DesgloseTrigger, type DesgloseData, type DesgloseItem } from '../_components/Desglose';
+import { fmtUSD, fmtNum } from '@/lib/format';
 import {
   ayerEnTijuana,
   hoyEnTijuana,
@@ -58,20 +59,6 @@ const MONO = "'Geist Mono', monospace";
 // ─────────────────────────────────────────────────────────────────────────────
 // Format helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-function fmtUSD(n: number | null | undefined): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function fmtNum(n: number | null | undefined): string {
-  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('es-MX').format(Math.round(n));
-}
 
 function fmtDMY(iso: string | null): string {
   if (!iso) return '—';
