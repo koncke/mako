@@ -1,13 +1,13 @@
 // =============================================================================
 // /api/ad-insights — métricas de UN anuncio para un período, directo de Meta
 // =============================================================================
-// El modal de /anuncios consume esto para mostrar datos que COINCIDEN con Meta:
-//   - Totales del período (frecuencia con alcance ÚNICO, impresiones, alcance,
-//     clics, CPM/CPC, agendas, video) — un insights SIN time_increment.
-//   - Serie diaria (time_increment=1) para los gráficos y para detectar el rango
-//     activo y los intervalos inactivos.
-// Derivar estos números de las filas diarias agregadas daba mal (la frecuencia
-// no es promediable; el alcance no es aditivo). Por eso se piden a Meta aquí.
+// El modal de /anuncios consume esto para mostrar datos que COINCIDEN con Meta.
+// Devuelve:
+//   - period: totales del período (frecuencia con alcance ÚNICO, video, etc.)
+//   - daily:  serie diaria para el gráfico (selector de métrica) y la actividad
+//   - demograficos / plataformas / regiones: desgloses (breakdowns) de Meta
+// Se derivaban mal de las filas diarias agregadas (la frecuencia no es
+// promediable; el alcance no es aditivo) → por eso se piden a Meta aquí.
 
 import type { NextRequest } from 'next/server';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
@@ -20,17 +20,22 @@ function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
-function actionVal(actions: Array<{ action_type: string; value: string }> | undefined, type: string): number {
+type Act = Array<{ action_type: string; value: string }>;
+function actionVal(actions: Act | undefined, type: string): number {
   if (!actions) return 0;
   const f = actions.find((a) => a.action_type === type);
   return f ? num(f.value) : 0;
 }
+const usd = (mxn: number) => mxn / TIPO_DE_CAMBIO_USD_MXN;
 function addDays(iso: string, d: number): string {
   const [y, m, dd] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, dd + d));
-  return dt.toISOString().slice(0, 10);
+  return new Date(Date.UTC(y, m - 1, dd + d)).toISOString().slice(0, 10);
 }
 const isISO = (s: string | null): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+// Agendas de Meta = conversión personalizada "Programaciones".
+const agendasDe = (a: Act | undefined) => actionVal(a, 'offsite_conversion.fb_pixel_custom');
+const leadsDe = (a: Act | undefined) => actionVal(a, 'lead') || actionVal(a, 'onsite_conversion.lead_grouped');
 
 export async function GET(req: NextRequest) {
   const adId = req.nextUrl.searchParams.get('ad_id');
@@ -44,88 +49,100 @@ export async function GET(req: NextRequest) {
   if (!ver || !token) return Response.json({ error: 'Meta no configurado' }, { status: 500 });
 
   const timeRange = JSON.stringify({ since: desde, until: hasta });
-  const periodFields = 'ad_name,impressions,reach,frequency,clicks,inline_link_clicks,ctr,spend,actions,video_thruplay_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_avg_time_watched_actions';
 
-  try {
-    // 1) Totales del período (alcance único → frecuencia correcta)
-    const pUrl = new URL(`${GRAPH}/${ver}/${adId}/insights`);
-    pUrl.searchParams.set('fields', periodFields);
-    pUrl.searchParams.set('action_breakdowns', 'action_type');
-    pUrl.searchParams.set('time_range', timeRange);
-    pUrl.searchParams.set('access_token', token);
-    const pRes = await fetch(pUrl, { cache: 'no-store' });
-    const pBody = await pRes.json();
-    if (pBody.error) return Response.json({ error: pBody.error.message }, { status: 502 });
-    const p = pBody.data?.[0] ?? {};
-
-    const spendMxn = num(p.spend);
-    const spendUsd = spendMxn / TIPO_DE_CAMBIO_USD_MXN;
-    const impressions = num(p.impressions);
-    const reach = num(p.reach);
-    const linkClicks = num(p.inline_link_clicks);
-    const clicks = num(p.clicks);
-    const video3s = actionVal(p.actions, 'video_view');
-    const period = {
-      ad_name: p.ad_name ?? null,
-      impressions,
-      reach,
-      frequency: num(p.frequency),
-      clicks,
-      link_clicks: linkClicks,
-      ctr: p.ctr != null ? num(p.ctr) : null, // % (Meta)
-      spend_usd: spendUsd,
-      spend_mxn: spendMxn,
-      cpm_usd: impressions > 0 ? (spendUsd / impressions) * 1000 : null,
-      cpc_usd: linkClicks > 0 ? spendUsd / linkClicks : null,
-      agendas: actionVal(p.actions, 'offsite_conversion.fb_pixel_custom'),
-      leads: actionVal(p.actions, 'lead') || actionVal(p.actions, 'onsite_conversion.lead_grouped'),
-      landing_views: actionVal(p.actions, 'landing_page_view'),
-      video_plays_3s: video3s,
-      video_thruplay: actionVal(p.video_thruplay_watched_actions, 'video_view'),
-      video_p25: actionVal(p.video_p25_watched_actions, 'video_view'),
-      video_p50: actionVal(p.video_p50_watched_actions, 'video_view'),
-      video_p75: actionVal(p.video_p75_watched_actions, 'video_view'),
-      video_p100: actionVal(p.video_p100_watched_actions, 'video_view'),
-      video_avg_watch_s: actionVal(p.video_avg_time_watched_actions, 'video_view'),
-    };
-
-    // 2) Serie diaria (para gráficos + actividad)
-    const dUrl = new URL(`${GRAPH}/${ver}/${adId}/insights`);
-    dUrl.searchParams.set('fields', 'spend,impressions,reach,inline_link_clicks,actions');
-    dUrl.searchParams.set('action_breakdowns', 'action_type');
-    dUrl.searchParams.set('time_increment', '1');
-    dUrl.searchParams.set('time_range', timeRange);
-    dUrl.searchParams.set('limit', '500');
-    dUrl.searchParams.set('access_token', token);
-    const daily: Array<{ fecha: string; spend_usd: number; impressions: number; reach: number; link_clicks: number; agendas: number }> = [];
-    let next: string | null = dUrl.toString();
+  // Helper: una llamada a insights del anuncio (opcionalmente con breakdown o diario).
+  async function insights(fields: string, opts: { breakdowns?: string; daily?: boolean } = {}) {
+    const u = new URL(`${GRAPH}/${ver}/${adId}/insights`);
+    u.searchParams.set('fields', fields);
+    u.searchParams.set('action_breakdowns', 'action_type');
+    if (opts.breakdowns) u.searchParams.set('breakdowns', opts.breakdowns);
+    if (opts.daily) u.searchParams.set('time_increment', '1');
+    u.searchParams.set('time_range', timeRange);
+    u.searchParams.set('limit', '500');
+    u.searchParams.set('access_token', token!);
+    const out: Record<string, unknown>[] = [];
+    let next: string | null = u.toString();
     let pages = 0;
     while (next) {
       if (++pages > 50) break;
       const r: Response = await fetch(next, { cache: 'no-store' });
       const b = await r.json();
-      if (b.error) break;
-      for (const row of b.data ?? []) {
-        daily.push({
-          fecha: row.date_start,
-          spend_usd: num(row.spend) / TIPO_DE_CAMBIO_USD_MXN,
-          impressions: num(row.impressions),
-          reach: num(row.reach),
-          link_clicks: num(row.inline_link_clicks),
-          agendas: actionVal(row.actions, 'offsite_conversion.fb_pixel_custom'),
-        });
-      }
+      if (b.error) throw new Error(b.error.message);
+      for (const row of b.data ?? []) out.push(row);
       next = b.paging?.next ?? null;
     }
-    daily.sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+    return out;
+  }
 
-    // 3) Rango activo + intervalos inactivos (días con gasto 0 entre primero y último activo)
+  const PERIOD_FIELDS = 'ad_name,impressions,reach,frequency,clicks,inline_link_clicks,ctr,spend,actions,video_play_actions,video_thruplay_watched_actions,video_continuous_2_sec_watched_actions,video_30_sec_watched_actions,video_p25_watched_actions,video_p50_watched_actions,video_p75_watched_actions,video_p100_watched_actions,video_avg_time_watched_actions';
+  const BD_FIELDS = 'impressions,reach,spend,actions';
+
+  try {
+    const [pArr, dArr, ageArr, platArr, regArr] = await Promise.all([
+      insights(PERIOD_FIELDS),
+      insights('spend,impressions,reach,clicks,inline_link_clicks,actions', { daily: true }),
+      insights(BD_FIELDS, { breakdowns: 'age,gender' }),
+      insights(BD_FIELDS, { breakdowns: 'publisher_platform' }),
+      insights(BD_FIELDS, { breakdowns: 'region' }),
+    ]);
+
+    const p = pArr[0] ?? {};
+    const spendMxn = num(p.spend);
+    const spendUsd = usd(spendMxn);
+    const impressions = num(p.impressions);
+    const reach = num(p.reach);
+    const linkClicks = num(p.inline_link_clicks);
+    const thruplay = actionVal(p.video_thruplay_watched_actions as Act, 'video_view');
+    const period = {
+      ad_name: p.ad_name ?? null,
+      impressions, reach, frequency: num(p.frequency),
+      clicks: num(p.clicks), link_clicks: linkClicks,
+      ctr: p.ctr != null ? num(p.ctr) : null,
+      spend_usd: spendUsd, spend_mxn: spendMxn,
+      cpm_usd: impressions > 0 ? (spendUsd / impressions) * 1000 : null,
+      cpc_usd: linkClicks > 0 ? spendUsd / linkClicks : null,
+      agendas: agendasDe(p.actions as Act),
+      leads: leadsDe(p.actions as Act),
+      landing_views: actionVal(p.actions as Act, 'landing_page_view'),
+      // Video
+      video_plays_total: actionVal(p.video_play_actions as Act, 'video_view'),
+      video_plays_3s: actionVal(p.actions as Act, 'video_view'),
+      video_2s: actionVal(p.video_continuous_2_sec_watched_actions as Act, 'video_view'),
+      video_thruplay: thruplay,
+      video_30s: actionVal(p.video_30_sec_watched_actions as Act, 'video_view'),
+      video_p25: actionVal(p.video_p25_watched_actions as Act, 'video_view'),
+      video_p50: actionVal(p.video_p50_watched_actions as Act, 'video_view'),
+      video_p75: actionVal(p.video_p75_watched_actions as Act, 'video_view'),
+      video_p100: actionVal(p.video_p100_watched_actions as Act, 'video_view'),
+      video_avg_watch_s: actionVal(p.video_avg_time_watched_actions as Act, 'video_view'),
+      cost_per_thruplay_usd: thruplay > 0 ? spendUsd / thruplay : null,
+    };
+
+    // Serie diaria
+    const daily = dArr.map((row) => {
+      const imp = num(row.impressions);
+      const sp = usd(num(row.spend));
+      const lc = num(row.inline_link_clicks);
+      return {
+        fecha: String(row.date_start),
+        spend_usd: sp,
+        impressions: imp,
+        reach: num(row.reach),
+        clicks: num(row.clicks),
+        link_clicks: lc,
+        agendas: agendasDe(row.actions as Act),
+        leads: leadsDe(row.actions as Act),
+        ctr: imp > 0 ? (lc / imp) * 100 : 0,
+        cpm_usd: imp > 0 ? (sp / imp) * 1000 : 0,
+      };
+    }).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
+
+    // Actividad: rango activo + intervalos inactivos
     const activos = daily.filter((d) => d.spend_usd > 0).map((d) => d.fecha);
     let activity: { primero: string | null; ultimo: string | null; dias_activos: number; gaps: Array<{ desde: string; hasta: string; dias: number }> } = { primero: null, ultimo: null, dias_activos: activos.length, gaps: [] };
     if (activos.length > 0) {
       const set = new Set(activos);
-      const primero = activos[0];
-      const ultimo = activos[activos.length - 1];
+      const primero = activos[0], ultimo = activos[activos.length - 1];
       const gaps: Array<{ desde: string; hasta: string; dias: number }> = [];
       let cur = primero, gapStart: string | null = null;
       while (cur <= ultimo) {
@@ -137,7 +154,17 @@ export async function GET(req: NextRequest) {
       activity = { primero, ultimo, dias_activos: activos.length, gaps };
     }
 
-    return Response.json({ period, daily, activity });
+    // Breakdowns → {label, impressions, reach, agendas, spend_usd}
+    const mapBD = (rows: Record<string, unknown>[], label: (r: Record<string, unknown>) => string) =>
+      rows.map((r) => ({ label: label(r), impressions: num(r.impressions), reach: num(r.reach), agendas: agendasDe(r.actions as Act), spend_usd: usd(num(r.spend)) }))
+        .filter((x) => x.impressions > 0 || x.spend_usd > 0)
+        .sort((a, b) => b.impressions - a.impressions);
+
+    const demograficos = mapBD(ageArr, (r) => `${r.age ?? '—'} · ${r.gender === 'male' ? 'H' : r.gender === 'female' ? 'M' : '—'}`);
+    const plataformas = mapBD(platArr, (r) => String(r.publisher_platform ?? '—'));
+    const regiones = mapBD(regArr, (r) => String(r.region ?? '—')).slice(0, 8);
+
+    return Response.json({ period, daily, activity, demograficos, plataformas, regiones });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
