@@ -28,6 +28,13 @@ const fmtUSD = (n: number | null) => (n === null || !Number.isFinite(n) ? '—' 
 const isoToDmy = (s: string | null) => { if (!s) return ''; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m ? `${m[3]}/${m[2]}/${m[1]}` : s; };
 const dmyToIso = (s: string): string | null => { const t = (s || '').trim(); if (!t) return null; if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null; };
 const toMonto = (s: string) => { const n = Number(String(s ?? '').replace(/[^0-9.]/g, '')); return Number.isFinite(n) ? n : 0; };
+const diasHasta = (iso: string | null): number | null => {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  const now = new Date();
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) / 86400000);
+};
+const UMBRAL_PRONTO = 5; // días
 
 export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged?: () => void }) {
   const [plan, setPlan] = useState<LeadPlan | null>(null);
@@ -51,9 +58,9 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
     setE({
       total: plan?.total_usd != null ? String(plan.total_usd) : '',
       duracion: plan?.duracion_meses != null ? String(plan.duracion_meses) : '',
-      cierre: isoToDmy(plan?.fecha_cierre ?? null),
-      inicio: isoToDmy(plan?.fecha_inicio ?? null),
-      cuotas: noPag.length ? noPag.map((p) => ({ monto: String(p.monto_usd), fecha: isoToDmy(p.fecha_esperada) })) : [{ monto: '', fecha: '' }],
+      cierre: plan?.fecha_cierre ?? '',
+      inicio: plan?.fecha_inicio ?? '',
+      cuotas: noPag.length ? noPag.map((p) => ({ monto: String(p.monto_usd), fecha: p.fecha_esperada ?? '' })) : [{ monto: '', fecha: '' }],
     });
     setMode('edit');
   };
@@ -78,9 +85,9 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
     setE((cur) => ({
       total: d.total_usd != null ? String(d.total_usd) : cur.total,
       duracion: d.duracion_meses != null ? String(d.duracion_meses) : cur.duracion,
-      cierre: d.fecha_cierre ?? cur.cierre,
-      inicio: d.fecha_inicio ?? cur.inicio,
-      cuotas: d.cuotas && d.cuotas.length ? d.cuotas.map((c) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: c.fecha ?? '' })) : cur.cuotas,
+      cierre: dmyToIso(d.fecha_cierre ?? '') ?? cur.cierre,
+      inicio: dmyToIso(d.fecha_inicio ?? '') ?? cur.inicio,
+      cuotas: d.cuotas && d.cuotas.length ? d.cuotas.map((c) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: dmyToIso(c.fecha ?? '') ?? '' })) : cur.cuotas,
     }));
   };
 
@@ -116,14 +123,30 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
           <div style={{ fontSize: 13, color: 'var(--faint)' }}>Sin cuotas cargadas.</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {plan.pagos.map((p, i) => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, background: p.pagado ? 'var(--good-bg)' : 'var(--surface)', border: '1px solid ' + (p.pagado ? 'var(--good)' : 'var(--border)') }}>
-                <span style={{ flex: 'none', width: 22, fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{i + 1}</span>
-                <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(p.monto_usd)}</span>
-                <span style={{ flex: 1, fontSize: 12.5, color: 'var(--dim)' }}>vence {isoToDmy(p.fecha_esperada) || '—'}{p.pagado && p.fecha_pago ? ` · pagó ${isoToDmy(p.fecha_pago)}` : ''}</span>
-                <button type="button" disabled={pending} onClick={() => toggleCobrado(p)} style={{ flex: 'none', cursor: pending ? 'wait' : 'pointer', borderRadius: 999, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, border: '1px solid ' + (p.pagado ? 'var(--good)' : 'var(--border-strong)'), background: p.pagado ? 'var(--good)' : 'var(--surface)', color: p.pagado ? '#fff' : 'var(--dim)' }}>{p.pagado ? 'Cobrado ✅' : 'Marcar cobrado'}</button>
-              </div>
-            ))}
+            {plan.pagos.map((p, i) => {
+              const d = p.pagado ? null : diasHasta(p.fecha_esperada);
+              const vencida = d != null && d < 0;
+              const pronto = d != null && d >= 0 && d <= UMBRAL_PRONTO;
+              const borderC = p.pagado ? 'var(--good)' : vencida ? 'var(--bad)' : pronto ? 'var(--accent)' : 'var(--border)';
+              const bgC = p.pagado ? 'var(--good-bg)' : vencida ? 'var(--bad-bg)' : 'var(--surface)';
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 9, background: bgC, border: '1px solid ' + borderC }}>
+                  <span style={{ flex: 'none', width: 22, fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{i + 1}</span>
+                  {(vencida || pronto) && <span style={{ flex: 'none', width: 9, height: 9, borderRadius: '50%', background: vencida ? 'var(--bad)' : '#E8B007', animation: `${vencida ? 'blinkRed' : 'blinkAmber'} 1.1s infinite` }} />}
+                  <span style={{ flex: 1, fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(p.monto_usd)}</span>
+                  <span style={{ flex: 1.4, fontSize: 12.5, color: vencida ? 'var(--bad)' : 'var(--dim)', fontWeight: vencida ? 700 : 400 }}>
+                    {p.pagado
+                      ? `pagó ${isoToDmy(p.fecha_pago) || '—'}`
+                      : vencida
+                        ? `URGENTE · venció ${isoToDmy(p.fecha_esperada)}`
+                        : pronto
+                          ? `vence ${isoToDmy(p.fecha_esperada)} (${d === 0 ? 'hoy' : `en ${d}d`})`
+                          : `vence ${isoToDmy(p.fecha_esperada) || '—'}`}
+                  </span>
+                  <button type="button" disabled={pending} onClick={() => toggleCobrado(p)} style={{ flex: 'none', cursor: pending ? 'wait' : 'pointer', borderRadius: 999, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, border: '1px solid ' + (p.pagado ? 'var(--good)' : 'var(--border-strong)'), background: p.pagado ? 'var(--good)' : 'var(--surface)', color: p.pagado ? '#fff' : 'var(--dim)' }}>{p.pagado ? 'Cobrado ✅' : 'Marcar cobrado'}</button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -140,8 +163,8 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div><div style={lbl}>Total del plan (USD)</div><input value={e.total} onChange={(ev) => setE({ ...e, total: ev.target.value })} placeholder="0" style={input} /></div>
         <div><div style={lbl}>Duración del servicio (meses)</div><input value={e.duracion} onChange={(ev) => setE({ ...e, duracion: ev.target.value })} placeholder="3" style={input} /></div>
-        <div><div style={lbl}>Fecha de cierre</div><input value={e.cierre} onChange={(ev) => setE({ ...e, cierre: ev.target.value })} placeholder="dd/mm/aaaa" style={input} /></div>
-        <div><div style={lbl}>Inicio del servicio</div><input value={e.inicio} onChange={(ev) => setE({ ...e, inicio: ev.target.value })} placeholder="dd/mm/aaaa" style={input} /></div>
+        <div><div style={lbl}>Fecha de cierre</div><input type="date" value={e.cierre} onChange={(ev) => setE({ ...e, cierre: ev.target.value })} style={input} /></div>
+        <div><div style={lbl}>Inicio del servicio</div><input type="date" value={e.inicio} onChange={(ev) => setE({ ...e, inicio: ev.target.value })} style={input} /></div>
       </div>
       <div style={{ marginBottom: 12 }}>
         <div style={lbl}>Contrato</div>
@@ -153,7 +176,7 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
           <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span style={{ flex: 'none', width: 22, fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{i + 1}</span>
             <input value={c.monto} onChange={(ev) => setCuota(i, 'monto', ev.target.value)} placeholder="Monto cuota" style={{ ...input, flex: 1, width: 'auto' }} />
-            <input value={c.fecha} onChange={(ev) => setCuota(i, 'fecha', ev.target.value)} placeholder="Fecha de pago" style={{ ...input, flex: 1, width: 'auto' }} />
+            <input type="date" value={c.fecha} onChange={(ev) => setCuota(i, 'fecha', ev.target.value)} style={{ ...input, flex: 1, width: 'auto' }} />
             <button type="button" onClick={() => setE((cur) => ({ ...cur, cuotas: cur.cuotas.filter((_, qi) => qi !== i) }))} title="Quitar" style={{ flex: 'none', border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 16 }}>×</button>
           </div>
         ))}

@@ -78,9 +78,14 @@ function fmtMes(yyyy_mm_dd: string): string {
 function fmtFechaCorta(yyyy_mm_dd: string | null): string {
   if (!yyyy_mm_dd) return '—';
   const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(y, m - 1, d)),
-  );
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+function diasHastaCuota(iso: string | null, hoyISO: string): number | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  const [hy, hm, hd] = hoyISO.split('-').map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(hy, hm - 1, hd)) / 86400000);
 }
 
 function emojiMadurez(e: EstadoMadurezCohorte): string {
@@ -239,6 +244,7 @@ function RevenueSection({
   const totalRef = cash + out;
   const pctCash = totalRef > 0 ? Math.round((cash / totalRef) * 100) : 0;
   const pctOut = 100 - pctCash;
+  const hoyISO = hoyEnTijuana();
 
   const items = [...outstanding.items].sort((a, b) => b.pendiente_usd - a.pendiente_usd);
 
@@ -335,21 +341,34 @@ function RevenueSection({
                 </tr>
               </thead>
               <tbody>
-                {items.map((it) => (
-                  <tr key={it.lead_id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ padding: '13px 16px' }}>
-                      <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{it.lead_nombre}</span>
-                    </td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{fmtUSD(it.vendido_usd)}</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--good)' }}>{fmtUSD(it.cobrado_usd)}</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--bad)' }}>{fmtUSD(it.pendiente_usd)}</td>
-                    <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--dim)' }}>
-                      {it.proxima_cuota
-                        ? `cuota ${it.proxima_cuota.numero} · ${fmtUSD(it.proxima_cuota.monto_usd)} · ${fmtFechaCorta(it.proxima_cuota.fecha_esperada)}`
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {[...items].sort((a, b) => {
+                  const fa = a.proxima_cuota?.fecha_esperada, fb = b.proxima_cuota?.fecha_esperada;
+                  if (!fa && !fb) return 0; if (!fa) return 1; if (!fb) return -1;
+                  return fa < fb ? -1 : fa > fb ? 1 : 0;
+                }).map((it) => {
+                  const f = it.proxima_cuota?.fecha_esperada ?? null;
+                  const dd = diasHastaCuota(f, hoyISO);
+                  const vencida = dd != null && dd < 0;
+                  const pronto = dd != null && dd >= 0 && dd <= 5;
+                  return (
+                    <tr key={it.lead_id} style={{ borderTop: '1px solid var(--border)', background: vencida ? 'var(--bad-bg)' : 'transparent' }}>
+                      <td style={{ padding: '13px 16px' }}>
+                        <span style={{ color: 'var(--accent)', fontWeight: 500 }}>{it.lead_nombre}</span>
+                      </td>
+                      <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{fmtUSD(it.vendido_usd)}</td>
+                      <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--good)' }}>{fmtUSD(it.cobrado_usd)}</td>
+                      <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--bad)' }}>{fmtUSD(it.pendiente_usd)}</td>
+                      <td style={{ padding: '13px 16px', fontSize: 13, color: vencida ? 'var(--bad)' : 'var(--dim)', fontWeight: vencida ? 700 : 400 }}>
+                        {it.proxima_cuota ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                            {(vencida || pronto) && <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: vencida ? 'var(--bad)' : '#E8B007', animation: `${vencida ? 'blinkRed' : 'blinkAmber'} 1.1s infinite` }} />}
+                            {vencida ? 'URGENTE · ' : ''}cuota {it.proxima_cuota.numero} · {fmtUSD(it.proxima_cuota.monto_usd)} · {fmtFechaCorta(it.proxima_cuota.fecha_esperada)}{!vencida && pronto ? ` (${dd === 0 ? 'hoy' : `en ${dd}d`})` : ''}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
                 <tr style={{ borderTop: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
                   <td style={{ padding: '13px 16px', fontWeight: 600, color: 'var(--ink)' }} colSpan={3}>Total pendiente</td>
                   <td style={{ padding: '13px 14px', textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'var(--bad)' }}>{fmtUSD(outstanding.total)}</td>

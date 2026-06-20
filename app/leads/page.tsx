@@ -33,7 +33,7 @@ function fmtDay(s: string | null): string | null {
   if (!s) return null;
   const d = s.length <= 10 ? new Date(`${s}T00:00:00Z`) : new Date(s);
   if (Number.isNaN(d.getTime())) return null;
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(d);
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(d);
 }
 
 function calendlyDe(l: Lead): { q: string; a: string }[] {

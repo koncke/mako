@@ -20,6 +20,7 @@ import {
   type MetricaMTD,
 } from '@/lib/queries';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
+import { getCuotasPendientes } from '@/lib/pagos';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
 import { EditarMeta } from './EditarMeta';
 
@@ -44,13 +45,14 @@ export default async function GeneralPage() {
   const hoy = hoyEnTijuana();
   const ayer = ayerEnTijuana();
 
-  const [objR, compR, pendR, madR, fatR, tramoR] = await Promise.allSettled([
+  const [objR, compR, pendR, madR, fatR, tramoR, cuotasR] = await Promise.allSettled([
     getObjetivoProgreso(hoy),
     getResumenComparativo(ayer),
     getPendientesDeMarcar(hoy),
     getResumenComercialMaduras(),
     getFatigaAdsets(hoy),
     getTramoJ1J2Reciente(hoy, 60),
+    getCuotasPendientes(hoy),
   ]);
 
   const objetivo = objR.status === 'fulfilled' ? objR.value : null;
@@ -59,9 +61,30 @@ export default async function GeneralPage() {
   const maduras = madR.status === 'fulfilled' ? madR.value : null;
   const fatiga = fatR.status === 'fulfilled' ? fatR.value : [];
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
+  const cuotas = cuotasR.status === 'fulfilled' ? cuotasR.value : { vencidas: [], porVencer: [] };
 
   // ── Semáforo: alertas accionables (compacto) ──
   const alertas: Alerta[] = [];
+  // Cuotas vencidas → URGENTE (rojo); por vencer → vigilar (ámbar).
+  if (cuotas.vencidas.length > 0) {
+    const tot = cuotas.vencidas.reduce((s, c) => s + c.monto_usd, 0);
+    const n = cuotas.vencidas.length;
+    alertas.push({
+      nivel: 'rojo',
+      titulo: `${n} cuota${n === 1 ? '' : 's'} VENCIDA${n === 1 ? '' : 'S'} — cobrar URGENTE (${fmtUSD(tot)})`,
+      detalle: `Pagos vencidos sin cobrar (ej: ${cuotas.vencidas[0].lead_nombre}, ${Math.abs(cuotas.vencidas[0].dias)}d de atraso). Cobralos cuanto antes.`,
+      href: '/comercial', hrefLabel: 'Comercial',
+    });
+  }
+  if (cuotas.porVencer.length > 0) {
+    const n = cuotas.porVencer.length;
+    alertas.push({
+      nivel: 'ambar',
+      titulo: `${n} cuota${n === 1 ? '' : 's'} por cobrar pronto`,
+      detalle: `Vencen en los próximos días (ej: ${cuotas.porVencer[0].lead_nombre}, en ${cuotas.porVencer[0].dias}d). Tené listo el seguimiento de cobro.`,
+      href: '/comercial', hrefLabel: 'Comercial',
+    });
+  }
   if (tramo.n >= 3 && tramo.promedio !== null && tramo.promedio > DIAS_J1_J2_ALERTA) {
     alertas.push({
       nivel: 'ambar',

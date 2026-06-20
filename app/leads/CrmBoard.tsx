@@ -147,6 +147,7 @@ export function CrmBoard({
   const [editsMap, setEditsMap] = useState<Record<number, Edits>>({});
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -422,9 +423,9 @@ export function CrmBoard({
               const cards = filtered.filter((l) => effStage(l) === c.key);
               return (
                 <div key={c.key}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); handleDrop(c.key); }}
-                  style={{ flex: 'none', width: 282, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}
+                  onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
+                  onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
+                  style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '70vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
@@ -440,14 +441,15 @@ export function CrmBoard({
                         <div key={l.id}
                           onClick={() => openDetail(l)}
                           draggable
-                          onDragStart={() => setDragId(l.id)}
-                          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab' }}
+                          onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
+                          onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
+                          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(23,21,17,.20)' : 'none' }}
                         >
                           <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25 }}>{l.name}</div>
                           <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                           <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Cobrado' : l.agenda ? 'Agenda' : l.created}</span>
+                            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : l.agenda ? 'Agenda' : l.created}</span>
                             <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : l.agenda || '—'}</span>
                           </div>
                         </div>
