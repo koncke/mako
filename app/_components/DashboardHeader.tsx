@@ -8,13 +8,9 @@ import { SourceStrip } from './SourceStrip';
 import { FechaFiltroGlobal } from './FechaFiltroGlobal';
 
 function fmtFechaCorta(yyyy_mm_dd: string): string {
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  const fecha = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat('es-MX', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(fecha);
+  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
+  const [y, m, d] = yyyy_mm_dd.split('-');
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
 }
 
 export async function DashboardHeader({

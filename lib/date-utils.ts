@@ -22,6 +22,18 @@ export function hoyEnTijuana(date: Date = new Date()): string {
 }
 
 /**
+ * Formatea una fecha 'YYYY-MM-DD' (o con timestamp) como dd/mm/aaaa para pantalla.
+ * Convención del proyecto: TODA fecha de calendario visible va en dd/mm/aaaa.
+ * Devuelve '—' si la entrada es nula/ inválida.
+ */
+export function fmtDDMMYYYY(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  if (!y || !m || !d) return '—';
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+}
+
+/**
  * Devuelve la fecha de "ayer" en zona Tijuana, formato 'YYYY-MM-DD'.
  * Bulletproof contra DST: trabaja en calendar-day, no en deltas de horas.
  */

@@ -11,6 +11,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { savePlanPagosAction, marcarPagoAction } from '../actions';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead } from '@/lib/leads';
 import type { Pago } from '@/lib/pagos';
 
@@ -19,13 +20,8 @@ function hoyISO(): string {
 }
 
 function fmtFecha(yyyy_mm_dd: string | null): string {
-  if (!yyyy_mm_dd) return '—';
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(y, m - 1, d)));
+  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
+  return fmtDDMMYYYY(yyyy_mm_dd);
 }
 
 function fmtUSD(n: number | null | undefined): string {

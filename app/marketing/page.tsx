@@ -28,6 +28,7 @@ import {
   hoyEnTijuana,
   esFechaValida,
   primerDiaDelMesDeFecha,
+  fmtDDMMYYYY,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
 import Link from 'next/link';
@@ -68,20 +69,8 @@ function fmtX(n: number | null | undefined): string {
 }
 
 function fmtPeriodoLabel(desde: string, hasta: string): string {
-  const f = (s: string) => {
-    const [y, m, d] = s.split('-').map(Number);
-    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
-  };
-  const [, , dD] = desde.split('-').map(Number);
-  const [, , dH] = hasta.split('-').map(Number);
-  // "1–16 jun 2026"
-  const mesAnio = (() => {
-    const [y, m] = hasta.split('-').map(Number);
-    return new Intl.DateTimeFormat('es-MX', { month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
-  })();
-  const sameMonth = desde.slice(0, 7) === hasta.slice(0, 7);
-  if (sameMonth) return `${dD}–${dH} ${mesAnio}`;
-  return `${f(desde)} – ${f(hasta)}`;
+  // Convención del proyecto: fechas en pantalla → dd/mm/aaaa.
+  return `${fmtDDMMYYYY(desde)} – ${fmtDDMMYYYY(hasta)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

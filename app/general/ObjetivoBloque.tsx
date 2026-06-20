@@ -19,8 +19,9 @@ function fmtUSD(n: number | null | undefined): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 }
 function fmtFecha(yyyy_mm_dd: string): string {
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
+  const [y, m, d] = yyyy_mm_dd.split('-');
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
 }
 
 export function ObjetivoBloque({ progreso }: { progreso: ObjetivoProgreso }) {

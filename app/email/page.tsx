@@ -133,10 +133,10 @@ const INITIAL_SEQUENCES: Sequence[] = [
 ];
 
 const INITIAL_BROADCASTS: Broadcast[] = [
-  { id: 'b1', subject: 'Nuevo caso: de 4 a 11 cierres en 60 días', date: '14 jun 2026', segment: 'Todos los activos', sent: '214', open: '46%', click: '12%', status: 'enviado' },
-  { id: 'b2', subject: 'Webinar en vivo: sistema de prospección', date: '8 jun 2026', segment: 'No Agenda + No Show', sent: '118', open: '51%', click: '19%', status: 'enviado' },
-  { id: 'b3', subject: 'Cierre de mes — últimos cupos', date: '2 jun 2026', segment: 'No Paga', sent: '42', open: '58%', click: '27%', status: 'enviado' },
-  { id: 'b4', subject: 'Encuesta: ¿qué te frena hoy?', date: 'Programado 22 jun', segment: 'Todos los activos', sent: '—', open: '—', click: '—', status: 'programado' },
+  { id: 'b1', subject: 'Nuevo caso: de 4 a 11 cierres en 60 días', date: '14/06/2026', segment: 'Todos los activos', sent: '214', open: '46%', click: '12%', status: 'enviado' },
+  { id: 'b2', subject: 'Webinar en vivo: sistema de prospección', date: '08/06/2026', segment: 'No Agenda + No Show', sent: '118', open: '51%', click: '19%', status: 'enviado' },
+  { id: 'b3', subject: 'Cierre de mes — últimos cupos', date: '02/06/2026', segment: 'No Paga', sent: '42', open: '58%', click: '27%', status: 'enviado' },
+  { id: 'b4', subject: 'Encuesta: ¿qué te frena hoy?', date: 'Programado 22/06/2026', segment: 'Todos los activos', sent: '—', open: '—', click: '—', status: 'programado' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

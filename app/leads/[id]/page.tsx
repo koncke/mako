@@ -15,6 +15,7 @@ import {
 } from '@/lib/leads';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditLeadForm } from './EditLeadForm';
 import { CobranzaPlanCard } from './CobranzaPlanCard';
 
@@ -22,16 +23,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 function fmtFechaLarga(yyyy_mm_dd: string | null): string {
-  if (!yyyy_mm_dd) return '—';
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  const fecha = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat('es-MX', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(fecha);
+  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
+  return fmtDDMMYYYY(yyyy_mm_dd);
 }
 
 export default async function LeadDetailPage({

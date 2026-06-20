@@ -1827,12 +1827,9 @@ export type Pendientes = {
 };
 
 function fmtFechaPendiente(yyyy_mm_dd: string): string {
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(y, m - 1, d)));
+  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
+  const [y, m, d] = yyyy_mm_dd.split('-');
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
 }
 
 function restarDiasISO(yyyy_mm_dd: string, dias: number): string {
@@ -2012,7 +2009,8 @@ export async function getJuntasProximas(
         lead_id: lead.id,
         tipo: c.tipo,
         fecha: c.fecha,
-        dia: c.fecha === hoy ? 'hoy' : c.fecha === masDiasISO(hoy, 1) ? 'mañana' : c.fecha,
+        // Label visible: hoy/mañana o dd/mm/aaaa (nunca el ISO crudo).
+        dia: c.fecha === hoy ? 'hoy' : c.fecha === masDiasISO(hoy, 1) ? 'mañana' : (() => { const [y, m, d] = c.fecha.split('-'); return `${d}/${m}/${y}`; })(),
         nombre: lead.nombre,
         empresa: lead.empresa,
         respuestas: {

@@ -13,7 +13,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { diasAntes, lunesDeFecha, primerDiaDelMesDeFecha } from '@/lib/date-utils';
+import { diasAntes, lunesDeFecha, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
 
 type Preset = { key: string; label: string; desde: string; hasta: string };
 
@@ -47,12 +47,8 @@ export function presetsDeFecha(hoy: string): Preset[] {
 }
 
 function fmtCorta(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(y, m - 1, d)));
+  // Convención del proyecto: fechas en pantalla → dd/mm/aaaa.
+  return fmtDDMMYYYY(iso);
 }
 
 export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {

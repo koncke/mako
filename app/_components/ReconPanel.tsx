@@ -14,6 +14,7 @@
 // =============================================================================
 
 import { useState } from 'react';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 
 const TOP_N = 5;
@@ -110,7 +111,7 @@ function RitmoSignal({ ritmo, dias }: { ritmo: RitmoEstado; dias: SenalRecon['ri
   if (ritmo === 'sin_datos') {
     return <span className="text-sm" style={{ color: 'var(--text-pending)' }} title="Se llenan con el cron diario">esperando presupuestos</span>;
   }
-  const det = dias.map((d) => `${d.fecha}: ${fmtUSD(d.spend_usd)}/${fmtUSD(d.budget_usd)} ${d.ok ? '✓' : '✗'}`).join('\n');
+  const det = dias.map((d) => `${fmtDDMMYYYY(d.fecha)}: ${fmtUSD(d.spend_usd)}/${fmtUSD(d.budget_usd)} ${d.ok ? '✓' : '✗'}`).join('\n');
   return (
     <span className="text-base font-semibold" style={{ color: ritmo === 'verde' ? 'var(--accent-green)' : 'var(--accent-orange)' }} title={det}>
       {ritmo === 'verde' ? '✓ ritmo' : '✗ ritmo'}

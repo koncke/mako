@@ -44,6 +44,7 @@ import {
   esFechaValida,
   primerDiaDelMesDeFecha,
   lunesDeFecha,
+  fmtDDMMYYYY,
 } from '@/lib/date-utils';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { CobrarTable } from './CobrarTable';
@@ -106,10 +107,8 @@ function funnelItems(
 }
 
 function fmtSemana(yyyy_mm_dd: string): string {
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(y, m - 1, d)),
-  );
+  // Semana de inicio (fecha específica) → dd/mm/aaaa.
+  return fmtDDMMYYYY(yyyy_mm_dd);
 }
 
 function fmtMes(yyyy_mm_dd: string): string {
@@ -172,13 +171,12 @@ export default async function ComercialPage({
   let cac: CACAcumulado | null = null;
   let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let funnelLeads: FunnelMadurasLeads | null = null;
-  let cacBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let j1Leads: FunnelLeadItem[] = [];
   let sclLeads: SCLLeadItem[] = [];
   let errorMsg: string | null = null;
 
   try {
-    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, cacBreak, j1Leads, sclLeads] = await Promise.all([
+    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, j1Leads, sclLeads] = await Promise.all([
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
@@ -189,9 +187,6 @@ export default async function ComercialPage({
       getCACAcumulado(),
       getRevenueBreakdowns(revDesde, revHasta),
       getFunnelMadurasLeads(),
-      // Cierres que alimentan el CAC acumulado (ventana amplia; el detalle son
-      // los cierres con fecha de cierre cargada).
-      getRevenueBreakdowns('2025-01-01', hoyReal),
       getJ1Leads(),
       getSCLLeads(),
     ]);
@@ -270,7 +265,7 @@ export default async function ComercialPage({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
           {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} />}
 
-          {maduras && <SaludFunnel maduras={maduras} cac={cac} funnelLeads={funnelLeads} cacBreak={cacBreak} />}
+          {maduras && <SaludFunnel maduras={maduras} cac={cac} funnelLeads={funnelLeads} />}
 
           <SCLTimeline scl={scl} tramos={tramos} sclDesglose={sclDesglose} />
 
@@ -375,7 +370,7 @@ function RevenueSection({
 // Salud del Funnel — Comercial (embudo + KPIs)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SaludFunnel({ maduras, cac, funnelLeads, cacBreak }: { maduras: ResumenComercialMaduras; cac: CACAcumulado | null; funnelLeads: FunnelMadurasLeads | null; cacBreak: RevenueBreakdowns }) {
+function SaludFunnel({ maduras, cac, funnelLeads }: { maduras: ResumenComercialMaduras; cac: CACAcumulado | null; funnelLeads: FunnelMadurasLeads | null }) {
   const noShow =
     maduras.total_j1 > 0 ? ((maduras.total_j1 - maduras.asistencias) / maduras.total_j1) * 100 : null;
   const tasa = maduras.tasa_cierre_madura;
@@ -392,18 +387,6 @@ function SaludFunnel({ maduras, cac, funnelLeads, cacBreak }: { maduras: Resumen
   const dgNoShow: DesgloseData | undefined = fl ? { label: 'No-show · no asistió a J1', value: fmtNum(maduras.total_j1 - maduras.asistencias), color: 'var(--bad)', items: funnelItems(fl.noShow, () => '✗ no asistió'), emptyText: 'Sin no-shows.' } : undefined;
   const dgCalificado: DesgloseData | undefined = fl ? { label: 'Calificados', value: fmtNum(maduras.limpias), color: 'var(--ink)', items: funnelItems(fl.calificado, () => '✓ calificado'), emptyText: 'Sin calificados.' } : undefined;
   const dgCierre: DesgloseData | undefined = fl ? { label: 'Cierres maduros', value: fmtNum(maduras.cierres), color: 'var(--good)', items: funnelItems(fl.cierre, (l) => fmtUSD(l.monto), 'plan-pagos'), emptyText: 'Sin cierres maduros.' } : undefined;
-
-  // CAC acumulado: spend que lo alimenta (fila síntesis) + los cierres contados.
-  const dgCac: DesgloseData = {
-    label: 'CAC acumulado · spend ÷ cierres',
-    value: cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—',
-    color: 'var(--ink)',
-    items: [
-      { nombre: 'Spend total (Meta)', valor: cac ? fmtUSD(cac.spend_total_usd) : '—', detalle: `${cac?.cierres_total ?? 0} cierres acumulados` },
-      ...cacBreak.sold.map((it) => ({ nombre: it.nombre, valor: fmtUSD(it.monto), detalle: `cierre ${fmtDMY(it.fecha)}`, leadId: it.leadId, focus: 'plan-pagos' })),
-    ],
-    emptyText: 'Sin datos de CAC.',
-  };
 
   const etapas: Array<{ label: string; valor: number; bg: string; dg?: DesgloseData }> = [
     { label: 'Agenda', valor: maduras.total_j1, bg: '#FBF4DC', dg: dgAgenda },
@@ -509,7 +492,6 @@ function SaludFunnel({ maduras, cac, funnelLeads, cacBreak }: { maduras: Resumen
             valueColor="var(--ink)"
             sub="Spend ÷ cierres"
             topColor="var(--border-strong)"
-            desglose={dgCac}
           />
         </div>
       </div>

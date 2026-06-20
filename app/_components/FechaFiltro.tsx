@@ -10,13 +10,14 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, type CSSProperties } from 'react';
 import { presetsDeFecha } from './FechaFiltroGlobal';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 function fmtCorta(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+  // Convención del proyecto: fechas en pantalla → dd/mm/aaaa.
+  return fmtDDMMYYYY(iso);
 }
 
 export function FechaFiltro({ hoyReal }: { hoyReal: string }) {

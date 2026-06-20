@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { geoMercator, geoPath } from 'd3-geo';
 import type { SenalRecon } from '@/lib/queries';
 import { AnuncioCard, compararCombo, VEREDICTO_BADGE } from '../AnuncioCard';
@@ -48,7 +49,7 @@ const fmtUSD = (n: number | null | undefined, d?: number) => {
 };
 const fmtNum = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('es-MX').format(Math.round(n)));
 const fmtPct = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : `${n < 10 ? n.toFixed(1) : n.toFixed(0)}%`);
-const fmtFecha = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d))); };
+const fmtFecha = (iso: string) => fmtDDMMYYYY(iso);
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const diasEntre = (a: string, b: string) => { const [y1, m1, d1] = a.split('-').map(Number); const [y2, m2, d2] = b.split('-').map(Number); return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000); };
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();

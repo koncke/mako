@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 import { getSenalesRecon, getAgendasComparador, type SenalRecon, type AgendasComparador } from '@/lib/queries';
-import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha } from '@/lib/date-utils';
+import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
 import { FechaFiltro } from '../../_components/FechaFiltro';
 import { tieneSenal } from '../AnuncioCard';
 import { AnunciosBrowser } from './AnunciosBrowser';
@@ -18,11 +18,7 @@ export const revalidate = 0;
 const MONO = "'Geist Mono', monospace";
 
 function fmtPeriodoLabel(desde: string, hasta: string): string {
-  const f = (s: string) => {
-    const [y, m, d] = s.split('-').map(Number);
-    return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
-  };
-  return `${f(desde)} – ${f(hasta)}`;
+  return `${fmtDDMMYYYY(desde)} – ${fmtDDMMYYYY(hasta)}`;
 }
 
 export default async function AnunciosPage({

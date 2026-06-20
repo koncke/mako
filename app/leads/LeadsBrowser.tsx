@@ -12,6 +12,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead, EstadoLead, EstadoMadurez } from '@/lib/leads';
 
 export type EnrichedLead = Lead & {
@@ -41,9 +42,8 @@ const ESTADO_ORDEN: Record<EstadoLead, number> = {
 };
 
 function fmtFechaCorta(yyyy_mm_dd: string | null): string {
-  if (!yyyy_mm_dd) return '—';
-  const [y, m, d] = yyyy_mm_dd.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
+  return fmtDDMMYYYY(yyyy_mm_dd);
 }
 function fmtCurrency(n: number | null): string {
   if (n === null) return '—';
@@ -169,7 +169,7 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
         {visibles.length} {visibles.length === 1 ? 'lead' : 'leads'}
         {filtroActivo && ' (filtrados)'}
         {(desde || hasta) && (
-          <span className="ml-2">· cohorte J1 {desde || '…'} → {hasta || '…'}</span>
+          <span className="ml-2">· cohorte J1 {desde ? fmtDDMMYYYY(desde) : '…'} → {hasta ? fmtDDMMYYYY(hasta) : '…'}</span>
         )}
         {noshow === '1' && <span className="ml-2">· no-shows de J1</span>}
         {filtroActivo && (
