@@ -30,7 +30,6 @@ import {
   primerDiaDelMesDeFecha,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
-import { getRevenueBreakdowns, type RevenueBreakdowns } from '@/lib/pagos';
 import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
@@ -66,12 +65,6 @@ function fmtUSD(n: number | null | undefined, decimals?: number): string {
 function fmtX(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return `${n.toFixed(2)}x`;
-}
-
-function fmtDMY(iso: string | null): string {
-  if (!iso) return '—';
-  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
-  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
 function fmtPeriodoLabel(desde: string, hasta: string): string {
@@ -123,12 +116,11 @@ export default async function Page({
   let tendencias: Tendencias | null = null;
   let comparativo: ResumenComparativo | null = null;
   let revenue: RevenuePeriod | null = null;
-  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let errorMsg: string | null = null;
 
   try {
     const sourceMap = sourcesToMap(await getDataSources());
-    [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue, breakdowns] = await Promise.all([
+    [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue] = await Promise.all([
       getMarketingWindow(rangoDesde, rangoHasta),
       getFunnelEtapas(rangoDesde, rangoHasta, sourceMap),
       getFunnelSeries(rangoHasta, 12),
@@ -137,7 +129,6 @@ export default async function Page({
       getTendencias(rangoDesde, rangoHasta),
       filtroActivo ? Promise.resolve(null) : getResumenComparativo(ayerReal),
       getRevenuePeriod(rangoDesde, rangoHasta),
-      getRevenueBreakdowns(rangoDesde, rangoHasta),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -166,7 +157,7 @@ export default async function Page({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} senales={senales} breakdowns={breakdowns} />
+          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} senales={senales} />
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} senales={senales} />
 
@@ -193,14 +184,12 @@ function KpisEstrella({
   revenue,
   filtroActivo,
   senales,
-  breakdowns,
 }: {
   mkt: MarketingWindow;
   comparativo: ResumenComparativo | null;
   revenue: RevenuePeriod | null;
   filtroActivo: boolean;
   senales: SenalRecon[];
-  breakdowns: RevenueBreakdowns;
 }) {
   // Inversión: spend del rango. Delta = factor vs mismo período del mes anterior.
   const spend = mkt.spend_usd;
@@ -228,14 +217,6 @@ function KpisEstrella({
   const roasCash = revenue?.roas_cash ?? null;
   const roasSold = revenue?.roas_sold ?? null;
 
-  // Desgloses de CAC / ROAS: la fila de spend que alimenta + los leads del numerador.
-  const spendRow: DesgloseItem = { nombre: 'Spend total (Meta)', valor: fmtUSD(spend, 0), detalle: `${revenue?.cierres_en_periodo ?? breakdowns.sold.length} cierres en el período` };
-  const cierresItems: DesgloseItem[] = breakdowns.sold.map((it) => ({ nombre: it.nombre, valor: fmtUSD(it.monto, 0), detalle: `cierre ${fmtDMY(it.fecha)}`, leadId: it.leadId, focus: 'plan-pagos' }));
-  const cashItems: DesgloseItem[] = breakdowns.cash.map((it) => ({ nombre: it.nombre, valor: fmtUSD(it.monto, 0), detalle: `${it.detalle ? `${it.detalle} · ` : ''}pago ${fmtDMY(it.fecha)}`, leadId: it.leadId, focus: 'plan-pagos' }));
-  const dgCac: DesgloseData = { label: 'CAC real · spend ÷ cierres', value: cacReal !== null ? fmtUSD(cacReal, 0) : '—', color: 'var(--ink)', items: [spendRow, ...cierresItems], emptyText: 'Sin cierres en el período.' };
-  const dgRoasCash: DesgloseData = { label: 'ROAS cash · cash ÷ spend', value: fmtX(roasCash), color: roasCash !== null ? 'var(--good)' : 'var(--ink)', items: [spendRow, ...cashItems], emptyText: 'Sin cash en el período.' };
-  const dgRoasSold: DesgloseData = { label: 'ROAS sold · sold ÷ spend', value: fmtX(roasSold), color: 'var(--ink)', items: [spendRow, ...cierresItems], emptyText: 'Sin cierres en el período.' };
-
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
       <DesgloseTrigger
@@ -250,33 +231,27 @@ function KpisEstrella({
           sub={inversionItems.length > 0 ? `ver detalle · ${inversionItems.length} anuncio${inversionItems.length === 1 ? '' : 's'} →` : (spendAnt !== null ? `previo · ${fmtUSD(spendAnt, 0)}` : 'sin comparativo')}
         />
       </DesgloseTrigger>
-      <DesgloseTrigger data={dgCac}>
-        <KpiCard
-          topColor="var(--border-strong)"
-          label="CAC real"
-          valor={cacReal !== null ? fmtUSD(cacReal, 0) : '—'}
-          valorColor="var(--ink)"
-          sub="Spend ÷ cierres · ver detalle →"
-        />
-      </DesgloseTrigger>
-      <DesgloseTrigger data={dgRoasCash}>
-        <KpiCard
-          topColor={roasCash !== null ? 'var(--good)' : 'var(--border-strong)'}
-          label="ROAS cash"
-          valor={fmtX(roasCash)}
-          valorColor={roasCash !== null ? 'var(--good)' : 'var(--ink)'}
-          sub="Cash ÷ Spend · ver detalle →"
-        />
-      </DesgloseTrigger>
-      <DesgloseTrigger data={dgRoasSold}>
-        <KpiCard
-          topColor="var(--border-strong)"
-          label="ROAS sold"
-          valor={fmtX(roasSold)}
-          valorColor="var(--ink)"
-          sub="Sold ÷ Spend · ver detalle →"
-        />
-      </DesgloseTrigger>
+      <KpiCard
+        topColor="var(--border-strong)"
+        label="CAC real"
+        valor={cacReal !== null ? fmtUSD(cacReal, 0) : '—'}
+        valorColor="var(--ink)"
+        sub="Spend ÷ cierres del período"
+      />
+      <KpiCard
+        topColor={roasCash !== null ? 'var(--good)' : 'var(--border-strong)'}
+        label="ROAS cash"
+        valor={fmtX(roasCash)}
+        valorColor={roasCash !== null ? 'var(--good)' : 'var(--ink)'}
+        sub="Cash ÷ Spend · lo que entró"
+      />
+      <KpiCard
+        topColor="var(--border-strong)"
+        label="ROAS sold"
+        valor={fmtX(roasSold)}
+        valorColor="var(--ink)"
+        sub="Sold ÷ Spend · comprometido"
+      />
     </section>
   );
 }

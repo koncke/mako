@@ -15,12 +15,14 @@ import {
   getFatigaAdsets,
   getTramoJ1J2Reciente,
   getAgendasBreakdown,
+  getSenalesRecon,
   compareMTD,
   type ResumenComparativo,
   type Pendientes,
   type ObjetivoProgreso,
   type MetricaMTD,
   type AgendaItem,
+  type SenalRecon,
 } from '@/lib/queries';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
 import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
@@ -97,10 +99,12 @@ export default async function GeneralPage() {
   const mtd = compareMTD(ayer);
   let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let agendasMTD: AgendaItem[] = [];
+  let senalesMTD: SenalRecon[] = [];
   try {
-    [mtdBreak, agendasMTD] = await Promise.all([
+    [mtdBreak, agendasMTD, senalesMTD] = await Promise.all([
       getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
       getAgendasBreakdown(mtd.actualInicio, mtd.actualFin),
+      getSenalesRecon(mtd.actualInicio, mtd.actualFin),
     ]);
   } catch {
     // si falla, el Resumen del mes sigue mostrando los números sin desglose.
@@ -186,8 +190,23 @@ export default async function GeneralPage() {
   const cashPct = cashMeta > 0 ? Math.min(100, (cashActual / cashMeta) * 100) : 0;
   const sold = objetivo?.sold_actual ?? 0;
 
-  // Desgloses por lead del "Resumen del mes" (cierres / cash / agendas).
+  // Desgloses del "Resumen del mes": inversión (por anuncio) + cierres/cash/agendas (por lead).
+  const inversionMTDItems: DesgloseItem[] = senalesMTD
+    .filter((s) => s.spend_usd > 0)
+    .sort((a, b) => b.spend_usd - a.spend_usd)
+    .map((s) => ({
+      nombre: s.ad_name,
+      valor: fmtUSD(s.spend_usd),
+      detalle: [s.campana, s.adset_name].filter(Boolean).join(' · ') || undefined,
+    }));
   const mtdDesgloses: Record<string, DesgloseData> = {
+    Inversión: {
+      label: 'Inversión del mes · por anuncio',
+      value: fmtUSD(senalesMTD.reduce((s, a) => s + a.spend_usd, 0)),
+      color: 'var(--ink)',
+      items: inversionMTDItems,
+      emptyText: 'Sin gasto a nivel anuncio este mes.',
+    },
     Cierres: {
       label: 'Cierres del mes',
       value: String(mtdBreak.sold.length),
