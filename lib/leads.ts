@@ -10,6 +10,7 @@ import { getSupabaseServer } from './supabase';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, StageTone } from './pipeline';
 import { DEFAULT_STAGES, terminalEstadoFor } from './pipeline';
+import { cachedRead, TAG, TTL } from './cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -180,7 +181,8 @@ export type EstadoMadurez = 'madura' | 'madurando' | 'reciente' | 'sin_j1';
 /**
  * Lista todos los leads ordenados por created_at desc (más nuevos primero).
  */
-export async function listLeads(): Promise<Lead[]> {
+export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });
+async function _listLeads(): Promise<Lead[]> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('leads')

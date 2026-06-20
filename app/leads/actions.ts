@@ -7,8 +7,22 @@
 // y revalidan las páginas relevantes.
 // =============================================================================
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { TAG } from '@/lib/cache';
+
+// Invalida la caché de lectura por dominio. Toda mutación de lead toca 'leads'
+// (y cohortes/objetivo que derivan de leads); las de cobranza tocan 'pagos'.
+// updateTag (Next 16) invalida la Data Cache global + read-your-own-writes desde
+// la server action. Va en try/catch: la mutación ya ocurrió, y si la caché
+// fallara igual vence sola por su TTL — nunca debe romper el guardado.
+function bust(...tags: string[]) {
+  try {
+    for (const t of tags) updateTag(t);
+  } catch {
+    /* no-op: la caché vence por TTL */
+  }
+}
 import {
   createLead,
   updateLead,
@@ -57,6 +71,7 @@ export async function createLeadAction(formData: FormData): Promise<void> {
     fecha_agenda: emptyToNullable(formData.get('fecha_agenda')),
     fecha_junta_1: emptyToNullable(formData.get('fecha_junta_1')),
   });
+  bust(TAG.leads);
   revalidatePath('/leads');
   redirect(`/leads/${created.id}`);
 }
@@ -70,6 +85,7 @@ export async function updateLeadAction(
   input: LeadUpdateInput,
 ): Promise<void> {
   await updateLead(id, input);
+  bust(TAG.leads);
   revalidatePath('/leads');
   revalidatePath(`/leads/${id}`);
 }
@@ -82,6 +98,7 @@ export async function savePlanPagosAction(
   plan: PlanPagos,
 ): Promise<void> {
   await savePlanPagos(leadId, plan);
+  bust(TAG.pagos, TAG.leads);
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/revenue');
   revalidatePath('/general');
@@ -92,6 +109,7 @@ export async function savePlanPagosAction(
  */
 export async function savePlanManualAction(leadId: number, plan: PlanManual): Promise<void> {
   await saveLeadPlanManual(leadId, plan);
+  bust(TAG.pagos, TAG.leads);
   revalidatePath('/leads');
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/revenue');
@@ -108,6 +126,7 @@ export async function marcarPagoAction(
   fechaPago: string | null,
 ): Promise<void> {
   await marcarPago(pagoId, pagado, fechaPago);
+  bust(TAG.pagos, TAG.leads);
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/revenue');
   revalidatePath('/general');
@@ -118,6 +137,7 @@ export async function marcarPagoAction(
  */
 export async function deleteLeadAction(id: number): Promise<void> {
   await deleteLead(id);
+  bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   redirect('/leads');
 }
@@ -128,6 +148,7 @@ export async function deleteLeadAction(id: number): Promise<void> {
  */
 export async function deleteLeadInlineAction(id: number): Promise<void> {
   await deleteLead(id);
+  bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');
 }
@@ -143,6 +164,7 @@ export async function setLeadStageAction(
   opts?: { monto?: number | null; motivo?: string | null },
 ): Promise<void> {
   await setPipelineStage(id, stageKey, opts);
+  bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');
 }
@@ -150,12 +172,14 @@ export async function setLeadStageAction(
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
   await saveLeadMeta(id, meta);
+  bust(TAG.leads);
   revalidatePath('/leads');
 }
 
 /** Persiste el set completo de etapas del pipeline (modal "Gestionar etapas"). */
 export async function savePipelineStagesAction(stages: Stage[]): Promise<void> {
   await savePipelineStages(stages);
+  bust(TAG.pipeline, TAG.leads);
   revalidatePath('/leads');
 }
 

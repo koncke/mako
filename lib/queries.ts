@@ -5,8 +5,8 @@
 // Calcula ratios derivados (1 de cada X).
 // =============================================================================
 
-import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
+import { cachedRead, TAG, TTL } from './cache';
 import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
@@ -107,7 +107,7 @@ function safeDiv(a: number, b: number): number | null {
 // Cacheado por-request con React cache(): dedup de llamadas con los mismos
 // (start,end) dentro de un render (se invoca 3x en /marketing: directo, en
 // getFunnelEtapas y en getResumenComparativo).
-export const getMarketingWindow = cache(_getMarketingWindow);
+export const getMarketingWindow = cachedRead('getMarketingWindow', _getMarketingWindow, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
 async function _getMarketingWindow(
   start: string,
   end: string,
@@ -348,7 +348,8 @@ export type CohorteMes = {
 /**
  * Últimas N semanas de cohortes, más recientes primero.
  */
-export async function listCohortesSemanales(limit = 8): Promise<CohorteSemana[]> {
+export const listCohortesSemanales = cachedRead('listCohortesSemanales', _listCohortesSemanales, { tags: [TAG.leads], revalidate: TTL.user });
+async function _listCohortesSemanales(limit = 8): Promise<CohorteSemana[]> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('v_cohortes_semanales')
@@ -362,7 +363,8 @@ export async function listCohortesSemanales(limit = 8): Promise<CohorteSemana[]>
 /**
  * Últimos N meses de cohortes, más recientes primero.
  */
-export async function listCohortesMensuales(limit = 6): Promise<CohorteMes[]> {
+export const listCohortesMensuales = cachedRead('listCohortesMensuales', _listCohortesMensuales, { tags: [TAG.leads], revalidate: TTL.user });
+async function _listCohortesMensuales(limit = 6): Promise<CohorteMes[]> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('v_cohortes_mensuales')
@@ -402,7 +404,8 @@ export type ResumenComercialMaduras = {
  * TODOS sus leads tuvieron ≥14 días para convertir. El KPI agrega exactamente
  * las filas verdes de la tabla semanal → KPI y tabla cuentan lo mismo.
  */
-export async function getResumenComercialMaduras(): Promise<ResumenComercialMaduras> {
+export const getResumenComercialMaduras = cachedRead('getResumenComercialMaduras', _getResumenComercialMaduras, { tags: [TAG.leads], revalidate: TTL.user });
+async function _getResumenComercialMaduras(): Promise<ResumenComercialMaduras> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('v_cohortes_semanales')
@@ -641,7 +644,8 @@ export type CACAcumulado = {
   cac_usd: number | null;        // USD / cliente
 };
 
-export async function getCACAcumulado(hastaFecha?: string): Promise<CACAcumulado> {
+export const getCACAcumulado = cachedRead('getCACAcumulado', _getCACAcumulado, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
+async function _getCACAcumulado(hastaFecha?: string): Promise<CACAcumulado> {
   const supabase = getSupabaseServer();
 
   let spendQuery = supabase
@@ -714,7 +718,7 @@ export type RevenuePeriod = {
 };
 
 // Cacheado por-request: se invoca 2x con el mismo rango en /comercial y /marketing.
-export const getRevenuePeriod = cache(_getRevenuePeriod);
+export const getRevenuePeriod = cachedRead('getRevenuePeriod', _getRevenuePeriod, { tags: [TAG.pagos, TAG.leads, TAG.marketing], revalidate: TTL.user });
 async function _getRevenuePeriod(
   start: string,
   end: string,
@@ -816,7 +820,8 @@ export type SCL = {
   p90_dias: number | null;
 };
 
-export async function getSCL(): Promise<SCL> {
+export const getSCL = cachedRead('getSCL', _getSCL, { tags: [TAG.leads], revalidate: TTL.user });
+async function _getSCL(): Promise<SCL> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('leads')
@@ -1214,7 +1219,8 @@ export async function getFunnelEtapas(
 
 export type FunnelSeries = Record<string, Array<number | null>>;
 
-export async function getFunnelSeries(
+export const getFunnelSeries = cachedRead('getFunnelSeries', _getFunnelSeries, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
+async function _getFunnelSeries(
   end: string = new Date().toISOString().slice(0, 10),
   semanas = 12,
 ): Promise<FunnelSeries> {
@@ -1355,7 +1361,8 @@ export type SenalRecon = {
   ad_creative_sin_enlace: boolean;
 };
 
-export async function getSenalesRecon(
+export const getSenalesRecon = cachedRead('getSenalesRecon', _getSenalesRecon, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
+async function _getSenalesRecon(
   start: string,
   end: string,
 ): Promise<SenalRecon[]> {
@@ -1577,7 +1584,8 @@ export type TramosSCL = {
   total_dias: number | null;
 };
 
-export async function getTramosSCL(): Promise<TramosSCL> {
+export const getTramosSCL = cachedRead('getTramosSCL', _getTramosSCL, { tags: [TAG.leads], revalidate: TTL.user });
+async function _getTramosSCL(): Promise<TramosSCL> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('leads')
@@ -1750,7 +1758,8 @@ export type VslSerie = {
   fuente_panda_activa: boolean;       // hay filas panda recientes
 };
 
-export async function getVslSerie(dias = 56): Promise<VslSerie> {
+export const getVslSerie = cachedRead('getVslSerie', _getVslSerie, { tags: [TAG.marketing], revalidate: TTL.cron });
+async function _getVslSerie(dias = 56): Promise<VslSerie> {
   const supabase = getSupabaseServer();
   const hasta = new Date();
   const desde = new Date(hasta.getTime() - dias * 86400_000);
@@ -1866,7 +1875,8 @@ function diasEntreISO(desde: string, hasta: string): number {
  *   B) Asistió a J1, sigue 'abierto', no hay J2 y pasaron > DIAS_GRACIA_J2.
  *   C) J2 ya pasó y no se marcó asistencia.
  */
-export async function getPendientesDeMarcar(
+export const getPendientesDeMarcar = cachedRead('getPendientesDeMarcar', _getPendientesDeMarcar, { tags: [TAG.leads, TAG.pagos], revalidate: TTL.user });
+async function _getPendientesDeMarcar(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<Pendientes> {
   const supabase = getSupabaseServer();
@@ -1987,7 +1997,8 @@ export type JuntaProxima = {
  * Juntas (J1/J2) en hoy..hoy+dias-1, con el contexto del lead listo para la
  * llamada. Un lead con J1 hoy y J2 mañana produce dos entradas.
  */
-export async function getJuntasProximas(
+export const getJuntasProximas = cachedRead('getJuntasProximas', _getJuntasProximas, { tags: [TAG.leads], revalidate: TTL.user });
+async function _getJuntasProximas(
   hoy: string = new Date().toISOString().slice(0, 10),
   dias = 2,
 ): Promise<JuntaProxima[]> {
@@ -2081,7 +2092,8 @@ export type ColaItem = {
  * Orden: pendiente_marcar, cobro_vencido, j2_sin_match, noshow_recontactar,
  * form_sin_agenda, j1_sin_j2.
  */
-export async function getColaDeAccion(
+export const getColaDeAccion = cachedRead('getColaDeAccion', _getColaDeAccion, { tags: [TAG.leads, TAG.pagos], revalidate: TTL.user });
+async function _getColaDeAccion(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<ColaItem[]> {
   const supabase = getSupabaseServer();
@@ -2268,7 +2280,8 @@ export type ObjetivoProgreso = {
 
 const OBJETIVO_DESDE_DEFAULT = '2025-12-08';
 
-export async function getObjetivoProgreso(
+export const getObjetivoProgreso = cachedRead('getObjetivoProgreso', _getObjetivoProgreso, { tags: [TAG.leads, TAG.pagos, TAG.settings], revalidate: TTL.user });
+async function _getObjetivoProgreso(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<ObjetivoProgreso> {
   const supabase = getSupabaseServer();
@@ -2340,7 +2353,8 @@ export type AdsetFatiga = {
  * Adsets con posible fatiga de creativo: spend 7d > USD 50, frequency media 7d
  * > 3.5 Y CPL 7d > 1.5 × CPL 28d. (frequency y leads_count ya están por fila.)
  */
-export async function getFatigaAdsets(
+export const getFatigaAdsets = cachedRead('getFatigaAdsets', _getFatigaAdsets, { tags: [TAG.marketing], revalidate: TTL.cron });
+async function _getFatigaAdsets(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<AdsetFatiga[]> {
   const supabase = getSupabaseServer();
@@ -2465,7 +2479,8 @@ function diaCorto(yyyy_mm_dd: string): string {
   return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 
-export async function getTendencias(
+export const getTendencias = cachedRead('getTendencias', _getTendencias, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
+async function _getTendencias(
   start: string,
   end: string = new Date().toISOString().slice(0, 10),
 ): Promise<Tendencias> {
@@ -2666,7 +2681,7 @@ export async function getTendencias(
 /** Mapa campaign_id → campaign_name (el más reciente). */
 // Cacheado por-request: el mapa campaign_id→nombre es un full-scan que varios
 // flujos piden por separado (page de leads, crm-map, etc.).
-export const getCampaignNameMap = cache(_getCampaignNameMap);
+export const getCampaignNameMap = cachedRead('getCampaignNameMap', _getCampaignNameMap, { tags: [TAG.marketing], revalidate: TTL.cron });
 async function _getCampaignNameMap(): Promise<Record<string, string>> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase

@@ -11,6 +11,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { cachedRead, TAG, TTL } from './cache';
 
 export type Pago = {
   id: number;
@@ -338,7 +339,8 @@ const relNombre = (leads: unknown): string => {
   return (r as { nombre?: string } | null)?.nombre ?? '—';
 };
 
-export async function getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
+export const getRevenueBreakdowns = cachedRead('getRevenueBreakdowns', _getRevenueBreakdowns, { tags: [TAG.pagos, TAG.leads], revalidate: TTL.user });
+async function _getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
   const supabase = getSupabaseServer();
   const [soldRes, cashRes, outRes] = await Promise.all([
     supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).gte('fecha_cierre', start).lte('fecha_cierre', end),
@@ -385,7 +387,8 @@ export type OutstandingLead = {
  * Detalle nominal del outstanding (Fase 13): un renglón por lead con cuotas
  * pendientes. La suma de pendiente_usd iguala getOutstandingTotal().
  */
-export async function getOutstandingDetalle(
+export const getOutstandingDetalle = cachedRead('getOutstandingDetalle', _getOutstandingDetalle, { tags: [TAG.pagos], revalidate: TTL.user });
+async function _getOutstandingDetalle(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<{ items: OutstandingLead[]; total: number }> {
   const supabase = getSupabaseServer();
@@ -461,7 +464,8 @@ export type CuotaPendiente = {
  * General. `vencidas` = fecha_esperada < hoy; `porVencer` = vence dentro de
  * `diasAviso` días (default 3).
  */
-export async function getCuotasPendientes(
+export const getCuotasPendientes = cachedRead('getCuotasPendientes', _getCuotasPendientes, { tags: [TAG.pagos], revalidate: TTL.user });
+async function _getCuotasPendientes(
   hoy: string = new Date().toISOString().slice(0, 10),
   diasAviso = 3,
 ): Promise<{ vencidas: CuotaPendiente[]; porVencer: CuotaPendiente[] }> {
