@@ -28,7 +28,7 @@ type AdInsights = {
   daily: Array<{ fecha: string; spend_usd: number; impressions: number; reach: number; clicks: number; link_clicks: number; agendas: number; leads: number; ctr: number; cpm_usd: number }>;
   activity: { primero: string | null; ultimo: string | null; dias_activos: number; gaps: Array<{ desde: string; hasta: string; dias: number }> };
   demograficos: Demo[]; plataformas: BD[]; regiones: BD[];
-  transcript: { status: string; tipo: string | null; transcript: string | null; secciones: Array<{ titulo: string; texto: string }> | null; idioma: string | null; duracion_s: number | null } | null;
+  transcript: { status: string; tipo: string | null; transcript: string | null; secciones: Array<{ titulo: string; texto: string }> | null; idioma: string | null; duracion_s: number | null; instruccion: string | null } | null;
 };
 
 const MONO = "'Geist Mono', monospace";
@@ -206,7 +206,7 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
     setData(null); setErr(null); setRegen(null); setInstruccion(''); setRegenErr(null);
     fetch(`/api/ad-insights?ad_id=${encodeURIComponent(s.ad_id)}&desde=${desde}&hasta=${hasta}`)
       .then((r) => r.json())
-      .then((j) => { if (!alive) return; if (j.error) setErr(j.error); else setData(j); })
+      .then((j) => { if (!alive) return; if (j.error) setErr(j.error); else { setData(j); setInstruccion(j.transcript?.instruccion ?? ''); } })
       .catch((e) => { if (alive) setErr(String(e)); });
     return () => { alive = false; };
   }, [s.ad_id, desde, hasta]);

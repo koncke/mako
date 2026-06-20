@@ -37,9 +37,10 @@ export async function POST(req: NextRequest) {
 
   const { error: upErr } = await supabase.from('ad_transcripts').upsert({
     ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
-    secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),
+    secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error,
+    instruccion: instruccion || null, updated_at: new Date().toISOString(),
   }, { onConflict: 'ad_id' });
   if (upErr) return Response.json({ error: upErr.message }, { status: 500 });
 
-  return Response.json({ status: res.status, tipo: res.tipo, transcript: res.transcript, secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, error: res.error });
+  return Response.json({ status: res.status, tipo: res.tipo, transcript: res.transcript, secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, instruccion: instruccion || null, error: res.error });
 }

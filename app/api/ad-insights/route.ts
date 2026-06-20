@@ -166,7 +166,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseServer();
     const { data: tr } = await supabase
       .from('ad_transcripts')
-      .select('status, tipo, transcript, secciones, idioma, duracion_s')
+      .select('status, tipo, transcript, secciones, idioma, duracion_s, instruccion')
       .eq('ad_id', adId)
       .maybeSingle();
 

@@ -51,16 +51,37 @@ async function getAdVideo(adId: string, ver: string, token: string): Promise<{ v
   return { video_id: vid, source: vb.source };
 }
 
-/** Mejor imagen del creativo (para anuncios sin video). */
+/**
+ * Mejor imagen del creativo (alta resolución) para anuncios sin video.
+ * Para creativos dinámicos (DCO) los campos directos vienen vacíos y el
+ * thumbnail es minúsculo (ilegible) → usamos full_picture del post, que apunta
+ * a la imagen real (a veces en storage externo vía proxy ?url=).
+ */
 export async function getAdImage(adId: string): Promise<string | null> {
   const ver = env('META_API_VERSION'), token = env('META_ACCESS_TOKEN');
   const cu = new URL(`${GRAPH}/${ver}/${adId}`);
-  cu.searchParams.set('fields', 'creative{image_url,object_story_spec{link_data{picture},photo_data{url}},asset_feed_spec{images{url}}}');
+  cu.searchParams.set('fields', 'creative{image_url,object_story_spec{link_data{picture},photo_data{url}},asset_feed_spec{images{url}},effective_object_story_id}');
   cu.searchParams.set('access_token', token);
   const c = await (await fetch(cu, { cache: 'no-store' })).json();
   if (c.error) throw new Error(`creative img: ${c.error.message}`);
   const cr = c.creative ?? {};
-  return cr.image_url ?? cr.object_story_spec?.link_data?.picture ?? cr.object_story_spec?.photo_data?.url ?? cr.asset_feed_spec?.images?.[0]?.url ?? null;
+  const direct = cr.image_url ?? cr.object_story_spec?.link_data?.picture ?? cr.object_story_spec?.photo_data?.url ?? cr.asset_feed_spec?.images?.[0]?.url;
+  if (direct) return direct;
+
+  // Fallback: imagen real del post.
+  const story = cr.effective_object_story_id;
+  if (story) {
+    const su = new URL(`${GRAPH}/${ver}/${story}`);
+    su.searchParams.set('fields', 'full_picture');
+    su.searchParams.set('access_token', token);
+    const sb = await (await fetch(su, { cache: 'no-store' })).json();
+    const fp: string | undefined = sb?.full_picture;
+    if (fp) {
+      try { const real = new URL(fp).searchParams.get('url'); if (real) return real; } catch { /* no es proxy */ }
+      return fp;
+    }
+  }
+  return null;
 }
 
 // ── OpenAI: estructurar guion / analizar imagen ──────────────────────────────
@@ -98,19 +119,19 @@ async function toDataUrl(imageUrl: string): Promise<string> {
 async function analyzeImage(imageUrl: string, instruccion?: string): Promise<{ transcript: string; secciones: Seccion[] }> {
   const oai = env('OPENAI_API_KEY');
   const dataUrl = await toDataUrl(imageUrl);
-  let prompt = 'Analiza este creativo de anuncio (imagen). Devuelve SOLO JSON: {"texto":"todo el texto visible en la imagen, literal","descripcion":"qué se ve: escena, personas, estilo, colores, elementos","secciones":[{"titulo":"...","texto":"..."}]}. Las secciones deben estructurar el mensaje del anuncio (ej: Hook, Mensaje, Oferta, CTA) según el texto y la imagen, en español.';
+  let prompt = 'Analiza este creativo de anuncio (imagen). Transcribe TODO el texto visible de forma LITERAL y exacta (respeta saltos y mayúsculas). Devuelve SOLO JSON: {"texto":"todo el texto visible, literal","descripcion":"qué se ve: escena, personas, estilo, colores, elementos","secciones":[{"titulo":"...","texto":"..."}]}. Las secciones estructuran SOLO el MENSAJE del anuncio (ej: Hook, Mensaje, Oferta, CTA); NO pongas la descripción visual como sección. Todo en español.';
   if (instruccion) prompt += `\nInstrucción adicional del usuario (priorízala): ${instruccion}`;
   const r = await fetch(`${OAI}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${oai}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }] }),
+    body: JSON.stringify({ model: 'gpt-4o', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } }] }] }),
   });
   const j = await r.json();
   if (j.error) throw new Error(`vision: ${j.error.message}`);
   const parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}');
   const texto: string = parsed.texto ?? '';
   const descripcion: string = parsed.descripcion ?? '';
-  const secciones: Seccion[] = Array.isArray(parsed.secciones) ? parsed.secciones : [];
+  const secciones: Seccion[] = (Array.isArray(parsed.secciones) ? parsed.secciones : []).filter((s: Seccion) => !/descripci[oó]n visual/i.test(s.titulo ?? ''));
   if (descripcion) secciones.push({ titulo: 'Descripción visual', texto: descripcion });
   const transcript = [texto && `Texto: ${texto}`, descripcion && `Descripción: ${descripcion}`].filter(Boolean).join('\n\n');
   return { transcript, secciones };
@@ -149,11 +170,14 @@ export async function transcribeAd(adId: string, opts?: { imageUrl?: string; ins
       return { ...base, tipo: 'video', status: 'ok', transcript: text, secciones, idioma: tr.language ?? null, duracion_s: tr.duration ?? null, model: 'whisper-1+gpt-4o-mini' };
     }
 
-    // Sin video → imagen (preferir el thumbnail ya guardado; si no, el creativo)
-    const img = opts?.imageUrl ?? (await getAdImage(adId));
+    // Sin video → imagen. Preferir la imagen de ALTA resolución del creativo/post
+    // (getAdImage); el thumbnail guardado es respaldo (puede ser minúsculo).
+    let img: string | null = null;
+    try { img = await getAdImage(adId); } catch { /* no fatal */ }
+    img = img ?? opts?.imageUrl ?? null;
     if (!img) return { ...base, status: 'sin_video' };
     const { transcript, secciones } = await analyzeImage(img, instruccion);
-    return { ...base, tipo: 'imagen', status: 'ok', transcript, secciones, model: 'gpt-4o-mini' };
+    return { ...base, tipo: 'imagen', status: 'ok', transcript, secciones, model: 'gpt-4o' };
   } catch (err) {
     return { ...base, status: 'error', error: err instanceof Error ? err.message : String(err) };
   }

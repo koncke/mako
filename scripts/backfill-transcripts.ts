@@ -14,7 +14,8 @@ config({ path: resolve(process.cwd(), '.env.local') });
 import postgres from 'postgres';
 import { transcribeAd, structureTranscript, type Seccion } from '../lib/transcribe';
 
-const SINCE = process.argv[2] || '2025-11-01';
+const SINCE = process.argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) || '2025-11-01';
+const REIMG = process.argv.includes('--imgs'); // reprocesar anuncios de imagen (mejor resolución/modelo)
 const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', connect_timeout: 10, max: 1 });
 
 type Row = { ad_id: string; status: string; tipo: string | null; transcript: string | null; secciones: Seccion[] | null };
@@ -41,7 +42,8 @@ try {
     i++;
     const ex = map.get(ad_id);
     try {
-      if (ex && Array.isArray(ex.secciones) && ex.secciones.length > 0) { omitidos++; continue; }
+      const reprocesarImg = REIMG && ex?.tipo === 'imagen';
+      if (ex && Array.isArray(ex.secciones) && ex.secciones.length > 0 && !reprocesarImg) { omitidos++; continue; }
 
       if (ex && ex.status === 'ok' && ex.tipo !== 'imagen' && ex.transcript) {
         // Video ya transcrito → solo estructurar (sin re-transcribir).
