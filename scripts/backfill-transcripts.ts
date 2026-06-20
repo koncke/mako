@@ -30,6 +30,10 @@ try {
   const ads = await sql<{ ad_id: string }[]>`SELECT DISTINCT ad_id FROM marketing_metrics_daily WHERE plataforma='meta' AND ad_id IS NOT NULL AND fecha >= ${SINCE}`;
   const rows = await sql<Row[]>`SELECT ad_id, status, tipo, transcript, secciones FROM ad_transcripts`;
   const map = new Map(rows.map((r) => [r.ad_id, r]));
+  // Thumbnail más reciente por anuncio (fuente de imagen para anuncios sin video).
+  const thumbs = new Map<string, string>();
+  for (const t of await sql<{ ad_id: string; ad_thumbnail_url: string }[]>`SELECT DISTINCT ON (ad_id) ad_id, ad_thumbnail_url FROM marketing_metrics_daily WHERE plataforma='meta' AND ad_thumbnail_url IS NOT NULL ORDER BY ad_id, fecha DESC`)
+    thumbs.set(t.ad_id, t.ad_thumbnail_url);
 
   let estructurados = 0, imagenes = 0, nuevos = 0, omitidos = 0, errores = 0;
   let i = 0;
@@ -49,7 +53,7 @@ try {
       }
 
       // Nuevo o sin_video → procesar completo (video o imagen con visión).
-      const r = await transcribeAd(ad_id);
+      const r = await transcribeAd(ad_id, { imageUrl: thumbs.get(ad_id) });
       await upsertFull(r);
       if (r.tipo === 'imagen') imagenes++; else nuevos++;
       if (r.status === 'error') errores++;

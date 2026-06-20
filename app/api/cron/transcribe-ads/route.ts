@@ -50,11 +50,24 @@ export async function GET(request: NextRequest) {
 
   const pendientes = adIds.filter((id) => !done.has(id));
 
+  // Thumbnail por anuncio: fuente de imagen para los anuncios sin video.
+  const thumbs = new Map<string, string>();
+  if (pendientes.length > 0) {
+    const { data: thData } = await supabase
+      .from('marketing_metrics_daily')
+      .select('ad_id, ad_thumbnail_url, fecha')
+      .eq('plataforma', 'meta')
+      .in('ad_id', pendientes)
+      .not('ad_thumbnail_url', 'is', null)
+      .order('fecha', { ascending: false });
+    for (const r of thData ?? []) if (!thumbs.has(r.ad_id as string)) thumbs.set(r.ad_id as string, r.ad_thumbnail_url as string);
+  }
+
   let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0;
   for (const adId of pendientes) {
     if (procesados >= MAX_POR_CORRIDA || Date.now() - tStart > TIME_BUDGET_MS) break;
     procesados++;
-    const res = await transcribeAd(adId);
+    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId) });
     const { error: upErr } = await supabase.from('ad_transcripts').upsert({
       ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
       secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),

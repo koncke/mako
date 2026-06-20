@@ -83,14 +83,25 @@ export async function structureTranscript(text: string): Promise<Seccion[] | nul
   } catch { return null; }
 }
 
+/** Descarga la imagen y la devuelve como data URL base64 (OpenAI no puede bajar
+ *  las URLs del CDN de Meta, así que se las mandamos embebidas). */
+async function toDataUrl(imageUrl: string): Promise<string> {
+  const r = await fetch(imageUrl, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`imagen HTTP ${r.status}`);
+  const ct = r.headers.get('content-type') || 'image/jpeg';
+  const buf = Buffer.from(await r.arrayBuffer());
+  return `data:${ct};base64,${buf.toString('base64')}`;
+}
+
 /** Analiza la imagen de un anuncio: texto visible + descripción + secciones. */
 async function analyzeImage(imageUrl: string): Promise<{ transcript: string; secciones: Seccion[] }> {
   const oai = env('OPENAI_API_KEY');
+  const dataUrl = await toDataUrl(imageUrl);
   const prompt = 'Analiza este creativo de anuncio (imagen). Devuelve SOLO JSON: {"texto":"todo el texto visible en la imagen, literal","descripcion":"qué se ve: escena, personas, estilo, colores, elementos","secciones":[{"titulo":"...","texto":"..."}]}. Las secciones deben estructurar el mensaje del anuncio (ej: Hook, Mensaje, Oferta, CTA) según el texto y la imagen, en español.';
   const r = await fetch(`${OAI}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${oai}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageUrl } }] }] }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }] }),
   });
   const j = await r.json();
   if (j.error) throw new Error(`vision: ${j.error.message}`);
@@ -109,7 +120,7 @@ async function analyzeImage(imageUrl: string): Promise<{ transcript: string; sec
  * Procesa un anuncio completo (video o imagen). Nunca lanza: devuelve un
  * TranscribeResult con status, incluido 'error', para que el caller persista.
  */
-export async function transcribeAd(adId: string): Promise<TranscribeResult> {
+export async function transcribeAd(adId: string, opts?: { imageUrl?: string }): Promise<TranscribeResult> {
   const base: TranscribeResult = { ad_id: adId, video_id: null, tipo: null, status: 'ok', transcript: null, secciones: null, idioma: null, duracion_s: null, model: null, error: null };
   try {
     const ver = env('META_API_VERSION'), token = env('META_ACCESS_TOKEN'), oai = env('OPENAI_API_KEY');
@@ -134,8 +145,8 @@ export async function transcribeAd(adId: string): Promise<TranscribeResult> {
       return { ...base, tipo: 'video', status: 'ok', transcript: text, secciones, idioma: tr.language ?? null, duracion_s: tr.duration ?? null, model: 'whisper-1+gpt-4o-mini' };
     }
 
-    // Sin video → imagen
-    const img = await getAdImage(adId);
+    // Sin video → imagen (preferir el thumbnail ya guardado; si no, el creativo)
+    const img = opts?.imageUrl ?? (await getAdImage(adId));
     if (!img) return { ...base, status: 'sin_video' };
     const { transcript, secciones } = await analyzeImage(img);
     return { ...base, tipo: 'imagen', status: 'ok', transcript, secciones, model: 'gpt-4o-mini' };
