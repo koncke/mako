@@ -5,7 +5,7 @@
 // =============================================================================
 
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { CHIP, NUTRI_KEYS, stageMeta as findStage, type Stage } from '@/lib/pipeline';
 import type { CrmLead, Edits, PendingMove } from './CrmBoard';
 
@@ -34,6 +34,48 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={miniCard}>
       <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{label}</div>
       <div style={{ fontSize: 15, color: 'var(--ink)', fontWeight: 600, marginTop: 3 }}>{value}</div>
+    </div>
+  );
+}
+
+type ContratoExtraido = {
+  total_usd: number | null;
+  duracion_meses: number | null;
+  fecha_cierre: string | null;
+  fecha_inicio: string | null;
+  cuotas: Array<{ monto: number | null; fecha: string | null }>;
+};
+
+// Subir contrato (PDF/imagen) → OpenAI extrae el plan → autollena los campos.
+function ContratoUpload({ onExtract }: { onExtract: (d: ContratoExtraido) => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [estado, setEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle');
+  const [nombre, setNombre] = useState('');
+  const [err, setErr] = useState('');
+
+  const onFile = async (file: File) => {
+    setNombre(file.name); setEstado('cargando'); setErr('');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/extract-contract', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j.error) { setEstado('error'); setErr(j.error); return; }
+      onExtract(j);
+      setEstado('ok');
+    } catch (e) { setEstado('error'); setErr(String(e)); }
+  };
+
+  return (
+    <div>
+      <input ref={inputRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={estado === 'cargando'} style={{ padding: '9px 16px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: estado === 'cargando' ? 'wait' : 'pointer', fontFamily: SANS }}>⬆ Subir contrato</button>
+        {estado === 'cargando' && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Leyendo {nombre} con OpenAI…</span>}
+        {estado === 'ok' && <span style={{ fontSize: 12.5, color: 'var(--good)' }}>✓ {nombre} — campos rellenados, revisá y guardá</span>}
+        {estado === 'error' && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>Error: {err}</span>}
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>PDF o imagen del contrato. OpenAI extrae total, duración, fechas y cuotas.</div>
     </div>
   );
 }
@@ -77,6 +119,20 @@ export function LeadDetail({
     onPatch({ nutriciones: edits.nutriciones.map((n, ni) => (ni === i ? { ...n, [field]: v } : n)) });
   const setCuota = (i: number, field: 'monto' | 'fecha', v: string) =>
     onPatch({ cuotas: edits.cuotas.map((c, ci) => (ci === i ? { ...c, [field]: v } : c)) });
+
+  // Autollenado del plan desde el contrato (OpenAI).
+  const onExtractContrato = (d: ContratoExtraido) => onPatch({
+    plan: {
+      ...edits.plan,
+      total: d.total_usd != null ? String(d.total_usd) : edits.plan.total,
+      duracion: d.duracion_meses != null ? String(d.duracion_meses) : edits.plan.duracion,
+      cierre: d.fecha_cierre ?? edits.plan.cierre,
+      inicio: d.fecha_inicio ?? edits.plan.inicio,
+    },
+    cuotas: d.cuotas && d.cuotas.length
+      ? d.cuotas.map((c) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: c.fecha ?? '' }))
+      : edits.cuotas,
+  });
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
@@ -277,10 +333,7 @@ export function LeadDetail({
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 5 }}>Contrato</div>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                    <input value={edits.contract} onChange={(e) => onPatch({ contract: e.target.value })} placeholder="Pegá el link del contrato…" style={{ ...rowInput, flex: 1 }} />
-                    <button style={{ flex: 'none', padding: '9px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>⬆ Subir contrato</button>
-                  </div>
+                  <ContratoUpload onExtract={onExtractContrato} />
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--faint)', margin: '14px 0 8px' }}>Cuotas</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

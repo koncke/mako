@@ -87,7 +87,6 @@ export type Edits = {
   closer: string;
   setter: string;
   motivo: string;
-  contract: string;
   fathom: FathomLink[];
   nutriciones: { name: string; dt: string }[];
   plan: { total: string; cierre: string; inicio: string; duracion: string };
@@ -174,7 +173,7 @@ export function CrmBoard({
     const isGanado = s === 'ganado';
     const cuota = isGanado ? String(Math.round(l.monto / 3)) : '';
     return {
-      closer: l.closer, setter: l.setter, motivo: l.motivo, contract: '',
+      closer: l.closer, setter: l.setter, motivo: l.motivo,
       fathom,
       nutriciones: isNutri ? [{ name: 'Nutrición 1 — WhatsApp', dt: '' }, { name: 'Nutrición 2 — Email', dt: '' }] : [],
       plan: { total: isGanado ? String(l.monto) : '', cierre: '', inicio: '', duracion: '3' },
@@ -202,7 +201,6 @@ export function CrmBoard({
     if (stage === 'ganado') {
       const m: string[] = [];
       if (!e.plan.total) m.push('Total del plan');
-      if (!e.contract) m.push('Contrato');
       return m;
     }
     if (stage === 'perdido' || stage === 'descal') return e.motivo.trim() ? [] : ['Motivo'];
