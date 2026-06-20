@@ -5,7 +5,7 @@
 // =============================================================================
 
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { PlanPagosCard } from './PlanPagosCard';
 import { CHIP, NUTRI_KEYS, stageMeta as findStage, type Stage } from '@/lib/pipeline';
 import type { CrmLead, Edits, PendingMove } from './CrmBoard';
@@ -41,7 +41,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export function LeadDetail({
   lead, stages, effStage, pendingMove, moveError, edits, missing,
-  onPatch, onPickStage, onClose, onSave, onDelete,
+  onPatch, onPickStage, onClose, onSave, onDelete, focus, zIndex = 50,
 }: {
   lead: CrmLead;
   stages: Stage[];
@@ -55,7 +55,26 @@ export function LeadDetail({
   onClose: () => void;
   onSave: () => void;
   onDelete: () => void;
+  focus?: string;       // sección a la que saltar: datos-comerciales | plan-pagos | motivo | etapa | fathom | nutricion
+  zIndex?: number;      // por defecto 50; se sube cuando abre sobre otro modal (desglose)
 }) {
+  // Al abrir con foco, desplegar y desplazarse a la sección a editar.
+  useEffect(() => {
+    if (!focus) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`lead-sec-${focus}`);
+      if (!el) return;
+      if (el instanceof HTMLDetailsElement) el.open = true;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const prev = el.style.boxShadow;
+      el.style.transition = 'box-shadow .3s';
+      el.style.boxShadow = '0 0 0 2px var(--accent)';
+      const t2 = setTimeout(() => { el.style.boxShadow = prev; }, 1500);
+      return () => clearTimeout(t2);
+    }, 90);
+    return () => clearTimeout(t);
+  }, [focus]);
+
   const s = pendingMove ? pendingMove.to : effStage;
   const headerMeta = findStage(stages, effStage);
   const isGanado = s === 'ganado';
@@ -78,7 +97,7 @@ export function LeadDetail({
     onPatch({ nutriciones: edits.nutriciones.map((n, ni) => (ni === i ? { ...n, [field]: v } : n)) });
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 680, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
 
         {/* header */}
@@ -130,7 +149,7 @@ export function LeadDetail({
           </div>
 
           {/* etapa / resolución */}
-          <div style={card}>
+          <div id="lead-sec-etapa" style={card}>
             <div style={sectLabel}>Etapa / resolución</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginTop: 13 }}>
               {groups.map((g) => (
@@ -156,7 +175,7 @@ export function LeadDetail({
 
           {/* datos comerciales */}
           {passedAgenda && (
-            <details open style={{ ...card, padding: '0 18px' }}>
+            <details id="lead-sec-datos-comerciales" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Datos comerciales<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
                 <Stat label="Fecha Junta 1" value={lead.agenda || '—'} />
@@ -210,7 +229,7 @@ export function LeadDetail({
 
           {/* link de fathom */}
           {passedJ1 && (
-            <details style={{ ...card, padding: '0 18px' }}>
+            <details id="lead-sec-fathom" style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Link de Fathom<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {edits.fathom.map((f, i) => (
@@ -233,7 +252,7 @@ export function LeadDetail({
 
           {/* nutrición */}
           {isNutri && (
-            <details open style={{ ...card, padding: '0 18px' }}>
+            <details id="lead-sec-nutricion" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Nutrición<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {isManual && (
@@ -255,7 +274,7 @@ export function LeadDetail({
 
           {/* motivo */}
           {isLost && (
-            <details open style={{ ...card, padding: '0 18px' }}>
+            <details id="lead-sec-motivo" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Motivo · narrar detalles<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px' }}>
                 <textarea value={edits.motivo} onChange={(e) => onPatch({ motivo: e.target.value })} placeholder="¿Por qué se perdió o descalificó? Contá el contexto…" style={{ width: '100%', minHeight: 88, resize: 'vertical', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
@@ -264,7 +283,7 @@ export function LeadDetail({
           )}
 
           {/* plan de pagos */}
-          {isGanado && <PlanPagosCard leadId={lead.id} />}
+          {isGanado && <div id="lead-sec-plan-pagos"><PlanPagosCard leadId={lead.id} /></div>}
 
           {/* línea de tiempo SCL */}
           {isGanado && (

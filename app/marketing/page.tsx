@@ -30,10 +30,11 @@ import {
   primerDiaDelMesDeFecha,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
+import { getRevenueBreakdowns, type RevenueBreakdowns } from '@/lib/pagos';
 import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
-import { DesgloseTrigger, type DesgloseItem } from '../_components/Desglose';
+import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { AnuncioCard, tieneSenal, compararCombo } from './AnuncioCard';
 
 export const dynamic = 'force-dynamic';
@@ -65,6 +66,12 @@ function fmtUSD(n: number | null | undefined, decimals?: number): string {
 function fmtX(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return `${n.toFixed(2)}x`;
+}
+
+function fmtDMY(iso: string | null): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
 function fmtPeriodoLabel(desde: string, hasta: string): string {
@@ -116,11 +123,12 @@ export default async function Page({
   let tendencias: Tendencias | null = null;
   let comparativo: ResumenComparativo | null = null;
   let revenue: RevenuePeriod | null = null;
+  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let errorMsg: string | null = null;
 
   try {
     const sourceMap = sourcesToMap(await getDataSources());
-    [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue] = await Promise.all([
+    [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue, breakdowns] = await Promise.all([
       getMarketingWindow(rangoDesde, rangoHasta),
       getFunnelEtapas(rangoDesde, rangoHasta, sourceMap),
       getFunnelSeries(rangoHasta, 12),
@@ -129,6 +137,7 @@ export default async function Page({
       getTendencias(rangoDesde, rangoHasta),
       filtroActivo ? Promise.resolve(null) : getResumenComparativo(ayerReal),
       getRevenuePeriod(rangoDesde, rangoHasta),
+      getRevenueBreakdowns(rangoDesde, rangoHasta),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -157,9 +166,9 @@ export default async function Page({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} senales={senales} />
+          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} senales={senales} breakdowns={breakdowns} />
 
-          <SaludDelFunnel mkt={mkt} funnel={funnel} />
+          <SaludDelFunnel mkt={mkt} funnel={funnel} senales={senales} />
 
           {tendencias && <TendenciasSection tendencias={tendencias} />}
 
@@ -184,12 +193,14 @@ function KpisEstrella({
   revenue,
   filtroActivo,
   senales,
+  breakdowns,
 }: {
   mkt: MarketingWindow;
   comparativo: ResumenComparativo | null;
   revenue: RevenuePeriod | null;
   filtroActivo: boolean;
   senales: SenalRecon[];
+  breakdowns: RevenueBreakdowns;
 }) {
   // Inversión: spend del rango. Delta = factor vs mismo período del mes anterior.
   const spend = mkt.spend_usd;
@@ -217,6 +228,14 @@ function KpisEstrella({
   const roasCash = revenue?.roas_cash ?? null;
   const roasSold = revenue?.roas_sold ?? null;
 
+  // Desgloses de CAC / ROAS: la fila de spend que alimenta + los leads del numerador.
+  const spendRow: DesgloseItem = { nombre: 'Spend total (Meta)', valor: fmtUSD(spend, 0), detalle: `${revenue?.cierres_en_periodo ?? breakdowns.sold.length} cierres en el período` };
+  const cierresItems: DesgloseItem[] = breakdowns.sold.map((it) => ({ nombre: it.nombre, valor: fmtUSD(it.monto, 0), detalle: `cierre ${fmtDMY(it.fecha)}`, leadId: it.leadId, focus: 'plan-pagos' }));
+  const cashItems: DesgloseItem[] = breakdowns.cash.map((it) => ({ nombre: it.nombre, valor: fmtUSD(it.monto, 0), detalle: `${it.detalle ? `${it.detalle} · ` : ''}pago ${fmtDMY(it.fecha)}`, leadId: it.leadId, focus: 'plan-pagos' }));
+  const dgCac: DesgloseData = { label: 'CAC real · spend ÷ cierres', value: cacReal !== null ? fmtUSD(cacReal, 0) : '—', color: 'var(--ink)', items: [spendRow, ...cierresItems], emptyText: 'Sin cierres en el período.' };
+  const dgRoasCash: DesgloseData = { label: 'ROAS cash · cash ÷ spend', value: fmtX(roasCash), color: roasCash !== null ? 'var(--good)' : 'var(--ink)', items: [spendRow, ...cashItems], emptyText: 'Sin cash en el período.' };
+  const dgRoasSold: DesgloseData = { label: 'ROAS sold · sold ÷ spend', value: fmtX(roasSold), color: 'var(--ink)', items: [spendRow, ...cierresItems], emptyText: 'Sin cierres en el período.' };
+
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
       <DesgloseTrigger
@@ -231,27 +250,33 @@ function KpisEstrella({
           sub={inversionItems.length > 0 ? `ver detalle · ${inversionItems.length} anuncio${inversionItems.length === 1 ? '' : 's'} →` : (spendAnt !== null ? `previo · ${fmtUSD(spendAnt, 0)}` : 'sin comparativo')}
         />
       </DesgloseTrigger>
-      <KpiCard
-        topColor="var(--border-strong)"
-        label="CAC real"
-        valor={cacReal !== null ? fmtUSD(cacReal, 0) : '—'}
-        valorColor="var(--ink)"
-        sub="Spend ÷ cierres del período"
-      />
-      <KpiCard
-        topColor={roasCash !== null ? 'var(--good)' : 'var(--border-strong)'}
-        label="ROAS cash"
-        valor={fmtX(roasCash)}
-        valorColor={roasCash !== null ? 'var(--good)' : 'var(--ink)'}
-        sub="Cash ÷ Spend · lo que entró"
-      />
-      <KpiCard
-        topColor="var(--border-strong)"
-        label="ROAS sold"
-        valor={fmtX(roasSold)}
-        valorColor="var(--ink)"
-        sub="Sold ÷ Spend · comprometido"
-      />
+      <DesgloseTrigger data={dgCac}>
+        <KpiCard
+          topColor="var(--border-strong)"
+          label="CAC real"
+          valor={cacReal !== null ? fmtUSD(cacReal, 0) : '—'}
+          valorColor="var(--ink)"
+          sub="Spend ÷ cierres · ver detalle →"
+        />
+      </DesgloseTrigger>
+      <DesgloseTrigger data={dgRoasCash}>
+        <KpiCard
+          topColor={roasCash !== null ? 'var(--good)' : 'var(--border-strong)'}
+          label="ROAS cash"
+          valor={fmtX(roasCash)}
+          valorColor={roasCash !== null ? 'var(--good)' : 'var(--ink)'}
+          sub="Cash ÷ Spend · ver detalle →"
+        />
+      </DesgloseTrigger>
+      <DesgloseTrigger data={dgRoasSold}>
+        <KpiCard
+          topColor="var(--border-strong)"
+          label="ROAS sold"
+          valor={fmtX(roasSold)}
+          valorColor="var(--ink)"
+          sub="Sold ÷ Spend · ver detalle →"
+        />
+      </DesgloseTrigger>
     </section>
   );
 }
@@ -302,7 +327,7 @@ function deltaChip(pct: number | null, bueno: boolean): { text: string; fg: stri
     : { text, fg: 'var(--dim)', bg: 'var(--surface-2)' };
 }
 
-function SaludDelFunnel({ mkt, funnel }: { mkt: MarketingWindow; funnel: FunnelMes }) {
+function SaludDelFunnel({ mkt, funnel, senales }: { mkt: MarketingWindow; funnel: FunnelMes; senales: SenalRecon[] }) {
   // Cuatro etapas verticales: Impresión → Click → Landing → VSL.
   const stages: Array<{ label: string; value: number | null; outer: string; inner: string }> = [
     { label: 'Impresión', value: mkt.impressions, outer: '#D8C58C', inner: '#FBF4DC' },
@@ -331,9 +356,19 @@ function SaludDelFunnel({ mkt, funnel }: { mkt: MarketingWindow; funnel: FunnelM
 
   // Cards de eficiencia (todas reales de getMarketingWindow).
   const costoVsl = mkt.vsl_views && mkt.vsl_views > 0 ? mkt.spend_usd / mkt.vsl_views : null;
-  const effCards: Array<{ label: string; valor: string; sub: string }> = [
-    { label: 'CPM', valor: fmtUSD(mkt.cpm_global, 2), sub: 'por 1,000 impresiones' },
-    { label: 'CPC', valor: fmtUSD(mkt.cpc_global, 2), sub: 'por click' },
+  // Desgloses por anuncio (CPM / CPC) desde getSenalesRecon.
+  const adsConSpend = senales.filter((s) => s.spend_usd > 0);
+  const cpmItems: DesgloseItem[] = adsConSpend
+    .filter((s) => s.cpm_usd !== null)
+    .sort((a, b) => (b.cpm_usd ?? 0) - (a.cpm_usd ?? 0))
+    .map((s) => ({ nombre: s.ad_name, valor: fmtUSD(s.cpm_usd, 2), detalle: `${fmtNum(s.impressions)} impresiones · ${fmtUSD(s.spend_usd, 0)} gastados` }));
+  const cpcItems: DesgloseItem[] = adsConSpend
+    .filter((s) => s.cpc_usd !== null)
+    .sort((a, b) => (b.cpc_usd ?? 0) - (a.cpc_usd ?? 0))
+    .map((s) => ({ nombre: s.ad_name, valor: fmtUSD(s.cpc_usd, 2), detalle: `${fmtNum(s.link_clicks)} clicks · ${fmtUSD(s.spend_usd, 0)} gastados` }));
+  const effCards: Array<{ label: string; valor: string; sub: string; desglose?: DesgloseData }> = [
+    { label: 'CPM', valor: fmtUSD(mkt.cpm_global, 2), sub: cpmItems.length > 0 ? 'por 1,000 impresiones · ver →' : 'por 1,000 impresiones', desglose: cpmItems.length > 0 ? { label: 'CPM por anuncio', value: fmtUSD(mkt.cpm_global, 2), color: 'var(--ink)', items: cpmItems } : undefined },
+    { label: 'CPC', valor: fmtUSD(mkt.cpc_global, 2), sub: cpcItems.length > 0 ? 'por click · ver →' : 'por click', desglose: cpcItems.length > 0 ? { label: 'CPC por anuncio', value: fmtUSD(mkt.cpc_global, 2), color: 'var(--ink)', items: cpcItems } : undefined },
     { label: 'Costo / Landing View', valor: fmtUSD(mkt.cpl_global, 2), sub: 'por vista de landing' },
     { label: 'Costo / VSL View', valor: fmtUSD(costoVsl, 2), sub: 'por play del VSL' },
   ];
@@ -365,13 +400,21 @@ function SaludDelFunnel({ mkt, funnel }: { mkt: MarketingWindow; funnel: FunnelM
 
         {/* cards de eficiencia */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gridTemplateRows: '1fr 1fr', gap: 14 }}>
-          {effCards.map((c) => (
-            <div key={c.label} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderTop: '3px solid var(--border-strong)', borderRadius: 14, padding: '18px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 11 }}>{c.label}</div>
-              <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{c.valor}</div>
-              <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>{c.sub}</div>
-            </div>
-          ))}
+          {effCards.map((c) => {
+            const cardStyle: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderTop: '3px solid var(--border-strong)', borderRadius: 14, padding: '18px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' };
+            const inner = (
+              <>
+                <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 11 }}>{c.label}</div>
+                <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{c.valor}</div>
+                <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>{c.sub}</div>
+              </>
+            );
+            return c.desglose ? (
+              <DesgloseTrigger key={c.label} data={c.desglose} style={cardStyle}>{inner}</DesgloseTrigger>
+            ) : (
+              <div key={c.label} style={cardStyle}>{inner}</div>
+            );
+          })}
         </div>
       </div>
     </section>

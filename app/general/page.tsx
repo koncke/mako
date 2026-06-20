@@ -14,16 +14,19 @@ import {
   getResumenComercialMaduras,
   getFatigaAdsets,
   getTramoJ1J2Reciente,
+  getAgendasBreakdown,
+  compareMTD,
   type ResumenComparativo,
   type Pendientes,
   type ObjetivoProgreso,
   type MetricaMTD,
+  type AgendaItem,
 } from '@/lib/queries';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
 import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
 import { EditarMeta } from './EditarMeta';
-import { DesgloseTrigger, type DesgloseItem } from '../_components/Desglose';
+import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -43,16 +46,18 @@ function fmtDMY(iso: string | null): string {
   const [y, m, d] = iso.split('-').map(Number);
   return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
-function revItemsToDesglose(items: RevItem[], fechaLabel: string): DesgloseItem[] {
+function revItemsToDesglose(items: RevItem[], fechaLabel: string, focus = 'plan-pagos'): DesgloseItem[] {
   return items.map((it) => ({
     nombre: it.nombre,
     valor: fmtUSD(it.monto),
     detalle: `${it.detalle ? `${it.detalle} · ` : ''}${fechaLabel} ${fmtDMY(it.fecha)}`,
+    leadId: it.leadId,
+    focus,
   }));
 }
 
 type Nivel = 'rojo' | 'ambar' | 'verde';
-type Alerta = { nivel: Nivel; titulo: string; detalle: string; href: string; hrefLabel: string };
+type Alerta = { nivel: Nivel; titulo: string; detalle: string; href: string; hrefLabel: string; desglose?: DesgloseData };
 
 export default async function GeneralPage() {
   const hoy = hoyEnTijuana();
@@ -87,8 +92,30 @@ export default async function GeneralPage() {
     }
   }
 
+  // Desglose del "Resumen del mes": misma ventana MTD que getResumenComparativo(ayer).
+  // cierres/cash salen de los breakdowns (cuadran con las cards); agendas = leads con J1.
+  const mtd = compareMTD(ayer);
+  let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
+  let agendasMTD: AgendaItem[] = [];
+  try {
+    [mtdBreak, agendasMTD] = await Promise.all([
+      getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
+      getAgendasBreakdown(mtd.actualInicio, mtd.actualFin),
+    ]);
+  } catch {
+    // si falla, el Resumen del mes sigue mostrando los números sin desglose.
+  }
+
   // ── Semáforo: alertas accionables (compacto) ──
   const alertas: Alerta[] = [];
+  // Desglose de cuotas (lead · monto · vence · días) con botón Editar lead.
+  const cuotaItems = (arr: typeof cuotas.vencidas): DesgloseItem[] => arr.map((c) => ({
+    nombre: c.lead_nombre,
+    valor: fmtUSD(c.monto_usd),
+    detalle: `cuota ${c.numero === 0 ? 'inicial' : c.numero} · vence ${fmtDMY(c.fecha_esperada)} · ${c.dias < 0 ? `${Math.abs(c.dias)}d vencida` : c.dias === 0 ? 'vence hoy' : `en ${c.dias}d`}`,
+    leadId: c.lead_id,
+    focus: 'plan-pagos',
+  }));
   // Cuotas vencidas → URGENTE (rojo); por vencer → vigilar (ámbar).
   if (cuotas.vencidas.length > 0) {
     const tot = cuotas.vencidas.reduce((s, c) => s + c.monto_usd, 0);
@@ -98,15 +125,18 @@ export default async function GeneralPage() {
       titulo: `${n} cuota${n === 1 ? '' : 's'} VENCIDA${n === 1 ? '' : 'S'} — cobrar URGENTE (${fmtUSD(tot)})`,
       detalle: `Pagos vencidos sin cobrar (ej: ${cuotas.vencidas[0].lead_nombre}, ${Math.abs(cuotas.vencidas[0].dias)}d de atraso). Cobralos cuanto antes.`,
       href: '/comercial', hrefLabel: 'Comercial',
+      desglose: { label: 'Cuotas vencidas', value: fmtUSD(tot), color: 'var(--bad)', items: cuotaItems(cuotas.vencidas), emptyText: 'Sin cuotas vencidas.' },
     });
   }
   if (cuotas.porVencer.length > 0) {
     const n = cuotas.porVencer.length;
+    const tot = cuotas.porVencer.reduce((s, c) => s + c.monto_usd, 0);
     alertas.push({
       nivel: 'ambar',
       titulo: `${n} cuota${n === 1 ? '' : 's'} por cobrar pronto`,
       detalle: `Vencen en los próximos días (ej: ${cuotas.porVencer[0].lead_nombre}, en ${cuotas.porVencer[0].dias}d). Tené listo el seguimiento de cobro.`,
       href: '/comercial', hrefLabel: 'Comercial',
+      desglose: { label: 'Cuotas por vencer', value: fmtUSD(tot), color: 'var(--warn-fill)', items: cuotaItems(cuotas.porVencer), emptyText: 'Sin cuotas por vencer.' },
     });
   }
   if (tramo.n >= 3 && tramo.promedio !== null && tramo.promedio > DIAS_J1_J2_ALERTA) {
@@ -156,6 +186,37 @@ export default async function GeneralPage() {
   const cashPct = cashMeta > 0 ? Math.min(100, (cashActual / cashMeta) * 100) : 0;
   const sold = objetivo?.sold_actual ?? 0;
 
+  // Desgloses por lead del "Resumen del mes" (cierres / cash / agendas).
+  const mtdDesgloses: Record<string, DesgloseData> = {
+    Cierres: {
+      label: 'Cierres del mes',
+      value: String(mtdBreak.sold.length),
+      color: 'var(--ink)',
+      items: revItemsToDesglose(mtdBreak.sold, 'cierre', 'plan-pagos'),
+      emptyText: 'Sin cierres este mes.',
+    },
+    'Cash collected': {
+      label: 'Cash collected del mes',
+      value: fmtUSD(mtdBreak.cash.reduce((s, i) => s + i.monto, 0)),
+      color: 'var(--good)',
+      items: revItemsToDesglose(mtdBreak.cash, 'pago', 'plan-pagos'),
+      emptyText: 'Sin cobros este mes.',
+    },
+    Agendas: {
+      label: 'Agendas del mes · J1 en el período (CRM)',
+      value: String(agendasMTD.length),
+      color: 'var(--ink)',
+      items: agendasMTD.map((a) => ({
+        nombre: a.nombre,
+        valor: fmtDMY(a.fecha),
+        detalle: a.empresa ?? undefined,
+        leadId: a.leadId,
+        focus: 'datos-comerciales',
+      })),
+      emptyText: 'Sin agendas este mes.',
+    },
+  };
+
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
@@ -165,7 +226,7 @@ export default async function GeneralPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
         <HeroGoal meta={meta} actual={actual} faltan={faltan} cierres30={objetivo?.cierres_30d ?? 0} semanas={objetivo?.semanas_estimadas ?? null} cashActual={cashActual} cashMeta={cashMeta} cashPct={cashPct} sold={sold} cierresMetaRaw={objetivo?.cierres_meta ?? null} cashMetaRaw={objetivo?.cash_meta ?? null} desde={objetivo?.desde ?? ''} cierresItems={revItemsToDesglose(breakdowns.sold, 'cierre')} cashItems={revItemsToDesglose(breakdowns.cash, 'pago')} />
 
-        {comparativo && <ResumenMes c={comparativo} />}
+        {comparativo && <ResumenMes c={comparativo} desgloses={mtdDesgloses} />}
 
         <Semaforo alertas={alertas} urgentes={urgentes} vigilar={vigilar} enOrden={enOrden} />
 
@@ -272,7 +333,7 @@ function Arrow({ m, invertir = false }: { m: MetricaMTD; invertir?: boolean }) {
   return <span style={{ color, fontSize: 20 }}>{sube ? '↑' : '↓'}</span>;
 }
 
-function ResumenMes({ c }: { c: ResumenComparativo }) {
+function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record<string, DesgloseData> }) {
   const items: Array<{ label: string; m: MetricaMTD; f: (n: number) => string; invertir?: boolean }> = [
     { label: 'Inversión', m: c.inversion_usd, f: fmtUSD, invertir: true },
     { label: 'Agendas', m: c.agendas, f: fmtNum },
@@ -283,17 +344,29 @@ function ResumenMes({ c }: { c: ResumenComparativo }) {
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 22px', color: 'var(--ink)' }}>Resumen del mes</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-        {items.map((it) => (
-          <div key={it.label} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 12 }}>{it.label}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontWeight: 600, fontSize: 28, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{it.f(it.m.actual)}</span>
-              <Arrow m={it.m} invertir={it.invertir} />
-            </div>
-            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8 }}>{c.etiqueta_anterior}: {it.f(it.m.anterior)}</div>
-            <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>proyección: {it.f(it.m.proyeccion)}</div>
-          </div>
-        ))}
+        {items.map((it) => {
+          const dg = desgloses[it.label];
+          const inner = (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{it.label}</span>
+                {dg && <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>ver detalle →</span>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontWeight: 600, fontSize: 28, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{it.f(it.m.actual)}</span>
+                <Arrow m={it.m} invertir={it.invertir} />
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8 }}>{c.etiqueta_anterior}: {it.f(it.m.anterior)}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>proyección: {it.f(it.m.proyeccion)}</div>
+            </>
+          );
+          const cardStyle: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' };
+          return dg ? (
+            <DesgloseTrigger key={it.label} data={dg} style={cardStyle}>{inner}</DesgloseTrigger>
+          ) : (
+            <div key={it.label} style={cardStyle}>{inner}</div>
+          );
+        })}
       </div>
     </section>
   );
@@ -336,15 +409,21 @@ function Semaforo({ alertas, urgentes, vigilar, enOrden }: { alertas: Alerta[]; 
             )}
             {alertas.map((a, i) => {
               const c = a.nivel === 'rojo' ? 'var(--bad)' : a.nivel === 'ambar' ? 'var(--warn-fill)' : 'var(--good)';
-              return (
-                <Link key={i} href={a.href} style={{ display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: `4px solid ${c}`, borderRadius: 12, padding: '15px 18px' }}>
+              const rowStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, textDecoration: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: `4px solid ${c}`, borderRadius: 12, padding: '15px 18px' };
+              const inner = (
+                <>
                   <span style={{ flex: 'none', width: 11, height: 11, borderRadius: '50%', background: c }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{a.titulo}</span>
                     <span style={{ display: 'block', fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{a.detalle}</span>
                   </span>
-                  <span style={{ flex: 'none', color: 'var(--dim)', fontSize: 14 }}>{a.hrefLabel} →</span>
-                </Link>
+                  <span style={{ flex: 'none', color: 'var(--dim)', fontSize: 14 }}>{a.desglose ? 'ver detalle →' : `${a.hrefLabel} →`}</span>
+                </>
+              );
+              return a.desglose ? (
+                <DesgloseTrigger key={i} data={a.desglose} style={rowStyle}>{inner}</DesgloseTrigger>
+              ) : (
+                <Link key={i} href={a.href} style={rowStyle}>{inner}</Link>
               );
             })}
           </div>

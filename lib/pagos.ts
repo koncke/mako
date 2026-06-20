@@ -329,7 +329,8 @@ export async function getOutstandingPeriodo(start: string, _end: string): Promis
 }
 
 // Desglose por lead de las 3 métricas de Revenue (para los pop-ups).
-export type RevItem = { nombre: string; monto: number; fecha: string | null; detalle?: string };
+// leadId permite el botón "Editar lead" dentro del desglose.
+export type RevItem = { nombre: string; monto: number; fecha: string | null; detalle?: string; leadId?: number };
 export type RevenueBreakdowns = { sold: RevItem[]; cash: RevItem[]; outstanding: RevItem[] };
 
 const relNombre = (leads: unknown): string => {
@@ -340,20 +341,20 @@ const relNombre = (leads: unknown): string => {
 export async function getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
   const supabase = getSupabaseServer();
   const [soldRes, cashRes, outRes] = await Promise.all([
-    supabase.from('leads').select('nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).gte('fecha_cierre', start).lte('fecha_cierre', end),
-    supabase.from('pagos').select('monto_usd, fecha_pago, numero, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
-    supabase.from('pagos').select('monto_usd, fecha_esperada, numero, leads(nombre)').eq('pagado', false).gte('fecha_esperada', start),
+    supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).gte('fecha_cierre', start).lte('fecha_cierre', end),
+    supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
+    supabase.from('pagos').select('monto_usd, fecha_esperada, numero, lead_id, leads(nombre)').eq('pagado', false).gte('fecha_esperada', start),
   ]);
   if (soldRes.error) throw new Error(`Sold detalle: ${soldRes.error.message}`);
   if (cashRes.error) throw new Error(`Cash detalle: ${cashRes.error.message}`);
   if (outRes.error) throw new Error(`Outstanding detalle: ${outRes.error.message}`);
 
   const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
-  const sold: RevItem[] = (soldRes.data ?? []).map((r) => ({ nombre: (r.nombre as string) ?? '—', monto: Number(r.monto_cierre_usd ?? 0), fecha: (r.fecha_cierre as string | null) ?? null }))
+  const sold: RevItem[] = (soldRes.data ?? []).map((r) => ({ nombre: (r.nombre as string) ?? '—', monto: Number(r.monto_cierre_usd ?? 0), fecha: (r.fecha_cierre as string | null) ?? null, leadId: Number(r.id) }))
     .sort((a, b) => b.monto - a.monto);
-  const cash: RevItem[] = (cashRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_pago as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)) }))
+  const cash: RevItem[] = (cashRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_pago as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id) }))
     .sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? 1 : -1) : 0));
-  const outstanding: RevItem[] = (outRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_esperada as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)) }))
+  const outstanding: RevItem[] = (outRes.data ?? []).map((r) => ({ nombre: relNombre(r.leads), monto: Number(r.monto_usd ?? 0), fecha: (r.fecha_esperada as string | null) ?? null, detalle: cuotaLabel(Number(r.numero)), leadId: Number(r.lead_id) }))
     .sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? -1 : 1) : 0));
   return { sold, cash, outstanding };
 }

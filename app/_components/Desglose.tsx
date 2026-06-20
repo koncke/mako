@@ -17,12 +17,17 @@
 // =============================================================================
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { LeadEditModal } from '../leads/LeadEditModal';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-/** Una fila del desglose: nombre principal + valor (derecha) + detalle (sub). */
-export type DesgloseItem = { nombre: string; valor: string; detalle?: string };
+/**
+ * Una fila del desglose: nombre principal + valor (derecha) + detalle (sub).
+ * Si trae leadId, la fila muestra "Editar lead" → abre la ficha editable in-place
+ * (saltando a `focus`: datos-comerciales | plan-pagos | motivo | etapa | …).
+ */
+export type DesgloseItem = { nombre: string; valor: string; detalle?: string; leadId?: number; focus?: string };
 
 export type DesgloseData = {
   label: string;          // título chico (uppercase) del modal y de la card
@@ -37,7 +42,9 @@ export type DesgloseData = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DesgloseModal({ data, onClose }: { data: DesgloseData; onClose: () => void }) {
+  const [edit, setEdit] = useState<{ leadId: number; focus?: string } | null>(null);
   return (
+    <>
     <div
       onClick={onClose}
       style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', fontFamily: SANS }}
@@ -60,6 +67,13 @@ export function DesgloseModal({ data, onClose }: { data: DesgloseData; onClose: 
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.nombre}</div>
                   {it.detalle && <div style={{ fontSize: 12, color: 'var(--faint)' }}>{it.detalle}</div>}
+                  {it.leadId != null && (
+                    <button
+                      type="button"
+                      onClick={() => setEdit({ leadId: it.leadId!, focus: it.focus })}
+                      style={{ marginTop: 4, padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: SANS, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+                    >✎ Editar lead</button>
+                  )}
                 </div>
                 <div style={{ flex: 'none', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: data.color }}>{it.valor}</div>
               </div>
@@ -68,6 +82,8 @@ export function DesgloseModal({ data, onClose }: { data: DesgloseData; onClose: 
         </div>
       </div>
     </div>
+    {edit && <LeadEditModal leadId={edit.leadId} focus={edit.focus} onClose={() => setEdit(null)} />}
+    </>
   );
 }
 

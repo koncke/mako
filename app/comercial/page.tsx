@@ -20,6 +20,7 @@ import {
   getTramosSCL,
   getRevenuePeriod,
   getCACAcumulado,
+  getFunnelMadurasLeads,
   type CohorteSemana,
   type CohorteMes,
   type EstadoMadurezCohorte,
@@ -28,9 +29,12 @@ import {
   type TramosSCL,
   type RevenuePeriod,
   type CACAcumulado,
+  type FunnelMadurasLeads,
+  type FunnelLeadItem,
 } from '@/lib/queries';
 import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
 import { RevenueKpis, type RevCard } from './RevenueKpis';
+import { DesgloseTrigger, type DesgloseData, type DesgloseItem } from '../_components/Desglose';
 import {
   ayerEnTijuana,
   hoyEnTijuana,
@@ -61,6 +65,27 @@ function fmtUSD(n: number | null | undefined): string {
 function fmtNum(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return new Intl.NumberFormat('es-MX').format(Math.round(n));
+}
+
+function fmtDMY(iso: string | null): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+// FunnelLeadItem[] → filas del desglose, con su valor según la etapa.
+function funnelItems(
+  arr: FunnelLeadItem[],
+  valorFn: (l: FunnelLeadItem) => string,
+  focus = 'datos-comerciales',
+): DesgloseItem[] {
+  return arr.map((l) => ({
+    nombre: l.nombre,
+    valor: valorFn(l),
+    detalle: `${l.empresa ? `${l.empresa} · ` : ''}J1 ${fmtDMY(l.fechaJ1)}`,
+    leadId: l.leadId,
+    focus,
+  }));
 }
 
 function fmtSemana(yyyy_mm_dd: string): string {
@@ -129,10 +154,12 @@ export default async function ComercialPage({
   let outstanding: { items: OutstandingLead[]; total: number } = { items: [], total: 0 };
   let cac: CACAcumulado | null = null;
   let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
+  let funnelLeads: FunnelMadurasLeads | null = null;
+  let cacBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let errorMsg: string | null = null;
 
   try {
-    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns] = await Promise.all([
+    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, cacBreak] = await Promise.all([
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
@@ -142,6 +169,10 @@ export default async function ComercialPage({
       getOutstandingDetalle(hoyReal),
       getCACAcumulado(),
       getRevenueBreakdowns(revDesde, revHasta),
+      getFunnelMadurasLeads(),
+      // Cierres que alimentan el CAC acumulado (ventana amplia; el detalle son
+      // los cierres con fecha de cierre cargada).
+      getRevenueBreakdowns('2025-01-01', hoyReal),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -181,7 +212,7 @@ export default async function ComercialPage({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
           {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} />}
 
-          {maduras && <SaludFunnel maduras={maduras} cac={cac} />}
+          {maduras && <SaludFunnel maduras={maduras} cac={cac} funnelLeads={funnelLeads} cacBreak={cacBreak} />}
 
           <SCLTimeline scl={scl} tramos={tramos} />
 
@@ -284,7 +315,7 @@ function RevenueSection({
 // Salud del Funnel — Comercial (embudo + KPIs)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: CACAcumulado | null }) {
+function SaludFunnel({ maduras, cac, funnelLeads, cacBreak }: { maduras: ResumenComercialMaduras; cac: CACAcumulado | null; funnelLeads: FunnelMadurasLeads | null; cacBreak: RevenueBreakdowns }) {
   const noShow =
     maduras.total_j1 > 0 ? ((maduras.total_j1 - maduras.asistencias) / maduras.total_j1) * 100 : null;
   const tasa = maduras.tasa_cierre_madura;
@@ -294,11 +325,31 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
   const pctCalifican = maduras.asistencias > 0 ? (maduras.limpias / maduras.asistencias) * 100 : null;
   const pctCierran = maduras.limpias > 0 ? (maduras.cierres / maduras.limpias) * 100 : null;
 
-  const etapas: Array<{ label: string; valor: number; bg: string }> = [
-    { label: 'Agenda', valor: maduras.total_j1, bg: '#FBF4DC' },
-    { label: 'Asistió', valor: maduras.asistencias, bg: '#F6EAC6' },
-    { label: 'Calificado', valor: maduras.limpias, bg: '#EFDDAB' },
-    { label: 'Cierre', valor: maduras.cierres, bg: '#E7CF8E' },
+  const fl = funnelLeads;
+  // Desgloses por etapa (cuadran con los conteos del embudo).
+  const dgAgenda: DesgloseData | undefined = fl ? { label: 'Agenda · J1 de cohortes maduras', value: fmtNum(maduras.total_j1), color: 'var(--ink)', items: funnelItems(fl.agenda, (l) => fmtDMY(l.fechaJ1)), emptyText: 'Sin agendas maduras.' } : undefined;
+  const dgAsistio: DesgloseData | undefined = fl ? { label: 'Asistió a J1', value: fmtNum(maduras.asistencias), color: 'var(--good)', items: funnelItems(fl.asistio, () => '✓ asistió'), emptyText: 'Nadie asistió aún.' } : undefined;
+  const dgNoShow: DesgloseData | undefined = fl ? { label: 'No-show · no asistió a J1', value: fmtNum(maduras.total_j1 - maduras.asistencias), color: 'var(--bad)', items: funnelItems(fl.noShow, () => '✗ no asistió'), emptyText: 'Sin no-shows.' } : undefined;
+  const dgCalificado: DesgloseData | undefined = fl ? { label: 'Calificados', value: fmtNum(maduras.limpias), color: 'var(--ink)', items: funnelItems(fl.calificado, () => '✓ calificado'), emptyText: 'Sin calificados.' } : undefined;
+  const dgCierre: DesgloseData | undefined = fl ? { label: 'Cierres maduros', value: fmtNum(maduras.cierres), color: 'var(--good)', items: funnelItems(fl.cierre, (l) => fmtUSD(l.monto), 'plan-pagos'), emptyText: 'Sin cierres maduros.' } : undefined;
+
+  // CAC acumulado: spend que lo alimenta (fila síntesis) + los cierres contados.
+  const dgCac: DesgloseData = {
+    label: 'CAC acumulado · spend ÷ cierres',
+    value: cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—',
+    color: 'var(--ink)',
+    items: [
+      { nombre: 'Spend total (Meta)', valor: cac ? fmtUSD(cac.spend_total_usd) : '—', detalle: `${cac?.cierres_total ?? 0} cierres acumulados` },
+      ...cacBreak.sold.map((it) => ({ nombre: it.nombre, valor: fmtUSD(it.monto), detalle: `cierre ${fmtDMY(it.fecha)}`, leadId: it.leadId, focus: 'plan-pagos' })),
+    ],
+    emptyText: 'Sin datos de CAC.',
+  };
+
+  const etapas: Array<{ label: string; valor: number; bg: string; dg?: DesgloseData }> = [
+    { label: 'Agenda', valor: maduras.total_j1, bg: '#FBF4DC', dg: dgAgenda },
+    { label: 'Asistió', valor: maduras.asistencias, bg: '#F6EAC6', dg: dgAsistio },
+    { label: 'Calificado', valor: maduras.limpias, bg: '#EFDDAB', dg: dgCalificado },
+    { label: 'Cierre', valor: maduras.cierres, bg: '#E7CF8E', dg: dgCierre },
   ];
   // clip-paths del embudo (de ancho a angosto), idénticos al prototipo.
   const clips = [
@@ -322,23 +373,28 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
         <div>
           {etapas.map((e, i) => (
             <div key={e.label}>
-              <div style={{ height: 78, background: '#D8C58C', clipPath: clips[i], padding: 2 }}>
-                <div
-                  style={{
-                    height: '100%',
-                    background: e.bg,
-                    clipPath: clips[i],
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    lineHeight: 1,
-                  }}
-                >
-                  <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--dim)', marginBottom: 5 }}>{e.label}</span>
-                  <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(e.valor)}</span>
-                </div>
-              </div>
+              {(() => {
+                const box = (
+                  <div style={{ height: 78, background: '#D8C58C', clipPath: clips[i], padding: 2 }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        background: e.bg,
+                        clipPath: clips[i],
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                      }}
+                    >
+                      <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--dim)', marginBottom: 5 }}>{e.label}</span>
+                      <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(e.valor)}</span>
+                    </div>
+                  </div>
+                );
+                return e.dg ? <DesgloseTrigger data={e.dg}>{box}</DesgloseTrigger> : box;
+              })()}
               {i < conectores.length && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '6px 0' }}>
                   <span
@@ -369,6 +425,7 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
             valueColor={tasa !== null && maduras.limpias >= 3 && tasa >= 30 ? 'var(--good)' : 'var(--ink)'}
             sub={`${maduras.cierres} ÷ ${maduras.limpias} calificadas`}
             topColor="var(--good)"
+            desglose={dgCierre}
           />
           <FunnelKPI
             label="No-show rate"
@@ -376,6 +433,7 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
             valueColor={noShow !== null && noShow > 35 ? 'var(--bad)' : 'var(--good)'}
             sub={`${maduras.total_j1 - maduras.asistencias} de ${maduras.total_j1} · maduras`}
             topColor="var(--border-strong)"
+            desglose={dgNoShow}
           />
           <FunnelKPI
             label="Cierres maduros"
@@ -383,6 +441,7 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
             valueColor="var(--ink)"
             sub={`${maduras.cohortes_maduras_count} cohortes maduras`}
             topColor="var(--border-strong)"
+            desglose={dgCierre}
           />
           <FunnelKPI
             label="CAC acumulado"
@@ -390,6 +449,7 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
             valueColor="var(--ink)"
             sub="Spend ÷ cierres"
             topColor="var(--border-strong)"
+            desglose={dgCac}
           />
         </div>
       </div>
@@ -397,24 +457,31 @@ function SaludFunnel({ maduras, cac }: { maduras: ResumenComercialMaduras; cac: 
   );
 }
 
-function FunnelKPI({ label, value, valueColor, sub, topColor }: { label: string; value: string; valueColor: string; sub: string; topColor: string }) {
-  return (
-    <div
-      style={{
-        background: 'var(--surface-2)',
-        border: '1px solid var(--border)',
-        borderTop: `3px solid ${topColor}`,
-        borderRadius: 14,
-        padding: '18px 18px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-      }}
-    >
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 11 }}>{label}</div>
+function FunnelKPI({ label, value, valueColor, sub, topColor, desglose }: { label: string; value: string; valueColor: string; sub: string; topColor: string; desglose?: DesgloseData }) {
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--surface-2)',
+    border: '1px solid var(--border)',
+    borderTop: `3px solid ${topColor}`,
+    borderRadius: 14,
+    padding: '18px 18px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  };
+  const inner = (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 11 }}>
+        <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>{label}</span>
+        {desglose && <span style={{ fontSize: 10.5, color: 'var(--accent)', fontWeight: 600 }}>ver →</span>}
+      </div>
       <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color: valueColor, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>{sub}</div>
-    </div>
+    </>
+  );
+  return desglose ? (
+    <DesgloseTrigger data={desglose} style={cardStyle}>{inner}</DesgloseTrigger>
+  ) : (
+    <div style={cardStyle}>{inner}</div>
   );
 }
 

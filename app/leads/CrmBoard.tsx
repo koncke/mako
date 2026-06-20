@@ -21,7 +21,6 @@ import {
 } from 'react';
 import {
   CHIP,
-  NUTRI_KEYS,
   NEW_STAGE_PALETTE,
   NEW_STAGE_TONES,
   stageMeta as findStage,
@@ -35,6 +34,7 @@ import {
   deleteLeadAction,
 } from './actions';
 import { LeadDetail } from './LeadDetail';
+import { seedEdits as seedEditsBase, missingFor } from './edit-logic';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -161,28 +161,7 @@ export function CrmBoard({
 
   const refresh = () => startTransition(() => router.refresh());
 
-  const seedEdits = (l: CrmLead): Edits => {
-    const s = effStage(l);
-    const adv = ['agendaj2', 'facturando', 'ganado'];
-    const passedJ1 = !!l.agenda || adv.includes(s);
-    const passedJ2 = adv.includes(s);
-    const fathom: FathomLink[] = l.fathom.length
-      ? l.fathom
-      : [
-          ...(passedJ1 ? [{ label: 'Junta 1', url: '' }] : []),
-          ...(passedJ2 ? [{ label: 'Junta 2', url: '' }] : []),
-        ];
-    const isNutri = NUTRI_KEYS.includes(s);
-    const isGanado = s === 'ganado';
-    const cuota = isGanado ? String(Math.round(l.monto / 3)) : '';
-    return {
-      closer: l.closer, setter: l.setter, motivo: l.motivo,
-      fathom,
-      nutriciones: isNutri ? [{ name: 'Nutrición 1 — WhatsApp', dt: '' }, { name: 'Nutrición 2 — Email', dt: '' }] : [],
-      plan: { total: isGanado ? String(l.monto) : '', cierre: '', inicio: '', duracion: '3' },
-      cuotas: isGanado ? [{ monto: cuota, fecha: '' }, { monto: cuota, fecha: '' }] : [],
-    };
-  };
+  const seedEdits = (l: CrmLead): Edits => seedEditsBase(l, effStage(l));
 
   const editsFor = (l: CrmLead): Edits => editsMap[l.id] ?? seedEdits(l);
   const patchEdits = (id: number, patch: Partial<Edits>) =>
@@ -198,15 +177,6 @@ export function CrmBoard({
     setSelectedId(null);
     setPendingMove(null);
     setMoveError(false);
-  };
-
-  const missingFor = (stage: string, e: Edits): string[] => {
-    if (stage === 'ganado') {
-      const m: string[] = [];
-      return m;
-    }
-    if (stage === 'perdido' || stage === 'descal') return e.motivo.trim() ? [] : ['Motivo'];
-    return [];
   };
 
   const persistStage = (id: number, key: string, e: Edits, from?: string) => {

@@ -22,6 +22,8 @@ export function RevenueKpis({ cards }: { cards: RevCard[] }) {
           nombre: it.nombre,
           valor: fmtUSD(it.monto),
           detalle: `${it.detalle ? `${it.detalle} · ` : ''}${c.fechaLabel} ${fmtDMY(it.fecha)}`,
+          leadId: it.leadId,
+          focus: 'plan-pagos',
         }));
         return (
           <DesgloseCard

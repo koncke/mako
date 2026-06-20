@@ -10,7 +10,7 @@ import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_S
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
-import { lunesDeFecha } from './date-utils';
+import { lunesDeFecha, diasAntes } from './date-utils';
 import {
   getVslEngagement,
   estadoMadurezLead,
@@ -438,6 +438,113 @@ export async function getResumenComercialMaduras(): Promise<ResumenComercialMadu
     tasa_cierre_madura,
     dias_promedio_ciclo,
   };
+}
+
+// =============================================================================
+// Desgloses por lead para los pop-ups (drill-down)
+// =============================================================================
+
+/** Una agenda (lead con J1) para el desglose del "Resumen del mes". */
+export type AgendaItem = {
+  leadId: number;
+  nombre: string;
+  empresa: string | null;
+  fecha: string | null; // fecha_junta_1
+};
+
+/** Leads con Junta 1 en [start, end] — fuente del desglose de Agendas (CRM). */
+export async function getAgendasBreakdown(start: string, end: string): Promise<AgendaItem[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, fecha_junta_1')
+    .not('fecha_junta_1', 'is', null)
+    .gte('fecha_junta_1', start)
+    .lte('fecha_junta_1', end)
+    .order('fecha_junta_1', { ascending: false });
+  if (error) throw new Error(`getAgendasBreakdown falló: ${error.message}`);
+  return (data ?? []).map((r) => ({
+    leadId: Number(r.id),
+    nombre: (r.nombre as string) ?? '—',
+    empresa: (r.empresa as string | null) ?? null,
+    fecha: (r.fecha_junta_1 as string | null) ?? null,
+  }));
+}
+
+/** Un lead dentro del embudo de cohortes maduras (Salud del Funnel — Comercial). */
+export type FunnelLeadItem = {
+  leadId: number;
+  nombre: string;
+  empresa: string | null;
+  fechaJ1: string | null;
+  asistioJ1: boolean | null;
+  calificado: boolean | null;
+  cerro: boolean;
+  monto: number | null;
+  estado: EstadoLead;
+};
+
+export type FunnelMadurasLeads = {
+  agenda: FunnelLeadItem[];      // todos los J1 de cohortes maduras (= total_j1)
+  asistio: FunnelLeadItem[];     // asistio_j1 = true (= asistencias)
+  noShow: FunnelLeadItem[];      // asistio_j1 != true (= total_j1 - asistencias)
+  calificado: FunnelLeadItem[];  // asistió y calificado (= limpias)
+  cierre: FunnelLeadItem[];      // cerro = true (= cierres)
+};
+
+/**
+ * Leads del embudo de Comercial, bucketeados por etapa, restringidos a las
+ * cohortes SEMANALES maduras — el MISMO set que cuenta getResumenComercialMaduras,
+ * así los conteos del desglose cuadran exacto con el embudo.
+ *
+ * Replica DATE_TRUNC('week') con lunesDeFecha (lunes) y filtra por las semanas
+ * que la vista marca 'madura' (misma CURRENT_DATE → mismo set).
+ */
+export async function getFunnelMadurasLeads(): Promise<FunnelMadurasLeads> {
+  const supabase = getSupabaseServer();
+  const vacio: FunnelMadurasLeads = { agenda: [], asistio: [], noShow: [], calificado: [], cierre: [] };
+
+  const { data: semanas, error: semErr } = await supabase
+    .from('v_cohortes_semanales')
+    .select('semana_inicio')
+    .eq('estado_madurez', 'madura');
+  if (semErr) throw new Error(`getFunnelMadurasLeads (semanas) falló: ${semErr.message}`);
+  const weeks = new Set<string>((semanas ?? []).map((r) => String(r.semana_inicio)));
+  if (weeks.size === 0) return vacio;
+
+  const starts = [...weeks].sort();
+  const min = starts[0];
+  const max = diasAntes(starts[starts.length - 1], -6); // domingo de la última semana
+
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, fecha_junta_1, asistio_j1, calificado, cerro, monto_cierre_usd, estado_lead')
+    .not('fecha_junta_1', 'is', null)
+    .gte('fecha_junta_1', min)
+    .lte('fecha_junta_1', max)
+    .order('fecha_junta_1', { ascending: false });
+  if (error) throw new Error(`getFunnelMadurasLeads (leads) falló: ${error.message}`);
+
+  const out: FunnelMadurasLeads = { agenda: [], asistio: [], noShow: [], calificado: [], cierre: [] };
+  for (const r of (data ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; fecha_junta_1: string; asistio_j1: boolean | null; calificado: boolean | null; cerro: boolean | null; monto_cierre_usd: number | null; estado_lead: EstadoLead }>) {
+    if (!weeks.has(lunesDeFecha(r.fecha_junta_1.slice(0, 10)))) continue;
+    const it: FunnelLeadItem = {
+      leadId: Number(r.id),
+      nombre: r.nombre ?? '—',
+      empresa: r.empresa ?? null,
+      fechaJ1: r.fecha_junta_1 ?? null,
+      asistioJ1: r.asistio_j1,
+      calificado: r.calificado,
+      cerro: r.cerro === true,
+      monto: r.monto_cierre_usd ?? null,
+      estado: r.estado_lead,
+    };
+    out.agenda.push(it);
+    if (it.asistioJ1 === true) out.asistio.push(it); else out.noShow.push(it);
+    if (it.asistioJ1 === true && it.calificado === true) out.calificado.push(it);
+    if (it.cerro) out.cierre.push(it);
+  }
+  return out;
 }
 
 // =============================================================================
@@ -1158,6 +1265,11 @@ export type SenalRecon = {
   ctr_link: number | null;
   cpl_usd: number | null;
   frequency: number | null;
+  // Economía por anuncio (para los desgloses de Costo · CPM · CPC)
+  impressions: number;
+  link_clicks: number;
+  cpm_usd: number | null;        // spend ÷ impresiones × 1000
+  cpc_usd: number | null;        // spend ÷ clicks
   // Preview del creativo (0022) — valor más reciente del anuncio
   ad_thumbnail_url: string | null;
   ad_permalink: string | null;
@@ -1322,6 +1434,10 @@ export async function getSenalesRecon(
       ctr_link: a.imp > 0 ? (a.clk / a.imp) * 100 : null,
       cpl_usd: a.leads > 0 ? spendUsd / a.leads : null,
       frequency: a.freqVals.length > 0 ? a.freqVals.reduce((s, v) => s + v, 0) / a.freqVals.length : null,
+      impressions: a.imp,
+      link_clicks: a.clk,
+      cpm_usd: a.imp > 0 ? (spendUsd / a.imp) * 1000 : null,
+      cpc_usd: a.clk > 0 ? spendUsd / a.clk : null,
       ad_thumbnail_url: a.thumb,
       ad_permalink: a.permalink,
       ad_creative_sin_enlace: a.sinEnlace,

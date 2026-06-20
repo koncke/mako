@@ -16,11 +16,17 @@ import {
   setPipelineStage,
   saveLeadMeta,
   savePipelineStages,
+  getLead,
+  getPipelineStages,
+  getVisitasLandingMap,
   type LeadUpdateInput,
   type LeadMetaInput,
 } from '@/lib/leads';
-import type { Stage } from '@/lib/pipeline';
+import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { getCampaignNameMap } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
+import { mapToCrmLead, type VisitasMap } from './crm-map';
+import type { CrmLead } from './CrmBoard';
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;
@@ -141,4 +147,23 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
 export async function savePipelineStagesAction(stages: Stage[]): Promise<void> {
   await savePipelineStages(stages);
   revalidatePath('/leads');
+}
+
+/**
+ * Carga un lead como CrmLead (+ etapas) para el modal de edición in-place que se
+ * abre desde cualquier desglose del dashboard. Mismo view-model que /leads.
+ */
+export async function getCrmLeadAction(
+  id: number,
+): Promise<{ lead: CrmLead; stages: Stage[] } | null> {
+  const l = await getLead(id);
+  if (!l) return null;
+  const [campMap, stages] = await Promise.all([
+    getCampaignNameMap().catch(() => ({}) as Record<string, string>),
+    getPipelineStages().catch(() => DEFAULT_STAGES),
+  ]);
+  const visitasMap: VisitasMap = await getVisitasLandingMap([l.visitor_id]).catch(
+    () => new Map(),
+  );
+  return { lead: mapToCrmLead(l, campMap, visitasMap), stages };
 }
