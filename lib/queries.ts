@@ -5,6 +5,7 @@
 // Calcula ratios derivados (1 de cada X).
 // =============================================================================
 
+import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
 import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
@@ -12,7 +13,7 @@ import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha, diasAntes } from './date-utils';
 import {
-  getVslEngagement,
+  getVslEngagementMap,
   estadoMadurezLead,
   type Lead,
   type EstadoLead,
@@ -103,7 +104,11 @@ function safeDiv(a: number, b: number): number | null {
   return a / b;
 }
 
-export async function getMarketingWindow(
+// Cacheado por-request con React cache(): dedup de llamadas con los mismos
+// (start,end) dentro de un render (se invoca 3x en /marketing: directo, en
+// getFunnelEtapas y en getResumenComparativo).
+export const getMarketingWindow = cache(_getMarketingWindow);
+async function _getMarketingWindow(
   start: string,
   end: string,
 ): Promise<MarketingWindow> {
@@ -547,14 +552,19 @@ export async function getFunnelMadurasLeads(): Promise<FunnelMadurasLeads> {
   return out;
 }
 
-/** Todos los leads con Junta 1 (para los desgloses de las filas de Cohortes). */
-export async function getJ1Leads(): Promise<FunnelLeadItem[]> {
+/**
+ * Leads con Junta 1 para los desgloses de las filas de Cohortes.
+ * `minFecha` acota al rango que realmente se renderiza (las ~8 semanas / 6 meses
+ * más recientes) en vez de escanear toda la tabla.
+ */
+export async function getJ1Leads(minFecha?: string): Promise<FunnelLeadItem[]> {
   const supabase = getSupabaseServer();
-  const { data, error } = await supabase
+  let q = supabase
     .from('leads')
     .select('id, nombre, empresa, fecha_junta_1, asistio_j1, calificado, cerro, monto_cierre_usd, estado_lead')
-    .not('fecha_junta_1', 'is', null)
-    .order('fecha_junta_1', { ascending: false });
+    .not('fecha_junta_1', 'is', null);
+  if (minFecha) q = q.gte('fecha_junta_1', minFecha);
+  const { data, error } = await q.order('fecha_junta_1', { ascending: false });
   if (error) throw new Error(`getJ1Leads falló: ${error.message}`);
   return (data ?? []).map((r) => ({
     leadId: Number(r.id),
@@ -703,7 +713,9 @@ export type RevenuePeriod = {
   roas_sold: number | null;      // Sold USD ÷ Spend USD — ratio válido
 };
 
-export async function getRevenuePeriod(
+// Cacheado por-request: se invoca 2x con el mismo rango en /comercial y /marketing.
+export const getRevenuePeriod = cache(_getRevenuePeriod);
+async function _getRevenuePeriod(
   start: string,
   end: string,
 ): Promise<RevenuePeriod> {
@@ -1366,6 +1378,10 @@ export async function getSenalesRecon(
     adsRes = await adsQuery(BASE_ADS);
   }
 
+  // downByAd solo se consulta para anuncios presentes en el rango → traer SOLO
+  // los leads atribuidos a esos ad_id, no el histórico completo de leads con UTM.
+  const adIdsRango = [...new Set(((adsRes.data ?? []) as unknown as Array<{ ad_id: string | null }>).map((r) => r.ad_id).filter((x): x is string => !!x))];
+
   const [budgetRes, leadsRes] = await Promise.all([
     supabase
       .from('adset_budget_daily')
@@ -1375,7 +1391,7 @@ export async function getSenalesRecon(
     supabase
       .from('leads')
       .select('meta_ad_id, fecha_junta_1, estado_lead, total_cobrado_usd')
-      .not('meta_ad_id', 'is', null),
+      .in('meta_ad_id', adIdsRango),
   ]);
   for (const r of [adsRes, budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
 
@@ -1988,16 +2004,21 @@ export async function getJuntasProximas(
   if (error) throw new Error(`Query juntas próximas falló: ${error.message}`);
 
   const leads = (data ?? []) as Lead[];
+  // VSL engagement de todos los visitors en UNA query (antes: N+1 en el loop).
+  // Semántica preservada: visitor null → sin_datos; visitor sin filas → sin_ver.
+  const vslMap = await getVslEngagementMap(leads.map((l) => l.visitor_id));
   const juntas: JuntaProxima[] = [];
 
   for (const lead of leads) {
+    const eng = !lead.visitor_id
+      ? { plays: 0, max_pct: null, sin_datos: true }
+      : vslMap.get(lead.visitor_id) ?? { plays: 0, max_pct: null, sin_datos: false };
     const candidatas: Array<{ tipo: 'J1' | 'J2'; fecha: string | null }> = [
       { tipo: 'J1', fecha: lead.fecha_junta_1 },
       { tipo: 'J2', fecha: lead.fecha_junta_2 },
     ];
     for (const c of candidatas) {
       if (!c.fecha || !fechasSet.has(c.fecha)) continue;
-      const eng = await getVslEngagement(lead.visitor_id);
       // Flag recalibrado (v3 Fase A): sin visitor_id → 'sin_datos' (no afirmar);
       // con visitor pero 0 plays → 'sin_ver'; con plays → 'vio'.
       const vsl_estado: JuntaProxima['vsl_estado'] = eng.sin_datos
@@ -2643,7 +2664,10 @@ export async function getTendencias(
 // campaign_name: cruzamos para mostrar un nombre legible.
 
 /** Mapa campaign_id → campaign_name (el más reciente). */
-export async function getCampaignNameMap(): Promise<Record<string, string>> {
+// Cacheado por-request: el mapa campaign_id→nombre es un full-scan que varios
+// flujos piden por separado (page de leads, crm-map, etc.).
+export const getCampaignNameMap = cache(_getCampaignNameMap);
+async function _getCampaignNameMap(): Promise<Record<string, string>> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('marketing_metrics_daily')

@@ -45,6 +45,7 @@ import {
   primerDiaDelMesDeFecha,
   lunesDeFecha,
   fmtDDMMYYYY,
+  diasAntes,
 } from '@/lib/date-utils';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { CobrarTable } from './CobrarTable';
@@ -187,7 +188,9 @@ export default async function ComercialPage({
       getCACAcumulado(),
       getRevenueBreakdowns(revDesde, revHasta),
       getFunnelMadurasLeads(),
-      getJ1Leads(),
+      // Acotado a ~1 año: cubre con margen las 8 semanas / 6 meses que se renderizan
+      // (evita escanear todo el histórico de leads en cada carga).
+      getJ1Leads(diasAntes(hoyReal, 370)),
       getSCLLeads(),
     ]);
   } catch (err) {

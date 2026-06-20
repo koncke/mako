@@ -108,17 +108,21 @@ export default async function Page({
   let errorMsg: string | null = null;
 
   try {
-    const sourceMap = sourcesToMap(await getDataSources());
-    [mkt, funnel, funnelSeries, senales, tendencias, comparativo, revenue] = await Promise.all([
+    // getDataSources ya no serializa al frente: va en la misma ola. getFunnelEtapas
+    // necesita el sourceMap, así que corre en una micro-ola posterior — y reusa el
+    // getMarketingWindow ya cacheado por-request (cache hit, sin queries extra).
+    const [mktR, funnelSeriesR, senalesR, tendenciasR, comparativoR, revenueR, sourceRaw] = await Promise.all([
       getMarketingWindow(rangoDesde, rangoHasta),
-      getFunnelEtapas(rangoDesde, rangoHasta, sourceMap),
       getFunnelSeries(rangoHasta, 12),
       // Anuncios ganadores respeta el filtro global de fecha (antes: 14 días fijos).
       getSenalesRecon(rangoDesde, rangoHasta),
       getTendencias(rangoDesde, rangoHasta),
       filtroActivo ? Promise.resolve(null) : getResumenComparativo(ayerReal),
       getRevenuePeriod(rangoDesde, rangoHasta),
+      getDataSources(),
     ]);
+    mkt = mktR; funnelSeries = funnelSeriesR; senales = senalesR; tendencias = tendenciasR; comparativo = comparativoR; revenue = revenueR;
+    funnel = await getFunnelEtapas(rangoDesde, rangoHasta, sourcesToMap(sourceRaw));
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }

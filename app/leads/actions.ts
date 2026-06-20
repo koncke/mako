@@ -122,6 +122,16 @@ export async function deleteLeadAction(id: number): Promise<void> {
   redirect('/leads');
 }
 
+/**
+ * Borra un lead SIN redirigir — para el modal de edición in-place abierto desde
+ * cualquier tab del dashboard (no expulsa al usuario de la pantalla actual).
+ */
+export async function deleteLeadInlineAction(id: number): Promise<void> {
+  await deleteLead(id);
+  revalidatePath('/leads');
+  revalidatePath('/general');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Rediseño CRM — pipeline editable + Closer/Setter/Fathom
 // ─────────────────────────────────────────────────────────────────────────────

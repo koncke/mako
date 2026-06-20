@@ -83,31 +83,27 @@ export default async function GeneralPage() {
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
   const cuotas = cuotasR.status === 'fulfilled' ? cuotasR.value : { vencidas: [], porVencer: [] };
 
-  // Desglose del objetivo (cierres / cash) en su ventana [objetivo.desde, hoy].
-  // Reutiliza getRevenueBreakdowns: .sold = cierres firmados, .cash = pagos cobrados.
-  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
-  if (objetivo) {
-    try {
-      breakdowns = await getRevenueBreakdowns(objetivo.desde, hoy);
-    } catch {
-      // degradación elegante: si falla, el Hero sigue mostrando los números sin pop-up.
-    }
-  }
-
-  // Desglose del "Resumen del mes": misma ventana MTD que getResumenComparativo(ayer).
-  // cierres/cash salen de los breakdowns (cuadran con las cards); agendas = leads con J1.
+  // Desgloses (una sola ola paralela):
+  //  - Hero del objetivo: breakdowns en [objetivo.desde, hoy] (.sold cierres, .cash pagos).
+  //  - Resumen del mes: misma ventana MTD que getResumenComparativo(ayer).
   const mtd = compareMTD(ayer);
+  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let mtdBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let agendasMTD: AgendaItem[] = [];
   let senalesMTD: SenalRecon[] = [];
   try {
-    [mtdBreak, agendasMTD, senalesMTD] = await Promise.all([
+    const [objBreak, mtdB, agMTD, senMTD] = await Promise.all([
+      objetivo ? getRevenueBreakdowns(objetivo.desde, hoy) : Promise.resolve(breakdowns),
       getRevenueBreakdowns(mtd.actualInicio, mtd.actualFin),
       getAgendasBreakdown(mtd.actualInicio, mtd.actualFin),
       getSenalesRecon(mtd.actualInicio, mtd.actualFin),
     ]);
+    breakdowns = objBreak;
+    mtdBreak = mtdB;
+    agendasMTD = agMTD;
+    senalesMTD = senMTD;
   } catch {
-    // si falla, el Resumen del mes sigue mostrando los números sin desglose.
+    // degradación elegante: si falla, las cards muestran los números sin desglose.
   }
 
   // ── Semáforo: alertas accionables (compacto) ──

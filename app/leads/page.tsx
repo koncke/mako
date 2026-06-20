@@ -24,16 +24,20 @@ export default async function LeadsPage() {
   let campMap: Record<string, string> = {};
   let juntasRaw: JuntaProxima[] = [];
   let pendientesRaw: PendienteItem[] = [];
-  let stages = await getPipelineStages().catch(() => undefined);
+  let stages: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
   let errorMsg: string | null = null;
 
   try {
-    [leads, campMap, juntasRaw, pendientesRaw] = await Promise.all([
+    // getPipelineStages ahora va en la misma ola (antes serializaba al frente).
+    let stagesRaw: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
+    [leads, campMap, juntasRaw, pendientesRaw, stagesRaw] = await Promise.all([
       listLeads(),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
       getPendientesDeMarcar(hoy).then((p) => p.items).catch(() => [] as PendienteItem[]),
+      getPipelineStages().catch(() => undefined),
     ]);
+    stages = stagesRaw;
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }

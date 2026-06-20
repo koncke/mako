@@ -15,7 +15,7 @@ import {
   getCrmLeadAction,
   saveLeadMetaAction,
   setLeadStageAction,
-  deleteLeadAction,
+  deleteLeadInlineAction,
 } from './actions';
 import type { CrmLead, Edits, PendingMove } from './CrmBoard';
 import type { Stage } from '@/lib/pipeline';
@@ -40,6 +40,7 @@ export function LeadEditModal({
   const [localStage, setLocalStage] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [moveError, setMoveError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
@@ -83,25 +84,41 @@ export function LeadEditModal({
       setMoveError(true);
       return;
     }
+    setSaveError(false);
+    // Cerrar SOLO si la acción tuvo éxito: si falla, el modal queda abierto con
+    // los cambios intactos y muestra el error (antes: onClose síncrono perdía todo).
     startTransition(async () => {
-      await saveLeadMetaAction(lead.id, {
-        closer: edits.closer, setter: edits.setter, fathom_links: edits.fathom, motivo_perdida: edits.motivo,
-      });
-      if (pendingMove) {
-        await setLeadStageAction(lead.id, pendingMove.to, {
-          monto: pendingMove.to === 'ganado' ? Number(edits.plan.total) || null : null,
-          motivo: edits.motivo,
+      try {
+        await saveLeadMetaAction(lead.id, {
+          closer: edits.closer, setter: edits.setter, fathom_links: edits.fathom, motivo_perdida: edits.motivo,
         });
+        if (pendingMove) {
+          await setLeadStageAction(lead.id, pendingMove.to, {
+            monto: pendingMove.to === 'ganado' ? Number(edits.plan.total) || null : null,
+            motivo: edits.motivo,
+          });
+        }
+        router.refresh();
+        onClose();
+      } catch {
+        setSaveError(true);
       }
-      router.refresh();
     });
-    onClose();
   };
 
   const onDelete = () => {
     if (!lead) return;
-    startTransition(async () => { await deleteLeadAction(lead.id); });
-    onClose();
+    setSaveError(false);
+    // Borrado in-place (sin redirect): no expulsa al usuario de la tab actual.
+    startTransition(async () => {
+      try {
+        await deleteLeadInlineAction(lead.id);
+        router.refresh();
+        onClose();
+      } catch {
+        setSaveError(true);
+      }
+    });
   };
 
   if (notFound) {
@@ -140,6 +157,7 @@ export function LeadEditModal({
       onDelete={onDelete}
       focus={focus}
       zIndex={80}
+      saveError={saveError}
     />
   );
 }

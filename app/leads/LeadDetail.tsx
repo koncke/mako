@@ -41,7 +41,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export function LeadDetail({
   lead, stages, effStage, pendingMove, moveError, edits, missing,
-  onPatch, onPickStage, onClose, onSave, onDelete, focus, zIndex = 50,
+  onPatch, onPickStage, onClose, onSave, onDelete, focus, zIndex = 50, saveError = false,
 }: {
   lead: CrmLead;
   stages: Stage[];
@@ -57,6 +57,7 @@ export function LeadDetail({
   onDelete: () => void;
   focus?: string;       // sección a la que saltar: datos-comerciales | plan-pagos | motivo | etapa | fathom | nutricion
   zIndex?: number;      // por defecto 50; se sube cuando abre sobre otro modal (desglose)
+  saveError?: boolean;  // true si la última acción de guardar/borrar falló
 }) {
   // Al abrir con foco, desplegar y desplazarse a la sección a editar.
   useEffect(() => {
@@ -330,6 +331,11 @@ export function LeadDetail({
         </div>
 
         {/* footer */}
+        {saveError && (
+          <div style={{ padding: '10px 28px', background: 'var(--bad-bg)', borderTop: '1px solid var(--bad)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, fontFamily: SANS }}>
+            No se pudo guardar. Revisá la conexión y reintentá — tus cambios siguen acá.
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '18px 28px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <button onClick={onDelete} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Borrar lead</button>
           <div style={{ display: 'flex', gap: 10 }}>

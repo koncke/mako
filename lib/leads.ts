@@ -912,6 +912,40 @@ export async function getVslEngagement(visitorId: string | null): Promise<VslEng
   return { plays, max_pct, sin_datos: false };
 }
 
+/**
+ * Engagement del VSL para VARIOS visitors en UNA sola query (evita el N+1 de
+ * llamar getVslEngagement por lead en un loop). Devuelve un Map por visitor_id;
+ * los visitors sin filas no aparecen (el caller los trata como 'sin_datos').
+ */
+export async function getVslEngagementMap(
+  visitorIds: Array<string | null>,
+): Promise<Map<string, VslEngagement>> {
+  const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
+  const map = new Map<string, VslEngagement>();
+  if (ids.length === 0) return map;
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('vsl_events')
+    .select('visitor_id, tipo_evento, porcentaje, event')
+    .in('visitor_id', ids);
+  if (error) {
+    console.error(`[getVslEngagementMap] falló: ${error.message}`);
+    return map;
+  }
+  const porVisitor = new Map<string, Array<{ tipo_evento: string | null; porcentaje: number | null; event: string | null }>>();
+  for (const r of (data ?? []) as Array<{ visitor_id: string; tipo_evento: string | null; porcentaje: number | null; event: string | null }>) {
+    const arr = porVisitor.get(r.visitor_id) ?? [];
+    arr.push(r);
+    porVisitor.set(r.visitor_id, arr);
+  }
+  for (const [vid, rows] of porVisitor) {
+    const plays = rows.filter((r) => r.tipo_evento === 'play' || r.event === 'vsl_play').length;
+    const pcts = rows.map((r) => r.porcentaje).filter((p): p is number => typeof p === 'number');
+    map.set(vid, { plays, max_pct: pcts.length > 0 ? Math.max(...pcts) : null, sin_datos: false });
+  }
+  return map;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pipeline del CRM — etapas editables + Closer/Setter/Fathom (migración 0020)
 // ─────────────────────────────────────────────────────────────────────────────

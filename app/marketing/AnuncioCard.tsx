@@ -65,7 +65,7 @@ export function AnuncioCard({ s, rank, disableLink = false }: { s: SenalRecon; r
       {rankBadge}
       {hasThumb ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={s.ad_thumbnail_url!} alt={s.ad_name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <img src={s.ad_thumbnail_url!} alt={s.ad_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       ) : (
         <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(45deg,var(--surface-2) 0 11px,var(--border) 11px 12px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="rgba(26,24,19,.4)" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.6" /><path d="M21 15l-5-5L5 21" /></svg>

@@ -39,14 +39,15 @@ export default async function LeadDetailPage({
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  // Comportamiento VSL (Fase 7): cuántas veces vio el video este lead
-  const vslEng = await getVslEngagement(lead.visitor_id);
-
-  // Plan de pagos / cuotas (Fase 8-bis)
-  const pagos = await getPagosByLead(lead.id);
-
-  // Nombre de campaña desde el ID numérico de utm_campaign (v3 Fase B bug 2)
-  const campMap = await getCampaignNameMap();
+  // Los 3 son independientes del lead ya cargado → en paralelo (antes: 3 awaits seriales).
+  //  - vslEng: comportamiento VSL (Fase 7)
+  //  - pagos: plan de pagos / cuotas (Fase 8-bis)
+  //  - campMap: nombre de campaña desde el ID de utm_campaign (v3 Fase B bug 2)
+  const [vslEng, pagos, campMap] = await Promise.all([
+    getVslEngagement(lead.visitor_id),
+    getPagosByLead(lead.id),
+    getCampaignNameMap(),
+  ]);
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
 
   const estado = estadoMadurezLead(lead);
