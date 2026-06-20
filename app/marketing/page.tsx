@@ -35,7 +35,9 @@ import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
-import { AnuncioCard, tieneSenal, compararCombo } from './AnuncioCard';
+import { tieneSenal, compararCombo } from './AnuncioCard';
+import { ResumenCreativos } from './ResumenCreativos';
+import { AnunciosGanadoresGrid } from './AnunciosGanadoresGrid';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -155,6 +157,8 @@ export default async function Page({
           <SaludDelFunnel mkt={mkt} funnel={funnel} senales={senales} />
 
           {tendencias && <TendenciasSection tendencias={tendencias} />}
+
+          <ResumenCreativos desde={rangoDesde} hasta={rangoHasta} />
 
           <AnunciosGanadores senales={senales} filtroActivo={filtroActivo} desde={rangoDesde} hasta={rangoHasta} />
 
@@ -423,11 +427,7 @@ function AnunciosGanadores({ senales, filtroActivo, desde, hasta }: { senales: S
           Aún sin anuncios con gasto en el rango. Cuando el cron traiga datos a nivel anuncio, aparecen acá.
         </p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 14 }}>
-          {top.map((s, i) => (
-            <AnuncioCard key={s.ad_id} s={s} rank={i + 1} />
-          ))}
-        </div>
+        <AnunciosGanadoresGrid top={top} desde={desde} hasta={hasta} />
       )}
     </section>
   );
