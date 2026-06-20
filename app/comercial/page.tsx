@@ -29,7 +29,8 @@ import {
   type RevenuePeriod,
   type CACAcumulado,
 } from '@/lib/queries';
-import { getOutstandingDetalle, type OutstandingLead } from '@/lib/pagos';
+import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
+import { RevenueKpis, type RevCard } from './RevenueKpis';
 import {
   ayerEnTijuana,
   hoyEnTijuana,
@@ -127,10 +128,11 @@ export default async function ComercialPage({
   let revenue: RevenuePeriod | null = null;
   let outstanding: { items: OutstandingLead[]; total: number } = { items: [], total: 0 };
   let cac: CACAcumulado | null = null;
+  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let errorMsg: string | null = null;
 
   try {
-    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac] = await Promise.all([
+    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns] = await Promise.all([
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
@@ -139,6 +141,7 @@ export default async function ComercialPage({
       getRevenuePeriod(revDesde, revHasta),
       getOutstandingDetalle(hoyReal),
       getCACAcumulado(),
+      getRevenueBreakdowns(revDesde, revHasta),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -176,7 +179,7 @@ export default async function ComercialPage({
         <ErrorCard message={errorMsg} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} />}
+          {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} />}
 
           {maduras && <SaludFunnel maduras={maduras} cac={cac} />}
 
@@ -223,9 +226,11 @@ export default async function ComercialPage({
 function RevenueSection({
   revenue,
   outstanding,
+  breakdowns,
 }: {
   revenue: RevenuePeriod;
   outstanding: { items: OutstandingLead[]; total: number };
+  breakdowns: RevenueBreakdowns;
 }) {
   const cash = revenue.cash_collected_usd;
   const out = revenue.outstanding_usd;
@@ -258,43 +263,20 @@ function RevenueSection({
         </div>
       </div>
 
-      {/* KPIs de revenue */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-        <RevenueCard
-          label="Sold Revenue"
-          value={fmtUSD(revenue.sold_revenue_usd)}
-          color="var(--accent)"
-          sub={`${revenue.cierres_en_periodo} cierre${revenue.cierres_en_periodo === 1 ? '' : 's'} en el período`}
-        />
-        <RevenueCard
-          label="Cash Collected"
-          value={fmtUSD(cash)}
-          color="var(--good)"
-          sub={`incluye cuotas previas · ${revenue.primeros_pagos_en_periodo} primeros pagos`}
-        />
-        <RevenueCard
-          label="Outstanding"
-          value={fmtUSD(out)}
-          color="var(--bad)"
-          sub="cuotas por cobrar (vencen desde el inicio del rango)"
-        />
-      </div>
+      {/* KPIs de revenue (clickeables → desglose por lead) */}
+      <RevenueKpis
+        cards={[
+          { key: 'sold', label: 'Sold Revenue', value: fmtUSD(revenue.sold_revenue_usd), color: 'var(--accent)', sub: `${revenue.cierres_en_periodo} cierre${revenue.cierres_en_periodo === 1 ? '' : 's'} en el período`, fechaLabel: 'cierre', items: breakdowns.sold },
+          { key: 'cash', label: 'Cash Collected', value: fmtUSD(cash), color: 'var(--good)', sub: `incluye cuotas previas · ${revenue.primeros_pagos_en_periodo} primeros pagos`, fechaLabel: 'pago', items: breakdowns.cash },
+          { key: 'out', label: 'Outstanding', value: fmtUSD(out), color: 'var(--bad)', sub: 'cuotas por cobrar (vencen desde el inicio del rango)', fechaLabel: 'vence', items: breakdowns.outstanding },
+        ] satisfies RevCard[]}
+      />
 
       {/* A quién cobrarle */}
       {outstanding.items.length > 0 && (
         <CobrarTable items={outstanding.items} total={outstanding.total} hoyISO={hoyISO} />
       )}
     </section>
-  );
-}
-
-function RevenueCard({ label, value, color, sub }: { label: string; value: string; color: string; sub: string }) {
-  return (
-    <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 12 }}>{label}</div>
-      <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
-      <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8 }}>{sub}</div>
-    </div>
   );
 }
 
