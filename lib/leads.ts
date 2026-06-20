@@ -299,11 +299,10 @@ export async function updateLead(
     merged.monto_cierre_usd = null;
     merged.fecha_cierre = null;
   } else {
-    // cerro = true: validar
-    if (merged.monto_cierre_usd === null || merged.monto_cierre_usd === undefined) {
-      throw new Error('Si cerró = sí, monto_cierre_usd es requerido');
-    }
-    if (merged.monto_cierre_usd <= 0) {
+    // cerro = true. Monto OPCIONAL (se puede definir luego con el plan de pagos).
+    // Así mover una card a "Ganado" siempre sincroniza el estado; antes, sin
+    // monto, lanzaba error y la card quedaba en Ganado con estado != ganado.
+    if (merged.monto_cierre_usd != null && merged.monto_cierre_usd <= 0) {
       throw new Error('monto_cierre_usd debe ser positivo');
     }
     // fecha_cierre opcional pero recomendada — si no viene, usar fecha actual

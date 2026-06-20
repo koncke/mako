@@ -205,7 +205,9 @@ export type PlanManual = {
 export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<void> {
   const supabase = getSupabaseServer();
 
-  const leadUpdate: Record<string, unknown> = {};
+  // El plan de pagos pertenece a un lead GANADO: dejamos el desenlace coherente
+  // (estado_lead/cerro) para que Sold Revenue y los cierres lo cuenten siempre.
+  const leadUpdate: Record<string, unknown> = { estado_lead: 'ganado', cerro: true };
   if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
   if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
   if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
@@ -306,6 +308,19 @@ export async function getCashCollectedPeriodo(start: string, end: string): Promi
     .gte('fecha_pago', start)
     .lte('fecha_pago', end);
   if (error) throw new Error(`Error sumando cash del período: ${error.message}`);
+  return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
+}
+
+/** Outstanding del período: Σ cuotas NO pagadas que vencen en [start, end]. */
+export async function getOutstandingPeriodo(start: string, end: string): Promise<number> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('pagos')
+    .select('monto_usd')
+    .eq('pagado', false)
+    .gte('fecha_esperada', start)
+    .lte('fecha_esperada', end);
+  if (error) throw new Error(`Error sumando outstanding del período: ${error.message}`);
   return (data ?? []).reduce((s, p) => s + Number(p.monto_usd ?? 0), 0);
 }
 

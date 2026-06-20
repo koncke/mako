@@ -276,7 +276,7 @@ function RevenueSection({
           label="Outstanding"
           value={fmtUSD(out)}
           color="var(--bad)"
-          sub="todas las cuotas no pagadas del pipeline"
+          sub="cuotas no pagadas que vencen en el período"
         />
       </div>
 

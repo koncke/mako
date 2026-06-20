@@ -49,7 +49,9 @@ export function CobrarTable({ items, total, hoyISO }: { items: OutstandingLead[]
   const marcar = (it: OutstandingLead) => {
     if (!it.proxima_cuota) return;
     const pagoId = it.proxima_cuota.pago_id;
-    start(async () => { await marcarPagoAction(pagoId, it.lead_id, true, hoyISO); router.refresh(); });
+    // Fecha de pago = vencimiento de la cuota (proxy del ingreso real por período).
+    const fecha = it.proxima_cuota.fecha_esperada || hoyISO;
+    start(async () => { await marcarPagoAction(pagoId, it.lead_id, true, fecha); router.refresh(); });
     setUndo({ pagoId, leadId: it.lead_id, name: it.lead_nombre });
   };
   const deshacer = () => {

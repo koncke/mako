@@ -7,7 +7,7 @@
 
 import { getSupabaseServer } from './supabase';
 import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
-import { getCashCollectedPeriodo, getOutstandingTotal, getCuotasPendientes } from './pagos';
+import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
 import { lunesDeFecha } from './date-utils';
@@ -550,7 +550,7 @@ export async function getRevenuePeriod(
         .gte('fecha_cierre', start)
         .lte('fecha_cierre', end),
       getCashCollectedPeriodo(start, end),
-      getOutstandingTotal(),
+      getOutstandingPeriodo(start, end),
       // Spend Meta del período (MXN)
       supabase
         .from('marketing_metrics_daily')

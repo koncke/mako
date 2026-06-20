@@ -65,7 +65,13 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
     setMode('edit');
   };
 
+  // El total del plan debe coincidir con la suma de las cuotas para poder guardar.
+  const sumCuotas = e.cuotas.reduce((s, c) => s + toMonto(c.monto), 0);
+  const totalNum = toMonto(e.total);
+  const cuadra = totalNum > 0 && Math.abs(totalNum - sumCuotas) < 0.5;
+
   const guardar = () => {
+    if (!cuadra) return; // total ≠ suma de cuotas → no guardar
     const payload: PlanManual = {
       total_usd: toMonto(e.total) || null,
       duracion_meses: e.duracion ? parseInt(e.duracion, 10) || null : null,
@@ -77,8 +83,10 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
   };
 
   const toggleCobrado = (p: Pago) => {
-    const hoy = new Date().toISOString().slice(0, 10);
-    start(async () => { await marcarPagoAction(p.id, leadId, !p.pagado, p.pagado ? null : hoy); await load(); onChanged?.(); });
+    // Fecha de pago = vencimiento esperado de la cuota (mejor que "hoy" para
+    // distribuir el cash por período); si no hay, usa hoy.
+    const fecha = p.pagado ? null : (p.fecha_esperada || new Date().toISOString().slice(0, 10));
+    start(async () => { await marcarPagoAction(p.id, leadId, !p.pagado, fecha); await load(); onChanged?.(); });
   };
 
   const onExtract = (d: { total_usd: number | null; duracion_meses: number | null; fecha_cierre: string | null; fecha_inicio: string | null; cuotas: Array<{ monto: number | null; fecha: string | null }> }) => {
@@ -182,8 +190,14 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
         ))}
         <button type="button" onClick={() => setE((c) => ({ ...c, cuotas: [...c.cuotas, { monto: '', fecha: '' }] }))} style={{ padding: 9, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>+ Agregar otra cuota</button>
       </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-        <button type="button" disabled={pending} onClick={guardar} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pending ? 'wait' : 'pointer', opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
+      {/* Chequeo total = suma de cuotas */}
+      <div style={{ marginTop: 12, fontSize: 12.5, fontWeight: 600, color: cuadra ? 'var(--good)' : 'var(--bad)' }}>
+        {cuadra
+          ? `✓ Total ${fmtUSD(totalNum)} = suma de cuotas`
+          : `⚠ El total (${fmtUSD(totalNum)}) no coincide con la suma de cuotas (${fmtUSD(sumCuotas)}). Ajustá para guardar.`}
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+        <button type="button" disabled={pending || !cuadra} title={!cuadra ? 'El total debe coincidir con la suma de cuotas' : undefined} onClick={guardar} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pending || !cuadra ? 'not-allowed' : 'pointer', opacity: pending || !cuadra ? 0.5 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
         <button type="button" disabled={pending} onClick={() => setMode('view')} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
       </div>
     </div>
