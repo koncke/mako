@@ -28,6 +28,7 @@ type AdInsights = {
   daily: Array<{ fecha: string; spend_usd: number; impressions: number; reach: number; clicks: number; link_clicks: number; agendas: number; leads: number; ctr: number; cpm_usd: number }>;
   activity: { primero: string | null; ultimo: string | null; dias_activos: number; gaps: Array<{ desde: string; hasta: string; dias: number }> };
   demograficos: Demo[]; plataformas: BD[]; regiones: BD[];
+  transcript: { status: string; transcript: string | null; idioma: string | null; duracion_s: number | null } | null;
 };
 
 const MONO = "'Geist Mono', monospace";
@@ -51,6 +52,14 @@ const fmtFecha = (iso: string) => { const [y, m, d] = iso.split('-').map(Number)
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const diasEntre = (a: string, b: string) => { const [y1, m1, d1] = a.split('-').map(Number); const [y2, m2, d2] = b.split('-').map(Number); return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000); };
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const txtTranscript = (status?: string) => {
+  switch (status) {
+    case 'sin_video': return 'Este anuncio no tiene video.';
+    case 'muy_grande': return 'El video supera 25 MB (límite de transcripción).';
+    case 'error': return 'No se pudo transcribir (se reintenta en la próxima corrida).';
+    default: return 'Pendiente — se transcribe automáticamente.';
+  }
+};
 
 const selStyle: CSSProperties = { padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', outline: 'none', maxWidth: 280 };
 const lblStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
@@ -397,6 +406,16 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
                   </div>
                 </div>
               )}
+
+              {/* transcripción */}
+              <div style={card}>
+                <div style={sectLabel}>Transcripción{data.transcript?.idioma ? ` · ${data.transcript.idioma}` : ''}</div>
+                {data.transcript?.status === 'ok' && data.transcript.transcript ? (
+                  <div style={{ maxHeight: 240, overflowY: 'auto', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{data.transcript.transcript}</div>
+                ) : (
+                  <div style={{ fontSize: 13, color: 'var(--faint)' }}>{txtTranscript(data.transcript?.status)}</div>
+                )}
+              </div>
             </>
           )}
         </div>

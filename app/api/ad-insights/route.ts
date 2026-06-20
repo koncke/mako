@@ -11,6 +11,7 @@
 
 import type { NextRequest } from 'next/server';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
+import { getSupabaseServer } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -161,6 +162,14 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b.impressions - a.impressions);
 
     // Demográficos estructurados (edad × género) para el gráfico de barras agrupadas.
+    // Transcripción guardada (cron transcribe-ads) — si existe.
+    const supabase = getSupabaseServer();
+    const { data: tr } = await supabase
+      .from('ad_transcripts')
+      .select('status, transcript, idioma, duracion_s')
+      .eq('ad_id', adId)
+      .maybeSingle();
+
     const demograficos = ageArr.map((r) => ({
       age: String(r.age ?? '—'),
       genero: (r.gender === 'male' ? 'H' : r.gender === 'female' ? 'M' : '?') as 'H' | 'M' | '?',
@@ -169,7 +178,7 @@ export async function GET(req: NextRequest) {
     const plataformas = mapBD(platArr, (r) => String(r.publisher_platform ?? '—'));
     const regiones = mapBD(regArr, (r) => String(r.region ?? '—')).slice(0, 40);
 
-    return Response.json({ period, daily, activity, demograficos, plataformas, regiones });
+    return Response.json({ period, daily, activity, demograficos, plataformas, regiones, transcript: tr ?? null });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
