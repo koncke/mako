@@ -21,6 +21,8 @@ import {
   getRevenuePeriod,
   getCACAcumulado,
   getFunnelMadurasLeads,
+  getJ1Leads,
+  getSCLLeads,
   type CohorteSemana,
   type CohorteMes,
   type EstadoMadurezCohorte,
@@ -31,6 +33,7 @@ import {
   type CACAcumulado,
   type FunnelMadurasLeads,
   type FunnelLeadItem,
+  type SCLLeadItem,
 } from '@/lib/queries';
 import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
 import { RevenueKpis, type RevCard } from './RevenueKpis';
@@ -40,6 +43,7 @@ import {
   hoyEnTijuana,
   esFechaValida,
   primerDiaDelMesDeFecha,
+  lunesDeFecha,
 } from '@/lib/date-utils';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { CobrarTable } from './CobrarTable';
@@ -71,6 +75,19 @@ function fmtDMY(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+
+// Un lead de cohorte → fila del desglose (asistió / calificado / cerró / monto).
+function cohorteLeadItem(l: FunnelLeadItem): DesgloseItem {
+  const asis = l.asistioJ1 === true ? '✓ asistió' : l.asistioJ1 === false ? '✗ no asistió' : '· s/d';
+  const cal = l.calificado === true ? ' · calificado' : '';
+  return {
+    nombre: l.nombre,
+    valor: l.cerro ? fmtUSD(l.monto) : asis,
+    detalle: `${l.empresa ? `${l.empresa} · ` : ''}J1 ${fmtDMY(l.fechaJ1)}${cal}${l.cerro ? ' · cerró' : ''}`,
+    leadId: l.leadId,
+    focus: l.cerro ? 'plan-pagos' : 'datos-comerciales',
+  };
 }
 
 // FunnelLeadItem[] → filas del desglose, con su valor según la etapa.
@@ -156,10 +173,12 @@ export default async function ComercialPage({
   let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let funnelLeads: FunnelMadurasLeads | null = null;
   let cacBreak: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
+  let j1Leads: FunnelLeadItem[] = [];
+  let sclLeads: SCLLeadItem[] = [];
   let errorMsg: string | null = null;
 
   try {
-    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, cacBreak] = await Promise.all([
+    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, cacBreak, j1Leads, sclLeads] = await Promise.all([
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
@@ -173,6 +192,8 @@ export default async function ComercialPage({
       // Cierres que alimentan el CAC acumulado (ventana amplia; el detalle son
       // los cierres con fecha de cierre cargada).
       getRevenueBreakdowns('2025-01-01', hoyReal),
+      getJ1Leads(),
+      getSCLLeads(),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -187,6 +208,43 @@ export default async function ComercialPage({
   const semanalesVis = filtroActivo ? semanales.filter(enRango) : semanales;
   const mensualesVis = filtroActivo ? mensuales.filter(enRango) : mensuales;
   const hayDatos = semanales.length > 0 || mensuales.length > 0;
+
+  // Leads por cohorte (semana=lunes, mes=YYYY-MM) para el desglose de cada fila.
+  const semanaLeads = new Map<string, FunnelLeadItem[]>();
+  const mesLeads = new Map<string, FunnelLeadItem[]>();
+  for (const l of j1Leads) {
+    if (!l.fechaJ1) continue;
+    const fk = l.fechaJ1.slice(0, 10);
+    const wk = lunesDeFecha(fk);
+    const mk = fk.slice(0, 7);
+    (semanaLeads.get(wk) ?? semanaLeads.set(wk, []).get(wk)!).push(l);
+    (mesLeads.get(mk) ?? mesLeads.set(mk, []).get(mk)!).push(l);
+  }
+  const desgloseSemana = (c: CohorteSemana | CohorteMes): DesgloseData | undefined => {
+    const inicio = 'semana_inicio' in c ? c.semana_inicio : c.mes_inicio;
+    const leads = ('semana_inicio' in c ? semanaLeads.get(inicio) : mesLeads.get(inicio.slice(0, 7))) ?? [];
+    if (leads.length === 0) return undefined;
+    return {
+      label: `Cohorte · ${'semana_inicio' in c ? fmtSemana(inicio) : fmtMes(inicio)}`,
+      value: `${leads.filter((l) => l.cerro).length}/${leads.length} cerraron`,
+      color: 'var(--ink)',
+      items: leads.map(cohorteLeadItem),
+    };
+  };
+
+  // SCL: leads con su ciclo completo (agenda→pago) y duración.
+  const sclDesglose: DesgloseData | undefined = sclLeads.length > 0 ? {
+    label: 'Ciclo de venta · agenda → pago',
+    value: `${sclLeads.length} leads`,
+    color: 'var(--ink)',
+    items: sclLeads.map((l) => ({
+      nombre: l.nombre,
+      valor: `${l.dias} d`,
+      detalle: `agenda ${fmtDMY(l.agenda)} → J2 ${fmtDMY(l.j2)} → conf. ${fmtDMY(l.confirmacion)} → pago ${fmtDMY(l.pago)}`,
+      leadId: l.leadId,
+      focus: 'plan-pagos',
+    })),
+  } : undefined;
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
@@ -214,7 +272,7 @@ export default async function ComercialPage({
 
           {maduras && <SaludFunnel maduras={maduras} cac={cac} funnelLeads={funnelLeads} cacBreak={cacBreak} />}
 
-          <SCLTimeline scl={scl} tramos={tramos} />
+          <SCLTimeline scl={scl} tramos={tramos} sclDesglose={sclDesglose} />
 
           {hayDatos ? (
             <>
@@ -226,6 +284,7 @@ export default async function ComercialPage({
                 showCiclo
                 open
                 minWidth={820}
+                desgloseFor={desgloseSemana}
               />
               <CohortesTable
                 title="Cohortes semanales"
@@ -235,6 +294,7 @@ export default async function ComercialPage({
                 showCiclo={false}
                 open={false}
                 minWidth={700}
+                desgloseFor={desgloseSemana}
               />
             </>
           ) : (
@@ -494,7 +554,7 @@ const NODO_NICE: Record<string, string> = {
   Agenda: 'Agenda J1',
 };
 
-function SCLTimeline({ scl, tramos }: { scl: SCL | null; tramos: TramosSCL | null }) {
+function SCLTimeline({ scl, tramos, sclDesglose }: { scl: SCL | null; tramos: TramosSCL | null; sclDesglose?: DesgloseData }) {
   const tramoList = tramos?.tramos ?? [];
   const masLento = tramos?.tramo_mas_lento ?? null;
 
@@ -519,11 +579,16 @@ function SCLTimeline({ scl, tramos }: { scl: SCL | null; tramos: TramosSCL | nul
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
         <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>SCL — ciclo de venta</h2>
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '11px 18px', textAlign: 'right' }}>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}>SCL promedio</div>
-          <div style={{ fontWeight: 600, fontSize: 25, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{sclProm}</div>
-          <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginTop: 3 }}>agenda → pago · P90: {p90}</div>
-        </div>
+        {(() => {
+          const box = (
+            <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '11px 18px', textAlign: 'right' }}>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}>SCL promedio</div>
+              <div style={{ fontWeight: 600, fontSize: 25, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', marginTop: 2 }}>{sclProm}</div>
+              <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginTop: 3 }}>agenda → pago · P90: {p90}{sclDesglose ? ' · ver leads →' : ''}</div>
+            </div>
+          );
+          return sclDesglose ? <DesgloseTrigger data={sclDesglose} style={{ width: 'auto', display: 'inline-block' }}>{box}</DesgloseTrigger> : box;
+        })()}
       </div>
 
       {nodos.length === 0 ? (
@@ -626,6 +691,7 @@ function CohortesTable({
   showCiclo,
   open,
   minWidth,
+  desgloseFor,
 }: {
   title: string;
   cohortes: Array<CohorteSemana | CohorteMes>;
@@ -634,10 +700,11 @@ function CohortesTable({
   showCiclo: boolean;
   open: boolean;
   minWidth: number;
+  desgloseFor?: (c: CohorteSemana | CohorteMes) => DesgloseData | undefined;
 }) {
   const maduras = cohortes.filter((c) => c.estado_madurez === 'madura');
   const inmaduras = cohortes.filter((c) => c.estado_madurez !== 'madura');
-  const nCols = showCiclo ? 10 : 9;
+  const nCols = (showCiclo ? 10 : 9) + 1;
 
   const th: React.CSSProperties = {
     padding: showCiclo ? '13px 20px' : '12px 18px',
@@ -682,16 +749,17 @@ function CohortesTable({
                 {showCiclo && <th style={thRight}>Ciclo (d)</th>}
                 <th style={showCiclo ? thRight : thRightSm}>Ventas</th>
                 <th style={{ ...th, padding: showCiclo ? '13px 20px' : '12px 18px' }}>Estado</th>
+                <th style={{ ...th, padding: showCiclo ? '13px 20px' : '12px 18px' }}>Detalle</th>
               </tr>
             </thead>
             <tbody>
               {maduras.length > 0 && banner('Maduras · tasa confiable', 'var(--good)', 'var(--good-bg)')}
               {maduras.map((c) => (
-                <CohorteRow key={'semana_inicio' in c ? c.semana_inicio : c.mes_inicio} c={c} fechaFormat={fechaFormat} showCiclo={showCiclo} atenuada={false} />
+                <CohorteRow key={'semana_inicio' in c ? c.semana_inicio : c.mes_inicio} c={c} fechaFormat={fechaFormat} showCiclo={showCiclo} atenuada={false} desglose={desgloseFor?.(c)} />
               ))}
               {inmaduras.length > 0 && banner('Aún madurando · tasa parcial', 'var(--warn)', 'var(--surface-2)')}
               {inmaduras.map((c) => (
-                <CohorteRow key={'semana_inicio' in c ? c.semana_inicio : c.mes_inicio} c={c} fechaFormat={fechaFormat} showCiclo={showCiclo} atenuada />
+                <CohorteRow key={'semana_inicio' in c ? c.semana_inicio : c.mes_inicio} c={c} fechaFormat={fechaFormat} showCiclo={showCiclo} atenuada desglose={desgloseFor?.(c)} />
               ))}
             </tbody>
           </table>
@@ -706,11 +774,13 @@ function CohorteRow({
   fechaFormat,
   showCiclo,
   atenuada,
+  desglose,
 }: {
   c: CohorteSemana | CohorteMes;
   fechaFormat: (s: string) => string;
   showCiclo: boolean;
   atenuada: boolean;
+  desglose?: DesgloseData;
 }) {
   const fechaInicio = 'semana_inicio' in c ? c.semana_inicio : c.mes_inicio;
   const tasa = tasaCierre(c.cierres, c.limpias);
@@ -735,6 +805,13 @@ function CohorteRow({
       <td style={{ ...tdNum, color: c.cierres > 0 ? 'var(--good)' : 'var(--faint)' }}>{c.cierres > 0 ? fmtUSD(c.ingreso_total_usd) : '—'}</td>
       <td style={{ padding: showCiclo ? '14px 20px' : '12px 18px', color: 'var(--dim)' }}>
         {emojiMadurez(c.estado_madurez)} {etiquetaMadurez(c.estado_madurez)}
+      </td>
+      <td style={{ padding: showCiclo ? '14px 20px' : '12px 18px' }}>
+        {desglose ? (
+          <DesgloseTrigger data={desglose} style={{ width: 'auto', display: 'inline-block', color: 'var(--accent)', fontSize: 12.5, fontWeight: 600 }}>ver leads →</DesgloseTrigger>
+        ) : (
+          <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>—</span>
+        )}
       </td>
     </tr>
   );

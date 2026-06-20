@@ -547,6 +547,73 @@ export async function getFunnelMadurasLeads(): Promise<FunnelMadurasLeads> {
   return out;
 }
 
+/** Todos los leads con Junta 1 (para los desgloses de las filas de Cohortes). */
+export async function getJ1Leads(): Promise<FunnelLeadItem[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, fecha_junta_1, asistio_j1, calificado, cerro, monto_cierre_usd, estado_lead')
+    .not('fecha_junta_1', 'is', null)
+    .order('fecha_junta_1', { ascending: false });
+  if (error) throw new Error(`getJ1Leads falló: ${error.message}`);
+  return (data ?? []).map((r) => ({
+    leadId: Number(r.id),
+    nombre: (r.nombre as string) ?? '—',
+    empresa: (r.empresa as string | null) ?? null,
+    fechaJ1: (r.fecha_junta_1 as string | null) ?? null,
+    asistioJ1: (r.asistio_j1 as boolean | null) ?? null,
+    calificado: (r.calificado as boolean | null) ?? null,
+    cerro: r.cerro === true,
+    monto: (r.monto_cierre_usd as number | null) ?? null,
+    estado: r.estado_lead as EstadoLead,
+  }));
+}
+
+/** Un lead con su ciclo completo (agenda → pago) para el desglose de SCL. */
+export type SCLLeadItem = {
+  leadId: number;
+  nombre: string;
+  agenda: string | null;
+  j1: string | null;
+  j2: string | null;
+  confirmacion: string | null;
+  pago: string | null;
+  dias: number;
+};
+
+/**
+ * Leads con ciclo completo (fecha_agenda y fecha_primer_pago) — misma base que
+ * getSCL. Devuelve sus fechas intermedias y la duración total agenda→pago.
+ */
+export async function getSCLLeads(): Promise<SCLLeadItem[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('leads')
+    .select('id, nombre, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago')
+    .not('fecha_agenda', 'is', null)
+    .not('fecha_primer_pago', 'is', null);
+  if (error) throw new Error(`getSCLLeads falló: ${error.message}`);
+
+  const out: SCLLeadItem[] = [];
+  for (const r of (data ?? []) as Array<{ id: number; nombre: string | null; fecha_agenda: string; fecha_junta_1: string | null; fecha_junta_2: string | null; fecha_confirmacion: string | null; fecha_primer_pago: string }>) {
+    const [ay, am, ad] = r.fecha_agenda.split('-').map(Number);
+    const [py, pm, pd] = r.fecha_primer_pago.split('-').map(Number);
+    const dias = Math.floor((Date.UTC(py, pm - 1, pd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+    if (dias < 0) continue;
+    out.push({
+      leadId: Number(r.id),
+      nombre: r.nombre ?? '—',
+      agenda: r.fecha_agenda,
+      j1: r.fecha_junta_1,
+      j2: r.fecha_junta_2,
+      confirmacion: r.fecha_confirmacion,
+      pago: r.fecha_primer_pago,
+      dias,
+    });
+  }
+  return out.sort((a, b) => b.dias - a.dias);
+}
+
 // =============================================================================
 // CAC acumulado (global, todo el histórico desde 1-may-2026)
 // =============================================================================
