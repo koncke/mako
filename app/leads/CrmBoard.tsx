@@ -11,6 +11,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -148,6 +149,7 @@ export function CrmBoard({
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string } | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -207,7 +209,7 @@ export function CrmBoard({
     return [];
   };
 
-  const persistStage = (id: number, key: string, e: Edits) => {
+  const persistStage = (id: number, key: string, e: Edits, from?: string) => {
     setLocalStage((m) => ({ ...m, [id]: key }));
     startTransition(async () => {
       await setLeadStageAction(id, key, {
@@ -216,7 +218,28 @@ export function CrmBoard({
       });
       router.refresh();
     });
+    // Toast "Deshacer" (5s) tras concretar un movimiento en el tablero.
+    if (from && from !== key) {
+      const lead = leads.find((l) => l.id === id);
+      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label });
+    }
   };
+
+  // Revertir el último movimiento a su etapa anterior.
+  const undoMove = () => {
+    if (!undoInfo) return;
+    const { id, from } = undoInfo;
+    setUndoInfo(null);
+    setLocalStage((m) => ({ ...m, [id]: from }));
+    startTransition(async () => { await setLeadStageAction(id, from); router.refresh(); });
+  };
+
+  // El toast se autodescarta a los 5s.
+  useEffect(() => {
+    if (!undoInfo) return;
+    const t = setTimeout(() => setUndoInfo(null), 5000);
+    return () => clearTimeout(t);
+  }, [undoInfo]);
 
   const requestStage = (l: CrmLead, key: string) => {
     const e = editsFor(l);
@@ -224,7 +247,7 @@ export function CrmBoard({
       setPendingMove({ id: l.id, from: effStage(l), to: key });
       setMoveError(false);
     } else {
-      persistStage(l.id, key, e);
+      persistStage(l.id, key, e, effStage(l));
       setPendingMove(null);
       setMoveError(false);
     }
@@ -237,11 +260,12 @@ export function CrmBoard({
     const lead = leads.find((l) => l.id === id);
     if (!lead || effStage(lead) === stageKey) return;
     const e = editsFor(lead);
+    const from = effStage(lead);
     if (missingFor(stageKey, e).length) {
       openDetail(lead);
-      setPendingMove({ id, from: effStage(lead), to: stageKey });
+      setPendingMove({ id, from, to: stageKey });
     } else {
-      persistStage(id, stageKey, e);
+      persistStage(id, stageKey, e, from);
     }
   };
 
@@ -414,7 +438,7 @@ export function CrmBoard({
       {showSinMarcar ? (
         <SinMarcar marcar={marcar} marcarRes={marcarRes} setMarcarRes={setMarcarRes}
           onWin={(leadId) => { const l = leads.find((x) => x.id === leadId); if (l) openDetail(l); }}
-          onPick={(leadId, res) => { const stage = RES_TO_STAGE[res]; const l = leads.find((x) => x.id === leadId); if (l && stage) persistStage(l.id, stage, editsFor(l)); }}
+          onPick={(leadId, res) => { const stage = RES_TO_STAGE[res]; const l = leads.find((x) => x.id === leadId); if (l && stage) persistStage(l.id, stage, editsFor(l), effStage(l)); }}
         />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
@@ -509,6 +533,15 @@ export function CrmBoard({
           onSave={() => saveDetail(selected)}
           onDelete={() => removeLead(selected.id)}
         />
+      )}
+
+      {/* Toast Deshacer (5s) tras mover una card en el tablero */}
+      {undoInfo && (
+        <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, display: 'flex', alignItems: 'center', gap: 14, background: '#171511', color: '#F3F0E7', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(23,21,17,.35)', fontFamily: SANS, fontSize: 14 }}>
+          <span><strong>{undoInfo.name}</strong> → {undoInfo.toLabel}</span>
+          <button type="button" onClick={undoMove} style={{ background: 'transparent', border: '1px solid rgba(243,240,231,.35)', color: 'var(--accent-soft)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>
+          <button type="button" onClick={() => setUndoInfo(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,240,231,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+        </div>
       )}
     </main>
   );
