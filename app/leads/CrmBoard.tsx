@@ -31,8 +31,20 @@ import {
   setLeadStageAction,
   saveLeadMetaAction,
   savePipelineStagesAction,
+  savePlanManualAction,
   deleteLeadAction,
 } from './actions';
+import type { PlanManual } from '@/lib/pagos';
+
+// dd/mm/aaaa (o yyyy-mm-dd) → yyyy-mm-dd; vacío/ inválido → null.
+const toISODate = (s: string): string | null => {
+  const t = (s || '').trim();
+  if (!t) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null;
+};
+const toMonto = (s: string): number => { const n = Number(String(s ?? '').replace(/[^0-9.]/g, '')); return Number.isFinite(n) ? n : 0; };
 import { LeadDetail } from './LeadDetail';
 
 const MONO = "'Geist Mono', monospace";
@@ -253,6 +265,7 @@ export function CrmBoard({
         return;
       }
     }
+    const targetStage = pendingMove && pendingMove.id === l.id ? pendingMove.to : effStage(l);
     startTransition(async () => {
       await saveLeadMetaAction(l.id, {
         closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
@@ -263,6 +276,17 @@ export function CrmBoard({
           motivo: e.motivo,
         });
         setLocalStage((m) => ({ ...m, [l.id]: pendingMove.to }));
+      }
+      // Plan de pagos: guardar las cuotas tal cual (monto + fecha por cuota).
+      if (targetStage === 'ganado') {
+        const plan: PlanManual = {
+          total_usd: toMonto(e.plan.total) || null,
+          duracion_meses: e.plan.duracion ? parseInt(e.plan.duracion, 10) || null : null,
+          fecha_cierre: toISODate(e.plan.cierre),
+          fecha_inicio: toISODate(e.plan.inicio),
+          cuotas: e.cuotas.map((c) => ({ monto_usd: toMonto(c.monto), fecha_esperada: toISODate(c.fecha) })).filter((c) => c.monto_usd > 0),
+        };
+        await savePlanManualAction(l.id, plan);
       }
       router.refresh();
     });

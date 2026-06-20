@@ -20,7 +20,7 @@ import {
   type LeadMetaInput,
 } from '@/lib/leads';
 import type { Stage } from '@/lib/pipeline';
-import { savePlanPagos, marcarPago, type PlanPagos } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;
@@ -76,6 +76,17 @@ export async function savePlanPagosAction(
   plan: PlanPagos,
 ): Promise<void> {
   await savePlanPagos(leadId, plan);
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath('/revenue');
+  revalidatePath('/general');
+}
+
+/**
+ * Guarda el plan del CRM con las cuotas tal cual (monto + fecha por cuota).
+ */
+export async function savePlanManualAction(leadId: number, plan: PlanManual): Promise<void> {
+  await saveLeadPlanManual(leadId, plan);
+  revalidatePath('/leads');
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/revenue');
   revalidatePath('/general');

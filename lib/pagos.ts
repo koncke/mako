@@ -158,6 +158,54 @@ export async function savePlanPagos(
 }
 
 /**
+ * Plan MANUAL desde el CRM: guarda las cuotas TAL CUAL (cada una su monto y su
+ * fecha), sin la generación uniforme de savePlanPagos. Persiste también total,
+ * duración y fechas del lead. Conserva las cuotas ya pagadas (no se tocan); las
+ * no pagadas se reemplazan por la lista nueva.
+ */
+export type PlanManual = {
+  total_usd: number | null;
+  duracion_meses: number | null;
+  fecha_cierre: string | null;   // YYYY-MM-DD
+  fecha_inicio: string | null;   // YYYY-MM-DD
+  cuotas: Array<{ monto_usd: number; fecha_esperada: string | null }>;
+};
+
+export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<void> {
+  const supabase = getSupabaseServer();
+
+  const leadUpdate: Record<string, unknown> = {};
+  if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
+  if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
+  if (p.fecha_cierre) leadUpdate.fecha_cierre = p.fecha_cierre;
+  if (p.fecha_inicio) leadUpdate.fecha_inicio_servicio = p.fecha_inicio;
+  if (Object.keys(leadUpdate).length > 0) {
+    const { error } = await supabase.from('leads').update(leadUpdate).eq('id', leadId);
+    if (error) throw new Error(`Error guardando plan del lead ${leadId}: ${error.message}`);
+  }
+
+  // Conservar cuotas pagadas; reemplazar las no pagadas por la lista nueva.
+  const existentes = await getPagosByLead(leadId);
+  const pagados = existentes.filter((q) => q.pagado);
+  const noPagadosIds = existentes.filter((q) => !q.pagado).map((q) => q.id);
+  if (noPagadosIds.length > 0) {
+    const { error } = await supabase.from('pagos').delete().in('id', noPagadosIds);
+    if (error) throw new Error(`Error limpiando cuotas previas: ${error.message}`);
+  }
+
+  const base = pagados.length > 0 ? Math.max(...pagados.map((q) => q.numero)) : 0;
+  const rows = p.cuotas
+    .filter((c) => c.monto_usd > 0)
+    .map((c, i) => ({ lead_id: leadId, numero: base + 1 + i, monto_usd: c.monto_usd, fecha_esperada: c.fecha_esperada }));
+  if (rows.length > 0) {
+    const { error } = await supabase.from('pagos').insert(rows);
+    if (error) throw new Error(`Error guardando cuotas del lead ${leadId}: ${error.message}`);
+  }
+
+  await sincronizarTotalCobrado(leadId);
+}
+
+/**
  * Marca un pago como cobrado (o lo revierte). Sincroniza total_cobrado_usd y
  * fecha_primer_pago del lead.
  */
