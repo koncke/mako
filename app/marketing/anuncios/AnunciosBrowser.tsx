@@ -3,17 +3,19 @@
 // =============================================================================
 // AnunciosBrowser — filtro/orden por campaña y adset + modal de detalle
 // =============================================================================
-// Lista todos los anuncios con señal (ranking), filtrable por campaña/adset y
-// ordenable. Clic en una card abre un modal con datos EN VIVO de Meta
-// (/api/ad-insights): rendimiento, gráfico con selector de métrica, línea de
-// tiempo de actividad, demográficos, plataforma, regiones y video.
+// Clic en una card abre un modal con datos EN VIVO de Meta (/api/ad-insights):
+// gráfico de línea con selector de métrica, desgloses (edad/género, plataforma,
+// regiones en mapa) con selector compartido, línea de tiempo de actividad y
+// video. Los totales que ya están en el gráfico no se repiten en cuadros.
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { geoMercator, geoPath } from 'd3-geo';
 import type { SenalRecon } from '@/lib/queries';
 import { AnuncioCard, compararCombo, VEREDICTO_BADGE } from '../AnuncioCard';
 
 type BD = { label: string; impressions: number; reach: number; agendas: number; spend_usd: number };
+type Demo = { age: string; genero: 'H' | 'M' | '?'; impressions: number; reach: number; agendas: number; spend_usd: number };
 type AdInsights = {
   period: {
     ad_name: string | null; impressions: number; reach: number; frequency: number;
@@ -25,18 +27,17 @@ type AdInsights = {
   };
   daily: Array<{ fecha: string; spend_usd: number; impressions: number; reach: number; clicks: number; link_clicks: number; agendas: number; leads: number; ctr: number; cpm_usd: number }>;
   activity: { primero: string | null; ultimo: string | null; dias_activos: number; gaps: Array<{ desde: string; hasta: string; dias: number }> };
-  demograficos: BD[]; plataformas: BD[]; regiones: BD[];
+  demograficos: Demo[]; plataformas: BD[]; regiones: BD[];
 };
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
+const GEOURL = 'https://raw.githubusercontent.com/angelnmara/geojson/master/mexicoHigh.json';
 
 type Orden = 'agendas' | 'spend' | 'leads' | 'cierres';
 const ORDENES: Array<{ key: Orden; label: string }> = [
-  { key: 'agendas', label: 'Agendas (Meta)' },
-  { key: 'spend', label: 'Gasto' },
-  { key: 'leads', label: 'Leads' },
-  { key: 'cierres', label: 'Cierres' },
+  { key: 'agendas', label: 'Agendas (Meta)' }, { key: 'spend', label: 'Gasto' },
+  { key: 'leads', label: 'Leads' }, { key: 'cierres', label: 'Cierres' },
 ];
 
 const fmtUSD = (n: number | null | undefined, d?: number) => {
@@ -49,6 +50,7 @@ const fmtPct = (n: number | null | undefined) => (n === null || n === undefined 
 const fmtFecha = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d))); };
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const diasEntre = (a: string, b: string) => { const [y1, m1, d1] = a.split('-').map(Number); const [y2, m2, d2] = b.split('-').map(Number); return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86400000); };
+const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
 const selStyle: CSSProperties = { padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', outline: 'none', maxWidth: 280 };
 const lblStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
@@ -78,7 +80,7 @@ export function AnunciosBrowser({ senales, desde, hasta }: { senales: SenalRecon
     return [...l].sort(cmp[orden]);
   }, [senales, campana, adset, orden]);
 
-  const onCampana = (v: string) => { setCampana(v); setAdset('all'); };
+  const onCampana = (val: string) => { setCampana(val); setAdset('all'); };
 
   return (
     <>
@@ -127,7 +129,7 @@ export function AnunciosBrowser({ senales, desde, hasta }: { senales: SenalRecon
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modal de detalle (datos en vivo de Meta)
+// Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
 const card: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '16px 18px' };
@@ -142,20 +144,13 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
   );
 }
 
-// Lista de barras horizontales (demográficos / plataforma / regiones).
-function BarList({ items }: { items: BD[] }) {
-  const max = Math.max(...items.map((i) => i.impressions), 1);
+function Pills<T extends string>({ opts, val, onPick }: { opts: Array<{ key: T; label: string }>; val: T; onPick: (k: T) => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      {items.map((i) => (
-        <div key={i.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 96, flex: 'none', fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{i.label}</span>
-          <div style={{ flex: 1, height: 16, borderRadius: 5, background: 'var(--surface)', overflow: 'hidden' }}>
-            <div style={{ width: `${(i.impressions / max) * 100}%`, height: '100%', background: 'var(--accent-soft)' }} />
-          </div>
-          <span style={{ width: 96, flex: 'none', textAlign: 'right', fontFamily: MONO, fontSize: 12, color: 'var(--ink)' }}>{fmtNum(i.impressions)}{i.agendas > 0 ? ` · ${i.agendas}ag` : ''}</span>
-        </div>
-      ))}
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {opts.map((o) => {
+        const on = o.key === val;
+        return <button key={o.key} type="button" onClick={() => onPick(o.key)} style={{ padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: on ? 600 : 500, border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'), background: on ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)' }}>{o.label}</button>;
+      })}
     </div>
   );
 }
@@ -172,6 +167,16 @@ const METRICAS: Array<{ key: MetKey; label: string; fmt: (n: number | null) => s
   { key: 'cpm_usd', label: 'CPM', fmt: (n) => fmtUSD(n), modo: 'cpm' },
 ];
 
+type BdKey = 'impressions' | 'reach' | 'agendas' | 'spend_usd';
+const BD_METRICAS: Array<{ key: BdKey; label: string; fmt: (n: number) => string }> = [
+  { key: 'impressions', label: 'Impresiones', fmt: (n) => fmtNum(n) },
+  { key: 'reach', label: 'Alcance', fmt: (n) => fmtNum(n) },
+  { key: 'agendas', label: 'Agendas', fmt: (n) => fmtNum(n) },
+  { key: 'spend_usd', label: 'Gasto', fmt: (n) => fmtUSD(n, 0) },
+];
+
+const AGE_ORDER = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
+
 function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string; hasta: string; onClose: () => void }) {
   const v = VEREDICTO_BADGE[s.veredicto];
   const ritmoTxt = s.ritmo === 'verde' ? '✓ a ritmo' : s.ritmo === 'cruz' ? '✗ sin ritmo' : '· sin datos';
@@ -180,6 +185,7 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
   const [data, setData] = useState<AdInsights | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [met, setMet] = useState<MetKey>('spend_usd');
+  const [bdMet, setBdMet] = useState<BdKey>('impressions');
 
   useEffect(() => {
     let alive = true;
@@ -193,6 +199,7 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
 
   const p = data?.period;
   const metricaActiva = METRICAS.find((m) => m.key === met)!;
+  const bdActiva = BD_METRICAS.find((m) => m.key === bdMet)!;
   const totalMetrica = useMemo(() => {
     if (!data || !p) return null;
     if (metricaActiva.modo === 'reach') return p.reach;
@@ -201,17 +208,42 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
     return data.daily.reduce((acc, d) => acc + (d[met] as number), 0);
   }, [data, p, met, metricaActiva]);
 
+  const demoData = useMemo(() => {
+    if (!data) return [];
+    const byAge = new Map<string, { age: string; Hombres: number; Mujeres: number }>();
+    for (const d of data.demograficos) {
+      const a = byAge.get(d.age) ?? { age: d.age, Hombres: 0, Mujeres: 0 };
+      if (d.genero === 'H') a.Hombres += d[bdMet] as number;
+      else if (d.genero === 'M') a.Mujeres += d[bdMet] as number;
+      byAge.set(d.age, a);
+    }
+    return AGE_ORDER.filter((a) => byAge.has(a)).map((a) => byAge.get(a)!);
+  }, [data, bdMet]);
+
+  const platData = useMemo(() => (data ? data.plataformas.map((x) => ({ label: x.label, val: x[bdMet] as number })) : []), [data, bdMet]);
+
   const retencion = p && p.video_plays_3s > 0 ? [
-    { etapa: '3s', pct: 100 },
-    { etapa: '25%', pct: (p.video_p25 / p.video_plays_3s) * 100 },
-    { etapa: '50%', pct: (p.video_p50 / p.video_plays_3s) * 100 },
-    { etapa: '75%', pct: (p.video_p75 / p.video_plays_3s) * 100 },
+    { etapa: '3s', pct: 100 }, { etapa: '25%', pct: (p.video_p25 / p.video_plays_3s) * 100 },
+    { etapa: '50%', pct: (p.video_p50 / p.video_plays_3s) * 100 }, { etapa: '75%', pct: (p.video_p75 / p.video_plays_3s) * 100 },
     { etapa: '100%', pct: (p.video_p100 / p.video_plays_3s) * 100 },
   ] : [];
 
+  const vcards: Array<{ label: string; value: string }> = [];
+  if (p) {
+    const add = (label: string, raw: number, value: string) => { if (raw > 0) vcards.push({ label, value }); };
+    add('Reproducciones', p.video_plays_total || p.video_plays_3s, fmtNum(p.video_plays_total || p.video_plays_3s));
+    add('Plays 2s cont.', p.video_2s, fmtNum(p.video_2s));
+    add('Plays 3s', p.video_plays_3s, fmtNum(p.video_plays_3s));
+    add('ThruPlays', p.video_thruplay, fmtNum(p.video_thruplay));
+    add('Plays 30s', p.video_30s, fmtNum(p.video_30s));
+    add('Vieron 100%', p.video_p100, fmtNum(p.video_p100));
+    add('Tiempo medio', p.video_avg_watch_s, mmss(p.video_avg_watch_s));
+    add('Costo/ThruPlay', p.video_thruplay, fmtUSD(p.cost_per_thruplay_usd));
+  }
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 780, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 800, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
@@ -226,7 +258,7 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
         </div>
 
         <div style={{ padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* preview + enlace + actividad */}
+          {/* preview + enlace */}
           <div style={{ display: 'flex', gap: 16 }}>
             <div style={{ width: 110, flex: 'none', aspectRatio: '9 / 16', borderRadius: 12, overflow: 'hidden', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
               {s.ad_thumbnail_url ? (
@@ -236,19 +268,11 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 12 }}>Sin preview</div>
               )}
             </div>
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
               {hasLink ? (
                 <a href={s.ad_permalink!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start', padding: '10px 16px', borderRadius: 11, background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>↗ Reproducir en Meta</a>
               ) : (
                 <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin enlace al post (stories / Audience Network / dinámico).</span>
-              )}
-              {/* resumen compacto */}
-              {p && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-                  <Stat label="Gasto" value={fmtUSD(p.spend_usd, 0)} />
-                  <Stat label="Agendas" value={fmtNum(p.agendas)} color={p.agendas > 0 ? 'var(--good)' : undefined} />
-                  <Stat label="Frecuencia" value={p.frequency ? p.frequency.toFixed(2) : '—'} />
-                </div>
               )}
               <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', wordBreak: 'break-all' }}>ad_id: {s.ad_id}</div>
             </div>
@@ -259,7 +283,7 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
 
           {data && p && (
             <>
-              {/* línea de tiempo de actividad */}
+              {/* actividad */}
               <div style={card}>
                 <div style={{ ...sectLabel, marginBottom: 10 }}>Actividad</div>
                 <Timeline activity={data.activity} />
@@ -268,14 +292,7 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
               {/* gráfico con selector de métrica */}
               {data.daily.length > 0 && (
                 <div style={card}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                    {METRICAS.map((m) => {
-                      const on = m.key === met;
-                      return (
-                        <button key={m.key} type="button" onClick={() => setMet(m.key)} style={{ padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: on ? 600 : 500, border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'), background: on ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)' }}>{m.label}</button>
-                      );
-                    })}
-                  </div>
+                  <div style={{ marginBottom: 12 }}><Pills opts={METRICAS} val={met} onPick={setMet} /></div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontWeight: 600, fontSize: 28, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{metricaActiva.fmt(totalMetrica)}</span>
                     <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{metricaActiva.label} {metricaActiva.modo === 'sum' ? 'total' : 'del período'}</span>
@@ -283,16 +300,11 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
                   <div style={{ width: '100%', height: 210 }}>
                     <ResponsiveContainer>
                       <AreaChart data={data.daily} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-                        <defs>
-                          <linearGradient id="adMet" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#C8870C" stopOpacity={0.32} />
-                            <stop offset="100%" stopColor="#C8870C" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
+                        <defs><linearGradient id="adMet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C8870C" stopOpacity={0.32} /><stop offset="100%" stopColor="#C8870C" stopOpacity={0} /></linearGradient></defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
                         <XAxis dataKey="fecha" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} tickFormatter={fmtFecha} interval="preserveStartEnd" minTickGap={28} />
                         <YAxis tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={50} tickFormatter={(n: number) => metricaActiva.fmt(n)} />
-                        <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} labelFormatter={(l) => fmtFecha(String(l))} formatter={(val) => [metricaActiva.fmt(typeof val === 'number' ? val : null), metricaActiva.label] as [string, string]} />
+                        <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} labelFormatter={(l) => fmtFecha(String(l))} formatter={(val2) => [metricaActiva.fmt(typeof val2 === 'number' ? val2 : null), metricaActiva.label] as [string, string]} />
                         <Area type="monotone" dataKey={met} stroke="#C8870C" strokeWidth={2.2} fill="url(#adMet)" dot={false} isAnimationActive={false} />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -300,76 +312,88 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
                 </div>
               )}
 
-              {/* rendimiento + CRM (resto de métricas) */}
-              <div>
-                <div style={sectLabel}>Rendimiento (Meta · período)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
-                  <Stat label="Impresiones" value={fmtNum(p.impressions)} />
-                  <Stat label="Alcance" value={fmtNum(p.reach)} />
-                  <Stat label="Clics enlace" value={fmtNum(p.link_clicks)} />
-                  <Stat label="CTR" value={fmtPct(p.ctr)} />
-                  <Stat label="CPC" value={fmtUSD(p.cpc_usd)} />
-                  <Stat label="CPM" value={fmtUSD(p.cpm_usd)} />
-                  <Stat label="Leads (forms)" value={fmtNum(p.leads)} />
-                  <Stat label="CPL" value={fmtUSD(p.leads > 0 ? p.spend_usd / p.leads : null)} />
-                  <Stat label="Cierres (CRM)" value={fmtNum(s.cierres)} />
-                  <Stat label="Cash (CRM)" value={fmtUSD(s.cash_usd, 0)} />
-                  <Stat label="Vistas landing" value={fmtNum(p.landing_views)} />
-                </div>
+              {/* eficiencia + CRM (sin repetir lo del gráfico) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                <Stat label="Frecuencia" value={p.frequency ? p.frequency.toFixed(2) : '—'} />
+                <Stat label="CPC" value={fmtUSD(p.cpc_usd)} />
+                <Stat label="CPL" value={fmtUSD(p.leads > 0 ? p.spend_usd / p.leads : null)} />
+                <Stat label="Vistas landing" value={fmtNum(p.landing_views)} />
+                <Stat label="Cierres (CRM)" value={fmtNum(s.cierres)} />
+                <Stat label="Cash (CRM)" value={fmtUSD(s.cash_usd, 0)} />
               </div>
 
-              {/* demográficos + plataforma */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                {data.demograficos.length > 0 && (
+              {/* selector compartido de desglose */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={sectLabel}>Desgloses por</span>
+                <Pills opts={BD_METRICAS} val={bdMet} onPick={setBdMet} />
+              </div>
+
+              {/* edad/género + plataforma */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: 14 }}>
+                {demoData.length > 0 && (
                   <div style={card}>
-                    <div style={sectLabel}>Edad y género (impresiones)</div>
-                    <BarList items={data.demograficos} />
+                    <div style={sectLabel}>Edad y género · {bdActiva.label}</div>
+                    <div style={{ width: '100%', height: 230 }}>
+                      <ResponsiveContainer>
+                        <BarChart data={demoData} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
+                          <XAxis dataKey="age" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />
+                          <YAxis tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={46} tickFormatter={(n: number) => bdActiva.fmt(n)} />
+                          <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} formatter={(val2, name) => [bdActiva.fmt(typeof val2 === 'number' ? val2 : 0), name as string] as [string, string]} />
+                          <Legend wrapperStyle={{ fontSize: 12 }} />
+                          <Bar dataKey="Hombres" fill="#6A4BD8" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                          <Bar dataKey="Mujeres" fill="#0E8E7E" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
-                {data.plataformas.length > 0 && (
+                {platData.length > 0 && (
                   <div style={card}>
-                    <div style={sectLabel}>Plataforma (impresiones)</div>
-                    <BarList items={data.plataformas} />
+                    <div style={sectLabel}>Plataforma · {bdActiva.label}</div>
+                    <div style={{ width: '100%', height: 230 }}>
+                      <ResponsiveContainer>
+                        <BarChart data={platData} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
+                          <XAxis dataKey="label" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />
+                          <YAxis tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={46} tickFormatter={(n: number) => bdActiva.fmt(n)} />
+                          <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} formatter={(val2) => [bdActiva.fmt(typeof val2 === 'number' ? val2 : 0), bdActiva.label] as [string, string]} />
+                          <Bar dataKey="val" fill="#C8870C" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* regiones */}
+              {/* regiones: mapa + lista */}
               {data.regiones.length > 0 && (
                 <div style={card}>
-                  <div style={sectLabel}>Regiones / estados (top por impresiones)</div>
-                  <BarList items={data.regiones} />
+                  <div style={sectLabel}>Regiones / estados · {bdActiva.label}</div>
+                  <MexicoMap regiones={data.regiones} metric={bdMet} fmt={bdActiva.fmt} />
                   <p style={{ fontSize: 11.5, color: 'var(--faint)', margin: '10px 2px 0' }}>Meta no expone ciudad en la API de anuncios; el nivel más fino es región/estado.</p>
                 </div>
               )}
 
-              {/* video */}
+              {/* video: primero el gráfico, luego los cuadros (sin ceros) */}
               {p.video_plays_3s > 0 && (
                 <div>
-                  <div style={sectLabel}>Video</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 12 }}>
-                    <Stat label="Reproducciones" value={fmtNum(p.video_plays_total || p.video_plays_3s)} />
-                    <Stat label="Plays 2s cont." value={fmtNum(p.video_2s)} />
-                    <Stat label="Plays 3s" value={fmtNum(p.video_plays_3s)} />
-                    <Stat label="ThruPlays" value={fmtNum(p.video_thruplay)} />
-                    <Stat label="Plays 30s" value={fmtNum(p.video_30s)} />
-                    <Stat label="Vieron 100%" value={fmtNum(p.video_p100)} />
-                    <Stat label="Tiempo medio" value={mmss(p.video_avg_watch_s)} />
-                    <Stat label="Costo/ThruPlay" value={fmtUSD(p.cost_per_thruplay_usd)} />
-                  </div>
-                  <div style={card}>
-                    <div style={sectLabel}>Retención (% de plays de 3s)</div>
-                    <div style={{ width: '100%', height: 170 }}>
+                  <div style={sectLabel}>Video · retención (% de plays de 3s)</div>
+                  <div style={{ ...card, marginBottom: 12 }}>
+                    <div style={{ width: '100%', height: 180 }}>
                       <ResponsiveContainer>
                         <AreaChart data={retencion} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
                           <XAxis dataKey="etapa" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} />
                           <YAxis tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={40} tickFormatter={(n: number) => `${Math.round(n)}%`} domain={[0, 100]} />
-                          <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} formatter={(val) => [`${(typeof val === 'number' ? val : 0).toFixed(1)}%`, 'Retención'] as [string, string]} />
+                          <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} formatter={(val2) => [`${(typeof val2 === 'number' ? val2 : 0).toFixed(1)}%`, 'Retención'] as [string, string]} />
                           <Area type="monotone" dataKey="pct" stroke="#6A4BD8" strokeWidth={2.2} fill="#6A4BD8" fillOpacity={0.16} dot={{ r: 3 }} isAnimationActive={false} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
+                    {vcards.map((c) => <Stat key={c.label} label={c.label} value={c.value} />)}
                   </div>
                 </div>
               )}
@@ -381,11 +405,9 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
   );
 }
 
-// Línea de tiempo: barra activa con bloques grises para los intervalos sin gasto.
+// Línea de tiempo de actividad (barra activa con bloques rayados = pausas).
 function Timeline({ activity }: { activity: AdInsights['activity'] }) {
-  if (!activity.primero || !activity.ultimo) {
-    return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Sin gasto en el período.</div>;
-  }
+  if (!activity.primero || !activity.ultimo) return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Sin gasto en el período.</div>;
   const span = Math.max(diasEntre(activity.primero, activity.ultimo) + 1, 1);
   return (
     <div>
@@ -401,6 +423,83 @@ function Timeline({ activity }: { activity: AdInsights['activity'] }) {
         <span>{activity.dias_activos} días con gasto · {activity.gaps.length} pausa{activity.gaps.length === 1 ? '' : 's'}</span>
         <span>{fmtFecha(activity.ultimo)}</span>
       </div>
+    </div>
+  );
+}
+
+// Mapa coroplético de México (d3-geo) coloreado por la métrica seleccionada.
+type GeoFeature = { type: string; properties: Record<string, unknown>; geometry: unknown };
+function MexicoMap({ regiones, metric, fmt }: { regiones: BD[]; metric: BdKey; fmt: (n: number) => string }) {
+  const [features, setFeatures] = useState<GeoFeature[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [hover, setHover] = useState<{ name: string; val: number; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(GEOURL)
+      .then((r) => r.json())
+      .then((j) => { if (alive) setFeatures(j.features ?? null); })
+      .catch(() => { if (alive) setFailed(true); });
+    return () => { alive = false; };
+  }, []);
+
+  const valByNorm = useMemo(() => new Map(regiones.map((r) => [norm(r.label), r[metric] as number])), [regiones, metric]);
+  const max = Math.max(...regiones.map((r) => r[metric] as number), 1);
+  const valueFor = (rawName: string): number => {
+    const n = norm(rawName);
+    if (valByNorm.has(n)) return valByNorm.get(n)!;
+    for (const [k, val] of valByNorm) if (k.startsWith(n) || n.startsWith(k)) return val;
+    return 0;
+  };
+  const nameOf = (f: GeoFeature) => String(f.properties.name ?? f.properties.NAME_1 ?? f.properties.ESTADO ?? f.properties.estado ?? '—');
+
+  const W = 640, H = 360;
+  const path = useMemo(() => {
+    if (!features) return null;
+    const fc = { type: 'FeatureCollection', features } as unknown as Parameters<ReturnType<typeof geoMercator>['fitSize']>[1];
+    const proj = geoMercator().fitSize([W, H], fc);
+    return geoPath(proj);
+  }, [features]);
+
+  // Lista top (siempre visible, también si el mapa falla).
+  const top = [...regiones].sort((a, b) => (b[metric] as number) - (a[metric] as number)).slice(0, 6);
+  const topList = (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+      {top.map((r) => (
+        <span key={r.label} style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px' }}>{r.label}: {fmt(r[metric] as number)}</span>
+      ))}
+    </div>
+  );
+
+  if (failed) return <div>{topList}</div>;
+  if (!features || !path) return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando mapa…{topList}</div>;
+
+  return (
+    <div style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {features.map((f, i) => {
+          const name = nameOf(f);
+          const val = valueFor(name);
+          const t = max > 0 ? val / max : 0;
+          const fill = val > 0 ? `rgba(200,135,12,${(0.14 + t * 0.78).toFixed(3)})` : 'var(--surface-2)';
+          return (
+            <path
+              key={i}
+              d={path(f as unknown as Parameters<typeof path>[0]) ?? undefined}
+              fill={fill}
+              stroke="var(--border)"
+              strokeWidth={0.5}
+              onMouseMove={(e) => { const rect = (e.currentTarget.ownerSVGElement as SVGSVGElement).getBoundingClientRect(); setHover({ name, val, x: e.clientX - rect.left, y: e.clientY - rect.top }); }}
+            />
+          );
+        })}
+      </svg>
+      {hover && (
+        <div style={{ position: 'absolute', left: Math.min(hover.x + 12, W - 140), top: hover.y + 12, pointerEvents: 'none', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, color: 'var(--ink)', boxShadow: '0 6px 20px rgba(23,21,17,.18)', whiteSpace: 'nowrap' }}>
+          <b>{hover.name}</b>: {fmt(hover.val)}
+        </div>
+      )}
+      {topList}
     </div>
   );
 }

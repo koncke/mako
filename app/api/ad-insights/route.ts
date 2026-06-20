@@ -160,9 +160,14 @@ export async function GET(req: NextRequest) {
         .filter((x) => x.impressions > 0 || x.spend_usd > 0)
         .sort((a, b) => b.impressions - a.impressions);
 
-    const demograficos = mapBD(ageArr, (r) => `${r.age ?? '—'} · ${r.gender === 'male' ? 'H' : r.gender === 'female' ? 'M' : '—'}`);
+    // Demográficos estructurados (edad × género) para el gráfico de barras agrupadas.
+    const demograficos = ageArr.map((r) => ({
+      age: String(r.age ?? '—'),
+      genero: (r.gender === 'male' ? 'H' : r.gender === 'female' ? 'M' : '?') as 'H' | 'M' | '?',
+      impressions: num(r.impressions), reach: num(r.reach), agendas: agendasDe(r.actions as Act), spend_usd: usd(num(r.spend)),
+    })).filter((x) => x.impressions > 0 || x.spend_usd > 0);
     const plataformas = mapBD(platArr, (r) => String(r.publisher_platform ?? '—'));
-    const regiones = mapBD(regArr, (r) => String(r.region ?? '—')).slice(0, 8);
+    const regiones = mapBD(regArr, (r) => String(r.region ?? '—')).slice(0, 40);
 
     return Response.json({ period, daily, activity, demograficos, plataformas, regiones });
   } catch (err) {
