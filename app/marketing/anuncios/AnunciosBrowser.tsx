@@ -28,7 +28,7 @@ type AdInsights = {
   daily: Array<{ fecha: string; spend_usd: number; impressions: number; reach: number; clicks: number; link_clicks: number; agendas: number; leads: number; ctr: number; cpm_usd: number }>;
   activity: { primero: string | null; ultimo: string | null; dias_activos: number; gaps: Array<{ desde: string; hasta: string; dias: number }> };
   demograficos: Demo[]; plataformas: BD[]; regiones: BD[];
-  transcript: { status: string; transcript: string | null; idioma: string | null; duracion_s: number | null } | null;
+  transcript: { status: string; tipo: string | null; transcript: string | null; secciones: Array<{ titulo: string; texto: string }> | null; idioma: string | null; duracion_s: number | null } | null;
 };
 
 const MONO = "'Geist Mono', monospace";
@@ -407,15 +407,31 @@ function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: string;
                 </div>
               )}
 
-              {/* transcripción */}
-              <div style={card}>
-                <div style={sectLabel}>Transcripción{data.transcript?.idioma ? ` · ${data.transcript.idioma}` : ''}</div>
-                {data.transcript?.status === 'ok' && data.transcript.transcript ? (
-                  <div style={{ maxHeight: 240, overflowY: 'auto', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{data.transcript.transcript}</div>
-                ) : (
-                  <div style={{ fontSize: 13, color: 'var(--faint)' }}>{txtTranscript(data.transcript?.status)}</div>
-                )}
-              </div>
+              {/* transcripción (desplegable) */}
+              <details style={card}>
+                <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <span style={sectLabel}>{data.transcript?.tipo === 'imagen' ? 'Lectura de la imagen' : 'Transcripción'}{data.transcript?.idioma ? ` · ${data.transcript.idioma}` : ''}</span>
+                  <span style={{ fontSize: 12, color: 'var(--faint)' }}>▾ ver</span>
+                </summary>
+                <div style={{ marginTop: 12 }}>
+                  {data.transcript?.status === 'ok' ? (
+                    data.transcript.secciones && data.transcript.secciones.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {data.transcript.secciones.map((sec, i) => (
+                          <div key={i}>
+                            <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: '#9A6A09', marginBottom: 3 }}>{sec.titulo}</div>
+                            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{sec.texto}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ maxHeight: 260, overflowY: 'auto', fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{data.transcript.transcript}</div>
+                    )
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'var(--faint)' }}>{txtTranscript(data.transcript?.status)}</div>
+                  )}
+                </div>
+              </details>
             </>
           )}
         </div>

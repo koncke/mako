@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
     procesados++;
     const res = await transcribeAd(adId);
     const { error: upErr } = await supabase.from('ad_transcripts').upsert({
-      ad_id: res.ad_id, video_id: res.video_id, status: res.status, transcript: res.transcript,
-      idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),
+      ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
+      secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),
     }, { onConflict: 'ad_id' });
     if (upErr) { errores++; continue; }
     if (res.status === 'ok') ok++;
