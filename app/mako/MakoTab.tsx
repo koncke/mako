@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { MakoChat } from '../_components/MakoChat';
+import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 import { chartLabel } from '@/lib/chart-registry';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 
@@ -28,6 +29,8 @@ export function MakoTab() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sel, setSel] = useState<Sel>({ kind: 'general' });
   const [cargando, setCargando] = useState(true);
+  // Loader gigante de bienvenida: aparece al entrar y se va solo (lo justo).
+  const [intro, setIntro] = useState(true);
 
   const cargar = () => {
     fetch('/api/chart-insights?all=1')
@@ -37,6 +40,7 @@ export function MakoTab() {
       .finally(() => setCargando(false));
   };
   useEffect(() => { cargar(); }, []);
+  useEffect(() => { const t = setTimeout(() => setIntro(false), 1500); return () => clearTimeout(t); }, []);
 
   const itemStyle = (activo: boolean) => ({
     display: 'block', width: '100%', textAlign: 'left' as const, padding: '11px 14px',
@@ -46,9 +50,9 @@ export function MakoTab() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '24px 28px 20px' }}>
+      {intro && <MakoIntro />}
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flex: 'none' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/mako.svg" alt="MaKo" width={34} height={34} style={{ borderRadius: 7 }} />
+        <MakoLogo size={36} />
         <h1 style={{ fontWeight: 600, fontSize: 38, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Preguntale a MaKo</h1>
       </header>
 

@@ -10,14 +10,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { MakoChat } from './MakoChat';
+import { MakoLogo, MakoStar } from './MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
-
-function MaKoLogo({ size = 30 }: { size?: number }) {
-  // eslint-disable-next-line @next/next/no-img-element
-  return <img src="/mako.svg" alt="MaKo" width={size} height={size} style={{ display: 'block', borderRadius: 5 }} />;
-}
 
 export function MakoButton({
   chartKey,
@@ -39,9 +35,9 @@ export function MakoButton({
         type="button"
         onClick={() => setOpen(true)}
         title="Conclusiones con MaKo"
-        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 15px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}
+        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 15px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}
       >
-        ✨ MaKo
+        <MakoStar size={14} /> MaKo
       </button>
 
       {open && (
@@ -49,7 +45,7 @@ export function MakoButton({
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, height: 'calc(100vh - 80px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 24px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
-                <MaKoLogo size={30} />
+                <MakoLogo size={32} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Conclusiones con MaKo</div>
                   <div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{titulo}</div>

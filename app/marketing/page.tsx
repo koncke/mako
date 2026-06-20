@@ -165,7 +165,7 @@ export default async function Page({
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} senales={senales} />
 
-          {tendencias && <TendenciasSection tendencias={tendencias} accion={<MakoButton chartKey="marketing-tendencias" titulo="Tendencias" contexto={ctxTendencias} chart={<TendenciasSection tendencias={tendencias} />} />} />}
+          {tendencias && <TendenciasSection tendencias={tendencias} accion={<MakoButton chartKey="marketing-tendencias" titulo="Tendencias" contexto={ctxTendencias} sugerencias={['¿Qué tendencia ves?', '¿Esto es bueno o malo?', '¿Qué cambió y por qué?', '¿Qué hago al respecto?']} chart={<TendenciasSection tendencias={tendencias} />} />} />}
 
           <ResumenCreativos desde={rangoDesde} hasta={rangoHasta} />
 
@@ -361,53 +361,57 @@ function SaludDelFunnel({ mkt, funnel, senales }: { mkt: MarketingWindow; funnel
     `CPM: ${fmtUSD(mkt.cpm_global, 2)} | CPC: ${fmtUSD(mkt.cpc_global, 2)} | Costo/Landing: ${fmtUSD(mkt.cpl_global, 2)} | Costo/VSL: ${fmtUSD(costoVsl, 2)} | Ad Spend: ${fmtUSD(mkt.spend_usd, 0)}`,
   ].join('\n');
 
+  const grafico = (
+    <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 34, alignItems: 'stretch' }}>
+      {/* funnel chart · trapezoides con borde */}
+      <div>
+        {stages.map((s, i) => (
+          <div key={s.label}>
+            <div style={{ height: 78, background: s.outer, clipPath: clips[i], padding: 2 }}>
+              <div style={{ height: '100%', background: s.inner, clipPath: clips[i], display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--dim)', marginBottom: 5 }}>{s.label}</span>
+                <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(s.value)}</span>
+              </div>
+            </div>
+            {i < connectors.length && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '6px 0' }}>
+                <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: connectors[i].chip.fg, background: connectors[i].chip.bg, padding: '2px 9px', borderRadius: 7 }}>{connectors[i].chip.text}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{connectors[i].texto}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* cards de eficiencia */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gridTemplateRows: '1fr 1fr', gap: 14 }}>
+        {effCards.map((c) => {
+          const cardStyle: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderTop: '3px solid var(--border-strong)', borderRadius: 14, padding: '18px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' };
+          const inner = (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 11 }}>{c.label}</div>
+              <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{c.valor}</div>
+              <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>{c.sub}</div>
+            </>
+          );
+          return c.desglose ? (
+            <DesgloseTrigger key={c.label} data={c.desglose} style={cardStyle}>{inner}</DesgloseTrigger>
+          ) : (
+            <div key={c.label} style={cardStyle}>{inner}</div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
         <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Salud del Funnel — Marketing</h2>
-        <MakoButton chartKey="marketing-funnel" titulo="Salud del Funnel — Marketing" contexto={ctxFunnelMkt} />
+        <MakoButton chartKey="marketing-funnel" titulo="Salud del Funnel — Marketing" contexto={ctxFunnelMkt} sugerencias={['¿Dónde pierdo más gente?', '¿El CPM/CPC está caro?', '¿La landing convierte?', '¿En qué enfoco el presupuesto?']} chart={grafico} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 34, alignItems: 'stretch' }}>
-        {/* funnel chart · trapezoides con borde */}
-        <div>
-          {stages.map((s, i) => (
-            <div key={s.label}>
-              <div style={{ height: 78, background: s.outer, clipPath: clips[i], padding: 2 }}>
-                <div style={{ height: '100%', background: s.inner, clipPath: clips[i], display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--dim)', marginBottom: 5 }}>{s.label}</span>
-                  <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(s.value)}</span>
-                </div>
-              </div>
-              {i < connectors.length && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '6px 0' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: connectors[i].chip.fg, background: connectors[i].chip.bg, padding: '2px 9px', borderRadius: 7 }}>{connectors[i].chip.text}</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{connectors[i].texto}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* cards de eficiencia */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gridTemplateRows: '1fr 1fr', gap: 14 }}>
-          {effCards.map((c) => {
-            const cardStyle: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderTop: '3px solid var(--border-strong)', borderRadius: 14, padding: '18px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center' };
-            const inner = (
-              <>
-                <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 11 }}>{c.label}</div>
-                <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{c.valor}</div>
-                <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>{c.sub}</div>
-              </>
-            );
-            return c.desglose ? (
-              <DesgloseTrigger key={c.label} data={c.desglose} style={cardStyle}>{inner}</DesgloseTrigger>
-            ) : (
-              <div key={c.label} style={cardStyle}>{inner}</div>
-            );
-          })}
-        </div>
-      </div>
+      {grafico}
     </section>
   );
 }

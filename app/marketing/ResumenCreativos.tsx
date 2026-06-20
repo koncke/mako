@@ -43,7 +43,7 @@ export function ResumenCreativos({ desde, hasta }: { desde: string; hasta: strin
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
         <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Audiencia y alcance</h2>
         {data && !vacio && (
-          <MakoButton chartKey="marketing-audiencia" titulo="Audiencia y alcance" contexto={ctx} chart={<BreakdownCharts demograficos={data.demograficos} plataformas={data.plataformas} regiones={data.regiones} />} />
+          <MakoButton chartKey="marketing-audiencia" titulo="Audiencia y alcance" contexto={ctx} sugerencias={['¿A quién le estoy pegando?', '¿La audiencia es la correcta?', '¿Dónde amplío?', '¿Qué región rinde mejor?']} chart={<BreakdownCharts demograficos={data.demograficos} plataformas={data.plataformas} regiones={data.regiones} />} />
         )}
       </div>
 

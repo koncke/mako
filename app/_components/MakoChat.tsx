@@ -13,6 +13,15 @@ import { MakoLoader } from './MakoLoader';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
+// Preguntas sugeridas por defecto: si un gráfico no trae las suyas, igual
+// SIEMPRE aparecen sugerencias (en todos los gráficos).
+const DEFAULT_SUGERENCIAS = [
+  '¿Qué es lo más importante acá?',
+  '¿Qué está fallando?',
+  '¿Qué hago esta semana?',
+  '¿Cómo lo mejoro?',
+];
+
 type Msg = { role: 'user' | 'assistant'; content: string };
 type Session = { id: number; titulo: string | null; updated_at: string; pinned?: boolean };
 
@@ -63,6 +72,8 @@ export function MakoChat({
   const [editId, setEditId] = useState<number | null>(null);
   const [editVal, setEditVal] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
+  const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
 
   const refrescarSesiones = async () => {
     const j = await fetch(`/api/chart-insights?chartKey=${encodeURIComponent(chartKey)}`).then((r) => r.json());
@@ -170,7 +181,7 @@ export function MakoChat({
         )}
       </div>
 
-      {chart && chartAbierto && <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>{chart}</div>}
+      {chart && chartAbierto && <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', flex: 'none', maxHeight: '40vh', overflowY: 'auto' }}>{chart}</div>}
 
       <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {messages.map((m, i) => (
@@ -183,9 +194,9 @@ export function MakoChat({
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flex: 'none' }}>
-        {sugerencias.length > 0 && (
+        {sugs.length > 0 && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', overflowX: 'auto', padding: '12px 20px 0' }}>
-            {sugerencias.map((s) => <button key={s} type="button" onClick={() => enviar(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
+            {sugs.map((s) => <button key={s} type="button" onClick={() => enviar(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
           </div>
         )}
         <div style={{ display: 'flex', gap: 10, padding: '12px 20px 14px' }}>

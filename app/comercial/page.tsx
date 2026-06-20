@@ -430,97 +430,101 @@ function SaludFunnel({ maduras, cac, funnelLeads }: { maduras: ResumenComercialM
     `No-show: ${noShow !== null ? Math.round(noShow) : '—'}% | Tasa de cierre madura: ${tasa !== null ? Math.round(tasa) : '—'}% | CAC acumulado: ${cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—'}`,
   ].join('\n');
 
+  const grafico = (
+    <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 34, alignItems: 'stretch' }}>
+      {/* Embudo */}
+      <div>
+        {etapas.map((e, i) => (
+          <div key={e.label}>
+            {(() => {
+              const box = (
+                <div style={{ height: 78, background: '#D8C58C', clipPath: clips[i], padding: 2 }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      background: e.bg,
+                      clipPath: clips[i],
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                    }}
+                  >
+                    <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--dim)', marginBottom: 5 }}>{e.label}</span>
+                    <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(e.valor)}</span>
+                  </div>
+                </div>
+              );
+              return e.dg ? <DesgloseTrigger data={e.dg}>{box}</DesgloseTrigger> : box;
+            })()}
+            {i < conectores.length && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '6px 0' }}>
+                <span
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: conectores[i].verde ? 'var(--good)' : 'var(--dim)',
+                    background: conectores[i].verde ? 'var(--good-bg)' : 'var(--surface-2)',
+                    padding: '2px 9px',
+                    borderRadius: 7,
+                  }}
+                >
+                  {conectores[i].pct !== null ? `${Math.round(conectores[i].pct!)}%` : '—'}
+                </span>
+                <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{conectores[i].nota}</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* KPIs a la derecha */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gridTemplateRows: '1fr 1fr', gap: 14 }}>
+        <FunnelKPI
+          label="Ratio de cierre"
+          value={maduras.limpias < 3 ? `${maduras.cierres} de ${maduras.limpias}` : tasa !== null ? `${Math.round(tasa)}%` : '—'}
+          valueColor={tasa !== null && maduras.limpias >= 3 && tasa >= 30 ? 'var(--good)' : 'var(--ink)'}
+          sub={`${maduras.cierres} ÷ ${maduras.limpias} calificadas`}
+          topColor="var(--good)"
+          desglose={dgCierre}
+        />
+        <FunnelKPI
+          label="No-show rate"
+          value={maduras.total_j1 < 3 ? `${maduras.total_j1 - maduras.asistencias} de ${maduras.total_j1}` : noShow !== null ? `${Math.round(noShow)}%` : '—'}
+          valueColor={noShow !== null && noShow > 35 ? 'var(--bad)' : 'var(--good)'}
+          sub={`${maduras.total_j1 - maduras.asistencias} de ${maduras.total_j1} · maduras`}
+          topColor="var(--border-strong)"
+          desglose={dgNoShow}
+        />
+        <FunnelKPI
+          label="Cierres maduros"
+          value={fmtNum(maduras.cierres)}
+          valueColor="var(--ink)"
+          sub={`${maduras.cohortes_maduras_count} cohortes maduras`}
+          topColor="var(--border-strong)"
+          desglose={dgCierre}
+        />
+        <FunnelKPI
+          label="CAC acumulado"
+          value={cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—'}
+          valueColor="var(--ink)"
+          sub="Spend ÷ cierres"
+          topColor="var(--border-strong)"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 22 }}>
         <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Salud del Funnel — Comercial</h2>
-        <MakoButton chartKey="comercial-funnel" titulo="Salud del Funnel — Comercial" contexto={ctxFunnel} />
+        <MakoButton chartKey="comercial-funnel" titulo="Salud del Funnel — Comercial" contexto={ctxFunnel} sugerencias={['¿Dónde se cae el funnel?', '¿El no-show es un problema?', '¿Cómo subo la tasa de cierre?', '¿Qué etapa optimizo primero?']} chart={grafico} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 34, alignItems: 'stretch' }}>
-        {/* Embudo */}
-        <div>
-          {etapas.map((e, i) => (
-            <div key={e.label}>
-              {(() => {
-                const box = (
-                  <div style={{ height: 78, background: '#D8C58C', clipPath: clips[i], padding: 2 }}>
-                    <div
-                      style={{
-                        height: '100%',
-                        background: e.bg,
-                        clipPath: clips[i],
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        lineHeight: 1,
-                      }}
-                    >
-                      <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--dim)', marginBottom: 5 }}>{e.label}</span>
-                      <span style={{ fontWeight: 600, fontSize: 27, letterSpacing: '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtNum(e.valor)}</span>
-                    </div>
-                  </div>
-                );
-                return e.dg ? <DesgloseTrigger data={e.dg}>{box}</DesgloseTrigger> : box;
-              })()}
-              {i < conectores.length && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: '6px 0' }}>
-                  <span
-                    style={{
-                      fontFamily: MONO,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: conectores[i].verde ? 'var(--good)' : 'var(--dim)',
-                      background: conectores[i].verde ? 'var(--good-bg)' : 'var(--surface-2)',
-                      padding: '2px 9px',
-                      borderRadius: 7,
-                    }}
-                  >
-                    {conectores[i].pct !== null ? `${Math.round(conectores[i].pct!)}%` : '—'}
-                  </span>
-                  <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{conectores[i].nota}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* KPIs a la derecha */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gridTemplateRows: '1fr 1fr', gap: 14 }}>
-          <FunnelKPI
-            label="Ratio de cierre"
-            value={maduras.limpias < 3 ? `${maduras.cierres} de ${maduras.limpias}` : tasa !== null ? `${Math.round(tasa)}%` : '—'}
-            valueColor={tasa !== null && maduras.limpias >= 3 && tasa >= 30 ? 'var(--good)' : 'var(--ink)'}
-            sub={`${maduras.cierres} ÷ ${maduras.limpias} calificadas`}
-            topColor="var(--good)"
-            desglose={dgCierre}
-          />
-          <FunnelKPI
-            label="No-show rate"
-            value={maduras.total_j1 < 3 ? `${maduras.total_j1 - maduras.asistencias} de ${maduras.total_j1}` : noShow !== null ? `${Math.round(noShow)}%` : '—'}
-            valueColor={noShow !== null && noShow > 35 ? 'var(--bad)' : 'var(--good)'}
-            sub={`${maduras.total_j1 - maduras.asistencias} de ${maduras.total_j1} · maduras`}
-            topColor="var(--border-strong)"
-            desglose={dgNoShow}
-          />
-          <FunnelKPI
-            label="Cierres maduros"
-            value={fmtNum(maduras.cierres)}
-            valueColor="var(--ink)"
-            sub={`${maduras.cohortes_maduras_count} cohortes maduras`}
-            topColor="var(--border-strong)"
-            desglose={dgCierre}
-          />
-          <FunnelKPI
-            label="CAC acumulado"
-            value={cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—'}
-            valueColor="var(--ink)"
-            sub="Spend ÷ cierres"
-            topColor="var(--border-strong)"
-          />
-        </div>
-      </div>
+      {grafico}
     </section>
   );
 }
@@ -629,7 +633,7 @@ function SCLTimeline({ scl, tramos, sclDesglose }: { scl: SCL | null; tramos: Tr
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>SCL — ciclo de venta</h2>
-          <MakoButton chartKey="comercial-scl" titulo="SCL — ciclo de venta" contexto={ctxScl} chart={graficoScl} />
+          <MakoButton chartKey="comercial-scl" titulo="SCL — ciclo de venta" contexto={ctxScl} sugerencias={['¿El ciclo de venta es largo?', '¿Qué lo está frenando?', '¿Cómo lo acorto?', '¿Qué hago esta semana?']} chart={graficoScl} />
         </div>
         {(() => {
           const box = (

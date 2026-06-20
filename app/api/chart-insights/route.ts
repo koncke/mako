@@ -45,7 +45,7 @@ async function generarTitulo(seed: string): Promise<string | null> {
     const t = await chatClaude(
       'Devolvé SOLO un título corto (3 a 6 palabras, en español, sin comillas ni punto final) que resuma de qué trata esto. Nada más que el título.',
       [{ role: 'user', content: seed.slice(0, 1500) }],
-      { thinkingBudget: 0, maxTokens: 30 },
+      { thinking: false, maxTokens: 30 },
     );
     const clean = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
     return clean ? clean.slice(0, 70) : null;

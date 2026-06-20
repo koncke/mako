@@ -9,29 +9,37 @@ import 'server-only';
 // Opus 4.8: el modelo más pensante disponible.
 const MODEL = 'claude-opus-4-8';
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
-// Esfuerzo en MAX: budget de razonamiento alto.
-const THINKING_BUDGET = 16000;
+
+// Niveles de esfuerzo válidos en Opus 4.8 (output_config.effort).
+type Effort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+// Esfuerzo por defecto para los análisis de MaKo (alto, sin sobre-pensar).
+const DEFAULT_EFFORT: Effort = 'high';
 
 export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };
 
 export async function chatClaude(
   system: string,
   messages: ClaudeMsg[],
-  opts: { model?: string; thinkingBudget?: number; maxTokens?: number } = {},
+  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number } = {},
 ): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
-  // thinkingBudget === 0 → sin extended thinking (para tareas chicas como títulos).
-  const budget = opts.thinkingBudget ?? THINKING_BUDGET;
-  const thinkingOn = budget > 0;
+  // thinking === false → sin razonamiento extendido (tareas chicas, p.ej. títulos).
+  const thinkingOn = opts.thinking ?? true;
+  const effort: Effort = thinkingOn ? (opts.effort ?? DEFAULT_EFFORT) : 'low';
   const payload: Record<string, unknown> = {
     model: opts.model ?? MODEL,
-    max_tokens: thinkingOn ? budget + 4000 : (opts.maxTokens ?? 512),
+    // Con thinking adaptativo el razonamiento entra en max_tokens: damos aire.
+    max_tokens: opts.maxTokens ?? (thinkingOn ? 16000 : 512),
     system,
     messages,
+    // Opus 4.8: el esfuerzo se controla acá, NO con budget_tokens.
+    output_config: { effort },
   };
-  if (thinkingOn) payload.thinking = { type: 'enabled', budget_tokens: budget };
+  // Opus 4.8: thinking ADAPTATIVO (el modelo decide cuánto pensar).
+  // El antiguo { type: 'enabled', budget_tokens } ya no existe en este modelo.
+  if (thinkingOn) payload.thinking = { type: 'adaptive' };
 
   const res = await fetch(ENDPOINT, {
     method: 'POST',
