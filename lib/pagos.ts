@@ -46,6 +46,37 @@ export async function getPagosByLead(leadId: number): Promise<Pago[]> {
   return (data ?? []) as Pago[];
 }
 
+export type LeadPlan = {
+  total_usd: number | null;
+  duracion_meses: number | null;
+  fecha_cierre: string | null;
+  fecha_inicio: string | null;
+  contrato_nombre: string | null;
+  tiene_contrato: boolean;
+  pagos: Pago[];
+};
+
+/** Plan + cuotas + info de contrato de un lead (para el modo "ver" del CRM). */
+export async function getLeadPlan(leadId: number): Promise<LeadPlan> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('leads')
+    .select('monto_cierre_usd, duracion_meses, fecha_cierre, fecha_inicio_servicio, contrato_nombre, contrato_path')
+    .eq('id', leadId)
+    .single();
+  if (error) throw new Error(`Error leyendo plan del lead ${leadId}: ${error.message}`);
+  const pagos = await getPagosByLead(leadId);
+  return {
+    total_usd: (data?.monto_cierre_usd as number | null) ?? null,
+    duracion_meses: (data?.duracion_meses as number | null) ?? null,
+    fecha_cierre: (data?.fecha_cierre as string | null) ?? null,
+    fecha_inicio: (data?.fecha_inicio_servicio as string | null) ?? null,
+    contrato_nombre: (data?.contrato_nombre as string | null) ?? null,
+    tiene_contrato: !!(data?.contrato_path),
+    pagos,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers de fecha
 // ─────────────────────────────────────────────────────────────────────────────

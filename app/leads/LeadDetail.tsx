@@ -5,7 +5,8 @@
 // =============================================================================
 
 import Link from 'next/link';
-import { useRef, useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
+import { PlanPagosCard } from './PlanPagosCard';
 import { CHIP, NUTRI_KEYS, stageMeta as findStage, type Stage } from '@/lib/pipeline';
 import type { CrmLead, Edits, PendingMove } from './CrmBoard';
 
@@ -34,48 +35,6 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={miniCard}>
       <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{label}</div>
       <div style={{ fontSize: 15, color: 'var(--ink)', fontWeight: 600, marginTop: 3 }}>{value}</div>
-    </div>
-  );
-}
-
-type ContratoExtraido = {
-  total_usd: number | null;
-  duracion_meses: number | null;
-  fecha_cierre: string | null;
-  fecha_inicio: string | null;
-  cuotas: Array<{ monto: number | null; fecha: string | null }>;
-};
-
-// Subir contrato (PDF/imagen) → OpenAI extrae el plan → autollena los campos.
-function ContratoUpload({ onExtract }: { onExtract: (d: ContratoExtraido) => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [estado, setEstado] = useState<'idle' | 'cargando' | 'ok' | 'error'>('idle');
-  const [nombre, setNombre] = useState('');
-  const [err, setErr] = useState('');
-
-  const onFile = async (file: File) => {
-    setNombre(file.name); setEstado('cargando'); setErr('');
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const r = await fetch('/api/extract-contract', { method: 'POST', body: fd });
-      const j = await r.json();
-      if (j.error) { setEstado('error'); setErr(j.error); return; }
-      onExtract(j);
-      setEstado('ok');
-    } catch (e) { setEstado('error'); setErr(String(e)); }
-  };
-
-  return (
-    <div>
-      <input ref={inputRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }} />
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={estado === 'cargando'} style={{ padding: '9px 16px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: estado === 'cargando' ? 'wait' : 'pointer', fontFamily: SANS }}>⬆ Subir contrato</button>
-        {estado === 'cargando' && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Leyendo {nombre} con OpenAI…</span>}
-        {estado === 'ok' && <span style={{ fontSize: 12.5, color: 'var(--good)' }}>✓ {nombre} — campos rellenados, revisá y guardá</span>}
-        {estado === 'error' && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>Error: {err}</span>}
-      </div>
-      <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>PDF o imagen del contrato. OpenAI extrae total, duración, fechas y cuotas.</div>
     </div>
   );
 }
@@ -117,22 +76,6 @@ export function LeadDetail({
     onPatch({ fathom: edits.fathom.map((f, fi) => (fi === i ? { ...f, [field]: v } : f)) });
   const setNutri = (i: number, field: 'name' | 'dt', v: string) =>
     onPatch({ nutriciones: edits.nutriciones.map((n, ni) => (ni === i ? { ...n, [field]: v } : n)) });
-  const setCuota = (i: number, field: 'monto' | 'fecha', v: string) =>
-    onPatch({ cuotas: edits.cuotas.map((c, ci) => (ci === i ? { ...c, [field]: v } : c)) });
-
-  // Autollenado del plan desde el contrato (OpenAI).
-  const onExtractContrato = (d: ContratoExtraido) => onPatch({
-    plan: {
-      ...edits.plan,
-      total: d.total_usd != null ? String(d.total_usd) : edits.plan.total,
-      duracion: d.duracion_meses != null ? String(d.duracion_meses) : edits.plan.duracion,
-      cierre: d.fecha_cierre ?? edits.plan.cierre,
-      inicio: d.fecha_inicio ?? edits.plan.inicio,
-    },
-    cuotas: d.cuotas && d.cuotas.length
-      ? d.cuotas.map((c) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: c.fecha ?? '' }))
-      : edits.cuotas,
-  });
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
@@ -321,34 +264,7 @@ export function LeadDetail({
           )}
 
           {/* plan de pagos */}
-          {isGanado && (
-            <details open style={{ ...card, padding: '0 18px' }}>
-              <summary style={summary}>Plan de pagos<span style={{ fontSize: 11 }}>▾</span></summary>
-              <div style={{ padding: '0 0 18px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <div><div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 5 }}>Total del plan (USD)</div><input value={edits.plan.total} onChange={(e) => onPatch({ plan: { ...edits.plan, total: e.target.value } })} placeholder="0" style={{ ...rowInput, width: '100%' }} /></div>
-                  <div><div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 5 }}>Duración del servicio (meses)</div><input value={edits.plan.duracion} onChange={(e) => onPatch({ plan: { ...edits.plan, duracion: e.target.value } })} placeholder="3" style={{ ...rowInput, width: '100%' }} /></div>
-                  <div><div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 5 }}>Fecha de cierre</div><input value={edits.plan.cierre} onChange={(e) => onPatch({ plan: { ...edits.plan, cierre: e.target.value } })} placeholder="dd/mm/aaaa" style={{ ...rowInput, width: '100%' }} /></div>
-                  <div><div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 5 }}>Inicio del servicio</div><input value={edits.plan.inicio} onChange={(e) => onPatch({ plan: { ...edits.plan, inicio: e.target.value } })} placeholder="dd/mm/aaaa" style={{ ...rowInput, width: '100%' }} /></div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 5 }}>Contrato</div>
-                  <ContratoUpload onExtract={onExtractContrato} />
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--faint)', margin: '14px 0 8px' }}>Cuotas</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {edits.cuotas.map((c, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      <span style={{ flex: 'none', fontFamily: MONO, fontSize: 12, color: 'var(--faint)', width: 24 }}>{i + 1}</span>
-                      <input value={c.monto} onChange={(e) => setCuota(i, 'monto', e.target.value)} placeholder="Monto cuota" style={{ ...rowInput, flex: 1 }} />
-                      <input value={c.fecha} onChange={(e) => setCuota(i, 'fecha', e.target.value)} placeholder="Fecha de pago" style={{ ...rowInput, flex: 1 }} />
-                    </div>
-                  ))}
-                  <button onClick={() => onPatch({ cuotas: [...edits.cuotas, { monto: '', fecha: '' }] })} style={dashBtn}>+ Agregar otra cuota</button>
-                </div>
-              </div>
-            </details>
-          )}
+          {isGanado && <PlanPagosCard leadId={lead.id} />}
 
           {/* línea de tiempo SCL */}
           {isGanado && (
