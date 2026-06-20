@@ -11,18 +11,26 @@
 import type { NextRequest } from 'next/server';
 import { chatClaude, type ClaudeMsg } from '@/lib/anthropic';
 import { getChartHistory, appendChartMsg, type ChartMsg } from '@/lib/chart-chats';
+import { MAKO_PERSONA } from '@/lib/mako-persona';
 
 export const dynamic = 'force-dynamic';
 
-const ANALISIS_PROMPT = 'Analizá este gráfico y dame tus conclusiones.';
+// Primer mensaje: breve e impactante, NO un resumen completo.
+const ANALISIS_PROMPT = 'Mirá el gráfico y tirame SOLO lo más importante: el insight que más impacta, en 2-4 líneas, con tu voz. Nada de resumen completo ni listar todo — si quiero más, te pregunto.';
 
 function systemPrompt(titulo: string, contexto: string): string {
-  return `Sos un analista de marketing y ventas, directo y claro, en español rioplatense. Estás analizando el gráfico "${titulo}" de un dashboard del negocio.
+  return `${MAKO_PERSONA}
+
+CONTEXTO: estás mirando el gráfico "${titulo}" del dashboard del PROPIO negocio de Martín (no es un cliente). Ya tenés los datos abajo, así que NO pidas información que está en el gráfico — analizá directo.
 
 DATOS DEL GRÁFICO:
 ${contexto}
 
-Tu trabajo: dar conclusiones accionables y concretas — tendencias, comparaciones mes a mes, relación entre inversión en ads y resultados, estacionalidad, anomalías y qué hacer al respecto. Usá los números del propio gráfico. Sé breve y al grano (viñetas cuando ayude). No inventes datos que no estén en el contexto; si algo no se puede concluir con estos datos, decilo.`;
+FORMATO Y TONO:
+- Respondé en Markdown: usá **negritas** para lo clave, viñetas y títulos cortos (##) SOLO cuando de verdad ayuden a leer. Nada de muros de texto.
+- El PRIMER mensaje tiene que ser breve e impactante (2-4 líneas): lo más importante, no un resumen de todo. Si querés, cerrás con UNA pregunta o invitación a profundizar.
+- Después, respondé lo que te pregunten con tu personalidad: directo, concreto, con números del gráfico, accionable.
+- No inventes datos que no estén en el contexto; si algo no se puede concluir, decilo claro.`;
 }
 
 export async function GET(req: NextRequest) {

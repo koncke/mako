@@ -278,9 +278,9 @@ function OutstandingDrill({ detalle }: { detalle: { items: OutstandingLead[]; to
           <thead>
             <tr className="text-sm uppercase tracking-wider text-left" style={{ background: '#0f0f0f', color: 'var(--text-dim)' }}>
               <th className="px-4 py-3">Lead</th>
-              <th className="px-4 py-3 text-right">Vendido</th>
-              <th className="px-4 py-3 text-right">Cobrado</th>
-              <th className="px-4 py-3 text-right">Pendiente</th>
+              <th className="px-4 py-3 text-right">Sold Revenue</th>
+              <th className="px-4 py-3 text-right">Cash Collected</th>
+              <th className="px-4 py-3 text-right">Outstanding</th>
               <th className="px-4 py-3">Próxima cuota</th>
               <th className="px-4 py-3 text-right hidden md:table-cell">Días desde cierre</th>
             </tr>

@@ -184,7 +184,7 @@ export default async function ComercialPage({
       // (evita escanear todo el histórico de leads en cada carga).
       getJ1Leads(diasAntes(hoyReal, 370)),
       getSCLLeads(),
-      getRevenueMensual(hoyReal, 12),
+      getRevenueMensual(hoyReal, 18),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -239,9 +239,9 @@ export default async function ComercialPage({
 
   // Contexto del gráfico mensual para el análisis con Claude.
   const contextoRevenueMensual = [
-    'Ingresos y gasto en ads por mes (USD). "Cerrado" = monto firmado de cierres con fecha de cierre en el mes; "Cobrado" = pagos cobrados en el mes; "Gasto en ads" = inversión en Meta Ads del mes.',
-    'mes | cerrado | cobrado | gasto_ads',
-    ...revenueMensual.map((p) => `${p.mes} | ${p.sold_usd} | ${p.cash_usd} | ${p.spend_usd}`),
+    'Tendencia mensual del negocio. Sold Revenue (USD) = monto firmado de cierres con fecha de cierre en el mes; Cash Collected (USD) = pagos cobrados en el mes (puede diferir de Sold porque se cobra en cuotas y a veces antes/después del cierre); Ad Spend (USD) = inversión en Meta Ads del mes; Cierres = cantidad de cierres; Agendas = cantidad de agendas (Junta 1).',
+    'mes | sold_revenue_usd | cash_collected_usd | ad_spend_usd | cierres | agendas',
+    ...revenueMensual.map((p) => `${p.mes} | ${p.sold_usd} | ${p.cash_usd} | ${p.spend_usd} | ${p.cierres} | ${p.agendas}`),
   ].join('\n');
 
   return (
@@ -270,8 +270,12 @@ export default async function ComercialPage({
 
           {revenueMensual.length > 0 && (
             <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-              <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 18px', color: 'var(--ink)' }}>Ingresos y gasto · mes a mes</h2>
-              <ChartIA chartKey="comercial-revenue-mensual" titulo="Ingresos y gasto · mes a mes" contexto={contextoRevenueMensual}>
+              <ChartIA
+                chartKey="comercial-revenue-mensual"
+                titulo="Tendencia"
+                contexto={contextoRevenueMensual}
+                sugerencias={['¿El gasto en ads está rindiendo?', '¿Cuál fue el mejor mes y por qué?', '¿Qué tendencia ves para adelante?', '¿Qué hago la semana que viene?']}
+              >
                 <RevenueMensualChart data={revenueMensual} />
               </ChartIA>
             </section>
@@ -353,10 +357,10 @@ function RevenueSection({
         </div>
         <div style={{ display: 'flex', gap: 18, marginTop: 10, fontSize: 13, color: 'var(--dim)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--good)' }} />cobrado
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--good)' }} />Cash Collected
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--bad)' }} />pendiente del pipeline
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--bad)' }} />Outstanding
           </span>
         </div>
       </div>

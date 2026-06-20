@@ -7,9 +7,8 @@
 
 import 'server-only';
 
-// Sonnet 4.6: analista fuerte y rápido, buena relación calidad/costo para el chat
-// de conclusiones. Cambiar a 'claude-opus-4-8' si se quiere el máximo análisis.
-const MODEL = 'claude-sonnet-4-6';
+// Opus 4.8: máximo análisis para las conclusiones de los gráficos.
+const MODEL = 'claude-opus-4-8';
 const ENDPOINT = 'https://api.anthropic.com/v1/messages';
 
 export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };

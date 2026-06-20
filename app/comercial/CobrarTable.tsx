@@ -72,9 +72,9 @@ export function CobrarTable({ items, total, hoyISO }: { items: OutstandingLead[]
           <thead>
             <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
               <th style={th}>Lead</th>
-              <th style={thR}>Vendido</th>
-              <th style={thR}>Cobrado</th>
-              <th style={thR}>Pendiente</th>
+              <th style={thR}>Sold Revenue</th>
+              <th style={thR}>Cash Collected</th>
+              <th style={thR}>Outstanding</th>
               <th style={th}>Próxima cuota</th>
               <th style={th}>Vence</th>
               <th style={th} />

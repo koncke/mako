@@ -217,11 +217,11 @@ function KpisEstrella({
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
       <DesgloseTrigger
-        data={{ label: 'Inversión · por anuncio', value: fmtUSD(spend, 0), color: 'var(--ink)', items: inversionItems, emptyText: 'Sin gasto a nivel anuncio en el rango.' }}
+        data={{ label: 'Ad Spend · por anuncio', value: fmtUSD(spend, 0), color: 'var(--ink)', items: inversionItems, emptyText: 'Sin gasto a nivel anuncio en el rango.' }}
       >
         <KpiCard
           topColor="var(--border-strong)"
-          label="Inversión"
+          label="Ad Spend"
           valor={fmtUSD(spend, 0)}
           valorColor="var(--ink)"
           chip={invFactor}

@@ -1009,38 +1009,47 @@ export async function listCACMensual(limit = 12): Promise<CACMensualEntry[]> {
 export type RevenueMensualPunto = {
   mes: string;        // 'YYYY-MM'
   label: string;      // etiqueta de eje, p.ej. 'jun 26'
-  sold_usd: number;   // cerrado/firmado (monto_cierre de cierres con fecha en el mes)
-  cash_usd: number;   // cobrado (pagos pagados con fecha de pago en el mes)
-  spend_usd: number;  // gasto en ads (Meta), convertido a USD
+  sold_usd: number;   // Sold Revenue: monto firmado de cierres con fecha_cierre en el mes
+  cash_usd: number;   // Cash Collected: pagos cobrados con fecha_pago en el mes
+  spend_usd: number;  // Ad Spend (Meta), convertido a USD
+  cierres: number;    // cantidad de cierres (fecha_cierre en el mes)
+  agendas: number;    // cantidad de agendas (fecha_junta_1 en el mes)
 };
 
 export const getRevenueMensual = cachedRead('getRevenueMensual', _getRevenueMensual, { tags: [TAG.leads, TAG.pagos, TAG.marketing], revalidate: TTL.user });
-async function _getRevenueMensual(hasta: string, meses = 12): Promise<RevenueMensualPunto[]> {
+// mesesMax = ventana de búsqueda; el resultado RECORTA los meses iniciales sin
+// ningún dato (no se extiende antes del primer mes con actividad).
+async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<RevenueMensualPunto[]> {
   const supabase = getSupabaseServer();
   const [hy, hm] = hasta.split('-').map(Number);
   const months: string[] = [];
-  for (let i = meses - 1; i >= 0; i--) {
+  for (let i = mesesMax - 1; i >= 0; i--) {
     const d = new Date(Date.UTC(hy, hm - 1 - i, 1));
     months.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
   }
   const start = `${months[0]}-01`;
 
-  const [soldRes, cashRes, spendRes] = await Promise.all([
+  const [soldRes, cashRes, spendRes, agendaRes] = await Promise.all([
     supabase.from('leads').select('fecha_cierre, monto_cierre_usd').eq('cerro', true).gte('fecha_cierre', start),
     supabase.from('pagos').select('fecha_pago, monto_usd').eq('pagado', true).gte('fecha_pago', start),
     supabase.from('marketing_metrics_daily').select('fecha, spend').eq('plataforma', 'meta').gte('fecha', start),
+    supabase.from('leads').select('fecha_junta_1').not('fecha_junta_1', 'is', null).gte('fecha_junta_1', start),
   ]);
   if (soldRes.error) throw new Error(`Revenue mensual (sold): ${soldRes.error.message}`);
   if (cashRes.error) throw new Error(`Revenue mensual (cash): ${cashRes.error.message}`);
   if (spendRes.error) throw new Error(`Revenue mensual (spend): ${spendRes.error.message}`);
+  if (agendaRes.error) throw new Error(`Revenue mensual (agendas): ${agendaRes.error.message}`);
 
   const sold = new Map<string, number>();
+  const cierres = new Map<string, number>();
   const cash = new Map<string, number>();
   const spendMxn = new Map<string, number>();
+  const agendas = new Map<string, number>();
   for (const r of (soldRes.data ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>) {
     if (!r.fecha_cierre) continue;
     const ym = r.fecha_cierre.slice(0, 7);
     sold.set(ym, (sold.get(ym) ?? 0) + Number(r.monto_cierre_usd ?? 0));
+    cierres.set(ym, (cierres.get(ym) ?? 0) + 1);
   }
   for (const r of (cashRes.data ?? []) as Array<{ fecha_pago: string | null; monto_usd: number | null }>) {
     if (!r.fecha_pago) continue;
@@ -1052,19 +1061,30 @@ async function _getRevenueMensual(hasta: string, meses = 12): Promise<RevenueMen
     const ym = r.fecha.slice(0, 7);
     spendMxn.set(ym, (spendMxn.get(ym) ?? 0) + Number(r.spend ?? 0));
   }
+  for (const r of (agendaRes.data ?? []) as Array<{ fecha_junta_1: string | null }>) {
+    if (!r.fecha_junta_1) continue;
+    const ym = r.fecha_junta_1.slice(0, 7);
+    agendas.set(ym, (agendas.get(ym) ?? 0) + 1);
+  }
 
   const labelDe = (ym: string) => {
     const [y, m] = ym.split('-').map(Number);
     return new Intl.DateTimeFormat('es-MX', { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
   };
 
-  return months.map((ym) => ({
+  const puntos = months.map((ym) => ({
     mes: ym,
     label: labelDe(ym),
     sold_usd: Math.round(sold.get(ym) ?? 0),
     cash_usd: Math.round(cash.get(ym) ?? 0),
     spend_usd: Math.round((spendMxn.get(ym) ?? 0) / TIPO_DE_CAMBIO_USD_MXN),
+    cierres: cierres.get(ym) ?? 0,
+    agendas: agendas.get(ym) ?? 0,
   }));
+
+  // Recortar meses iniciales sin ningún dato (no extender antes del primer mes activo).
+  const primerActivo = puntos.findIndex((p) => p.sold_usd || p.cash_usd || p.spend_usd || p.cierres || p.agendas);
+  return primerActivo <= 0 ? puntos : puntos.slice(primerActivo);
 }
 
 
@@ -2724,7 +2744,7 @@ async function _getTendencias(
       { key: 'impresiones', label: 'Impresiones', formato: 'num', valores: imp, cuadros: cuadrosSuma(imp, 'num') },
       { key: 'landing', label: 'Visitas a la landing', formato: 'num', valores: land, cuadros: cuadrosSuma(land, 'num') },
       { key: 'ctr_link', label: 'CTR de link', formato: 'pct', valores: ctr, cuadros: cuadrosTasa(ctr, 'pct') },
-      { key: 'spend', label: 'Spend (USD)', formato: 'usd', valores: spendUsd, cuadros: cuadrosSuma(spendUsd, 'usd') },
+      { key: 'spend', label: 'Ad Spend (USD)', formato: 'usd', valores: spendUsd, cuadros: cuadrosSuma(spendUsd, 'usd') },
       { key: 'leads', label: 'Leads (forms)', formato: 'num', valores: leads, cuadros: cuadrosLeads() },
       { key: 'cpl', label: 'CPL (USD)', formato: 'usd', valores: cpl, cuadros: cuadrosTasa(cpl, 'usd', true) },
       { key: 'vsl_plays', label: 'Plays del VSL', formato: 'num', valores: vslPlays, cuadros: cuadrosVsl() },

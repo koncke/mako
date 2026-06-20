@@ -188,8 +188,8 @@ export default async function GeneralPage() {
       detalle: [s.campana, s.adset_name].filter(Boolean).join(' · ') || undefined,
     }));
   const mtdDesgloses: Record<string, DesgloseData> = {
-    Inversión: {
-      label: 'Inversión del mes · por anuncio',
+    'Ad Spend': {
+      label: 'Ad Spend del mes · por anuncio',
       value: fmtUSD(senalesMTD.reduce((s, a) => s + a.spend_usd, 0)),
       color: 'var(--ink)',
       items: inversionMTDItems,
@@ -202,8 +202,8 @@ export default async function GeneralPage() {
       items: revItemsToDesglose(mtdBreak.sold, 'cierre', 'plan-pagos'),
       emptyText: 'Sin cierres este mes.',
     },
-    'Cash collected': {
-      label: 'Cash collected del mes',
+    'Cash Collected': {
+      label: 'Cash Collected del mes',
       value: fmtUSD(mtdBreak.cash.reduce((s, i) => s + i.monto, 0)),
       color: 'var(--good)',
       items: revItemsToDesglose(mtdBreak.cash, 'pago', 'plan-pagos'),
@@ -307,11 +307,11 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
           <DesgloseTrigger
-            data={{ label: 'Cash collected hacia la meta', value: fmtUSD(cashActual), color: 'var(--good)', items: cashItems, emptyText: 'Aún no hay cash cobrado en este objetivo.' }}
+            data={{ label: 'Cash Collected hacia la meta', value: fmtUSD(cashActual), color: 'var(--good)', items: cashItems, emptyText: 'Aún no hay cash cobrado en este objetivo.' }}
           >
             <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-                <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--on-sidebar)' }}>Cash collected hacia la meta</span>
+                <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--on-sidebar)' }}>Cash Collected hacia la meta</span>
                 <span style={{ fontSize: 13.5, color: 'var(--sidebar-text)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(cashActual)} / {fmtUSD(cashMeta)}{cashMeta > 0 ? ` · faltan ${fmtUSD(Math.max(cashMeta - cashActual, 0))}` : ''}</span>
               </div>
               <div style={{ width: '100%', height: 12, borderRadius: 999, background: 'rgba(243,240,231,.08)', overflow: 'hidden' }}>
@@ -322,7 +322,7 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
           </DesgloseTrigger>
           <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)' }}>Vendido (firmado)</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)' }}>Sold Revenue (firmado)</span>
               <span style={{ fontWeight: 700, fontSize: 26, color: 'var(--on-sidebar)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(sold)}</span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--sidebar-text)', opacity: 0.8, marginTop: 6 }}>Comprometido en contratos — aún no cobrado.</div>
@@ -342,10 +342,10 @@ function Arrow({ m, invertir = false }: { m: MetricaMTD; invertir?: boolean }) {
 
 function ResumenMes({ c, desgloses }: { c: ResumenComparativo; desgloses: Record<string, DesgloseData> }) {
   const items: Array<{ label: string; m: MetricaMTD; f: (n: number) => string; invertir?: boolean }> = [
-    { label: 'Inversión', m: c.inversion_usd, f: fmtUSD, invertir: true },
+    { label: 'Ad Spend', m: c.inversion_usd, f: fmtUSD, invertir: true },
     { label: 'Agendas', m: c.agendas, f: fmtNum },
     { label: 'Cierres', m: c.cierres, f: fmtNum },
-    { label: 'Cash collected', m: c.cash_usd, f: fmtUSD },
+    { label: 'Cash Collected', m: c.cash_usd, f: fmtUSD },
   ];
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
