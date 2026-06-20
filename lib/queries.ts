@@ -1172,7 +1172,7 @@ export async function getSenalesRecon(
   // Columnas del creativo (migración 0022). Si la migración aún no se aplicó,
   // la query falla con "column ... does not exist" → reintentamos sin ellas para
   // no romper toda la pantalla de Marketing (degradación elegante).
-  const BASE_ADS = 'fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, impressions, link_clicks, video_3s_views, video_thruplay, frequency';
+  const BASE_ADS = 'fecha, ad_id, ad_name, campaign_name, adset_id, adset_name, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency';
   const adsQuery = (cols: string) =>
     supabase
       .from('marketing_metrics_daily')
@@ -1200,7 +1200,7 @@ export async function getSenalesRecon(
   ]);
   for (const r of [adsRes, budgetRes, leadsRes]) if (r.error) throw new Error(`getSenalesRecon falló: ${r.error.message}`);
 
-  type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null; ad_thumbnail_url: string | null; ad_permalink: string | null; ad_creative_sin_enlace: boolean | null };
+  type AdRow = { fecha: string; ad_id: string; ad_name: string | null; campaign_name: string | null; adset_id: string | null; adset_name: string | null; spend: number | null; leads_count: number | null; agendas_meta: number | null; impressions: number | null; link_clicks: number | null; video_3s_views: number | null; video_thruplay: number | null; frequency: number | null; ad_thumbnail_url: string | null; ad_permalink: string | null; ad_creative_sin_enlace: boolean | null };
   const adRows = (adsRes.data ?? []) as unknown as AdRow[];
 
   // Gasto diario por adset (suma de sus anuncios) — para la señal de ritmo.
@@ -1232,10 +1232,10 @@ export async function getSenalesRecon(
   }
 
   // Agregar por anuncio
-  type Acc = { ad_name: string | null; campana: string | null; adset_id: string | null; adset_name: string | null; spendMxn: number; leads: number; imp: number; clk: number; v3: number; thru: number; freqVals: number[]; diasSpend: Set<string>; fechasSpend: string[]; thumb: string | null; permalink: string | null; sinEnlace: boolean; lastFecha: string };
+  type Acc = { ad_name: string | null; campana: string | null; adset_id: string | null; adset_name: string | null; spendMxn: number; leads: number; agendasMeta: number; imp: number; clk: number; v3: number; thru: number; freqVals: number[]; diasSpend: Set<string>; fechasSpend: string[]; thumb: string | null; permalink: string | null; sinEnlace: boolean; lastFecha: string };
   const porAd = new Map<string, Acc>();
   for (const r of adRows) {
-    const a = porAd.get(r.ad_id) ?? { ad_name: r.ad_name, campana: r.campaign_name, adset_id: r.adset_id, adset_name: r.adset_name, spendMxn: 0, leads: 0, imp: 0, clk: 0, v3: 0, thru: 0, freqVals: [], diasSpend: new Set<string>(), fechasSpend: [], thumb: null, permalink: null, sinEnlace: false, lastFecha: '' };
+    const a = porAd.get(r.ad_id) ?? { ad_name: r.ad_name, campana: r.campaign_name, adset_id: r.adset_id, adset_name: r.adset_name, spendMxn: 0, leads: 0, agendasMeta: 0, imp: 0, clk: 0, v3: 0, thru: 0, freqVals: [], diasSpend: new Set<string>(), fechasSpend: [], thumb: null, permalink: null, sinEnlace: false, lastFecha: '' };
     // Creativo: tomar el valor de la fila más reciente del anuncio.
     if (r.fecha >= a.lastFecha) {
       a.lastFecha = r.fecha;
@@ -1246,6 +1246,7 @@ export async function getSenalesRecon(
     const sp = Number(r.spend ?? 0);
     a.spendMxn += sp;
     a.leads += Number(r.leads_count ?? 0);
+    a.agendasMeta += Number(r.agendas_meta ?? 0);
     a.imp += Number(r.impressions ?? 0);
     a.clk += Number(r.link_clicks ?? 0);
     a.v3 += Number(r.video_3s_views ?? 0);
@@ -1311,7 +1312,9 @@ export async function getSenalesRecon(
       ritmo,
       ritmo_dias: ritmoDias,
       veredicto,
-      agendas: down.agendas,
+      // Agendas según Meta (Programaciones) por anuncio. Cierres/cash siguen del
+      // CRM (Meta no los conoce). Ver getAgendasComparador para la brecha global.
+      agendas: a.agendasMeta,
       cierres: down.cierres,
       cash_usd: down.cash,
       hook_rate: a.imp > 0 ? (a.v3 / a.imp) * 100 : null,
@@ -1326,6 +1329,36 @@ export async function getSenalesRecon(
   }
 
   return señales.sort((x, y) => y.leads - x.leads || y.spend_usd - x.spend_usd);
+}
+
+// =============================================================================
+// Comparador de agendas: Meta (Programaciones) vs CRM (agendas reales)
+// =============================================================================
+// Meta atribuye por su modelo (clic/vista). El CRM cuenta TODAS las agendas
+// (leads con fecha_junta_1 en el período), vengan o no de un anuncio rastreable.
+// El CRM suele ser MAYOR (incluye orgánico, directo y leads sin UTM/instant form).
+export type AgendasComparador = { meta: number; crm: number };
+
+export async function getAgendasComparador(start: string, end: string): Promise<AgendasComparador> {
+  const supabase = getSupabaseServer();
+  const [adsRes, crmRes] = await Promise.all([
+    supabase
+      .from('marketing_metrics_daily')
+      .select('agendas_meta')
+      .eq('plataforma', 'meta')
+      .not('ad_id', 'is', null)
+      .gte('fecha', start)
+      .lte('fecha', end),
+    supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .gte('fecha_junta_1', start)
+      .lte('fecha_junta_1', end),
+  ]);
+  if (adsRes.error) throw new Error(`getAgendasComparador (Meta) falló: ${adsRes.error.message}`);
+  if (crmRes.error) throw new Error(`getAgendasComparador (CRM) falló: ${crmRes.error.message}`);
+  const meta = ((adsRes.data ?? []) as Array<{ agendas_meta: number | null }>).reduce((s, r) => s + Number(r.agendas_meta ?? 0), 0);
+  return { meta, crm: crmRes.count ?? 0 };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

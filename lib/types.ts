@@ -43,6 +43,10 @@ export type MarketingMetricRow = {
   // Leads del instant form (de Insights, action_type lead — Fase 1 v2)
   leads_count?: number | null;
 
+  // Agendas según Meta (Programaciones = offsite_conversion.fb_pixel_custom).
+  // Atribución de Meta por anuncio — independiente del match por meta_ad_id.
+  agendas_meta?: number | null;
+
   // Métricas de video del anuncio (Fase 1 v2 — diagnóstico de consumo Recon)
   video_3s_views?: number | null;
   video_thruplay?: number | null;

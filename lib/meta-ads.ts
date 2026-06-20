@@ -233,6 +233,9 @@ export function parseInsightsToMetrics(
     );
     const leadsCount = leadsDirect ?? leadsGrouped;
 
+    // Agendas según Meta: conversión personalizada "Programaciones".
+    const agendasMeta = findActionValue(ins.actions, 'offsite_conversion.fb_pixel_custom');
+
     // Video: las *_watched_actions vienen como arrays {action_type, value};
     // el valor real está bajo action_type 'video_view'
     const video3s = findActionValue(ins.actions, 'video_view');
@@ -262,6 +265,7 @@ export function parseInsightsToMetrics(
       ad_name: ins.ad_name ?? null,
 
       leads_count: leadsCount,
+      agendas_meta: agendasMeta,
       video_3s_views: video3s,
       video_thruplay: videoThruplay,
       video_p25: videoP25,
