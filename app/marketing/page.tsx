@@ -33,6 +33,7 @@ import { getDataSources, sourcesToMap } from '@/lib/sources';
 import Link from 'next/link';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
+import { DesgloseTrigger, type DesgloseItem } from '../_components/Desglose';
 import { AnuncioCard, tieneSenal, compararCombo } from './AnuncioCard';
 
 export const dynamic = 'force-dynamic';
@@ -156,7 +157,7 @@ export default async function Page({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} />
+          <KpisEstrella mkt={mkt} comparativo={comparativo} revenue={revenue} filtroActivo={filtroActivo} senales={senales} />
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} />
 
@@ -182,14 +183,26 @@ function KpisEstrella({
   comparativo,
   revenue,
   filtroActivo,
+  senales,
 }: {
   mkt: MarketingWindow;
   comparativo: ResumenComparativo | null;
   revenue: RevenuePeriod | null;
   filtroActivo: boolean;
+  senales: SenalRecon[];
 }) {
   // Inversión: spend del rango. Delta = factor vs mismo período del mes anterior.
   const spend = mkt.spend_usd;
+
+  // Desglose de la inversión por anuncio (los que gastaron en el rango).
+  const inversionItems: DesgloseItem[] = senales
+    .filter((s) => s.spend_usd > 0)
+    .sort((a, b) => b.spend_usd - a.spend_usd)
+    .map((s) => ({
+      nombre: s.ad_name,
+      valor: fmtUSD(s.spend_usd, 0),
+      detalle: [s.campana, s.adset_name].filter(Boolean).join(' · ') || undefined,
+    }));
   const spendAnt = comparativo?.inversion_usd.anterior ?? null;
   let invFactor: string | null = null;
   if (spendAnt !== null && spendAnt > 0 && Number.isFinite(spend)) {
@@ -206,14 +219,18 @@ function KpisEstrella({
 
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
-      <KpiCard
-        topColor="var(--border-strong)"
-        label="Inversión"
-        valor={fmtUSD(spend, 0)}
-        valorColor="var(--ink)"
-        chip={invFactor}
-        sub={spendAnt !== null ? `${etiquetaAnt ? 'previo' : 'previo'} · ${fmtUSD(spendAnt, 0)}` : 'sin comparativo'}
-      />
+      <DesgloseTrigger
+        data={{ label: 'Inversión · por anuncio', value: fmtUSD(spend, 0), color: 'var(--ink)', items: inversionItems, emptyText: 'Sin gasto a nivel anuncio en el rango.' }}
+      >
+        <KpiCard
+          topColor="var(--border-strong)"
+          label="Inversión"
+          valor={fmtUSD(spend, 0)}
+          valorColor="var(--ink)"
+          chip={invFactor}
+          sub={inversionItems.length > 0 ? `ver detalle · ${inversionItems.length} anuncio${inversionItems.length === 1 ? '' : 's'} →` : (spendAnt !== null ? `previo · ${fmtUSD(spendAnt, 0)}` : 'sin comparativo')}
+        />
+      </DesgloseTrigger>
       <KpiCard
         topColor="var(--border-strong)"
         label="CAC real"

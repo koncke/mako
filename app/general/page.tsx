@@ -20,9 +20,10 @@ import {
   type MetricaMTD,
 } from '@/lib/queries';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
-import { getCuotasPendientes } from '@/lib/pagos';
+import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
 import { EditarMeta } from './EditarMeta';
+import { DesgloseTrigger, type DesgloseItem } from '../_components/Desglose';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,6 +37,18 @@ function fmtUSD(n: number | null | undefined): string {
 function fmtNum(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
   return new Intl.NumberFormat('es-MX').format(Math.round(n));
+}
+function fmtDMY(iso: string | null): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-').map(Number);
+  return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+}
+function revItemsToDesglose(items: RevItem[], fechaLabel: string): DesgloseItem[] {
+  return items.map((it) => ({
+    nombre: it.nombre,
+    valor: fmtUSD(it.monto),
+    detalle: `${it.detalle ? `${it.detalle} · ` : ''}${fechaLabel} ${fmtDMY(it.fecha)}`,
+  }));
 }
 
 type Nivel = 'rojo' | 'ambar' | 'verde';
@@ -62,6 +75,17 @@ export default async function GeneralPage() {
   const fatiga = fatR.status === 'fulfilled' ? fatR.value : [];
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
   const cuotas = cuotasR.status === 'fulfilled' ? cuotasR.value : { vencidas: [], porVencer: [] };
+
+  // Desglose del objetivo (cierres / cash) en su ventana [objetivo.desde, hoy].
+  // Reutiliza getRevenueBreakdowns: .sold = cierres firmados, .cash = pagos cobrados.
+  let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
+  if (objetivo) {
+    try {
+      breakdowns = await getRevenueBreakdowns(objetivo.desde, hoy);
+    } catch {
+      // degradación elegante: si falla, el Hero sigue mostrando los números sin pop-up.
+    }
+  }
 
   // ── Semáforo: alertas accionables (compacto) ──
   const alertas: Alerta[] = [];
@@ -139,7 +163,7 @@ export default async function GeneralPage() {
       </header>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-        <HeroGoal meta={meta} actual={actual} faltan={faltan} cierres30={objetivo?.cierres_30d ?? 0} semanas={objetivo?.semanas_estimadas ?? null} cashActual={cashActual} cashMeta={cashMeta} cashPct={cashPct} sold={sold} cierresMetaRaw={objetivo?.cierres_meta ?? null} cashMetaRaw={objetivo?.cash_meta ?? null} desde={objetivo?.desde ?? ''} />
+        <HeroGoal meta={meta} actual={actual} faltan={faltan} cierres30={objetivo?.cierres_30d ?? 0} semanas={objetivo?.semanas_estimadas ?? null} cashActual={cashActual} cashMeta={cashMeta} cashPct={cashPct} sold={sold} cierresMetaRaw={objetivo?.cierres_meta ?? null} cashMetaRaw={objetivo?.cash_meta ?? null} desde={objetivo?.desde ?? ''} cierresItems={revItemsToDesglose(breakdowns.sold, 'cierre')} cashItems={revItemsToDesglose(breakdowns.cash, 'pago')} />
 
         {comparativo && <ResumenMes c={comparativo} />}
 
@@ -155,10 +179,11 @@ export default async function GeneralPage() {
   );
 }
 
-function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMeta, cashPct, sold, cierresMetaRaw, cashMetaRaw, desde }: {
+function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMeta, cashPct, sold, cierresMetaRaw, cashMetaRaw, desde, cierresItems, cashItems }: {
   meta: number; actual: number; faltan: number; cierres30: number; semanas: number | null;
   cashActual: number; cashMeta: number; cashPct: number; sold: number;
   cierresMetaRaw: number | null; cashMetaRaw: number | null; desde: string;
+  cierresItems: DesgloseItem[]; cashItems: DesgloseItem[];
 }) {
   const blocks = Math.min(meta, 40);
   return (
@@ -177,10 +202,16 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18, flexWrap: 'wrap', margin: '34px 0 18px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-            <span style={{ fontWeight: 700, fontSize: 108, lineHeight: 0.78, letterSpacing: '-0.05em', color: 'var(--accent-soft)', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 40px rgba(240,198,10,.35)' }}>{actual}</span>
-            <span style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.03em', color: 'rgba(243,240,231,.45)' }}>/{meta}</span>
-          </div>
+          <DesgloseTrigger
+            data={{ label: 'Cierres hacia la meta', value: `${actual} / ${meta}`, color: 'var(--accent)', items: cierresItems, emptyText: 'Aún no hay cierres en este objetivo.' }}
+            style={{ width: 'auto', display: 'inline-block' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontWeight: 700, fontSize: 108, lineHeight: 0.78, letterSpacing: '-0.05em', color: 'var(--accent-soft)', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 40px rgba(240,198,10,.35)' }}>{actual}</span>
+              <span style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.03em', color: 'rgba(243,240,231,.45)' }}>/{meta}</span>
+            </div>
+            <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--accent-soft)', marginTop: 8 }}>ver los {actual} cierres →</span>
+          </DesgloseTrigger>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7, paddingBottom: 8 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start', fontWeight: 600, fontSize: 14, padding: '6px 13px', borderRadius: 999, background: 'rgba(240,198,10,.14)', color: 'var(--accent-soft)', border: '1px solid rgba(240,198,10,.25)' }}>▲ +{cierres30} en los últimos 30 días</span>
             <span style={{ fontSize: 15, color: 'var(--sidebar-text)' }}>Faltan <strong style={{ color: 'var(--on-sidebar)' }}>{faltan} cierres</strong>{semanas ? <> · a este ritmo llegás en <strong style={{ color: 'var(--on-sidebar)' }}>~{semanas} semanas</strong></> : null}</span>
@@ -207,15 +238,20 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
-          <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-              <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--on-sidebar)' }}>Cash collected hacia la meta</span>
-              <span style={{ fontSize: 13.5, color: 'var(--sidebar-text)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(cashActual)} / {fmtUSD(cashMeta)}{cashMeta > 0 ? ` · faltan ${fmtUSD(Math.max(cashMeta - cashActual, 0))}` : ''}</span>
+          <DesgloseTrigger
+            data={{ label: 'Cash collected hacia la meta', value: fmtUSD(cashActual), color: 'var(--good)', items: cashItems, emptyText: 'Aún no hay cash cobrado en este objetivo.' }}
+          >
+            <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--on-sidebar)' }}>Cash collected hacia la meta</span>
+                <span style={{ fontSize: 13.5, color: 'var(--sidebar-text)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(cashActual)} / {fmtUSD(cashMeta)}{cashMeta > 0 ? ` · faltan ${fmtUSD(Math.max(cashMeta - cashActual, 0))}` : ''}</span>
+              </div>
+              <div style={{ width: '100%', height: 12, borderRadius: 999, background: 'rgba(243,240,231,.08)', overflow: 'hidden' }}>
+                <div style={{ width: `${cashPct}%`, height: '100%', borderRadius: 999, background: 'var(--good)', boxShadow: '0 0 12px rgba(28,138,84,.45)' }} />
+              </div>
+              <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--accent-soft)', marginTop: 12 }}>ver desglose por lead →</span>
             </div>
-            <div style={{ width: '100%', height: 12, borderRadius: 999, background: 'rgba(243,240,231,.08)', overflow: 'hidden' }}>
-              <div style={{ width: `${cashPct}%`, height: '100%', borderRadius: 999, background: 'var(--good)', boxShadow: '0 0 12px rgba(28,138,84,.45)' }} />
-            </div>
-          </div>
+          </DesgloseTrigger>
           <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
               <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)' }}>Vendido (firmado)</span>
