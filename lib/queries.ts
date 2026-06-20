@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { getSupabaseServer } from './supabase';
-import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD } from './config';
+import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { getCashCollectedPeriodo, getOutstandingTotal, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
@@ -219,10 +219,15 @@ export async function getMarketingWindow(
   // (Fase 5 v2: youtube no contaba los embeds con autoplay → daba 0%.)
   const pandaPlays = sum(pandaRows.map((r) => r.video_plays));
   const vslYoutube = vslRows.length === 0 ? null : sum(vslWithData.map((r) => r.youtube_views));
+  // VSL anterior de prueba (seed 0023): views reales de un VSL previo. Se suman
+  // al total del VSL (igual que en la línea de Tendencias). Marcador por id, no
+  // por tipo (su youtube_video_type es NULL).
+  const vslPruebaRows = ytRows.filter((r) => r.youtube_video_id === VSL_PRUEBA_VIDEO_ID && r.youtube_views !== null);
+  const vslPruebaViews = sum(vslPruebaRows.map((r) => r.youtube_views));
   const vsl_views =
-    vslYoutube === null && pandaRows.length === 0
+    vslYoutube === null && pandaRows.length === 0 && vslPruebaRows.length === 0
       ? null
-      : (vslYoutube ?? 0) + pandaPlays;
+      : (vslYoutube ?? 0) + pandaPlays + vslPruebaViews;
   const thanks_views = thanksRows.length === 0 ? null : sum(thanksWithData.map((r) => r.youtube_views));
   const thanks_prep_views = thanksPrepRows.length === 0 ? null : sum(thanksPrepWithData.map((r) => r.youtube_views));
 
@@ -2276,7 +2281,7 @@ export async function getTendencias(
     supabase.from('marketing_metrics_daily').select('fecha, youtube_views').eq('plataforma', 'youtube').eq('youtube_video_type', 'vsl').gte('fecha', rangoInicio).lte('fecha', rangoFin),
     // VSL ANTERIOR de prueba (0023): línea propia en Tendencias, NO entra al funnel
     // (youtube_video_type NULL → ignorado por vsl_views y por la serie 'vsl_plays').
-    supabase.from('marketing_metrics_daily').select('fecha, youtube_views').eq('plataforma', 'youtube').eq('youtube_video_id', 'vsl-prueba-dos').gte('fecha', rangoInicio).lte('fecha', rangoFin),
+    supabase.from('marketing_metrics_daily').select('fecha, youtube_views').eq('plataforma', 'youtube').eq('youtube_video_id', VSL_PRUEBA_VIDEO_ID).gte('fecha', rangoInicio).lte('fecha', rangoFin),
     supabase.from('leads').select('fecha_agenda, fecha_junta_1, asistio_j1, fecha_cierre, estado_lead').or(`fecha_agenda.gte.${rangoInicio},fecha_junta_1.gte.${rangoInicio},fecha_cierre.gte.${rangoInicio}`),
     supabase.from('pagos').select('fecha_pago, monto_usd, pagado').eq('pagado', true).gte('fecha_pago', rangoInicio).lte('fecha_pago', rangoFin),
   ]);

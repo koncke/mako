@@ -30,6 +30,15 @@ export function mxnAUsd(montoMxn: number | null | undefined): number {
 }
 
 /**
+ * Marcador del VSL ANTERIOR de prueba (sembrado en la migración 0023). Sus
+ * filas en marketing_metrics_daily usan youtube_video_id = este valor y
+ * youtube_video_type = NULL (para no entrar como un VSL del funnel "por tipo").
+ * Sus views SÍ se suman a los plays totales del VSL (línea de Tendencias y
+ * etapa VSL del funnel) porque son views reales de un VSL anterior.
+ */
+export const VSL_PRUEBA_VIDEO_ID = 'vsl-prueba-dos';
+
+/**
  * ID de la página de Facebook "Mauricio Bustos Eguia", dueña de los
  * formularios instantáneos. Usado por el cron de polling de leads (Fase 4 v2)
  * para listar los leadgen_forms.
