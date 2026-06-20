@@ -39,7 +39,7 @@ export function MakoButton({
         type="button"
         onClick={() => setOpen(true)}
         title="Conclusiones con MaKo"
-        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 999, border: '1px solid var(--accent)', background: 'rgba(200,135,12,.08)', color: '#9A6A09', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 15px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}
       >
         ✨ MaKo
       </button>

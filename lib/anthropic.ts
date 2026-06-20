@@ -17,12 +17,22 @@ export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };
 export async function chatClaude(
   system: string,
   messages: ClaudeMsg[],
-  opts: { model?: string; thinkingBudget?: number } = {},
+  opts: { model?: string; thinkingBudget?: number; maxTokens?: number } = {},
 ): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
+  // thinkingBudget === 0 → sin extended thinking (para tareas chicas como títulos).
   const budget = opts.thinkingBudget ?? THINKING_BUDGET;
+  const thinkingOn = budget > 0;
+  const payload: Record<string, unknown> = {
+    model: opts.model ?? MODEL,
+    max_tokens: thinkingOn ? budget + 4000 : (opts.maxTokens ?? 512),
+    system,
+    messages,
+  };
+  if (thinkingOn) payload.thinking = { type: 'enabled', budget_tokens: budget };
+
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
@@ -30,13 +40,7 @@ export async function chatClaude(
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({
-      model: opts.model ?? MODEL,
-      max_tokens: budget + 4000,
-      system,
-      messages,
-      thinking: { type: 'enabled', budget_tokens: budget },
-    }),
+    body: JSON.stringify(payload),
     cache: 'no-store',
   });
 

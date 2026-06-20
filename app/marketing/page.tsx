@@ -165,7 +165,7 @@ export default async function Page({
 
           <SaludDelFunnel mkt={mkt} funnel={funnel} senales={senales} />
 
-          {tendencias && <TendenciasSection tendencias={tendencias} accion={<MakoButton chartKey="marketing-tendencias" titulo="Tendencias" contexto={ctxTendencias} />} />}
+          {tendencias && <TendenciasSection tendencias={tendencias} accion={<MakoButton chartKey="marketing-tendencias" titulo="Tendencias" contexto={ctxTendencias} chart={<TendenciasSection tendencias={tendencias} />} />} />}
 
           <ResumenCreativos desde={rangoDesde} hasta={rangoHasta} />
 

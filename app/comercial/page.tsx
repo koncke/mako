@@ -590,12 +590,46 @@ function SCLTimeline({ scl, tramos, sclDesglose }: { scl: SCL | null; tramos: Tr
     ...tramoList.map((t) => `  ${t.label}: ${t.dias_promedio !== null ? `${t.dias_promedio.toFixed(1)}d` : 's/d'} (n=${t.n})${masLento === t.label ? ' ← el más lento' : ''}`),
   ].join('\n');
 
+  const graficoScl = nodos.length === 0 ? (
+    <p style={{ fontSize: 14, color: 'var(--faint)', margin: '14px 0 0' }}>Sin datos de ciclo todavía.</p>
+  ) : (
+    <div style={{ overflowX: 'auto', padding: '18px 0 4px' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', minWidth: 760, height: 'auto', display: 'block', overflow: 'visible' }} role="img" aria-label="Línea de tiempo del ciclo de venta">
+        <line x1={nodeX(0)} y1={baseY} x2={nodeX(nodos.length - 1)} y2={baseY} stroke="var(--border-strong)" strokeWidth={2} />
+        {tramoList.map((t, i) => {
+          const x1 = nodeX(i); const x2 = nodeX(i + 1); const mid = (x1 + x2) / 2;
+          const tieneDato = t.dias_promedio !== null; const esLento = masLento === t.label && tieneDato;
+          return (
+            <g key={`tramo-${t.label}`}>
+              {esLento && <line x1={x1} y1={baseY} x2={x2} y2={baseY} stroke="var(--bad)" strokeWidth={4} strokeLinecap="round" />}
+              <text x={mid} y={86} textAnchor="middle" fontSize={16} fontWeight={esLento ? 700 : 600} fill={tieneDato ? (esLento ? 'var(--bad)' : 'var(--ink)') : 'var(--faint)'} fontFamily="Geist Mono, monospace">{tieneDato ? `+${t.dias_promedio!.toFixed(1)} d` : 's/d'}</text>
+              <text x={mid} y={130} textAnchor="middle" fontSize={12} fill="var(--faint)" fontFamily="Geist Mono, monospace">n={t.n}{esLento ? ' · lento' : ''}</text>
+            </g>
+          );
+        })}
+        {nodos.map((raw, i) => {
+          const x = nodeX(i); const arriba = i % 2 === 0; const incoming = i === 0 ? null : tramoList[i - 1];
+          const activo = i === 0 || (incoming?.dias_promedio ?? null) !== null;
+          const fill = i === 0 ? 'var(--accent-soft)' : activo ? 'var(--good)' : 'var(--border-strong)';
+          const label = NODO_NICE[raw] ?? raw; const tickY1 = arriba ? 96 : 112; const tickY2 = arriba ? 74 : 140; const labelY = arriba ? 62 : 162;
+          return (
+            <g key={`nodo-${i}`}>
+              <line x1={x} y1={tickY1} x2={x} y2={tickY2} stroke="var(--border-strong)" strokeWidth={1} />
+              <circle cx={x} cy={baseY} r={8} fill={fill} stroke="var(--surface)" strokeWidth={3} />
+              <text x={x} y={labelY} textAnchor="middle" fontSize={16} fontWeight={600} fill="var(--ink)" fontFamily="Geist, sans-serif">{label}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>SCL — ciclo de venta</h2>
-          <MakoButton chartKey="comercial-scl" titulo="SCL — ciclo de venta" contexto={ctxScl} />
+          <MakoButton chartKey="comercial-scl" titulo="SCL — ciclo de venta" contexto={ctxScl} chart={graficoScl} />
         </div>
         {(() => {
           const box = (
@@ -609,70 +643,7 @@ function SCLTimeline({ scl, tramos, sclDesglose }: { scl: SCL | null; tramos: Tr
         })()}
       </div>
 
-      {nodos.length === 0 ? (
-        <p style={{ fontSize: 14, color: 'var(--faint)', margin: '14px 0 0' }}>Sin datos de ciclo todavía.</p>
-      ) : (
-        <div style={{ overflowX: 'auto', padding: '18px 0 4px' }}>
-          <svg
-            viewBox={`0 0 ${W} ${H}`}
-            style={{ width: '100%', minWidth: 760, height: 'auto', display: 'block', overflow: 'visible' }}
-            role="img"
-            aria-label="Línea de tiempo del ciclo de venta"
-          >
-            <line x1={nodeX(0)} y1={baseY} x2={nodeX(nodos.length - 1)} y2={baseY} stroke="var(--border-strong)" strokeWidth={2} />
-
-            {/* Tramos */}
-            {tramoList.map((t, i) => {
-              const x1 = nodeX(i);
-              const x2 = nodeX(i + 1);
-              const mid = (x1 + x2) / 2;
-              const tieneDato = t.dias_promedio !== null;
-              const esLento = masLento === t.label && tieneDato;
-              return (
-                <g key={`tramo-${t.label}`}>
-                  {esLento && <line x1={x1} y1={baseY} x2={x2} y2={baseY} stroke="var(--bad)" strokeWidth={4} strokeLinecap="round" />}
-                  <text
-                    x={mid}
-                    y={86}
-                    textAnchor="middle"
-                    fontSize={16}
-                    fontWeight={esLento ? 700 : 600}
-                    fill={tieneDato ? (esLento ? 'var(--bad)' : 'var(--ink)') : 'var(--faint)'}
-                    fontFamily="Geist Mono, monospace"
-                  >
-                    {tieneDato ? `+${t.dias_promedio!.toFixed(1)} d` : 's/d'}
-                  </text>
-                  <text x={mid} y={130} textAnchor="middle" fontSize={12} fill="var(--faint)" fontFamily="Geist Mono, monospace">
-                    n={t.n}{esLento ? ' · lento' : ''}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Nodos */}
-            {nodos.map((raw, i) => {
-              const x = nodeX(i);
-              const arriba = i % 2 === 0;
-              const incoming = i === 0 ? null : tramoList[i - 1];
-              const activo = i === 0 || (incoming?.dias_promedio ?? null) !== null;
-              const fill = i === 0 ? 'var(--accent-soft)' : activo ? 'var(--good)' : 'var(--border-strong)';
-              const label = NODO_NICE[raw] ?? raw;
-              const tickY1 = arriba ? 96 : 112;
-              const tickY2 = arriba ? 74 : 140;
-              const labelY = arriba ? 62 : 162;
-              return (
-                <g key={`nodo-${i}`}>
-                  <line x1={x} y1={tickY1} x2={x} y2={tickY2} stroke="var(--border-strong)" strokeWidth={1} />
-                  <circle cx={x} cy={baseY} r={8} fill={fill} stroke="var(--surface)" strokeWidth={3} />
-                  <text x={x} y={labelY} textAnchor="middle" fontSize={16} fontWeight={600} fill="var(--ink)" fontFamily="Geist, sans-serif">
-                    {label}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-      )}
+      {graficoScl}
     </section>
   );
 }

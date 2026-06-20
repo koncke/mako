@@ -11,16 +11,20 @@ export type ChartSession = {
   chart_key: string;
   titulo: string | null;
   contexto: string | null;
+  pinned: boolean;
+  archived: boolean;
   created_at: string;
   updated_at: string;
 };
+
+const SESSION_COLS = 'id, chart_key, titulo, contexto, pinned, archived, created_at, updated_at';
 
 export async function createSession(chartKey: string, titulo: string | null, contexto: string | null): Promise<ChartSession> {
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('chart_sessions')
     .insert({ chart_key: chartKey, titulo, contexto })
-    .select('id, chart_key, titulo, contexto, created_at, updated_at')
+    .select(SESSION_COLS)
     .single();
   if (error) throw new Error(`createSession falló: ${error.message}`);
   return data as ChartSession;
@@ -30,35 +34,50 @@ export async function getSession(sessionId: number): Promise<ChartSession | null
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('chart_sessions')
-    .select('id, chart_key, titulo, contexto, created_at, updated_at')
+    .select(SESSION_COLS)
     .eq('id', sessionId)
     .maybeSingle();
   if (error) throw new Error(`getSession falló: ${error.message}`);
   return (data as ChartSession) ?? null;
 }
 
-/** Sesiones de un gráfico, más reciente primero. */
-export async function listSessions(chartKey: string): Promise<ChartSession[]> {
+/** Sesiones de un gráfico: pineadas primero, luego por actividad. Sin archivadas. */
+export async function listSessions(chartKey: string, incluirArchivadas = false): Promise<ChartSession[]> {
   const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('chart_sessions')
-    .select('id, chart_key, titulo, contexto, created_at, updated_at')
-    .eq('chart_key', chartKey)
-    .order('updated_at', { ascending: false });
+  let q = supabase.from('chart_sessions').select(SESSION_COLS).eq('chart_key', chartKey);
+  if (!incluirArchivadas) q = q.eq('archived', false);
+  const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false });
   if (error) throw new Error(`listSessions falló: ${error.message}`);
   return (data ?? []) as ChartSession[];
 }
 
 /** Todas las sesiones (para la tab "Preguntale a MaKo"). */
-export async function listAllSessions(limit = 200): Promise<ChartSession[]> {
+export async function listAllSessions(incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
   const supabase = getSupabaseServer();
-  const { data, error } = await supabase
-    .from('chart_sessions')
-    .select('id, chart_key, titulo, contexto, created_at, updated_at')
-    .order('updated_at', { ascending: false })
-    .limit(limit);
+  let q = supabase.from('chart_sessions').select(SESSION_COLS);
+  if (!incluirArchivadas) q = q.eq('archived', false);
+  const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
   if (error) throw new Error(`listAllSessions falló: ${error.message}`);
   return (data ?? []) as ChartSession[];
+}
+
+export async function renameSession(id: number, titulo: string): Promise<void> {
+  const { error } = await getSupabaseServer().from('chart_sessions').update({ titulo }).eq('id', id);
+  if (error) throw new Error(`renameSession falló: ${error.message}`);
+}
+export async function setPinned(id: number, pinned: boolean): Promise<void> {
+  const { error } = await getSupabaseServer().from('chart_sessions').update({ pinned }).eq('id', id);
+  if (error) throw new Error(`setPinned falló: ${error.message}`);
+}
+export async function setArchived(id: number, archived: boolean): Promise<void> {
+  const { error } = await getSupabaseServer().from('chart_sessions').update({ archived }).eq('id', id);
+  if (error) throw new Error(`setArchived falló: ${error.message}`);
+}
+export async function deleteSession(id: number): Promise<void> {
+  const supabase = getSupabaseServer();
+  await supabase.from('chart_chats').delete().eq('session_id', id);
+  const { error } = await supabase.from('chart_sessions').delete().eq('id', id);
+  if (error) throw new Error(`deleteSession falló: ${error.message}`);
 }
 
 export async function getSessionMessages(sessionId: number): Promise<ChartMsg[]> {
