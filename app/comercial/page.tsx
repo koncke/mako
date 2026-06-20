@@ -23,6 +23,8 @@ import {
   getFunnelMadurasLeads,
   getJ1Leads,
   getSCLLeads,
+  getRevenueMensual,
+  type RevenueMensualPunto,
   type CohorteSemana,
   type CohorteMes,
   type EstadoMadurezCohorte,
@@ -38,6 +40,8 @@ import {
 import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
 import { RevenueKpis, type RevCard } from './RevenueKpis';
 import { DesgloseTrigger, type DesgloseData, type DesgloseItem } from '../_components/Desglose';
+import { ChartIA } from '../_components/ChartIA';
+import { RevenueMensualChart } from './RevenueMensualChart';
 import { fmtUSD, fmtNum } from '@/lib/format';
 import {
   ayerEnTijuana,
@@ -161,10 +165,11 @@ export default async function ComercialPage({
   let funnelLeads: FunnelMadurasLeads | null = null;
   let j1Leads: FunnelLeadItem[] = [];
   let sclLeads: SCLLeadItem[] = [];
+  let revenueMensual: RevenueMensualPunto[] = [];
   let errorMsg: string | null = null;
 
   try {
-    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, j1Leads, sclLeads] = await Promise.all([
+    [semanales, mensuales, scl, maduras, tramos, revenue, outstanding, cac, breakdowns, funnelLeads, j1Leads, sclLeads, revenueMensual] = await Promise.all([
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
@@ -179,6 +184,7 @@ export default async function ComercialPage({
       // (evita escanear todo el histórico de leads en cada carga).
       getJ1Leads(diasAntes(hoyReal, 370)),
       getSCLLeads(),
+      getRevenueMensual(hoyReal, 12),
     ]);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
@@ -231,6 +237,13 @@ export default async function ComercialPage({
     })),
   } : undefined;
 
+  // Contexto del gráfico mensual para el análisis con Claude.
+  const contextoRevenueMensual = [
+    'Ingresos y gasto en ads por mes (USD). "Cerrado" = monto firmado de cierres con fecha de cierre en el mes; "Cobrado" = pagos cobrados en el mes; "Gasto en ads" = inversión en Meta Ads del mes.',
+    'mes | cerrado | cobrado | gasto_ads',
+    ...revenueMensual.map((p) => `${p.mes} | ${p.sold_usd} | ${p.cash_usd} | ${p.spend_usd}`),
+  ].join('\n');
+
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header
@@ -254,6 +267,15 @@ export default async function ComercialPage({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
           {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} />}
+
+          {revenueMensual.length > 0 && (
+            <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
+              <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 18px', color: 'var(--ink)' }}>Ingresos y gasto · mes a mes</h2>
+              <ChartIA chartKey="comercial-revenue-mensual" titulo="Ingresos y gasto · mes a mes" contexto={contextoRevenueMensual}>
+                <RevenueMensualChart data={revenueMensual} />
+              </ChartIA>
+            </section>
+          )}
 
           {maduras && <SaludFunnel maduras={maduras} cac={cac} funnelLeads={funnelLeads} />}
 

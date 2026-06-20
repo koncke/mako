@@ -999,6 +999,74 @@ export async function listCACMensual(limit = 12): Promise<CACMensualEntry[]> {
   return entries.slice(-limit);
 }
 
+// =============================================================================
+// Ingresos vs gasto mensual (gráfico de línea de Comercial)
+// =============================================================================
+// Una fila por mes del rango (continua, incluye meses en cero): cuánto se cerró
+// (sold), cuánto entró (cash cobrado) y cuánto se gastó en ads (Meta, USD). Sirve
+// para ver la evolución mes a mes y comparar inversión vs resultados.
+
+export type RevenueMensualPunto = {
+  mes: string;        // 'YYYY-MM'
+  label: string;      // etiqueta de eje, p.ej. 'jun 26'
+  sold_usd: number;   // cerrado/firmado (monto_cierre de cierres con fecha en el mes)
+  cash_usd: number;   // cobrado (pagos pagados con fecha de pago en el mes)
+  spend_usd: number;  // gasto en ads (Meta), convertido a USD
+};
+
+export const getRevenueMensual = cachedRead('getRevenueMensual', _getRevenueMensual, { tags: [TAG.leads, TAG.pagos, TAG.marketing], revalidate: TTL.user });
+async function _getRevenueMensual(hasta: string, meses = 12): Promise<RevenueMensualPunto[]> {
+  const supabase = getSupabaseServer();
+  const [hy, hm] = hasta.split('-').map(Number);
+  const months: string[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(hy, hm - 1 - i, 1));
+    months.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  const start = `${months[0]}-01`;
+
+  const [soldRes, cashRes, spendRes] = await Promise.all([
+    supabase.from('leads').select('fecha_cierre, monto_cierre_usd').eq('cerro', true).gte('fecha_cierre', start),
+    supabase.from('pagos').select('fecha_pago, monto_usd').eq('pagado', true).gte('fecha_pago', start),
+    supabase.from('marketing_metrics_daily').select('fecha, spend').eq('plataforma', 'meta').gte('fecha', start),
+  ]);
+  if (soldRes.error) throw new Error(`Revenue mensual (sold): ${soldRes.error.message}`);
+  if (cashRes.error) throw new Error(`Revenue mensual (cash): ${cashRes.error.message}`);
+  if (spendRes.error) throw new Error(`Revenue mensual (spend): ${spendRes.error.message}`);
+
+  const sold = new Map<string, number>();
+  const cash = new Map<string, number>();
+  const spendMxn = new Map<string, number>();
+  for (const r of (soldRes.data ?? []) as Array<{ fecha_cierre: string | null; monto_cierre_usd: number | null }>) {
+    if (!r.fecha_cierre) continue;
+    const ym = r.fecha_cierre.slice(0, 7);
+    sold.set(ym, (sold.get(ym) ?? 0) + Number(r.monto_cierre_usd ?? 0));
+  }
+  for (const r of (cashRes.data ?? []) as Array<{ fecha_pago: string | null; monto_usd: number | null }>) {
+    if (!r.fecha_pago) continue;
+    const ym = r.fecha_pago.slice(0, 7);
+    cash.set(ym, (cash.get(ym) ?? 0) + Number(r.monto_usd ?? 0));
+  }
+  for (const r of (spendRes.data ?? []) as Array<{ fecha: string | null; spend: number | null }>) {
+    if (!r.fecha) continue;
+    const ym = r.fecha.slice(0, 7);
+    spendMxn.set(ym, (spendMxn.get(ym) ?? 0) + Number(r.spend ?? 0));
+  }
+
+  const labelDe = (ym: string) => {
+    const [y, m] = ym.split('-').map(Number);
+    return new Intl.DateTimeFormat('es-MX', { month: 'short', year: '2-digit', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, 1)));
+  };
+
+  return months.map((ym) => ({
+    mes: ym,
+    label: labelDe(ym),
+    sold_usd: Math.round(sold.get(ym) ?? 0),
+    cash_usd: Math.round(cash.get(ym) ?? 0),
+    spend_usd: Math.round((spendMxn.get(ym) ?? 0) / TIPO_DE_CAMBIO_USD_MXN),
+  }));
+}
+
 
 // =============================================================================
 // FASE 8 — queries para el rediseño visual

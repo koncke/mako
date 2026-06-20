@@ -30,10 +30,9 @@ export function ResumenCreativos({ desde, hasta }: { desde: string; hasta: strin
 
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 6px', color: 'var(--ink)' }}>Audiencia y alcance — toda la cuenta</h2>
-      <p style={{ fontSize: 13.5, color: 'var(--faint)', margin: '0 0 18px' }}>Quién vio tus anuncios en el período (todos sumados), directo de Meta.</p>
+      <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 18px', color: 'var(--ink)' }}>Audiencia y alcance</h2>
 
-      {err && <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', color: 'var(--bad)', fontSize: 13 }}>No se pudo cargar de Meta: {err}</div>}
+      {err &&<div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', color: 'var(--bad)', fontSize: 13 }}>No se pudo cargar de Meta: {err}</div>}
       {!data && !err && <div style={{ fontSize: 13.5, color: 'var(--faint)', fontFamily: MONO, padding: '8px 0' }}>Cargando desgloses de Meta…</div>}
       {vacio && <p style={{ fontSize: 14, color: 'var(--faint)', margin: 0 }}>Sin gasto a nivel cuenta en el período.</p>}
 
