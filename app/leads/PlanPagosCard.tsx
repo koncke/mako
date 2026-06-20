@@ -34,8 +34,16 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [e, setE] = useState<{ total: string; duracion: string; cierre: string; inicio: string; cuotas: CuotaEdit[] }>({ total: '', duracion: '', cierre: '', inicio: '', cuotas: [] });
   const [pending, start] = useTransition();
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
-  const load = () => fetch(`/api/lead-plan?leadId=${leadId}`).then((r) => r.json()).then((j) => { if (!j.error) setPlan(j); });
+  const load = async () => {
+    try {
+      const r = await fetch(`/api/lead-plan?leadId=${leadId}`);
+      const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+      if (j.error) { setLoadErr(j.error); return; }
+      setLoadErr(null); setPlan(j);
+    } catch (ex) { setLoadErr(String(ex)); }
+  };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [leadId]);
 
   const entrarEdit = () => {
@@ -76,7 +84,11 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
     }));
   };
 
-  if (!plan) return <div style={{ ...card, fontSize: 13, color: 'var(--faint)' }}>Cargando plan…</div>;
+  if (!plan) return (
+    <div style={{ ...card, fontSize: 13, color: loadErr ? 'var(--bad)' : 'var(--faint)' }}>
+      {loadErr ? <>No se pudo cargar el plan: {loadErr} <button type="button" onClick={() => { setLoadErr(null); load(); }} style={{ marginLeft: 8, textDecoration: 'underline', background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer' }}>Reintentar</button></> : 'Cargando plan…'}
+    </div>
+  );
 
   // ── LECTURA ──
   if (mode === 'view') {

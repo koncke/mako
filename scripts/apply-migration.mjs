@@ -37,6 +37,10 @@ try {
     process.exit(1);
   }
   await sql.unsafe(ddl);
+  // Refrescar el cache de esquema de PostgREST (supabase-js) tras DDL directo,
+  // si no, las columnas/tablas nuevas dan 500 ("column not found") hasta que
+  // PostgREST recargue por su cuenta.
+  try { await sql`NOTIFY pgrst, 'reload schema'`; console.log('↻ PostgREST schema reload notificado'); } catch { /* no fatal */ }
   console.log(`✅ Migration aplicada: ${sqlFile}`);
   process.exit(0);
 } catch (e) {
