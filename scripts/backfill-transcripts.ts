@@ -25,6 +25,7 @@ async function upsertFull(r: Awaited<ReturnType<typeof transcribeAd>>) {
     ON CONFLICT (ad_id) DO UPDATE SET video_id=EXCLUDED.video_id, tipo=EXCLUDED.tipo, status=EXCLUDED.status, transcript=EXCLUDED.transcript, secciones=EXCLUDED.secciones, idioma=EXCLUDED.idioma, duracion_s=EXCLUDED.duracion_s, model=EXCLUDED.model, error=EXCLUDED.error, updated_at=now()`;
 }
 
+async function main() {
 try {
   const ads = await sql<{ ad_id: string }[]>`SELECT DISTINCT ad_id FROM marketing_metrics_daily WHERE plataforma='meta' AND ad_id IS NOT NULL AND fecha >= ${SINCE}`;
   const rows = await sql<Row[]>`SELECT ad_id, status, tipo, transcript, secciones FROM ad_transcripts`;
@@ -65,3 +66,5 @@ try {
 } finally {
   await sql.end({ timeout: 5 });
 }
+}
+main();
