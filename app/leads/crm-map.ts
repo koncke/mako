@@ -54,6 +54,8 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMa
     totalCobrado: l.total_cobrado_usd ?? 0,
     agenda: fmtDay(l.fecha_agenda) ?? fmtDay(l.fecha_junta_1),
     j2: fmtDay(l.fecha_junta_2),
+    fechaJ1: l.fecha_junta_1 ?? l.fecha_agenda,
+    fechaJ2: l.fecha_junta_2,
     phone: l.telefono ?? '—',
     estadoLead: l.estado_lead,
     asistioJ1: l.asistio_j1,

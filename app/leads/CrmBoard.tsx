@@ -52,6 +52,8 @@ export type CrmLead = {
   totalCobrado: number;
   agenda: string | null;
   j2: string | null;
+  fechaJ1: string | null;   // fecha_junta_1 (o fecha_agenda) en ISO, para editar
+  fechaJ2: string | null;   // fecha_junta_2 en ISO, para editar
   phone: string;
   estadoLead: EstadoLead;
   asistioJ1: boolean | null;
@@ -88,6 +90,8 @@ export type Edits = {
   closer: string;
   setter: string;
   motivo: string;
+  fechaJ1: string;   // ISO YYYY-MM-DD (editable al mover a Agenda J1)
+  fechaJ2: string;   // ISO YYYY-MM-DD (editable al mover a Agenda J2 / Facturando)
   fathom: FathomLink[];
   nutriciones: { name: string; dt: string }[];
   plan: { total: string; cierre: string; inicio: string; duracion: string };
@@ -256,6 +260,7 @@ export function CrmBoard({
     startTransition(async () => {
       await saveLeadMetaAction(l.id, {
         closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
+        fecha_junta_1: e.fechaJ1 || null, fecha_junta_2: e.fechaJ2 || null,
       });
       if (pendingMove && pendingMove.id === l.id) {
         await setLeadStageAction(l.id, pendingMove.to, {

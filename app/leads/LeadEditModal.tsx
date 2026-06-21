@@ -94,6 +94,7 @@ export function LeadEditModal({
       try {
         await saveLeadMetaAction(lead.id, {
           closer: edits.closer, setter: edits.setter, fathom_links: edits.fathom, motivo_perdida: edits.motivo,
+          fecha_junta_1: edits.fechaJ1 || null, fecha_junta_2: edits.fechaJ2 || null,
         });
         if (pendingMove) {
           await setLeadStageAction(lead.id, pendingMove.to, {

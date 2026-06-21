@@ -39,6 +39,15 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={miniCard}>
+      <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>{label}</div>
+      <input type="date" value={value} onChange={(e) => onChange(e.target.value)} style={{ ...rowInput, width: '100%' }} />
+    </div>
+  );
+}
+
 export function LeadDetail({
   lead, stages, effStage, pendingMove, moveError, edits, missing,
   onPatch, onPickStage, onClose, onSave, onDelete, focus, zIndex = 50, saveError = false,
@@ -82,8 +91,8 @@ export function LeadDetail({
   const isLost = s === 'perdido' || s === 'descal';
   const isNutri = NUTRI_KEYS.includes(s);
   const isManual = s === 'manual';
-  const passedJ1 = !!lead.agenda || ADV.includes(s);
-  const passedJ2 = ADV.includes(s);
+  const isAgendaStage = s === 'agenda' || s === 'agendaj2' || s === 'facturando';
+  const passedJ1 = !!lead.agenda || isAgendaStage || ADV.includes(s);
   const passedAgenda = AGENDA_PASSED.includes(s) || !!lead.agenda || !!lead.j2;
 
   const groups = [
@@ -183,10 +192,10 @@ export function LeadDetail({
             <details id="lead-sec-datos-comerciales" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Datos comerciales<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                <Stat label="Fecha Junta 1" value={lead.agenda || '—'} />
+                <DateField label="Fecha Junta 1" value={edits.fechaJ1} onChange={(v) => onPatch({ fechaJ1: v })} />
                 <Stat label="¿Asistió a J1?" value={lead.asistioJ1 === true ? 'Sí' : lead.asistioJ1 === false ? 'No' : '—'} />
                 <Stat label="¿Era calificado?" value={lead.calificado === true ? 'Sí' : lead.calificado === false ? 'No' : '—'} />
-                <Stat label="Fecha Junta 2" value={passedJ2 ? lead.j2 || '—' : '—'} />
+                <DateField label="Fecha Junta 2" value={edits.fechaJ2} onChange={(v) => onPatch({ fechaJ2: v })} />
                 <Stat label="¿Asistió a J2?" value={lead.asistioJ2 === true ? 'Sí' : lead.asistioJ2 === false ? 'No' : '—'} />
                 <Stat label="¿Se comprometió a pagar?" value={['facturando', 'ganado'].includes(s) ? 'Sí' : 'No'} />
                 <div style={{ gridColumn: '1/-1', ...miniCard }}>
@@ -234,7 +243,7 @@ export function LeadDetail({
 
           {/* link de fathom */}
           {passedJ1 && (
-            <details id="lead-sec-fathom" style={{ ...card, padding: '0 18px' }}>
+            <details id="lead-sec-fathom" open={isAgendaStage || undefined} style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Link de Fathom<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {edits.fathom.map((f, i) => (
@@ -288,7 +297,15 @@ export function LeadDetail({
           )}
 
           {/* plan de pagos */}
-          {isGanado && <div id="lead-sec-plan-pagos"><PlanPagosCard leadId={lead.id} /></div>}
+          {isGanado && (
+            <div id="lead-sec-plan-pagos" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={card}>
+                <div style={{ ...sectLabel, marginBottom: 10 }}>Monto de cierre (USD)</div>
+                <input value={edits.plan.total} onChange={(e) => onPatch({ plan: { ...edits.plan, total: e.target.value } })} placeholder="0" inputMode="numeric" style={fieldInput} />
+              </div>
+              <PlanPagosCard leadId={lead.id} />
+            </div>
+          )}
 
           {/* línea de tiempo SCL */}
           {isGanado && (

@@ -10,6 +10,7 @@ import type { FathomLink } from '@/lib/leads';
 import type { CrmLead, Edits } from './CrmBoard';
 
 const ADV = ['agendaj2', 'facturando', 'ganado'];
+const AGENDA_STAGES = ['agenda', 'agendaj2', 'facturando'];
 
 /** Semilla de edición para un lead dado su etapa efectiva. */
 export function seedEdits(l: CrmLead, effStage: string): Edits {
@@ -28,6 +29,8 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
     closer: l.closer,
     setter: l.setter,
     motivo: l.motivo,
+    fechaJ1: l.fechaJ1 ?? '',
+    fechaJ2: l.fechaJ2 ?? '',
     fathom,
     nutriciones: isNutri ? [{ name: 'Nutrición 1 — WhatsApp', dt: '' }, { name: 'Nutrición 2 — Email', dt: '' }] : [],
     plan: { total: isGanado ? String(l.monto) : '', cierre: '', inicio: '', duracion: '3' },
@@ -35,22 +38,56 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
   };
 }
 
-/** Campos obligatorios que faltan para mover a una etapa. */
+const hasFathomUrl = (e: Edits) => e.fathom.some((f) => f.url.trim());
+const hasNutricion = (e: Edits) => e.nutriciones.some((n) => n.name.trim() && n.dt.trim());
+
+/**
+ * Campos OBLIGATORIOS que faltan para mover a una etapa (vacío = se puede mover).
+ * Cada etapa con datos a completar exige lo suyo; ninguna es "blanda".
+ */
 export function missingFor(stage: string, e: Edits): string[] {
-  if (stage === 'ganado') return [];
-  if (stage === 'perdido' || stage === 'descal') return e.motivo.trim() ? [] : ['Motivo'];
-  return [];
+  const m: string[] = [];
+  switch (stage) {
+    case 'agenda':
+      if (!e.fechaJ1.trim()) m.push('Fecha de la Junta 1');
+      if (!hasFathomUrl(e)) m.push('Link de Fathom');
+      break;
+    case 'agendaj2':
+    case 'facturando':
+      if (!e.fechaJ2.trim()) m.push('Fecha de la Junta 2');
+      if (!hasFathomUrl(e)) m.push('Link de Fathom');
+      break;
+    case 'ganado':
+      if (!(Number(e.plan.total) > 0)) m.push('Monto de cierre');
+      break;
+    case 'perdido':
+    case 'descal':
+      if (!e.motivo.trim()) m.push('Motivo');
+      break;
+    case 'manual':
+      if (!e.setter.trim()) m.push('Setter');
+      if (!hasNutricion(e)) m.push('Nutrición (al menos una)');
+      break;
+    case 'noshow':
+    case 'nutri':
+    case 'nopaga':
+    case 'postagenda':
+      if (!hasNutricion(e)) m.push('Nutrición (al menos una)');
+      break;
+  }
+  return m;
 }
 
 /**
  * Sección de la ficha (id `lead-sec-…`) a la que saltar y desplegar cuando el
  * lead se mueve a una etapa que pide completar datos. Si devuelve algo, el
  * movimiento abre la ficha enfocada en esa sección (en vez de mover en silencio).
- * `missingFor` decide además si el guardado se BLOQUEA hasta llenar lo obligatorio.
+ * `missingFor` decide además qué se exige antes de poder guardar el cambio.
  */
 export function sectionForStage(stage: string): string | undefined {
   if (stage === 'perdido' || stage === 'descal') return 'motivo';
   if (stage === 'ganado') return 'plan-pagos';
+  if (AGENDA_STAGES.includes(stage)) return 'datos-comerciales';
   if (NUTRI_KEYS.includes(stage)) return 'nutricion';
   return undefined;
 }
