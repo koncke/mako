@@ -31,11 +31,15 @@ const BAND_IDX: Record<StageBand, number> = { pipeline: 0, nutricion: 1, salidas
 const CHAN = [(ROWY.pipeline + CH + ROWY.nutricion) / 2, (ROWY.nutricion + CH + ROWY.salidas) / 2]; // [138, 272]
 const TOPCHAN = ROWY.pipeline - 22; // 22
 const GAPHALF = (COL - CW) / 2; // 15
+// Las bandas usan los mismos nombres que las categorías: Avanza / Nutrición / Pérdida.
+const BAND_LABEL: Record<StageBand, string> = { pipeline: 'Avanza', nutricion: 'Nutrición', salidas: 'Pérdida' };
 const BANDS: { band: StageBand; label: string; tint: string }[] = [
-  { band: 'pipeline', label: 'Pipeline', tint: 'rgba(59,109,17,.055)' },
-  { band: 'nutricion', label: 'Nutrición', tint: 'rgba(200,135,12,.06)' },
-  { band: 'salidas', label: 'Salidas', tint: 'rgba(207,78,41,.055)' },
+  { band: 'pipeline', label: BAND_LABEL.pipeline, tint: 'rgba(59,109,17,.055)' },
+  { band: 'nutricion', label: BAND_LABEL.nutricion, tint: 'rgba(200,135,12,.06)' },
+  { band: 'salidas', label: BAND_LABEL.salidas, tint: 'rgba(207,78,41,.055)' },
 ];
+// Chevron del select (los <select> globales tienen appearance:none).
+const CHEVRON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23A39E91' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 const FILTERS: [TransitionCategory | 'all', string][] = [['all', 'Todas'], ['avanza', 'Avanza'], ['nutricion', 'Nutrición'], ['perdida', 'Pérdida']];
 
 type ETrans = FunnelTransition & { id: string };
@@ -131,14 +135,22 @@ export function FunnelEditor({
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 5000);
   }, []);
-  const doSave = useCallback((st: Stage[], tr: ETrans[], msg: string, undo?: () => void) => {
-    saveFunnelAction(st, plain(tr)).then(() => flashToast(msg, undo)).catch((e) => flashToast('No se pudo guardar (¿falta migración 0025?): ' + (e instanceof Error ? e.message : String(e)), undefined, true));
-  }, [flashToast]);
-  const persist = useCallback((msg: string, undo?: () => void) => {
+  // Guarda en segundo plano (debounce). Si falla, re-muestra el toast con el aviso
+  // de migración (manteniendo "Deshacer").
+  const bgSave = useCallback((st: Stage[], tr: ETrans[], undo?: () => void) => {
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { const { stages: st, trans: tr } = ref.current; doSave(st, tr, msg, undo); }, 500);
-  }, [doSave]);
-  const undoTo = useCallback((s: Snap) => { setStages(s.stages); setTrans(s.trans); clearTimeout(saveTimer.current); doSave(s.stages, s.trans, 'Cambio deshecho'); }, [doSave]);
+    saveTimer.current = setTimeout(() => {
+      saveFunnelAction(st, plain(tr)).catch(() => flashToast('No se pudo guardar — aplicá la migración 0025 en Supabase', undo, true));
+    }, 500);
+  }, [flashToast]);
+  // El toast (con Deshacer y su cuenta de 5s) aparece YA al confirmar el cambio;
+  // el guardado va por detrás.
+  const persist = useCallback((msg: string, undo?: () => void) => {
+    flashToast(msg, undo);
+    const { stages: st, trans: tr } = ref.current;
+    bgSave(st, tr, undo);
+  }, [flashToast, bgSave]);
+  const undoTo = useCallback((s: Snap) => { setStages(s.stages); setTrans(s.trans); flashToast('Cambio deshecho'); bgSave(s.stages, s.trans); }, [flashToast, bgSave]);
   const snap = (): Snap => ({ stages: ref.current.stages, trans: ref.current.trans });
   const ask = (msg: string, apply: () => void) => setConfirm({ msg, apply });
 
@@ -195,7 +207,7 @@ export function FunnelEditor({
   const reqReconnect = (id: string, end: 'from' | 'to', stage: string) => ask('Reconectar la flecha', () => updateTransEndpoint(id, end, stage));
   const reqRemoveStage = (key: string) => ask(`Eliminar la etapa "${labelOf(key)}" y sus flechas`, () => removeStage(key));
   const reqAddStage = () => ask('Crear una nueva etapa', () => addStage());
-  const reqMoveBand = (key: string, band: StageBand) => ask(`Mover "${labelOf(key)}" a ${band === 'pipeline' ? 'Pipeline' : band === 'nutricion' ? 'Nutrición' : 'Salidas'}`, () => moveStageBand(key, band));
+  const reqMoveBand = (key: string, band: StageBand) => ask(`Mover "${labelOf(key)}" a ${BAND_LABEL[band]}`, () => moveStageBand(key, band));
 
   const commitDrag = (d: NonNullable<Drag>) => {
     if (d.tid == null) { if (d.over && d.over !== d.from) reqAddTrans(d.from!, d.over); return; }
@@ -222,8 +234,11 @@ export function FunnelEditor({
     return { pts, d: pathFrom(pts), b: pts[pts.length - 1], prev: pts[pts.length - 2], mid: labelAt(pts) };
   };
 
-  const field: CSSProperties = { padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
+  const field: CSSProperties = { padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
+  const selectStyle: CSSProperties = { ...field, appearance: 'none', WebkitAppearance: 'none', backgroundImage: `url("${CHEVRON}")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: 28, cursor: 'pointer' };
   const stageObj = stageModal ? stageByKey[stageModal] : null;
+  // Etapas relacionadas a la que tiene hover (para atenuar el resto).
+  const related = focus ? new Set<string>([focus, ...trans.filter((t) => t.from === focus).map((t) => t.to), ...trans.filter((t) => t.to === focus).map((t) => t.from)]) : null;
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 80px', fontFamily: SANS }}>
@@ -287,7 +302,7 @@ export function FunnelEditor({
                 onPointerEnter={() => { if (!ref.current.drag) setHoverStage(s.key); }}
                 onPointerLeave={() => { if (!ref.current.drag) setHoverStage(null); }}
                 title="Clic para editar · arrastrá a otra etapa para conectar"
-                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${bw} solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: 'pointer', boxShadow: shadow, userSelect: 'none', transition: 'box-shadow .12s, border-color .12s' }}>
+                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${bw} solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: 'pointer', boxShadow: shadow, userSelect: 'none', opacity: related && !related.has(s.key) ? 0.12 : 1, transition: 'box-shadow .12s, border-color .12s, opacity .12s' }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: s.fg || '#1A1813', lineHeight: 1.15 }}>{s.label}</span>
               </div>
             );
@@ -351,13 +366,13 @@ export function FunnelEditor({
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <input value={t.label} onChange={(e) => updateTrans(t.id, { label: e.target.value })} placeholder="Texto de la flecha" style={{ ...field, flex: '1 1 200px', minWidth: 0 }} />
-              <select value={t.category} onChange={(e) => updateTrans(t.id, { category: e.target.value as TransitionCategory })} style={{ ...field, cursor: 'pointer' }}>
+              <select value={t.category} onChange={(e) => updateTrans(t.id, { category: e.target.value as TransitionCategory })} style={selectStyle}>
                 {(Object.keys(CATEGORY) as TransitionCategory[]).map((k) => <option key={k} value={k}>{CATEGORY[k].label}</option>)}
               </select>
               {(['asistioJ1', 'asistioJ2'] as const).map((fld, i) => (
                 <label key={fld} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Marca R{i + 1}</span>
-                  <select value={t[fld] === undefined ? '' : t[fld] ? 'si' : 'no'} onChange={(e) => updateTrans(t.id, { [fld]: e.target.value === '' ? undefined : e.target.value === 'si' })} style={{ ...field, padding: '7px 8px', fontSize: 13, cursor: 'pointer' }}>
+                  <select value={t[fld] === undefined ? '' : t[fld] ? 'si' : 'no'} onChange={(e) => updateTrans(t.id, { [fld]: e.target.value === '' ? undefined : e.target.value === 'si' })} style={{ ...selectStyle, padding: '7px 24px 7px 8px', fontSize: 13 }}>
                     <option value="">—</option><option value="si">Asistió</option><option value="no">No-show</option>
                   </select>
                 </label>
@@ -375,8 +390,8 @@ export function FunnelEditor({
               <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
                 <input value={s.label} onChange={(e) => updateStage(s.key, { label: e.target.value })} style={{ ...field, flex: 1, minWidth: 0 }} />
-                <select value={s.band ?? 'pipeline'} onChange={(e) => reqMoveBand(s.key, e.target.value as StageBand)} title="Banda" style={{ ...field, flex: 'none', padding: '9px 8px', color: 'var(--dim)', fontSize: 12.5, cursor: 'pointer' }}>
-                  <option value="pipeline">Pipeline</option><option value="nutricion">Nutrición</option><option value="salidas">Salidas</option>
+                <select value={s.band ?? 'pipeline'} onChange={(e) => reqMoveBand(s.key, e.target.value as StageBand)} title="Banda" style={{ ...selectStyle, flex: 'none', color: 'var(--dim)', fontSize: 12.5 }}>
+                  <option value="pipeline">{BAND_LABEL.pipeline}</option><option value="nutricion">{BAND_LABEL.nutricion}</option><option value="salidas">{BAND_LABEL.salidas}</option>
                 </select>
                 <button onClick={() => reqRemoveStage(s.key)} title="Eliminar etapa" style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>×</button>
               </div>
@@ -388,12 +403,12 @@ export function FunnelEditor({
 
       {/* Modal: editar UNA etapa (nombre, banda, conexiones gráficas) */}
       {stageObj && (
-        <ModalShell title={stageObj.label || 'Etapa'} subtitle="Clic en una etapa conectada para quitar el vínculo." onClose={() => setStageModal(null)} width={680}>
+        <ModalShell title={stageObj.label || 'Etapa'} subtitle="Quitá un vínculo con la ✕ de cada etapa; agregá con los nodos punteados." onClose={() => setStageModal(null)} width={860}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <span style={{ width: 12, height: 12, borderRadius: '50%', background: stageObj.dot, flex: 'none', boxShadow: '0 0 0 3px ' + stageObj.dot + '22' }} />
             <input value={stageObj.label} onChange={(e) => updateStage(stageObj.key, { label: e.target.value })} style={{ ...field, flex: 1, minWidth: 0 }} />
-            <select value={stageObj.band ?? 'pipeline'} onChange={(e) => reqMoveBand(stageObj.key, e.target.value as StageBand)} title="Banda" style={{ ...field, flex: 'none', padding: '9px 8px', color: 'var(--dim)', fontSize: 12.5, cursor: 'pointer' }}>
-              <option value="pipeline">Pipeline</option><option value="nutricion">Nutrición</option><option value="salidas">Salidas</option>
+            <select value={stageObj.band ?? 'pipeline'} onChange={(e) => reqMoveBand(stageObj.key, e.target.value as StageBand)} title="Banda" style={{ ...selectStyle, flex: 'none', color: 'var(--dim)', fontSize: 12.5 }}>
+              <option value="pipeline">{BAND_LABEL.pipeline}</option><option value="nutricion">{BAND_LABEL.nutricion}</option><option value="salidas">{BAND_LABEL.salidas}</option>
             </select>
             <button onClick={() => reqRemoveStage(stageObj.key)} style={{ flex: 'none', padding: '9px 13px', borderRadius: 9, border: '1px solid var(--bad)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Eliminar</button>
           </div>
@@ -457,53 +472,55 @@ function StageConnGraph({ stageKey, stages, trans, labelOf, onRemove, onAddOut, 
   const outSet = new Set(out.map((t) => t.to));
   const incOpts = stages.filter((s) => s.key !== stageKey && !incSet.has(s.key));
   const outOpts = stages.filter((s) => s.key !== stageKey && !outSet.has(s.key));
-  const W = 632, NW = 168, NH = 34, GAP = 12, PADY = 16, COLX = { left: 8, right: W - 8 - NW };
+  const W = 632, NW = 176, NH = 36, GAP = 16, PADY = 22, COLX = { left: 10, right: W - 10 - NW };
   const centerX = (W - NW) / 2;
   const rowsL = inc.length + (incOpts.length ? 1 : 0);
   const rowsR = out.length + (outOpts.length ? 1 : 0);
   const rows = Math.max(rowsL, rowsR, 1);
   const H = PADY * 2 + rows * NH + (rows - 1) * GAP;
   const cyC = H / 2;
+  // y central del item i dentro de una columna de n elementos (centrada en H).
   const yAt = (n: number, i: number) => PADY + i * (NH + GAP) + (rows - n) * (NH + GAP) / 2 + NH / 2;
 
-  const nodeBox: CSSProperties = { position: 'absolute', width: NW, height: NH, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 10px', fontSize: 12, fontWeight: 600, lineHeight: 1.1, textAlign: 'center' };
+  // Escala a-medida: el grafo nunca desborda (no hay barra horizontal).
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [sc, setSc] = useState(1);
+  useEffect(() => { const el = wrapRef.current; if (!el) return; const upd = () => setSc(Math.min(1, el.clientWidth / W)); upd(); const ro = new ResizeObserver(upd); ro.observe(el); return () => ro.disconnect(); }, [W]);
+
+  const nodeBox: CSSProperties = { position: 'absolute', width: NW, height: NH, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 12px', fontSize: 12, fontWeight: 600, lineHeight: 1.1, textAlign: 'center' };
+  const xBtn: CSSProperties = { position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: '50%', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 12, lineHeight: 1, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SANS, padding: 0, boxShadow: '0 1px 3px rgba(23,21,17,.15)' };
+
+  const connNode = (key: string, x: number, y: number, label: string, color: string, tid: string) => (
+    <div key={key} style={{ ...nodeBox, left: x, top: y, background: '#fff', border: '1px solid ' + color, color: '#1A1813' }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trunc(label, 20)}</span>
+      <button onClick={() => onRemove(tid)} title="Quitar vínculo" style={xBtn}>×</button>
+    </div>
+  );
+  const addNode = (x: number, y: number, text: string, opts: Stage[], onPick: (k: string) => void) => (
+    <div style={{ position: 'absolute', left: x, top: y, width: NW, height: NH }}>
+      <div style={{ ...nodeBox, position: 'relative', width: NW, height: NH, border: '1px dashed var(--border-strong)', color: 'var(--dim)', background: 'transparent', fontWeight: 500 }}>{text}</div>
+      <select value="" onChange={(e) => { if (e.target.value) onPick(e.target.value); }} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: NW, height: NH }}>
+        <option value="">{text}</option>{opts.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+      </select>
+    </div>
+  );
 
   return (
-    <div style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: 8, marginBottom: 4, width: '100%', overflowX: 'auto' }}>
-      <div style={{ position: 'relative', width: W, height: H, margin: '0 auto' }}>
-        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {inc.map((t, i) => { const y = yAt(inc.length, i); const c = CATEGORY[t.category].c; const sx = COLX.left + NW, ex = centerX, mx = (sx + ex) / 2;
-            return <g key={'gi' + t.id}><path d={`M ${sx} ${y} L ${mx} ${y} L ${mx} ${cyC} L ${ex} ${cyC}`} fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /><polygon points={arrowPoints({ x: ex, y: cyC }, { x: mx, y: cyC }, 1.7)} fill={c} /></g>; })}
-          {out.map((t, i) => { const y = yAt(out.length, i); const c = CATEGORY[t.category].c; const sx = centerX + NW, ex = COLX.right, mx = (sx + ex) / 2;
-            return <g key={'go' + t.id}><path d={`M ${sx} ${cyC} L ${mx} ${cyC} L ${mx} ${y} L ${ex} ${y}`} fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /><polygon points={arrowPoints({ x: ex, y }, { x: mx, y }, 1.7)} fill={c} /></g>; })}
-        </svg>
-
-        {/* centro */}
-        <div style={{ ...nodeBox, left: centerX, top: cyC - NH / 2, background: 'rgba(200,135,12,.10)', border: '1.6px solid #C8870C', color: '#1A1813' }}>{trunc(labelOf(stageKey), 22)}</div>
-
-        {/* entrantes (izquierda) — clic para quitar */}
-        {inc.map((t, i) => { const c = CATEGORY[t.category].c;
-          return <button key={'ni' + t.id} onClick={() => onRemove(t.id)} title="Quitar este vínculo" style={{ ...nodeBox, left: COLX.left, top: yAt(inc.length, i) - NH / 2, background: '#fff', border: '1px solid ' + c, color: '#1A1813', cursor: 'pointer', fontFamily: SANS }}>{trunc(labelOf(t.from), 20)}</button>; })}
-        {incOpts.length > 0 && (
-          <div style={{ position: 'absolute', left: COLX.left, top: yAt(rowsL, inc.length) - NH / 2, width: NW, height: NH }}>
-            <div style={{ ...nodeBox, position: 'relative', width: NW, height: NH, border: '1px dashed var(--border-strong)', color: 'var(--dim)', background: 'transparent', fontWeight: 500 }}>+ Vincular entrada…</div>
-            <select value="" onChange={(e) => { if (e.target.value) onAddIn(e.target.value); }} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: NW, height: NH }}>
-              <option value="">Vincular entrada…</option>{incOpts.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* salientes (derecha) — clic para quitar */}
-        {out.map((t, i) => { const c = CATEGORY[t.category].c;
-          return <button key={'no' + t.id} onClick={() => onRemove(t.id)} title="Quitar este vínculo" style={{ ...nodeBox, left: COLX.right, top: yAt(out.length, i) - NH / 2, background: '#fff', border: '1px solid ' + c, color: '#1A1813', cursor: 'pointer', fontFamily: SANS }}>{trunc(labelOf(t.to), 20)}</button>; })}
-        {outOpts.length > 0 && (
-          <div style={{ position: 'absolute', left: COLX.right, top: yAt(rowsR, out.length) - NH / 2, width: NW, height: NH }}>
-            <div style={{ ...nodeBox, position: 'relative', width: NW, height: NH, border: '1px dashed var(--border-strong)', color: 'var(--dim)', background: 'transparent', fontWeight: 500 }}>+ Vincular salida…</div>
-            <select value="" onChange={(e) => { if (e.target.value) onAddOut(e.target.value); }} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: NW, height: NH }}>
-              <option value="">Vincular salida…</option>{outOpts.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
-          </div>
-        )}
+    <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: 8, width: '100%', marginBottom: 4 }}>
+      <div ref={wrapRef} style={{ width: '100%', height: H * sc, overflow: 'hidden' }}>
+        <div style={{ position: 'relative', width: W, height: H, transform: `scale(${sc})`, transformOrigin: 'top left' }}>
+          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            {inc.map((t, i) => { const y = yAt(rowsL, i); const c = CATEGORY[t.category].c; const sx = COLX.left + NW, ex = centerX, mx = (sx + ex) / 2;
+              return <g key={'gi' + t.id}><path d={`M ${sx} ${y} L ${mx} ${y} L ${mx} ${cyC} L ${ex} ${cyC}`} fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /><polygon points={arrowPoints({ x: ex, y: cyC }, { x: mx, y: cyC }, 1.7)} fill={c} /></g>; })}
+            {out.map((t, i) => { const y = yAt(rowsR, i); const c = CATEGORY[t.category].c; const sx = centerX + NW, ex = COLX.right, mx = (sx + ex) / 2;
+              return <g key={'go' + t.id}><path d={`M ${sx} ${cyC} L ${mx} ${cyC} L ${mx} ${y} L ${ex} ${y}`} fill="none" stroke={c} strokeWidth={1.7} strokeLinejoin="round" /><polygon points={arrowPoints({ x: ex, y }, { x: mx, y }, 1.7)} fill={c} /></g>; })}
+          </svg>
+          <div style={{ ...nodeBox, left: centerX, top: cyC - NH / 2, background: 'rgba(200,135,12,.10)', border: '1.6px solid #C8870C', color: '#1A1813' }}>{trunc(labelOf(stageKey), 22)}</div>
+          {inc.map((t, i) => connNode('ni' + t.id, COLX.left, yAt(rowsL, i) - NH / 2, labelOf(t.from), CATEGORY[t.category].c, t.id))}
+          {incOpts.length > 0 && addNode(COLX.left, yAt(rowsL, inc.length) - NH / 2, '+ Vincular entrada…', incOpts, onAddIn)}
+          {out.map((t, i) => connNode('no' + t.id, COLX.right, yAt(rowsR, i) - NH / 2, labelOf(t.to), CATEGORY[t.category].c, t.id))}
+          {outOpts.length > 0 && addNode(COLX.right, yAt(rowsR, out.length) - NH / 2, '+ Vincular salida…', outOpts, onAddOut)}
+        </div>
       </div>
     </div>
   );
