@@ -12,26 +12,13 @@ import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
   renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
 } from '@/lib/chart-chats';
-import { MAKO_PERSONA } from '@/lib/mako-persona';
+import { buildSystemPrompt } from '@/lib/mako-context';
 
 export const dynamic = 'force-dynamic';
 
 const PROMPT_ANALISIS = 'Mirá el gráfico y tirame SOLO lo más importante: el insight que más impacta, en 2-4 líneas, con tu voz. Nada de resumen completo ni listar todo.';
 const PROMPT_SALUDO = 'Presentate en 1-2 líneas como MaKo y decime en qué me podés ayudar con los datos del negocio. Breve, con tu voz.';
 const promptInicial = (c: string) => (c.trim() ? PROMPT_ANALISIS : PROMPT_SALUDO);
-
-function systemPrompt(titulo: string, contexto: string): string {
-  const base = `${MAKO_PERSONA}
-
-REGLAS DE FORMATO Y TONO:
-- Markdown: **negritas** para lo clave, viñetas y títulos cortos (##) SOLO cuando ayuden. Nada de muros de texto.
-- El PRIMER mensaje breve e impactante (2-4 líneas): lo más importante, no un resumen de todo.
-- Muy analítico: pensá a fondo, usá números, comparaciones y relaciones causa-efecto.
-- REGLA DURA: NUNCA termines con una pregunta. Cerrá con una afirmación, recomendación o próximo paso concreto.
-- No inventes datos que no estén; si algo no se puede concluir, decilo.`;
-  if (!contexto.trim()) return `${base}\n\nCONTEXTO: chat general del dashboard del negocio de Martín. Ayudá con lo que pregunte; si te pega datos, analizalos.`;
-  return `${base}\n\nCONTEXTO: estás mirando el gráfico "${titulo}" del PROPIO negocio de Martín. Ya tenés los datos abajo, analizá directo.\n\nDATOS DEL GRÁFICO:\n${contexto}`;
-}
 
 function buildMsgs(contexto: string, history: ChartMsg[], mensaje?: string): ClaudeMsg[] {
   const msgs: ClaudeMsg[] = [{ role: 'user', content: promptInicial(contexto) }, ...history.map((m) => ({ role: m.role, content: m.content }))];
@@ -54,7 +41,8 @@ async function generarTitulo(seed: string): Promise<string | null> {
 
 async function crearYAnalizar(chartKey: string, titulo: string, contexto: string) {
   const s = await createSession(chartKey, null, contexto);
-  const resp = await chatClaude(systemPrompt(titulo, contexto), buildMsgs(contexto, []));
+  const query = `${titulo}\n${contexto}`.slice(0, 2000);
+  const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo, contexto, query }), buildMsgs(contexto, []));
   await appendMessage(s.id, 'assistant', resp);
   const t = await generarTitulo(contexto.trim() ? resp : `${PROMPT_SALUDO}\n${resp}`);
   if (t) await renameSession(s.id, t);
@@ -94,7 +82,8 @@ export async function POST(req: NextRequest) {
         // Sesión vacía (quedó a medias por un error previo): MaKo arranca igual,
         // así abrir un gráfico SIEMPRE devuelve su análisis sin tener que crear chat.
         const ctx = s.contexto ?? contexto;
-        const resp = await chatClaude(systemPrompt(s.titulo ?? titulo, ctx), buildMsgs(ctx, []));
+        const query = `${s.titulo ?? titulo}\n${ctx}`.slice(0, 2000);
+        const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo: s.titulo ?? titulo, contexto: ctx, query }), buildMsgs(ctx, []));
         await appendMessage(s.id, 'assistant', resp);
         if (!s.titulo) {
           const t = await generarTitulo(ctx.trim() ? resp : `${PROMPT_SALUDO}\n${resp}`);
@@ -122,7 +111,7 @@ export async function POST(req: NextRequest) {
       const ctx = s.contexto ?? '';
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await chatClaude(systemPrompt(s.titulo ?? 'Chat', ctx), buildMsgs(ctx, history, mensaje));
+      const resp = await chatClaude(await buildSystemPrompt({ chartKey: s.chart_key, titulo: s.titulo ?? 'Chat', contexto: ctx, query: mensaje }), buildMsgs(ctx, history, mensaje));
       await appendMessage(sessionId, 'assistant', resp);
       // Si todavía no tiene título propio, que la IA le ponga uno a partir de la charla.
       if (!s.titulo) {

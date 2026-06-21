@@ -37,4 +37,18 @@ export const TOOLS_NAV: NavItem[] = [
     glyph: '✨',
     match: starts('/mako'),
   },
+  {
+    key: 'contexto',
+    label: 'Contexto de MaKo',
+    href: '/contexto',
+    glyph: '◆',
+    match: starts('/contexto'),
+  },
+  {
+    key: 'onboarding',
+    label: 'Onboarding',
+    href: '/onboarding',
+    glyph: '◇',
+    match: starts('/onboarding'),
+  },
 ];
