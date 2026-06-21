@@ -37,18 +37,10 @@ export const TOOLS_NAV: NavItem[] = [
     glyph: '✨',
     match: starts('/mako'),
   },
-  {
-    key: 'contexto',
-    label: 'Contexto de MaKo',
-    href: '/contexto',
-    glyph: '◆',
-    match: starts('/contexto'),
-  },
-  {
-    key: 'onboarding',
-    label: 'Onboarding',
-    href: '/onboarding',
-    glyph: '◇',
-    match: starts('/onboarding'),
-  },
+];
+
+// Opciones del menú del usuario (abajo del sidebar): config de MaKo.
+export const USER_NAV: NavItem[] = [
+  { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', match: starts('/contexto') },
+  { key: 'onboarding', label: 'Onboarding', href: '/onboarding', match: starts('/onboarding') },
 ];

@@ -42,7 +42,7 @@ export function MakoButton({
 
       {open && (
         <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto', fontFamily: SANS }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, height: 'calc(100vh - 80px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 940, height: 'calc(100vh - 80px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 24px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
                 <MakoLogo size={32} />
@@ -54,7 +54,7 @@ export function MakoButton({
               <button onClick={() => setOpen(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
-              <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias} chart={chart} />
+              <MakoChat chartKey={chartKey} titulo={titulo} contexto={contexto} sugerencias={sugerencias} chart={chart} sidebar />
             </div>
           </div>
         </div>

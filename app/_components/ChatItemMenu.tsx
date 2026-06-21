@@ -31,9 +31,9 @@ export function ConfirmDialog({
 }
 
 export function ChatItemMenu({
-  pinned, onRename, onPin, onArchive, onDelete,
+  pinned, dark = false, onRename, onPin, onArchive, onDelete,
 }: {
-  pinned?: boolean; onRename: () => void; onPin: () => void; onArchive: () => void; onDelete: () => void;
+  pinned?: boolean; dark?: boolean; onRename: () => void; onPin: () => void; onArchive: () => void; onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [ask, setAsk] = useState<null | 'archive' | 'delete'>(null);
@@ -51,7 +51,7 @@ export function ChatItemMenu({
         title="Opciones"
         aria-label="Opciones del chat"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 17, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 28, height: 28, borderRadius: 7, border: dark ? '1px solid transparent' : '1px solid var(--border)', background: dark ? 'transparent' : 'var(--surface)', color: dark ? 'var(--sidebar-text)' : 'var(--dim)', cursor: 'pointer', fontSize: 17, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
       >⋮</button>
 
       {open && (

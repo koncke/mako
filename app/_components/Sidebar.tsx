@@ -9,7 +9,8 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type CSSProperties } from 'react';
-import { MAIN_NAV, TOOLS_NAV, type NavItem } from './nav';
+import { MAIN_NAV, TOOLS_NAV, USER_NAV, type NavItem } from './nav';
+import { MakoLogo, MakoWord } from './MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -110,6 +111,7 @@ export function Sidebar() {
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
   const [badge, setBadge] = useState(0);
+  const [userOpen, setUserOpen] = useState(false);
 
   // Mantener el filtro de fecha global (?desde&hasta) al navegar entre secciones.
   const desde = searchParams.get('desde');
@@ -131,48 +133,14 @@ export function Sidebar() {
 
   return (
     <aside style={asideStyle}>
-      {/* Marca */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 6px 28px' }}>
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            flex: 'none',
-            borderRadius: 11,
-            background: 'var(--accent-soft)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 17,
-            color: '#171511',
-          }}
-        >
-          MB
-        </div>
+      {/* Marca — MaKo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '2px 6px 28px' }}>
+        <MakoLogo size={42} />
         <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontWeight: 600,
-              fontSize: 15.5,
-              color: 'var(--on-sidebar)',
-              lineHeight: 1.1,
-            }}
-          >
-            Mauricio Bustos
+          <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1 }}>
+            <MakoWord base="#F3F0E7">MaKo</MakoWord>
           </div>
-          <div
-            style={{
-              fontFamily: MONO,
-              fontSize: 11,
-              letterSpacing: '.1em',
-              textTransform: 'uppercase',
-              color: 'var(--sidebar-text)',
-              marginTop: 3,
-            }}
-          >
-            Marketing OS
-          </div>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 6 }}>Marketing OS</div>
         </div>
       </div>
 
@@ -201,47 +169,26 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Fuentes en vivo */}
-      <div style={{ marginTop: 'auto', paddingTop: 24 }}>
-        <div
-          style={{
-            fontFamily: MONO,
-            fontSize: 10.5,
-            letterSpacing: '.12em',
-            textTransform: 'uppercase',
-            color: 'var(--sidebar-text)',
-            opacity: 0.7,
-            marginBottom: 13,
-            padding: '0 6px',
-          }}
-        >
-          Fuentes · live
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 6px' }}>
-          {['Meta Ads', 'Calendly', 'Cobranza'].map((s) => (
-            <span
-              key={s}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 9,
-                fontSize: 13,
-                color: 'var(--sidebar-text)',
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: 'var(--good)',
-                  boxShadow: '0 0 0 3px rgba(28,138,84,.18)',
-                }}
-              />
-              {s}
-            </span>
-          ))}
-        </div>
+      {/* Usuario (abajo) — abre el menú con la config de MaKo */}
+      <div style={{ marginTop: 'auto', paddingTop: 20, position: 'relative' }}>
+        {userOpen && (
+          <>
+            <div onClick={() => setUserOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
+            <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 41, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
+              {USER_NAV.map((it) => (
+                <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)} style={{ display: 'block', padding: '10px 15px', fontSize: 14, fontWeight: it.match(pathname) ? 600 : 500, color: it.match(pathname) ? 'var(--ink)' : 'var(--dim)', textDecoration: 'none' }}>{it.label}</Link>
+              ))}
+            </div>
+          </>
+        )}
+        <button type="button" onClick={() => setUserOpen((v) => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: 9, borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
+          <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511' }}>MB</div>
+          <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+            <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mauricio Bustos</div>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 3 }}>Cuenta</div>
+          </div>
+          <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>▴</span>
+        </button>
       </div>
     </aside>
   );
