@@ -13,7 +13,7 @@ export const FASES: Fase[] = [
   { key: 'general', label: 'Vista General', ejemplo: 'Lectura rápida del estado del negocio y el foco de la semana.' },
   { key: 'crm', label: 'CRM', ejemplo: 'Por qué un lead está trabado y cuál es la próxima acción.' },
   { key: 'marketing', label: 'Marketing', ejemplo: 'Dónde se cae la adquisición y si el gasto rinde (CPM/CPC, CTR, costo por landing y por VSL).' },
-  { key: 'comercial', label: 'Comercial', ejemplo: 'Dónde se enfría el funnel: J1→J2, no-show, tasa de cierre.' },
+  { key: 'comercial', label: 'Comercial', ejemplo: 'Dónde se enfría el funnel: R1→R2, no-show, tasa de cierre.' },
   { key: 'closing', label: 'Closing', ejemplo: 'Qué mejorar en las llamadas de cierre.' },
 ];
 

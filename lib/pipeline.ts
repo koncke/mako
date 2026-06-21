@@ -18,27 +18,77 @@ export type Stage = {
   custom?: boolean;
 };
 
-// Las 13 etapas por defecto (idénticas al prototipo y a la semilla SQL).
+// Etapas por defecto del funnel (idénticas al prototipo y a la semilla SQL).
+// "Post Reunión" (nutrición entre R1 y R2) se ubica justo después de Agenda R1.
 export const DEFAULT_STAGES: Stage[] = [
-  { key: 'lead',       label: 'Lead (Instant form)',     dot: '#3B6FB0', tone: 'info' },
-  { key: 'agenda',     label: 'Agenda J1',               dot: '#C8870C', tone: 'accent' },
-  { key: 'agendaj2',   label: 'Agenda J2',               dot: '#2E7DBE', tone: 'sky' },
-  { key: 'facturando', label: 'Facturando',              dot: '#0E8E7E', tone: 'teal' },
-  { key: 'ganado',     label: 'Ganado',                  dot: '#1C8A54', tone: 'good' },
-  { key: 'perdido',    label: 'Perdido',                 dot: '#CF4E29', tone: 'bad' },
-  { key: 'descal',     label: 'Descalificado',           dot: '#8A6D3B', tone: 'taupe' },
-  { key: 'noshow',     label: 'Nutrición - No Show',     dot: '#B5630A', tone: 'orange' },
-  { key: 'nutri',      label: 'Nutrición - No Agenda',   dot: '#6A4BD8', tone: 'violet' },
-  { key: 'nopaga',     label: 'Nutrición - No Paga',     dot: '#C7417B', tone: 'rose' },
-  { key: 'manual',     label: 'Nutrición - Manual',      dot: '#4F5BD5', tone: 'indigo' },
-  { key: 'postagenda', label: 'Nutrición - Post Agenda', dot: '#9D4EDD', tone: 'magenta' },
-  { key: 'noresp',     label: 'No responde',             dot: '#A39E91', tone: 'neutral' },
+  { key: 'lead',        label: 'Lead (Instant form)',      dot: '#3B6FB0', tone: 'info' },
+  { key: 'agenda',      label: 'Agenda R1',                dot: '#C8870C', tone: 'accent' },
+  { key: 'postreunion', label: 'Nutrición - Post Reunión', dot: '#D9A400', tone: 'warn' },
+  { key: 'agendaj2',    label: 'Agenda R2',                dot: '#2E7DBE', tone: 'sky' },
+  { key: 'facturando',  label: 'Facturando',               dot: '#0E8E7E', tone: 'teal' },
+  { key: 'ganado',      label: 'Ganado',                   dot: '#1C8A54', tone: 'good' },
+  { key: 'perdido',     label: 'Perdido',                  dot: '#CF4E29', tone: 'bad' },
+  { key: 'descal',      label: 'Descalificado',            dot: '#8A6D3B', tone: 'taupe' },
+  { key: 'noshow',      label: 'Nutrición - No Show',      dot: '#B5630A', tone: 'orange' },
+  { key: 'nutri',       label: 'Nutrición - No Agenda',    dot: '#6A4BD8', tone: 'violet' },
+  { key: 'nopaga',      label: 'Nutrición - No Paga',      dot: '#C7417B', tone: 'rose' },
+  { key: 'manual',      label: 'Nutrición - Manual',       dot: '#4F5BD5', tone: 'indigo' },
+  { key: 'postagenda',  label: 'Nutrición - Post Agenda',  dot: '#9D4EDD', tone: 'magenta' },
+  { key: 'noresp',      label: 'No responde',              dot: '#A39E91', tone: 'neutral' },
 ];
 
 export const NEW_STAGE_PALETTE = ['#3B6FB0', '#C8870C', '#0E8E7E', '#6A4BD8', '#C7417B', '#B5630A', '#2E7DBE', '#8A6D3B', '#4F5BD5', '#9D4EDD'];
 export const NEW_STAGE_TONES: StageTone[] = ['info', 'accent', 'teal', 'violet', 'rose', 'orange', 'sky', 'taupe', 'indigo', 'magenta'];
 
-export const NUTRI_KEYS = ['noshow', 'nutri', 'nopaga', 'manual', 'postagenda'];
+export const NUTRI_KEYS = ['noshow', 'nutri', 'nopaga', 'manual', 'postagenda', 'postreunion'];
+
+// ── Transiciones del funnel (grafo etapa → etapa) ───────────────────────────
+// Editable en la tab "Funnel". Definen, para cada etapa, los pasos posibles
+// siguientes; alimentan las opciones contextuales de "Datos sin marcar".
+export type TransitionTone = 'accent' | 'good' | 'bad' | 'nutri';
+
+export type FunnelTransition = {
+  from: string;          // stage key de origen
+  to: string;            // stage key de destino
+  label: string;         // texto del botón / flecha
+  tone: TransitionTone;  // color
+  asistioJ1?: boolean;   // marca asistencia a R1 al aplicar (Datos sin marcar tipo A)
+  asistioJ2?: boolean;   // marca asistencia a R2 al aplicar (Datos sin marcar tipo C)
+};
+
+// Grafo por defecto (se usa si la tabla funnel_transitions está vacía / sin migrar).
+export const DEFAULT_TRANSITIONS: FunnelTransition[] = [
+  // Lead → primeros pasos
+  { from: 'lead', to: 'agenda', label: 'Agendó R1', tone: 'accent' },
+  { from: 'lead', to: 'postagenda', label: 'Nutrición - Post Agenda', tone: 'nutri' },
+  { from: 'lead', to: 'nutri', label: 'Nutrición - No Agenda', tone: 'nutri' },
+  // Agenda R1 — tras la primera reunión
+  { from: 'agenda', to: 'agendaj2', label: 'Asistió · Agenda R2', tone: 'accent', asistioJ1: true },
+  { from: 'agenda', to: 'postreunion', label: 'Nutrición - Post Reunión', tone: 'nutri', asistioJ1: true },
+  { from: 'agenda', to: 'noshow', label: 'No Show', tone: 'nutri', asistioJ1: false },
+  { from: 'agenda', to: 'perdido', label: 'Perdido', tone: 'bad', asistioJ1: true },
+  { from: 'agenda', to: 'descal', label: 'Descalificado', tone: 'bad', asistioJ1: true },
+  // Post Reunión → R2 o desenlace
+  { from: 'postreunion', to: 'agendaj2', label: 'Agenda R2', tone: 'accent' },
+  { from: 'postreunion', to: 'perdido', label: 'Perdido', tone: 'bad' },
+  { from: 'postreunion', to: 'descal', label: 'Descalificado', tone: 'bad' },
+  { from: 'postreunion', to: 'noresp', label: 'No responde', tone: 'bad' },
+  // Agenda R2 — tras la segunda reunión
+  { from: 'agendaj2', to: 'facturando', label: 'Asistió · Facturando', tone: 'accent', asistioJ2: true },
+  { from: 'agendaj2', to: 'ganado', label: 'Ganado', tone: 'good', asistioJ2: true },
+  { from: 'agendaj2', to: 'postagenda', label: 'No Show', tone: 'nutri', asistioJ2: false },
+  { from: 'agendaj2', to: 'perdido', label: 'Perdido', tone: 'bad', asistioJ2: true },
+  { from: 'agendaj2', to: 'descal', label: 'Descalificado', tone: 'bad', asistioJ2: true },
+  // Facturando → desenlace
+  { from: 'facturando', to: 'ganado', label: 'Ganado', tone: 'good' },
+  { from: 'facturando', to: 'nopaga', label: 'Nutrición - No Paga', tone: 'nutri' },
+  { from: 'facturando', to: 'perdido', label: 'Perdido', tone: 'bad' },
+];
+
+/** Transiciones salientes de una etapa. */
+export function transitionsFrom(transitions: FunnelTransition[], from: string): FunnelTransition[] {
+  return transitions.filter((t) => t.from === from);
+}
 
 export type ChipColor = { bg: string; fg: string; bd: string };
 

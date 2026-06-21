@@ -30,13 +30,14 @@ import {
   setPipelineStage,
   saveLeadMeta,
   savePipelineStages,
+  saveFunnelTransitions,
   getLead,
   getPipelineStages,
   getVisitasLandingMap,
   type LeadUpdateInput,
   type LeadMetaInput,
 } from '@/lib/leads';
-import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { DEFAULT_STAGES, type Stage, type FunnelTransition } from '@/lib/pipeline';
 import { getCampaignNameMap } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
 import { mapToCrmLead, type VisitasMap } from './crm-map';
@@ -176,11 +177,20 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   revalidatePath('/leads');
 }
 
-/** Persiste el set completo de etapas del pipeline (modal "Gestionar etapas"). */
+/** Persiste el set completo de etapas del pipeline (tab "Funnel"). */
 export async function savePipelineStagesAction(stages: Stage[]): Promise<void> {
   await savePipelineStages(stages);
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/leads');
+  revalidatePath('/funnel');
+}
+
+/** Persiste el grafo de transiciones del funnel (tab "Funnel" → flechas). */
+export async function saveFunnelTransitionsAction(transitions: FunnelTransition[]): Promise<void> {
+  await saveFunnelTransitions(transitions);
+  bust(TAG.pipeline, TAG.leads);
+  revalidatePath('/leads');
+  revalidatePath('/funnel');
 }
 
 /**

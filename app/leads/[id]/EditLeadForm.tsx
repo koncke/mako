@@ -181,25 +181,25 @@ export function EditLeadForm({ lead }: { lead: Lead }) {
           <Field label="Fecha de agendamiento">
             <TextInput type="date" value={fechaAgenda} onChange={setFechaAgenda} />
           </Field>
-          <Field label="Fecha de Junta 1 (anchor de cohorte)">
+          <Field label="Fecha de Reunión 1 (anchor de cohorte)">
             <TextInput type="date" value={fechaJ1} onChange={handleFechaJ1Change} />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-          <Field label="¿Asistió a J1?" disabled={asistioJ1Disabled} hint={asistioJ1Disabled ? 'Marca fecha J1 primero' : undefined}>
+          <Field label="¿Asistió a R1?" disabled={asistioJ1Disabled} hint={asistioJ1Disabled ? 'Marca fecha R1 primero' : undefined}>
             <TriToggle value={asistioJ1} onChange={handleAsistioJ1Change} disabled={asistioJ1Disabled} />
           </Field>
-          <Field label="¿Era lead calificado?" disabled={calificadoDisabled} hint={calificadoDisabled ? 'Solo si asistió a J1 = Sí' : undefined}>
+          <Field label="¿Era lead calificado?" disabled={calificadoDisabled} hint={calificadoDisabled ? 'Solo si asistió a R1 = Sí' : undefined}>
             <TriToggle value={calificado} onChange={setCalificado} disabled={calificadoDisabled} />
           </Field>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
-          <Field label="Fecha de Junta 2 (opcional)">
+          <Field label="Fecha de Reunión 2 (opcional)">
             <TextInput type="date" value={fechaJ2} onChange={handleFechaJ2Change} />
           </Field>
-          <Field label="¿Asistió a J2?" disabled={asistioJ2Disabled} hint={asistioJ2Disabled ? 'Marca fecha J2 primero' : undefined}>
+          <Field label="¿Asistió a R2?" disabled={asistioJ2Disabled} hint={asistioJ2Disabled ? 'Marca fecha R2 primero' : undefined}>
             <TriToggle value={asistioJ2} onChange={setAsistioJ2} disabled={asistioJ2Disabled} />
           </Field>
         </div>
@@ -207,7 +207,7 @@ export function EditLeadForm({ lead }: { lead: Lead }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
           <Field
             label="Fecha de confirmación (opcional)"
-            hint="Cuándo el cliente confirmó verbalmente el cierre (entre J2 y primer pago)."
+            hint="Cuándo el cliente confirmó verbalmente el cierre (entre R2 y primer pago)."
           >
             <TextInput type="date" value={fechaConfirmacion} onChange={setFechaConfirmacion} />
           </Field>

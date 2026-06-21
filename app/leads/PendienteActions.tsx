@@ -50,7 +50,7 @@ export function PendienteActions({
     <div className="flex flex-col items-start md:items-end gap-2">
       {tipo === 'A' && (
         <SiNo
-          label="¿Asistió a J1?"
+          label="¿Asistió a R1?"
           pending={pending}
           onSi={() => guardar({ asistio_j1: true })}
           onNo={() => guardar({ asistio_j1: false })}
@@ -59,7 +59,7 @@ export function PendienteActions({
 
       {tipo === 'C' && (
         <SiNo
-          label="¿Asistió a J2?"
+          label="¿Asistió a R2?"
           pending={pending}
           onSi={() => guardar({ asistio_j2: true })}
           onNo={() => guardar({ asistio_j2: false })}

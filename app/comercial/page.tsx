@@ -77,7 +77,7 @@ function cohorteLeadItem(l: FunnelLeadItem): DesgloseItem {
   return {
     nombre: l.nombre,
     valor: l.cerro ? fmtUSD(l.monto) : asis,
-    detalle: `${l.empresa ? `${l.empresa} · ` : ''}J1 ${fmtDMY(l.fechaJ1)}${cal}${l.cerro ? ' · cerró' : ''}`,
+    detalle: `${l.empresa ? `${l.empresa} · ` : ''}R1 ${fmtDMY(l.fechaJ1)}${cal}${l.cerro ? ' · cerró' : ''}`,
     leadId: l.leadId,
     focus: l.cerro ? 'plan-pagos' : 'datos-comerciales',
   };
@@ -92,7 +92,7 @@ function funnelItems(
   return arr.map((l) => ({
     nombre: l.nombre,
     valor: valorFn(l),
-    detalle: `${l.empresa ? `${l.empresa} · ` : ''}J1 ${fmtDMY(l.fechaJ1)}`,
+    detalle: `${l.empresa ? `${l.empresa} · ` : ''}R1 ${fmtDMY(l.fechaJ1)}`,
     leadId: l.leadId,
     focus,
   }));
@@ -231,7 +231,7 @@ export default async function ComercialPage({
     items: sclLeads.map((l) => ({
       nombre: l.nombre,
       valor: `${l.dias} d`,
-      detalle: `agenda ${fmtDMY(l.agenda)} → J2 ${fmtDMY(l.j2)} → conf. ${fmtDMY(l.confirmacion)} → pago ${fmtDMY(l.pago)}`,
+      detalle: `agenda ${fmtDMY(l.agenda)} → R2 ${fmtDMY(l.j2)} → conf. ${fmtDMY(l.confirmacion)} → pago ${fmtDMY(l.pago)}`,
       leadId: l.leadId,
       focus: 'plan-pagos',
     })),
@@ -239,7 +239,7 @@ export default async function ComercialPage({
 
   // Contexto del gráfico mensual para el análisis con Claude.
   const contextoRevenueMensual = [
-    'Tendencia mensual del negocio. Sold Revenue (USD) = monto firmado de cierres con fecha de cierre en el mes; Cash Collected (USD) = pagos cobrados en el mes (puede diferir de Sold porque se cobra en cuotas y a veces antes/después del cierre); Ad Spend (USD) = inversión en Meta Ads del mes; Cierres = cantidad de cierres; Agendas = cantidad de agendas (Junta 1).',
+    'Tendencia mensual del negocio. Sold Revenue (USD) = monto firmado de cierres con fecha de cierre en el mes; Cash Collected (USD) = pagos cobrados en el mes (puede diferir de Sold porque se cobra en cuotas y a veces antes/después del cierre); Ad Spend (USD) = inversión en Meta Ads del mes; Cierres = cantidad de cierres; Agendas = cantidad de agendas (Reunión 1).',
     'mes | sold_revenue_usd | cash_collected_usd | ad_spend_usd | cierres | agendas',
     ...revenueMensual.map((p) => `${p.mes} | ${p.sold_usd} | ${p.cash_usd} | ${p.spend_usd} | ${p.cierres} | ${p.agendas}`),
   ].join('\n');
@@ -398,9 +398,9 @@ function SaludFunnel({ maduras, cac, funnelLeads }: { maduras: ResumenComercialM
 
   const fl = funnelLeads;
   // Desgloses por etapa (cuadran con los conteos del embudo).
-  const dgAgenda: DesgloseData | undefined = fl ? { label: 'Agenda · J1 de cohortes maduras', value: fmtNum(maduras.total_j1), color: 'var(--ink)', items: funnelItems(fl.agenda, (l) => fmtDMY(l.fechaJ1)), emptyText: 'Sin agendas maduras.' } : undefined;
-  const dgAsistio: DesgloseData | undefined = fl ? { label: 'Asistió a J1', value: fmtNum(maduras.asistencias), color: 'var(--good)', items: funnelItems(fl.asistio, () => '✓ asistió'), emptyText: 'Nadie asistió aún.' } : undefined;
-  const dgNoShow: DesgloseData | undefined = fl ? { label: 'No-show · no asistió a J1', value: fmtNum(maduras.total_j1 - maduras.asistencias), color: 'var(--bad)', items: funnelItems(fl.noShow, () => '✗ no asistió'), emptyText: 'Sin no-shows.' } : undefined;
+  const dgAgenda: DesgloseData | undefined = fl ? { label: 'Agenda · R1 de cohortes maduras', value: fmtNum(maduras.total_j1), color: 'var(--ink)', items: funnelItems(fl.agenda, (l) => fmtDMY(l.fechaJ1)), emptyText: 'Sin agendas maduras.' } : undefined;
+  const dgAsistio: DesgloseData | undefined = fl ? { label: 'Asistió a R1', value: fmtNum(maduras.asistencias), color: 'var(--good)', items: funnelItems(fl.asistio, () => '✓ asistió'), emptyText: 'Nadie asistió aún.' } : undefined;
+  const dgNoShow: DesgloseData | undefined = fl ? { label: 'No-show · no asistió a R1', value: fmtNum(maduras.total_j1 - maduras.asistencias), color: 'var(--bad)', items: funnelItems(fl.noShow, () => '✗ no asistió'), emptyText: 'Sin no-shows.' } : undefined;
   const dgCalificado: DesgloseData | undefined = fl ? { label: 'Calificados', value: fmtNum(maduras.limpias), color: 'var(--ink)', items: funnelItems(fl.calificado, () => '✓ calificado'), emptyText: 'Sin calificados.' } : undefined;
   const dgCierre: DesgloseData | undefined = fl ? { label: 'Cierres maduros', value: fmtNum(maduras.cierres), color: 'var(--good)', items: funnelItems(fl.cierre, (l) => fmtUSD(l.monto), 'plan-pagos'), emptyText: 'Sin cierres maduros.' } : undefined;
 
@@ -418,15 +418,15 @@ function SaludFunnel({ maduras, cac, funnelLeads }: { maduras: ResumenComercialM
     'polygon(35% 0, 65% 0, 58% 100%, 42% 100%)',
   ];
   const conectores: Array<{ pct: number | null; nota: string; verde: boolean }> = [
-    { pct: pctAsisten, nota: 'asisten a J1', verde: true },
+    { pct: pctAsisten, nota: 'asisten a R1', verde: true },
     { pct: pctCalifican, nota: 'califican', verde: false },
     { pct: pctCierran, nota: 'cierran', verde: false },
   ];
 
   const ctxFunnel = [
     'Embudo comercial sobre cohortes maduras (tasa confiable).',
-    `Agenda (J1): ${maduras.total_j1} | Asistió: ${maduras.asistencias} | Calificado: ${maduras.limpias} | Cierre: ${maduras.cierres}`,
-    `Conversiones: asisten a J1 ${pctAsisten !== null ? Math.round(pctAsisten) : '—'}% | califican ${pctCalifican !== null ? Math.round(pctCalifican) : '—'}% | cierran ${pctCierran !== null ? Math.round(pctCierran) : '—'}%`,
+    `Agenda (R1): ${maduras.total_j1} | Asistió: ${maduras.asistencias} | Calificado: ${maduras.limpias} | Cierre: ${maduras.cierres}`,
+    `Conversiones: asisten a R1 ${pctAsisten !== null ? Math.round(pctAsisten) : '—'}% | califican ${pctCalifican !== null ? Math.round(pctCalifican) : '—'}% | cierran ${pctCierran !== null ? Math.round(pctCierran) : '—'}%`,
     `No-show: ${noShow !== null ? Math.round(noShow) : '—'}% | Tasa de cierre madura: ${tasa !== null ? Math.round(tasa) : '—'}% | CAC acumulado: ${cac && cac.cac_usd !== null ? fmtUSD(cac.cac_usd) : '—'}`,
   ].join('\n');
 
@@ -563,7 +563,7 @@ function FunnelKPI({ label, value, valueColor, sub, topColor, desglose }: { labe
 
 const NODO_NICE: Record<string, string> = {
   Formulario: 'Formulario',
-  Agenda: 'Agenda J1',
+  Agenda: 'Agenda R1',
 };
 
 function SCLTimeline({ scl, tramos, sclDesglose }: { scl: SCL | null; tramos: TramosSCL | null; sclDesglose?: DesgloseData }) {
@@ -733,7 +733,7 @@ function CohortesTable({
             <thead>
               <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
                 <th style={th}>{fechaColLabel}</th>
-                <th style={showCiclo ? thRight : thRightSm}>J1</th>
+                <th style={showCiclo ? thRight : thRightSm}>R1</th>
                 <th style={showCiclo ? thRight : thRightSm}>Asistió</th>
                 <th style={showCiclo ? thRight : thRightSm}>No-show</th>
                 <th style={showCiclo ? thRight : thRightSm}>Calificadas</th>
@@ -817,9 +817,9 @@ function CohorteRow({
 function EmptyState() {
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)', textAlign: 'center' }}>
-      <p style={{ fontSize: 18, color: 'var(--dim)', margin: '0 0 8px' }}>Aún no hay leads con fecha de Junta 1.</p>
+      <p style={{ fontSize: 18, color: 'var(--dim)', margin: '0 0 8px' }}>Aún no hay leads con fecha de Reunión 1.</p>
       <p style={{ fontSize: 14.5, color: 'var(--faint)', margin: 0 }}>
-        Cuando alguien agende vía Calendly o crees uno manual en /leads y le pongas fecha de J1, aparecerá agrupado en cohortes aquí.
+        Cuando alguien agende vía Calendly o crees uno manual en /leads y le pongas fecha de R1, aparecerá agrupado en cohortes aquí.
       </p>
     </section>
   );

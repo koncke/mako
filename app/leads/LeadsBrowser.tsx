@@ -54,7 +54,7 @@ function labelMadurez(e: EstadoMadurez): { emoji: string; label: string; color: 
     case 'madura': return { emoji: '🟢', label: 'Madura', color: 'var(--accent-green)' };
     case 'madurando': return { emoji: '🟡', label: 'Madurando', color: 'var(--accent-yellow)' };
     case 'reciente': return { emoji: '⚪', label: 'Reciente', color: 'var(--text-dim)' };
-    case 'sin_j1': return { emoji: '—', label: 'Sin J1', color: 'var(--text-pending)' };
+    case 'sin_j1': return { emoji: '—', label: 'Sin R1', color: 'var(--text-pending)' };
   }
 }
 
@@ -169,9 +169,9 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
         {visibles.length} {visibles.length === 1 ? 'lead' : 'leads'}
         {filtroActivo && ' (filtrados)'}
         {(desde || hasta) && (
-          <span className="ml-2">· cohorte J1 {desde ? fmtDDMMYYYY(desde) : '…'} → {hasta ? fmtDDMMYYYY(hasta) : '…'}</span>
+          <span className="ml-2">· cohorte R1 {desde ? fmtDDMMYYYY(desde) : '…'} → {hasta ? fmtDDMMYYYY(hasta) : '…'}</span>
         )}
-        {noshow === '1' && <span className="ml-2">· no-shows de J1</span>}
+        {noshow === '1' && <span className="ml-2">· no-shows de R1</span>}
         {filtroActivo && (
           <button onClick={() => { setQ(''); router.replace('/leads', { scroll: false }); }} className="ml-3" style={{ color: 'var(--accent-yellow)' }}>
             limpiar filtros
@@ -188,7 +188,7 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
               <th className="px-4 py-3 hidden md:table-cell">Empresa</th>
               <th className="px-4 py-3 hidden md:table-cell">Origen</th>
               <Th label="¿Agendó?" k="agendo" sort={sort} dir={dir} onSort={toggleSort} />
-              <Th label="Fecha J1" k="j1" sort={sort} dir={dir} onSort={toggleSort} />
+              <Th label="Fecha R1" k="j1" sort={sort} dir={dir} onSort={toggleSort} />
               <th className="px-4 py-3">Cohorte</th>
               <Th label="Estado / monto" k="monto" sort={sort} dir={dir} onSort={toggleSort} align="right" />
               <Th label="Creado" k="creado" sort={sort} dir={dir} onSort={toggleSort} align="right" className="hidden md:table-cell" />

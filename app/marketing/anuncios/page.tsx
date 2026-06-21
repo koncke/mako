@@ -102,7 +102,7 @@ function ComparadorAgendas({ c }: { c: AgendasComparador }) {
         <div style={cell}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Reales en el CRM</div>
           <div style={{ fontWeight: 600, fontSize: 30, color: 'var(--good)', fontVariantNumeric: 'tabular-nums' }}>{c.crm}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4 }}>Leads con Junta 1 en el período</div>
+          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4 }}>Leads con Reunión 1 en el período</div>
         </div>
         <div style={cell}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Brecha (CRM − Meta)</div>

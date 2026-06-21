@@ -79,7 +79,7 @@ const STAGE: Record<StageKey, StageInfo> = {
 
 const STAGE_KEYS: StageKey[] = ['nutri', 'nopaga', 'noshow', 'manual', 'postagenda'];
 
-const QUICK: string[] = ['Reagendar Junta 1', 'Enviar liga de pago', 'Compartir VSL de nuevo'];
+const QUICK: string[] = ['Reagendar Reunión 1', 'Enviar liga de pago', 'Compartir VSL de nuevo'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mock data (verbatim del state del prototipo)
@@ -88,7 +88,7 @@ const QUICK: string[] = ['Reagendar Junta 1', 'Enviar liga de pago', 'Compartir 
 const INITIAL_CONVERSATIONS: Conversation[] = [
   {
     id: 'c1', name: 'German Lagunes', company: 'Lagalm Industrial', stage: 'nutri', phone: '+52 33 1567 0921', unread: 2, next: 'Día 3 · mañana 9:00', msgs: [
-      { from: 'me', text: 'Hola German 👋 Vi que dejaste tus datos pero no agendaste tu Junta 1. ¿Te ayudo a encontrar un horario?', time: 'Ayer 10:02', auto: true, seq: 'No Agenda · Día 0' },
+      { from: 'me', text: 'Hola German 👋 Vi que dejaste tus datos pero no agendaste tu Reunión 1. ¿Te ayudo a encontrar un horario?', time: 'Ayer 10:02', auto: true, seq: 'No Agenda · Día 0' },
       { from: 'them', text: 'Hola, sí, es que se me complicó la semana. ¿Tienen algo el viernes?', time: 'Ayer 14:20' },
       { from: 'me', text: 'Claro, el viernes tengo 11:00 y 4:00pm. ¿Cuál te queda mejor?', time: 'Ayer 14:25', auto: false },
     ],
@@ -113,12 +113,12 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
   },
   {
     id: 'c5', name: 'Francisco García', company: 'García Hnos.', stage: 'noshow', phone: '+52 55 7712 3380', unread: 0, next: 'Día 1 · hoy 18:00', msgs: [
-      { from: 'me', text: 'Francisco, no te vimos en la Junta 1 😕 ¿Reagendamos? Tengo lugar esta semana.', time: '5 jun 16:40', auto: true, seq: 'No Show · Día 0' },
+      { from: 'me', text: 'Francisco, no te vimos en la Reunión 1 😕 ¿Reagendamos? Tengo lugar esta semana.', time: '5 jun 16:40', auto: true, seq: 'No Show · Día 0' },
     ],
   },
   {
     id: 'c6', name: 'Esly Sugey Pereira', company: 'Scarp', stage: 'postagenda', phone: '+52 33 5567 9012', unread: 0, next: 'Día 4 · vie 10:00', msgs: [
-      { from: 'me', text: 'Esly, gracias por tu tiempo en la junta. Te dejo el resumen y los siguientes pasos 📋', time: '6 jun 12:05', auto: true, seq: 'Post Agenda · Día 0' },
+      { from: 'me', text: 'Esly, gracias por tu tiempo en la reunión. Te dejo el resumen y los siguientes pasos 📋', time: '6 jun 12:05', auto: true, seq: 'Post Agenda · Día 0' },
     ],
   },
 ];
@@ -126,7 +126,7 @@ const INITIAL_CONVERSATIONS: Conversation[] = [
 const INITIAL_SEQUENCES: Sequence[] = [
   {
     key: 'nutri', name: 'Nutrición — No Agenda', stage: 'nutri', active: true, steps: [
-      { delay: 'Día 0 · inmediato', text: 'Hola {nombre} 👋 Vi que dejaste tus datos pero no agendaste tu Junta 1. ¿Te ayudo a encontrar un horario?' },
+      { delay: 'Día 0 · inmediato', text: 'Hola {nombre} 👋 Vi que dejaste tus datos pero no agendaste tu Reunión 1. ¿Te ayudo a encontrar un horario?' },
       { delay: 'Día 1 · 9:00', text: '¿Pudiste ver el video? Aquí va de nuevo 🎥 — en 12 min te explico cómo sistematizar tu prospección.' },
       { delay: 'Día 3 · 9:00', text: 'Te aparté un lugar para esta semana, {nombre}. ¿Te queda mañana por la mañana o por la tarde?' },
       { delay: 'Día 7 · 18:00', text: 'Última llamada — hoy cierro tu cupo de esta semana. ¿Avanzamos o lo dejamos para más adelante?' },
@@ -141,7 +141,7 @@ const INITIAL_SEQUENCES: Sequence[] = [
   },
   {
     key: 'noshow', name: 'Nutrición — No Show', stage: 'noshow', active: true, steps: [
-      { delay: 'Día 0 · inmediato', text: '{nombre}, no te vimos en la Junta 1 😕 ¿Reagendamos? Tengo lugar esta semana.' },
+      { delay: 'Día 0 · inmediato', text: '{nombre}, no te vimos en la Reunión 1 😕 ¿Reagendamos? Tengo lugar esta semana.' },
       { delay: 'Día 1 · 18:00', text: 'Te dejo dos horarios: mañana 11:00 o jueves 16:00. Respondé con el que te quede.' },
       { delay: 'Día 4 · 10:00', text: 'Imagino que se complicó. ¿Seguís interesado en {empresa}? Si sí, te reagendo en 1 min.' },
     ],
@@ -153,7 +153,7 @@ const INITIAL_SEQUENCES: Sequence[] = [
   },
   {
     key: 'postagenda', name: 'Nutrición — Post Agenda', stage: 'postagenda', active: true, steps: [
-      { delay: 'Día 0 · inmediato', text: '{nombre}, gracias por tu tiempo en la junta 📋 Te dejo el resumen y los siguientes pasos.' },
+      { delay: 'Día 0 · inmediato', text: '{nombre}, gracias por tu tiempo en la reunión 📋 Te dejo el resumen y los siguientes pasos.' },
       { delay: 'Día 4 · 10:00', text: '¿Pudiste revisar la propuesta? Quedo atento a tus dudas para avanzar.' },
     ],
   },

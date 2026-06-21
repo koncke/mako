@@ -22,6 +22,7 @@ const starts = (p: string) => (pathname: string) =>
 export const MAIN_NAV: NavItem[] = [
   { key: 'general', label: 'Vista General', href: '/general', match: starts('/general') },
   { key: 'crm', label: 'CRM', href: '/leads', badge: true, match: starts('/leads') },
+  { key: 'funnel', label: 'Funnel', href: '/funnel', glyph: '⤳', match: starts('/funnel') },
   { key: 'marketing', label: 'Marketing', href: '/marketing', match: starts('/marketing') },
   { key: 'comercial', label: 'Comercial', href: '/comercial', match: starts('/comercial') },
 ];

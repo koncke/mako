@@ -8,8 +8,8 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { sendMetaCAPIEvent } from './meta-capi';
-import type { Stage, StageTone } from './pipeline';
-import { DEFAULT_STAGES, terminalEstadoFor } from './pipeline';
+import type { Stage, StageTone, FunnelTransition, TransitionTone } from './pipeline';
+import { DEFAULT_STAGES, DEFAULT_TRANSITIONS, terminalEstadoFor } from './pipeline';
 import { cachedRead, TAG, TTL } from './cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -610,7 +610,7 @@ export async function cancelarJuntaEnLead(
   hoy: string,
 ): Promise<string> {
   const yaPaso = fechaCancelada < hoy;
-  if (yaPaso) return 'junta ya pasó — sin cambios';
+  if (yaPaso) return 'reunión ya pasó — sin cambios';
 
   let campo: 'fecha_junta_2' | 'fecha_junta_1' | null = null;
   if (lead.fecha_junta_2 && fechaCancelada === lead.fecha_junta_2) {
@@ -618,7 +618,7 @@ export async function cancelarJuntaEnLead(
   } else if (lead.fecha_junta_1 && fechaCancelada === lead.fecha_junta_1) {
     campo = 'fecha_junta_1';
   }
-  if (!campo) return 'fecha cancelada no coincide con J1/J2 — sin cambios';
+  if (!campo) return 'fecha cancelada no coincide con R1/R2 — sin cambios';
 
   const supabase = getSupabaseServer();
   const { error } = await supabase
@@ -626,7 +626,7 @@ export async function cancelarJuntaEnLead(
     .update({ [campo]: null })
     .eq('id', lead.id);
   if (error) throw new Error(`Error cancelando ${campo} en lead ${lead.id}: ${error.message}`);
-  return `${campo} = NULL (cancelación de junta futura)`;
+  return `${campo} = NULL (cancelación de reunión futura)`;
 }
 
 /**
@@ -868,7 +868,7 @@ export function labelMadurez(estado: EstadoMadurez): { emoji: string; label: str
     case 'reciente':
       return { emoji: '⚪', label: 'Reciente', color: 'var(--text-dim)' };
     case 'sin_j1':
-      return { emoji: '—', label: 'Sin J1', color: 'var(--text-pending)' };
+      return { emoji: '—', label: 'Sin R1', color: 'var(--text-pending)' };
   }
 }
 
@@ -1005,6 +1005,51 @@ export async function savePipelineStages(stages: Stage[]): Promise<void> {
 }
 
 /**
+ * Lee las transiciones del funnel desde `funnel_transitions`. Si la tabla no
+ * existe o está vacía (migración 0024 sin aplicar), cae a DEFAULT_TRANSITIONS —
+ * el funnel y "Datos sin marcar" siguen funcionando.
+ */
+export async function getFunnelTransitions(): Promise<FunnelTransition[]> {
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase
+      .from('funnel_transitions')
+      .select('from_stage,to_stage,label,tone,asistio_j1,asistio_j2,sort')
+      .order('sort', { ascending: true });
+    if (error || !data || data.length === 0) return DEFAULT_TRANSITIONS;
+    return data.map((r) => ({
+      from: String(r.from_stage),
+      to: String(r.to_stage),
+      label: String(r.label),
+      tone: (r.tone as TransitionTone) ?? 'accent',
+      ...(r.asistio_j1 === null || r.asistio_j1 === undefined ? {} : { asistioJ1: !!r.asistio_j1 }),
+      ...(r.asistio_j2 === null || r.asistio_j2 === undefined ? {} : { asistioJ2: !!r.asistio_j2 }),
+    }));
+  } catch {
+    return DEFAULT_TRANSITIONS;
+  }
+}
+
+/** Reemplaza el set completo de transiciones del funnel (borra y reinserta). */
+export async function saveFunnelTransitions(transitions: FunnelTransition[]): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error: delErr } = await supabase.from('funnel_transitions').delete().neq('from_stage', '');
+  if (delErr) throw new Error(`Error limpiando transiciones: ${delErr.message}`);
+  const rows = transitions.map((t, i) => ({
+    from_stage: t.from,
+    to_stage: t.to,
+    label: t.label,
+    tone: t.tone,
+    asistio_j1: t.asistioJ1 === undefined ? null : t.asistioJ1,
+    asistio_j2: t.asistioJ2 === undefined ? null : t.asistioJ2,
+    sort: i,
+  }));
+  if (rows.length === 0) return;
+  const { error } = await supabase.from('funnel_transitions').insert(rows);
+  if (error) throw new Error(`Error guardando transiciones: ${error.message}`);
+}
+
+/**
  * Mueve un lead a una etapa del tablero. Persiste el override `pipeline_stage`
  * y, en desenlaces terminales, sincroniza estado_lead (vía updateLead) para que
  * Revenue/CAPI sigan correctos. Para "ganado" exige monto.
@@ -1035,7 +1080,7 @@ export async function setPipelineStage(
   if (opts?.asistio_j1 !== undefined) sync.asistio_j1 = opts.asistio_j1;
   if (opts?.asistio_j2 !== undefined) sync.asistio_j2 = opts.asistio_j2;
   // En etapas de nutrición marcamos la bandera para los pendientes/tab Nutrición.
-  if (['noshow', 'nutri', 'nopaga', 'manual', 'postagenda'].includes(stageKey)) {
+  if (['noshow', 'nutri', 'nopaga', 'manual', 'postagenda', 'postreunion'].includes(stageKey)) {
     sync.nutricion_realizada = true;
   }
   try {

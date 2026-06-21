@@ -2,7 +2,8 @@
 // /leads — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
 // =============================================================================
 
-import { listLeads, getPipelineStages, getVisitasLandingMap, type Lead } from '@/lib/leads';
+import { listLeads, getPipelineStages, getFunnelTransitions, getVisitasLandingMap, type Lead } from '@/lib/leads';
+import { DEFAULT_TRANSITIONS, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
   getJuntasProximas,
@@ -25,19 +26,23 @@ export default async function LeadsPage() {
   let juntasRaw: JuntaProxima[] = [];
   let pendientesRaw: PendienteItem[] = [];
   let stages: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
+  let transitions: FunnelTransition[] = DEFAULT_TRANSITIONS;
   let errorMsg: string | null = null;
 
   try {
     // getPipelineStages ahora va en la misma ola (antes serializaba al frente).
     let stagesRaw: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
-    [leads, campMap, juntasRaw, pendientesRaw, stagesRaw] = await Promise.all([
+    let transitionsRaw: FunnelTransition[] | undefined;
+    [leads, campMap, juntasRaw, pendientesRaw, stagesRaw, transitionsRaw] = await Promise.all([
       listLeads(),
       getCampaignNameMap().catch(() => ({}) as Record<string, string>),
       getJuntasProximas(hoy, 3).catch(() => [] as JuntaProxima[]),
       getPendientesDeMarcar(hoy).then((p) => p.items).catch(() => [] as PendienteItem[]),
       getPipelineStages().catch(() => undefined),
+      getFunnelTransitions().catch(() => undefined),
     ]);
     stages = stagesRaw;
+    if (transitionsRaw) transitions = transitionsRaw;
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
@@ -57,7 +62,7 @@ export default async function LeadsPage() {
   const juntas: CrmJunta[] = juntasRaw.map((j) => ({
     id: `${j.lead_id}-${j.tipo}`,
     leadId: j.lead_id,
-    when: `${j.tipo} · ${j.dia}`,
+    when: `${j.tipo === 'J1' ? 'R1' : 'R2'} · ${j.dia}`,
     warn: j.vsl_estado === 'sin_ver',
     warnText: 'agendó sin ver el VSL',
     name: j.nombre,
@@ -81,6 +86,7 @@ export default async function LeadsPage() {
       stages={stages}
       juntas={juntas}
       marcar={marcar}
+      transitions={transitions}
       total={leads.length}
       errorMsg={errorMsg}
     />

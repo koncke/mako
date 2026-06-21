@@ -259,7 +259,7 @@ function OrigenCard({
                   }}
                 >
                   ⚠️ Agendó SIN ver el VSL — se saltó el filtro. Probablemente
-                  llegue a J1 con menos contexto: dedica 5 min extra a explicar
+                  llegue a R1 con menos contexto: dedica 5 min extra a explicar
                   el modelo antes de calificar.
                 </div>
               )}

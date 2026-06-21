@@ -86,7 +86,7 @@ const INITIAL_SEQUENCES: Sequence[] = [
     stage: 'nutri',
     active: true,
     steps: [
-      { delay: 'Día 0 · inmediato', subject: '{nombre}, te aparté un lugar', preview: 'Tu sesión sigue disponible esta semana', body: 'Hola {nombre},\n\nVi que dejaste tus datos pero todavía no agendaste tu Junta 1. Te aparté un lugar para esta semana — agendá en 1 clic acá.', sent: 214, open: '48%', click: '11%' },
+      { delay: 'Día 0 · inmediato', subject: '{nombre}, te aparté un lugar', preview: 'Tu sesión sigue disponible esta semana', body: 'Hola {nombre},\n\nVi que dejaste tus datos pero todavía no agendaste tu Reunión 1. Te aparté un lugar para esta semana — agendá en 1 clic acá.', sent: 214, open: '48%', click: '11%' },
       { delay: 'Día 1 · 9:00', subject: 'El video que te va a ahorrar 3 meses', preview: '12 minutos que cambian tu prospección', body: 'En este video te muestro el sistema exacto que usamos para llenar la agenda de reuniones calificadas.', sent: 198, open: '41%', click: '9%' },
       { delay: 'Día 3 · 9:00', subject: '¿Lo dejamos para más adelante?', preview: 'Cierro tu cupo hoy', body: '{nombre}, no quiero insistir de más. Si este no es el momento, decime y lo pausamos. Si sí, agendá acá.', sent: 171, open: '39%', click: '7%' },
     ],
@@ -107,7 +107,7 @@ const INITIAL_SEQUENCES: Sequence[] = [
     stage: 'noshow',
     active: true,
     steps: [
-      { delay: 'Día 0 · inmediato', subject: 'Te perdiste la junta — reagendemos', preview: 'Tengo lugar esta semana', body: '{nombre}, no te vimos en la Junta 1. Sé que se complica la agenda — acá tenés dos horarios nuevos.', sent: 57, open: '44%', click: '12%' },
+      { delay: 'Día 0 · inmediato', subject: 'Te perdiste la reunión — reagendemos', preview: 'Tengo lugar esta semana', body: '{nombre}, no te vimos en la Reunión 1. Sé que se complica la agenda — acá tenés dos horarios nuevos.', sent: 57, open: '44%', click: '12%' },
       { delay: 'Día 1 · 18:00', subject: 'Último intento de reagenda', preview: '¿Seguís interesado?', body: 'Si {empresa} sigue buscando bajar su costo por reunión, dame 1 minuto y te reagendo.', sent: 51, open: '38%', click: '8%' },
     ],
   },
@@ -126,7 +126,7 @@ const INITIAL_SEQUENCES: Sequence[] = [
     stage: 'postagenda',
     active: true,
     steps: [
-      { delay: 'Día 0 · inmediato', subject: 'Resumen de tu junta + siguientes pasos', preview: 'Todo lo que vimos, en un lugar', body: 'Gracias por tu tiempo, {nombre}. Te dejo el resumen de la junta y los siguientes pasos para avanzar.', sent: 31, open: '61%', click: '24%' },
+      { delay: 'Día 0 · inmediato', subject: 'Resumen de tu reunión + siguientes pasos', preview: 'Todo lo que vimos, en un lugar', body: 'Gracias por tu tiempo, {nombre}. Te dejo el resumen de la reunión y los siguientes pasos para avanzar.', sent: 31, open: '61%', click: '24%' },
       { delay: 'Día 4 · 10:00', subject: '¿Pudiste revisar la propuesta?', preview: 'Quedo atento a tus dudas', body: 'Cualquier ajuste a la propuesta lo vemos juntos. ¿Te late que hablemos 10 min esta semana?', sent: 28, open: '52%', click: '18%' },
     ],
   },

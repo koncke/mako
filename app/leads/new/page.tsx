@@ -23,7 +23,7 @@ export default function NewLeadPage() {
           Nuevo lead
         </h1>
         <p className="mt-1 text-base" style={{ color: 'var(--text-dim)' }}>
-          Captura inicial. Los datos comerciales (J1, calificado, cierre) se llenan después.
+          Captura inicial. Los datos comerciales (R1, calificado, cierre) se llenan después.
         </p>
       </header>
 
@@ -101,7 +101,7 @@ export default function NewLeadPage() {
               }}
             />
           </Field>
-          <Field label="Fecha de Junta 1 (si ya la tienes)">
+          <Field label="Fecha de Reunión 1 (si ya la tienes)">
             <input
               type="date"
               name="fecha_junta_1"

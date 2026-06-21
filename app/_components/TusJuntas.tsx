@@ -11,10 +11,10 @@ export function TusJuntas({ juntas }: { juntas: JuntaProxima[] }) {
   return (
     <section>
       <h2 className="text-[28px] mb-3" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>
-        Tus juntas
+        Tus reuniones
       </h2>
       {juntas.length === 0 ? (
-        <p className="text-base" style={{ color: 'var(--text-dim)' }}>Sin juntas hoy ni mañana.</p>
+        <p className="text-base" style={{ color: 'var(--text-dim)' }}>Sin reuniones hoy ni mañana.</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {juntas.map((j) => (
@@ -48,7 +48,7 @@ function JuntaCard({ junta }: { junta: JuntaProxima }) {
               color: junta.tipo === 'J1' ? 'var(--accent-yellow)' : 'var(--accent-green)',
             }}
           >
-            {junta.tipo} · {junta.dia}
+            {junta.tipo === 'J1' ? 'R1' : 'R2'} · {junta.dia}
           </span>
           {junta.vsl_estado === 'sin_ver' ? (
             <span

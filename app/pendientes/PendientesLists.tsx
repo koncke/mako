@@ -77,7 +77,7 @@ export function SinMarcarList({ items }: { items: PendienteItem[] }) {
 // ─────────────────────────────────────────────────────────────────────────────
 const COLA_LABEL: Partial<Record<ColaItem['tipo'], string>> = {
   cobro_vencido: 'Cobranza',
-  j2_sin_match: 'J2 sin match',
+  j2_sin_match: 'R2 sin match',
   noshow_recontactar: 'Recontactar no-shows',
 };
 const COLA_ORDEN: Array<ColaItem['tipo']> = ['cobro_vencido', 'j2_sin_match', 'noshow_recontactar'];

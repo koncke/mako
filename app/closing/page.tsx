@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Closing Analysis — review automática del desempeño del closer en cada J1/J2
+// Closing Analysis — review automática del desempeño del closer en cada R1/R2
 // =============================================================================
 // Port del prototipo design-reference/Closing Analysis.dc.html. Datos de
 // preview verbatim (state.calls). El filtro de closer cambia la lista visible;
@@ -56,7 +56,7 @@ const CALLS: Call[] = [
     id: 'k1',
     lead: 'Carlos Méndez Ávila',
     company: 'Méndez Consultores',
-    type: 'J2',
+    type: 'R2',
     closer: 'Mauricio Bustos',
     date: '15/06/2026',
     duration: '42 min',
@@ -81,22 +81,22 @@ const CALLS: Call[] = [
     ],
     recs: [
       'Pedí el cierre apenas resolvés la objeción — ya estaba listo en 31:00.',
-      'Replicá este nivel de "implicación" en las J1; es tu mayor fortaleza.',
+      'Replicá este nivel de "implicación" en las R1; es tu mayor fortaleza.',
     ],
   },
   {
     id: 'k2',
     lead: 'Mariana López',
     company: 'Grupo Norte',
-    type: 'J1',
+    type: 'R1',
     closer: 'Andrea Ruiz',
     date: '14/06/2026',
     duration: '38 min',
     score: 5.6,
-    outcome: 'Pasó a J2',
+    outcome: 'Pasó a R2',
     outcomeTone: 'warn',
     summary:
-      'Buena conexión inicial pero la llamada se quedó en la superficie. Andrea identificó el problema pero no cuantificó su impacto, así que la propuesta llegó sin urgencia. La objeción de presupuesto quedó sin rebatir — se pospuso a J2 sin compromiso claro.',
+      'Buena conexión inicial pero la llamada se quedó en la superficie. Andrea identificó el problema pero no cuantificó su impacto, así que la propuesta llegó sin urgencia. La objeción de presupuesto quedó sin rebatir — se pospuso a R2 sin compromiso claro.',
     dims: [
       { g: 'spin', label: 'Situación', score: 7, note: 'Buen rapport y contexto general del negocio.' },
       { g: 'spin', label: 'Problema', score: 6, note: 'Identificó el problema pero sin profundizar en sus causas.' },
@@ -104,7 +104,7 @@ const CALLS: Call[] = [
       { g: 'spin', label: 'Necesidad / beneficio', score: 6, note: 'Beneficios genéricos, poco atados al caso del lead.' },
       { g: 'exec', label: 'Presentación de la propuesta', score: 5, note: 'Mencionó precio sin anclaje ni estructura de valor.' },
       { g: 'exec', label: 'Manejo de objeciones', score: 4, note: 'Objeción de presupuesto quedó sin respuesta concreta.' },
-      { g: 'exec', label: 'CTA / siguientes pasos', score: 6, note: 'Agendó J2 pero sin compromiso ni tarea para el lead.' },
+      { g: 'exec', label: 'CTA / siguientes pasos', score: 6, note: 'Agendó R2 pero sin compromiso ni tarea para el lead.' },
     ],
     moments: [
       { t: '04:30', tone: 'good', tag: 'Buen rapport', quote: 'Generó confianza rápido mencionando un cliente del mismo rubro.' },
@@ -114,14 +114,14 @@ const CALLS: Call[] = [
     recs: [
       'Cuantificá siempre el problema: "¿cuánto te cuesta eso al mes?" abre la urgencia.',
       'Ante "no hay presupuesto", explorá: ¿es timing, prioridad o monto? Cada uno se rebate distinto.',
-      'Cerrá la J1 con una micro-tarea para el lead — mantiene el compromiso vivo.',
+      'Cerrá la R1 con una micro-tarea para el lead — mantiene el compromiso vivo.',
     ],
   },
   {
     id: 'k3',
     lead: 'Salvador Loza',
     company: 'particular',
-    type: 'J1',
+    type: 'R1',
     closer: 'Diego Fuentes',
     date: '08/06/2026',
     duration: '26 min',
@@ -129,7 +129,7 @@ const CALLS: Call[] = [
     outcome: 'Perdido',
     outcomeTone: 'bad',
     summary:
-      'El lead llegó sin haber visto el VSL (34% de retención) y la llamada se fue casi entera en explicar lo básico de la oferta. Diego no calificó presupuesto ni timing al inicio, así que descubrió tarde que no había fit. Sin J2 ni siguiente paso.',
+      'El lead llegó sin haber visto el VSL (34% de retención) y la llamada se fue casi entera en explicar lo básico de la oferta. Diego no calificó presupuesto ni timing al inicio, así que descubrió tarde que no había fit. Sin R2 ni siguiente paso.',
     dims: [
       { g: 'spin', label: 'Situación', score: 5, note: 'Contexto incompleto; no confirmó tamaño ni etapa del negocio.' },
       { g: 'spin', label: 'Problema', score: 4, note: 'El lead no tenía un dolor claro y no se ayudó a definirlo.' },
@@ -137,7 +137,7 @@ const CALLS: Call[] = [
       { g: 'spin', label: 'Necesidad / beneficio', score: 4, note: 'Se explicó la oferta como features, no como solución a un dolor.' },
       { g: 'exec', label: 'Presentación de la propuesta', score: 4, note: 'Precio presentado a un lead no calificado; reacción defensiva.' },
       { g: 'exec', label: 'Manejo de objeciones', score: 3, note: 'No hubo manejo: ante la duda de precio, la llamada se diluyó.' },
-      { g: 'exec', label: 'CTA / siguientes pasos', score: 3, note: 'Terminó sin J2 ni compromiso. Lead marcado Perdido.' },
+      { g: 'exec', label: 'CTA / siguientes pasos', score: 3, note: 'Terminó sin R2 ni compromiso. Lead marcado Perdido.' },
     ],
     moments: [
       { t: '02:10', tone: 'bad', tag: 'No calificó al inicio', quote: 'No preguntó presupuesto ni timing en los primeros minutos.' },
@@ -145,7 +145,7 @@ const CALLS: Call[] = [
       { t: '24:00', tone: 'bad', tag: 'Sin cierre', quote: 'Cerró con "cualquier cosa me avisas" — sin siguiente paso definido.' },
     ],
     recs: [
-      'Este lead nunca debió llegar a J1 con 34% de VSL — calificá retención antes de agendar.',
+      'Este lead nunca debió llegar a R1 con 34% de VSL — calificá retención antes de agendar.',
       'Abrí siempre con presupuesto y timing: ahorra llamadas a leads sin fit.',
       'Reactivá a Salvador con nutrición y material de ROI antes de otra llamada.',
     ],
@@ -154,7 +154,7 @@ const CALLS: Call[] = [
     id: 'k4',
     lead: 'Patricia Núñez',
     company: 'Indubel',
-    type: 'J2',
+    type: 'R2',
     closer: 'Mauricio Bustos',
     date: '15/06/2026',
     duration: '45 min',
@@ -164,8 +164,8 @@ const CALLS: Call[] = [
     summary:
       'Cierre técnico bien llevado. Buen manejo de la objeción de implementación. La propuesta se presentó con opciones (anclaje alto → plan recomendado). Pequeña oportunidad: el resumen de siguientes pasos quedó algo apurado al final.',
     dims: [
-      { g: 'spin', label: 'Situación', score: 8, note: 'Retomó el contexto de la J1 sin hacer repetir al lead.' },
-      { g: 'spin', label: 'Problema', score: 8, note: 'Reconfirmó el dolor y su evolución desde la J1.' },
+      { g: 'spin', label: 'Situación', score: 8, note: 'Retomó el contexto de la R1 sin hacer repetir al lead.' },
+      { g: 'spin', label: 'Problema', score: 8, note: 'Reconfirmó el dolor y su evolución desde la R1.' },
       { g: 'spin', label: 'Implicación', score: 7, note: 'Buena, aunque podía empujar más el costo de oportunidad.' },
       { g: 'spin', label: 'Necesidad / beneficio', score: 8, note: 'Atado al caso puntual del lead.' },
       { g: 'exec', label: 'Presentación de la propuesta', score: 9, note: 'Tres opciones con anclaje alto; el plan recomendado se sintió obvio.' },
@@ -186,7 +186,7 @@ const CALLS: Call[] = [
     id: 'k5',
     lead: 'Hugo Treviño',
     company: 'Treviño y Asoc.',
-    type: 'J2',
+    type: 'R2',
     closer: 'Andrea Ruiz',
     date: '04/04/2026',
     duration: '40 min',
@@ -210,7 +210,7 @@ const CALLS: Call[] = [
     ],
     recs: [
       'Documentá esta llamada como referencia de entrenamiento para el equipo.',
-      'Replicá la técnica de sumar al decisor faltante en otras J2.',
+      'Replicá la técnica de sumar al decisor faltante en otras R2.',
     ],
   },
 ];
@@ -234,9 +234,9 @@ function typeChip(type: string): CSSProperties {
     borderRadius: '6px',
     fontFamily: "'Geist Mono', monospace",
     letterSpacing: '.04em',
-    background: type === 'J2' ? 'rgba(14,158,142,.12)' : 'rgba(200,135,12,.12)',
-    color: type === 'J2' ? '#0E8E7E' : '#9A6A09',
-    border: '1px solid ' + (type === 'J2' ? 'rgba(14,158,142,.28)' : 'rgba(200,135,12,.30)'),
+    background: type === 'R2' ? 'rgba(14,158,142,.12)' : 'rgba(200,135,12,.12)',
+    color: type === 'R2' ? '#0E8E7E' : '#9A6A09',
+    border: '1px solid ' + (type === 'R2' ? 'rgba(14,158,142,.28)' : 'rgba(200,135,12,.30)'),
   };
 }
 
@@ -306,7 +306,7 @@ export default function ClosingAnalysisPage() {
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>Fathom conectado
             </span>
           </div>
-          <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>Review automática del desempeño del closer en cada J1 / J2 — Método SPIN, propuesta, objeciones y CTA.</div>
+          <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>Review automática del desempeño del closer en cada R1 / R2 — Método SPIN, propuesta, objeciones y CTA.</div>
         </div>
         <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap' }}>
           {filterDefs.map((f) => {

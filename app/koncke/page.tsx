@@ -75,14 +75,14 @@ const CANNED: Record<'ad' | 'salvador' | 'cuello', Canned> = {
       { label: 'Origen', value: 'Visionario' },
     ],
     bullets: [
-      'Vio solo 34% del VSL — llegó a la J1 sin entender la oferta, así que la junta se fue en explicar lo básico en vez de cerrar.',
+      'Vio solo 34% del VSL — llegó a la R1 sin entender la oferta, así que la reunión se fue en explicar lo básico en vez de cerrar.',
       'Es "particular" (sin empresa): menor presupuesto y ciclo más largo que tu ICP de agencias B2B.',
-      'No hubo J2 ni fecha de confirmación: el proceso se cortó tras la J1 — señal de objeción no resuelta (precio o timing).',
+      'No hubo R2 ni fecha de confirmación: el proceso se cortó tras la R1 — señal de objeción no resuelta (precio o timing).',
     ],
     verdict: {
       tone: 'bad',
       title: 'Diagnóstico',
-      text: 'No fue el cierre, fue la calificación. Leads con <50% de VSL deberían pasar por nutrición antes de la J1. Reactivá a Salvador con la secuencia "No Paga" y material de ROI.',
+      text: 'No fue el cierre, fue la calificación. Leads con <50% de VSL deberían pasar por nutrición antes de la R1. Reactivá a Salvador con la secuencia "No Paga" y material de ROI.',
     },
   },
   cuello: {
@@ -94,7 +94,7 @@ const CANNED: Record<'ad' | 'salvador' | 'cuello', Canned> = {
       { label: 'Click → Form', value: '7.6%' },
     ],
     bullets: [
-      'Completan el formulario pero no agendan la J1 (271 forms → 6 agendas).',
+      'Completan el formulario pero no agendan la R1 (271 forms → 6 agendas).',
       'Click → Formulario también está flojo: el form pide más de lo que el anuncio promete.',
     ],
     verdict: {

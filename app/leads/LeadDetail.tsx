@@ -192,11 +192,11 @@ export function LeadDetail({
             <details id="lead-sec-datos-comerciales" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Datos comerciales<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                <DateField label="Fecha Junta 1" value={edits.fechaJ1} onChange={(v) => onPatch({ fechaJ1: v })} />
-                <Stat label="¿Asistió a J1?" value={lead.asistioJ1 === true ? 'Sí' : lead.asistioJ1 === false ? 'No' : '—'} />
+                <DateField label="Fecha Reunión 1" value={edits.fechaJ1} onChange={(v) => onPatch({ fechaJ1: v })} />
+                <Stat label="¿Asistió a R1?" value={lead.asistioJ1 === true ? 'Sí' : lead.asistioJ1 === false ? 'No' : '—'} />
                 <Stat label="¿Era calificado?" value={lead.calificado === true ? 'Sí' : lead.calificado === false ? 'No' : '—'} />
-                <DateField label="Fecha Junta 2" value={edits.fechaJ2} onChange={(v) => onPatch({ fechaJ2: v })} />
-                <Stat label="¿Asistió a J2?" value={lead.asistioJ2 === true ? 'Sí' : lead.asistioJ2 === false ? 'No' : '—'} />
+                <DateField label="Fecha Reunión 2" value={edits.fechaJ2} onChange={(v) => onPatch({ fechaJ2: v })} />
+                <Stat label="¿Asistió a R2?" value={lead.asistioJ2 === true ? 'Sí' : lead.asistioJ2 === false ? 'No' : '—'} />
                 <Stat label="¿Se comprometió a pagar?" value={['facturando', 'ganado'].includes(s) ? 'Sí' : 'No'} />
                 <div style={{ gridColumn: '1/-1', ...miniCard }}>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>Closer asignado</div>
@@ -314,8 +314,8 @@ export function LeadDetail({
               <div style={{ padding: '4px 0 18px', display: 'flex', flexDirection: 'column' }}>
                 {[
                   { label: 'Instant Form (Meta)', date: lead.created },
-                  { label: 'Junta 1', date: lead.agenda || '—' },
-                  { label: 'Junta 2', date: lead.j2 || '—' },
+                  { label: 'Reunión 1', date: lead.agenda || '—' },
+                  { label: 'Reunión 2', date: lead.j2 || '—' },
                   { label: 'Cierre ganado', date: fmt(lead.monto) },
                 ].map((t, i) => (
                   <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -339,7 +339,7 @@ export function LeadDetail({
             <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
                 { when: lead.created, what: 'Lead creado desde Instant Form' },
-                { when: lead.agenda || lead.created, what: 'Agendó Junta 1' },
+                { when: lead.agenda || lead.created, what: 'Agendó Reunión 1' },
                 { when: 'hoy', what: 'Etapa actual: ' + headerMeta.label },
               ].map((h, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>

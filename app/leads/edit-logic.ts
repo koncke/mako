@@ -19,8 +19,8 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
   const fathom: FathomLink[] = l.fathom.length
     ? l.fathom
     : [
-        ...(passedJ1 ? [{ label: 'Junta 1', url: '' }] : []),
-        ...(passedJ2 ? [{ label: 'Junta 2', url: '' }] : []),
+        ...(passedJ1 ? [{ label: 'Reunión 1', url: '' }] : []),
+        ...(passedJ2 ? [{ label: 'Reunión 2', url: '' }] : []),
       ];
   const isNutri = NUTRI_KEYS.includes(effStage);
   const isGanado = effStage === 'ganado';
@@ -49,12 +49,12 @@ export function missingFor(stage: string, e: Edits): string[] {
   const m: string[] = [];
   switch (stage) {
     case 'agenda':
-      if (!e.fechaJ1.trim()) m.push('Fecha de la Junta 1');
+      if (!e.fechaJ1.trim()) m.push('Fecha de la Reunión 1');
       if (!hasFathomUrl(e)) m.push('Link de Fathom');
       break;
     case 'agendaj2':
     case 'facturando':
-      if (!e.fechaJ2.trim()) m.push('Fecha de la Junta 2');
+      if (!e.fechaJ2.trim()) m.push('Fecha de la Reunión 2');
       if (!hasFathomUrl(e)) m.push('Link de Fathom');
       break;
     case 'ganado':

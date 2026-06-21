@@ -134,8 +134,8 @@ export default async function GeneralPage() {
   if (tramo.n >= 3 && tramo.promedio !== null && tramo.promedio > DIAS_J1_J2_ALERTA) {
     alertas.push({
       nivel: 'ambar',
-      titulo: `Los deals se enfrían entre J1 y J2 (${tramo.promedio.toFixed(1)} días prom.)`,
-      detalle: 'Cuanto más tarda la J2, más cae la intención. Agendá la J2 en la misma J1, en vivo.',
+      titulo: `Los deals se enfrían entre R1 y R2 (${tramo.promedio.toFixed(1)} días prom.)`,
+      detalle: 'Cuanto más tarda la R2, más cae la intención. Agendá la R2 en la misma R1, en vivo.',
       href: '/comercial', hrefLabel: 'Comercial',
     });
   }
@@ -159,7 +159,7 @@ export default async function GeneralPage() {
       alertas.push({
         nivel: 'rojo',
         titulo: `Tasa de cierre baja: ${maduras.tasa_cierre_madura.toFixed(0)}% en cohortes maduras`,
-        detalle: 'Califican pero no cierran. Revisá la oferta y el manejo de objeciones en la J2.',
+        detalle: 'Califican pero no cierran. Revisá la oferta y el manejo de objeciones en la R2.',
         href: '/comercial', hrefLabel: 'Comercial',
       });
     }
@@ -210,7 +210,7 @@ export default async function GeneralPage() {
       emptyText: 'Sin cobros este mes.',
     },
     Agendas: {
-      label: 'Agendas del mes · J1 en el período (CRM)',
+      label: 'Agendas del mes · R1 en el período (CRM)',
       value: String(agendasMTD.length),
       color: 'var(--ink)',
       items: agendasMTD.map((a) => ({
@@ -456,9 +456,9 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 22 }}>
         {[
-          { n: pendientes.porTipo.A, l: 'sin asistencia a J1' },
-          { n: pendientes.porTipo.B, l: 'sin J2 ni resolución' },
-          { n: pendientes.porTipo.C, l: 'sin asistencia a J2' },
+          { n: pendientes.porTipo.A, l: 'sin asistencia a R1' },
+          { n: pendientes.porTipo.B, l: 'sin R2 ni resolución' },
+          { n: pendientes.porTipo.C, l: 'sin asistencia a R2' },
         ].map((x) => (
           <div key={x.l} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
             <div style={{ fontWeight: 600, fontSize: 24, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{x.n}</div>

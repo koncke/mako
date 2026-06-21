@@ -1191,7 +1191,7 @@ export async function getFunnelEtapas(
       bloque: 'puente',
       entrada: mkt.leads_count,
       salida: mkt.agendamientos,
-      benchmark: 'Del instant form a agendar la J1 — el puente clave del camino principal. Cruza Meta (forms) y Calendly (agendas): tomalo como tendencia. Subirlo = mejor seguimiento y CTA del VSL.',
+      benchmark: 'Del instant form a agendar la R1 — el puente clave del camino principal. Cruza Meta (forms) y Calendly (agendas): tomalo como tendencia. Subirlo = mejor seguimiento y CTA del VSL.',
       umbral: { rojo: 25, ambar: 45, max: 100 },
       fuenteKey: 'meta_insights',
       contexto: false,
@@ -1199,7 +1199,7 @@ export async function getFunnelEtapas(
     // ── BLOQUE COMERCIAL (calendly + carga manual) ──
     {
       key: 'agenda_asistio',
-      label: 'Agenda → Asistió J1',
+      label: 'Agenda → Asistió R1',
       bloque: 'comercial',
       entrada: total_j1,
       salida: asistencias,
@@ -1214,7 +1214,7 @@ export async function getFunnelEtapas(
       bloque: 'comercial',
       entrada: asistencias,
       salida: limpias,
-      benchmark: 'Mide la calidad del lead que llega a J1. Bajo = atraes al perfil equivocado.',
+      benchmark: 'Mide la calidad del lead que llega a R1. Bajo = atraes al perfil equivocado.',
       umbral: { rojo: 40, ambar: 60, max: 100 },
       fuenteKey: null, // carga manual — siempre "disponible"
       contexto: false,
@@ -1225,7 +1225,7 @@ export async function getFunnelEtapas(
       bloque: 'comercial',
       entrada: limpias,
       salida: cierres,
-      benchmark: 'Ratio joya. ≥30% sano, 20-30% mixto, <20% problema de venta (J2, oferta, objeciones).',
+      benchmark: 'Ratio joya. ≥30% sano, 20-30% mixto, <20% problema de venta (R2, oferta, objeciones).',
       umbral: { rojo: 20, ambar: 30, max: 100 },
       fuenteKey: null,
       contexto: false,
@@ -1717,9 +1717,9 @@ async function _getTramosSCL(): Promise<TramosSCL> {
   };
 
   const defs: Array<{ label: string; from: keyof Row; to: keyof Row }> = [
-    { label: 'Agenda → Junta 1', from: 'fecha_agenda', to: 'fecha_junta_1' },
-    { label: 'Junta 1 → Junta 2', from: 'fecha_junta_1', to: 'fecha_junta_2' },
-    { label: 'Junta 2 → Confirmó', from: 'fecha_junta_2', to: 'fecha_confirmacion' },
+    { label: 'Agenda → Reunión 1', from: 'fecha_agenda', to: 'fecha_junta_1' },
+    { label: 'Reunión 1 → Reunión 2', from: 'fecha_junta_1', to: 'fecha_junta_2' },
+    { label: 'Reunión 2 → Confirmó', from: 'fecha_junta_2', to: 'fecha_confirmacion' },
     { label: 'Confirmó → Primer pago', from: 'fecha_confirmacion', to: 'fecha_primer_pago' },
   ];
 
@@ -1992,7 +1992,7 @@ async function _getPendientesDeMarcar(
         lead_id: l.id,
         lead_nombre: l.nombre,
         tipo: 'A',
-        mensaje: `¿Asistió a la J1 del ${fmtFechaPendiente(l.fecha_junta_1)}?`,
+        mensaje: `¿Asistió a la R1 del ${fmtFechaPendiente(l.fecha_junta_1)}?`,
         fecha: l.fecha_junta_1,
       });
       continue;
@@ -2010,7 +2010,7 @@ async function _getPendientesDeMarcar(
         lead_id: l.id,
         lead_nombre: l.nombre,
         tipo: 'B',
-        mensaje: `Tuvo J1 hace ${dias} días: agendá la J2 o marcá la resolución`,
+        mensaje: `Tuvo R1 hace ${dias} días: agendá la R2 o marcá la resolución`,
         fecha: l.fecha_junta_1,
       });
       continue;
@@ -2021,7 +2021,7 @@ async function _getPendientesDeMarcar(
         lead_id: l.id,
         lead_nombre: l.nombre,
         tipo: 'C',
-        mensaje: `¿Asistió a la J2 del ${fmtFechaPendiente(l.fecha_junta_2)}?`,
+        mensaje: `¿Asistió a la R2 del ${fmtFechaPendiente(l.fecha_junta_2)}?`,
         fecha: l.fecha_junta_2,
       });
       continue;
@@ -2100,7 +2100,7 @@ async function _getJuntasProximas(
     .from('leads')
     .select('*')
     .or(`fecha_junta_1.in.(${enLista}),fecha_junta_2.in.(${enLista})`);
-  if (error) throw new Error(`Query juntas próximas falló: ${error.message}`);
+  if (error) throw new Error(`Query reuniones próximas falló: ${error.message}`);
 
   const leads = (data ?? []) as Lead[];
   // VSL engagement de todos los visitors en UNA query (antes: N+1 en el loop).
@@ -2197,7 +2197,7 @@ async function _getColaDeAccion(
       lead_id: p.lead_id,
       lead_nombre: p.lead_nombre,
       titulo: p.mensaje,
-      detalle: p.tipo === 'A' ? 'Marcá si asistió a la J1.' : 'Marcá si asistió a la J2.',
+      detalle: p.tipo === 'A' ? 'Marcá si asistió a la R1.' : 'Marcá si asistió a la R2.',
       accion: 'Marcar asistencia',
       link: `/leads/${p.lead_id}`,
       pendiente_tipo: p.tipo,
@@ -2227,8 +2227,8 @@ async function _getColaDeAccion(
       tipo: 'j2_sin_match',
       lead_id: null,
       lead_nombre: r.nombre ?? r.email ?? 'desconocido',
-      titulo: `Alguien agendó una J2 con ${r.email ?? 'email desconocido'} y no encontré su lead`,
-      detalle: r.fecha_evento ? `Fecha de la J2: ${fmtFechaPendiente(r.fecha_evento)}. Buscá el lead y cargá la J2 a mano.` : 'Buscá el lead y cargá la J2 a mano.',
+      titulo: `Alguien agendó una R2 con ${r.email ?? 'email desconocido'} y no encontré su lead`,
+      detalle: r.fecha_evento ? `Fecha de la R2: ${fmtFechaPendiente(r.fecha_evento)}. Buscá el lead y cargá la R2 a mano.` : 'Buscá el lead y cargá la R2 a mano.',
       accion: 'Resolver a mano',
       link: '/leads',
     });
@@ -2250,8 +2250,8 @@ async function _getColaDeAccion(
       tipo: 'noshow_recontactar',
       lead_id: r.id,
       lead_nombre: r.nombre,
-      titulo: `${r.nombre} no se presentó a la J1: recontactá`,
-      detalle: `La J1 era el ${fmtFechaPendiente(r.fecha_junta_1)}. Mandale un mensaje para reagendar.`,
+      titulo: `${r.nombre} no se presentó a la R1: recontactá`,
+      detalle: `La R1 era el ${fmtFechaPendiente(r.fecha_junta_1)}. Mandale un mensaje para reagendar.`,
       accion: 'Recontactar',
       link: `/leads/${r.id}`,
     });
@@ -2267,7 +2267,7 @@ async function _getColaDeAccion(
       lead_id: p.lead_id,
       lead_nombre: p.lead_nombre,
       titulo: p.mensaje,
-      detalle: 'Agendá la J2 (Calendly) o marcá la resolución.',
+      detalle: 'Agendá la R2 (Calendly) o marcá la resolución.',
       accion: 'Resolver',
       link: `/leads/${p.lead_id}`,
       pendiente_tipo: 'B',
@@ -2757,7 +2757,7 @@ async function _getTendencias(
     ],
     comercial: [
       { key: 'agendas', label: 'Agendas', formato: 'num', valores: agendas, cuadros: cuadrosAgendas() },
-      { key: 'asistencias', label: 'Asistencias a J1', formato: 'num', valores: asistencias, cuadros: cuadrosSuma(asistencias, 'num') },
+      { key: 'asistencias', label: 'Asistencias a R1', formato: 'num', valores: asistencias, cuadros: cuadrosSuma(asistencias, 'num') },
       { key: 'cierres', label: 'Cierres', formato: 'num', valores: cierres, cuadros: cuadrosSuma(cierres, 'num') },
       { key: 'cash', label: 'Cash collected', formato: 'usd', valores: cash, cuadros: cuadrosCash() },
       { key: 'cac', label: 'CAC', formato: 'usd', valores: cac, cuadros: cuadrosTasa(cac, 'usd', true) },

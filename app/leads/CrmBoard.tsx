@@ -19,16 +19,15 @@ import {
 } from 'react';
 import {
   CHIP,
-  NEW_STAGE_PALETTE,
-  NEW_STAGE_TONES,
   stageMeta as findStage,
+  transitionsFrom,
   type Stage,
+  type FunnelTransition,
 } from '@/lib/pipeline';
 import type { EstadoLead, FathomLink } from '@/lib/leads';
 import {
   setLeadStageAction,
   saveLeadMetaAction,
-  savePipelineStagesAction,
   deleteLeadAction,
 } from './actions';
 import { LeadDetail } from './LeadDetail';
@@ -97,44 +96,7 @@ export type Edits = {
   cuotas: { monto: string; fecha: string }[];
 };
 
-// Una resolución del worklist: a qué etapa lleva y qué asistencia implica.
-// `tone` solo define el color del botón. Al elegir una, se abre la ficha con el
-// pase pendiente para completar los obligatorios antes de guardar.
-export type MarcarOption = {
-  label: string;
-  stage: string;
-  asistioJ1?: boolean;
-  asistioJ2?: boolean;
-  tone: 'good' | 'bad' | 'nutri' | 'accent';
-};
-
 export type PendingMove = { id: number; from: string; to: string; asistioJ1?: boolean; asistioJ2?: boolean };
-
-// Opciones posibles según el tipo de dato sin marcar (solo las que aplican).
-const MARCAR_OPTIONS: Record<'A' | 'B' | 'C', MarcarOption[]> = {
-  // A) ¿Asistió a la J1?  → marcar asistencia + próximo paso
-  A: [
-    { label: 'Asistió · Agenda J2', stage: 'agendaj2', asistioJ1: true, tone: 'accent' },
-    { label: 'No Show', stage: 'noshow', asistioJ1: false, tone: 'nutri' },
-    { label: 'Perdido', stage: 'perdido', asistioJ1: true, tone: 'bad' },
-    { label: 'Descalificado', stage: 'descal', asistioJ1: true, tone: 'bad' },
-  ],
-  // B) Tuvo J1 (asistió), falta J2 o resolución
-  B: [
-    { label: 'Agenda J2', stage: 'agendaj2', tone: 'accent' },
-    { label: 'Perdido', stage: 'perdido', tone: 'bad' },
-    { label: 'Descalificado', stage: 'descal', tone: 'bad' },
-    { label: 'No responde', stage: 'noresp', tone: 'bad' },
-  ],
-  // C) ¿Asistió a la J2?  → marcar asistencia + desenlace
-  C: [
-    { label: 'Asistió · Facturando', stage: 'facturando', asistioJ2: true, tone: 'accent' },
-    { label: 'Ganado', stage: 'ganado', asistioJ2: true, tone: 'good' },
-    { label: 'No Show', stage: 'postagenda', asistioJ2: false, tone: 'nutri' },
-    { label: 'Perdido', stage: 'perdido', asistioJ2: true, tone: 'bad' },
-    { label: 'Descalificado', stage: 'descal', asistioJ2: true, tone: 'bad' },
-  ],
-};
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
 
@@ -148,9 +110,10 @@ function chipStyle(tone: Stage['tone']): CSSProperties {
 
 export function CrmBoard({
   leads,
-  stages: initialStages,
+  stages,
   juntas,
   marcar,
+  transitions,
   total,
   errorMsg,
 }: {
@@ -158,6 +121,7 @@ export function CrmBoard({
   stages: Stage[];
   juntas: CrmJunta[];
   marcar: CrmMarcar[];
+  transitions: FunnelTransition[];
   total: number;
   errorMsg: string | null;
 }) {
@@ -165,8 +129,6 @@ export function CrmBoard({
   const [, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
-  const [stages, setStages] = useState<Stage[]>(initialStages);
-  const [showStages, setShowStages] = useState(false);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('todos');
   const [originFilter, setOriginFilter] = useState('todos');
@@ -208,12 +170,19 @@ export function CrmBoard({
     setMoveError(false);
   };
 
-  const persistStage = (id: number, key: string, e: Edits, from?: string) => {
+  // Transición del grafo que define el movimiento `from → to` (si existe). Lleva
+  // la asistencia (R1/R2) que ese paso implica, igual que en "Datos sin marcar".
+  const transitionFor = (from: string, to: string): FunnelTransition | undefined =>
+    transitions.find((t) => t.from === from && t.to === to);
+
+  const persistStage = (id: number, key: string, e: Edits, from?: string, tr?: FunnelTransition) => {
     setLocalStage((m) => ({ ...m, [id]: key }));
     startTransition(async () => {
       await setLeadStageAction(id, key, {
         monto: key === 'ganado' ? Number(e.plan.total) || null : null,
         motivo: key === 'perdido' || key === 'descal' ? e.motivo : null,
+        asistio_j1: tr?.asistioJ1,
+        asistio_j2: tr?.asistioJ2,
       });
       router.refresh();
     });
@@ -248,11 +217,12 @@ export function CrmBoard({
   const requestStage = (l: CrmLead, key: string) => {
     if (key === effStage(l)) { setPendingMove(null); setMoveError(false); return; }
     const e = editsFor(l);
+    const tr = transitionFor(effStage(l), key);
     if (needsFicha(key, e)) {
-      setPendingMove({ id: l.id, from: effStage(l), to: key });
+      setPendingMove({ id: l.id, from: effStage(l), to: key, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
       setMoveError(false);
     } else {
-      persistStage(l.id, key, e, effStage(l));
+      persistStage(l.id, key, e, effStage(l), tr);
       setPendingMove(null);
       setMoveError(false);
     }
@@ -266,21 +236,22 @@ export function CrmBoard({
     if (!lead || effStage(lead) === stageKey) return;
     const e = editsFor(lead);
     const from = effStage(lead);
+    const tr = transitionFor(from, stageKey);
     if (needsFicha(stageKey, e)) {
       openDetail(lead);
-      setPendingMove({ id, from, to: stageKey });
+      setPendingMove({ id, from, to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
     } else {
-      persistStage(id, stageKey, e, from);
+      persistStage(id, stageKey, e, from, tr);
     }
   };
 
   // Resolver un "dato sin marcar": abre la ficha con el pase pendiente (lleva la
-  // asistencia que implica la opción) para completar lo obligatorio y guardar.
-  const resolveMarcar = (leadId: number, opt: MarcarOption) => {
+  // asistencia que implica la transición) para completar lo obligatorio y guardar.
+  const resolveMarcar = (leadId: number, t: FunnelTransition) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
     openDetail(lead);
-    setPendingMove({ id: leadId, from: effStage(lead), to: opt.stage, asistioJ1: opt.asistioJ1, asistioJ2: opt.asistioJ2 });
+    setPendingMove({ id: leadId, from: effStage(lead), to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
   };
 
   const saveDetail = (l: CrmLead) => {
@@ -317,31 +288,15 @@ export function CrmBoard({
     closeDetail();
   };
 
-  // ── Gestión de etapas (modal) ──
-  const addStage = () =>
-    setStages((s) => {
-      const i = s.length;
-      return [...s, {
-        key: 'custom_' + Date.now(),
-        label: 'Nueva etapa',
-        dot: NEW_STAGE_PALETTE[i % NEW_STAGE_PALETTE.length],
-        tone: NEW_STAGE_TONES[i % NEW_STAGE_TONES.length],
-        custom: true,
-      }];
-    });
-  const editStageLabel = (key: string, label: string) =>
-    setStages((s) => s.map((st) => (st.key === key ? { ...st, label } : st)));
-  const deleteStage = (key: string) => {
-    setStages((s) => s.filter((st) => st.key !== key));
-    if (stageFilter === key) setStageFilter('todos');
-  };
-  const closeStages = () => {
-    setShowStages(false);
-    const snapshot = stages;
-    startTransition(async () => {
-      await savePipelineStagesAction(snapshot);
-      router.refresh();
-    });
+  // Opciones contextuales del worklist: las transiciones salientes de la etapa
+  // actual del lead, filtradas por coherencia de asistencia ya marcada.
+  const optionsForMarcar = (m: CrmMarcar): FunnelTransition[] => {
+    const lead = leads.find((l) => l.id === m.leadId);
+    if (!lead) return [];
+    let opts = transitionsFrom(transitions, effStage(lead));
+    if (lead.asistioJ1 === true) opts = opts.filter((t) => t.asistioJ1 !== false);
+    if (lead.asistioJ2 === true) opts = opts.filter((t) => t.asistioJ2 !== false);
+    return opts;
   };
 
   // ── Filtro ──
@@ -409,7 +364,7 @@ export function CrmBoard({
       {juntas.length > 0 && (
         <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '13px 16px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
-            <h2 style={{ fontFamily: MONO, fontWeight: 600, fontSize: 11.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)', margin: 0 }}>Tus juntas</h2>
+            <h2 style={{ fontFamily: MONO, fontWeight: 600, fontSize: 11.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)', margin: 0 }}>Tus reuniones</h2>
             <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)' }}>{juntas.length}</span>
           </div>
           <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 2 }}>
@@ -471,14 +426,14 @@ export function CrmBoard({
 
         {/* Acciones */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-          <button onClick={() => setShowStages(true)} title="Editar etapas" style={gearBtn}>✎ Etapas</button>
+          <Link href="/funnel" title="Editar el funnel (etapas y flechas)" style={{ ...gearBtn, textDecoration: 'none' }}>✎ Funnel</Link>
           <button onClick={() => setShowSinMarcar((v) => !v)} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
         </div>
       </div>
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} onResolve={resolveMarcar} />
+        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
@@ -553,10 +508,6 @@ export function CrmBoard({
         </div>
       )}
 
-      {showStages && (
-        <StagesModal stages={stages} onClose={closeStages} onAdd={addStage} onLabel={editStageLabel} onDelete={deleteStage} />
-      )}
-
       {selected && (
         <LeadDetail
           lead={selected}
@@ -588,8 +539,8 @@ export function CrmBoard({
 }
 
 // ── Datos sin marcar (worklist) ──
-// Colores por tono de cada opción de resolución.
-const MARCAR_TONE: Record<MarcarOption['tone'], CSSProperties> = {
+// Colores por tono de cada transición (opción de resolución).
+export const MARCAR_TONE: Record<FunnelTransition['tone'], CSSProperties> = {
   accent: { border: '1px solid var(--accent)', background: 'rgba(200,135,12,.10)', color: '#9A6A09' },
   good: { border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)' },
   nutri: { border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)' },
@@ -597,10 +548,11 @@ const MARCAR_TONE: Record<MarcarOption['tone'], CSSProperties> = {
 };
 
 function SinMarcar({
-  marcar, onResolve,
+  marcar, optionsFor, onResolve,
 }: {
   marcar: CrmMarcar[];
-  onResolve: (leadId: number, opt: MarcarOption) => void;
+  optionsFor: (m: CrmMarcar) => FunnelTransition[];
+  onResolve: (leadId: number, t: FunnelTransition) => void;
 }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
@@ -610,7 +562,7 @@ function SinMarcar({
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => {
-          const options = MARCAR_OPTIONS[m.tipo] ?? [];
+          const options = optionsFor(m);
           return (
             <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -619,12 +571,15 @@ function SinMarcar({
                   <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {options.map((opt) => (
-                    <button key={opt.label} onClick={() => onResolve(m.leadId, opt)} title="Abre la ficha para completar los datos obligatorios"
+                  {options.map((opt, i) => (
+                    <button key={`${opt.to}-${i}`} onClick={() => onResolve(m.leadId, opt)} title="Abre la ficha para completar los datos obligatorios"
                       style={{ padding: '8px 14px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, ...MARCAR_TONE[opt.tone] }}>
                       {opt.label}
                     </button>
                   ))}
+                  {options.length === 0 && (
+                    <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin transiciones definidas para esta etapa.</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -636,41 +591,4 @@ function SinMarcar({
   );
 }
 
-// ── Modal: gestionar etapas ──
-function StagesModal({
-  stages, onClose, onAdd, onLabel, onDelete,
-}: {
-  stages: Stage[];
-  onClose: () => void;
-  onAdd: () => void;
-  onLabel: (key: string, v: string) => void;
-  onDelete: (key: string) => void;
-}) {
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Gestionar etapas</h2>
-            <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 4 }}>Renombrá, agregá o eliminá las columnas del pipeline.</div>
-          </div>
-          <button onClick={onClose} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
-        </div>
-        <div style={{ padding: '18px 26px', display: 'flex', flexDirection: 'column', gap: 9, maxHeight: '54vh', overflowY: 'auto' }}>
-          {stages.map((st) => (
-            <div key={st.key} style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '9px 12px' }}>
-              <span style={{ width: 11, height: 11, flex: 'none', borderRadius: '50%', background: st.dot }} />
-              <input value={st.label} onChange={(e) => onLabel(st.key, e.target.value)} style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
-              <button onClick={() => onDelete(st.key)} title="Eliminar etapa" style={{ flex: 'none', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 15, cursor: 'pointer', fontFamily: SANS }}>✕</button>
-            </div>
-          ))}
-          <button onClick={onAdd} style={{ marginTop: 4, padding: 11, borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar etapa</button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '16px 26px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Al eliminar, sus leads pasan a la primera etapa.</span>
-          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// La gestión de etapas y transiciones vive ahora en la tab /funnel (FunnelEditor).
