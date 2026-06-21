@@ -31,7 +31,8 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 // Geometría del lienzo (coordenadas base; se escala para entrar en el ancho).
-const GUT = 92, COL = 200, CW = 170, CH = 54, BASEH = 392;
+// GUT deja aire a la izquierda para la etiqueta de la banda (sin superponer).
+const GUT = 130, COL = 200, CW = 170, CH = 54, BASEH = 392;
 const ROWY: Record<StageBand, number> = { pipeline: 44, nutricion: 178, salidas: 312 };
 const BANDS: { band: StageBand; label: string; tint: string }[] = [
   { band: 'pipeline', label: 'Pipeline', tint: 'rgba(59,109,17,.055)' },
@@ -53,13 +54,9 @@ function edge(b: Box, tx: number, ty: number): Pt {
   const t = Math.min(ex, ey);
   return { x: b.cx + dx * t, y: b.cy + dy * t };
 }
-// Bezier en S entre dos puntos (curva horizontal o vertical según el delta dominante).
+// Línea recta entre dos puntos; c2 = origen para orientar la cabeza de flecha.
 function sPath(a: Pt, b: Pt): { d: string; c2: Pt } {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  let c1: Pt, c2: Pt;
-  if (Math.abs(dy) >= Math.abs(dx)) { const my = (a.y + b.y) / 2; c1 = { x: a.x, y: my }; c2 = { x: b.x, y: my }; }
-  else { const mx = (a.x + b.x) / 2; c1 = { x: mx, y: a.y }; c2 = { x: mx, y: b.y }; }
-  return { d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`, c2 };
+  return { d: `M ${a.x} ${a.y} L ${b.x} ${b.y}`, c2: a };
 }
 function arrowPoints(b: Pt, c2: Pt, w: number): string {
   const ang = Math.atan2(b.y - c2.y, b.x - c2.x), sz = 6 + w * 1.3;
@@ -93,6 +90,7 @@ export function FunnelEditor({
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [showStages, setShowStages] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const pendingRef = useRef<{ from: string; sx: number; sy: number } | null>(null);
@@ -212,7 +210,6 @@ export function FunnelEditor({
   // ── estilos ──
   const ghost: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', fontFamily: SANS };
   const field: CSSProperties = { padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
-  const sect: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 15 };
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 80px', fontFamily: SANS }}>
@@ -228,34 +225,24 @@ export function FunnelEditor({
         </div>
       </header>
 
-      <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '0 0 18px', maxWidth: 760, lineHeight: 1.5 }}>
-        Pasá el mouse sobre una etapa para <b style={{ color: 'var(--ink)', fontWeight: 600 }}>aislar su flujo</b>. Hacé clic en una etapa y arrastrá hacia otra para <b style={{ color: 'var(--ink)', fontWeight: 600 }}>crear una flecha</b>. Arrastrá el punto de una flecha seleccionada para <b style={{ color: 'var(--ink)', fontWeight: 600 }}>reconectarla</b>.
-      </p>
+      {err &&<div style={{ padding: '12px 16px', borderRadius: 12, fontSize: 13.5, fontWeight: 500, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid var(--bad)', marginBottom: 14 }}>{err}</div>}
 
-      {err && <div style={{ padding: '12px 16px', borderRadius: 12, fontSize: 13.5, fontWeight: 500, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid var(--bad)', marginBottom: 14 }}>{err}</div>}
-
-      {/* TOOLBAR: filtro + leyenda + reset */}
+      {/* TOOLBAR: filtro + acciones */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
-            {FILTERS.map(([v, l]) => {
-              const on = filter === v; const dotC = v === 'all' ? null : CATEGORY[v].c;
-              return (
-                <button key={v} onClick={() => setFilter(v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: on ? 600 : 500, background: on ? 'var(--ink)' : 'transparent', color: on ? '#F3F0E7' : 'var(--dim)' }}>
-                  {dotC && <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotC }} />}{l}
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            {(Object.keys(CATEGORY) as TransitionCategory[]).map((k) => (
-              <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)' }}>
-                <span style={{ width: 18, height: 3, borderRadius: 2, background: CATEGORY[k].c, display: 'inline-block' }} />{CATEGORY[k].label}
-              </span>
-            ))}
-          </div>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
+          {FILTERS.map(([v, l]) => {
+            const on = filter === v; const dotC = v === 'all' ? null : CATEGORY[v].c;
+            return (
+              <button key={v} onClick={() => setFilter(v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: on ? 600 : 500, background: on ? 'var(--ink)' : 'transparent', color: on ? '#F3F0E7' : 'var(--dim)' }}>
+                {dotC && <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotC }} />}{l}
+              </button>
+            );
+          })}
         </div>
-        <button onClick={resetFunnel} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>↺ Restablecer</button>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={() => setShowStages(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✎ Editar etapas</button>
+          <button onClick={resetFunnel} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>↺ Restablecer</button>
+        </div>
       </div>
 
       {/* CANVAS */}
@@ -353,66 +340,71 @@ export function FunnelEditor({
         </div>
       </div>
 
-      {/* PANELES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)', gap: 22, marginTop: 24, alignItems: 'start' }}>
-        {/* Etapas */}
-        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
-          <div style={sect}>Etapas · {stages.length}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto', paddingRight: 4 }}>
-            {stages.map((s) => (
-              <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
-                <input value={s.label} onChange={(e) => updateStage(s.key, { label: e.target.value })} style={{ ...field, flex: 1, minWidth: 0 }} />
-                <select value={s.band ?? 'pipeline'} onChange={(e) => moveStageBand(s.key, e.target.value as StageBand)} title="Banda" style={{ ...field, flex: 'none', padding: '9px 8px', color: 'var(--dim)', fontSize: 12.5, cursor: 'pointer' }}>
-                  <option value="pipeline">Pipeline</option><option value="nutricion">Nutrición</option><option value="salidas">Salidas</option>
-                </select>
-                <button onClick={() => removeStage(s.key)} title="Eliminar etapa" style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>×</button>
+      <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 20 }}>Editor de funnel · clic + arrastrar entre etapas crea una flecha; clic en una flecha la edita. &quot;Guardar funnel&quot; persiste todo.</footer>
+
+      {/* Editor flotante de la flecha seleccionada (la gestión vive en el gráfico) */}
+      {(() => {
+        const t = trans.find((x) => x.id === selected);
+        if (!t) return null;
+        const c = CATEGORY[t.category].c;
+        return (
+          <div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 70, width: 'min(700px, calc(100vw - 40px))', background: 'var(--surface)', border: '1px solid ' + c, borderRadius: 14, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flex: 'none' }} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{labelOf(t.from)}</b>{'  →  '}<b style={{ color: 'var(--ink)', fontWeight: 600 }}>{labelOf(t.to)}</b>
+              </span>
+              <button onClick={() => removeTrans(t.id)} title="Eliminar flecha" style={{ flex: 'none', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--bad)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 14, cursor: 'pointer' }}>×</button>
+              <button onClick={() => setSelected(null)} title="Cerrar" style={{ flex: 'none', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input value={t.label} onChange={(e) => updateTrans(t.id, { label: e.target.value })} placeholder="Texto de la flecha" style={{ ...field, flex: '1 1 200px', minWidth: 0 }} />
+              <select value={t.category} onChange={(e) => updateTrans(t.id, { category: e.target.value as TransitionCategory })} style={{ ...field, cursor: 'pointer' }}>
+                {(Object.keys(CATEGORY) as TransitionCategory[]).map((k) => <option key={k} value={k}>{CATEGORY[k].label}</option>)}
+              </select>
+              {(['asistioJ1', 'asistioJ2'] as const).map((fld, i) => (
+                <label key={fld} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Marca R{i + 1}</span>
+                  <select value={t[fld] === undefined ? '' : t[fld] ? 'si' : 'no'} onChange={(e) => updateTrans(t.id, { [fld]: e.target.value === '' ? undefined : e.target.value === 'si' })} style={{ ...field, padding: '7px 8px', fontSize: 13, cursor: 'pointer' }}>
+                    <option value="">—</option><option value="si">Asistió</option><option value="no">No-show</option>
+                  </select>
+                </label>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Modal: editar etapas */}
+      {showStages && (
+        <div onClick={() => setShowStages(false)} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '56px 20px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <h2 style={{ fontWeight: 600, fontSize: 21, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Editar etapas</h2>
+                <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3 }}>{stages.length} etapas · nombre, banda y agregar/eliminar.</div>
               </div>
-            ))}
-            <button onClick={addStage} style={{ padding: 10, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar etapa</button>
-          </div>
-        </section>
-
-        {/* Transiciones */}
-        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
-          <div style={sect}>Transiciones (flechas) · {trans.length}</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 11, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
-            {trans.map((t) => {
-              const sel = selected === t.id; const c = CATEGORY[t.category].c;
-              return (
-                <div key={t.id} onClick={() => { setSelected(t.id); setPinned(null); }} style={{ border: '1px solid ' + (sel ? c : 'var(--border)'), background: sel ? c + '0E' : 'var(--surface-2)', borderRadius: 12, padding: 13, display: 'flex', flexDirection: 'column', gap: 9, cursor: 'pointer', boxShadow: sel ? '0 0 0 2px ' + c + '22' : 'none' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flex: 'none' }} />
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--dim)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{labelOf(t.from)}</b>{'  →  '}<b style={{ color: 'var(--ink)', fontWeight: 600 }}>{labelOf(t.to)}</b>
-                    </span>
-                    <button onClick={(e) => { e.stopPropagation(); removeTrans(t.id); }} title="Eliminar flecha" style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 14, cursor: 'pointer', lineHeight: 1 }}>×</button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input value={t.label} onChange={(e) => updateTrans(t.id, { label: e.target.value })} onClick={(e) => e.stopPropagation()} style={{ ...field, flex: 1, minWidth: 0 }} />
-                    <select value={t.category} onChange={(e) => updateTrans(t.id, { category: e.target.value as TransitionCategory })} onClick={(e) => e.stopPropagation()} style={{ ...field, flex: 'none', cursor: 'pointer' }}>
-                      {(Object.keys(CATEGORY) as TransitionCategory[]).map((k) => <option key={k} value={k}>{CATEGORY[k].label}</option>)}
-                    </select>
-                  </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    {(['asistioJ1', 'asistioJ2'] as const).map((fld, i) => (
-                      <label key={fld} style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', flex: 'none' }}>Marca R{i + 1}</span>
-                        <select value={t[fld] === undefined ? '' : t[fld] ? 'si' : 'no'} onChange={(e) => updateTrans(t.id, { [fld]: e.target.value === '' ? undefined : e.target.value === 'si' })} onClick={(e) => e.stopPropagation()} style={{ ...field, flex: 1, minWidth: 0, padding: '7px 8px', fontSize: 13, cursor: 'pointer' }}>
-                          <option value="">—</option><option value="si">Asistió</option><option value="no">No-show</option>
-                        </select>
-                      </label>
-                    ))}
-                  </div>
+              <button onClick={() => setShowStages(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ padding: '18px 24px', display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+              {stages.map((s) => (
+                <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
+                  <input value={s.label} onChange={(e) => updateStage(s.key, { label: e.target.value })} style={{ ...field, flex: 1, minWidth: 0 }} />
+                  <select value={s.band ?? 'pipeline'} onChange={(e) => moveStageBand(s.key, e.target.value as StageBand)} title="Banda" style={{ ...field, flex: 'none', padding: '9px 8px', color: 'var(--dim)', fontSize: 12.5, cursor: 'pointer' }}>
+                    <option value="pipeline">Pipeline</option><option value="nutricion">Nutrición</option><option value="salidas">Salidas</option>
+                  </select>
+                  <button onClick={() => removeStage(s.key)} title="Eliminar etapa" style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>×</button>
                 </div>
-              );
-            })}
-            <button onClick={() => stages[0] && stages[1] && addTrans(stages[0].key, stages[1].key)} style={{ padding: 11, borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar flecha</button>
+              ))}
+              <button onClick={addStage} style={{ padding: 10, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar etapa</button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 24px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+              <button onClick={() => setShowStages(false)} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Listo</button>
+            </div>
           </div>
-        </section>
-      </div>
-
-      <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 26 }}>Editor de funnel · &quot;Guardar funnel&quot; persiste etapas y flechas; las flechas definen las opciones de &quot;Datos sin marcar&quot;.</footer>
+        </div>
+      )}
 
       {toast && <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#171511', color: '#F3F0E7', padding: '12px 22px', borderRadius: 12, fontSize: 14, fontWeight: 600, boxShadow: '0 12px 34px rgba(23,21,17,.32)', zIndex: 80 }}>Funnel guardado ✓</div>}
     </main>
