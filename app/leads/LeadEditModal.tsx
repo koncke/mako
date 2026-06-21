@@ -100,6 +100,8 @@ export function LeadEditModal({
           await setLeadStageAction(lead.id, pendingMove.to, {
             monto: pendingMove.to === 'ganado' ? Number(edits.plan.total) || null : null,
             motivo: edits.motivo,
+            asistio_j1: pendingMove.asistioJ1,
+            asistio_j2: pendingMove.asistioJ2,
           });
         }
         router.refresh();

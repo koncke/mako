@@ -161,7 +161,7 @@ export async function deleteLeadInlineAction(id: number): Promise<void> {
 export async function setLeadStageAction(
   id: number,
   stageKey: string,
-  opts?: { monto?: number | null; motivo?: string | null },
+  opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
 ): Promise<void> {
   await setPipelineStage(id, stageKey, opts);
   bust(TAG.leads, TAG.pagos);

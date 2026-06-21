@@ -16,8 +16,6 @@ import {
   useState,
   useTransition,
   type CSSProperties,
-  type Dispatch,
-  type SetStateAction,
 } from 'react';
 import {
   CHIP,
@@ -84,6 +82,7 @@ export type CrmMarcar = {
   name: string;
   company: string;
   message: string;
+  tipo: 'A' | 'B' | 'C';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?
 };
 
 export type Edits = {
@@ -98,16 +97,43 @@ export type Edits = {
   cuotas: { monto: string; fecha: string }[];
 };
 
-export type PendingMove = { id: number; from: string; to: string };
+// Una resolución del worklist: a qué etapa lleva y qué asistencia implica.
+// `tone` solo define el color del botón. Al elegir una, se abre la ficha con el
+// pase pendiente para completar los obligatorios antes de guardar.
+export type MarcarOption = {
+  label: string;
+  stage: string;
+  asistioJ1?: boolean;
+  asistioJ2?: boolean;
+  tone: 'good' | 'bad' | 'nutri' | 'accent';
+};
 
-const RES_OPTIONS = [
-  'Nutrición - No Show', 'Nutrición - No Agenda', 'Nutrición - No Paga',
-  'Nutrición - Manual', 'Nutrición - Post Agenda', 'Perdido', 'Descalificado', 'No responde',
-];
-const RES_TO_STAGE: Record<string, string> = {
-  'Nutrición - No Show': 'noshow', 'Nutrición - No Agenda': 'nutri', 'Nutrición - No Paga': 'nopaga',
-  'Nutrición - Manual': 'manual', 'Nutrición - Post Agenda': 'postagenda',
-  Perdido: 'perdido', Descalificado: 'descal', 'No responde': 'noresp',
+export type PendingMove = { id: number; from: string; to: string; asistioJ1?: boolean; asistioJ2?: boolean };
+
+// Opciones posibles según el tipo de dato sin marcar (solo las que aplican).
+const MARCAR_OPTIONS: Record<'A' | 'B' | 'C', MarcarOption[]> = {
+  // A) ¿Asistió a la J1?  → marcar asistencia + próximo paso
+  A: [
+    { label: 'Asistió · Agenda J2', stage: 'agendaj2', asistioJ1: true, tone: 'accent' },
+    { label: 'No Show', stage: 'noshow', asistioJ1: false, tone: 'nutri' },
+    { label: 'Perdido', stage: 'perdido', asistioJ1: true, tone: 'bad' },
+    { label: 'Descalificado', stage: 'descal', asistioJ1: true, tone: 'bad' },
+  ],
+  // B) Tuvo J1 (asistió), falta J2 o resolución
+  B: [
+    { label: 'Agenda J2', stage: 'agendaj2', tone: 'accent' },
+    { label: 'Perdido', stage: 'perdido', tone: 'bad' },
+    { label: 'Descalificado', stage: 'descal', tone: 'bad' },
+    { label: 'No responde', stage: 'noresp', tone: 'bad' },
+  ],
+  // C) ¿Asistió a la J2?  → marcar asistencia + desenlace
+  C: [
+    { label: 'Asistió · Facturando', stage: 'facturando', asistioJ2: true, tone: 'accent' },
+    { label: 'Ganado', stage: 'ganado', asistioJ2: true, tone: 'good' },
+    { label: 'No Show', stage: 'postagenda', asistioJ2: false, tone: 'nutri' },
+    { label: 'Perdido', stage: 'perdido', asistioJ2: true, tone: 'bad' },
+    { label: 'Descalificado', stage: 'descal', asistioJ2: true, tone: 'bad' },
+  ],
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
@@ -148,7 +174,6 @@ export function CrmBoard({
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [moveError, setMoveError] = useState(false);
-  const [marcarRes, setMarcarRes] = useState<Record<string, string>>({});
   const [editsMap, setEditsMap] = useState<Record<number, Edits>>({});
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
@@ -249,6 +274,15 @@ export function CrmBoard({
     }
   };
 
+  // Resolver un "dato sin marcar": abre la ficha con el pase pendiente (lleva la
+  // asistencia que implica la opción) para completar lo obligatorio y guardar.
+  const resolveMarcar = (leadId: number, opt: MarcarOption) => {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    openDetail(lead);
+    setPendingMove({ id: leadId, from: effStage(lead), to: opt.stage, asistioJ1: opt.asistioJ1, asistioJ2: opt.asistioJ2 });
+  };
+
   const saveDetail = (l: CrmLead) => {
     const e = editsFor(l);
     if (pendingMove && pendingMove.id === l.id) {
@@ -266,6 +300,8 @@ export function CrmBoard({
         await setLeadStageAction(l.id, pendingMove.to, {
           monto: pendingMove.to === 'ganado' ? Number(e.plan.total) || null : null,
           motivo: e.motivo,
+          asistio_j1: pendingMove.asistioJ1,
+          asistio_j2: pendingMove.asistioJ2,
         });
         setLocalStage((m) => ({ ...m, [l.id]: pendingMove.to }));
       }
@@ -320,7 +356,7 @@ export function CrmBoard({
   const originOptions = useMemo(() => [...new Set(leads.map((l) => l.origin))], [leads]);
 
   // ── worklist "datos sin marcar" ──
-  const marcarPending = marcar.filter((m) => !marcarRes[m.id]).length;
+  const marcarPending = marcar.length;
 
   // ── estilos de tabs/botones ──
   const tabActive: CSSProperties = { padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
@@ -442,10 +478,7 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} marcarRes={marcarRes} setMarcarRes={setMarcarRes}
-          onWin={(leadId) => { const l = leads.find((x) => x.id === leadId); if (l) openDetail(l); }}
-          onPick={(leadId, res) => { const stage = RES_TO_STAGE[res]; const l = leads.find((x) => x.id === leadId); if (l && stage) persistStage(l.id, stage, editsFor(l), effStage(l)); }}
-        />
+        <SinMarcar marcar={marcar} onResolve={resolveMarcar} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
           <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
@@ -555,60 +588,49 @@ export function CrmBoard({
 }
 
 // ── Datos sin marcar (worklist) ──
+// Colores por tono de cada opción de resolución.
+const MARCAR_TONE: Record<MarcarOption['tone'], CSSProperties> = {
+  accent: { border: '1px solid var(--accent)', background: 'rgba(200,135,12,.10)', color: '#9A6A09' },
+  good: { border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)' },
+  nutri: { border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)' },
+  bad: { border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)' },
+};
+
 function SinMarcar({
-  marcar, marcarRes, setMarcarRes, onWin, onPick,
+  marcar, onResolve,
 }: {
   marcar: CrmMarcar[];
-  marcarRes: Record<string, string>;
-  setMarcarRes: Dispatch<SetStateAction<Record<string, string>>>;
-  onWin: (leadId: number) => void;
-  onPick: (leadId: number, res: string) => void;
+  onResolve: (leadId: number, opt: MarcarOption) => void;
 }) {
-  const pending = marcar.filter((m) => !marcarRes[m.id]).length;
-  const allDone = pending === 0;
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{pending}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => {
-          const res = marcarRes[m.id];
-          const done = !!res;
+          const options = MARCAR_OPTIONS[m.tipo] ?? [];
           return (
-            <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px', ...(done ? { borderLeft: '4px solid var(--good)' } : {}) }}>
-              {done ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ width: 26, height: 26, flex: 'none', borderRadius: '50%', background: 'var(--good)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>✓</span>
-                    <span style={{ fontSize: 15.5, color: 'var(--dim)' }}><strong style={{ color: 'var(--ink)' }}>{m.name}</strong> · marcado {res}</span>
-                  </div>
-                  <button onClick={() => setMarcarRes((s) => { const c = { ...s }; delete c[m.id]; return c; })} style={{ background: 'transparent', border: 'none', color: 'var(--dim)', fontSize: 13.5, cursor: 'pointer', fontFamily: SANS, textDecoration: 'underline' }}>deshacer</button>
+            <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 240, flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
+                  <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                  <div style={{ minWidth: 240, flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
-                    <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <button onClick={() => { setMarcarRes((s) => ({ ...s, [m.id]: 'Ganado' })); onWin(m.leadId); }} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Ganado · abrir ficha</button>
-                    <div style={{ position: 'relative' }}>
-                      <select value="" onChange={(e) => { if (e.target.value) { setMarcarRes((s) => ({ ...s, [m.id]: e.target.value })); onPick(m.leadId, e.target.value); } }} style={{ padding: '8px 30px 8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>
-                        <option value="">Otra resolución…</option>
-                        {RES_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                      <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: 'var(--faint)', pointerEvents: 'none' }}>▾</span>
-                    </div>
-                  </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {options.map((opt) => (
+                    <button key={opt.label} onClick={() => onResolve(m.leadId, opt)} title="Abre la ficha para completar los datos obligatorios"
+                      style={{ padding: '8px 14px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, ...MARCAR_TONE[opt.tone] }}>
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}
         {marcar.length === 0 && <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>}
-        {allDone && marcar.length > 0 && <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>}
       </div>
     </div>
   );

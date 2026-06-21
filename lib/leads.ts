@@ -1012,7 +1012,7 @@ export async function savePipelineStages(stages: Stage[]): Promise<void> {
 export async function setPipelineStage(
   id: number,
   stageKey: string,
-  opts?: { monto?: number | null; motivo?: string | null },
+  opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
 ): Promise<void> {
   const supabase = getSupabaseServer();
   const estado = terminalEstadoFor(stageKey);
@@ -1030,6 +1030,10 @@ export async function setPipelineStage(
   if ((estado === 'perdido' || estado === 'descalificado') && opts?.motivo != null) {
     sync.motivo_perdida = opts.motivo;
   }
+  // Asistencia a J1/J2 — la setean las resoluciones de "Datos sin marcar" (tipos
+  // A y C), que existen justamente porque asistio_j1/j2 está en null.
+  if (opts?.asistio_j1 !== undefined) sync.asistio_j1 = opts.asistio_j1;
+  if (opts?.asistio_j2 !== undefined) sync.asistio_j2 = opts.asistio_j2;
   // En etapas de nutrición marcamos la bandera para los pendientes/tab Nutrición.
   if (['noshow', 'nutri', 'nopaga', 'manual', 'postagenda'].includes(stageKey)) {
     sync.nutricion_realizada = true;
