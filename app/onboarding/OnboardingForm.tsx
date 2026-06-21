@@ -1,13 +1,11 @@
 'use client';
 
 // =============================================================================
-// OnboardingForm — perfil del negocio: wizard minimalista (paso a paso)
+// OnboardingForm — perfil del negocio: template por fase (descargar → subir →
+// MaKo lo lee y completa) + wizard minimalista. El lápiz abre el editor de campos.
 // =============================================================================
-// Por defecto se "completa" en un wizard de una pantalla por grupo (concreto,
-// centrado). El lápiz de arriba a la derecha abre el editor de campos (el form
-// es editable sin migrar la base). Alimenta el contexto de MaKo.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
@@ -19,16 +17,14 @@ type Group = { key: string; label: string; fields: Field[] };
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const input: CSSProperties = { width: '100%', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
-const btnDark: CSSProperties = { padding: '11px 20px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
-const btnGhost: CSSProperties = { padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '12px 22px', borderRadius: 12, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
+const btnGhost: CSSProperties = { padding: '12px 18px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' };
 const btnGhostSm: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' };
 
 const nuevaKey = (p: string) => `${p}_${Math.random().toString(36).slice(2, 8)}`;
 
 function PencilIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
-  );
+  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>;
 }
 
 export function OnboardingForm() {
@@ -39,6 +35,9 @@ export function OnboardingForm() {
   const [editando, setEditando] = useState(false);
   const [step, setStep] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [extrayendo, setExtrayendo] = useState(false);
+  const [extractMsg, setExtractMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/mako/onboarding').then((r) => r.json()).then((j) => { setSchema(j.schema ?? []); setAnswers(j.answers ?? {}); }).finally(() => setCargando(false));
@@ -46,7 +45,7 @@ export function OnboardingForm() {
   useEffect(() => { const t = setTimeout(() => setIntro(false), 1700); return () => clearTimeout(t); }, []);
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 1800); };
-  const guardarRespuestas = async () => { await fetch('/api/mako/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'answers', answers }) }); flash(); };
+  const guardar = async (a: Record<string, string>) => { await fetch('/api/mako/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'answers', answers: a }) }); flash(); };
   const guardarEsquema = async () => { await fetch('/api/mako/onboarding', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'schema', schema }) }); flash(); };
 
   // edición de esquema
@@ -59,7 +58,41 @@ export function OnboardingForm() {
 
   const total = schema.length;
   const stepSafe = Math.min(step, Math.max(0, total - 1));
-  const group = schema[stepSafe];
+  const group: Group | undefined = schema[stepSafe];
+  const faltan = group ? group.fields.filter((f) => !(answers[f.key] ?? '').trim()) : [];
+  const completo = !!group && faltan.length === 0;
+
+  // Descargar el template de la fase (markdown con las preguntas).
+  const descargarTemplate = (g: Group) => {
+    const lines = [`# ${g.label} — Template de MaKo`, '', 'Respondé debajo de cada pregunta (después de "Respuesta:") y volvé a subir este archivo en MaKo.', ''];
+    for (const f of g.fields) { lines.push(`### ${f.label}`, f.placeholder ? `_(ej: ${f.placeholder})_` : '', 'Respuesta: ', '', ''); }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `mako-${g.key}-template.md`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // Subir el template/doc completado: MaKo lee y completa los campos.
+  const subirTemplate = async (file: File, g: Group) => {
+    setExtrayendo(true); setExtractMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('fields', JSON.stringify(g.fields.map((f) => ({ key: f.key, label: f.label }))));
+      const j = await fetch('/api/mako/onboarding/extract', { method: 'POST', body: fd }).then((r) => r.json());
+      if (j.error) { setExtractMsg({ ok: false, text: j.error }); return; }
+      const got = (j.answers ?? {}) as Record<string, string>;
+      const limpio = Object.fromEntries(Object.entries(got).filter(([, vv]) => String(vv).trim())) as Record<string, string>;
+      const n = Object.keys(limpio).length;
+      const merged = { ...answers, ...limpio };
+      setAnswers(merged);
+      if (n > 0) guardar(merged);
+      setExtractMsg({ ok: n > 0, text: n > 0 ? `MaKo completó ${n} campo${n === 1 ? '' : 's'} desde el archivo.` : 'No encontré respuestas claras en el archivo. Completalas a mano.' });
+    } catch (e) { setExtractMsg({ ok: false, text: String(e) }); }
+    finally { setExtrayendo(false); }
+  };
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', minHeight: '100vh', position: 'relative' }}>
@@ -111,34 +144,50 @@ export function OnboardingForm() {
           </div>
         </div>
       ) : (
-        // ── Wizard minimalista (una pantalla por grupo) ──
-        <div style={{ maxWidth: 540, margin: '0 auto', minHeight: 'calc(100vh - 280px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        // ── Wizard: una fase por pantalla, con template ──
+        <div style={{ maxWidth: 560, margin: '0 auto', minHeight: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.docx" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && group) subirTemplate(f, group); e.target.value = ''; }} />
+
           <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 10 }}>
             {schema.map((_, i) => <span key={i} style={{ width: i === stepSafe ? 22 : 7, height: 7, borderRadius: 999, background: i === stepSafe ? 'var(--accent)' : i < stepSafe ? 'var(--accent-soft)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
           </div>
-          <div style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 22 }}>Paso {stepSafe + 1} de {total}</div>
+          <div style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 20 }}>Paso {stepSafe + 1} de {total}</div>
 
-          <h2 style={{ textAlign: 'center', fontSize: 27, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 28px' }}>{group?.label}</h2>
+          <h2 style={{ textAlign: 'center', fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px' }}>{group?.label}</h2>
+          <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--dim)', margin: '0 0 22px' }}>Descargá el template, completalo y subilo — o respondé acá abajo.</p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* template: descargar / subir */}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+            <button type="button" style={btnGhost} onClick={() => group && descargarTemplate(group)}>↓ Descargar template</button>
+            <button type="button" style={{ ...btnDark, background: '#171511' }} disabled={extrayendo} onClick={() => fileRef.current?.click()}>{extrayendo ? 'Leyendo…' : '↑ Subir respuestas'}</button>
+          </div>
+          {extractMsg && (
+            <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 500, color: extractMsg.ok ? 'var(--good)' : 'var(--bad)', marginBottom: 6 }}>{extractMsg.text}</div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 16 }}>
             {group?.fields.map((f) => (
               <div key={f.key}>
                 <label style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{f.label}</label>
                 {f.type === 'textarea' ? (
-                  <textarea style={{ ...input, minHeight: 96, resize: 'vertical', lineHeight: 1.5 }} value={answers[f.key] ?? ''} placeholder={f.placeholder} onChange={(e) => setAnswers((a) => ({ ...a, [f.key]: e.target.value }))} />
+                  <textarea className="mako-field" value={answers[f.key] ?? ''} placeholder={f.placeholder} onChange={(e) => setAnswers((a) => ({ ...a, [f.key]: e.target.value }))} />
                 ) : (
-                  <input type={f.type === 'number' ? 'number' : 'text'} style={input} value={answers[f.key] ?? ''} placeholder={f.placeholder} onChange={(e) => setAnswers((a) => ({ ...a, [f.key]: e.target.value }))} />
+                  <input className="mako-field" type={f.type === 'number' ? 'number' : 'text'} value={answers[f.key] ?? ''} placeholder={f.placeholder} onChange={(e) => setAnswers((a) => ({ ...a, [f.key]: e.target.value }))} />
                 )}
               </div>
             ))}
             {(!group || group.fields.length === 0) && <div style={{ textAlign: 'center', color: 'var(--faint)', fontSize: 13.5 }}>Este grupo no tiene campos. Editalos con el lápiz de arriba.</div>}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 30 }}>
-            <button style={{ ...btnGhost, opacity: stepSafe === 0 ? 0.4 : 1, cursor: stepSafe === 0 ? 'default' : 'pointer' }} disabled={stepSafe === 0} onClick={() => setStep((s) => Math.max(0, s - 1))}>← Anterior</button>
+          {!completo && group && group.fields.length > 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 14, textAlign: 'center' }}>Faltan {faltan.length}: {faltan.map((f) => f.label).join(' · ')}</div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 22 }}>
+            <button style={{ ...btnGhost, opacity: stepSafe === 0 ? 0.4 : 1, cursor: stepSafe === 0 ? 'default' : 'pointer' }} disabled={stepSafe === 0} onClick={() => { setExtractMsg(null); setStep((s) => Math.max(0, s - 1)); }}>← Anterior</button>
             {stepSafe < total - 1
-              ? <button style={btnDark} onClick={() => { guardarRespuestas(); setStep((s) => s + 1); }}>Siguiente →</button>
-              : <button style={btnDark} onClick={guardarRespuestas}>Guardar</button>}
+              ? <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={() => { guardar(answers); setExtractMsg(null); setStep((s) => s + 1); }}>Siguiente →</button>
+              : <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={() => guardar(answers)}>Guardar</button>}
           </div>
         </div>
       )}

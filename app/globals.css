@@ -134,3 +134,34 @@ body {
   color: var(--ink);
   font-family: 'Geist', system-ui, sans-serif;
 }
+
+/* Campo minimalista (onboarding y formularios de MaKo): relleno suave, sin
+   borde duro, con foco ámbar y anillo sutil. */
+.mako-field {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 13px;
+  border: 1px solid transparent;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 15.5px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.mako-field::placeholder {
+  color: var(--faint);
+}
+.mako-field:hover {
+  background: #F5F2EA;
+}
+.mako-field:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(200, 135, 12, 0.14);
+}
+textarea.mako-field {
+  min-height: 104px;
+  resize: vertical;
+}
