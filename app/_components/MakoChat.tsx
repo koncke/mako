@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { MakoLoader } from './MakoLoader';
+import { ChatItemMenu } from './ChatItemMenu';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -54,7 +55,6 @@ function Markdown({ text }: { text: string }) {
   return <>{blocks}</>;
 }
 
-const accBtn = { padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontFamily: SANS, fontSize: 11.5, lineHeight: 1 } as const;
 
 export function MakoChat({
   chartKey, titulo, contexto = '', sugerencias = [], chart, initialSessionId,
@@ -163,17 +163,20 @@ export function MakoChat({
                   {editId === s.id ? (
                     <input autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => { if (editVal.trim()) accion('rename', s.id, { titulo: editVal.trim() }); setEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { if (editVal.trim()) accion('rename', s.id, { titulo: editVal.trim() }); setEditId(null); } if (e.key === 'Escape') setEditId(null); }} style={{ width: '100%', padding: '6px 8px', borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' }} />
                   ) : (
-                    <button type="button" onClick={() => abrirSesion(s.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: SANS }}>
-                      <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: s.id === sessionId ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Fijado · </span>}{s.titulo || 'Chat'}</div>
-                      <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</div>
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <button type="button" onClick={() => abrirSesion(s.id)} style={{ display: 'block', flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: SANS }}>
+                        <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: s.id === sessionId ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Fijado · </span>}{s.titulo || 'Chat'}</div>
+                        <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</div>
+                      </button>
+                      <ChatItemMenu
+                        pinned={s.pinned}
+                        onRename={() => { setEditId(s.id); setEditVal(s.titulo || ''); }}
+                        onPin={() => accion('pin', s.id, { valor: !s.pinned })}
+                        onArchive={() => accion('archive', s.id, { valor: true })}
+                        onDelete={() => accion('delete', s.id)}
+                      />
+                    </div>
                   )}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-                    <button onClick={() => { setEditId(s.id); setEditVal(s.titulo || ''); }} style={accBtn}>Renombrar</button>
-                    <button onClick={() => accion('pin', s.id, { valor: !s.pinned })} style={accBtn}>{s.pinned ? 'Despinear' : 'Pinear'}</button>
-                    <button onClick={() => accion('archive', s.id, { valor: true })} style={accBtn}>Archivar</button>
-                    <button onClick={() => { if (confirm('¿Eliminar este chat?')) accion('delete', s.id); }} style={accBtn}>Eliminar</button>
-                  </div>
                 </div>
               ))}
             </div>

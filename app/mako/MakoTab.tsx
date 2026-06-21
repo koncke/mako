@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { MakoChat } from '../_components/MakoChat';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
+import { ChatItemMenu } from '../_components/ChatItemMenu';
 import { chartLabel } from '@/lib/chart-registry';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 
@@ -55,8 +56,7 @@ export function MakoTab() {
     padding: '11px 14px', borderBottom: '1px solid var(--border)',
     background: activo ? 'var(--surface-2)' : 'transparent',
   });
-  const selBtn = { display: 'block', width: '100%', textAlign: 'left' as const, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS };
-  const accBtn = { padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontFamily: SANS, fontSize: 11.5, lineHeight: 1 } as const;
+  const selBtn = { display: 'block', flex: 1, minWidth: 0, textAlign: 'left' as const, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS };
   const inpStyle = { width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' } as const;
 
   return (
@@ -93,20 +93,23 @@ export function MakoTab() {
                         style={inpStyle}
                       />
                     ) : (
-                      <button type="button" onClick={() => setSel({ kind: 'session', session: s })} style={selBtn}>
-                        <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Fijado · </span>}{s.titulo || 'Chat'}</div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 3 }}>
-                          <span style={{ fontSize: 11.5, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chartLabel(s.chart_key)}</span>
-                          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none' }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</span>
-                        </div>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <button type="button" onClick={() => setSel({ kind: 'session', session: s })} style={selBtn}>
+                          <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Fijado · </span>}{s.titulo || 'Chat'}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 3 }}>
+                            <span style={{ fontSize: 11.5, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chartLabel(s.chart_key)}</span>
+                            <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none' }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</span>
+                          </div>
+                        </button>
+                        <ChatItemMenu
+                          pinned={s.pinned}
+                          onRename={() => { setEditId(s.id); setEditVal(s.titulo || ''); }}
+                          onPin={() => accion('pin', s.id, { valor: !s.pinned })}
+                          onArchive={() => accion('archive', s.id, { valor: true })}
+                          onDelete={() => accion('delete', s.id)}
+                        />
+                      </div>
                     )}
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => { setEditId(s.id); setEditVal(s.titulo || ''); }} style={accBtn}>Renombrar</button>
-                      <button type="button" onClick={() => accion('pin', s.id, { valor: !s.pinned })} style={accBtn}>{s.pinned ? 'Despinear' : 'Pinear'}</button>
-                      <button type="button" onClick={() => accion('archive', s.id, { valor: true })} style={accBtn}>Archivar</button>
-                      <button type="button" onClick={() => { if (confirm('¿Eliminar este chat?')) accion('delete', s.id); }} style={accBtn}>Eliminar</button>
-                    </div>
                   </div>
                 );
               })
