@@ -19,6 +19,7 @@ import {
 } from 'react';
 import {
   CHIP,
+  CATEGORY,
   stageMeta as findStage,
   transitionsFrom,
   type Stage,
@@ -539,13 +540,11 @@ export function CrmBoard({
 }
 
 // ── Datos sin marcar (worklist) ──
-// Colores por tono de cada transición (opción de resolución).
-export const MARCAR_TONE: Record<FunnelTransition['tone'], CSSProperties> = {
-  accent: { border: '1px solid var(--accent)', background: 'rgba(200,135,12,.10)', color: '#9A6A09' },
-  good: { border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)' },
-  nutri: { border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)' },
-  bad: { border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)' },
-};
+// Estilo del botón según la categoría de la transición (mismo color que la flecha).
+function catBtnStyle(cat: FunnelTransition['category']): CSSProperties {
+  const c = CATEGORY[cat].c;
+  return { border: '1px solid ' + c, background: c + '14', color: c };
+}
 
 function SinMarcar({
   marcar, optionsFor, onResolve,
@@ -573,7 +572,7 @@ function SinMarcar({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {options.map((opt, i) => (
                     <button key={`${opt.to}-${i}`} onClick={() => onResolve(m.leadId, opt)} title="Abre la ficha para completar los datos obligatorios"
-                      style={{ padding: '8px 14px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, ...MARCAR_TONE[opt.tone] }}>
+                      style={{ padding: '8px 14px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, ...catBtnStyle(opt.category) }}>
                       {opt.label}
                     </button>
                   ))}

@@ -8,8 +8,8 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { sendMetaCAPIEvent } from './meta-capi';
-import type { Stage, StageTone, FunnelTransition, TransitionTone } from './pipeline';
-import { DEFAULT_STAGES, DEFAULT_TRANSITIONS, terminalEstadoFor } from './pipeline';
+import type { Stage, FunnelTransition } from './pipeline';
+import { DEFAULT_STAGES, DEFAULT_TRANSITIONS, terminalEstadoFor, withLayout } from './pipeline';
 import { cachedRead, TAG, TTL } from './cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -963,90 +963,48 @@ export async function getVslEngagementMap(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Lee las etapas del pipeline desde `pipeline_stages`. Si la tabla no existe o
- * está vacía (migración 0020 sin aplicar), cae a las etapas por defecto — la UI
- * sigue funcionando.
+ * Configuración del funnel (etapas + transiciones) en una sola fila JSON
+ * (`funnel_config`, id=1). El CRM y la tab /funnel leen de acá. Si la tabla no
+ * existe (migración 0025 sin aplicar) o no hay fila, cae a los defaults del
+ * código — todo sigue renderizando, solo que los cambios no persisten aún.
  */
+export type FunnelConfig = { stages: Stage[]; transitions: FunnelTransition[] };
+
+export async function getFunnel(): Promise<FunnelConfig> {
+  try {
+    const supabase = getSupabaseServer();
+    const { data, error } = await supabase
+      .from('funnel_config')
+      .select('data')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error || !data || !data.data) return { stages: DEFAULT_STAGES, transitions: DEFAULT_TRANSITIONS };
+    const cfg = data.data as Partial<FunnelConfig>;
+    const stages = Array.isArray(cfg.stages) && cfg.stages.length ? cfg.stages.map((s) => withLayout(s)) : DEFAULT_STAGES;
+    const transitions = Array.isArray(cfg.transitions) && cfg.transitions.length ? cfg.transitions : DEFAULT_TRANSITIONS;
+    return { stages, transitions };
+  } catch {
+    return { stages: DEFAULT_STAGES, transitions: DEFAULT_TRANSITIONS };
+  }
+}
+
+/** Guarda toda la config del funnel (upsert de la fila única id=1). */
+export async function saveFunnel(stages: Stage[], transitions: FunnelTransition[]): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase
+    .from('funnel_config')
+    .upsert({ id: 1, data: { stages, transitions }, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+  if (error) throw new Error(`Error guardando el funnel: ${error.message}`);
+}
+
+/** Etapas del pipeline (backed by funnel_config) — las consume el Kanban del CRM. */
 export async function getPipelineStages(): Promise<Stage[]> {
-  try {
-    const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from('pipeline_stages')
-      .select('key,label,dot,tone,sort,custom')
-      .order('sort', { ascending: true });
-    if (error || !data || data.length === 0) return DEFAULT_STAGES;
-    return data.map((r) => ({
-      key: String(r.key),
-      label: String(r.label),
-      dot: String(r.dot),
-      tone: (r.tone as StageTone) ?? 'neutral',
-      custom: !!r.custom,
-    }));
-  } catch {
-    return DEFAULT_STAGES;
-  }
+  return (await getFunnel()).stages;
 }
 
-/** Reemplaza el set completo de etapas (borra y reinserta en orden). */
-export async function savePipelineStages(stages: Stage[]): Promise<void> {
-  const supabase = getSupabaseServer();
-  const { error: delErr } = await supabase.from('pipeline_stages').delete().neq('key', '');
-  if (delErr) throw new Error(`Error limpiando etapas: ${delErr.message}`);
-  const rows = stages.map((s, i) => ({
-    key: s.key,
-    label: s.label,
-    dot: s.dot,
-    tone: s.tone,
-    sort: i,
-    custom: !!s.custom,
-  }));
-  const { error } = await supabase.from('pipeline_stages').insert(rows);
-  if (error) throw new Error(`Error guardando etapas: ${error.message}`);
-}
-
-/**
- * Lee las transiciones del funnel desde `funnel_transitions`. Si la tabla no
- * existe o está vacía (migración 0024 sin aplicar), cae a DEFAULT_TRANSITIONS —
- * el funnel y "Datos sin marcar" siguen funcionando.
- */
+/** Transiciones del funnel (backed by funnel_config) — alimentan "Datos sin marcar". */
 export async function getFunnelTransitions(): Promise<FunnelTransition[]> {
-  try {
-    const supabase = getSupabaseServer();
-    const { data, error } = await supabase
-      .from('funnel_transitions')
-      .select('from_stage,to_stage,label,tone,asistio_j1,asistio_j2,sort')
-      .order('sort', { ascending: true });
-    if (error || !data || data.length === 0) return DEFAULT_TRANSITIONS;
-    return data.map((r) => ({
-      from: String(r.from_stage),
-      to: String(r.to_stage),
-      label: String(r.label),
-      tone: (r.tone as TransitionTone) ?? 'accent',
-      ...(r.asistio_j1 === null || r.asistio_j1 === undefined ? {} : { asistioJ1: !!r.asistio_j1 }),
-      ...(r.asistio_j2 === null || r.asistio_j2 === undefined ? {} : { asistioJ2: !!r.asistio_j2 }),
-    }));
-  } catch {
-    return DEFAULT_TRANSITIONS;
-  }
-}
-
-/** Reemplaza el set completo de transiciones del funnel (borra y reinserta). */
-export async function saveFunnelTransitions(transitions: FunnelTransition[]): Promise<void> {
-  const supabase = getSupabaseServer();
-  const { error: delErr } = await supabase.from('funnel_transitions').delete().neq('from_stage', '');
-  if (delErr) throw new Error(`Error limpiando transiciones: ${delErr.message}`);
-  const rows = transitions.map((t, i) => ({
-    from_stage: t.from,
-    to_stage: t.to,
-    label: t.label,
-    tone: t.tone,
-    asistio_j1: t.asistioJ1 === undefined ? null : t.asistioJ1,
-    asistio_j2: t.asistioJ2 === undefined ? null : t.asistioJ2,
-    sort: i,
-  }));
-  if (rows.length === 0) return;
-  const { error } = await supabase.from('funnel_transitions').insert(rows);
-  if (error) throw new Error(`Error guardando transiciones: ${error.message}`);
+  return (await getFunnel()).transitions;
 }
 
 /**

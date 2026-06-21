@@ -10,32 +10,44 @@ export type StageTone =
   | 'neutral' | 'accent' | 'good' | 'bad' | 'warn' | 'info'
   | 'violet' | 'teal' | 'orange' | 'sky' | 'taupe' | 'rose' | 'indigo' | 'magenta';
 
+// Banda (fila) del funnel: pipeline (camino al cierre) · nutrición · salidas.
+export type StageBand = 'pipeline' | 'nutricion' | 'salidas';
+
 export type Stage = {
   key: string;
   label: string;
   dot: string;
-  tone: StageTone;
+  tone: StageTone;        // color del chip en el Kanban del CRM
   custom?: boolean;
+  // Layout del diagrama del funnel (tab /funnel)
+  band?: StageBand;       // fila
+  col?: number;           // columna dentro de la fila
+  bg?: string;            // fondo de la tarjeta (etapas destacadas: ganado/perdido)
+  fg?: string;            // color del texto de la tarjeta
+  border?: string;        // color del borde de la tarjeta
 };
 
-// Etapas por defecto del funnel (idénticas al prototipo y a la semilla SQL).
-// "Post Reunión" (nutrición entre R1 y R2) se ubica justo después de Agenda R1.
+// Etapas por defecto del funnel (rediseño Claude Design: 3 bandas, R1/R2).
 export const DEFAULT_STAGES: Stage[] = [
-  { key: 'lead',        label: 'Lead (Instant form)',      dot: '#3B6FB0', tone: 'info' },
-  { key: 'agenda',      label: 'Agenda R1',                dot: '#C8870C', tone: 'accent' },
-  { key: 'postreunion', label: 'Nutrición - Post Reunión', dot: '#D9A400', tone: 'warn' },
-  { key: 'agendaj2',    label: 'Agenda R2',                dot: '#2E7DBE', tone: 'sky' },
-  { key: 'facturando',  label: 'Facturando',               dot: '#0E8E7E', tone: 'teal' },
-  { key: 'ganado',      label: 'Ganado',                   dot: '#1C8A54', tone: 'good' },
-  { key: 'perdido',     label: 'Perdido',                  dot: '#CF4E29', tone: 'bad' },
-  { key: 'descal',      label: 'Descalificado',            dot: '#8A6D3B', tone: 'taupe' },
-  { key: 'noshow',      label: 'Nutrición - No Show',      dot: '#B5630A', tone: 'orange' },
-  { key: 'nutri',       label: 'Nutrición - No Agenda',    dot: '#6A4BD8', tone: 'violet' },
-  { key: 'nopaga',      label: 'Nutrición - No Paga',      dot: '#C7417B', tone: 'rose' },
-  { key: 'manual',      label: 'Nutrición - Manual',       dot: '#4F5BD5', tone: 'indigo' },
-  { key: 'postagenda',  label: 'Nutrición - Post Agenda',  dot: '#9D4EDD', tone: 'magenta' },
-  { key: 'noresp',      label: 'No responde',              dot: '#A39E91', tone: 'neutral' },
+  { key: 'lead',        label: 'Lead (Instant form)',      dot: '#2F6DDB', tone: 'info',    band: 'pipeline',  col: 0 },
+  { key: 'agenda',      label: 'Agenda R1',                dot: '#E08A12', tone: 'accent',  band: 'pipeline',  col: 1 },
+  { key: 'agendaj2',    label: 'Agenda R2',                dot: '#2F6DDB', tone: 'sky',     band: 'pipeline',  col: 2 },
+  { key: 'facturando',  label: 'Facturando',               dot: '#C8870C', tone: 'teal',    band: 'pipeline',  col: 3 },
+  { key: 'ganado',      label: 'Ganado',                   dot: '#3B6D11', tone: 'good',    band: 'pipeline',  col: 4, bg: '#EAF3DE', fg: '#27500A', border: '#3B6D11' },
+  { key: 'nutri',       label: 'Nutrición - No Agenda',    dot: '#7C4DD6', tone: 'violet',  band: 'nutricion', col: 0 },
+  { key: 'noshow',      label: 'Nutrición - No Show',      dot: '#E8762B', tone: 'orange',  band: 'nutricion', col: 1 },
+  { key: 'postagenda',  label: 'Nutrición - Post Agenda',  dot: '#8A52C8', tone: 'magenta', band: 'nutricion', col: 2 },
+  { key: 'nopaga',      label: 'Nutrición - No Paga',      dot: '#D6438F', tone: 'rose',    band: 'nutricion', col: 3 },
+  { key: 'manual',      label: 'Nutrición - Manual',       dot: '#4F5BD6', tone: 'indigo',  band: 'nutricion', col: 4 },
+  { key: 'postreunion', label: 'Nutrición - Post Reunión', dot: '#D9A400', tone: 'warn',    band: 'nutricion', col: 5 },
+  { key: 'descal',      label: 'Descalificado',            dot: '#5A463A', tone: 'taupe',   band: 'salidas',   col: 0 },
+  { key: 'perdido',     label: 'Perdido',                  dot: '#CF4E29', tone: 'bad',     band: 'salidas',   col: 2, bg: '#FCEBEB', fg: '#791F1F', border: '#A32D2D' },
+  { key: 'noresp',      label: 'No responde',              dot: '#A39E91', tone: 'neutral', band: 'salidas',   col: 4 },
 ];
+
+/** Layout por defecto (banda/col/colores) por key — para enriquecer etapas que vengan sin layout. */
+export const STAGE_LAYOUT: Record<string, Pick<Stage, 'band' | 'col' | 'bg' | 'fg' | 'border' | 'dot'>> =
+  Object.fromEntries(DEFAULT_STAGES.map((s) => [s.key, { band: s.band, col: s.col, bg: s.bg, fg: s.fg, border: s.border, dot: s.dot }]));
 
 export const NEW_STAGE_PALETTE = ['#3B6FB0', '#C8870C', '#0E8E7E', '#6A4BD8', '#C7417B', '#B5630A', '#2E7DBE', '#8A6D3B', '#4F5BD5', '#9D4EDD'];
 export const NEW_STAGE_TONES: StageTone[] = ['info', 'accent', 'teal', 'violet', 'rose', 'orange', 'sky', 'taupe', 'indigo', 'magenta'];
@@ -45,49 +57,63 @@ export const NUTRI_KEYS = ['noshow', 'nutri', 'nopaga', 'manual', 'postagenda', 
 // ── Transiciones del funnel (grafo etapa → etapa) ───────────────────────────
 // Editable en la tab "Funnel". Definen, para cada etapa, los pasos posibles
 // siguientes; alimentan las opciones contextuales de "Datos sin marcar".
-export type TransitionTone = 'accent' | 'good' | 'bad' | 'nutri';
+// La categoría define el color de la flecha y del botón en el worklist.
+export type TransitionCategory = 'avanza' | 'nutricion' | 'perdida';
 
-export type FunnelTransition = {
-  from: string;          // stage key de origen
-  to: string;            // stage key de destino
-  label: string;         // texto del botón / flecha
-  tone: TransitionTone;  // color
-  asistioJ1?: boolean;   // marca asistencia a R1 al aplicar (Datos sin marcar tipo A)
-  asistioJ2?: boolean;   // marca asistencia a R2 al aplicar (Datos sin marcar tipo C)
+export const CATEGORY: Record<TransitionCategory, { c: string; label: string }> = {
+  avanza:    { c: '#3B6D11', label: 'Avanza' },
+  nutricion: { c: '#C8870C', label: 'Nutrición' },
+  perdida:   { c: '#CF4E29', label: 'Pérdida' },
 };
 
-// Grafo por defecto (se usa si la tabla funnel_transitions está vacía / sin migrar).
+export type FunnelTransition = {
+  from: string;                 // stage key de origen
+  to: string;                   // stage key de destino
+  label: string;                // texto de la flecha / botón
+  category: TransitionCategory; // color
+  asistioJ1?: boolean;          // marca asistencia a R1 al aplicar (Datos sin marcar tipo A)
+  asistioJ2?: boolean;          // marca asistencia a R2 al aplicar (Datos sin marcar tipo C)
+};
+
+// Grafo por defecto (se usa si funnel_config aún no está guardado).
 export const DEFAULT_TRANSITIONS: FunnelTransition[] = [
-  // Lead → primeros pasos
-  { from: 'lead', to: 'agenda', label: 'Agendó R1', tone: 'accent' },
-  { from: 'lead', to: 'postagenda', label: 'Nutrición - Post Agenda', tone: 'nutri' },
-  { from: 'lead', to: 'nutri', label: 'Nutrición - No Agenda', tone: 'nutri' },
-  // Agenda R1 — tras la primera reunión
-  { from: 'agenda', to: 'agendaj2', label: 'Asistió · Agenda R2', tone: 'accent', asistioJ1: true },
-  { from: 'agenda', to: 'postreunion', label: 'Nutrición - Post Reunión', tone: 'nutri', asistioJ1: true },
-  { from: 'agenda', to: 'noshow', label: 'No Show', tone: 'nutri', asistioJ1: false },
-  { from: 'agenda', to: 'perdido', label: 'Perdido', tone: 'bad', asistioJ1: true },
-  { from: 'agenda', to: 'descal', label: 'Descalificado', tone: 'bad', asistioJ1: true },
-  // Post Reunión → R2 o desenlace
-  { from: 'postreunion', to: 'agendaj2', label: 'Agenda R2', tone: 'accent' },
-  { from: 'postreunion', to: 'perdido', label: 'Perdido', tone: 'bad' },
-  { from: 'postreunion', to: 'descal', label: 'Descalificado', tone: 'bad' },
-  { from: 'postreunion', to: 'noresp', label: 'No responde', tone: 'bad' },
-  // Agenda R2 — tras la segunda reunión
-  { from: 'agendaj2', to: 'facturando', label: 'Asistió · Facturando', tone: 'accent', asistioJ2: true },
-  { from: 'agendaj2', to: 'ganado', label: 'Ganado', tone: 'good', asistioJ2: true },
-  { from: 'agendaj2', to: 'postagenda', label: 'No Show', tone: 'nutri', asistioJ2: false },
-  { from: 'agendaj2', to: 'perdido', label: 'Perdido', tone: 'bad', asistioJ2: true },
-  { from: 'agendaj2', to: 'descal', label: 'Descalificado', tone: 'bad', asistioJ2: true },
-  // Facturando → desenlace
-  { from: 'facturando', to: 'ganado', label: 'Ganado', tone: 'good' },
-  { from: 'facturando', to: 'nopaga', label: 'Nutrición - No Paga', tone: 'nutri' },
-  { from: 'facturando', to: 'perdido', label: 'Perdido', tone: 'bad' },
+  { from: 'lead', to: 'agenda', label: 'Agendó R1', category: 'avanza' },
+  { from: 'lead', to: 'postagenda', label: 'Nutrición - Post Agenda', category: 'nutricion' },
+  { from: 'lead', to: 'nutri', label: 'No agendó', category: 'nutricion' },
+  { from: 'lead', to: 'noresp', label: 'No responde', category: 'perdida' },
+  { from: 'agenda', to: 'agendaj2', label: 'Avanza a R2', category: 'avanza', asistioJ1: true },
+  { from: 'agenda', to: 'postreunion', label: 'Nutrición - Post Reunión', category: 'nutricion', asistioJ1: true },
+  { from: 'agenda', to: 'noshow', label: 'No-show R1', category: 'nutricion', asistioJ1: false },
+  { from: 'agenda', to: 'descal', label: 'No califica', category: 'perdida', asistioJ1: true },
+  { from: 'agenda', to: 'perdido', label: 'No avanza', category: 'perdida', asistioJ1: true },
+  { from: 'agendaj2', to: 'facturando', label: 'Cerró', category: 'avanza', asistioJ2: true },
+  { from: 'agendaj2', to: 'ganado', label: 'Ganado', category: 'avanza', asistioJ2: true },
+  { from: 'agendaj2', to: 'noshow', label: 'No-show R2', category: 'nutricion', asistioJ2: false },
+  { from: 'agendaj2', to: 'nopaga', label: 'No paga aún', category: 'nutricion', asistioJ2: true },
+  { from: 'agendaj2', to: 'perdido', label: 'No cierra', category: 'perdida', asistioJ2: true },
+  { from: 'postreunion', to: 'agendaj2', label: 'Agenda R2', category: 'avanza' },
+  { from: 'postreunion', to: 'perdido', label: 'Desiste', category: 'perdida' },
+  { from: 'facturando', to: 'ganado', label: 'Pagó', category: 'avanza' },
+  { from: 'facturando', to: 'nopaga', label: 'Falta pago', category: 'nutricion' },
+  { from: 'noshow', to: 'agenda', label: 'Reagenda R1', category: 'avanza' },
+  { from: 'nutri', to: 'agenda', label: 'Agenda tardío', category: 'avanza' },
+  { from: 'nopaga', to: 'ganado', label: 'Pagó tarde', category: 'avanza' },
+  { from: 'nopaga', to: 'perdido', label: 'Desiste', category: 'perdida' },
+  { from: 'manual', to: 'agendaj2', label: 'Recupera', category: 'avanza' },
+  { from: 'postagenda', to: 'agenda', label: 'Agenda', category: 'avanza' },
 ];
 
 /** Transiciones salientes de una etapa. */
 export function transitionsFrom(transitions: FunnelTransition[], from: string): FunnelTransition[] {
   return transitions.filter((t) => t.from === from);
+}
+
+/** Enriquece una etapa con su layout por defecto (banda/col/colores) si no lo trae. */
+export function withLayout(s: Stage): Stage {
+  if (s.band && s.col != null) return s;
+  const d = STAGE_LAYOUT[s.key];
+  if (d) return { ...d, ...s, band: s.band ?? d.band, col: s.col ?? d.col };
+  return { band: 'nutricion', col: 0, ...s };
 }
 
 export type ChipColor = { bg: string; fg: string; bd: string };

@@ -29,8 +29,7 @@ import {
   deleteLead,
   setPipelineStage,
   saveLeadMeta,
-  savePipelineStages,
-  saveFunnelTransitions,
+  saveFunnel,
   getLead,
   getPipelineStages,
   getVisitasLandingMap,
@@ -177,17 +176,9 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   revalidatePath('/leads');
 }
 
-/** Persiste el set completo de etapas del pipeline (tab "Funnel"). */
-export async function savePipelineStagesAction(stages: Stage[]): Promise<void> {
-  await savePipelineStages(stages);
-  bust(TAG.pipeline, TAG.leads);
-  revalidatePath('/leads');
-  revalidatePath('/funnel');
-}
-
-/** Persiste el grafo de transiciones del funnel (tab "Funnel" → flechas). */
-export async function saveFunnelTransitionsAction(transitions: FunnelTransition[]): Promise<void> {
-  await saveFunnelTransitions(transitions);
+/** Persiste toda la config del funnel (etapas + flechas) desde la tab "Funnel". */
+export async function saveFunnelAction(stages: Stage[], transitions: FunnelTransition[]): Promise<void> {
+  await saveFunnel(stages, transitions);
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/leads');
   revalidatePath('/funnel');

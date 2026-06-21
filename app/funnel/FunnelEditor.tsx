@@ -1,85 +1,74 @@
 'use client';
 
 // =============================================================================
-// FunnelEditor — editor visual del funnel (tab /funnel)
+// FunnelEditor — editor visual del funnel (tab /funnel) · rediseño Claude Design
 // =============================================================================
-// Nodos = etapas, flechas = transiciones (etapa → etapa). Permite:
-//   • Agregar / renombrar / eliminar etapas (columnas del Kanban).
-//   • Conectar etapas con flechas (clic en origen → clic en destino).
-//   • Editar cada transición: texto, color y qué asistencia marca (R1/R2).
-// Las transiciones alimentan las opciones de "Datos sin marcar" en el CRM.
-// Persiste en Supabase (pipeline_stages + funnel_transitions). Sin BD, edita en
-// sesión y el Guardar avisa del error sin perder los cambios.
+// Diagrama de flujo: nodos = etapas (en 3 bandas: Pipeline / Nutrición / Salidas),
+// flechas curvas = transiciones (color por categoría). Interacciones:
+//   • Hover sobre una etapa → aísla su flujo. Clic → lo fija (pin).
+//   • Clic en una etapa y arrastrar a otra → crea una flecha.
+//   • Arrastrar el punto (handle) de una flecha seleccionada → la reconecta.
+//   • Filtro por categoría + leyenda. Paneles para editar etapas y flechas.
+// Las flechas alimentan "Datos sin marcar" en el CRM (cada flecha define qué
+// asistencia R1/R2 marca). Se guarda todo en funnel_config (Supabase).
 
-import { useMemo, useState, useTransition, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as RPE } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  CHIP,
-  NEW_STAGE_PALETTE,
-  NEW_STAGE_TONES,
+  CATEGORY,
+  DEFAULT_STAGES,
+  DEFAULT_TRANSITIONS,
+  withLayout,
   type Stage,
+  type StageBand,
   type FunnelTransition,
-  type TransitionTone,
+  type TransitionCategory,
 } from '@/lib/pipeline';
-import { savePipelineStagesAction, saveFunnelTransitionsAction } from '../leads/actions';
+import { saveFunnelAction } from '../leads/actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-const NODE_W = 172;
-const NODE_H = 54;
-const GAP_X = 48;
-const GAP_Y = 96;
-const PAD = 28;
+// Geometría del lienzo (coordenadas base; se escala para entrar en el ancho).
+const GUT = 92, COL = 200, CW = 170, CH = 54, BASEH = 392;
+const ROWY: Record<StageBand, number> = { pipeline: 44, nutricion: 178, salidas: 312 };
+const BANDS: { band: StageBand; label: string; tint: string }[] = [
+  { band: 'pipeline', label: 'Pipeline', tint: 'rgba(59,109,17,.055)' },
+  { band: 'nutricion', label: 'Nutrición', tint: 'rgba(200,135,12,.06)' },
+  { band: 'salidas', label: 'Salidas', tint: 'rgba(207,78,41,.055)' },
+];
+const FILTERS: [TransitionCategory | 'all', string][] = [['all', 'Todas'], ['avanza', 'Avanza'], ['nutricion', 'Nutrición'], ['perdida', 'Pérdida']];
 
-// Filas del diagrama: proceso (arriba), nutrición (medio), resultado (abajo).
-const RESULT_KEYS = new Set(['ganado', 'perdido', 'descal', 'noresp']);
-const NUTRI_ROW_KEYS = new Set(['noshow', 'nutri', 'nopaga', 'manual', 'postagenda']);
+type ETrans = FunnelTransition & { id: string };
+type Pt = { x: number; y: number };
+type Box = { x: number; y: number; cx: number; cy: number; w: number; h: number };
 
-const EDGE_COLOR: Record<TransitionTone, string> = {
-  accent: 'var(--accent)',
-  good: 'var(--good)',
-  bad: 'var(--bad)',
-  nutri: 'var(--warn-fill)',
-};
-const TONE_LABEL: Record<TransitionTone, string> = {
-  accent: 'Avanza', good: 'Ganado', nutri: 'Nutrición', bad: 'Pierde',
-};
-const TONES: TransitionTone[] = ['accent', 'good', 'nutri', 'bad'];
-
-type Pos = { x: number; y: number; w: number; h: number };
-
-function computeLayout(stages: Stage[]) {
-  const rows: string[][] = [[], [], []];
-  for (const s of stages) {
-    const r = RESULT_KEYS.has(s.key) ? 2 : NUTRI_ROW_KEYS.has(s.key) ? 1 : 0;
-    rows[r].push(s.key);
-  }
-  const pos: Record<string, Pos> = {};
-  rows.forEach((keys, r) => {
-    keys.forEach((k, i) => {
-      pos[k] = { x: PAD + i * (NODE_W + GAP_X), y: PAD + r * (NODE_H + GAP_Y), w: NODE_W, h: NODE_H };
-    });
-  });
-  const maxCols = Math.max(1, rows[0].length, rows[1].length, rows[2].length);
-  const width = PAD * 2 + maxCols * (NODE_W + GAP_X) - GAP_X;
-  const height = PAD * 2 + 3 * NODE_H + 2 * GAP_Y;
-  return { pos, width, height };
+// Intersección del borde de la caja con la recta hacia (tx,ty).
+function edge(b: Box, tx: number, ty: number): Pt {
+  const dx = tx - b.cx, dy = ty - b.cy;
+  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return { x: b.cx, y: b.cy };
+  const ex = Math.abs(dx) < 0.001 ? 1e9 : (b.w / 2 + 2) / Math.abs(dx);
+  const ey = Math.abs(dy) < 0.001 ? 1e9 : (b.h / 2 + 2) / Math.abs(dy);
+  const t = Math.min(ex, ey);
+  return { x: b.cx + dx * t, y: b.cy + dy * t };
+}
+// Bezier en S entre dos puntos (curva horizontal o vertical según el delta dominante).
+function sPath(a: Pt, b: Pt): { d: string; c2: Pt } {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  let c1: Pt, c2: Pt;
+  if (Math.abs(dy) >= Math.abs(dx)) { const my = (a.y + b.y) / 2; c1 = { x: a.x, y: my }; c2 = { x: b.x, y: my }; }
+  else { const mx = (a.x + b.x) / 2; c1 = { x: mx, y: a.y }; c2 = { x: mx, y: b.y }; }
+  return { d: `M ${a.x} ${a.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${b.x} ${b.y}`, c2 };
+}
+function arrowPoints(b: Pt, c2: Pt, w: number): string {
+  const ang = Math.atan2(b.y - c2.y, b.x - c2.x), sz = 6 + w * 1.3;
+  const lx = b.x - sz * Math.cos(ang - 0.5), ly = b.y - sz * Math.sin(ang - 0.5);
+  const rx = b.x - sz * Math.cos(ang + 0.5), ry = b.y - sz * Math.sin(ang + 0.5);
+  return `${b.x},${b.y} ${lx},${ly} ${rx},${ry}`;
 }
 
-// Punto del borde de la caja en dirección a (tx,ty) desde su centro.
-function boxEdge(p: Pos, tx: number, ty: number): [number, number] {
-  const cx = p.x + p.w / 2;
-  const cy = p.y + p.h / 2;
-  const dx = tx - cx;
-  const dy = ty - cy;
-  if (dx === 0 && dy === 0) return [cx, cy];
-  const sx = dx !== 0 ? (p.w / 2) / Math.abs(dx) : Infinity;
-  const sy = dy !== 0 ? (p.h / 2) / Math.abs(dy) : Infinity;
-  const s = Math.min(sx, sy);
-  return [cx + dx * s, cy + dy * s];
-}
+type Drag = { tid: string | null; end: 'from' | 'to'; from?: string; x: number; y: number; over: string | null } | null;
 
 export function FunnelEditor({
   initialStages,
@@ -89,232 +78,343 @@ export function FunnelEditor({
   initialTransitions: FunnelTransition[];
 }) {
   const router = useRouter();
-  const [stages, setStages] = useState<Stage[]>(initialStages);
-  const [transitions, setTransitions] = useState<FunnelTransition[]>(initialTransitions);
-  const [connectFrom, setConnectFrom] = useState<string | null>(null);
-  // Selección por clave estable `from|to` (no por índice: borrar/insertar reordena).
-  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const idc = useRef(0);
+  const mkTrans = useCallback((arr: FunnelTransition[]): ETrans[] => arr.map((t) => ({ ...t, id: 't' + (idc.current++) })), []);
+
+  const [stages, setStages] = useState<Stage[]>(() => initialStages.map(withLayout));
+  const [trans, setTrans] = useState<ETrans[]>(() => mkTrans(initialTransitions));
+  const [hoverStage, setHoverStage] = useState<string | null>(null);
+  const [pinned, setPinned] = useState<string | null>(null);
+  const [hoverTrans, setHoverTrans] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [filter, setFilter] = useState<TransitionCategory | 'all'>('all');
+  const [drag, setDrag] = useState<Drag>(null);
+  const [scale, setScale] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const pendingRef = useRef<{ from: string; sx: number; sy: number } | null>(null);
+  // Refs espejo para los handlers de document (evitan closures obsoletos).
+  const ref = useRef({ stages, trans, drag });
+  ref.current = { stages, trans, drag };
 
   const labelOf = (key: string) => stages.find((s) => s.key === key)?.label ?? key;
-  const edgeKey = (t: FunnelTransition) => `${t.from}|${t.to}`;
-  const { pos, width, height } = useMemo(() => computeLayout(stages), [stages]);
 
-  // ── Etapas ──
-  const addStage = () => {
-    const dot = NEW_STAGE_PALETTE[stages.length % NEW_STAGE_PALETTE.length];
-    const tone = NEW_STAGE_TONES[stages.length % NEW_STAGE_TONES.length];
-    setStages((s) => [...s, { key: 'custom_' + Date.now(), label: 'Nueva etapa', dot, tone, custom: true }]);
-    setMsg(null);
-  };
-  const renameStage = (key: string, label: string) => {
-    setStages((s) => s.map((st) => (st.key === key ? { ...st, label } : st)));
-    setMsg(null);
-  };
-  const deleteStage = (key: string) => {
-    setStages((s) => s.filter((st) => st.key !== key));
-    setTransitions((t) => t.filter((tr) => tr.from !== key && tr.to !== key));
-    if (connectFrom === key) setConnectFrom(null);
-    setMsg(null);
-  };
+  // ── ancho dinámico (cabe la columna más a la derecha) ──
+  const maxCol = stages.reduce((m, s) => Math.max(m, s.col ?? 0), 4);
+  const BASEW = Math.max(1120, GUT + maxCol * COL + CW + 28);
 
-  // ── Transiciones ──
-  const addTransition = (from: string, to: string) => {
-    if (from === to) return;
-    if (transitions.some((t) => t.from === from && t.to === to)) return;
-    setTransitions((t) => [...t, { from, to, label: labelOf(to), tone: 'accent' }]);
-    setMsg(null);
+  const boxOf = useCallback((s: Stage): Box => {
+    const x = GUT + (s.col ?? 0) * COL, y = ROWY[s.band ?? 'nutricion'];
+    return { x, y, cx: x + CW / 2, cy: y + CH / 2, w: CW, h: CH };
+  }, []);
+
+  const updateScale = useCallback(() => {
+    const el = canvasRef.current; if (!el) return;
+    const s = Math.min(el.clientWidth, BASEW) / BASEW;
+    setScale((prev) => (Math.abs(s - prev) > 0.002 ? s : prev));
+  }, [BASEW]);
+
+  const toLocal = (e: { clientX: number; clientY: number }): Pt => {
+    const r = canvasRef.current!.getBoundingClientRect(); const s = r.width / BASEW;
+    return { x: (e.clientX - r.left) / s, y: (e.clientY - r.top) / s };
   };
-  const updateTransition = (i: number, patch: Partial<FunnelTransition>) => {
-    setTransitions((t) => t.map((tr, j) => (j === i ? { ...tr, ...patch } : tr)));
-    setMsg(null);
-  };
-  const deleteTransition = (i: number) => {
-    const removed = transitions[i];
-    if (removed && selectedEdge === edgeKey(removed)) setSelectedEdge(null);
-    setTransitions((t) => t.filter((_, j) => j !== i));
-    setMsg(null);
+  const hitStage = (lx: number, ly: number): string | null => {
+    for (const s of ref.current.stages) { const b = boxOf(s); if (lx >= b.x && lx <= b.x + CW && ly >= b.y && ly <= b.y + CH) return s.key; }
+    return null;
   };
 
-  const onNodeClick = (key: string) => {
-    if (connectFrom === null) { setConnectFrom(key); setSelectedEdge(null); return; }
-    if (connectFrom === key) { setConnectFrom(null); return; }
-    addTransition(connectFrom, key);
-    setConnectFrom(null);
-  };
-
-  const save = () => {
-    setMsg(null);
-    start(async () => {
-      try {
-        await savePipelineStagesAction(stages);
-        await saveFunnelTransitionsAction(transitions);
-        router.refresh();
-        setMsg({ kind: 'ok', text: 'Funnel guardado.' });
-      } catch (e) {
-        setMsg({ kind: 'err', text: 'No se pudo guardar (¿BD sin migrar 0024?). Tus cambios siguen acá: ' + (e instanceof Error ? e.message : String(e)) });
+  // ── document pointer listeners (una vez) ──
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const d = ref.current.drag;
+      if (pendingRef.current && !d) {
+        const dx = e.clientX - pendingRef.current.sx, dy = e.clientY - pendingRef.current.sy;
+        if (dx * dx + dy * dy > 36) { const p = toLocal(e); setHoverStage(null); setDrag({ tid: null, end: 'to', from: pendingRef.current.from, x: p.x, y: p.y, over: null }); }
+        return;
       }
-    });
+      if (d) { const p = toLocal(e); setDrag({ ...d, x: p.x, y: p.y, over: hitStage(p.x, p.y) }); }
+    };
+    const onUp = () => {
+      const d = ref.current.drag;
+      if (d) { commitDrag(d); setDrag(null); pendingRef.current = null; return; }
+      if (pendingRef.current) { const id = pendingRef.current.from; pendingRef.current = null; setPinned((p) => (p === id ? null : id)); setSelected(null); }
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    window.addEventListener('resize', updateScale);
+    updateScale();
+    return () => { document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); window.removeEventListener('resize', updateScale); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateScale]);
+
+  // ── mutaciones ──
+  const dirty = () => { setToast(false); setErr(null); };
+  const commitDrag = (d: NonNullable<Drag>) => {
+    if (d.tid == null) { if (d.over && d.over !== d.from) addTrans(d.from!, d.over); return; }
+    const t = ref.current.trans.find((x) => x.id === d.tid); if (!t) return;
+    if (d.over) { const other = d.end === 'to' ? t.from : t.to; if (d.over !== other) updateTrans(d.tid, d.end === 'to' ? { to: d.over } : { from: d.over }); }
+  };
+  const addTrans = (from: string, to: string) => {
+    if (from === to) return;
+    setTrans((ts) => (ts.some((t) => t.from === from && t.to === to) ? ts : [...ts, { id: 't' + (idc.current++), from, to, label: 'Nueva flecha', category: 'avanza' }]));
+    dirty();
+  };
+  const updateTrans = (id: string, patch: Partial<FunnelTransition>) => { setTrans((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t))); dirty(); };
+  const removeTrans = (id: string) => { setTrans((ts) => ts.filter((t) => t.id !== id)); setSelected((s) => (s === id ? null : s)); dirty(); };
+  const updateStage = (key: string, patch: Partial<Stage>) => { setStages((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s))); dirty(); };
+  const moveStageBand = (key: string, band: StageBand) => {
+    setStages((ss) => { const used = ss.filter((x) => x.band === band && x.key !== key).map((x) => x.col ?? 0); let col = 0; while (used.includes(col)) col++; return ss.map((s) => (s.key === key ? { ...s, band, col } : s)); });
+    dirty();
+  };
+  const removeStage = (key: string) => { setStages((ss) => ss.filter((s) => s.key !== key)); setTrans((ts) => ts.filter((t) => t.from !== key && t.to !== key)); setPinned(null); setHoverStage(null); dirty(); };
+  const addStage = () => {
+    const key = 's' + Date.now().toString(36);
+    setStages((ss) => { const nut = ss.filter((x) => x.band === 'nutricion').length; return [...ss, { key, label: 'Nueva etapa', dot: '#6B675C', tone: 'neutral', band: 'nutricion', col: nut, custom: true }]; });
+    dirty();
+  };
+  const resetFunnel = () => { setStages(DEFAULT_STAGES.map(withLayout)); setTrans(mkTrans(DEFAULT_TRANSITIONS)); setSelected(null); setPinned(null); setHoverStage(null); setHoverTrans(null); setFilter('all'); dirty(); };
+
+  const onSave = () => {
+    setErr(null); setSaving(true);
+    const plain: FunnelTransition[] = trans.map(({ id: _id, ...t }) => t);
+    (async () => {
+      try { await saveFunnelAction(stages, plain); router.refresh(); setToast(true); setTimeout(() => setToast(false), 1800); }
+      catch (e) { setErr('No se pudo guardar (¿falta aplicar la migración 0025?). Tus cambios siguen acá: ' + (e instanceof Error ? e.message : String(e))); }
+      finally { setSaving(false); }
+    })();
   };
 
-  // Asistencia como tri-estado para los selects de cada transición.
-  const asTri = (v: boolean | undefined) => (v === undefined ? '' : v ? 'si' : 'no');
-  const fromTri = (v: string): boolean | undefined => (v === '' ? undefined : v === 'si');
+  // ── pointer en tarjetas / handles ──
+  const cardDown = (s: Stage, e: RPE) => { e.stopPropagation(); pendingRef.current = { from: s.key, sx: e.clientX, sy: e.clientY }; };
+  const handleDown = (t: ETrans, end: 'from' | 'to', e: RPE) => { e.stopPropagation(); pendingRef.current = null; const p = toLocal(e); setSelected(t.id); setHoverStage(null); setDrag({ tid: t.id, end, x: p.x, y: p.y, over: null }); };
 
-  const btn: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
-  const ghost: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, textDecoration: 'none' };
-  const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 };
-  const sect: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
-  const input: CSSProperties = { padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
-  const selStyle: CSSProperties = { ...input, cursor: 'pointer' };
+  // ── geometría de flechas ──
+  const P: Record<string, Box> = {};
+  stages.forEach((s) => { P[s.key] = boxOf(s); });
+  const focus = drag ? null : (hoverStage || pinned);
+  const matches = (t: ETrans) => filter === 'all' || t.category === filter;
+  const styleFor = (t: ETrans): { op: number; w: number; label?: boolean; handles?: boolean } => {
+    if (!matches(t)) return { op: 0.04, w: 1.4 };
+    if (selected === t.id || hoverTrans === t.id) return { op: 1, w: 2.6, label: true, handles: true };
+    if (focus) return t.from === focus || t.to === focus ? { op: 1, w: 2.4, label: true } : { op: 0.05, w: 1.4 };
+    if (filter !== 'all') return { op: 0.9, w: 2.2 };
+    return t.category === 'avanza' ? { op: 0.55, w: 2 } : { op: 0.34, w: 1.5 };
+  };
+  const geomOf = (from: string, to: string) => {
+    const A = P[from], B = P[to]; if (!A || !B) return null;
+    const a = edge(A, B.cx, B.cy), b = edge(B, A.cx, A.cy); const sp = sPath(a, b);
+    return { a, b, d: sp.d, c2: sp.c2 };
+  };
+
+  // ── estilos ──
+  const ghost: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, textDecoration: 'none', cursor: 'pointer', fontFamily: SANS };
+  const field: CSSProperties = { padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
+  const sect: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 15 };
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 80px', fontFamily: SANS }}>
       {/* HEADER */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Funnel</h1>
-          <span style={{ fontSize: 15, color: 'var(--dim)' }}>{stages.length} etapas · {transitions.length} flechas</span>
+          <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{stages.length} etapas · {trans.length} flechas</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Link href="/leads" style={ghost}>← Volver al CRM</Link>
-          <button onClick={save} disabled={pending} style={{ ...btn, opacity: pending ? 0.6 : 1, cursor: pending ? 'wait' : 'pointer' }}>{pending ? 'Guardando…' : 'Guardar funnel'}</button>
+          <button onClick={onSave} disabled={saving} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 18px', borderRadius: 11, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: saving ? 'wait' : 'pointer', boxShadow: '0 2px 8px rgba(240,198,10,.3)', opacity: saving ? 0.7 : 1 }}>{saving ? 'Guardando…' : 'Guardar funnel'}</button>
         </div>
       </header>
 
-      {msg && (
-        <div style={{ padding: '12px 16px', borderRadius: 12, fontSize: 13.5, fontWeight: 500, background: msg.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: msg.kind === 'ok' ? 'var(--good)' : 'var(--bad)', border: '1px solid ' + (msg.kind === 'ok' ? 'var(--good)' : 'var(--bad)') }}>{msg.text}</div>
-      )}
+      <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '0 0 18px', maxWidth: 760, lineHeight: 1.5 }}>
+        Pasá el mouse sobre una etapa para <b style={{ color: 'var(--ink)', fontWeight: 600 }}>aislar su flujo</b>. Hacé clic en una etapa y arrastrá hacia otra para <b style={{ color: 'var(--ink)', fontWeight: 600 }}>crear una flecha</b>. Arrastrá el punto de una flecha seleccionada para <b style={{ color: 'var(--ink)', fontWeight: 600 }}>reconectarla</b>.
+      </p>
 
-      {/* HINT de conexión */}
-      <div style={{ fontSize: 13.5, color: connectFrom ? 'var(--accent)' : 'var(--dim)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        {connectFrom
-          ? <>Conectando desde <strong>{labelOf(connectFrom)}</strong> — hacé clic en la etapa destino. <button onClick={() => setConnectFrom(null)} style={{ ...ghost, padding: '4px 10px' }}>Cancelar</button></>
-          : <>Hacé clic en una etapa para empezar una flecha; luego clic en la etapa destino. Clic en una flecha para seleccionarla.</>}
+      {err && <div style={{ padding: '12px 16px', borderRadius: 12, fontSize: 13.5, fontWeight: 500, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid var(--bad)', marginBottom: 14 }}>{err}</div>}
+
+      {/* TOOLBAR: filtro + leyenda + reset */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
+            {FILTERS.map(([v, l]) => {
+              const on = filter === v; const dotC = v === 'all' ? null : CATEGORY[v].c;
+              return (
+                <button key={v} onClick={() => setFilter(v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: on ? 600 : 500, background: on ? 'var(--ink)' : 'transparent', color: on ? '#F3F0E7' : 'var(--dim)' }}>
+                  {dotC && <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotC }} />}{l}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            {(Object.keys(CATEGORY) as TransitionCategory[]).map((k) => (
+              <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--dim)' }}>
+                <span style={{ width: 18, height: 3, borderRadius: 2, background: CATEGORY[k].c, display: 'inline-block' }} />{CATEGORY[k].label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <button onClick={resetFunnel} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>↺ Restablecer</button>
       </div>
 
-      {/* DIAGRAMA */}
-      <div style={{ ...card, padding: 0, overflow: 'auto' }}>
-        <div style={{ position: 'relative', width, height, minWidth: '100%' }}>
-          <svg width={width} height={height} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <defs>
-              {TONES.map((t) => (
-                <marker key={t} id={`arrow-${t}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-                  <path d="M0,0 L10,5 L0,10 z" fill={EDGE_COLOR[t]} />
-                </marker>
-              ))}
-            </defs>
-            {transitions.map((t) => {
-              const a = pos[t.from];
-              const b = pos[t.to];
-              if (!a || !b) return null;
-              const [sx, sy] = boxEdge(a, b.x + b.w / 2, b.y + b.h / 2);
-              const [ex, ey] = boxEdge(b, a.x + a.w / 2, a.y + a.h / 2);
-              const ek = edgeKey(t);
-              const sel = selectedEdge === ek;
+      {/* CANVAS */}
+      <div
+        ref={(el) => { canvasRef.current = el; if (el) requestAnimationFrame(updateScale); }}
+        onPointerDown={() => { if (!ref.current.drag) { setSelected(null); setPinned(null); } }}
+        style={{ position: 'relative', width: '100%', maxWidth: BASEW, margin: '0 auto', height: BASEH * scale, background: '#FFFFFF', border: '1px solid #E7E3D9', borderRadius: 18, overflow: 'hidden' }}
+      >
+        <div style={{ position: 'absolute', top: 0, left: 0, width: BASEW, height: BASEH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          {/* SVG detrás: bandas + flechas */}
+          <svg width={BASEW} height={BASEH} viewBox={`0 0 ${BASEW} ${BASEH}`} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}>
+            {BANDS.map((bd, i) => { const y = ROWY[bd.band]; return (
+              <g key={'ln' + i}>
+                <rect x={16} y={y - 15} width={BASEW - 32} height={CH + 30} rx={13} fill={bd.tint} />
+                <text x={30} y={y + CH / 2 + 1} dominantBaseline="central" fontFamily={MONO} fontSize={10.5} letterSpacing=".1em" fontWeight={600} fill="#A39E91">{bd.label.toUpperCase()}</text>
+              </g>
+            ); })}
+            {trans.map((t) => {
+              if (drag && drag.tid === t.id) return null;
+              const g = geomOf(t.from, t.to); if (!g) return null;
+              const st = drag ? { op: matches(t) ? 0.07 : 0.04, w: 1.5 } : styleFor(t);
+              const c = CATEGORY[t.category].c;
               return (
-                <g key={ek}>
-                  <line x1={sx} y1={sy} x2={ex} y2={ey} stroke="transparent" strokeWidth={14} style={{ pointerEvents: 'stroke', cursor: 'pointer' }} onClick={() => setSelectedEdge(ek)} />
-                  <line x1={sx} y1={sy} x2={ex} y2={ey} stroke={EDGE_COLOR[t.tone]} strokeWidth={sel ? 3 : 1.75} markerEnd={`url(#arrow-${t.tone})`} opacity={sel ? 1 : 0.7} style={{ pointerEvents: 'none' }} />
+                <g key={'a' + t.id}>
+                  <path d={g.d} fill="none" stroke={c} strokeWidth={st.w} strokeOpacity={st.op} strokeLinecap="round" />
+                  <polygon points={arrowPoints(g.b, g.c2, st.w)} fill={c} opacity={st.op} />
                 </g>
               );
             })}
           </svg>
 
+          {/* Tarjetas (HTML) */}
           {stages.map((s) => {
-            const p = pos[s.key];
-            if (!p) return null;
-            const isFrom = connectFrom === s.key;
-            const c = CHIP[s.tone] || CHIP.neutral;
+            const b = P[s.key];
+            const isFocus = focus === s.key, isPin = pinned === s.key;
+            const isDrop = drag && drag.over === s.key && !(drag.tid == null && drag.from === s.key);
+            let bColor = s.border || 'rgba(31,30,29,.2)', bw = '1.5px', shadow = '0 1px 2px rgba(26,24,19,.05)';
+            if (isDrop) { bColor = '#3B6D11'; bw = '2px'; shadow = '0 0 0 3px rgba(59,109,17,.26)'; }
+            else if (isPin) { bColor = '#C8870C'; bw = '2px'; shadow = '0 0 0 3px rgba(200,135,12,.22)'; }
+            else if (isFocus) { bColor = '#C8870C'; bw = '2px'; shadow = '0 0 0 2px rgba(200,135,12,.18)'; }
             return (
-              <button
-                key={s.key}
-                onClick={() => onNodeClick(s.key)}
-                title={connectFrom ? `Conectar ${labelOf(connectFrom)} → ${s.label}` : `Empezar flecha desde ${s.label}`}
-                style={{
-                  position: 'absolute', left: p.x, top: p.y, width: p.w, height: p.h,
-                  display: 'flex', alignItems: 'center', gap: 9, padding: '0 13px',
-                  borderRadius: 12, cursor: 'pointer', fontFamily: SANS, textAlign: 'left',
-                  background: isFrom ? c.bg : 'var(--surface)',
-                  border: '2px solid ' + (isFrom ? 'var(--accent)' : c.bd),
-                  boxShadow: isFrom ? '0 0 0 3px var(--accent-soft)' : '0 1px 2px rgba(23,21,17,.06)',
-                }}
-              >
-                <span style={{ width: 10, height: 10, flex: 'none', borderRadius: '50%', background: s.dot }} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.label}</span>
-              </button>
+              <div key={s.key}
+                onPointerDown={(e) => cardDown(s, e)}
+                onPointerEnter={() => { if (!ref.current.drag) setHoverStage(s.key); }}
+                onPointerLeave={() => { if (!ref.current.drag) setHoverStage(null); }}
+                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${bw} solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: 'grab', boxShadow: shadow, userSelect: 'none', transition: 'box-shadow .12s, border-color .12s' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: s.fg || '#1A1813', lineHeight: 1.15 }}>{s.label}</span>
+              </div>
             );
           })}
+
+          {/* SVG encima: hit-areas + labels + handles + drag fantasma */}
+          <svg width={BASEW} height={BASEH} viewBox={`0 0 ${BASEW} ${BASEH}`} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}>
+            {trans.map((t) => {
+              if (drag && drag.tid === t.id) return null;
+              const g = geomOf(t.from, t.to); if (!g) return null;
+              return (
+                <path key={'hit' + t.id} d={g.d} fill="none" stroke="transparent" strokeWidth={16} style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+                  onPointerEnter={() => { if (!ref.current.drag) setHoverTrans(t.id); }}
+                  onPointerLeave={() => { if (!ref.current.drag) setHoverTrans(null); }}
+                  onClick={(e) => { e.stopPropagation(); setSelected(t.id); setPinned(null); }} />
+              );
+            })}
+            {!drag && trans.map((t) => {
+              const st = styleFor(t); if (!st.label) return null;
+              const g = geomOf(t.from, t.to); if (!g) return null;
+              const mx = (g.a.x + g.b.x) / 2, my = (g.a.y + g.b.y) / 2, lw = t.label.length * 6.2 + 18; const c = CATEGORY[t.category].c;
+              return (
+                <g key={'l' + t.id} style={{ pointerEvents: 'none' }}>
+                  <rect x={mx - lw / 2} y={my - 11} width={lw} height={22} rx={6} fill="#FFFFFF" stroke={c} strokeOpacity={0.5} />
+                  <text x={mx} y={my + 4} textAnchor="middle" fontSize={11.5} fontWeight={600} fill="#1A1813" fontFamily={SANS}>{t.label}</text>
+                </g>
+              );
+            })}
+            {!drag && trans.map((t) => {
+              const st = styleFor(t); if (!st.handles) return null;
+              const g = geomOf(t.from, t.to); if (!g) return null; const c = CATEGORY[t.category].c;
+              return (
+                <g key={'h' + t.id}>
+                  <circle cx={g.a.x} cy={g.a.y} r={6.5} fill="#fff" stroke={c} strokeWidth={2.5} style={{ pointerEvents: 'auto', cursor: 'grab' }} onPointerDown={(e) => handleDown(t, 'from', e)} />
+                  <circle cx={g.b.x} cy={g.b.y} r={6.5} fill="#fff" stroke={c} strokeWidth={2.5} style={{ pointerEvents: 'auto', cursor: 'grab' }} onPointerDown={(e) => handleDown(t, 'to', e)} />
+                </g>
+              );
+            })}
+            {drag && (() => {
+              let aKey: string | undefined, bPt: Pt | undefined, aPt: Pt | undefined, bKey: string | undefined, color = '#C8870C';
+              if (drag.tid == null) { aKey = drag.from; if (drag.over) bKey = drag.over; else bPt = { x: drag.x, y: drag.y }; }
+              else { const t = trans.find((x) => x.id === drag.tid); if (t) { color = CATEGORY[t.category].c; if (drag.end === 'to') { aKey = t.from; if (drag.over) bKey = drag.over; else bPt = { x: drag.x, y: drag.y }; } else { bKey = t.to; if (drag.over) aKey = drag.over; else aPt = { x: drag.x, y: drag.y }; } } }
+              const ca = aKey && P[aKey] ? { x: P[aKey].cx, y: P[aKey].cy } : aPt!; const cb = bKey && P[bKey] ? { x: P[bKey].cx, y: P[bKey].cy } : bPt!;
+              const a = aKey && P[aKey] ? edge(P[aKey], cb.x, cb.y) : aPt!; const b = bKey && P[bKey] ? edge(P[bKey], ca.x, ca.y) : bPt!;
+              const sp = sPath(a, b);
+              return (<g><path d={sp.d} fill="none" stroke={color} strokeWidth={2.8} strokeLinecap="round" strokeDasharray={drag.over ? undefined : '7 6'} /><polygon points={arrowPoints(b, sp.c2, 2.8)} fill={color} /><circle cx={b.x} cy={b.y} r={7} fill="#fff" stroke={color} strokeWidth={2.5} /></g>);
+            })()}
+          </svg>
         </div>
       </div>
 
       {/* PANELES */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.4fr)', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.2fr)', gap: 22, marginTop: 24, alignItems: 'start' }}>
         {/* Etapas */}
-        <section style={{ ...card, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <span style={sect}>Etapas</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-            {stages.map((st) => (
-              <div key={st.key} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 10px' }}>
-                <span style={{ width: 11, height: 11, flex: 'none', borderRadius: '50%', background: st.dot }} />
-                <input value={st.label} onChange={(e) => renameStage(st.key, e.target.value)} style={{ ...input, flex: 1, minWidth: 0 }} />
-                <button onClick={() => deleteStage(st.key)} title="Eliminar etapa" style={{ flex: 'none', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 14, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
+          <div style={sect}>Etapas · {stages.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 380, overflowY: 'auto', paddingRight: 4 }}>
+            {stages.map((s) => (
+              <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
+                <input value={s.label} onChange={(e) => updateStage(s.key, { label: e.target.value })} style={{ ...field, flex: 1, minWidth: 0 }} />
+                <select value={s.band ?? 'pipeline'} onChange={(e) => moveStageBand(s.key, e.target.value as StageBand)} title="Banda" style={{ ...field, flex: 'none', padding: '9px 8px', color: 'var(--dim)', fontSize: 12.5, cursor: 'pointer' }}>
+                  <option value="pipeline">Pipeline</option><option value="nutricion">Nutrición</option><option value="salidas">Salidas</option>
+                </select>
+                <button onClick={() => removeStage(s.key)} title="Eliminar etapa" style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>×</button>
               </div>
             ))}
-            <button onClick={addStage} style={{ marginTop: 2, padding: 10, borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>+ Agregar etapa</button>
+            <button onClick={addStage} style={{ padding: 10, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar etapa</button>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10 }}>Al eliminar una etapa se quitan también sus flechas.</div>
         </section>
 
         {/* Transiciones */}
-        <section style={{ ...card, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <span style={sect}>Transiciones (flechas)</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxHeight: 360, overflowY: 'auto' }}>
-            {transitions.map((t, i) => (
-              <div
-                key={edgeKey(t)}
-                onMouseEnter={() => setSelectedEdge(edgeKey(t))}
-                style={{ background: selectedEdge === edgeKey(t) ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (selectedEdge === edgeKey(t) ? 'var(--accent)' : 'var(--border)'), borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--dim)' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: EDGE_COLOR[t.tone] }} />
-                  <strong style={{ color: 'var(--ink)' }}>{labelOf(t.from)}</strong>
-                  <span>→</span>
-                  <strong style={{ color: 'var(--ink)' }}>{labelOf(t.to)}</strong>
-                  <button onClick={() => deleteTransition(i)} title="Eliminar flecha" style={{ marginLeft: 'auto', flex: 'none', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 13, cursor: 'pointer', fontFamily: SANS }}>✕</button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <input value={t.label} onChange={(e) => updateTransition(i, { label: e.target.value })} placeholder="Texto del botón" style={{ ...input, flex: 1, minWidth: 140 }} />
-                  <select value={t.tone} onChange={(e) => updateTransition(i, { tone: e.target.value as TransitionTone })} style={selStyle}>
-                    {TONES.map((tn) => <option key={tn} value={tn}>{TONE_LABEL[tn]}</option>)}
-                  </select>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 12, color: 'var(--faint)' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    Marca R1
-                    <select value={asTri(t.asistioJ1)} onChange={(e) => updateTransition(i, { asistioJ1: fromTri(e.target.value) })} style={{ ...selStyle, padding: '5px 8px' }}>
-                      <option value="">—</option><option value="si">Asistió</option><option value="no">No Show</option>
+        <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
+          <div style={sect}>Transiciones (flechas) · {trans.length}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11, maxHeight: 520, overflowY: 'auto', paddingRight: 4 }}>
+            {trans.map((t) => {
+              const sel = selected === t.id; const c = CATEGORY[t.category].c;
+              return (
+                <div key={t.id} onClick={() => { setSelected(t.id); setPinned(null); }} style={{ border: '1px solid ' + (sel ? c : 'var(--border)'), background: sel ? c + '0E' : 'var(--surface-2)', borderRadius: 12, padding: 13, display: 'flex', flexDirection: 'column', gap: 9, cursor: 'pointer', boxShadow: sel ? '0 0 0 2px ' + c + '22' : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flex: 'none' }} />
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--dim)', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <b style={{ color: 'var(--ink)', fontWeight: 600 }}>{labelOf(t.from)}</b>{'  →  '}<b style={{ color: 'var(--ink)', fontWeight: 600 }}>{labelOf(t.to)}</b>
+                    </span>
+                    <button onClick={(e) => { e.stopPropagation(); removeTrans(t.id); }} title="Eliminar flecha" style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 14, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input value={t.label} onChange={(e) => updateTrans(t.id, { label: e.target.value })} onClick={(e) => e.stopPropagation()} style={{ ...field, flex: 1, minWidth: 0 }} />
+                    <select value={t.category} onChange={(e) => updateTrans(t.id, { category: e.target.value as TransitionCategory })} onClick={(e) => e.stopPropagation()} style={{ ...field, flex: 'none', cursor: 'pointer' }}>
+                      {(Object.keys(CATEGORY) as TransitionCategory[]).map((k) => <option key={k} value={k}>{CATEGORY[k].label}</option>)}
                     </select>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    Marca R2
-                    <select value={asTri(t.asistioJ2)} onChange={(e) => updateTransition(i, { asistioJ2: fromTri(e.target.value) })} style={{ ...selStyle, padding: '5px 8px' }}>
-                      <option value="">—</option><option value="si">Asistió</option><option value="no">No Show</option>
-                    </select>
-                  </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {(['asistioJ1', 'asistioJ2'] as const).map((fld, i) => (
+                      <label key={fld} style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', flex: 'none' }}>Marca R{i + 1}</span>
+                        <select value={t[fld] === undefined ? '' : t[fld] ? 'si' : 'no'} onChange={(e) => updateTrans(t.id, { [fld]: e.target.value === '' ? undefined : e.target.value === 'si' })} onClick={(e) => e.stopPropagation()} style={{ ...field, flex: 1, minWidth: 0, padding: '7px 8px', fontSize: 13, cursor: 'pointer' }}>
+                          <option value="">—</option><option value="si">Asistió</option><option value="no">No-show</option>
+                        </select>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-            {transitions.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--faint)', fontSize: 13.5 }}>Sin flechas. Conectá etapas en el diagrama de arriba.</div>}
+              );
+            })}
+            <button onClick={() => stages[0] && stages[1] && addTrans(stages[0].key, stages[1].key)} style={{ padding: 11, borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar flecha</button>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10 }}>&quot;Marca R1/R2&quot; define qué asistencia se graba al usar la flecha desde &quot;Datos sin marcar&quot;.</div>
         </section>
       </div>
+
+      <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 26 }}>Editor de funnel · &quot;Guardar funnel&quot; persiste etapas y flechas; las flechas definen las opciones de &quot;Datos sin marcar&quot;.</footer>
+
+      {toast && <div style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#171511', color: '#F3F0E7', padding: '12px 22px', borderRadius: 12, fontSize: 14, fontWeight: 600, boxShadow: '0 12px 34px rgba(23,21,17,.32)', zIndex: 80 }}>Funnel guardado ✓</div>}
     </main>
   );
 }
