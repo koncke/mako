@@ -44,10 +44,13 @@ export function missingFor(stage: string, e: Edits): string[] {
 
 /**
  * Sección de la ficha (id `lead-sec-…`) a la que saltar y desplegar cuando el
- * lead se mueve a una etapa que exige completar datos. Mantiene el mapa alineado
- * con `missingFor`: si ahí se agregan requisitos, sumar acá su sección.
+ * lead se mueve a una etapa que pide completar datos. Si devuelve algo, el
+ * movimiento abre la ficha enfocada en esa sección (en vez de mover en silencio).
+ * `missingFor` decide además si el guardado se BLOQUEA hasta llenar lo obligatorio.
  */
 export function sectionForStage(stage: string): string | undefined {
   if (stage === 'perdido' || stage === 'descal') return 'motivo';
+  if (stage === 'ganado') return 'plan-pagos';
+  if (NUTRI_KEYS.includes(stage)) return 'nutricion';
   return undefined;
 }

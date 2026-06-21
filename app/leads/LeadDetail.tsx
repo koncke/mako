@@ -119,13 +119,17 @@ export function LeadDetail({
           {/* banner: pase de etapa pendiente */}
           {pendingMove && (
             <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 13, padding: '15px 18px' }}>
-              <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--warn)' }}>Moviendo a &quot;{findStage(stages, pendingMove.to).label}&quot; — completá lo obligatorio</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 9 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Falta:</span>
-                {missing.map((x) => (
-                  <span key={x} style={{ fontSize: 12, fontWeight: 600, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', padding: '3px 9px', borderRadius: 999 }}>{x}</span>
-                ))}
+              <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--warn)' }}>
+                Moviendo a &quot;{findStage(stages, pendingMove.to).label}&quot; — {missing.length ? 'completá lo obligatorio' : 'completá los datos y guardá'}
               </div>
+              {missing.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 9 }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Falta:</span>
+                  {missing.map((x) => (
+                    <span key={x} style={{ fontSize: 12, fontWeight: 600, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', padding: '3px 9px', borderRadius: 999 }}>{x}</span>
+                  ))}
+                </div>
+              )}
               {moveError && <div style={{ fontSize: 12.5, color: 'var(--bad)', fontWeight: 600, marginTop: 8 }}>Faltan datos — completalos y tocá Guardar para mover.</div>}
               <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 7 }}>Si cancelás, el lead vuelve a su etapa anterior.</div>
             </div>

@@ -211,9 +211,15 @@ export function CrmBoard({
     return () => clearTimeout(t);
   }, [undoInfo]);
 
+  // ¿Mover a `key` exige pasar por la ficha? Sí cuando hay un campo obligatorio
+  // faltante (bloquea) o cuando la etapa tiene una sección que completar (motivo,
+  // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
+  const needsFicha = (key: string, e: Edits) => missingFor(key, e).length > 0 || !!sectionForStage(key);
+
   const requestStage = (l: CrmLead, key: string) => {
+    if (key === effStage(l)) { setPendingMove(null); setMoveError(false); return; }
     const e = editsFor(l);
-    if (missingFor(key, e).length) {
+    if (needsFicha(key, e)) {
       setPendingMove({ id: l.id, from: effStage(l), to: key });
       setMoveError(false);
     } else {
@@ -231,7 +237,7 @@ export function CrmBoard({
     if (!lead || effStage(lead) === stageKey) return;
     const e = editsFor(lead);
     const from = effStage(lead);
-    if (missingFor(stageKey, e).length) {
+    if (needsFicha(stageKey, e)) {
       openDetail(lead);
       setPendingMove({ id, from, to: stageKey });
     } else {
@@ -424,7 +430,7 @@ export function CrmBoard({
 
         {/* Acciones */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
-          <button onClick={() => setShowStages(true)} title="Gestionar etapas" style={gearBtn}>⚙ Etapas</button>
+          <button onClick={() => setShowStages(true)} title="Editar etapas" style={gearBtn}>✎ Etapas</button>
           <button onClick={() => setShowSinMarcar((v) => !v)} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
         </div>
       </div>

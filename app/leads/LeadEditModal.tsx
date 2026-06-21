@@ -61,7 +61,10 @@ export function LeadEditModal({
 
   const onPickStage = (key: string) => {
     if (!lead || !edits) return;
-    if (missingFor(key, edits).length) {
+    if (key === effStage(lead)) { setPendingMove(null); setMoveError(false); return; }
+    // Igual que el tablero: las etapas con sección a completar (motivo, plan,
+    // nutrición) o con un obligatorio faltante pasan por la ficha antes de mover.
+    if (missingFor(key, edits).length || sectionForStage(key)) {
       setPendingMove({ id: lead.id, from: effStage(lead), to: key });
       setMoveError(false);
     } else {
