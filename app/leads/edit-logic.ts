@@ -41,3 +41,13 @@ export function missingFor(stage: string, e: Edits): string[] {
   if (stage === 'perdido' || stage === 'descal') return e.motivo.trim() ? [] : ['Motivo'];
   return [];
 }
+
+/**
+ * Sección de la ficha (id `lead-sec-…`) a la que saltar y desplegar cuando el
+ * lead se mueve a una etapa que exige completar datos. Mantiene el mapa alineado
+ * con `missingFor`: si ahí se agregan requisitos, sumar acá su sección.
+ */
+export function sectionForStage(stage: string): string | undefined {
+  if (stage === 'perdido' || stage === 'descal') return 'motivo';
+  return undefined;
+}

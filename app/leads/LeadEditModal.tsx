@@ -10,7 +10,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { LeadDetail } from './LeadDetail';
-import { seedEdits, missingFor } from './edit-logic';
+import { seedEdits, missingFor, sectionForStage } from './edit-logic';
 import {
   getCrmLeadAction,
   saveLeadMetaAction,
@@ -155,7 +155,7 @@ export function LeadEditModal({
       onClose={onClose}
       onSave={onSave}
       onDelete={onDelete}
-      focus={focus}
+      focus={(pendingMove && sectionForStage(pendingMove.to)) || focus}
       zIndex={80}
       saveError={saveError}
     />

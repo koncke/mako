@@ -34,7 +34,7 @@ import {
   deleteLeadAction,
 } from './actions';
 import { LeadDetail } from './LeadDetail';
-import { seedEdits as seedEditsBase, missingFor } from './edit-logic';
+import { seedEdits as seedEditsBase, missingFor, sectionForStage } from './edit-logic';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -314,8 +314,16 @@ export function CrmBoard({
   // ── estilos de tabs/botones ──
   const tabActive: CSSProperties = { padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
-  const inputStyle: CSSProperties = { flex: 1, minWidth: 200, padding: '11px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, outline: 'none' };
-  const selectStyle: CSSProperties = { padding: '11px 34px 11px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' };
+  // Búsqueda (crece) con lupa interior
+  const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 240, display: 'flex', alignItems: 'center' };
+  const searchInput: CSSProperties = { width: '100%', padding: '11px 16px 11px 42px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, outline: 'none' };
+  // Filtros agrupados en un solo control (Etapa · Origen)
+  const filterGroup: CSSProperties = { display: 'inline-flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 11, overflow: 'hidden' };
+  const filterSelect: CSSProperties = { padding: '11px 30px 11px 14px', border: 'none', background: 'transparent', fontFamily: SANS, fontSize: 14, cursor: 'pointer', outline: 'none' };
+  const filterDivider: CSSProperties = { width: 1, alignSelf: 'stretch', background: 'var(--border)' };
+  const filterChevron: CSSProperties = { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--faint)', pointerEvents: 'none' };
+  const gearBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
+  const selStyle = (active: boolean): CSSProperties => ({ ...filterSelect, color: active ? 'var(--ink)' : 'var(--dim)', fontWeight: active ? 600 : 400 });
 
   const btnBase: CSSProperties = { padding: '11px 17px', borderRadius: 11, cursor: 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 600 };
   let sinMarcarBtnStyle: CSSProperties;
@@ -379,29 +387,46 @@ export function CrmBoard({
         </section>
       )}
 
-      {/* TOOLBAR */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+      {/* TOOLBAR — vista · búsqueda | filtros | acciones */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+        {/* Vista */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 4, gap: 4 }}>
           <button onClick={() => setView('kanban')} style={view === 'kanban' ? tabActive : tabIdle}>Kanban</button>
           <button onClick={() => setView('table')} style={view === 'table' ? tabActive : tabIdle}>Tabla</button>
         </div>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o email…" style={inputStyle} />
-        <div style={{ position: 'relative' }}>
-          <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={selectStyle}>
-            <option value="todos">Etapa: todas</option>
-            {stages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-          </select>
-          <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--faint)', pointerEvents: 'none' }}>▾</span>
+
+        {/* Búsqueda */}
+        <div style={searchWrap}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ position: 'absolute', left: 15, pointerEvents: 'none' }}>
+            <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+          </svg>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o email…" style={searchInput} />
         </div>
-        <button onClick={() => setShowStages(true)} title="Gestionar etapas" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>⚙ Etapas</button>
-        <div style={{ position: 'relative' }}>
-          <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} style={selectStyle}>
-            <option value="todos">Origen: todos</option>
-            {originOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-          <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--faint)', pointerEvents: 'none' }}>▾</span>
+
+        {/* Filtros agrupados */}
+        <div style={filterGroup}>
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={selStyle(stageFilter !== 'todos')}>
+              <option value="todos">Etapa: todas</option>
+              {stages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+            <span style={filterChevron}>▾</span>
+          </div>
+          <span style={filterDivider} />
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} style={selStyle(originFilter !== 'todos')}>
+              <option value="todos">Origen: todos</option>
+              {originOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <span style={filterChevron}>▾</span>
+          </div>
         </div>
-        <button onClick={() => setShowSinMarcar((v) => !v)} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
+
+        {/* Acciones */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+          <button onClick={() => setShowStages(true)} title="Gestionar etapas" style={gearBtn}>⚙ Etapas</button>
+          <button onClick={() => setShowSinMarcar((v) => !v)} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
+        </div>
       </div>
 
       {/* DATOS SIN MARCAR */}
@@ -497,6 +522,7 @@ export function CrmBoard({
           moveError={moveError}
           edits={editsFor(selected)}
           missing={pendingMove && pendingMove.id === selected.id ? missingFor(pendingMove.to, editsFor(selected)) : []}
+          focus={pendingMove && pendingMove.id === selected.id ? sectionForStage(pendingMove.to) : undefined}
           onPatch={(patch) => patchEdits(selected.id, patch)}
           onPickStage={(key) => requestStage(selected, key)}
           onClose={closeDetail}
