@@ -87,7 +87,20 @@ export async function POST(req: NextRequest) {
       const sesiones = await listSessions(chartKey);
       if (sesiones.length > 0) {
         const s = sesiones[0];
-        return Response.json({ session: s, messages: await getSessionMessages(s.id), sessions: sesiones });
+        const mensajes = await getSessionMessages(s.id);
+        if (mensajes.length > 0) {
+          return Response.json({ session: s, messages: mensajes, sessions: sesiones });
+        }
+        // Sesión vacía (quedó a medias por un error previo): MaKo arranca igual,
+        // así abrir un gráfico SIEMPRE devuelve su análisis sin tener que crear chat.
+        const ctx = s.contexto ?? contexto;
+        const resp = await chatClaude(systemPrompt(s.titulo ?? titulo, ctx), buildMsgs(ctx, []));
+        await appendMessage(s.id, 'assistant', resp);
+        if (!s.titulo) {
+          const t = await generarTitulo(ctx.trim() ? resp : `${PROMPT_SALUDO}\n${resp}`);
+          if (t) await renameSession(s.id, t);
+        }
+        return Response.json({ session: await getSession(s.id), messages: await getSessionMessages(s.id), sessions: await listSessions(chartKey) });
       }
       const id = await crearYAnalizar(chartKey, titulo, contexto);
       const s = await getSession(id);

@@ -54,7 +54,7 @@ function Markdown({ text }: { text: string }) {
   return <>{blocks}</>;
 }
 
-const icoBtn = { width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 12, lineHeight: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } as const;
+const accBtn = { padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontFamily: SANS, fontSize: 11.5, lineHeight: 1 } as const;
 
 export function MakoChat({
   chartKey, titulo, contexto = '', sugerencias = [], chart, initialSessionId,
@@ -164,15 +164,15 @@ export function MakoChat({
                     <input autoFocus value={editVal} onChange={(e) => setEditVal(e.target.value)} onBlur={() => { if (editVal.trim()) accion('rename', s.id, { titulo: editVal.trim() }); setEditId(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { if (editVal.trim()) accion('rename', s.id, { titulo: editVal.trim() }); setEditId(null); } if (e.key === 'Escape') setEditId(null); }} style={{ width: '100%', padding: '6px 8px', borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' }} />
                   ) : (
                     <button type="button" onClick={() => abrirSesion(s.id)} style={{ display: 'block', width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: SANS }}>
-                      <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: s.id === sessionId ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned ? '📌 ' : ''}{s.titulo || 'Chat'}</div>
+                      <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: s.id === sessionId ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Fijado · </span>}{s.titulo || 'Chat'}</div>
                       <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</div>
                     </button>
                   )}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                    <button title={s.pinned ? 'Despinear' : 'Pinear'} onClick={() => accion('pin', s.id, { valor: !s.pinned })} style={icoBtn}>{s.pinned ? '📌' : '📍'}</button>
-                    <button title="Renombrar" onClick={() => { setEditId(s.id); setEditVal(s.titulo || ''); }} style={icoBtn}>✎</button>
-                    <button title="Archivar" onClick={() => accion('archive', s.id, { valor: true })} style={icoBtn}>🗄</button>
-                    <button title="Borrar" onClick={() => { if (confirm('¿Borrar este chat?')) accion('delete', s.id); }} style={icoBtn}>🗑</button>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                    <button onClick={() => { setEditId(s.id); setEditVal(s.titulo || ''); }} style={accBtn}>Renombrar</button>
+                    <button onClick={() => accion('pin', s.id, { valor: !s.pinned })} style={accBtn}>{s.pinned ? 'Despinear' : 'Pinear'}</button>
+                    <button onClick={() => accion('archive', s.id, { valor: true })} style={accBtn}>Archivar</button>
+                    <button onClick={() => { if (confirm('¿Eliminar este chat?')) accion('delete', s.id); }} style={accBtn}>Eliminar</button>
                   </div>
                 </div>
               ))}
@@ -189,7 +189,12 @@ export function MakoChat({
             {m.role === 'assistant' ? <Markdown text={m.content} /> : <span style={{ whiteSpace: 'pre-wrap' }}>{m.content}</span>}
           </div>
         ))}
-        {pensando && <div style={{ alignSelf: 'flex-start', padding: '2px 0' }}><MakoLoader width={92} /></div>}
+        {pensando && (
+          <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 11, padding: '2px 0' }}>
+            <MakoLoader width={74} />
+            <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>está pensando…</span>
+          </div>
+        )}
         {err && <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '10px 14px', color: 'var(--bad)', fontSize: 13 }}>{err}</div>}
       </div>
 

@@ -17,6 +17,7 @@ import { geoMercator, geoPath } from 'd3-geo';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { SenalRecon } from '@/lib/queries';
 import { VEREDICTO_BADGE } from './AnuncioCard';
+import { MakoButton } from '../_components/ChartIA';
 
 // ── Tipos (shape de /api/ad-insights y /api/account-insights) ──
 export type BD = { label: string; impressions: number; reach: number; agendas: number; spend_usd: number };
@@ -250,6 +251,18 @@ export function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: 
     add('Costo/ThruPlay', p.video_thruplay, fmtUSD(p.cost_per_thruplay_usd));
   }
 
+  // Contexto para MaKo: números del anuncio + lectura del creativo (si la hay).
+  const ctxAd = data && p ? [
+    `Detalle del anuncio "${s.ad_name}" (Meta). Período ${fmtFecha(desde)} → ${fmtFecha(hasta)}.`,
+    `Campaña: ${s.campana ?? '—'} · Adset: ${s.adset_name ?? '—'} · Veredicto: ${v.label} · ${s.dias_corriendo} días con gasto · ${ritmoTxt}`,
+    `Gasto ${fmtUSD(p.spend_usd, 0)} · Impresiones ${fmtNum(p.impressions)} · Alcance ${fmtNum(p.reach)} · Frecuencia ${p.frequency ? p.frequency.toFixed(2) : '—'}`,
+    `Clics enlace ${fmtNum(p.link_clicks)} · CTR ${fmtPct(p.ctr)} · CPC ${fmtUSD(p.cpc_usd)} · CPM ${fmtUSD(p.cpm_usd)}`,
+    `Leads ${fmtNum(p.leads)} · Vistas landing ${fmtNum(p.landing_views)} · Agendas ${fmtNum(p.agendas)} · CPL ${fmtUSD(p.leads > 0 ? p.spend_usd / p.leads : null)}`,
+    `CRM — Cierres ${s.cierres} · Cash ${fmtUSD(s.cash_usd, 0)}`,
+    p.video_plays_3s > 0 ? `Video — Plays 3s ${fmtNum(p.video_plays_3s)} · ThruPlays ${fmtNum(p.video_thruplay)} · Vieron 100% ${fmtNum(p.video_p100)} · Tiempo medio ${mmss(p.video_avg_watch_s)} · Costo/ThruPlay ${fmtUSD(p.cost_per_thruplay_usd)}` : 'Sin video.',
+    tr?.status === 'ok' ? `Lectura del creativo:\n${(tr.secciones && tr.secciones.length ? tr.secciones.map((x) => `${x.titulo}: ${x.texto}`).join('\n') : tr.transcript ?? '').slice(0, 2500)}` : '',
+  ].filter(Boolean).join('\n') : '';
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 800, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
@@ -263,7 +276,10 @@ export function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: 
             <h2 style={{ fontWeight: 600, fontSize: 24, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)', lineHeight: 1.15 }}>{s.ad_name}</h2>
             <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 4 }}>{s.campana ?? 'Sin campaña'} · {s.adset_name ?? 'Sin adset'}</div>
           </div>
-          <button onClick={onClose} style={{ flex: 'none', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
+            {data && p && <MakoButton chartKey={`marketing-ad-${s.ad_id}`} titulo={s.ad_name ?? 'Anuncio'} contexto={ctxAd} sugerencias={['¿Apago este anuncio o lo escalo?', '¿Por qué no convierte?', '¿Qué dice el creativo vs los números?', '¿Qué le cambiarías?']} />}
+            <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+          </div>
         </div>
 
         <div style={{ padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>

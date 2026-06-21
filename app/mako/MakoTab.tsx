@@ -15,7 +15,7 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type Session = { id: number; chart_key: string; titulo: string | null; updated_at: string };
+type Session = { id: number; chart_key: string; titulo: string | null; updated_at: string; pinned?: boolean };
 type Sel = { kind: 'general' } | { kind: 'session'; session: Session };
 
 const SUGERENCIAS_GENERAL = [
@@ -31,6 +31,8 @@ export function MakoTab() {
   const [cargando, setCargando] = useState(true);
   // Loader gigante de bienvenida: aparece al entrar y se va solo (lo justo).
   const [intro, setIntro] = useState(true);
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editVal, setEditVal] = useState('');
 
   const cargar = () => {
     fetch('/api/chart-insights?all=1')
@@ -42,11 +44,20 @@ export function MakoTab() {
   useEffect(() => { cargar(); }, []);
   useEffect(() => { const t = setTimeout(() => setIntro(false), 1500); return () => clearTimeout(t); }, []);
 
-  const itemStyle = (activo: boolean) => ({
-    display: 'block', width: '100%', textAlign: 'left' as const, padding: '11px 14px',
-    background: activo ? 'var(--surface-2)' : 'transparent', border: 'none', borderBottom: '1px solid var(--border)',
-    cursor: 'pointer', fontFamily: SANS,
+  // Renombrar / pinear / archivar / eliminar un chat desde la lista.
+  const accion = async (a: 'rename' | 'pin' | 'archive' | 'delete', id: number, extra: { valor?: boolean; titulo?: string } = {}) => {
+    await fetch('/api/chart-insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, sessionId: id, ...extra }) });
+    cargar();
+    if ((a === 'delete' || a === 'archive') && sel.kind === 'session' && sel.session.id === id) setSel({ kind: 'general' });
+  };
+
+  const itemWrap = (activo: boolean) => ({
+    padding: '11px 14px', borderBottom: '1px solid var(--border)',
+    background: activo ? 'var(--surface-2)' : 'transparent',
   });
+  const selBtn = { display: 'block', width: '100%', textAlign: 'left' as const, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS };
+  const accBtn = { padding: '4px 9px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontFamily: SANS, fontSize: 11.5, lineHeight: 1 } as const;
+  const inpStyle = { width: '100%', padding: '7px 9px', borderRadius: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' } as const;
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '24px 28px 20px' }}>
@@ -66,18 +77,37 @@ export function MakoTab() {
             {cargando ? (
               <div style={{ padding: '14px', fontSize: 13, color: 'var(--faint)', fontFamily: MONO }}>Cargando…</div>
             ) : sessions.length === 0 ? (
-              <div style={{ padding: '14px', fontSize: 13, color: 'var(--faint)' }}>Todavía no hay chats. Empezá uno o abrí el ✨ MaKo de cualquier gráfico.</div>
+              <div style={{ padding: '14px', fontSize: 13, color: 'var(--faint)' }}>Todavía no hay chats. Empezá uno o abrí el botón de MaKo de cualquier gráfico.</div>
             ) : (
               sessions.map((s) => {
                 const activo = sel.kind === 'session' && sel.session.id === s.id;
                 return (
-                  <button key={s.id} type="button" onClick={() => setSel({ kind: 'session', session: s })} style={itemStyle(activo)}>
-                    <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.titulo || 'Chat'}</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 3 }}>
-                      <span style={{ fontSize: 11.5, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chartLabel(s.chart_key)}</span>
-                      <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none' }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</span>
+                  <div key={s.id} style={itemWrap(activo)}>
+                    {editId === s.id ? (
+                      <input
+                        autoFocus
+                        value={editVal}
+                        onChange={(e) => setEditVal(e.target.value)}
+                        onBlur={() => { if (editVal.trim()) accion('rename', s.id, { titulo: editVal.trim() }); setEditId(null); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { if (editVal.trim()) accion('rename', s.id, { titulo: editVal.trim() }); setEditId(null); } if (e.key === 'Escape') setEditId(null); }}
+                        style={inpStyle}
+                      />
+                    ) : (
+                      <button type="button" onClick={() => setSel({ kind: 'session', session: s })} style={selBtn}>
+                        <div style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.pinned && <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Fijado · </span>}{s.titulo || 'Chat'}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 3 }}>
+                          <span style={{ fontSize: 11.5, color: 'var(--accent)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chartLabel(s.chart_key)}</span>
+                          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none' }}>{fmtDDMMYYYY(s.updated_at.slice(0, 10))}</span>
+                        </div>
+                      </button>
+                    )}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => { setEditId(s.id); setEditVal(s.titulo || ''); }} style={accBtn}>Renombrar</button>
+                      <button type="button" onClick={() => accion('pin', s.id, { valor: !s.pinned })} style={accBtn}>{s.pinned ? 'Despinear' : 'Pinear'}</button>
+                      <button type="button" onClick={() => accion('archive', s.id, { valor: true })} style={accBtn}>Archivar</button>
+                      <button type="button" onClick={() => { if (confirm('¿Eliminar este chat?')) accion('delete', s.id); }} style={accBtn}>Eliminar</button>
                     </div>
-                  </button>
+                  </div>
                 );
               })
             )}

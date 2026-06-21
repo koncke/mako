@@ -11,7 +11,7 @@ import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_S
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
-import { lunesDeFecha, diasAntes } from './date-utils';
+import { lunesDeFecha, diasAntes, ayerEnTijuana } from './date-utils';
 import {
   getVslEngagementMap,
   estadoMadurezLead,
@@ -2577,6 +2577,12 @@ async function _getTendencias(
   // Piso de datos: no mostrar nada anterior a noviembre 2025.
   const PISO_TENDENCIAS = '2025-11-01';
   if (start < PISO_TENDENCIAS) start = PISO_TENDENCIAS;
+
+  // Techo: nunca incluir HOY. El dato del día en curso suele estar en 0 porque
+  // los crons todavía no cargaron; cortamos en "ayer" para que la tendencia no
+  // termine en un falso desplome a cero.
+  const ayer = ayerEnTijuana();
+  if (end > ayer && ayer >= start) end = ayer;
 
   // Helpers de fecha locales
   const primerDiaMes = (s: string) => { const [y, m] = s.split('-').map(Number); return `${y}-${String(m).padStart(2, '0')}-01`; };

@@ -13,4 +13,8 @@ export const CHART_LABELS: Record<string, string> = {
   'marketing-funnel': 'Salud del Funnel · Marketing',
 };
 
-export const chartLabel = (k: string): string => CHART_LABELS[k] ?? k;
+export const chartLabel = (k: string): string => {
+  if (CHART_LABELS[k]) return CHART_LABELS[k];
+  if (k.startsWith('marketing-ad-')) return 'Anuncio · Marketing';
+  return k;
+};

@@ -8,7 +8,7 @@
 //            sola vez (no es un loader: entra y se queda, no queda girando).
 // MakoIntro: loader gigante de bienvenida al entrar a la tab "Preguntale a MaKo".
 
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 
 const GOLD_1 = '#F6D365';
 const GOLD_2 = '#EF9F27';
@@ -39,6 +39,29 @@ export function MakoStar({ size = 14, color }: { size?: number; color?: string }
       <path className={`${uid}-spark`} d={SPARK} fill={fill} />
       <circle className={`${uid}-mini`} cx="8.5" cy="-8.5" r="1.6" fill={fill} />
     </svg>
+  );
+}
+
+// ── Texto que brilla (las letras "MaKo" de los botones) ──────────────────────
+// Un destello dorado barre las letras cada par de segundos (mismo brillo que la
+// chispa). El color base es el del texto del botón.
+export function MakoWord({ children, base = '#F3F0E7' }: { children: ReactNode; base?: string }) {
+  const uid = `mkw${useId().replace(/[:]/g, '')}`;
+  const css = `
+    .${uid} {
+      background: linear-gradient(100deg, ${base} 0%, ${base} 36%, ${GOLD_1} 50%, ${base} 64%, ${base} 100%);
+      background-size: 220% 100%;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent; color: transparent;
+      animation: ${uid}-sh 2.6s ease-in-out infinite;
+    }
+    @keyframes ${uid}-sh { 0% { background-position: 130% 0; } 55%, 100% { background-position: -30% 0; } }
+  `;
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <span className={uid}>{children}</span>
+    </>
   );
 }
 

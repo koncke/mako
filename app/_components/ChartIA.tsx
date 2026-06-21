@@ -10,7 +10,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { MakoChat } from './MakoChat';
-import { MakoLogo, MakoStar } from './MakoBrand';
+import { MakoLogo, MakoStar, MakoWord } from './MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -37,7 +37,7 @@ export function MakoButton({
         title="Conclusiones con MaKo"
         style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 15px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}
       >
-        <MakoStar size={14} /> MaKo
+        <MakoStar size={14} /><MakoWord>MaKo</MakoWord>
       </button>
 
       {open && (
