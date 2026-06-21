@@ -284,35 +284,40 @@ export function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: 
 
         <div style={{ padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {/* preview del creativo */}
-          <div style={{ display: 'flex', gap: 20, alignItems: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: 16 }}>
-            {(() => {
-              const thumb = (
-                <div style={{ width: 132, flex: 'none', aspectRatio: '9 / 16', borderRadius: 14, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', position: 'relative', boxShadow: '0 8px 22px rgba(23,21,17,.16)' }}>
-                  {s.ad_thumbnail_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={s.ad_thumbnail_url} alt={s.ad_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  ) : (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 12 }}>Sin preview</div>
-                  )}
-                  {hasLink && (
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, paddingLeft: 3 }}>▶</div>
-                    </div>
-                  )}
-                </div>
-              );
-              return hasLink ? (
-                <a href={s.ad_permalink!} target="_blank" rel="noopener noreferrer" title="Reproducir en Meta" style={{ display: 'block', flex: 'none' }}>{thumb}</a>
-              ) : thumb;
-            })()}
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Creativo</div>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 }}>
+            <div style={{ flex: 'none', width: 128, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(() => {
+                const thumb = (
+                  <div style={{ width: '100%', aspectRatio: '9 / 16', borderRadius: 13, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', position: 'relative', boxShadow: '0 8px 22px rgba(23,21,17,.16)' }}>
+                    {s.ad_thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.ad_thumbnail_url} alt={s.ad_name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    ) : (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 12 }}>Sin preview</div>
+                    )}
+                    {hasLink && (
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, paddingLeft: 3 }}>▶</div>
+                      </div>
+                    )}
+                  </div>
+                );
+                return hasLink ? <a href={s.ad_permalink!} target="_blank" rel="noopener noreferrer" title="Reproducir en Meta" style={{ display: 'block' }}>{thumb}</a> : thumb;
+              })()}
               {hasLink ? (
-                <a href={s.ad_permalink!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, alignSelf: 'flex-start', padding: '11px 18px', borderRadius: 11, background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 600, textDecoration: 'none', boxShadow: '0 4px 12px rgba(240,198,10,.3)' }}>↗ Reproducir en Meta</a>
+                <a href={s.ad_permalink!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', borderRadius: 10, background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>↗ Reproducir</a>
               ) : (
-                <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin enlace al post (stories / Audience Network / dinámico).</span>
+                <span style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center' }}>Sin enlace al post</span>
               )}
-              <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', alignSelf: 'flex-start', wordBreak: 'break-all' }}>ad_id · {s.ad_id}</span>
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 13 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <Stat label="Gasto" value={fmtUSD(s.spend_usd, 0)} />
+                <Stat label="Leads" value={`${fmtNum(s.leads)} / ${fmtNum(s.meta_leads)}`} color={s.leads >= s.meta_leads ? 'var(--good)' : undefined} />
+                <Stat label="Agendas" value={fmtNum(s.agendas)} color={s.agendas > 0 ? 'var(--good)' : undefined} />
+                <Stat label="Cierres" value={fmtNum(s.cierres)} />
+              </div>
+              <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', wordBreak: 'break-all' }}>ad_id · {s.ad_id}</div>
             </div>
           </div>
 
@@ -330,10 +335,7 @@ export function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: 
               {/* gráfico con selector de métrica */}
               {data.daily.length > 0 && (
                 <div style={card}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-                  <Pills opts={METRICAS} val={met} onPick={setMet} />
-                  <MakoButton chartKey={`marketing-ad-${s.ad_id}`} titulo={s.ad_name ?? 'Anuncio'} contexto={ctxAd} sugerencias={['¿Apago este anuncio o lo escalo?', '¿Por qué no convierte?', '¿Qué dice el creativo vs los números?', '¿Qué le cambiarías?']} />
-                </div>
+                  <div style={{ marginBottom: 12 }}><Pills opts={METRICAS} val={met} onPick={setMet} /></div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
                     <span style={{ fontWeight: 600, fontSize: 28, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{metricaActiva.fmt(totalMetrica)}</span>
                     <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{metricaActiva.label} {metricaActiva.modo === 'sum' ? 'total' : 'del período'}</span>

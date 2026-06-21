@@ -102,7 +102,7 @@ export function MakoLogo({ size = 30, animate = true }: { size?: number; animate
 // ── Loader gigante de bienvenida ("Preguntale a MaKo") ───────────────────────
 // Entrada distinta al resto: la chispa estalla en el centro, dos anillos se
 // expanden y el wordmark "MaKo" aparece. Dura ~1.5s y se desvanece sola.
-export function MakoIntro() {
+export function MakoIntro({ saludo, caption = 'Preparando tus números…' }: { saludo?: string; caption?: string } = {}) {
   const uid = `mki${useId().replace(/[:]/g, '')}`;
   const css = `
     .${uid}-wrap {
@@ -127,6 +127,7 @@ export function MakoIntro() {
     @keyframes ${uid}-rise { to { opacity: 1; transform: translateY(0); } }
 
     .${uid}-cap { opacity: 0; font-family: 'Geist Mono', monospace; font-size: 11.5px; letter-spacing: .18em; text-transform: uppercase; color: #A39E91; animation: ${uid}-rise .5s ease .8s both; }
+    .${uid}-saludo { opacity: 0; font-family: 'Geist', sans-serif; font-size: 19px; font-weight: 500; color: #6B675C; animation: ${uid}-rise .5s ease .34s both; }
   `;
   return (
     <div className={`${uid}-wrap`} aria-label="Abriendo MaKo">
@@ -144,13 +145,16 @@ export function MakoIntro() {
           <path className={`${uid}-spark`} d={SPARK} fill={`url(#${uid}-gold)`} />
         </g>
       </svg>
-      <div className={`${uid}-word`}>
-        <span className={`${uid}-ltr ${uid}-l1`} style={{ color: GOLD_2 }}>M</span>
-        <span className={`${uid}-ltr ${uid}-l2`} style={{ color: '#1A1813' }}>a</span>
-        <span className={`${uid}-ltr ${uid}-l3`} style={{ color: GOLD_2 }}>K</span>
-        <span className={`${uid}-ltr ${uid}-l4`} style={{ color: '#1A1813' }}>o</span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
+        {saludo && <div className={`${uid}-saludo`}>{saludo}</div>}
+        <div className={`${uid}-word`}>
+          <span className={`${uid}-ltr ${uid}-l1`} style={{ color: GOLD_2 }}>M</span>
+          <span className={`${uid}-ltr ${uid}-l2`} style={{ color: '#1A1813' }}>a</span>
+          <span className={`${uid}-ltr ${uid}-l3`} style={{ color: GOLD_2 }}>K</span>
+          <span className={`${uid}-ltr ${uid}-l4`} style={{ color: '#1A1813' }}>o</span>
+        </div>
       </div>
-      <div className={`${uid}-cap`}>Preparando tus números…</div>
+      {caption && <div className={`${uid}-cap`}>{caption}</div>}
     </div>
   );
 }
