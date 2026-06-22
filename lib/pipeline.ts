@@ -108,6 +108,81 @@ export function transitionsFrom(transitions: FunnelTransition[], from: string): 
   return transitions.filter((t) => t.from === from);
 }
 
+/**
+ * Categoría de una transición inferida por la banda de la etapa DESTINO:
+ * pipeline→avanza · nutrición→nutricion · salidas→perdida. Así el usuario solo
+ * elige "a dónde puede ir un lead" y el color/categoría se derivan solos —
+ * no hay que configurar la categoría a mano.
+ */
+export function bandToCategory(band: StageBand | undefined): TransitionCategory {
+  return band === 'salidas' ? 'perdida' : band === 'nutricion' ? 'nutricion' : 'avanza';
+}
+
+/**
+ * Caminos de nutrición RECOMENDADOS (derivados de los defaults). El usuario casi
+ * siempre conoce su pipeline pero deja la nutrición "abierta"; se la sugerimos
+ * nosotros. Cada una, al agregarse, queda lista para enganchar mensajes
+ * automáticos de WhatsApp/Email más adelante.
+ */
+export const NUTRITION_SUGGESTIONS: FunnelTransition[] = DEFAULT_TRANSITIONS.filter((t) => t.category === 'nutricion');
+
+// ── Plantillas de funnel (arrancar sin dibujar nada) ─────────────────────────
+export type FunnelTemplate = { id: string; name: string; description: string; stages: Stage[]; transitions: FunnelTransition[] };
+const tplStage = (key: string, col: number): Stage => ({ ...DEFAULT_STAGES.find((s) => s.key === key)!, col });
+
+export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
+  {
+    id: 'highticket',
+    name: 'High-ticket · 2 reuniones',
+    description: 'Lead → R1 → R2 → cierre, con nutrición y salidas completas. El recomendado para agencias y coaching.',
+    stages: DEFAULT_STAGES,
+    transitions: DEFAULT_TRANSITIONS,
+  },
+  {
+    id: 'simple',
+    name: 'Simple · 1 reunión',
+    description: 'Lead → una reunión → cierre. Para ventas de ciclo corto.',
+    stages: [
+      tplStage('lead', 0), tplStage('agenda', 1), tplStage('ganado', 2),
+      tplStage('nutri', 0), tplStage('noshow', 1), tplStage('postreunion', 2),
+      tplStage('noresp', 0), tplStage('perdido', 1),
+    ],
+    transitions: [
+      { from: 'lead', to: 'agenda', label: 'Agendó', category: 'avanza' },
+      { from: 'lead', to: 'nutri', label: 'No agendó', category: 'nutricion' },
+      { from: 'lead', to: 'noresp', label: 'No responde', category: 'perdida' },
+      { from: 'agenda', to: 'ganado', label: 'Cerró', category: 'avanza', asistioJ1: true },
+      { from: 'agenda', to: 'noshow', label: 'No-show', category: 'nutricion', asistioJ1: false },
+      { from: 'agenda', to: 'postreunion', label: 'No cerró aún', category: 'nutricion', asistioJ1: true },
+      { from: 'agenda', to: 'perdido', label: 'No avanza', category: 'perdida', asistioJ1: true },
+      { from: 'noshow', to: 'agenda', label: 'Reagenda', category: 'avanza' },
+      { from: 'nutri', to: 'agenda', label: 'Agenda tardío', category: 'avanza' },
+      { from: 'postreunion', to: 'ganado', label: 'Cerró', category: 'avanza' },
+      { from: 'postreunion', to: 'perdido', label: 'Desiste', category: 'perdida' },
+    ],
+  },
+  {
+    id: 'directa',
+    name: 'Venta directa · sin reunión',
+    description: 'Lead → checkout/pago, sin llamada. Para ofertas low-ticket o e-commerce.',
+    stages: [
+      tplStage('lead', 0), tplStage('facturando', 1), tplStage('ganado', 2),
+      tplStage('nutri', 0), tplStage('nopaga', 1),
+      tplStage('noresp', 0), tplStage('perdido', 1),
+    ],
+    transitions: [
+      { from: 'lead', to: 'facturando', label: 'Inició compra', category: 'avanza' },
+      { from: 'lead', to: 'nutri', label: 'No avanza', category: 'nutricion' },
+      { from: 'lead', to: 'noresp', label: 'No responde', category: 'perdida' },
+      { from: 'facturando', to: 'ganado', label: 'Pagó', category: 'avanza' },
+      { from: 'facturando', to: 'nopaga', label: 'No paga aún', category: 'nutricion' },
+      { from: 'nopaga', to: 'ganado', label: 'Pagó tarde', category: 'avanza' },
+      { from: 'nopaga', to: 'perdido', label: 'Desiste', category: 'perdida' },
+      { from: 'nutri', to: 'facturando', label: 'Retoma', category: 'avanza' },
+    ],
+  },
+];
+
 /** Enriquece una etapa con su layout por defecto (banda/col/colores) si no lo trae. */
 export function withLayout(s: Stage): Stage {
   if (s.band && s.col != null) return s;
