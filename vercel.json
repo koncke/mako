@@ -20,6 +20,10 @@
     {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/nutricion",
+      "schedule": "0 15 * * *"
     }
   ]
 }
