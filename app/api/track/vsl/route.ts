@@ -11,6 +11,10 @@
 // webhook lo guarda en leads.visitor_id y así cruzamos comportamiento por
 // persona (Panda mide agregado y anónimo; este beacon mide quién).
 //
+// Camino 1 (instant form + WhatsApp): el beacon también puede traer `l` = el
+// meta_lead_id que el link de WhatsApp pegó como ?l=…. Si viene, cosemos el
+// visitor_id anónimo al lead conocido en el acto, sin esperar a la agenda.
+//
 // Diseño: errores SIEMPRE silenciosos hacia el cliente (200 con ok:false a
 // lo sumo). Un fallo de tracking jamás debe romper la experiencia de la
 // landing ni filtrar detalles internos.
@@ -40,6 +44,37 @@ const TIPOS_VALIDOS = new Set([
   'play', 'p10', 'p20', 'p30', 'p40', 'p50', 'p60', 'p70', 'p80', 'p90', 'p100',
 ]);
 
+// Camino 1 — cose el UUID anónimo (visitor_id) al lead conocido cuando el
+// beacon llega con un token de identidad `l` (= meta_lead_id del link de
+// WhatsApp). Solo escribe si el lead aún no tenía visitor_id ("primero gana",
+// con guard .is('visitor_id', null) para ser a prueba de carreras). Todo el
+// historial anónimo previo bajo ese UUID queda enganchado retroactivo, porque
+// vsl_events/landing_visits siempre estuvieron bajo el mismo UUID. Silencioso
+// por diseño: un fallo acá jamás debe tumbar el tracking.
+async function stampVisitorOnLead(token: string, visitorId: string): Promise<void> {
+  try {
+    const supabase = getSupabaseServer();
+    const { data: lead, error } = await supabase
+      .from('leads')
+      .select('id, visitor_id')
+      .eq('meta_lead_id', token)
+      .maybeSingle();
+    if (error || !lead || lead.visitor_id) return;
+    const { error: updErr } = await supabase
+      .from('leads')
+      .update({ visitor_id: visitorId })
+      .eq('id', lead.id)
+      .is('visitor_id', null);
+    if (updErr) {
+      console.error(`[track:vsl] Camino 1 stamp falló: ${updErr.message}`);
+    } else {
+      console.log(`[track:vsl] Camino 1 → lead ${lead.id} cosido a visitor_id=${visitorId}`);
+    }
+  } catch (err) {
+    console.error(`[track:vsl] stampVisitorOnLead error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 export async function POST(request: NextRequest) {
   let payload: {
     visitor_id?: unknown;
@@ -48,6 +83,7 @@ export async function POST(request: NextRequest) {
     video_id?: unknown;
     event?: unknown;       // legacy
     play_count?: unknown;  // legacy
+    l?: unknown;           // Camino 1: token de identidad (meta_lead_id) del link de WhatsApp
   };
 
   try {
@@ -60,6 +96,14 @@ export async function POST(request: NextRequest) {
     typeof payload.visitor_id === 'string' ? payload.visitor_id.trim() : '';
   if (!visitorId || visitorId.length > 128) {
     return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+  }
+
+  // Camino 1: si el beacon trae `l` (meta_lead_id pegado por el link de
+  // WhatsApp), cosemos el visitor_id al lead conocido. Se evalúa antes de la
+  // rama 'pageview' para que el PRIMER beacon (la visita al cargar) ya conecte.
+  const leadToken = typeof payload.l === 'string' ? payload.l.trim() : '';
+  if (leadToken && leadToken.length <= 128) {
+    await stampVisitorOnLead(leadToken, visitorId);
   }
 
   // tipo_evento nuevo (play|p10..p100); compat: si llega el legacy 'event',
