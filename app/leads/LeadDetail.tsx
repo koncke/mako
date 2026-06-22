@@ -7,14 +7,12 @@
 import Link from 'next/link';
 import { useEffect, type CSSProperties } from 'react';
 import { PlanPagosCard } from './PlanPagosCard';
-import { CHIP, NUTRI_KEYS, stageMeta as findStage, type Stage } from '@/lib/pipeline';
+import { CHIP, BAND_LABEL, stageMeta as findStage, type Stage, type StageBand } from '@/lib/pipeline';
 import type { CrmLead, Edits, PendingMove } from './CrmBoard';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-const ADV = ['agendaj2', 'facturando', 'ganado'];
-const AGENDA_PASSED = ['agenda', 'agendaj2', 'facturando', 'ganado', 'noshow', 'postagenda'];
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
 
 function chipStyle(tone: Stage['tone']): CSSProperties {
@@ -87,19 +85,21 @@ export function LeadDetail({
 
   const s = pendingMove ? pendingMove.to : effStage;
   const headerMeta = findStage(stages, effStage);
+  const stageNow = findStage(stages, s);
+  const band: StageBand = stageNow?.band ?? 'pipeline';
   const isGanado = s === 'ganado';
   const isLost = s === 'perdido' || s === 'descal';
-  const isNutri = NUTRI_KEYS.includes(s);
-  const isManual = s === 'manual';
-  const isAgendaStage = s === 'agenda' || s === 'agendaj2' || s === 'facturando';
-  const passedJ1 = !!lead.agenda || isAgendaStage || ADV.includes(s);
-  const passedAgenda = AGENDA_PASSED.includes(s) || !!lead.agenda || !!lead.j2;
+  const isNutri = band === 'nutricion';
+  const isAgendaStage = band === 'pipeline' && (s === 'agenda' || s === 'agendaj2' || s === 'facturando');
+  const agendo = !!lead.fechaJ1 || !!lead.j2;  // ¿agendó alguna reunión alguna vez?
 
-  const groups = [
-    { label: 'En proceso', keys: ['lead', 'agenda', 'agendaj2', 'facturando'] },
-    { label: 'Resultado', keys: ['ganado', 'perdido', 'descal'] },
-    { label: 'Nutrición', keys: ['noshow', 'nutri', 'nopaga', 'manual', 'postagenda', 'noresp'] },
-  ];
+  // Selector de etapas: grupos dinámicos por banda del funnel actual (no hardcodeado).
+  const groups = (['pipeline', 'nutricion', 'salidas'] as StageBand[])
+    .map((b) => ({
+      label: BAND_LABEL[b],
+      keys: stages.filter((st) => (st.band ?? 'pipeline') === b).sort((a, c) => (a.col ?? 0) - (c.col ?? 0)).map((st) => st.key),
+    }))
+    .filter((g) => g.keys.length > 0);
 
   const setFathom = (i: number, field: 'label' | 'url', v: string) =>
     onPatch({ fathom: edits.fathom.map((f, fi) => (fi === i ? { ...f, [field]: v } : f)) });
@@ -108,7 +108,7 @@ export function LeadDetail({
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 680, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
 
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
@@ -156,8 +156,8 @@ export function LeadDetail({
             <div style={card}>
               <div style={{ ...sectLabel, marginBottom: 12 }}>Origen del lead</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Atribución</div><div style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 600 }}>📄 Instant Form (Meta)</div></div>
-                <div><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Anuncio</div><div style={{ fontSize: 14, color: 'var(--ink)' }}>{lead.origin}</div></div>
+                <div><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Canal</div><div style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 600 }}>{lead.originChannel}</div></div>
+                <div><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Campaña / anuncio</div><div style={{ fontSize: 14, color: 'var(--ink)' }}>{lead.origin}</div></div>
               </div>
             </div>
           </div>
@@ -188,7 +188,7 @@ export function LeadDetail({
           </div>
 
           {/* datos comerciales */}
-          {passedAgenda && (
+          {agendo && (
             <details id="lead-sec-datos-comerciales" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Datos comerciales<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
@@ -197,7 +197,7 @@ export function LeadDetail({
                 <Stat label="¿Era calificado?" value={lead.calificado === true ? 'Sí' : lead.calificado === false ? 'No' : '—'} />
                 <DateField label="Fecha Reunión 2" value={edits.fechaJ2} onChange={(v) => onPatch({ fechaJ2: v })} />
                 <Stat label="¿Asistió a R2?" value={lead.asistioJ2 === true ? 'Sí' : lead.asistioJ2 === false ? 'No' : '—'} />
-                <Stat label="¿Se comprometió a pagar?" value={['facturando', 'ganado'].includes(s) ? 'Sí' : 'No'} />
+                <Stat label="¿Confirmó pago?" value={lead.confirmacion ? 'Sí · ' + lead.confirmacion : '—'} />
                 <div style={{ gridColumn: '1/-1', ...miniCard }}>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>Closer asignado</div>
                   <input value={edits.closer} onChange={(e) => onPatch({ closer: e.target.value })} placeholder="Nombre del closer…" style={fieldInput} />
@@ -207,16 +207,17 @@ export function LeadDetail({
           )}
 
           {/* respuestas del calendly */}
-          {passedAgenda && lead.calendly.length > 0 && (
+          {agendo && (
             <details style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Respuestas del Calendly<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {lead.calendly.map((c, i) => (
                   <div key={i} style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                    <div style={{ fontSize: 12, color: 'var(--faint)' }}>{c.q}</div>
+                    <div style={{ fontSize: 12, color: 'var(--faint)', fontWeight: 600 }}>{c.q}</div>
                     <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{c.a}</div>
                   </div>
                 ))}
+                {lead.calendly.length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>Sin respuestas a las preguntas de calificación.</div>}
               </div>
             </details>
           )}
@@ -231,18 +232,18 @@ export function LeadDetail({
                 <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{lead.landingDias} {lead.landingDias === 1 ? 'día distinto' : 'días distintos'}</div>
               </div>
               <div style={miniCard}>
-                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Sesiones</div>
-                <div style={{ fontSize: 22, color: 'var(--ink)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>—</div>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>VSL reproducido</div>
+                <div style={{ fontSize: 22, color: 'var(--ink)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{lead.vslPlays || '—'}<span style={{ fontSize: 13, color: 'var(--faint)', fontWeight: 500 }}>{lead.vslPlays ? (lead.vslPlays === 1 ? ' vez' : ' veces') : ''}</span></div>
               </div>
               <div style={miniCard}>
                 <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Retención del VSL</div>
-                <div style={{ fontSize: 22, color: 'var(--accent)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>—</div>
+                <div style={{ fontSize: 22, color: 'var(--accent)', fontWeight: 600, marginTop: 3, fontVariantNumeric: 'tabular-nums' }}>{lead.vslMaxPct != null ? lead.vslMaxPct + '%' : '—'}</div>
               </div>
             </div>
           </details>
 
           {/* link de fathom */}
-          {passedJ1 && (
+          {agendo && (
             <details id="lead-sec-fathom" open={isAgendaStage || undefined} style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Link de Fathom<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -269,7 +270,7 @@ export function LeadDetail({
             <details id="lead-sec-nutricion" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Nutrición<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {isManual && (
+                {isNutri && (
                   <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
                     <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>Setter asignado</div>
                     <input value={edits.setter} onChange={(e) => onPatch({ setter: e.target.value })} placeholder="Nombre del setter…" style={fieldInput} />
@@ -308,7 +309,7 @@ export function LeadDetail({
           )}
 
           {/* línea de tiempo SCL */}
-          {isGanado && (
+          {(isGanado || s === 'facturando') && (
             <details style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Línea de tiempo · SCL<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '4px 0 18px', display: 'flex', flexDirection: 'column' }}>
@@ -316,7 +317,7 @@ export function LeadDetail({
                   { label: 'Instant Form (Meta)', date: lead.created },
                   { label: 'Reunión 1', date: lead.agenda || '—' },
                   { label: 'Reunión 2', date: lead.j2 || '—' },
-                  { label: 'Cierre ganado', date: fmt(lead.monto) },
+                  { label: 'Cierre ganado', date: lead.cierre ?? (isGanado ? fmt(lead.monto) : '—') },
                 ].map((t, i) => (
                   <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none' }}>
@@ -333,20 +334,26 @@ export function LeadDetail({
             </details>
           )}
 
-          {/* historial */}
+          {/* resumen de hitos (fechas reales; el audit log completo viene aparte) */}
           <details style={{ ...card, padding: '0 18px' }}>
-            <summary style={summary}>Historial de cambios<span style={{ fontSize: 11 }}>▾</span></summary>
+            <summary style={summary}>Resumen de hitos<span style={{ fontSize: 11 }}>▾</span></summary>
             <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[
-                { when: lead.created, what: 'Lead creado desde Instant Form' },
-                { when: lead.agenda || lead.created, what: 'Agendó Reunión 1' },
-                { when: 'hoy', what: 'Etapa actual: ' + headerMeta.label },
-              ].map((h, i) => (
+                { when: lead.created, what: 'Lead creado · ' + lead.originChannel },
+                { when: lead.agenda, what: 'Reunión 1' },
+                { when: lead.j2, what: 'Reunión 2' },
+                { when: lead.confirmacion, what: 'Confirmó pago' },
+                { when: lead.cierre, what: 'Cierre ganado' },
+              ].filter((h) => h.when).map((h, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
                   <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', width: 96 }}>{h.when}</span>
                   <span style={{ fontSize: 13.5, color: 'var(--ink)' }}>{h.what}</span>
                 </div>
               ))}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', width: 96 }}>ahora</span>
+                <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>Etapa actual: {headerMeta.label}</span>
+              </div>
             </div>
           </details>
         </div>

@@ -68,6 +68,11 @@ export type CrmLead = {
   calendly: { q: string; a: string }[];
   landingVisitas: number;
   landingDias: number;
+  originChannel: string;       // canal real (Meta / Campaña / Directo), no hardcodeado
+  vslPlays: number;            // reproducciones del VSL (vsl_events)
+  vslMaxPct: number | null;    // retención máx del VSL (%)
+  confirmacion: string | null; // fecha de confirmación verbal de pago (real), o null
+  cierre: string | null;       // fecha de cierre ganado (real), o null
 };
 export type CrmJunta = {
   id: string;

@@ -6,10 +6,18 @@
 
 import { resolverNombreCampana } from '@/lib/queries';
 import { deriveStageKey } from '@/lib/pipeline';
-import type { Lead } from '@/lib/leads';
+import type { Lead, VslEngagement } from '@/lib/leads';
 import type { CrmLead } from './CrmBoard';
 
 export type VisitasMap = Map<string, { total_visitas: number; dias_distintos: number }>;
+export type VslMap = Map<string, VslEngagement>;
+
+/** Canal real de adquisición (no hardcodeado). */
+function channelOf(l: Lead): string {
+  if (l.meta_lead_id || l.meta_ad_id) return 'Meta · Instant Form';
+  if (l.utm_campaign?.trim()) return 'Campaña web';
+  return 'Directo / orgánico';
+}
 
 export function origenLegible(lead: Lead, campMap: Record<string, string>): string {
   const nombreMeta = lead.meta_ad_name?.trim() || lead.meta_campaign_name?.trim();
@@ -41,7 +49,8 @@ export function calendlyDe(l: Lead): { q: string; a: string }[] {
   return pairs.filter(([, a]) => !!a && a.trim()).map(([q, a]) => ({ q, a: a as string }));
 }
 
-export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMap: VisitasMap, validStageKeys?: Set<string>): CrmLead {
+export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMap: VisitasMap, validStageKeys?: Set<string>, vslMap?: VslMap): CrmLead {
+  const vsl = vslMap?.get(l.visitor_id ?? '');
   // Etapa efectiva: el override manual SOLO si sigue existiendo en el funnel
   // actual; si el override quedó huérfano (etapa eliminada del funnel), se ignora
   // y se usa la etapa derivada de los campos del lead.
@@ -73,5 +82,10 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMa
     calendly: calendlyDe(l),
     landingVisitas: visitasMap.get(l.visitor_id ?? '')?.total_visitas ?? 0,
     landingDias: visitasMap.get(l.visitor_id ?? '')?.dias_distintos ?? 0,
+    originChannel: channelOf(l),
+    vslPlays: vsl?.plays ?? 0,
+    vslMaxPct: vsl && !vsl.sin_datos ? vsl.max_pct : null,
+    confirmacion: fmtDay(l.fecha_confirmacion),
+    cierre: fmtDay(l.fecha_cierre),
   };
 }
