@@ -9,7 +9,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_STAGES, DEFAULT_TRANSITIONS, terminalEstadoFor, withLayout } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor } from './pipeline';
 import { cachedRead, TAG, TTL } from './cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -968,7 +968,14 @@ export async function getVslEngagementMap(
  * existe (migración 0025 sin aplicar) o no hay fila, cae a los defaults del
  * código — todo sigue renderizando, solo que los cambios no persisten aún.
  */
-export type FunnelConfig = { stages: Stage[]; transitions: FunnelTransition[] };
+// Lo que se PERSISTE es el pipeline (Activo) + las nutriciones suprimidas; el
+// funnel completo (stages + transitions) se DERIVA con generateFunnel.
+export type FunnelConfig = { stages: Stage[]; transitions: FunnelTransition[]; pipeline: Stage[]; suppressed: string[] };
+
+function buildFunnel(pipeline: Stage[], suppressed: string[]): FunnelConfig {
+  const { stages, transitions } = generateFunnel(pipeline, suppressed);
+  return { stages, transitions, pipeline, suppressed };
+}
 
 export async function getFunnel(): Promise<FunnelConfig> {
   try {
@@ -978,22 +985,22 @@ export async function getFunnel(): Promise<FunnelConfig> {
       .select('data')
       .eq('id', 1)
       .maybeSingle();
-    if (error || !data || !data.data) return { stages: DEFAULT_STAGES, transitions: DEFAULT_TRANSITIONS };
-    const cfg = data.data as Partial<FunnelConfig>;
-    const stages = Array.isArray(cfg.stages) && cfg.stages.length ? cfg.stages.map((s) => withLayout(s)) : DEFAULT_STAGES;
-    const transitions = Array.isArray(cfg.transitions) && cfg.transitions.length ? cfg.transitions : DEFAULT_TRANSITIONS;
-    return { stages, transitions };
+    if (error || !data || !data.data) return buildFunnel(DEFAULT_PIPELINE, []);
+    const cfg = data.data as { pipeline?: Stage[]; suppressed?: string[] };
+    const pipeline = Array.isArray(cfg.pipeline) && cfg.pipeline.length ? cfg.pipeline : DEFAULT_PIPELINE;
+    const suppressed = Array.isArray(cfg.suppressed) ? cfg.suppressed : [];
+    return buildFunnel(pipeline, suppressed);
   } catch {
-    return { stages: DEFAULT_STAGES, transitions: DEFAULT_TRANSITIONS };
+    return buildFunnel(DEFAULT_PIPELINE, []);
   }
 }
 
-/** Guarda toda la config del funnel (upsert de la fila única id=1). */
-export async function saveFunnel(stages: Stage[], transitions: FunnelTransition[]): Promise<void> {
+/** Guarda la config del funnel (upsert id=1): solo pipeline + suprimidas. */
+export async function saveFunnel(pipeline: Stage[], suppressed: string[]): Promise<void> {
   const supabase = getSupabaseServer();
   const { error } = await supabase
     .from('funnel_config')
-    .upsert({ id: 1, data: { stages, transitions }, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    .upsert({ id: 1, data: { pipeline, suppressed }, updated_at: new Date().toISOString() }, { onConflict: 'id' });
   if (error) throw new Error(`Error guardando el funnel: ${error.message}`);
 }
 

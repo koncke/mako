@@ -3,50 +3,41 @@
 // =============================================================================
 // FunnelEditor — configuración del funnel (tab /funnel)
 // =============================================================================
-// Filosofía: el usuario conoce su pipeline al dedillo, pero deja la nutrición
-// "abierta". Por eso NO le pedimos que dibuje flechas: edita una LISTA simple
-// (nombre, banda, orden) y elige a dónde puede ir cada etapa con un desplegable;
-// la categoría/color se deriva sola de la banda destino. La nutrición se la
-// SUGERIMOS nosotros (panel destacado), lista para enganchar mensajes
-// automáticos de WhatsApp/Email más adelante.
-//   • Arriba: mapa de SOLO LECTURA del funnel (hover para resaltar un flujo).
-//   • Plantillas para arrancar sin configurar nada.
-//   • Autoguardado con toast de 5s + "Deshacer".  (funnel_config en Supabase.)
+// El usuario edita SOLO la fila de "Activo" (su pipeline): nombre, tipo y orden
+// de cada etapa, y agregar/quitar. La Nutrición y el Descartado se DERIVAN del
+// pipeline (generateFunnel) — la nutrición se puede quitar (queda "suprimida").
+// Cada camino muestra su disparador: ⚡ automático hoy · ◐ automatizable ·
+// ✋ requiere tu validación. Arriba, un mapa de solo lectura del funnel.
+// Autoguardado con toast de 5s + "Deshacer". (funnel_config en Supabase.)
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  CATEGORY,
-  bandToCategory,
-  withLayout,
-  DEFAULT_STAGES,
-  NUTRITION_SUGGESTIONS,
-  FUNNEL_TEMPLATES,
-  type Stage,
-  type StageBand,
-  type FunnelTransition,
+  CATEGORY, TRIGGER, BAND_LABEL, generateFunnel, FUNNEL_TEMPLATES,
+  type Stage, type StageBand, type StageKind, type FunnelTransition, type TransitionTrigger,
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../leads/actions';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-// Geometría del mapa de solo lectura (3 bandas, etapas en columnas).
+// Geometría del mapa de solo lectura.
 const GUT = 130, COL = 200, CW = 170, CH = 54, BASEH = 392;
 const ROWY: Record<StageBand, number> = { pipeline: 44, nutricion: 178, salidas: 312 };
 const BAND_IDX: Record<StageBand, number> = { pipeline: 0, nutricion: 1, salidas: 2 };
 const CHAN = [(ROWY.pipeline + CH + ROWY.nutricion) / 2, (ROWY.nutricion + CH + ROWY.salidas) / 2];
 const TOPCHAN = ROWY.pipeline - 22;
 const GAPHALF = (COL - CW) / 2;
-const BAND_LABEL: Record<StageBand, string> = { pipeline: 'Avanza', nutricion: 'Nutrición', salidas: 'Pérdida' };
 const BAND_TINT: Record<StageBand, string> = { pipeline: 'rgba(59,109,17,.055)', nutricion: 'rgba(200,135,12,.06)', salidas: 'rgba(207,78,41,.055)' };
 const BAND_ACCENT: Record<StageBand, string> = { pipeline: CATEGORY.avanza.c, nutricion: CATEGORY.nutricion.c, salidas: CATEGORY.perdida.c };
 const BAND_ORDER: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
 const CHEVRON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23A39E91' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
-type ETrans = FunnelTransition & { id: string };
+const KIND_LABEL: Record<StageKind, string> = { entrada: 'Entrada', reunion: 'Reunión', grupo: 'Grupo', pago: 'Pago', cierre: 'Cierre', paso: 'Paso' };
+const KIND_OPTIONS: StageKind[] = ['entrada', 'reunion', 'grupo', 'pago', 'cierre', 'paso'];
+
 type Pt = { x: number; y: number };
 type Box = { x: number; y: number; cx: number; cy: number; w: number; h: number };
-type Snap = { stages: Stage[]; trans: ETrans[] };
+type Snap = { pipeline: Stage[]; suppressed: string[] };
 type Confirm = { msg: string; apply: () => void } | null;
 
 // ── ruteo ortogonal por arriba/abajo, sin cruzar tarjetas (solo dibujo) ──
@@ -85,18 +76,23 @@ function arrowPoints(b: Pt, prev: Pt, w: number): string {
   return `${b.x},${b.y} ${lx},${ly} ${rx},${ry}`;
 }
 
-export function FunnelEditor({
-  initialStages,
-  initialTransitions,
-}: {
-  initialStages: Stage[];
-  initialTransitions: FunnelTransition[];
-}) {
-  const idc = useRef(0);
-  const mkTrans = useCallback((arr: FunnelTransition[]): ETrans[] => arr.map((t) => ({ ...t, id: 't' + (idc.current++) })), []);
+// Estilo del badge según el disparador (auto hoy / automatizable / manual).
+function trigInfo(trg?: TransitionTrigger): { icon: string; label: string; c: string; bg: string } {
+  const t = TRIGGER[trg ?? 'manual'];
+  if (!t.auto) return { icon: '✋', label: 'Vos', c: '#8A6D3B', bg: 'rgba(138,109,59,.10)' };
+  if (t.autoHoy) return { icon: '⚡', label: 'Auto', c: '#3B6D11', bg: 'rgba(59,109,17,.12)' };
+  return { icon: '◐', label: 'Auto*', c: '#2E7DBE', bg: 'rgba(46,125,190,.10)' };
+}
 
-  const [stages, setStages] = useState<Stage[]>(() => initialStages.map(withLayout));
-  const [trans, setTrans] = useState<ETrans[]>(() => mkTrans(initialTransitions));
+export function FunnelEditor({
+  initialPipeline,
+  initialSuppressed,
+}: {
+  initialPipeline: Stage[];
+  initialSuppressed: string[];
+}) {
+  const [pipeline, setPipeline] = useState<Stage[]>(initialPipeline);
+  const [suppressed, setSuppressed] = useState<string[]>(initialSuppressed);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
@@ -104,12 +100,15 @@ export function FunnelEditor({
   const [toast, setToast] = useState<{ msg: string; undo?: () => void; bad?: boolean } | null>(null);
   const [scale, setScale] = useState(1);
 
+  const { stages, transitions } = useMemo(() => generateFunnel(pipeline, suppressed), [pipeline, suppressed]);
+
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const ref = useRef({ stages, trans });
-  ref.current = { stages, trans };
+  const ref = useRef({ pipeline, suppressed });
+  useEffect(() => { ref.current = { pipeline, suppressed }; }, [pipeline, suppressed]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const uidRef = useRef(0);
 
   const stageByKey = useMemo(() => { const m: Record<string, Stage> = {}; stages.forEach((s) => { m[s.key] = s; }); return m; }, [stages]);
   const labelOf = (key: string) => stageByKey[key]?.label ?? key;
@@ -117,24 +116,22 @@ export function FunnelEditor({
   const BASEW = Math.max(1120, GUT + maxCol * COL + CW + 28);
 
   // ── guardado en segundo plano + toast (5s, con Deshacer) ──
-  const plain = (tr: ETrans[]): FunnelTransition[] => tr.map(({ id: _id, ...t }) => t);
   const flashToast = useCallback((msg: string, undo?: () => void, bad?: boolean) => {
     setToast({ msg, undo, bad });
     clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 5000);
   }, []);
-  // El debounce lee el estado FRESCO al disparar (no el capturado), así no se
-  // guarda un snapshot previo a la mutación.
+  // El debounce lee el estado FRESCO al disparar.
   const bgSave = useCallback((undo?: () => void) => {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      const { stages: st, trans: tr } = ref.current;
-      saveFunnelAction(st, plain(tr)).catch(() => flashToast('No se pudo guardar — aplicá la migración 0025 en Supabase', undo, true));
+      const { pipeline: p, suppressed: s } = ref.current;
+      saveFunnelAction(p, s).catch(() => flashToast('No se pudo guardar — aplicá la migración 0025 en Supabase', undo, true));
     }, 500);
   }, [flashToast]);
   const persist = useCallback((msg: string, undo?: () => void) => { flashToast(msg, undo); bgSave(undo); }, [flashToast, bgSave]);
-  const undoTo = useCallback((s: Snap) => { setStages(s.stages); setTrans(s.trans); flashToast('Cambio deshecho'); bgSave(); }, [flashToast, bgSave]);
-  const snap = (): Snap => ({ stages: ref.current.stages, trans: ref.current.trans });
+  const snap = (): Snap => ({ pipeline: ref.current.pipeline, suppressed: ref.current.suppressed });
+  const undoTo = useCallback((s: Snap) => { setPipeline(s.pipeline); setSuppressed(s.suppressed); flashToast('Cambio deshecho'); bgSave(); }, [flashToast, bgSave]);
   const ask = (msg: string, apply: () => void) => setConfirm({ msg, apply });
 
   // ── escala del mapa (cabe sin scroll horizontal) ──
@@ -157,73 +154,35 @@ export function FunnelEditor({
     return { pts, d: pathFrom(pts), b: pts[pts.length - 1], prev: pts[pts.length - 2], mid: labelAt(pts) };
   };
   const focus = hoverStage;
-  const related = focus ? new Set<string>([focus, ...trans.filter((t) => t.from === focus).map((t) => t.to), ...trans.filter((t) => t.to === focus).map((t) => t.from)]) : null;
-  const styleFor = (t: ETrans): { op: number; w: number; label: boolean } => {
+  const related = focus ? new Set<string>([focus, ...transitions.filter((t) => t.from === focus).map((t) => t.to), ...transitions.filter((t) => t.to === focus).map((t) => t.from)]) : null;
+  const styleFor = (t: FunnelTransition): { op: number; w: number; label: boolean } => {
     if (focus) return t.from === focus || t.to === focus ? { op: 1, w: 2.4, label: true } : { op: 0.05, w: 1.4, label: false };
     return t.category === 'avanza' ? { op: 0.6, w: 2, label: false } : { op: 0.4, w: 1.6, label: false };
   };
 
-  // ── mutaciones (todas: mutan + autoguardan + toast con Deshacer) ──
-  const setStageField = (key: string, patch: Partial<Stage>) => setStages((ss) => ss.map((s) => (s.key === key ? { ...s, ...patch } : s)));
-  const commitStage = (msg = 'Guardado') => persist(msg);
-
-  const setBand = (key: string, band: StageBand) => {
-    const prev = snap();
-    setStages((ss) => { const used = ss.filter((x) => x.band === band && x.key !== key).map((x) => x.col ?? 0); let col = 0; while (used.includes(col)) col++; return ss.map((s) => (s.key === key ? { ...s, band, col } : s)); });
-    persist('Etapa movida de banda', () => undoTo(prev));
-  };
+  // ── mutaciones (mutan pipeline/suppressed + autoguardan + toast con Deshacer) ──
+  const setField = (key: string, patch: Partial<Stage>) => setPipeline((ps) => ps.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+  const commit = (msg: string) => persist(msg);
+  const setKind = (key: string, kind: StageKind) => { const prev = snap(); setField(key, { kind }); persist('Tipo actualizado', () => undoTo(prev)); };
   const moveStage = (key: string, dir: -1 | 1) => {
-    const s = stageByKey[key]; if (!s) return;
-    const sibs = stages.filter((x) => x.band === s.band).sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-    const i = sibs.findIndex((x) => x.key === key), j = i + dir; if (j < 0 || j >= sibs.length) return;
-    const a = sibs[i], b = sibs[j], prev = snap();
-    setStages((ss) => ss.map((x) => (x.key === a.key ? { ...x, col: b.col ?? 0 } : x.key === b.key ? { ...x, col: a.col ?? 0 } : x)));
-    persist('Orden actualizado', () => undoTo(prev));
+    const i = pipeline.findIndex((s) => s.key === key), j = i + dir; if (j < 0 || j >= pipeline.length) return;
+    const prev = snap(); setPipeline((ps) => { const a = [...ps]; [a[i], a[j]] = [a[j], a[i]]; return a; }); persist('Orden actualizado', () => undoTo(prev));
   };
-  const addStage = (band: StageBand) => {
+  const addStage = () => {
     const prev = snap();
-    const key = 's' + Date.now().toString(36);
-    const col = stages.filter((x) => x.band === band).length;
-    setStages((ss) => [...ss, withLayout({ key, label: 'Nueva etapa', dot: '#6B675C', tone: 'neutral', band, col, custom: true })]);
+    let key = '';
+    do { key = 'st' + (uidRef.current++); } while (pipeline.some((s) => s.key === key));
+    const ns: Stage = { key, label: 'Nueva etapa', dot: '#6B675C', tone: 'neutral', kind: 'reunion' };
+    setPipeline((ps) => { const cierreIdx = ps.findIndex((s) => s.kind === 'cierre'); const at = cierreIdx >= 0 ? cierreIdx : ps.length; return [...ps.slice(0, at), ns, ...ps.slice(at)]; });
     persist('Etapa creada', () => undoTo(prev));
   };
-  const removeStage = (key: string) => {
-    const prev = snap();
-    setStages((ss) => ss.filter((s) => s.key !== key));
-    setTrans((ts) => ts.filter((t) => t.from !== key && t.to !== key));
-    setHoverStage(null);
-    persist('Etapa eliminada', () => undoTo(prev));
-  };
-  const addTransition = (from: string, to: string) => {
-    if (from === to || ref.current.trans.some((t) => t.from === from && t.to === to)) return;
-    const prev = snap();
-    const cat = bandToCategory(stageByKey[to]?.band);
-    setTrans((ts) => [...ts, { id: 't' + (idc.current++), from, to, label: stageByKey[to]?.label ?? to, category: cat }]);
-    persist('Camino agregado', () => undoTo(prev));
-  };
-  const removeTransition = (id: string) => {
-    const prev = snap();
-    setTrans((ts) => ts.filter((t) => t.id !== id));
-    persist('Camino quitado', () => undoTo(prev));
-  };
-  const addSuggestion = (sug: FunnelTransition) => {
-    const prev = snap();
-    if (!ref.current.stages.some((s) => s.key === sug.to)) {
-      const def = DEFAULT_STAGES.find((s) => s.key === sug.to);
-      if (def) setStages((ss) => [...ss, withLayout({ ...def, col: ss.filter((x) => x.band === def.band).length })]);
-    }
-    setTrans((ts) => (ts.some((t) => t.from === sug.from && t.to === sug.to) ? ts : [...ts, { ...sug, id: 't' + (idc.current++) }]));
-    persist('Nutrición agregada', () => undoTo(prev));
-  };
+  const removeStage = (key: string) => { const prev = snap(); setPipeline((ps) => ps.filter((s) => s.key !== key)); setHoverStage(null); persist('Etapa eliminada', () => undoTo(prev)); };
+  const suppressNut = (from: string, to: string) => { const id = `${from}>${to}`; const prev = snap(); setSuppressed((ss) => (ss.includes(id) ? ss : [...ss, id])); persist('Nutrición quitada', () => undoTo(prev)); };
+  const restoreNut = (id: string) => { const prev = snap(); setSuppressed((ss) => ss.filter((x) => x !== id)); persist('Nutrición restaurada', () => undoTo(prev)); };
   const applyTemplate = (id: string) => {
     const tpl = FUNNEL_TEMPLATES.find((t) => t.id === id); if (!tpl) return;
     const prev = snap();
-    ask(`Reemplazar tu funnel por la plantilla "${tpl.name}"`, () => {
-      setStages(tpl.stages.map((s) => withLayout({ ...s })));
-      setTrans(mkTrans(tpl.transitions));
-      setShowTemplates(false);
-      persist('Plantilla aplicada', () => undoTo(prev));
-    });
+    ask(`Reemplazar tu funnel por la plantilla "${tpl.name}"`, () => { setPipeline(tpl.pipeline); setSuppressed([]); setShowTemplates(false); persist('Plantilla aplicada', () => undoTo(prev)); });
   };
 
   const goToRow = (key: string) => {
@@ -239,15 +198,18 @@ export function FunnelEditor({
   const selectStyle: CSSProperties = { ...field, appearance: 'none', WebkitAppearance: 'none', backgroundImage: `url("${CHEVRON}")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: 28, cursor: 'pointer' };
   const iconBtn: CSSProperties = { flex: 'none', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
 
-  const suggestions = NUTRITION_SUGGESTIONS.filter((s) => stageByKey[s.from] && !trans.some((t) => t.from === s.from && t.to === s.to));
+  const Badge = ({ trg }: { trg?: TransitionTrigger }) => { const b = trigInfo(trg); return <span title={TRIGGER[trg ?? 'manual'].label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: b.c, background: b.bg }}>{b.icon} {b.label}</span>; };
+
+  const lossStages = stages.filter((s) => s.band === 'salidas');
+  const suppressedNow = suppressed.filter((id) => { const [from, to] = id.split('>'); return pipeline.some((p) => p.key === from) && !pipeline.some((p) => p.key === to); });
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 90px', fontFamily: SANS }}>
       <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
         <div>
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Funnel</h1>
-          <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '10px 0 0', maxWidth: 640, lineHeight: 1.5 }}>
-            Así avanza un lead por tu negocio. Tu pipeline lo conocés de memoria; la <b style={{ color: 'var(--ink)', fontWeight: 600 }}>nutrición</b> te la sugerimos nosotros — y queda lista para mensajes automáticos.
+          <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '10px 0 0', maxWidth: 660, lineHeight: 1.5 }}>
+            Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros — quitá la nutrición que no uses.
           </p>
         </div>
         <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▦ Plantillas</button>
@@ -266,22 +228,22 @@ export function FunnelEditor({
                 <text x={28} y={y + CH / 2 + 1} dominantBaseline="central" fontFamily={MONO} fontSize={10.5} letterSpacing=".1em" fontWeight={600} fill="#A39E91">{BAND_LABEL[band].toUpperCase()}</text>
               </g>
             ); })}
-            {trans.map((t) => {
+            {transitions.map((t, i) => {
               const g = geomOf(t.from, t.to); if (!g) return null;
               const st = styleFor(t); const c = CATEGORY[t.category].c;
               return (
-                <g key={'a' + t.id}>
+                <g key={'a' + i}>
                   <path d={g.d} fill="none" stroke={c} strokeWidth={st.w} strokeOpacity={st.op} strokeLinecap="round" strokeLinejoin="round" />
                   <polygon points={arrowPoints(g.b, g.prev, st.w)} fill={c} opacity={st.op} />
                 </g>
               );
             })}
-            {focus && trans.map((t) => {
+            {focus && transitions.map((t, i) => {
               const st = styleFor(t); if (!st.label) return null;
               const g = geomOf(t.from, t.to); if (!g) return null;
               const lw = t.label.length * 6.2 + 18; const c = CATEGORY[t.category].c;
               return (
-                <g key={'l' + t.id}>
+                <g key={'l' + i}>
                   <rect x={g.mid.x - lw / 2} y={g.mid.y - 11} width={lw} height={22} rx={6} fill="#FFFFFF" stroke={c} strokeOpacity={0.5} />
                   <text x={g.mid.x} y={g.mid.y + 4} textAnchor="middle" fontSize={11.5} fontWeight={600} fill="#1A1813" fontFamily={SANS}>{t.label}</text>
                 </g>
@@ -290,15 +252,15 @@ export function FunnelEditor({
           </svg>
 
           {stages.map((s) => {
-            const b = P[s.key]; const isFocus = focus === s.key;
+            const b = P[s.key]; const isFocus = focus === s.key; const editable = s.band === 'pipeline';
             const bColor = isFocus ? '#C8870C' : (s.border || 'rgba(31,30,29,.2)');
             return (
               <div key={s.key}
                 onMouseEnter={() => setHoverStage(s.key)}
                 onMouseLeave={() => setHoverStage(null)}
-                onClick={() => goToRow(s.key)}
-                title="Clic para editar esta etapa abajo"
-                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${isFocus ? 2 : 1.5}px solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: 'pointer', boxShadow: isFocus ? '0 0 0 2px rgba(200,135,12,.18)' : '0 1px 2px rgba(26,24,19,.05)', userSelect: 'none', opacity: related && !related.has(s.key) ? 0.14 : 1, transition: 'box-shadow .12s, border-color .12s, opacity .12s' }}>
+                onClick={() => editable && goToRow(s.key)}
+                title={editable ? 'Clic para editar esta etapa abajo' : undefined}
+                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${isFocus ? 2 : 1.5}px solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: editable ? 'pointer' : 'default', boxShadow: isFocus ? '0 0 0 2px rgba(200,135,12,.18)' : '0 1px 2px rgba(26,24,19,.05)', userSelect: 'none', opacity: related && !related.has(s.key) ? 0.14 : 1, transition: 'box-shadow .12s, border-color .12s, opacity .12s' }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: s.fg || '#1A1813', lineHeight: 1.15 }}>{s.label}</span>
               </div>
             );
@@ -306,89 +268,90 @@ export function FunnelEditor({
         </div>
       </div>
 
-      {/* NUTRICIÓN SUGERIDA (protagonista) */}
-      {suggestions.length > 0 && (
-        <section style={{ marginTop: 22, border: '1px solid ' + CATEGORY.nutricion.c + '55', background: CATEGORY.nutricion.c + '0E', borderRadius: 14, padding: '18px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 16 }}>💧</span>
-            <h2 style={{ fontSize: 16.5, fontWeight: 600, margin: 0, color: 'var(--ink)' }}>Te faltan caminos de nutrición</h2>
-            <button onClick={() => suggestions.forEach(addSuggestion)} style={{ marginLeft: 'auto', padding: '7px 13px', borderRadius: 8, border: '1px solid ' + CATEGORY.nutricion.c, background: CATEGORY.nutricion.c, color: '#fff', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Agregar todas</button>
-          </div>
-          <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '8px 0 14px', lineHeight: 1.5, maxWidth: 660 }}>
-            Casi nadie define qué pasa cuando un lead <i>no</i> avanza. Estos son los caminos típicos — al sumarlos, esos leads dejan de perderse y quedan listos para secuencias automáticas de WhatsApp/Email.
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
-            {suggestions.map((s, i) => (
-              <button key={s.from + s.to + i} onClick={() => addSuggestion(s)} title={`Agregar: ${labelOf(s.from)} → ${stageByKey[s.to]?.label ?? DEFAULT_STAGES.find((d) => d.key === s.to)?.label ?? s.to}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 9, border: '1px solid ' + CATEGORY.nutricion.c + '66', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                <span style={{ color: 'var(--dim)' }}>{labelOf(s.from)}</span>
-                <span style={{ color: CATEGORY.nutricion.c, fontWeight: 700 }}>→ {stageByKey[s.to]?.label ?? DEFAULT_STAGES.find((d) => d.key === s.to)?.label ?? s.to}</span>
-                <span style={{ color: CATEGORY.nutricion.c, fontWeight: 700, fontSize: 15, lineHeight: 1 }}>+</span>
-              </button>
-            ))}
-          </div>
+      {/* leyenda auto/manual */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '12px 2px 0', fontSize: 12, color: 'var(--dim)' }}>
+        <span><b style={{ color: '#3B6D11' }}>⚡ Auto</b> avanza solo (ya cableado)</span>
+        <span><b style={{ color: '#2E7DBE' }}>◐ Auto*</b> automatizable (falta webhook)</span>
+        <span><b style={{ color: '#8A6D3B' }}>✋ Vos</b> requiere que marques cómo quedó</span>
+      </div>
+
+      {/* EDITOR DE ACTIVO */}
+      <section style={{ marginTop: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: BAND_ACCENT.pipeline }} />
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--ink)' }}>{BAND_LABEL.pipeline}</h2>
+          <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>cómo avanza un lead hacia la venta</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pipeline.map((s, i) => {
+            const next = pipeline[i + 1];
+            const advance = next && transitions.find((t) => t.from === s.key && t.to === next.key && t.category === 'avanza');
+            const nutris = transitions.filter((t) => t.from === s.key && t.category === 'nutricion');
+            return (
+              <div key={s.key} id={'frow-' + s.key}
+                onMouseEnter={() => setHoverStage(s.key)} onMouseLeave={() => setHoverStage(null)}
+                style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: '11px 13px', boxShadow: flash === s.key ? '0 0 0 2px ' + BAND_ACCENT.pipeline : 'none', transition: 'box-shadow .2s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 'none' }}>
+                    <button onClick={() => moveStage(s.key, -1)} disabled={i === 0} title="Subir" style={{ ...iconBtn, width: 22, height: 15, opacity: i === 0 ? 0.3 : 1, fontSize: 9 }}>▲</button>
+                    <button onClick={() => moveStage(s.key, 1)} disabled={i === pipeline.length - 1} title="Bajar" style={{ ...iconBtn, width: 22, height: 15, opacity: i === pipeline.length - 1 ? 0.3 : 1, fontSize: 9 }}>▼</button>
+                  </div>
+                  <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
+                  <input value={s.label} onChange={(e) => setField(s.key, { label: e.target.value })} onBlur={() => commit('Nombre actualizado')} style={{ ...field, flex: 1, minWidth: 0 }} />
+                  <select value={s.kind ?? 'paso'} onChange={(e) => setKind(s.key, e.target.value as StageKind)} title="Tipo de etapa" style={{ ...selectStyle, flex: 'none', color: 'var(--dim)', fontSize: 12.5 }}>
+                    {KIND_OPTIONS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+                  </select>
+                  <button onClick={() => ask(`Eliminar la etapa "${s.label}" y su nutrición`, () => removeStage(s.key))} disabled={pipeline.length <= 1} title="Eliminar etapa" style={{ ...iconBtn, color: 'var(--bad)', borderColor: 'var(--border-strong)', opacity: pipeline.length <= 1 ? 0.3 : 1 }}>×</button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 9, paddingLeft: 38 }}>
+                  {advance && next && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--dim)' }}>
+                      <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)' }}>Avanza a</span>
+                      <b style={{ color: BAND_ACCENT.pipeline, fontWeight: 600 }}>{next.label}</b><Badge trg={advance.trigger} />
+                    </span>
+                  )}
+                  {nutris.length > 0 && <span style={{ width: 1, height: 16, background: 'var(--border)' }} />}
+                  {nutris.map((t) => { const c = CATEGORY.nutricion.c; return (
+                    <span key={t.to} title={`${TRIGGER[t.trigger ?? 'manual'].label} · clic en ✕ para quitar`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 5px 3px 9px', borderRadius: 999, border: '1px solid ' + c + '44', background: c + '10', fontSize: 12, fontWeight: 600, color: c }}>
+                      {trigInfo(t.trigger).icon} {labelOf(t.to).replace('Nutrición - ', '')}
+                      <button onClick={() => suppressNut(s.key, t.to)} title="Quitar esta nutrición" style={{ width: 16, height: 16, borderRadius: '50%', border: 'none', background: c + '22', color: c, fontSize: 11, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}>×</button>
+                    </span>
+                  ); })}
+                </div>
+              </div>
+            );
+          })}
+          <button onClick={addStage} style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Agregar etapa</button>
+        </div>
+      </section>
+
+      {/* nutriciones ocultas (restaurar) */}
+      {suppressedNow.length > 0 && (
+        <section style={{ marginTop: 16, fontSize: 12.5, color: 'var(--dim)' }}>
+          <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)', marginRight: 8 }}>Nutriciones ocultas</span>
+          {suppressedNow.map((id) => { const [from, to] = id.split('>'); return (
+            <button key={id} onClick={() => restoreNut(id)} title="Restaurar" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, margin: '0 6px 6px 0', padding: '4px 10px', borderRadius: 999, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 12, cursor: 'pointer', fontFamily: SANS }}>
+              ↺ {labelOf(from)} → {labelOf(to).replace('Nutrición - ', '')}
+            </button>
+          ); })}
         </section>
       )}
 
-      {/* EDITOR POR BANDA */}
-      <div style={{ marginTop: 26, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {BAND_ORDER.map((band) => {
-          const rows = stages.filter((s) => s.band === band).sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-          const accent = BAND_ACCENT[band];
-          return (
-            <section key={band}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
-                <span style={{ width: 9, height: 9, borderRadius: '50%', background: accent }} />
-                <h2 style={{ fontSize: 15, fontWeight: 700, letterSpacing: '.01em', margin: 0, color: 'var(--ink)' }}>{BAND_LABEL[band]}</h2>
-                <span style={{ fontSize: 12.5, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{rows.length}</span>
-                {band === 'nutricion' && <span style={{ marginLeft: 8, fontSize: 11.5, color: CATEGORY.nutricion.c, background: CATEGORY.nutricion.c + '14', border: '1px solid ' + CATEGORY.nutricion.c + '33', borderRadius: 999, padding: '2px 9px', fontWeight: 600 }}>✉ Mensajes automáticos · próximamente</span>}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {rows.map((s, i) => {
-                  const outs = trans.filter((t) => t.from === s.key);
-                  const targets = new Set(outs.map((t) => t.to));
-                  const opts = stages.filter((d) => d.key !== s.key && !targets.has(d.key));
-                  return (
-                    <div key={s.key} id={'frow-' + s.key}
-                      onMouseEnter={() => setHoverStage(s.key)} onMouseLeave={() => setHoverStage(null)}
-                      style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: '11px 13px', boxShadow: flash === s.key ? '0 0 0 2px ' + accent : 'none', transition: 'box-shadow .2s' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 'none' }}>
-                          <button onClick={() => moveStage(s.key, -1)} disabled={i === 0} title="Subir" style={{ ...iconBtn, width: 22, height: 15, opacity: i === 0 ? 0.3 : 1, fontSize: 9 }}>▲</button>
-                          <button onClick={() => moveStage(s.key, 1)} disabled={i === rows.length - 1} title="Bajar" style={{ ...iconBtn, width: 22, height: 15, opacity: i === rows.length - 1 ? 0.3 : 1, fontSize: 9 }}>▼</button>
-                        </div>
-                        <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
-                        <input value={s.label} onChange={(e) => setStageField(s.key, { label: e.target.value })} onBlur={() => commitStage('Nombre actualizado')} style={{ ...field, flex: 1, minWidth: 0 }} />
-                        <select value={s.band ?? 'pipeline'} onChange={(e) => setBand(s.key, e.target.value as StageBand)} title="Banda" style={{ ...selectStyle, flex: 'none', color: 'var(--dim)', fontSize: 12.5 }}>
-                          {BAND_ORDER.map((b) => <option key={b} value={b}>{BAND_LABEL[b]}</option>)}
-                        </select>
-                        <button onClick={() => ask(`Eliminar la etapa "${s.label}" y sus caminos`, () => removeStage(s.key))} title="Eliminar etapa" style={{ ...iconBtn, color: 'var(--bad)', borderColor: 'var(--border-strong)' }}>×</button>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 9, paddingLeft: 38 }}>
-                        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)' }}>Puede ir a</span>
-                        {outs.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>nada aún</span>}
-                        {outs.map((t) => { const c = CATEGORY[t.category].c; return (
-                          <span key={t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 6px 4px 10px', borderRadius: 999, border: '1px solid ' + c + '55', background: c + '12', fontSize: 12.5, fontWeight: 600, color: c }}>
-                            {labelOf(t.to)}
-                            <button onClick={() => removeTransition(t.id)} title="Quitar camino" style={{ width: 17, height: 17, borderRadius: '50%', border: 'none', background: c + '22', color: c, fontSize: 11, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, padding: 0 }}>×</button>
-                          </span>
-                        ); })}
-                        {opts.length > 0 && (
-                          <select value="" onChange={(e) => { if (e.target.value) addTransition(s.key, e.target.value); }} style={{ ...selectStyle, padding: '5px 24px 5px 10px', fontSize: 12.5, color: 'var(--dim)', borderStyle: 'dashed' }}>
-                            <option value="">+ destino…</option>
-                            {opts.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-                          </select>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                <button onClick={() => addStage(band)} style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ Agregar etapa a {BAND_LABEL[band]}</button>
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      {/* DESCARTADO (fijo) */}
+      <section style={{ marginTop: 22 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: BAND_ACCENT.salidas }} />
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--ink)' }}>{BAND_LABEL.salidas}</h2>
+          <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>igual para todos los funnels</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 18 }}>
+          {lossStages.map((s) => (
+            <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, border: '1px solid ' + (s.border || 'var(--border-strong)'), background: s.bg || 'var(--surface)', fontSize: 13, fontWeight: 600, color: s.fg || 'var(--dim)' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.dot }} />{s.label}
+            </span>
+          ))}
+        </div>
+      </section>
 
       {/* Modal: plantillas */}
       {showTemplates && (
@@ -399,7 +362,7 @@ export function FunnelEditor({
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{tpl.name}</div>
                   <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3, lineHeight: 1.45 }}>{tpl.description}</div>
-                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 5, fontVariantNumeric: 'tabular-nums' }}>{tpl.stages.length} etapas · {tpl.transitions.length} caminos</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 5 }}>{tpl.pipeline.map((s) => s.label).join(' → ')}</div>
                 </div>
                 <button onClick={() => applyTemplate(tpl.id)} style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Usar</button>
               </div>

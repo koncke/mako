@@ -9,6 +9,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function FunnelPage() {
-  const { stages, transitions } = await getFunnel();
-  return <FunnelEditor initialStages={stages} initialTransitions={transitions} />;
+  const { pipeline, suppressed } = await getFunnel();
+  return <FunnelEditor initialPipeline={pipeline} initialSuppressed={suppressed} />;
 }

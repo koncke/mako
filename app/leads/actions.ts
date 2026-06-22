@@ -36,7 +36,7 @@ import {
   type LeadUpdateInput,
   type LeadMetaInput,
 } from '@/lib/leads';
-import { DEFAULT_STAGES, type Stage, type FunnelTransition } from '@/lib/pipeline';
+import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getCampaignNameMap } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
 import { mapToCrmLead, type VisitasMap } from './crm-map';
@@ -176,9 +176,9 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   revalidatePath('/leads');
 }
 
-/** Persiste toda la config del funnel (etapas + flechas) desde la tab "Funnel". */
-export async function saveFunnelAction(stages: Stage[], transitions: FunnelTransition[]): Promise<void> {
-  await saveFunnel(stages, transitions);
+/** Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas) desde la tab "Funnel". */
+export async function saveFunnelAction(pipeline: Stage[], suppressed: string[]): Promise<void> {
+  await saveFunnel(pipeline, suppressed);
   bust(TAG.pipeline, TAG.leads);
   revalidatePath('/leads');
   revalidatePath('/funnel');

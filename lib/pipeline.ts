@@ -10,8 +10,15 @@ export type StageTone =
   | 'neutral' | 'accent' | 'good' | 'bad' | 'warn' | 'info'
   | 'violet' | 'teal' | 'orange' | 'sky' | 'taupe' | 'rose' | 'indigo' | 'magenta';
 
-// Banda (fila) del funnel: pipeline (camino al cierre) · nutrición · salidas.
+// Banda (fila) del funnel: pipeline (Activo) · nutrición · salidas (Descartado).
 export type StageBand = 'pipeline' | 'nutricion' | 'salidas';
+
+// Etiqueta visible de cada banda (las KEYS internas no cambian).
+export const BAND_LABEL: Record<StageBand, string> = { pipeline: 'Activo', nutricion: 'Nutrición', salidas: 'Descartado' };
+
+// Tipo de una etapa de Activo (pipeline). Determina qué nutrición y qué salidas
+// genera automáticamente el funnel — ver generateFunnel().
+export type StageKind = 'entrada' | 'reunion' | 'grupo' | 'pago' | 'cierre' | 'paso';
 
 export type Stage = {
   key: string;
@@ -19,6 +26,7 @@ export type Stage = {
   dot: string;
   tone: StageTone;        // color del chip en el Kanban del CRM
   custom?: boolean;
+  kind?: StageKind;       // tipo de etapa de Activo (entrada/reunion/grupo/pago/cierre)
   // Layout del diagrama del funnel (tab /funnel)
   band?: StageBand;       // fila
   col?: number;           // columna dentro de la fila
@@ -66,11 +74,25 @@ export const CATEGORY: Record<TransitionCategory, { c: string; label: string }> 
   perdida:   { c: '#CF4E29', label: 'Pérdida' },
 };
 
+// Disparador de una transición: qué la hace ocurrir. Los que tienen una SEÑAL
+// del sistema son automáticos (el lead avanza solo); 'manual' exige que un
+// humano marque cómo quedó. `autoHoy` = si ya está cableado en la app hoy.
+export type TransitionTrigger = 'formulario' | 'agenda' | 'pago' | 'asistencia' | 'tiempo' | 'manual';
+export const TRIGGER: Record<TransitionTrigger, { label: string; auto: boolean; autoHoy: boolean }> = {
+  formulario: { label: 'Formulario',       auto: true,  autoHoy: true },
+  agenda:     { label: 'Agenda (Calendly)', auto: true,  autoHoy: true },
+  pago:       { label: 'Pago',              auto: true,  autoHoy: false },
+  asistencia: { label: 'Asistencia',        auto: true,  autoHoy: false },
+  tiempo:     { label: 'Tiempo',            auto: true,  autoHoy: false },
+  manual:     { label: 'Manual',            auto: false, autoHoy: false },
+};
+
 export type FunnelTransition = {
   from: string;                 // stage key de origen
   to: string;                   // stage key de destino
   label: string;                // texto de la flecha / botón
   category: TransitionCategory; // color
+  trigger?: TransitionTrigger;  // qué la dispara (auto vs requiere humano)
   asistioJ1?: boolean;          // marca asistencia a R1 al aplicar (Datos sin marcar tipo A)
   asistioJ2?: boolean;          // marca asistencia a R2 al aplicar (Datos sin marcar tipo C)
 };
@@ -118,67 +140,145 @@ export function bandToCategory(band: StageBand | undefined): TransitionCategory 
   return band === 'salidas' ? 'perdida' : band === 'nutricion' ? 'nutricion' : 'avanza';
 }
 
-/**
- * Caminos de nutrición RECOMENDADOS (derivados de los defaults). El usuario casi
- * siempre conoce su pipeline pero deja la nutrición "abierta"; se la sugerimos
- * nosotros. Cada una, al agregarse, queda lista para enganchar mensajes
- * automáticos de WhatsApp/Email más adelante.
- */
-export const NUTRITION_SUGGESTIONS: FunnelTransition[] = DEFAULT_TRANSITIONS.filter((t) => t.category === 'nutricion');
+// ── Generación automática del funnel a partir de la fila de "Activo" ─────────
+// El usuario solo edita el pipeline (Activo): orden + tipo de cada etapa. La
+// nutrición y las salidas se DERIVAN. Si el usuario no quiere una nutrición
+// sugerida, la "suprime" (set `suppressed` con claves `from>to`).
 
-// ── Plantillas de funnel (arrancar sin dibujar nada) ─────────────────────────
-export type FunnelTemplate = { id: string; name: string; description: string; stages: Stage[]; transitions: FunnelTransition[] };
-const tplStage = (key: string, col: number): Stage => ({ ...DEFAULT_STAGES.find((s) => s.key === key)!, col });
+/** Tipo por defecto de las etapas canónicas del pipeline. */
+export const PIPELINE_KIND: Record<string, StageKind> = { lead: 'entrada', agenda: 'reunion', agendaj2: 'reunion', facturando: 'pago', ganado: 'cierre' };
+/** Pipeline (Activo) por defecto: las etapas canónicas con su tipo. */
+export const DEFAULT_PIPELINE: Stage[] = DEFAULT_STAGES.filter((s) => s.band === 'pipeline').map((s) => ({ ...s, kind: PIPELINE_KIND[s.key] ?? 'paso' }));
+
+/** Etapas de nutrición que no están en DEFAULT_STAGES (generadas por tipo). */
+const NUTRI_EXTRA: Record<string, Stage> = {
+  nocompro:    { key: 'nocompro',    label: 'Nutrición - No Compró',    dot: '#C7417B', tone: 'rose', band: 'nutricion' },
+  nutridiaria: { key: 'nutridiaria', label: 'Nutrición diaria (grupo)', dot: '#1FA855', tone: 'teal', band: 'nutricion' },
+};
+
+/**
+ * Deriva el funnel COMPLETO (Activo + Nutrición + Descartado) a partir del
+ * pipeline ordenado (cada etapa con su `kind`) y el set de nutriciones suprimidas.
+ *
+ * Reglas por tipo de etapa:
+ *  - entrada:  nutri "No agendó" · sale a Descalificado (no es avatar), Perdido
+ *              (el setter lo pierde) y No responde.
+ *  - reunion:  "Post Agenda" (preparación, SIEMPRE) · "No-show" · si hay otra
+ *              reunión después → "Post Reunión"; si lo que sigue es pago/cierre →
+ *              "Asistió, no compró". Sale a Perdido (se nutre) y Descalificado (terminal).
+ *  - grupo:    nutrición diaria (ventana pre-evento) · se va del grupo.
+ *  - pago:     "No paga aún".
+ *  - cierre:   nada.
+ * Descartado (Perdido/Descalificado/No responde) es fijo. Perdido se nutre
+ * (vuelve a la 1ª reunión); Descalificado y No responde son terminales.
+ */
+export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { stages: Stage[]; transitions: FunnelTransition[] } {
+  const sup = new Set(suppressed);
+  const lib = (k: string): Stage | undefined => DEFAULT_STAGES.find((s) => s.key === k) ?? NUTRI_EXTRA[k];
+  const stages: Stage[] = [];
+  const transitions: FunnelTransition[] = [];
+  const placed = new Set<string>();
+  const col: Record<StageBand, number> = { pipeline: 0, nutricion: 0, salidas: 0 };
+  const place = (s: Stage, band: StageBand) => { if (placed.has(s.key)) return; placed.add(s.key); stages.push({ ...s, band, col: col[band]++ }); };
+
+  pipeline.forEach((p) => place(p, 'pipeline'));
+  (['perdido', 'descal', 'noresp'] as const).forEach((k) => { const d = lib(k); if (d) place(d, 'salidas'); });
+
+  const meetings = pipeline.filter((p) => p.kind === 'reunion');
+  const firstMeeting = meetings[0]?.key;
+  const asist = (mKey: string, attended: boolean): Partial<FunnelTransition> => {
+    const i = meetings.findIndex((m) => m.key === mKey);
+    return i === 0 ? { asistioJ1: attended } : i === 1 ? { asistioJ2: attended } : {};
+  };
+  // Agrega nutrición from→nutriKey (si no está suprimida) + opcional recuperación.
+  const nut = (from: string, nutriKey: string, label: string, trigger: TransitionTrigger, recover?: { to: string; label: string }, extra?: Partial<FunnelTransition>) => {
+    if (sup.has(`${from}>${nutriKey}`)) return;
+    const def = lib(nutriKey); if (!def) return;
+    place(def, 'nutricion');
+    transitions.push({ from, to: nutriKey, label, category: 'nutricion', trigger, ...extra });
+    if (recover) transitions.push({ from: nutriKey, to: recover.to, label: recover.label, category: 'avanza', trigger: 'agenda' });
+  };
+
+  pipeline.forEach((p, i) => {
+    const next = pipeline[i + 1];
+    if (next) {
+      // Disparador del avance: entrar a una reunión = agenda (o tiempo si viene
+      // de un grupo/evento de fecha fija); salir de una reunión = asistencia;
+      // entrar a pago/cierre = pago; entrar a un grupo = formulario (registro).
+      const trig: TransitionTrigger =
+        next.kind === 'reunion' ? (p.kind === 'grupo' ? 'tiempo' : 'agenda') :
+        p.kind === 'reunion' ? 'asistencia' :
+        next.kind === 'pago' || next.kind === 'cierre' ? 'pago' :
+        next.kind === 'grupo' ? 'formulario' :
+        'manual';
+      transitions.push({ from: p.key, to: next.key, label: 'Avanza', category: 'avanza', trigger: trig, ...(p.kind === 'reunion' ? asist(p.key, true) : {}) });
+    }
+    switch (p.kind) {
+      case 'entrada':
+        nut(p.key, 'nutri', 'No agendó', 'tiempo', next ? { to: next.key, label: next.kind === 'reunion' ? 'Agenda tardío' : 'Retoma' } : undefined);
+        transitions.push({ from: p.key, to: 'descal', label: 'No es tu avatar', category: 'perdida', trigger: 'manual' });
+        transitions.push({ from: p.key, to: 'perdido', label: 'Setter lo pierde', category: 'perdida', trigger: 'manual' });
+        transitions.push({ from: p.key, to: 'noresp', label: 'No responde', category: 'perdida', trigger: 'tiempo' });
+        break;
+      case 'grupo':
+        nut(p.key, 'nutridiaria', 'Nutrición diaria', 'tiempo', next ? { to: next.key, label: 'Llega al evento' } : undefined);
+        transitions.push({ from: p.key, to: 'noresp', label: 'Se va del grupo', category: 'perdida', trigger: 'tiempo' });
+        break;
+      case 'reunion':
+        nut(p.key, 'postagenda', 'Post Agenda (preparar)', 'manual', { to: p.key, label: 'Asiste' });
+        nut(p.key, 'noshow', 'No-show', 'asistencia', firstMeeting ? { to: p.key, label: 'Reagenda' } : undefined, asist(p.key, false));
+        if (next && next.kind === 'reunion') nut(p.key, 'postreunion', 'Post Reunión', 'manual', { to: next.key, label: 'Agenda siguiente' }, asist(p.key, true));
+        else if (next && (next.kind === 'pago' || next.kind === 'cierre')) nut(p.key, 'nocompro', 'Asistió, no compró', 'manual', { to: next.key, label: 'Compra luego' }, asist(p.key, true));
+        transitions.push({ from: p.key, to: 'perdido', label: 'No cerró', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
+        transitions.push({ from: p.key, to: 'descal', label: 'No califica', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
+        break;
+      case 'pago':
+        nut(p.key, 'nopaga', 'No paga aún', 'pago', { to: p.key, label: 'Paga' });
+        break;
+    }
+  });
+
+  // Perdido SÍ se nutre/recupera (a diferencia de Descalificado, terminal).
+  if (firstMeeting && !sup.has(`perdido>${firstMeeting}`)) transitions.push({ from: 'perdido', to: firstMeeting, label: 'Recupera', category: 'avanza', trigger: 'manual' });
+
+  return { stages, transitions };
+}
+
+// ── Plantillas de funnel (arrancar sin configurar nada) ──────────────────────
+// Una plantilla es solo un PIPELINE (la fila de Activo); la nutrición y las
+// salidas las deriva generateFunnel.
+export type FunnelTemplate = { id: string; name: string; description: string; pipeline: Stage[] };
+const pk = (key: string, kind: StageKind): Stage => ({ ...DEFAULT_STAGES.find((s) => s.key === key)!, kind });
 
 export const FUNNEL_TEMPLATES: FunnelTemplate[] = [
   {
     id: 'highticket',
     name: 'High-ticket · 2 reuniones',
-    description: 'Lead → R1 → R2 → cierre, con nutrición y salidas completas. El recomendado para agencias y coaching.',
-    stages: DEFAULT_STAGES,
-    transitions: DEFAULT_TRANSITIONS,
+    description: 'Lead → R1 → R2 → cierre. El recomendado para agencias y coaching.',
+    pipeline: DEFAULT_PIPELINE,
   },
   {
     id: 'simple',
     name: 'Simple · 1 reunión',
     description: 'Lead → una reunión → cierre. Para ventas de ciclo corto.',
-    stages: [
-      tplStage('lead', 0), tplStage('agenda', 1), tplStage('ganado', 2),
-      tplStage('nutri', 0), tplStage('noshow', 1), tplStage('postreunion', 2),
-      tplStage('noresp', 0), tplStage('perdido', 1),
-    ],
-    transitions: [
-      { from: 'lead', to: 'agenda', label: 'Agendó', category: 'avanza' },
-      { from: 'lead', to: 'nutri', label: 'No agendó', category: 'nutricion' },
-      { from: 'lead', to: 'noresp', label: 'No responde', category: 'perdida' },
-      { from: 'agenda', to: 'ganado', label: 'Cerró', category: 'avanza', asistioJ1: true },
-      { from: 'agenda', to: 'noshow', label: 'No-show', category: 'nutricion', asistioJ1: false },
-      { from: 'agenda', to: 'postreunion', label: 'No cerró aún', category: 'nutricion', asistioJ1: true },
-      { from: 'agenda', to: 'perdido', label: 'No avanza', category: 'perdida', asistioJ1: true },
-      { from: 'noshow', to: 'agenda', label: 'Reagenda', category: 'avanza' },
-      { from: 'nutri', to: 'agenda', label: 'Agenda tardío', category: 'avanza' },
-      { from: 'postreunion', to: 'ganado', label: 'Cerró', category: 'avanza' },
-      { from: 'postreunion', to: 'perdido', label: 'Desiste', category: 'perdida' },
-    ],
+    pipeline: [pk('lead', 'entrada'), pk('agenda', 'reunion'), pk('ganado', 'cierre')],
   },
   {
     id: 'directa',
     name: 'Venta directa · sin reunión',
-    description: 'Lead → checkout/pago, sin llamada. Para ofertas low-ticket o e-commerce.',
-    stages: [
-      tplStage('lead', 0), tplStage('facturando', 1), tplStage('ganado', 2),
-      tplStage('nutri', 0), tplStage('nopaga', 1),
-      tplStage('noresp', 0), tplStage('perdido', 1),
-    ],
-    transitions: [
-      { from: 'lead', to: 'facturando', label: 'Inició compra', category: 'avanza' },
-      { from: 'lead', to: 'nutri', label: 'No avanza', category: 'nutricion' },
-      { from: 'lead', to: 'noresp', label: 'No responde', category: 'perdida' },
-      { from: 'facturando', to: 'ganado', label: 'Pagó', category: 'avanza' },
-      { from: 'facturando', to: 'nopaga', label: 'No paga aún', category: 'nutricion' },
-      { from: 'nopaga', to: 'ganado', label: 'Pagó tarde', category: 'avanza' },
-      { from: 'nopaga', to: 'perdido', label: 'Desiste', category: 'perdida' },
-      { from: 'nutri', to: 'facturando', label: 'Retoma', category: 'avanza' },
+    description: 'Lead → checkout/pago, sin llamada. Para low-ticket o e-commerce.',
+    pipeline: [pk('lead', 'entrada'), pk('facturando', 'pago'), pk('ganado', 'cierre')],
+  },
+  {
+    id: 'vsl',
+    name: 'VSL + Webinar (lanzamiento)',
+    description: 'Landing → low-ticket → grupo de WhatsApp → webinar → oferta. Con nutrición pre y post evento.',
+    pipeline: [
+      { key: 'registro', label: 'Registro (landing)', dot: '#2F6DDB', tone: 'info', kind: 'entrada' },
+      { key: 'grupo', label: 'Grupo WhatsApp', dot: '#1FA855', tone: 'teal', kind: 'grupo' },
+      { key: 'webinar', label: 'Webinar', dot: '#E08A12', tone: 'accent', kind: 'reunion' },
+      { key: 'checkout', label: 'Oferta / Checkout', dot: '#C8870C', tone: 'orange', kind: 'pago' },
+      pk('ganado', 'cierre'),
     ],
   },
 ];
