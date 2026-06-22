@@ -595,6 +595,42 @@ export async function setFechaJunta2(leadId: number, fechaJ2: string): Promise<v
 }
 
 /**
+ * Aplica una grabación de Fathom a un lead: marca asistencia a R1/R2 (solo si
+ * estaba sin marcar — nunca pisa una decisión humana) y agrega el link de la
+ * grabación a fathom_links. `attended` puede venir confirmado por el transcript
+ * (true/false) o desconocido (null → asumimos que asistió, porque hubo grabación
+ * con el invitado externo presente).
+ */
+export async function applyFathomRecording(
+  lead: Lead,
+  which: 'j1' | 'j2',
+  shareUrl: string | null,
+  attended: boolean | null,
+): Promise<{ markedAsistencia: boolean; addedLink: boolean }> {
+  const supabase = getSupabaseServer();
+  const patch: Record<string, unknown> = {};
+  const asistField = which === 'j1' ? 'asistio_j1' : 'asistio_j2';
+  const yaMarcado = which === 'j1' ? lead.asistio_j1 : lead.asistio_j2;
+
+  let markedAsistencia = false;
+  if (yaMarcado == null) { patch[asistField] = attended ?? true; markedAsistencia = true; }
+
+  let addedLink = false;
+  if (shareUrl) {
+    const links = lead.fathom_links ?? [];
+    if (!links.some((l) => l.url === shareUrl)) {
+      patch.fathom_links = [...links, { label: which === 'j1' ? 'Reunión 1' : 'Reunión 2', url: shareUrl }];
+      addedLink = true;
+    }
+  }
+
+  if (Object.keys(patch).length === 0) return { markedAsistencia: false, addedLink: false };
+  const { error } = await supabase.from('leads').update(patch).eq('id', lead.id);
+  if (error) throw new Error(`Error aplicando grabación Fathom a lead ${lead.id}: ${error.message}`);
+  return { markedAsistencia, addedLink };
+}
+
+/**
  * Aplica una cancelación de Calendly al lead (Fase 10).
  * - Si la fecha cancelada es la fecha_junta_2 y NO pasó → fecha_junta_2 = NULL.
  * - Si es la fecha_junta_1 y NO pasó → fecha_junta_1 = NULL (fecha_agenda se
