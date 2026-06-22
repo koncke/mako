@@ -37,6 +37,7 @@ import {
 import { LeadDetail } from './LeadDetail';
 import { seedEdits as seedEditsBase, missingFor, sectionForStage } from './edit-logic';
 import { Dropdown } from '../components/Dropdown';
+import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -234,8 +235,19 @@ export function CrmBoard({
   // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
   const needsFicha = (key: string, e: Edits) => missingFor(key, e).length > 0 || !!sectionForStage(key);
 
+  // Agendar R1/R2 por Calendly: abre el popup (prefill nombre/email); la fecha
+  // la setea el webhook al reservar y el lead avanza solo. NO persistimos acá.
+  const scheduleViaCalendly = (lead: CrmLead, key: string) => {
+    void openCalendlyFor(key, {
+      name: lead.name,
+      email: lead.email,
+      onScheduled: () => { setTimeout(() => router.refresh(), 2500); },
+    });
+  };
+
   const requestStage = (l: CrmLead, key: string) => {
     if (key === effStage(l)) { setPendingMove(null); setMoveError(false); return; }
+    if (calendlyUrlFor(key)) { scheduleViaCalendly(l, key); setPendingMove(null); setMoveError(false); return; }
     const e = editsFor(l);
     const tr = transitionFor(effStage(l), key);
     if (needsFicha(key, e)) {
@@ -254,6 +266,7 @@ export function CrmBoard({
     if (id == null) return;
     const lead = leads.find((l) => l.id === id);
     if (!lead || effStage(lead) === stageKey) return;
+    if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const e = editsFor(lead);
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
@@ -270,6 +283,7 @@ export function CrmBoard({
   const resolveMarcar = (leadId: number, t: FunnelTransition) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
+    if (calendlyUrlFor(t.to)) { scheduleViaCalendly(lead, t.to); return; }
     openDetail(lead);
     setPendingMove({ id: leadId, from: effStage(lead), to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
   };
@@ -286,7 +300,6 @@ export function CrmBoard({
     startTransition(async () => {
       await saveLeadMetaAction(l.id, {
         closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
-        fecha_junta_1: e.fechaJ1 || null, fecha_junta_2: e.fechaJ2 || null,
         nombre: e.nombre.trim() || undefined, email: e.email.trim() || null,
         telefono: e.telefono.trim() || null, empresa: e.empresa.trim() || null,
       });
@@ -583,6 +596,7 @@ export function CrmBoard({
           onClose={closeDetail}
           onSave={() => saveDetail(selected)}
           onDelete={() => removeLead(selected.id)}
+          onSchedule={(key) => scheduleViaCalendly(selected, key)}
         />
       )}
 

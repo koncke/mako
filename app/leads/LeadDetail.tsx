@@ -35,6 +35,7 @@ const fieldInput: CSSProperties = { width: '100%', padding: '9px 12px', borderRa
 const rowInput: CSSProperties = { padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
 const miniCard: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' };
 const dashBtn: CSSProperties = { padding: 9, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
+const calBtn: CSSProperties = { flex: 1, minWidth: 200, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(200,135,12,.08)', color: '#9A6A09', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -45,18 +46,9 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DateField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div style={miniCard}>
-      <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>{label}</div>
-      <input type="date" value={value} onChange={(e) => onChange(e.target.value)} style={{ ...rowInput, width: '100%' }} />
-    </div>
-  );
-}
-
 export function LeadDetail({
   lead, stages, effStage, pendingMove, moveError, edits, missing,
-  onPatch, onPickStage, onClose, onSave, onDelete, focus, zIndex = 50, saveError = false,
+  onPatch, onPickStage, onClose, onSave, onDelete, onSchedule, focus, zIndex = 50, saveError = false,
 }: {
   lead: CrmLead;
   stages: Stage[];
@@ -70,6 +62,7 @@ export function LeadDetail({
   onClose: () => void;
   onSave: () => void;
   onDelete: () => void;
+  onSchedule?: (key: string) => void;   // abrir Calendly para R1/R2
   focus?: string;       // sección a la que saltar: datos-comerciales | plan-pagos | motivo | etapa | fathom | nutricion
   zIndex?: number;      // por defecto 50; se sube cuando abre sobre otro modal (desglose)
   saveError?: boolean;  // true si la última acción de guardar/borrar falló
@@ -213,12 +206,18 @@ export function LeadDetail({
             <details id="lead-sec-datos-comerciales" open style={{ ...card, padding: '0 18px' }}>
               <summary style={summary}>Datos comerciales<span style={{ fontSize: 11 }}>▾</span></summary>
               <div style={{ padding: '0 0 18px', display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                <DateField label="Fecha Reunión 1" value={edits.fechaJ1} onChange={(v) => onPatch({ fechaJ1: v })} />
+                <Stat label="Fecha Reunión 1" value={lead.agenda ?? '—'} />
                 <Stat label="¿Asistió a R1?" value={lead.asistioJ1 === true ? 'Sí' : lead.asistioJ1 === false ? 'No' : '—'} />
                 <Stat label="¿Era calificado?" value={lead.calificado === true ? 'Sí' : lead.calificado === false ? 'No' : '—'} />
-                <DateField label="Fecha Reunión 2" value={edits.fechaJ2} onChange={(v) => onPatch({ fechaJ2: v })} />
+                <Stat label="Fecha Reunión 2" value={lead.j2 ?? '—'} />
                 <Stat label="¿Asistió a R2?" value={lead.asistioJ2 === true ? 'Sí' : lead.asistioJ2 === false ? 'No' : '—'} />
                 <Stat label="¿Confirmó pago?" value={lead.confirmacion ? 'Sí · ' + lead.confirmacion : '—'} />
+                {onSchedule && (
+                  <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button onClick={() => onSchedule('agenda')} style={calBtn}>📅 Agendar / reagendar R1</button>
+                    <button onClick={() => onSchedule('agendaj2')} style={calBtn}>📅 Agendar / reagendar R2</button>
+                  </div>
+                )}
                 <div style={{ gridColumn: '1/-1', ...miniCard }}>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 6 }}>Closer asignado</div>
                   <input value={edits.closer} onChange={(e) => onPatch({ closer: e.target.value })} placeholder="Nombre del closer…" style={fieldInput} />
