@@ -1986,9 +1986,10 @@ async function _getPendientesDeMarcar(
     asistio_j2: boolean | null;
     estado_lead: string;
   }>) {
-    // A) J1 pasada sin marcar asistencia (solo leads abiertos: si ya está
-    //    ganado/perdido/descalificado, la asistencia es irrelevante).
-    if (l.fecha_junta_1 && l.fecha_junta_1 < hoy && l.asistio_j1 === null && l.estado_lead === 'abierto') {
+    // A) J1 pasada sin marcar asistencia. Solo leads abiertos y SIN R2 ya
+    //    agendada (si ya tienen R2, avanzaron; no tiene sentido preguntar por la
+    //    asistencia a R1 — la marca Fathom igual). Si está resuelto, irrelevante.
+    if (l.fecha_junta_1 && l.fecha_junta_1 < hoy && l.asistio_j1 === null && l.estado_lead === 'abierto' && !l.fecha_junta_2) {
       items.push({
         lead_id: l.id,
         lead_nombre: l.nombre,

@@ -36,6 +36,7 @@ import {
 } from './actions';
 import { LeadDetail } from './LeadDetail';
 import { seedEdits as seedEditsBase, missingFor, sectionForStage } from './edit-logic';
+import { Dropdown } from '../components/Dropdown';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -133,7 +134,7 @@ export function CrmBoard({
   const [, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
-  const [kanbanBand, setKanbanBand] = useState<StageBand>('pipeline');
+  const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(['pipeline', 'nutricion', 'salidas']));
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('todos');
   const [originFilter, setOriginFilter] = useState('todos');
@@ -212,8 +213,11 @@ export function CrmBoard({
     return () => clearTimeout(t);
   }, [undoInfo]);
 
-  // Cambiar de banda en el Kanban + limpiar cualquier drag en curso.
-  const switchBand = (band: StageBand) => { setKanbanBand(band); setDragId(null); setDragOverCol(null); };
+  // Mostrar/ocultar una banda del Kanban (multi-selección) + limpiar drag.
+  const toggleBand = (band: StageBand) => {
+    setActiveBands((prev) => { const n = new Set(prev); if (n.has(band)) n.delete(band); else n.add(band); return n; });
+    setDragId(null); setDragOverCol(null);
+  };
 
   // ¿Mover a `key` exige pasar por la ficha? Sí cuando hay un campo obligatorio
   // faltante (bloquea) o cuando la etapa tiene una sección que completar (motivo,
@@ -299,7 +303,9 @@ export function CrmBoard({
   const optionsForMarcar = (m: CrmMarcar): FunnelTransition[] => {
     const lead = leads.find((l) => l.id === m.leadId);
     if (!lead) return [];
-    let opts = transitionsFrom(transitions, effStage(lead));
+    // !t.auto: excluye nutriciones automáticas (ej. Post Agenda, que corre antes
+    // de la reunión) — no son resultados que el humano elija acá.
+    let opts = transitionsFrom(transitions, effStage(lead)).filter((t) => !t.auto);
     if (lead.asistioJ1 === true) opts = opts.filter((t) => t.asistioJ1 !== false);
     if (lead.asistioJ2 === true) opts = opts.filter((t) => t.asistioJ2 !== false);
     return opts;
@@ -325,13 +331,7 @@ export function CrmBoard({
   // Búsqueda (crece) con lupa interior
   const searchWrap: CSSProperties = { position: 'relative', flex: 1, minWidth: 240, display: 'flex', alignItems: 'center' };
   const searchInput: CSSProperties = { width: '100%', padding: '11px 16px 11px 42px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, outline: 'none' };
-  // Filtros agrupados en un solo control (Etapa · Origen)
-  const filterGroup: CSSProperties = { display: 'inline-flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 11, overflow: 'hidden' };
-  const filterSelect: CSSProperties = { padding: '11px 30px 11px 14px', border: 'none', background: 'transparent', fontFamily: SANS, fontSize: 14, cursor: 'pointer', outline: 'none' };
-  const filterDivider: CSSProperties = { width: 1, alignSelf: 'stretch', background: 'var(--border)' };
-  const filterChevron: CSSProperties = { position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--faint)', pointerEvents: 'none' };
   const gearBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
-  const selStyle = (active: boolean): CSSProperties => ({ ...filterSelect, color: active ? 'var(--ink)' : 'var(--dim)', fontWeight: active ? 600 : 400 });
 
   const btnBase: CSSProperties = { padding: '11px 17px', borderRadius: 11, cursor: 'pointer', fontFamily: SANS, fontSize: 14, fontWeight: 600 };
   let sinMarcarBtnStyle: CSSProperties;
@@ -356,11 +356,12 @@ export function CrmBoard({
   // Una columna del Kanban (reutilizada por cada banda).
   const renderColumn = (c: Stage) => {
     const cards = filtered.filter((l) => effStage(l) === c.key);
+    const bandC = CATEGORY[bandToCategory(c.band)].c;
     return (
       <div key={c.key}
         onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
         onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
-        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
+        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
@@ -461,23 +462,20 @@ export function CrmBoard({
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o email…" style={searchInput} />
         </div>
 
-        {/* Filtros agrupados */}
-        <div style={filterGroup}>
-          <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={selStyle(stageFilter !== 'todos')}>
-              <option value="todos">Etapa: todas</option>
-              {stages.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-            </select>
-            <span style={filterChevron}>▾</span>
-          </div>
-          <span style={filterDivider} />
-          <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <select value={originFilter} onChange={(e) => setOriginFilter(e.target.value)} style={selStyle(originFilter !== 'todos')}>
-              <option value="todos">Origen: todos</option>
-              {originOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-            <span style={filterChevron}>▾</span>
-          </div>
+        {/* Filtros */}
+        <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
+          <Dropdown
+            value={stageFilter}
+            onChange={setStageFilter}
+            ariaLabel="Filtrar por etapa"
+            options={[{ value: 'todos', label: 'Etapa: todas' }, ...stages.map((s) => ({ value: s.key, label: s.label, color: s.dot }))]}
+          />
+          <Dropdown
+            value={originFilter}
+            onChange={setOriginFilter}
+            ariaLabel="Filtrar por origen"
+            options={[{ value: 'todos', label: 'Origen: todos' }, ...originOptions.map((o) => ({ value: o, label: o }))]}
+          />
         </div>
 
         {/* Acciones */}
@@ -492,14 +490,14 @@ export function CrmBoard({
         <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} stageLabel={(k) => findStage(stages, k).label} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Tabs por banda (Activo / Nutrición / Descartado) */}
+          {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
           <div style={{ display: 'inline-flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
             {KANBAN_BANDS.map((band) => {
-              const on = kanbanBand === band;
+              const on = activeBands.has(band);
               const accent = CATEGORY[bandToCategory(band)].c;
               const n = filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length;
               return (
-                <button key={band} onClick={() => switchBand(band)}
+                <button key={band} onClick={() => toggleBand(band)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 11, border: '1px solid ' + (on ? accent : 'var(--border-strong)'), background: on ? accent : 'var(--surface)', color: on ? '#fff' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: on ? '#fff' : accent }} />
                   {BAND_LABEL[band]}
@@ -510,9 +508,13 @@ export function CrmBoard({
           </div>
           <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-              {stages.filter((s) => (s.band ?? 'pipeline') === kanbanBand).sort((a, b) => (a.col ?? 0) - (b.col ?? 0)).map((c) => renderColumn(c))}
+              {stages
+                .filter((s) => activeBands.has(s.band ?? 'pipeline'))
+                .sort((a, b) => (KANBAN_BANDS.indexOf(a.band ?? 'pipeline') - KANBAN_BANDS.indexOf(b.band ?? 'pipeline')) || ((a.col ?? 0) - (b.col ?? 0)))
+                .map((c) => renderColumn(c))}
             </div>
           </div>
+          {activeBands.size === 0 && <div style={{ padding: 30, color: 'var(--dim)', fontSize: 14 }}>Elegí al menos una banda arriba para ver el tablero.</div>}
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
@@ -582,7 +584,8 @@ function SinMarcar({
   onResolve: (leadId: number, t: FunnelTransition) => void;
   stageLabel: (key: string) => string;
 }) {
-  const moveSelect: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', padding: '9px 30px 9px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 210 };
+  // Intención del movimiento, para distinguir claramente nutrir vs dar de baja.
+  const intent = (cat: FunnelTransition['category']) => (cat === 'avanza' ? 'avanza en el pipeline' : cat === 'nutricion' ? 'sigue en nutrición' : 'se da de baja');
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -600,15 +603,16 @@ function SinMarcar({
                   <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
                 </div>
                 {options.length > 0 ? (
-                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                    <select value="" onChange={(e) => { const t = options[Number(e.target.value)]; if (t) onResolve(m.leadId, t); }} style={moveSelect}>
-                      <option value="">Mover a…</option>
-                      {options.map((opt, i) => (
-                        <option key={`${opt.to}-${i}`} value={i}>{stageLabel(opt.to)}{opt.label && opt.label.toLowerCase() !== stageLabel(opt.to).toLowerCase() ? ` (${opt.label.toLowerCase()})` : ''}</option>
-                      ))}
-                    </select>
-                    <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--faint)', pointerEvents: 'none' }}>▾</span>
-                  </div>
+                  <Dropdown
+                    value=""
+                    resetAfterSelect
+                    align="right"
+                    width={232}
+                    placeholder="Mover a…"
+                    ariaLabel={'Mover a ' + m.name}
+                    onChange={(v) => { const t = options[Number(v)]; if (t) onResolve(m.leadId, t); }}
+                    options={options.map((opt, i) => ({ value: String(i), label: stageLabel(opt.to), sub: intent(opt.category), color: CATEGORY[opt.category].c }))}
+                  />
                 ) : (
                   <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin opciones para esta etapa.</span>
                 )}

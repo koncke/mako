@@ -93,6 +93,9 @@ export type FunnelTransition = {
   label: string;                // texto de la flecha / botón
   category: TransitionCategory; // color
   trigger?: TransitionTrigger;  // qué la dispara (auto vs requiere humano)
+  // Nutrición que corre SOLA (ej. Post Agenda: pre-reunión, para que asista) y
+  // por eso NO es un resultado que el humano elige en "Datos sin marcar".
+  auto?: boolean;
   asistioJ1?: boolean;          // marca asistencia a R1 al aplicar (Datos sin marcar tipo A)
   asistioJ2?: boolean;          // marca asistencia a R2 al aplicar (Datos sin marcar tipo C)
 };
@@ -221,15 +224,18 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
         transitions.push({ from: p.key, to: 'noresp', label: 'No responde', category: 'perdida', trigger: 'tiempo' });
         break;
       case 'grupo':
-        nut(p.key, 'nutridiaria', 'Nutrición diaria', 'tiempo', next ? { to: next.key, label: 'Llega al evento' } : undefined);
+        // Nutrición diaria: corre sola mientras esperan el evento (auto).
+        nut(p.key, 'nutridiaria', 'Nutrición diaria', 'tiempo', next ? { to: next.key, label: 'Llega al evento' } : undefined, { auto: true });
         transitions.push({ from: p.key, to: 'noresp', label: 'Se va del grupo', category: 'perdida', trigger: 'tiempo' });
         break;
       case 'reunion':
-        nut(p.key, 'postagenda', 'Post Agenda (preparar)', 'manual', { to: p.key, label: 'Asiste' });
+        // Post Agenda = nutrición PREVIA a la reunión (para que asista). Corre
+        // sola; no es un resultado posterior que el humano elija (auto).
+        nut(p.key, 'postagenda', 'Post Agenda', 'tiempo', { to: p.key, label: 'Asiste' }, { auto: true });
         nut(p.key, 'noshow', 'No-show', 'asistencia', firstMeeting ? { to: p.key, label: 'Reagenda' } : undefined, asist(p.key, false));
         if (next && next.kind === 'reunion') nut(p.key, 'postreunion', 'Post Reunión', 'manual', { to: next.key, label: 'Agenda siguiente' }, asist(p.key, true));
         else if (next && (next.kind === 'pago' || next.kind === 'cierre')) nut(p.key, 'nocompro', 'Asistió, no compró', 'manual', { to: next.key, label: 'Compra luego' }, asist(p.key, true));
-        transitions.push({ from: p.key, to: 'perdido', label: 'No cerró', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
+        transitions.push({ from: p.key, to: 'perdido', label: 'Se perdió', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
         transitions.push({ from: p.key, to: 'descal', label: 'No califica', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
         break;
       case 'pago':

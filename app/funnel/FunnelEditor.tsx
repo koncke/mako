@@ -16,6 +16,7 @@ import {
   type Stage, type StageBand, type StageKind, type FunnelTransition, type TransitionTrigger,
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../leads/actions';
+import { Dropdown } from '../components/Dropdown';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -30,7 +31,6 @@ const GAPHALF = (COL - CW) / 2;
 const BAND_TINT: Record<StageBand, string> = { pipeline: 'rgba(59,109,17,.055)', nutricion: 'rgba(200,135,12,.06)', salidas: 'rgba(207,78,41,.055)' };
 const BAND_ACCENT: Record<StageBand, string> = { pipeline: CATEGORY.avanza.c, nutricion: CATEGORY.nutricion.c, salidas: CATEGORY.perdida.c };
 const BAND_ORDER: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
-const CHEVRON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23A39E91' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
 
 const KIND_LABEL: Record<StageKind, string> = { entrada: 'Entrada', reunion: 'Reunión', grupo: 'Grupo', pago: 'Pago', cierre: 'Cierre', paso: 'Paso' };
 const KIND_OPTIONS: StageKind[] = ['entrada', 'reunion', 'grupo', 'pago', 'cierre', 'paso'];
@@ -195,7 +195,6 @@ export function FunnelEditor({
 
   // ── estilos compartidos ──
   const field: CSSProperties = { padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
-  const selectStyle: CSSProperties = { ...field, appearance: 'none', WebkitAppearance: 'none', backgroundImage: `url("${CHEVRON}")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', paddingRight: 28, cursor: 'pointer' };
   const iconBtn: CSSProperties = { flex: 'none', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 14, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
 
   const Badge = ({ trg }: { trg?: TransitionTrigger }) => { const b = trigInfo(trg); return <span title={TRIGGER[trg ?? 'manual'].label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 7px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, color: b.c, background: b.bg }}>{b.icon} {b.label}</span>; };
@@ -298,9 +297,8 @@ export function FunnelEditor({
                   </div>
                   <span style={{ width: 11, height: 11, borderRadius: '50%', background: s.dot, flex: 'none', boxShadow: '0 0 0 3px ' + s.dot + '22' }} />
                   <input value={s.label} onChange={(e) => setField(s.key, { label: e.target.value })} onBlur={() => commit('Nombre actualizado')} style={{ ...field, flex: 1, minWidth: 0 }} />
-                  <select value={s.kind ?? 'paso'} onChange={(e) => setKind(s.key, e.target.value as StageKind)} title="Tipo de etapa" style={{ ...selectStyle, flex: 'none', color: 'var(--dim)', fontSize: 12.5 }}>
-                    {KIND_OPTIONS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
-                  </select>
+                  <Dropdown value={s.kind ?? 'paso'} onChange={(v) => setKind(s.key, v as StageKind)} ariaLabel="Tipo de etapa" width={130}
+                    options={KIND_OPTIONS.map((k) => ({ value: k, label: KIND_LABEL[k] }))} />
                   <button onClick={() => ask(`Eliminar la etapa "${s.label}" y su nutrición`, () => removeStage(s.key))} disabled={pipeline.length <= 1} title="Eliminar etapa" style={{ ...iconBtn, color: 'var(--bad)', borderColor: 'var(--border-strong)', opacity: pipeline.length <= 1 ? 0.3 : 1 }}>×</button>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 9, paddingLeft: 38 }}>
