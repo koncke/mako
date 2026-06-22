@@ -5,15 +5,23 @@
 // =============================================================================
 
 import Link from 'next/link';
-import { useEffect, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { PlanPagosCard } from './PlanPagosCard';
 import { CHIP, BAND_LABEL, stageMeta as findStage, type Stage, type StageBand } from '@/lib/pipeline';
 import type { CrmLead, Edits, PendingMove } from './CrmBoard';
+import { getLeadAuditAction } from './actions';
+import type { LeadAuditRow } from '@/lib/leads';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
+const fmtAuditDate = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }).format(d);
+};
+const autorColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : a === 'CRM' ? '#8A6D3B' : '#6B675C');
 
 function chipStyle(tone: Stage['tone']): CSSProperties {
   const c = CHIP[tone] || CHIP.neutral;
@@ -66,6 +74,14 @@ export function LeadDetail({
   zIndex?: number;      // por defecto 50; se sube cuando abre sobre otro modal (desglose)
   saveError?: boolean;  // true si la última acción de guardar/borrar falló
 }) {
+  // Historial real (audit log) — se trae al abrir la ficha.
+  const [audit, setAudit] = useState<LeadAuditRow[]>([]);
+  useEffect(() => {
+    let alive = true;
+    getLeadAuditAction(lead.id).then((r) => { if (alive) setAudit(r); }).catch(() => {});
+    return () => { alive = false; };
+  }, [lead.id]);
+
   // Al abrir con foco, desplegar y desplazarse a la sección a editar.
   useEffect(() => {
     if (!focus) return;
@@ -334,26 +350,20 @@ export function LeadDetail({
             </details>
           )}
 
-          {/* resumen de hitos (fechas reales; el audit log completo viene aparte) */}
+          {/* historial de cambios (audit log real) */}
           <details style={{ ...card, padding: '0 18px' }}>
-            <summary style={summary}>Resumen de hitos<span style={{ fontSize: 11 }}>▾</span></summary>
+            <summary style={summary}>Historial de cambios<span style={{ fontSize: 11 }}>▾</span></summary>
             <div style={{ padding: '0 0 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                { when: lead.created, what: 'Lead creado · ' + lead.originChannel },
-                { when: lead.agenda, what: 'Reunión 1' },
-                { when: lead.j2, what: 'Reunión 2' },
-                { when: lead.confirmacion, what: 'Confirmó pago' },
-                { when: lead.cierre, what: 'Cierre ganado' },
-              ].filter((h) => h.when).map((h, i) => (
-                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                  <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', width: 96 }}>{h.when}</span>
-                  <span style={{ fontSize: 13.5, color: 'var(--ink)' }}>{h.what}</span>
+              {audit.map((a) => (
+                <div key={a.id} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10 }}>
+                  <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', width: 100 }}>{fmtAuditDate(a.created_at)}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--ink)' }}>
+                    <b style={{ fontWeight: 600 }}>{a.campo}</b>: {a.valor_anterior ?? '—'} → {a.valor_nuevo ?? '—'}
+                  </span>
+                  <span style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: autorColor(a.autor), background: autorColor(a.autor) + '1A', borderRadius: 999, padding: '2px 8px' }}>{a.autor}</span>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-                <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', width: 96 }}>ahora</span>
-                <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>Etapa actual: {headerMeta.label}</span>
-              </div>
+              {audit.length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>Sin cambios registrados todavía. Cada movimiento de etapa, edición o evento de Fathom va a aparecer acá.</div>}
             </div>
           </details>
         </div>

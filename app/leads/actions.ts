@@ -33,8 +33,11 @@ import {
   getLead,
   getPipelineStages,
   getVisitasLandingMap,
+  logLeadChanges,
+  getLeadAudit,
   type LeadUpdateInput,
   type LeadMetaInput,
+  type LeadAuditRow,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getCampaignNameMap } from '@/lib/queries';
@@ -163,7 +166,10 @@ export async function setLeadStageAction(
   stageKey: string,
   opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
 ): Promise<void> {
+  const before = await getLead(id).catch(() => null);
   await setPipelineStage(id, stageKey, opts);
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, 'CRM');
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');
@@ -171,9 +177,17 @@ export async function setLeadStageAction(
 
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
+  const before = await getLead(id).catch(() => null);
   await saveLeadMeta(id, meta);
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, 'CRM');
   bust(TAG.leads);
   revalidatePath('/leads');
+}
+
+/** Historial de cambios de un lead (para la ficha). */
+export async function getLeadAuditAction(id: number): Promise<LeadAuditRow[]> {
+  return getLeadAudit(id);
 }
 
 /** Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas) desde la tab "Funnel". */

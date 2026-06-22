@@ -627,7 +627,66 @@ export async function applyFathomRecording(
   if (Object.keys(patch).length === 0) return { markedAsistencia: false, addedLink: false };
   const { error } = await supabase.from('leads').update(patch).eq('id', lead.id);
   if (error) throw new Error(`Error aplicando grabación Fathom a lead ${lead.id}: ${error.message}`);
+  await logLeadChanges(lead.id, lead, { ...lead, ...patch } as Lead, 'Fathom');
   return { markedAsistencia, addedLink };
+}
+
+// ── Audit log (historial real de cambios por lead) ──────────────────────────
+export type LeadAuditRow = { id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string };
+
+const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
+  { k: 'pipeline_stage', label: 'Etapa' },
+  { k: 'estado_lead', label: 'Estado' },
+  { k: 'asistio_j1', label: 'Asistió R1' },
+  { k: 'asistio_j2', label: 'Asistió R2' },
+  { k: 'fecha_junta_1', label: 'Fecha R1' },
+  { k: 'fecha_junta_2', label: 'Fecha R2' },
+  { k: 'closer', label: 'Closer' },
+  { k: 'setter', label: 'Setter' },
+  { k: 'monto_cierre_usd', label: 'Monto de cierre' },
+  { k: 'motivo_perdida', label: 'Motivo' },
+  { k: 'fecha_confirmacion', label: 'Confirmación de pago' },
+  { k: 'fathom_links', label: 'Links de Fathom' },
+];
+
+function auditVal(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (Array.isArray(v)) return v.length ? `${v.length} link(s)` : null;
+  return String(v);
+}
+
+/** Inserta en lead_audit una fila por cada campo trackeado que cambió. No rompe la mutación si falla. */
+export async function logLeadChanges(leadId: number, before: Lead | null, after: Lead | null, autor: string): Promise<void> {
+  if (!before || !after) return;
+  const rows = AUDIT_FIELDS.flatMap(({ k, label }) => {
+    const a = auditVal(before[k]);
+    const b = auditVal(after[k]);
+    return a === b ? [] : [{ lead_id: leadId, campo: label, valor_anterior: a, valor_nuevo: b, autor }];
+  });
+  if (!rows.length) return;
+  try {
+    const { error } = await getSupabaseServer().from('lead_audit').insert(rows);
+    if (error) console.error(`[audit] insert falló: ${error.message}`);
+  } catch (e) {
+    console.error('[audit] insert excepción', e);
+  }
+}
+
+/** Historial de cambios de un lead (más reciente primero). Vacío si la tabla no existe. */
+export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
+  try {
+    const { data, error } = await getSupabaseServer()
+      .from('lead_audit')
+      .select('id, campo, valor_anterior, valor_nuevo, autor, created_at')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error) return [];
+    return (data ?? []) as LeadAuditRow[];
+  } catch {
+    return [];
+  }
 }
 
 /**
