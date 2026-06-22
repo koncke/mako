@@ -20,9 +20,13 @@ import {
 import {
   CHIP,
   CATEGORY,
+  BAND_LABEL,
+  TRIGGER,
+  bandToCategory,
   stageMeta as findStage,
   transitionsFrom,
   type Stage,
+  type StageBand,
   type FunnelTransition,
 } from '@/lib/pipeline';
 import type { EstadoLead, FathomLink } from '@/lib/leads';
@@ -150,8 +154,6 @@ export function CrmBoard({
     const k = localStage[l.id] ?? l.stage;
     return stageKeys.has(k) ? k : firstKey;
   };
-
-  const refresh = () => startTransition(() => router.refresh());
 
   const seedEdits = (l: CrmLead): Edits => seedEditsBase(l, effStage(l));
 
@@ -344,6 +346,56 @@ export function CrmBoard({
 
   const selected = selectedId != null ? leads.find((l) => l.id === selectedId) ?? null : null;
 
+  // Leads que esperan tu validación (los que están en "Datos sin marcar").
+  const pendingLeadIds = new Set(marcar.map((m) => m.leadId));
+  const KANBAN_BANDS: StageBand[] = ['pipeline', 'nutricion', 'salidas'];
+
+  // Una columna del Kanban (reutilizada por cada banda).
+  const renderColumn = (c: Stage) => {
+    const cards = filtered.filter((l) => effStage(l) === c.key);
+    return (
+      <div key={c.key}
+        onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
+        onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
+        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '58vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+            <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: c.dot }} />
+            <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+          </div>
+          <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
+        </div>
+        <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+          {cards.map((l) => {
+            const isGanado = effStage(l) === 'ganado';
+            const waiting = pendingLeadIds.has(l.id);
+            return (
+              <div key={l.id}
+                onClick={() => openDetail(l)}
+                draggable
+                onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
+                onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(23,21,17,.20)' : 'none' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
+                  {waiting && <span title="Esperando que marques cómo quedó" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>✋ te espera</span>}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
+                <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : l.agenda ? 'Agenda' : l.created}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : l.agenda || '—'}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
       {/* HEADER */}
@@ -436,49 +488,25 @@ export function CrmBoard({
       {showSinMarcar ? (
         <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} />
       ) : view === 'kanban' ? (
-        <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
-            {stages.map((c) => {
-              const cards = filtered.filter((l) => effStage(l) === c.key);
-              return (
-                <div key={c.key}
-                  onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
-                  onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
-                  style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '70vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                      <span style={{ width: 9, height: 9, flex: 'none', borderRadius: '50%', background: c.dot }} />
-                      <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
-                    </div>
-                    <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
-                  </div>
-                  <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
-                    {cards.map((l) => {
-                      const isGanado = effStage(l) === 'ganado';
-                      return (
-                        <div key={l.id}
-                          onClick={() => openDetail(l)}
-                          draggable
-                          onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
-                          onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
-                          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(23,21,17,.20)' : 'none' }}
-                        >
-                          <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25 }}>{l.name}</div>
-                          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
-                          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : l.agenda ? 'Agenda' : l.created}</span>
-                            <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : l.agenda || '—'}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 14, display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {KANBAN_BANDS.map((band) => {
+            const cols = stages.filter((s) => s.band === band).sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
+            if (!cols.length) return null;
+            const accent = CATEGORY[bandToCategory(band)].c;
+            const bandLeads = filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length;
+            return (
+              <div key={band}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: accent }} />
+                  <h2 style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', margin: 0, color: 'var(--ink)' }}>{BAND_LABEL[band]}</h2>
+                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999 }}>{bandLeads}</span>
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 6 }}>
+                  {cols.map((c) => renderColumn(c))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
@@ -546,6 +574,12 @@ function catBtnStyle(cat: FunnelTransition['category']): CSSProperties {
   return { border: '1px solid ' + c, background: c + '14', color: c };
 }
 
+// Ícono del disparador: ⚡ auto hoy · ◐ automatizable · ✋ requiere humano.
+function trigIcon(trg?: FunnelTransition['trigger']): string {
+  const t = TRIGGER[trg ?? 'manual'];
+  return t.auto ? (t.autoHoy ? '⚡' : '◐') : '✋';
+}
+
 function SinMarcar({
   marcar, optionsFor, onResolve,
 }: {
@@ -555,9 +589,14 @@ function SinMarcar({
 }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
-        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
+        </div>
+        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '8px 0 0', maxWidth: 640, lineHeight: 1.5 }}>
+          Lo que necesita tu criterio. La asistencia a reuniones ahora se marca sola desde Fathom — acá queda lo que el sistema no puede decidir por vos. (⚡ se automatiza · ◐ automatizable · ✋ tu decisión)
+        </p>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => {
@@ -571,9 +610,9 @@ function SinMarcar({
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {options.map((opt, i) => (
-                    <button key={`${opt.to}-${i}`} onClick={() => onResolve(m.leadId, opt)} title="Abre la ficha para completar los datos obligatorios"
+                    <button key={`${opt.to}-${i}`} onClick={() => onResolve(m.leadId, opt)} title={`${TRIGGER[opt.trigger ?? 'manual'].label} · abre la ficha para completar los datos obligatorios`}
                       style={{ padding: '8px 14px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, ...catBtnStyle(opt.category) }}>
-                      {opt.label}
+                      <span style={{ opacity: 0.75, marginRight: 5 }}>{trigIcon(opt.trigger)}</span>{opt.label}
                     </button>
                   ))}
                   {options.length === 0 && (
