@@ -200,5 +200,7 @@ export async function getCrmLeadAction(
   const visitasMap: VisitasMap = await getVisitasLandingMap([l.visitor_id]).catch(
     () => new Map(),
   );
-  return { lead: mapToCrmLead(l, campMap, visitasMap), stages };
+  // Mismo criterio que /leads: ignorar overrides huérfanos (etapa ya no en el funnel).
+  const validStageKeys = new Set(stages.map((s) => s.key));
+  return { lead: mapToCrmLead(l, campMap, visitasMap, validStageKeys), stages };
 }

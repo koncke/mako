@@ -212,6 +212,9 @@ export function CrmBoard({
     return () => clearTimeout(t);
   }, [undoInfo]);
 
+  // Cambiar de banda en el Kanban + limpiar cualquier drag en curso.
+  const switchBand = (band: StageBand) => { setKanbanBand(band); setDragId(null); setDragOverCol(null); };
+
   // ¿Mover a `key` exige pasar por la ficha? Sí cuando hay un campo obligatorio
   // faltante (bloquea) o cuando la etapa tiene una sección que completar (motivo,
   // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
@@ -496,7 +499,7 @@ export function CrmBoard({
               const accent = CATEGORY[bandToCategory(band)].c;
               const n = filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length;
               return (
-                <button key={band} onClick={() => setKanbanBand(band)}
+                <button key={band} onClick={() => switchBand(band)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 11, border: '1px solid ' + (on ? accent : 'var(--border-strong)'), background: on ? accent : 'var(--surface)', color: on ? '#fff' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: on ? '#fff' : accent }} />
                   {BAND_LABEL[band]}
