@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { listLeads, getPipelineStages, getFunnelTransitions, getVisitasLandingMap, type Lead } from '@/lib/leads';
-import { DEFAULT_TRANSITIONS, type FunnelTransition } from '@/lib/pipeline';
+import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
   getJuntasProximas,
@@ -26,7 +26,7 @@ export default async function LeadsPage() {
   let juntasRaw: JuntaProxima[] = [];
   let pendientesRaw: PendienteItem[] = [];
   let stages: Awaited<ReturnType<typeof getPipelineStages>> | undefined;
-  let transitions: FunnelTransition[] = DEFAULT_TRANSITIONS;
+  let transitions: FunnelTransition[] = generateFunnel(DEFAULT_PIPELINE).transitions;
   let errorMsg: string | null = null;
 
   try {
@@ -47,8 +47,7 @@ export default async function LeadsPage() {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
   if (!stages) {
-    const { DEFAULT_STAGES } = await import('@/lib/pipeline');
-    stages = DEFAULT_STAGES;
+    stages = generateFunnel(DEFAULT_PIPELINE).stages;
   }
 
   const visitasMap = await getVisitasLandingMap(leads.map((l) => l.visitor_id)).catch(
@@ -57,7 +56,8 @@ export default async function LeadsPage() {
 
   const telById = new Map(leads.map((l) => [l.id, l.telefono]));
 
-  const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, visitasMap));
+  const validStageKeys = new Set(stages.map((s) => s.key));
+  const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, visitasMap, validStageKeys));
 
   const juntas: CrmJunta[] = juntasRaw.map((j) => ({
     id: `${j.lead_id}-${j.tipo}`,

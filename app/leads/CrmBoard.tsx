@@ -21,7 +21,6 @@ import {
   CHIP,
   CATEGORY,
   BAND_LABEL,
-  TRIGGER,
   bandToCategory,
   stageMeta as findStage,
   transitionsFrom,
@@ -134,6 +133,7 @@ export function CrmBoard({
   const [, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
+  const [kanbanBand, setKanbanBand] = useState<StageBand>('pipeline');
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('todos');
   const [originFilter, setOriginFilter] = useState('todos');
@@ -357,7 +357,7 @@ export function CrmBoard({
       <div key={c.key}
         onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
         onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
-        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '58vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
+        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--accent)' : 'var(--border)'), borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--accent-soft)' : 'none' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
@@ -486,27 +486,30 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} />
+        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} stageLabel={(k) => findStage(stages, k).label} />
       ) : view === 'kanban' ? (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 14, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {KANBAN_BANDS.map((band) => {
-            const cols = stages.filter((s) => s.band === band).sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
-            if (!cols.length) return null;
-            const accent = CATEGORY[bandToCategory(band)].c;
-            const bandLeads = filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length;
-            return (
-              <div key={band}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: accent }} />
-                  <h2 style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', margin: 0, color: 'var(--ink)' }}>{BAND_LABEL[band]}</h2>
-                  <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999 }}>{bandLeads}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 6 }}>
-                  {cols.map((c) => renderColumn(c))}
-                </div>
-              </div>
-            );
-          })}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Tabs por banda (Activo / Nutrición / Descartado) */}
+          <div style={{ display: 'inline-flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            {KANBAN_BANDS.map((band) => {
+              const on = kanbanBand === band;
+              const accent = CATEGORY[bandToCategory(band)].c;
+              const n = filtered.filter((l) => (stages.find((s) => s.key === effStage(l))?.band ?? 'pipeline') === band).length;
+              return (
+                <button key={band} onClick={() => setKanbanBand(band)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 11, border: '1px solid ' + (on ? accent : 'var(--border-strong)'), background: on ? accent : 'var(--surface)', color: on ? '#fff' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: on ? '#fff' : accent }} />
+                  {BAND_LABEL[band]}
+                  <span style={{ fontSize: 12.5, fontWeight: 600, opacity: 0.85 }}>{n}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
+              {stages.filter((s) => (s.band ?? 'pipeline') === kanbanBand).sort((a, b) => (a.col ?? 0) - (b.col ?? 0)).map((c) => renderColumn(c))}
+            </div>
+          </div>
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
@@ -568,35 +571,20 @@ export function CrmBoard({
 }
 
 // ── Datos sin marcar (worklist) ──
-// Estilo del botón según la categoría de la transición (mismo color que la flecha).
-function catBtnStyle(cat: FunnelTransition['category']): CSSProperties {
-  const c = CATEGORY[cat].c;
-  return { border: '1px solid ' + c, background: c + '14', color: c };
-}
-
-// Ícono del disparador: ⚡ auto hoy · ◐ automatizable · ✋ requiere humano.
-function trigIcon(trg?: FunnelTransition['trigger']): string {
-  const t = TRIGGER[trg ?? 'manual'];
-  return t.auto ? (t.autoHoy ? '⚡' : '◐') : '✋';
-}
-
 function SinMarcar({
-  marcar, optionsFor, onResolve,
+  marcar, optionsFor, onResolve, stageLabel,
 }: {
   marcar: CrmMarcar[];
   optionsFor: (m: CrmMarcar) => FunnelTransition[];
   onResolve: (leadId: number, t: FunnelTransition) => void;
+  stageLabel: (key: string) => string;
 }) {
+  const moveSelect: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', padding: '9px 30px 9px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', outline: 'none', minWidth: 210 };
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
-        </div>
-        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '8px 0 0', maxWidth: 640, lineHeight: 1.5 }}>
-          Lo que necesita tu criterio. La asistencia a reuniones ahora se marca sola desde Fathom — acá queda lo que el sistema no puede decidir por vos. (⚡ se automatiza · ◐ automatizable · ✋ tu decisión)
-        </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
+        <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => {
@@ -608,17 +596,19 @@ function SinMarcar({
                   <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
                   <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                  {options.map((opt, i) => (
-                    <button key={`${opt.to}-${i}`} onClick={() => onResolve(m.leadId, opt)} title={`${TRIGGER[opt.trigger ?? 'manual'].label} · abre la ficha para completar los datos obligatorios`}
-                      style={{ padding: '8px 14px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, ...catBtnStyle(opt.category) }}>
-                      <span style={{ opacity: 0.75, marginRight: 5 }}>{trigIcon(opt.trigger)}</span>{opt.label}
-                    </button>
-                  ))}
-                  {options.length === 0 && (
-                    <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin transiciones definidas para esta etapa.</span>
-                  )}
-                </div>
+                {options.length > 0 ? (
+                  <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                    <select value="" onChange={(e) => { const t = options[Number(e.target.value)]; if (t) onResolve(m.leadId, t); }} style={moveSelect}>
+                      <option value="">Mover a…</option>
+                      {options.map((opt, i) => (
+                        <option key={`${opt.to}-${i}`} value={i}>{stageLabel(opt.to)}{opt.label && opt.label.toLowerCase() !== stageLabel(opt.to).toLowerCase() ? ` (${opt.label.toLowerCase()})` : ''}</option>
+                      ))}
+                    </select>
+                    <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: 'var(--faint)', pointerEvents: 'none' }}>▾</span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin opciones para esta etapa.</span>
+                )}
               </div>
             </div>
           );

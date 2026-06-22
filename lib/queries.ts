@@ -1986,8 +1986,9 @@ async function _getPendientesDeMarcar(
     asistio_j2: boolean | null;
     estado_lead: string;
   }>) {
-    // A) J1 pasada sin marcar asistencia
-    if (l.fecha_junta_1 && l.fecha_junta_1 < hoy && l.asistio_j1 === null) {
+    // A) J1 pasada sin marcar asistencia (solo leads abiertos: si ya está
+    //    ganado/perdido/descalificado, la asistencia es irrelevante).
+    if (l.fecha_junta_1 && l.fecha_junta_1 < hoy && l.asistio_j1 === null && l.estado_lead === 'abierto') {
       items.push({
         lead_id: l.id,
         lead_nombre: l.nombre,
@@ -2015,8 +2016,8 @@ async function _getPendientesDeMarcar(
       });
       continue;
     }
-    // C) J2 pasada sin marcar asistencia
-    if (l.fecha_junta_2 && l.fecha_junta_2 < hoy && l.asistio_j2 === null) {
+    // C) J2 pasada sin marcar asistencia (solo leads abiertos)
+    if (l.fecha_junta_2 && l.fecha_junta_2 < hoy && l.asistio_j2 === null && l.estado_lead === 'abierto') {
       items.push({
         lead_id: l.id,
         lead_nombre: l.nombre,

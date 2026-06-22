@@ -5,7 +5,7 @@
 // action getCrmLeadAction (modal de edición in-place) armen el MISMO view-model.
 
 import { resolverNombreCampana } from '@/lib/queries';
-import { pipelineStageOf } from '@/lib/pipeline';
+import { deriveStageKey } from '@/lib/pipeline';
 import type { Lead } from '@/lib/leads';
 import type { CrmLead } from './CrmBoard';
 
@@ -41,14 +41,19 @@ export function calendlyDe(l: Lead): { q: string; a: string }[] {
   return pairs.filter(([, a]) => !!a && a.trim()).map(([q, a]) => ({ q, a: a as string }));
 }
 
-export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMap: VisitasMap): CrmLead {
+export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMap: VisitasMap, validStageKeys?: Set<string>): CrmLead {
+  // Etapa efectiva: el override manual SOLO si sigue existiendo en el funnel
+  // actual; si el override quedó huérfano (etapa eliminada del funnel), se ignora
+  // y se usa la etapa derivada de los campos del lead.
+  const override = l.pipeline_stage;
+  const stage = override && (!validStageKeys || validStageKeys.has(override)) ? override : deriveStageKey(l);
   return {
     id: l.id,
     name: l.nombre,
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',
     origin: origenLegible(l, campMap),
-    stage: pipelineStageOf(l),
+    stage,
     created: fmtDay(l.created_at) ?? '—',
     monto: l.monto_cierre_usd ?? 0,
     totalCobrado: l.total_cobrado_usd ?? 0,
