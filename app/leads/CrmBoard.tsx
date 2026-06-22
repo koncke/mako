@@ -95,6 +95,10 @@ export type CrmMarcar = {
 };
 
 export type Edits = {
+  nombre: string;
+  email: string;
+  telefono: string;
+  empresa: string;
   closer: string;
   setter: string;
   motivo: string;
@@ -152,6 +156,7 @@ export function CrmBoard({
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string } | null>(null);
+  const [contactConfirm, setContactConfirm] = useState<CrmLead | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -269,18 +274,21 @@ export function CrmBoard({
     setPendingMove({ id: leadId, from: effStage(lead), to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
   };
 
-  const saveDetail = (l: CrmLead) => {
+  // ¿Cambió algún dato de contacto respecto del origen? (gatilla confirmación)
+  const contactChanged = (l: CrmLead, e: Edits) => {
+    const ph = l.phone === '—' ? '' : l.phone;
+    const co = l.company === 'Sin empresa' ? '' : l.company;
+    return e.nombre.trim() !== l.name.trim() || e.email.trim() !== l.email.trim() || e.telefono.trim() !== ph.trim() || e.empresa.trim() !== co.trim();
+  };
+
+  const persistDetail = (l: CrmLead) => {
     const e = editsFor(l);
-    if (pendingMove && pendingMove.id === l.id) {
-      if (missingFor(pendingMove.to, e).length) {
-        setMoveError(true);
-        return;
-      }
-    }
     startTransition(async () => {
       await saveLeadMetaAction(l.id, {
         closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
         fecha_junta_1: e.fechaJ1 || null, fecha_junta_2: e.fechaJ2 || null,
+        nombre: e.nombre.trim() || undefined, email: e.email.trim() || null,
+        telefono: e.telefono.trim() || null, empresa: e.empresa.trim() || null,
       });
       if (pendingMove && pendingMove.id === l.id) {
         await setLeadStageAction(l.id, pendingMove.to, {
@@ -294,6 +302,16 @@ export function CrmBoard({
       router.refresh();
     });
     closeDetail();
+  };
+
+  const saveDetail = (l: CrmLead) => {
+    const e = editsFor(l);
+    if (pendingMove && pendingMove.id === l.id && missingFor(pendingMove.to, e).length) {
+      setMoveError(true);
+      return;
+    }
+    if (contactChanged(l, e)) { setContactConfirm(l); return; } // contacto: pedir confirmación
+    persistDetail(l);
   };
 
   const removeLead = (id: number) => {
@@ -566,6 +584,20 @@ export function CrmBoard({
           onSave={() => saveDetail(selected)}
           onDelete={() => removeLead(selected.id)}
         />
+      )}
+
+      {/* Confirmación al editar datos de contacto */}
+      {contactConfirm && (
+        <div onClick={() => setContactConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(23,21,17,.35)', padding: '22px 24px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Confirmar cambios de contacto</div>
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Vas a editar datos de contacto (nombre, email, teléfono o empresa) de <b style={{ color: 'var(--ink)' }}>{contactConfirm.name}</b>. Normalmente se sincronizan del origen (Meta/Calendly); un cambio manual puede desincronizarse.</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setContactConfirm(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+              <button onClick={() => { const l = contactConfirm; setContactConfirm(null); persistDetail(l); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Confirmar y guardar</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast Deshacer (5s) tras mover una card en el tablero */}

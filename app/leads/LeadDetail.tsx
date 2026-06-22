@@ -163,10 +163,15 @@ export function LeadDetail({
           {/* contacto + origen */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={card}>
-              <div style={{ ...sectLabel, marginBottom: 12 }}>Contacto</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Email</div><div style={{ fontSize: 14, color: 'var(--ink)', wordBreak: 'break-all' }}>{lead.email || '—'}</div></div>
-                <div><div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Teléfono</div><div style={{ fontSize: 14, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{lead.phone}</div></div>
+              <div style={{ ...sectLabel, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                <span>Contacto</span>
+                <span style={{ fontFamily: SANS, fontSize: 10, letterSpacing: 0, textTransform: 'none', color: 'var(--faint)' }}>editable · confirma al guardar</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <label style={{ display: 'block' }}><span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Nombre</span><input value={edits.nombre} onChange={(e) => onPatch({ nombre: e.target.value })} style={{ ...fieldInput, marginTop: 4 }} /></label>
+                <label style={{ display: 'block' }}><span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Empresa</span><input value={edits.empresa} onChange={(e) => onPatch({ empresa: e.target.value })} placeholder="—" style={{ ...fieldInput, marginTop: 4 }} /></label>
+                <label style={{ display: 'block' }}><span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Email</span><input value={edits.email} onChange={(e) => onPatch({ email: e.target.value })} placeholder="—" style={{ ...fieldInput, marginTop: 4, wordBreak: 'break-all' }} /></label>
+                <label style={{ display: 'block' }}><span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Teléfono</span><input value={edits.telefono} onChange={(e) => onPatch({ telefono: e.target.value })} placeholder="—" style={{ ...fieldInput, marginTop: 4, fontVariantNumeric: 'tabular-nums' }} /></label>
               </div>
             </div>
             <div style={card}>

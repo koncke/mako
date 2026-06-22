@@ -26,6 +26,10 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
   const isGanado = effStage === 'ganado';
   const cuota = isGanado ? String(Math.round(l.monto / 3)) : '';
   return {
+    nombre: l.name,
+    email: l.email,
+    telefono: l.phone === '—' ? '' : l.phone,
+    empresa: l.company === 'Sin empresa' ? '' : l.company,
     closer: l.closer,
     setter: l.setter,
     motivo: l.motivo,

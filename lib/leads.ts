@@ -1160,6 +1160,11 @@ export type LeadMetaInput = {
   motivo_perdida?: string | null;
   fecha_junta_1?: string | null;   // fecha de la J1, editable al mover a Agenda J1
   fecha_junta_2?: string | null;   // fecha de la J2, editable al mover a Agenda J2 / Facturando
+  // Contacto (editable a mano desde la ficha, con confirmación en la UI).
+  nombre?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  empresa?: string | null;
 };
 
 export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {
@@ -1171,6 +1176,10 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (meta.motivo_perdida !== undefined) payload.motivo_perdida = meta.motivo_perdida;
   if (meta.fecha_junta_1 !== undefined) payload.fecha_junta_1 = meta.fecha_junta_1;
   if (meta.fecha_junta_2 !== undefined) payload.fecha_junta_2 = meta.fecha_junta_2;
+  if (meta.nombre !== undefined && meta.nombre) payload.nombre = meta.nombre;
+  if (meta.email !== undefined) payload.email = meta.email;
+  if (meta.empresa !== undefined) payload.empresa = meta.empresa;
+  if (meta.telefono !== undefined) { payload.telefono = meta.telefono; payload.telefono_normalizado = normalizarTelefono(meta.telefono); }
   if (Object.keys(payload).length === 0) return;
   const { error } = await supabase.from('leads').update(payload).eq('id', id);
   if (error) throw new Error(`Error guardando datos del lead ${id}: ${error.message}`);
