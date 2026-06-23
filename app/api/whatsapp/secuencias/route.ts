@@ -6,7 +6,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,18 +22,23 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  let id: number;
-  let activa: boolean;
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown };
   try {
-    const body = (await req.json()) as { id?: unknown; activa?: unknown };
-    id = Number(body.id);
-    activa = body.activa === true;
-    if (!Number.isFinite(id)) throw new Error('id inválido');
+    body = await req.json();
   } catch {
     return Response.json({ ok: false, error: 'body inválido' }, { status: 400 });
   }
+  const id = Number(body.id);
+  if (!Number.isFinite(id)) {
+    return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+  }
   try {
-    await setSecuenciaActiva(id, activa);
+    if (Array.isArray(body.pasos)) {
+      await setSecuenciaPasos(id, body.pasos as PasoSecuencia[]);
+    }
+    if (typeof body.activa === 'boolean') {
+      await setSecuenciaActiva(id, body.activa);
+    }
     return Response.json({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

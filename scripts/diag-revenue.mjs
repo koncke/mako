@@ -1,0 +1,11 @@
+import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+config({ path: resolve(process.cwd(), '.env.local') });
+const sql = postgres(process.env.DATABASE_URL, { ssl:'require', max:1 });
+const [crm] = await sql`SELECT count(*)::int n, sum(monto_cierre_usd)::int total FROM leads WHERE estado_lead='ganado'`;
+console.log('CRM ganado (estado_lead): n=', crm.n, 'sum monto=', crm.total);
+const [sold] = await sql`SELECT count(*)::int n, sum(monto_cierre_usd)::int total FROM leads WHERE cerro=true AND fecha_cierre IS NOT NULL`;
+console.log('Sold (cerro=true & fecha_cierre): n=', sold.n, 'sum=', sold.total);
+const bad = await sql`SELECT id, nombre, monto_cierre_usd, cerro, fecha_cierre, estado_lead, pipeline_stage FROM leads WHERE estado_lead='ganado' AND (cerro IS DISTINCT FROM true OR fecha_cierre IS NULL)`;
+console.log('\nGanado pero sin cerro=true o sin fecha_cierre:');
+for (const r of bad) console.log(`  #${r.id} ${r.nombre} | monto=${r.monto_cierre_usd} cerro=${r.cerro} fecha_cierre=${r.fecha_cierre} pipeline=${r.pipeline_stage}`);
+await sql.end();

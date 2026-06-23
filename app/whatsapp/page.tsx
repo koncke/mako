@@ -60,6 +60,9 @@ interface Paso {
   asunto: string | null;
   cuerpo: string;
   template_wa: string | null;
+  template_categoria?: string;
+  template_idioma?: string;
+  template_param?: string;
 }
 
 interface Secuencia {
@@ -113,6 +116,22 @@ const avatarStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px',
 };
 
+const btnSeqBase: CSSProperties = {
+  flex: 'none', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer',
+  fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600,
+};
+const btnGhost: CSSProperties = { ...btnSeqBase, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)' };
+const btnPrimary: CSSProperties = { ...btnSeqBase, border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)' };
+const iconBtn: CSSProperties = {
+  width: '28px', height: '28px', flex: 'none', borderRadius: '8px', cursor: 'pointer',
+  border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)',
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+};
+const numInput: CSSProperties = {
+  width: '78px', padding: '7px 10px', borderRadius: '9px', border: '1px solid var(--border-strong)',
+  background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '13px',
+};
+
 function etapaChip(key: string | null, label: string | null): { style: CSSProperties; dot: CSSProperties; label: string } | null {
   if (!key || !label) return null;
   const color = ETAPA_COLOR[key] ?? '#888780';
@@ -149,6 +168,9 @@ export default function WhatsAppPage() {
   const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
   const [loadingSeqs, setLoadingSeqs] = useState(true);
   const [selSeqId, setSelSeqId] = useState<number | null>(null);
+  const [editPasos, setEditPasos] = useState<Paso[] | null>(null);
+  const [savingSeq, setSavingSeq] = useState(false);
+  const [seqError, setSeqError] = useState<string | null>(null);
 
   // ── Carga inicial ──
   useEffect(() => {
@@ -185,6 +207,12 @@ export default function WhatsAppPage() {
       }
     })();
   }, []);
+
+  // ── Al cambiar de secuencia, descartar edición en curso ──
+  useEffect(() => {
+    setEditPasos(null);
+    setSeqError(null);
+  }, [selSeqId]);
 
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
@@ -310,6 +338,71 @@ export default function WhatsAppPage() {
     await fetch('/api/whatsapp/secuencias', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, activa }),
     });
+  }
+
+  // ── Edición de pasos ──
+  function startEditPasos() {
+    if (!seqSel) return;
+    setSeqError(null);
+    setEditPasos(seqSel.pasos.map((p) => ({ ...p })));
+  }
+
+  function patchPaso(i: number, patch: Partial<Paso>) {
+    setEditPasos((prev) => (prev ? prev.map((p, j) => (j === i ? { ...p, ...patch } : p)) : prev));
+  }
+
+  function pickTemplatePaso(i: number, name: string) {
+    const tpl = templates.find((t) => t.name === name);
+    if (!tpl) { patchPaso(i, { template_wa: name || null }); return; }
+    patchPaso(i, {
+      template_wa: tpl.name,
+      cuerpo: tpl.body,
+      template_categoria: tpl.category,
+      template_idioma: tpl.language,
+    });
+  }
+
+  function addPaso() {
+    setEditPasos((prev) => [
+      ...(prev ?? []),
+      { orden: (prev?.length ?? 0) + 1, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '', template_wa: null, template_param: 'nombre' },
+    ]);
+  }
+
+  function removePaso(i: number) {
+    setEditPasos((prev) => (prev ? prev.filter((_, j) => j !== i) : prev));
+  }
+
+  function movePaso(i: number, dir: -1 | 1) {
+    setEditPasos((prev) => {
+      if (!prev) return prev;
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  }
+
+  async function saveSeqPasos() {
+    if (!seqSel || !editPasos) return;
+    setSavingSeq(true);
+    setSeqError(null);
+    try {
+      const pasos = editPasos.map((p, i) => ({ ...p, orden: i + 1 }));
+      const r = await fetch('/api/whatsapp/secuencias', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: seqSel.id, pasos }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+      setSecuencias((prev) => prev.map((s) => (s.id === seqSel.id ? { ...s, pasos } : s)));
+      setEditPasos(null);
+    } catch (e) {
+      setSeqError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingSeq(false);
+    }
   }
 
   // ── Derivados ──
@@ -509,26 +602,81 @@ export default function WhatsAppPage() {
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '4px' }}>{seqSel.enviados} enviados · {seqSel.inscriptos} inscriptos · trigger: <code style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{seqSel.trigger_tipo}</code></div>
                   </div>
-                  <button onClick={() => void toggleSeq(seqSel.id, !seqSel.activa)} style={{ flex: 'none', padding: '9px 16px', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, border: '1px solid ' + (seqSel.activa ? 'var(--border-strong)' : 'var(--good)'), background: seqSel.activa ? 'var(--surface)' : 'var(--good-bg)', color: seqSel.activa ? 'var(--dim)' : 'var(--good)' }}>{seqSel.activa ? '⏸ Pausar secuencia' : '▶ Activar secuencia'}</button>
+                  <div style={{ display: 'flex', gap: '8px', flex: 'none' }}>
+                    {editPasos ? (
+                      <>
+                        <button onClick={() => { setEditPasos(null); setSeqError(null); }} disabled={savingSeq} style={{ ...btnGhost, opacity: savingSeq ? 0.6 : 1 }}>Cancelar</button>
+                        <button onClick={() => void saveSeqPasos()} disabled={savingSeq} style={{ ...btnPrimary, opacity: savingSeq ? 0.6 : 1 }}>{savingSeq ? 'Guardando…' : '✓ Guardar pasos'}</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={startEditPasos} style={btnGhost}>✎ Editar pasos</button>
+                        <button onClick={() => void toggleSeq(seqSel.id, !seqSel.activa)} style={{ ...btnSeqBase, padding: '9px 16px', border: '1px solid ' + (seqSel.activa ? 'var(--border-strong)' : 'var(--good)'), background: seqSel.activa ? 'var(--surface)' : 'var(--good-bg)', color: seqSel.activa ? 'var(--dim)' : 'var(--good)' }}>{seqSel.activa ? '⏸ Pausar' : '▶ Activar'}</button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px' }}>
-                  {seqSel.pasos.map((st, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none', width: '34px' }}>
-                        <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'var(--auto-bubble)', border: '1px solid var(--warn-fill)', color: 'var(--warn)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: "'Geist Mono', monospace" }}>{i + 1}</span>
-                        {i < seqSel.pasos.length - 1 && <span style={{ width: '2px', flex: 1, minHeight: '30px', background: 'var(--border)' }}></span>}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0, paddingBottom: '18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{fmtDelay(st.delay_horas)}</span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--good)', fontWeight: 600 }}>⚡ {st.canal === 'whatsapp' ? 'WhatsApp' : st.canal}</span>
-                          {st.template_wa && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11.5px', color: 'var(--dim)' }}>{st.template_wa}</span>}
+                  {seqError && (
+                    <div style={{ marginBottom: '12px', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{seqError}</div>
+                  )}
+                  {editPasos ? (
+                    <>
+                      {editPasos.map((st, i) => {
+                        const tplOptions = [
+                          { value: '', label: 'Sin plantilla' },
+                          ...templates.map((t) => ({ value: t.name, label: t.name })),
+                          ...(st.template_wa && !templates.some((t) => t.name === st.template_wa)
+                            ? [{ value: st.template_wa, label: `${st.template_wa} (no aprobada)` }]
+                            : []),
+                        ];
+                        return (
+                          <div key={i} style={{ border: '1px solid var(--border)', borderRadius: '13px', padding: '14px', marginBottom: '12px', background: 'var(--surface-2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                              <span style={{ fontWeight: 700, fontFamily: "'Geist Mono', monospace", fontSize: '12.5px', color: 'var(--ink)' }}>Paso {i + 1}</span>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button onClick={() => movePaso(i, -1)} disabled={i === 0} title="Subir" style={{ ...iconBtn, opacity: i === 0 ? 0.4 : 1 }}>↑</button>
+                                <button onClick={() => movePaso(i, 1)} disabled={i === editPasos.length - 1} title="Bajar" style={{ ...iconBtn, opacity: i === editPasos.length - 1 ? 0.4 : 1 }}>↓</button>
+                                <button onClick={() => removePaso(i)} title="Eliminar paso" style={{ ...iconBtn, color: 'var(--bad)' }}>✕</button>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+                              <label style={{ fontSize: '12px', color: 'var(--dim)' }}>Demora</label>
+                              <input type="number" min={0} value={st.delay_horas} onChange={(e) => patchPaso(i, { delay_horas: Math.max(0, Number(e.target.value) || 0) })} style={numInput} />
+                              <span style={{ fontSize: '12px', color: 'var(--faint)' }}>horas → {fmtDelay(st.delay_horas)}</span>
+                            </div>
+                            <div style={{ marginBottom: '10px' }}>
+                              <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Plantilla de WhatsApp</label>
+                              <Dropdown value={st.template_wa ?? ''} options={tplOptions} onChange={(v) => pickTemplatePaso(i, v)} placeholder="Elegí plantilla" width="100%" ariaLabel="Plantilla del paso" />
+                            </div>
+                            <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontSize: '13.5px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo || <span style={{ color: 'var(--faint)' }}>Elegí una plantilla aprobada para previsualizar el texto.</span>}</div>
+                          </div>
+                        );
+                      })}
+                      <button onClick={addPaso} style={{ width: '100%', padding: '11px', borderRadius: '11px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600 }}>+ Agregar paso</button>
+                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '12px', lineHeight: 1.5 }}>Editás la <strong>demora</strong>, la <strong>plantilla</strong> y el orden de cada paso. El texto sale de la plantilla aprobada de Meta. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
+                    </>
+                  ) : (
+                    <>
+                      {seqSel.pasos.map((st, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none', width: '34px' }}>
+                            <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'var(--auto-bubble)', border: '1px solid var(--warn-fill)', color: 'var(--warn)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: "'Geist Mono', monospace" }}>{i + 1}</span>
+                            {i < seqSel.pasos.length - 1 && <span style={{ width: '2px', flex: 1, minHeight: '30px', background: 'var(--border)' }}></span>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0, paddingBottom: '18px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{fmtDelay(st.delay_horas)}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--good)', fontWeight: 600 }}>⚡ {st.canal === 'whatsapp' ? 'WhatsApp' : st.canal}</span>
+                              {st.template_wa && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11.5px', color: 'var(--dim)' }}>{st.template_wa}</span>}
+                            </div>
+                            <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: '14px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo}</div>
+                          </div>
                         </div>
-                        <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: '14px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo}</div>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no acá. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
+                      ))}
+                      <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no acá. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
+                    </>
+                  )}
                 </div>
               </>
             )}

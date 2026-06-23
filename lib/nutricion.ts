@@ -140,6 +140,29 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
   if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
 }
 
+export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Promise<void> {
+  const supabase = getSupabaseServer();
+  // Normaliza el orden (1..n) y descarta basura.
+  const limpio = pasos
+    .filter((p) => p && typeof p === 'object')
+    .map((p, i) => ({
+      orden: i + 1,
+      canal: p.canal === 'email' ? 'email' : 'whatsapp',
+      delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
+      asunto: p.asunto ?? null,
+      cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
+      template_wa: p.template_wa ?? null,
+      template_categoria: p.template_categoria,
+      template_idioma: p.template_idioma ?? 'es_MX',
+      template_param: p.template_param ?? 'nombre',
+    }));
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ pasos: limpio, updated_at: ahoraISO() })
+    .eq('id', id);
+  if (error) throw new Error(`setSecuenciaPasos: ${error.message}`);
+}
+
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
 export async function leadsDeCohorte(triggerTipo: string): Promise<number[]> {
   const supabase = getSupabaseServer();

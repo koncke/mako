@@ -1,0 +1,11 @@
+import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+config({ path: resolve(process.cwd(), '.env.local') });
+const sql = postgres(process.env.DATABASE_URL, { ssl:'require', max:1 });
+const dist = await sql`SELECT to_char(fecha_pago,'YYYY-MM') mes, count(*)::int n, sum(monto_usd)::int total FROM pagos WHERE pagado=true GROUP BY 1 ORDER BY 1`;
+console.log('Cash pagado por mes (fecha_pago):'); for(const r of dist) console.log(`  ${r.mes}: ${r.n} pagos, $${r.total}`);
+const [maxC] = await sql`SELECT sum(monto_usd)::int t FROM pagos WHERE pagado=true AND fecha_pago BETWEEN '2025-11-01' AND '2026-06-20'`;
+const [junC] = await sql`SELECT sum(monto_usd)::int t FROM pagos WHERE pagado=true AND fecha_pago BETWEEN '2026-06-01' AND '2026-06-20'`;
+console.log(`\nCash Máximo(nov-jun)= $${maxC.t} | Cash junio= $${junC.t}`);
+const [out] = await sql`SELECT sum(monto_usd)::int t, count(*)::int n FROM pagos WHERE pagado=false`;
+console.log(`Outstanding global (no pagados): $${out.t} (${out.n} cuotas)`);
+await sql.end();

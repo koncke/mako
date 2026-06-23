@@ -1,0 +1,10 @@
+import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+config({ path: resolve(process.cwd(), '.env.local') });
+const sql = postgres(process.env.DATABASE_URL, { ssl:'require', max:1 });
+const a = await sql`SELECT tipo, status, count(*)::int n, count(secciones)::int con_sec FROM ad_transcripts GROUP BY tipo,status ORDER BY n DESC`;
+console.log('tipo/status:'); for(const r of a) console.log(`  ${r.tipo||'-'} / ${r.status}: ${r.n} (con secciones: ${r.con_sec})`);
+const [v] = await sql`SELECT jsonb_array_length(secciones) n, secciones->0->>'titulo' t0 FROM ad_transcripts WHERE ad_id='120237960510320570'`;
+console.log(`\nVideo Delegar: ${v.n} secciones, 1ra="${v.t0}"`);
+const [im] = await sql`SELECT ad_id, jsonb_array_length(secciones) n, left(transcript,90) t FROM ad_transcripts WHERE tipo='imagen' AND secciones IS NOT NULL LIMIT 1`;
+console.log(`Imagen ejemplo (${im.ad_id}): ${im.n} secciones · ${im.t}…`);
+await sql.end();
