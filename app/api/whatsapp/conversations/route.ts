@@ -7,7 +7,7 @@
 // del funnel, id para el link al CRM).
 // =============================================================================
 
-import { listConversations } from '@/lib/chatwoot';
+import { listConversations, type ChatwootConversation } from '@/lib/chatwoot';
 import { getSupabaseServer } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -57,43 +57,56 @@ export async function GET() {
     }
 
     // Agrupar por contacto.
-    type Acc = {
-      contactId: number; contacto: string; telefono: string | null;
-      primaryConvId: number; ultimoMensaje: string | null; ultimaActividad: number;
-      sinLeer: number; ventanaAbierta: boolean;
+    // Agrupar por PERSONA: por los últimos 10 dígitos del teléfono (así se juntan
+    // los contactos duplicados de Chatwoot con +54… vs +549…). Fallback a contactId.
+    const groupKey = (c: ChatwootConversation): string => {
+      const d = digits(c.telefono);
+      if (d.length >= 10) return 'p' + d.slice(-10);
+      if (c.contactId) return 'c' + c.contactId;
+      return 'x' + c.id;
     };
-    const porContacto = new Map<number, Acc>();
+
+    type Acc = {
+      id: string; contacto: string; telefono: string | null;
+      sendContactId: number; convIds: number[];
+      ultimoMensaje: string | null; ultimaActividad: number; sinLeer: number; ventanaAbierta: boolean;
+    };
+    const grupos = new Map<string, Acc>();
     for (const c of convs) {
-      const key = c.contactId || c.id; // fallback si no vino contactId
-      const prev = porContacto.get(key);
+      const key = groupKey(c);
+      const prev = grupos.get(key);
       const act = c.ultimaActividad ?? 0;
       if (!prev) {
-        porContacto.set(key, {
-          contactId: key, contacto: c.contacto, telefono: c.telefono,
-          primaryConvId: c.id, ultimoMensaje: c.ultimoMensaje, ultimaActividad: act, sinLeer: c.sinLeer,
-          ventanaAbierta: c.puedeResponder,
+        grupos.set(key, {
+          id: key, contacto: c.contacto, telefono: c.telefono,
+          sendContactId: c.contactId, convIds: [c.id],
+          ultimoMensaje: c.ultimoMensaje, ultimaActividad: act, sinLeer: c.sinLeer, ventanaAbierta: c.puedeResponder,
         });
       } else {
+        prev.convIds.push(c.id);
         prev.sinLeer += c.sinLeer;
         prev.ventanaAbierta = prev.ventanaAbierta || c.puedeResponder;
         if (act >= prev.ultimaActividad) {
           prev.ultimaActividad = act;
           prev.ultimoMensaje = c.ultimoMensaje;
-          prev.primaryConvId = c.id;
+          prev.sendContactId = c.contactId || prev.sendContactId;
           if (c.telefono) prev.telefono = c.telefono;
         }
+        // nos quedamos con el nombre más completo
+        if (c.contacto && c.contacto !== 'Sin nombre' && c.contacto.length > prev.contacto.length) prev.contacto = c.contacto;
       }
     }
 
-    const contactos = [...porContacto.values()]
+    const contactos = [...grupos.values()]
       .sort((a, b) => b.ultimaActividad - a.ultimaActividad)
       .map((ct) => {
         const d = digits(ct.telefono);
         const lead = leadByPhone.get(d) ?? (d.length >= 10 ? leadByPhone.get(d.slice(-10)) : undefined);
         const etapa = lead ? derivarEtapa(lead) : null;
         return {
-          contactId: ct.contactId,
-          primaryConvId: ct.primaryConvId,
+          id: ct.id,
+          convIds: ct.convIds,
+          sendContactId: ct.sendContactId,
           contacto: ct.contacto,
           telefono: ct.telefono,
           ultimoMensaje: ct.ultimoMensaje,

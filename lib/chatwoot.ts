@@ -327,6 +327,13 @@ export async function getContactMessages(contactId: number): Promise<ChatwootMes
   return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
 }
 
+// Mensajes mergeados de una LISTA de conversaciones (para agrupar por persona
+// cuando Chatwoot tiene varios contactos del mismo teléfono).
+export async function getMessagesForConvs(ids: number[]): Promise<ChatwootMessage[]> {
+  const arrays = await Promise.all(ids.map((id) => getMessages(id).catch(() => [] as ChatwootMessage[])));
+  return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
+}
+
 // Responde texto libre al contacto (reusa su conversación abierta). Solo llega
 // si está dentro de la ventana de 24h del lead.
 export async function sendToContact(contactId: number, content: string): Promise<SendResult> {

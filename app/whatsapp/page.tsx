@@ -11,7 +11,7 @@
 //    El cuerpo de cada paso es una plantilla aprobada de Meta (solo lectura).
 // =============================================================================
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,8 +19,9 @@ import { Dropdown } from '../components/Dropdown';
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface Contacto {
-  contactId: number;
-  primaryConvId: number;
+  id: string;                 // clave de grupo (por teléfono) — junta duplicados
+  convIds: number[];          // todas las conversaciones de esa persona
+  sendContactId: number;      // contacto al que se le manda (el de la conv más reciente)
   contacto: string;
   telefono: string | null;
   ultimoMensaje: string | null;
@@ -134,7 +135,9 @@ export default function WhatsAppPage() {
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todas');
   const [soloVentana, setSoloVentana] = useState(false);
-  const [selId, setSelId] = useState<number | null>(null);
+  const [selId, setSelId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const totalSinLeerRef = useRef<number | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [draft, setDraft] = useState('');
@@ -155,7 +158,8 @@ export default function WhatsAppPage() {
         const j = await r.json();
         const list: Contacto[] = j.ok ? j.contactos : [];
         setContactos(list);
-        if (list[0]) setSelId(list[0].contactId);
+        totalSinLeerRef.current = list.reduce((s, c) => s + c.sinLeer, 0);
+        if (list[0]) setSelId(list[0].id);
       } finally {
         setLoadingConvs(false);
       }
@@ -182,29 +186,80 @@ export default function WhatsAppPage() {
     })();
   }, []);
 
-  // ── Mensajes del contacto seleccionado ──
+  // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
     if (selId == null) { setMensajes([]); return; }
+    const grupo = contactos.find((c) => c.id === selId);
+    const ids = grupo?.convIds ?? [];
+    if (!ids.length) { setMensajes([]); return; }
     setLoadingMsgs(true);
     setSendError(null);
     void (async () => {
       try {
-        const r = await fetch(`/api/whatsapp/contacts/${selId}/messages`);
+        const r = await fetch(`/api/whatsapp/thread?ids=${ids.join(',')}`);
         const j = await r.json();
         setMensajes(j.ok ? j.mensajes : []);
       } finally {
         setLoadingMsgs(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId]);
+
+  // ── Notificación (con sonido) de mensajes entrantes — polling cada 20s ──
+  useEffect(() => {
+    const beep = () => {
+      try {
+        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = 880;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.36);
+      } catch { /* sin audio */ }
+    };
+    const tick = async () => {
+      try {
+        const r = await fetch('/api/whatsapp/conversations');
+        const j = await r.json();
+        if (!j.ok) return;
+        const list: Contacto[] = j.contactos;
+        const total = list.reduce((s, c) => s + c.sinLeer, 0);
+        const prev = totalSinLeerRef.current;
+        if (prev != null && total > prev) {
+          const nuevo = [...list].sort((a, b) => b.ultimaActividad - a.ultimaActividad).find((c) => c.sinLeer > 0);
+          setToast(`Nuevo mensaje${nuevo ? ` de ${nuevo.contacto}` : ''}`);
+          beep();
+          setTimeout(() => setToast(null), 6000);
+        }
+        totalSinLeerRef.current = total;
+        setContactos(list);
+      } catch { /* ignore */ }
+    };
+    const iv = setInterval(() => void tick(), 20000);
+    return () => clearInterval(iv);
+  }, []);
+
+  async function refetchHilo(grupo: Contacto) {
+    const rr = await fetch(`/api/whatsapp/thread?ids=${grupo.convIds.join(',')}`);
+    const jj = await rr.json();
+    setMensajes(jj.ok ? jj.mensajes : []);
+  }
 
   async function enviar() {
     const txt = draft.trim();
-    if (!txt || selId == null || sending) return;
+    const grupo = contactos.find((c) => c.id === selId);
+    if (!txt || !grupo || sending) return;
     setSending(true);
     setSendError(null);
     try {
-      const r = await fetch(`/api/whatsapp/contacts/${selId}/messages`, {
+      const r = await fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: txt }),
       });
       const j = await r.json();
@@ -212,9 +267,7 @@ export default function WhatsAppPage() {
         setSendError(j.error || 'No se pudo enviar.');
       } else {
         setDraft('');
-        const rr = await fetch(`/api/whatsapp/contacts/${selId}/messages`);
-        const jj = await rr.json();
-        setMensajes(jj.ok ? jj.mensajes : []);
+        await refetchHilo(grupo);
       }
     } catch (e) {
       setSendError(e instanceof Error ? e.message : String(e));
@@ -225,15 +278,16 @@ export default function WhatsAppPage() {
 
   async function enviarTemplate() {
     const t = templates.find((x) => x.name === selTpl);
-    if (!t || selId == null || sending) return;
+    const grupo = contactos.find((c) => c.id === selId);
+    if (!t || !grupo || sending) return;
     setSending(true);
     setSendError(null);
     const param = t.params[0];
-    const nombre = contactos.find((c) => c.contactId === selId)?.contacto ?? '';
+    const nombre = grupo.contacto ?? '';
     const bodyParams: Record<string, string> = param ? { [param]: nombre } : {};
     const content = param ? t.body.split(`{{${param}}}`).join(nombre) : t.body;
     try {
-      const r = await fetch(`/api/whatsapp/contacts/${selId}/messages`, {
+      const r = await fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ templateName: t.name, category: t.category, language: t.language, bodyParams, content }),
@@ -242,9 +296,7 @@ export default function WhatsAppPage() {
       if (!j.ok) {
         setSendError(j.error || 'No se pudo enviar la plantilla.');
       } else {
-        const rr = await fetch(`/api/whatsapp/contacts/${selId}/messages`);
-        const jj = await rr.json();
-        setMensajes(jj.ok ? jj.mensajes : []);
+        await refetchHilo(grupo);
       }
     } catch (e) {
       setSendError(e instanceof Error ? e.message : String(e));
@@ -270,7 +322,7 @@ export default function WhatsAppPage() {
     if (q && !(c.contacto.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q))) return false;
     return true;
   });
-  const sel = contactos.find((c) => c.contactId === selId) ?? null;
+  const sel = contactos.find((c) => c.id === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
   const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
@@ -281,6 +333,9 @@ export default function WhatsAppPage() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
+      {toast && (
+        <div onClick={() => setToast(null)} style={{ position: 'fixed', top: 20, right: 24, zIndex: 1000, background: 'var(--ink)', color: 'var(--on-sidebar)', padding: '12px 16px', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,.28)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>💬 {toast}</div>
+      )}
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '18px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '7px' }}>
@@ -320,10 +375,10 @@ export default function WhatsAppPage() {
               {loadingConvs && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
               {!loadingConvs && filtrados.length === 0 && <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13.5px' }}>Sin conversaciones.</div>}
               {filtrados.map((c) => {
-                const active = c.contactId === selId;
+                const active = c.id === selId;
                 const chip = etapaChip(c.etapaKey, c.etapaLabel);
                 return (
-                  <div key={c.contactId} onClick={() => setSelId(c.contactId)} style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
+                  <div key={c.id} onClick={() => setSelId(c.id)} style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
                     <div style={avatarStyle}>{initials(c.contacto)}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
