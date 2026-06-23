@@ -82,20 +82,30 @@ export async function POST(req: NextRequest) {
     console.error(`[webhook:chatwoot] pausa: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // 1.5) Si el lead respondió y SIGUE ABIERTO, pasa a "Nutrición - Manual"
-  //      (pipeline_stage='manual') para que un humano lo atienda. No degradamos
-  //      leads ganados/perdidos/descalificados.
+  // 1.5) Si el lead respondió y todavía está EN FRÍO (abierto, sin agenda ni
+  //      reuniones ni override de etapa), pasa a "Nutrición - Manual" para que un
+  //      humano lo atienda. NO tocamos leads ganados/perdidos/descalificados ni
+  //      los que ya avanzaron (agendaron / R1 / R2): degradarlos los sacaría del
+  //      tablero.
   try {
     if (leadId) {
       const supabase = getSupabaseServer();
       const { data } = await supabase
         .from('leads')
-        .select('estado_lead, pipeline_stage')
+        .select('estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2')
         .eq('id', leadId)
         .maybeSingle();
-      const estado = (data as { estado_lead?: string } | null)?.estado_lead;
-      const stage = (data as { pipeline_stage?: string } | null)?.pipeline_stage;
-      if (estado === 'abierto' && stage !== 'manual') {
+      const l = (data ?? {}) as {
+        estado_lead?: string; pipeline_stage?: string | null;
+        fecha_agenda?: string | null; fecha_junta_1?: string | null; fecha_junta_2?: string | null;
+        asistio_j1?: boolean | null; asistio_j2?: boolean | null;
+      };
+      const enFrio =
+        l.estado_lead === 'abierto' &&
+        (l.pipeline_stage == null || l.pipeline_stage === 'nutri') &&
+        !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2 &&
+        l.asistio_j1 == null && l.asistio_j2 == null;
+      if (enFrio) {
         await supabase.from('leads').update({ pipeline_stage: 'manual', nutricion_realizada: true }).eq('id', leadId);
       }
     }

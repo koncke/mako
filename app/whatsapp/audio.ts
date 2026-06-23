@@ -16,10 +16,13 @@ export async function blobToMp3(blob: Blob): Promise<Blob> {
   let audioBuf: AudioBuffer;
   try {
     audioBuf = await ctx.decodeAudioData(arrayBuf);
-  } finally {
-    void ctx.close();
+  } catch (e) {
+    await ctx.close().catch(() => {});
+    throw e;
   }
+  await ctx.close().catch(() => {});
 
+  if (!audioBuf.length) throw new Error('audio vacío');
   const sampleRate = audioBuf.sampleRate;
   const ch0 = audioBuf.getChannelData(0);
   const ch1 = audioBuf.numberOfChannels > 1 ? audioBuf.getChannelData(1) : null;

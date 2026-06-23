@@ -267,6 +267,9 @@ export default function WhatsAppPage() {
   const selIdRef = useRef<string | null>(null);
   const msgScrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
+  // Chats marcados como leídos en sesión → groupId : ultimaActividad al leer.
+  // Sirve para que el polling no re-pinte el badge (update_last_seen laggea).
+  const readGroupsRef = useRef<Map<string, number>>(new Map());
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
@@ -281,6 +284,7 @@ export default function WhatsAppPage() {
   const [selTpl, setSelTpl] = useState<string>('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [unreadAtOpen, setUnreadAtOpen] = useState(0);
+  const [unreadAnchorId, setUnreadAnchorId] = useState<number | null>(null);
   const [blocking, setBlocking] = useState(false);
   // Grabación de nota de voz
   const [recording, setRecording] = useState(false);
@@ -304,7 +308,13 @@ export default function WhatsAppPage() {
   // envió (y un adjunto queda atado a SU chat, nunca se manda al equivocado).
   const draft = selId ? (drafts[selId] ?? '') : '';
   const adjunto = selId ? (adjuntos[selId] ?? null) : null;
-  const setDraft = (v: string) => { if (selId) setDrafts((d) => ({ ...d, [selId]: v })); };
+  const setDraft = (v: string) => {
+    if (!selId) return;
+    setDrafts((d) => {
+      if (v === '') { const { [selId]: _omit, ...rest } = d; return rest; }
+      return { ...d, [selId]: v };
+    });
+  };
   const appendDraft = (s: string) => { if (selId) setDrafts((d) => ({ ...d, [selId]: (d[selId] ?? '') + s })); };
   const setAdjunto = (f: File | null) => { if (selId) setAdjuntos((a) => ({ ...a, [selId]: f })); };
 
@@ -376,16 +386,29 @@ export default function WhatsAppPage() {
     if (el && stickBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [mensajes]);
 
+  // Fijar el ancla del divisor "no leídos" UNA sola vez al cargar el hilo
+  // (clampeado a los entrantes realmente cargados → no se rompe ni se desplaza).
+  useEffect(() => {
+    if (unreadAnchorId !== null || unreadAtOpen <= 0 || mensajes.length === 0) return;
+    const incoming: number[] = [];
+    for (let i = 0; i < mensajes.length; i++) if (!mensajes[i].saliente) incoming.push(i);
+    if (!incoming.length) return;
+    const target = Math.min(unreadAtOpen, incoming.length);
+    setUnreadAnchorId(mensajes[incoming[incoming.length - target]].id);
+  }, [mensajes, unreadAtOpen, unreadAnchorId]);
+
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
     selIdRef.current = selId;
     stickBottomRef.current = true;
+    setUnreadAnchorId(null);
     setSendError(null);
     setEmojiOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
-    // Cancelar cualquier grabación en curso al cambiar de chat.
-    if (mediaRecRef.current && mediaRecRef.current.state === 'recording') {
+    // Cancelar cualquier grabación en curso (incluida pausada) al cambiar de chat.
+    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
       recCancelRef.current = true;
+      if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
       try { mediaRecRef.current.stop(); } catch { /* noop */ }
     }
     if (selId == null) { setMensajes([]); setUnreadAtOpen(0); return; }
@@ -393,11 +416,14 @@ export default function WhatsAppPage() {
     const ids = grupo?.convIds ?? [];
     setUnreadAtOpen(grupo?.sinLeer ?? 0);
     // Marcar leído en Chatwoot + limpiar el badge localmente (como WhatsApp).
-    if (grupo && grupo.sinLeer > 0) {
-      void fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/read`, { method: 'POST' }).catch(() => {});
-      const n = grupo.sinLeer;
-      setContactos((prev) => prev.map((c) => (c.id === grupo.id ? { ...c, sinLeer: 0 } : c)));
-      totalSinLeerRef.current = Math.max(0, (totalSinLeerRef.current ?? 0) - n);
+    if (grupo) {
+      readGroupsRef.current.set(grupo.id, grupo.ultimaActividad);
+      if (grupo.sinLeer > 0) {
+        void fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/read`, { method: 'POST' }).catch(() => {});
+        const n = grupo.sinLeer;
+        setContactos((prev) => prev.map((c) => (c.id === grupo.id ? { ...c, sinLeer: 0 } : c)));
+        totalSinLeerRef.current = Math.max(0, (totalSinLeerRef.current ?? 0) - n);
+      }
     }
     if (!ids.length) { setMensajes([]); return; }
     setLoadingMsgs(true);
@@ -421,7 +447,25 @@ export default function WhatsAppPage() {
         const r = await fetch('/api/whatsapp/conversations');
         const j = await r.json();
         if (!j.ok) return;
-        const list: Contacto[] = j.contactos;
+        const openId = selIdRef.current;
+        // Corrección de no-leídos: el chat abierto siempre 0; los marcados leídos
+        // en sesión siguen 0 hasta que llegue actividad nueva (update_last_seen
+        // del server laggea, si no el badge "revive" sobre el chat abierto).
+        const list: Contacto[] = (j.contactos as Contacto[]).map((c) => {
+          if (c.id === openId) return { ...c, sinLeer: 0 };
+          const readAt = readGroupsRef.current.get(c.id);
+          if (readAt != null) {
+            if (c.ultimaActividad <= readAt) return { ...c, sinLeer: 0 };
+            readGroupsRef.current.delete(c.id); // novedad real → vuelve a contar
+          }
+          return c;
+        });
+        // Si el chat abierto trae unread nuevo del server, re-marcamos leído.
+        const openSrv = (j.contactos as Contacto[]).find((c) => c.id === openId);
+        if (openSrv && openSrv.sinLeer > 0) {
+          readGroupsRef.current.set(openId!, openSrv.ultimaActividad);
+          void fetch(`/api/whatsapp/contacts/${openSrv.sendContactId}/read`, { method: 'POST' }).catch(() => {});
+        }
         const total = list.reduce((s, c) => s + c.sinLeer, 0);
         const prev = totalSinLeerRef.current;
         if (prev != null && total > prev) {
@@ -433,7 +477,6 @@ export default function WhatsAppPage() {
         totalSinLeerRef.current = total;
         setContactos(list);
         // Refrescar EN VIVO el hilo abierto (mensajes entrantes + cambios de tick).
-        const openId = selIdRef.current;
         if (openId) {
           const g = list.find((c) => c.id === openId);
           if (g) {
@@ -562,7 +605,8 @@ export default function WhatsAppPage() {
   };
 
   async function enviarAudio(blob: Blob, ext: string, grupo: Contacto) {
-    if (!blob.size) return;
+    const enEseChat = () => selIdRef.current === grupo.id;
+    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
     setSending(true);
     setSendError(null);
     try {
@@ -570,10 +614,10 @@ export default function WhatsAppPage() {
       fd.append('file', blob, `audio-${Date.now()}.${ext}`);
       const r = await fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/attachments`, { method: 'POST', body: fd });
       const j = await r.json();
-      if (!j.ok) setSendError(j.error || 'No se pudo enviar el audio.');
+      if (!j.ok) { if (enEseChat()) setSendError(j.error || 'No se pudo enviar el audio.'); }
       else await refetchHilo(grupo);
     } catch (e) {
-      setSendError(e instanceof Error ? e.message : String(e));
+      if (enEseChat()) setSendError(e instanceof Error ? e.message : String(e));
     } finally {
       setSending(false);
     }
@@ -620,12 +664,12 @@ export default function WhatsAppPage() {
         return;
       }
       // Formato que WhatsApp no acepta (webm de Chrome/Edge) → convertir a MP3.
+      // Mantenemos sending=true de punta a punta (enviarAudio lo apaga en su finally).
       setSending(true);
       void (async () => {
         try {
           const { blobToMp3 } = await import('./audio');
           const mp3 = await blobToMp3(blob);
-          setSending(false);
           await enviarAudio(mp3, 'mp3', destGrupo);
         } catch (e) {
           setSending(false);
@@ -774,15 +818,6 @@ export default function WhatsAppPage() {
   const sel = contactos.find((c) => c.id === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
-  // Índice del primer mensaje no leído (para el divisor "X mensajes no leídos").
-  const firstUnreadIdx = (() => {
-    if (unreadAtOpen <= 0) return -1;
-    let cnt = 0;
-    for (let i = mensajes.length - 1; i >= 0; i--) {
-      if (!mensajes[i].saliente) { cnt++; if (cnt === unreadAtOpen) return i; }
-    }
-    return -1;
-  })();
   const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
@@ -879,11 +914,11 @@ export default function WhatsAppPage() {
                 <div ref={msgScrollRef} onScroll={() => { const el = msgScrollRef.current; if (el) stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
                   {loadingMsgs && <div style={{ color: 'var(--dim)', fontSize: '13.5px' }}>Cargando mensajes…</div>}
                   {!loadingMsgs && mensajes.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13.5px' }}>Sin mensajes.</div>}
-                  {mensajes.map((m, i) => {
+                  {mensajes.map((m) => {
                     const mine = m.saliente;
                     return (
                       <Fragment key={m.id}>
-                        {i === firstUnreadIdx && (
+                        {m.id === unreadAnchorId && (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '2px 0' }}>
                             <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '999px', padding: '3px 12px' }}>{unreadAtOpen} {unreadAtOpen === 1 ? 'mensaje no leído' : 'mensajes no leídos'}</span>
                           </div>
@@ -921,8 +956,9 @@ export default function WhatsAppPage() {
                   })}
                 </div>
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
-                {ventanaAbierta ? (
-                  recording ? (
+                {sel.bloqueado ? (
+                  <div style={{ padding: '16px', borderTop: '1px solid var(--border)', textAlign: 'center', fontSize: '13px', color: 'var(--dim)' }}>⛔ Contacto bloqueado. <button onClick={() => void toggleBloqueo()} disabled={blocking} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Desbloquear</button> para volver a escribir.</div>
+                ) : recording ? (
                     <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
                       <style>{WAVE_CSS}</style>
                       <button onClick={() => stopRec(true)} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ flex: 'none', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconTrash /></button>
@@ -936,7 +972,7 @@ export default function WhatsAppPage() {
                       <button onClick={recPaused ? resumeRec : pauseRec} title={recPaused ? 'Reanudar' : 'Pausar'} aria-label={recPaused ? 'Reanudar grabación' : 'Pausar grabación'} style={{ flex: 'none', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{recPaused ? <IconPlay /> : <IconPause />}</button>
                       <button onClick={() => stopRec(false)} disabled={sending} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
                     </div>
-                  ) : (
+                ) : ventanaAbierta ? (
                   <div style={{ borderTop: '1px solid var(--border)', position: 'relative' }}>
                     {emojiOpen && <div onClick={() => setEmojiOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }} />}
                     {emojiOpen && (
@@ -971,7 +1007,6 @@ export default function WhatsAppPage() {
                       )}
                     </div>
                   </div>
-                  )
                 ) : (
                   <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '8px' }}>Ventana de 24h cerrada (el lead no escribió hace más de un día). Fuera de la ventana WhatsApp solo entrega <strong>plantillas aprobadas</strong>:</div>

@@ -14,6 +14,8 @@ import { getSupabaseServer } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
+const MOTIVO_BLOQUEO = 'Bloqueado en WhatsApp';
+
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const contactId = Number(id);
@@ -42,10 +44,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (Number.isFinite(leadId) && leadId > 0) {
       try {
         if (blocked) {
-          await setPipelineStage(leadId, 'descal', { motivo: 'Bloqueado en WhatsApp' });
+          await setPipelineStage(leadId, 'descal', { motivo: MOTIVO_BLOQUEO });
         } else {
-          await updateLead(leadId, { estado_lead: 'abierto', motivo_perdida: null });
-          await getSupabaseServer().from('leads').update({ pipeline_stage: null }).eq('id', leadId);
+          // Solo revertir si el bloqueo fue quien lo descalificó (marcado por el
+          // motivo). Si el lead cambió de estado por otra razón, no lo tocamos.
+          const supabase = getSupabaseServer();
+          const { data } = await supabase
+            .from('leads')
+            .select('estado_lead, motivo_perdida')
+            .eq('id', leadId)
+            .maybeSingle();
+          const l = (data ?? {}) as { estado_lead?: string; motivo_perdida?: string | null };
+          if (l.estado_lead === 'descalificado' && l.motivo_perdida === MOTIVO_BLOQUEO) {
+            await updateLead(leadId, { estado_lead: 'abierto', motivo_perdida: null });
+            await supabase.from('leads').update({ pipeline_stage: null }).eq('id', leadId);
+          }
         }
       } catch (e) {
         console.error(`[api:whatsapp/contacts block] lead sync: ${e instanceof Error ? e.message : String(e)}`);

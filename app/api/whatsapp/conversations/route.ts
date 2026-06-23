@@ -68,7 +68,7 @@ export async function GET() {
 
     type Acc = {
       id: string; contacto: string; telefono: string | null; avatar: string | null;
-      sendContactId: number; convIds: number[]; bloqueado: boolean;
+      sendContactId: number; convs: Array<{ id: number; act: number }>; bloqueado: boolean;
       ultimoMensaje: string | null; ultimaActividad: number; sinLeer: number; ventanaAbierta: boolean;
     };
     const grupos = new Map<string, Acc>();
@@ -79,11 +79,11 @@ export async function GET() {
       if (!prev) {
         grupos.set(key, {
           id: key, contacto: c.contacto, telefono: c.telefono, avatar: c.avatar,
-          sendContactId: c.contactId, convIds: [c.id], bloqueado: c.bloqueado,
+          sendContactId: c.contactId, convs: [{ id: c.id, act }], bloqueado: c.bloqueado,
           ultimoMensaje: c.ultimoMensaje, ultimaActividad: act, sinLeer: c.sinLeer, ventanaAbierta: c.puedeResponder,
         });
       } else {
-        prev.convIds.push(c.id);
+        prev.convs.push({ id: c.id, act });
         prev.sinLeer += c.sinLeer;
         prev.ventanaAbierta = prev.ventanaAbierta || c.puedeResponder;
         prev.bloqueado = prev.bloqueado || c.bloqueado;
@@ -107,7 +107,7 @@ export async function GET() {
         const etapa = lead ? derivarEtapa(lead) : null;
         return {
           id: ct.id,
-          convIds: ct.convIds,
+          convIds: [...ct.convs].sort((a, b) => b.act - a.act).map((x) => x.id),
           sendContactId: ct.sendContactId,
           contacto: ct.contacto,
           telefono: ct.telefono,
