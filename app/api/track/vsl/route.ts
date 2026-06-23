@@ -1,10 +1,10 @@
 // =============================================================================
 // Tracking del VSL — recibe eventos de la landing (Lovable)
 // =============================================================================
-// La landing escucha los eventos nativos de Panda (panda_play, panda_watchtime)
-// y reenvía acá, con profundidad de visualización (v3 Fase A):
-//   { visitor_id, tipo_evento: 'play'|'p10'..'p100', porcentaje, video_id, timestamp }
-// Compat: también acepta el payload viejo { visitor_id, event, play_count }.
+// La landing escucha el evento panda_timeupdate y reenvía acá la profundidad
+// de visualización:
+//   { visitor_id, tipo_evento: 'play'|'pNN'(cada 5%)|'exit', porcentaje, video_id }
+// 'exit' lleva el % EXACTO de abandono. Compat: payload viejo { event, play_count }.
 //
 // El visitor_id es un UUID anónimo de la cookie nqe_visitor_id. El mismo
 // UUID llega como utm_term cuando la persona agenda en Calendly — el
@@ -38,11 +38,6 @@ const CORS_HEADERS: Record<string, string> = {
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
-
-// Milestones válidos del watchtime de Panda.
-const TIPOS_VALIDOS = new Set([
-  'play', 'p10', 'p20', 'p30', 'p40', 'p50', 'p60', 'p70', 'p80', 'p90', 'p100',
-]);
 
 // Camino 1 — cose el UUID anónimo (visitor_id) al lead conocido cuando el
 // beacon llega con un token de identidad `l` (= meta_lead_id del link de
@@ -106,8 +101,7 @@ export async function POST(request: NextRequest) {
     await stampVisitorOnLead(leadToken, visitorId);
   }
 
-  // tipo_evento nuevo (play|p10..p100); compat: si llega el legacy 'event',
-  // lo tratamos como play.
+  // tipo_evento: play | pNN (cada 5%) | exit | pageview; compat: legacy 'event' → play.
   let tipoEvento =
     typeof payload.tipo_evento === 'string' ? payload.tipo_evento.trim().toLowerCase() : '';
 
@@ -124,20 +118,25 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS });
   }
 
-  if (!tipoEvento) {
-    tipoEvento = typeof payload.event === 'string' && payload.event.trim() ? 'play' : 'play';
-  }
-  if (!TIPOS_VALIDOS.has(tipoEvento)) {
-    // tipo desconocido → lo guardamos como play para no perder la señal de vista
+  if (!tipoEvento) tipoEvento = 'play';
+
+  // tipo_evento válido: 'play' | 'exit' | 'pNN' (1..100). 'pNN' = hito de
+  // retención al cruzar NN% (la landing los manda cada 5%); 'exit' = punto
+  // EXACTO de abandono (% preciso en payload.porcentaje). Lo desconocido →
+  // 'play' para no perder la señal de vista.
+  const milestoneMatch = /^p(\d{1,3})$/.exec(tipoEvento);
+  if (tipoEvento !== 'play' && tipoEvento !== 'exit' && !milestoneMatch) {
     tipoEvento = 'play';
   }
 
-  // porcentaje (0-100). Si no viene, derivar del milestone pXX.
+  // porcentaje (0-100): del payload si viene (afinado, ej. exit=73); si no, del pNN.
   let porcentaje: number | null = null;
   if (typeof payload.porcentaje === 'number' && Number.isFinite(payload.porcentaje)) {
     porcentaje = Math.max(0, Math.min(100, Math.round(payload.porcentaje)));
-  } else if (/^p\d{1,3}$/.test(tipoEvento)) {
-    porcentaje = Math.min(100, Number(tipoEvento.slice(1)));
+  } else if (milestoneMatch) {
+    porcentaje = Math.max(0, Math.min(100, Number(milestoneMatch[1])));
+  } else if (tipoEvento === 'play') {
+    porcentaje = 0;
   }
 
   // `event` legacy derivado para que contarVslPlays (event='vsl_play') siga sirviendo.
