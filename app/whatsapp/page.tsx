@@ -36,6 +36,11 @@ interface Contacto {
   etapaLabel: string | null;
 }
 
+interface Adjunto {
+  tipo: string;
+  url: string;
+}
+
 interface Mensaje {
   id: number;
   texto: string | null;
@@ -44,6 +49,7 @@ interface Mensaje {
   template: string | null;
   status: string | null;
   error: string | null;
+  adjuntos?: Adjunto[];
 }
 
 interface Template {
@@ -571,7 +577,25 @@ export default function WhatsAppPage() {
                       <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                         <div style={{ maxWidth: '78%', padding: '10px 13px', borderRadius: mine ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.template ? 'var(--auto-bubble)' : (mine ? 'var(--wa-bubble)' : 'var(--surface)'), border: '1px solid ' + (m.template ? 'var(--warn-fill)' : (mine ? 'rgba(28,138,84,.30)' : 'var(--border)')), boxShadow: '0 1px 2px rgba(23,21,17,.04)' }}>
                           {m.template && <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: '5px' }}>⚡ Plantilla · {m.template}</div>}
-                          <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto ?? ''}</div>
+                          {m.adjuntos && m.adjuntos.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: m.texto ? '6px' : 0 }}>
+                              {m.adjuntos.map((a, ai) => (
+                                a.tipo === 'image' ? (
+                                  <a key={ai} href={a.url} target="_blank" rel="noreferrer">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={a.url} alt="adjunto" style={{ maxWidth: '240px', maxHeight: '280px', borderRadius: '10px', display: 'block' }} />
+                                  </a>
+                                ) : a.tipo === 'audio' ? (
+                                  <audio key={ai} controls src={a.url} style={{ width: '240px' }} />
+                                ) : a.tipo === 'video' ? (
+                                  <video key={ai} controls src={a.url} style={{ maxWidth: '240px', borderRadius: '10px' }} />
+                                ) : (
+                                  <a key={ai} href={a.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--accent)', textDecoration: 'none' }}>📎 Abrir archivo</a>
+                                )
+                              ))}
+                            </div>
+                          )}
+                          {m.texto && <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto}</div>}
                           <div style={{ fontSize: '10.5px', color: m.status === 'failed' ? 'var(--warn)' : 'var(--faint)', marginTop: '5px', textAlign: mine ? 'right' : 'left' }}>
                             {fmtTime(m.fecha)}
                             {mine && m.status ? ' · ' + (m.status === 'delivered' ? 'entregado ✓✓' : m.status === 'read' ? 'leído ✓✓' : m.status === 'sent' ? 'enviado ✓' : m.status === 'failed' ? 'falló ✗' : m.status) : ''}

@@ -231,6 +231,8 @@ export async function listConversations(maxPages = 12): Promise<ChatwootConversa
   return all;
 }
 
+export type AdjuntoWA = { tipo: string; url: string };
+
 export type ChatwootMessage = {
   id: number;
   texto: string | null;
@@ -239,6 +241,7 @@ export type ChatwootMessage = {
   template: string | null;
   status: string | null;   // sent | delivered | read | failed
   error: string | null;    // motivo si falló
+  adjuntos: AdjuntoWA[];   // imágenes/audios/archivos del mensaje
 };
 
 type MsgRaw = {
@@ -248,6 +251,7 @@ type MsgRaw = {
   created_at?: number;
   status?: string;
   content_attributes?: { template_params?: { name?: string }; external_error?: string };
+  attachments?: Array<{ file_type?: string; data_url?: string; thumb_url?: string }>;
 };
 type MsgListResp = { payload?: MsgRaw[] };
 
@@ -266,6 +270,9 @@ export async function getMessages(conversationId: number): Promise<ChatwootMessa
     template: m.content_attributes?.template_params?.name ?? null,
     status: m.status ?? null,
     error: m.content_attributes?.external_error ?? null,
+    adjuntos: (m.attachments ?? [])
+      .map((a) => ({ tipo: a.file_type ?? 'file', url: a.data_url ?? a.thumb_url ?? '' }))
+      .filter((a) => a.url),
   }));
 }
 
