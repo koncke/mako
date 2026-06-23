@@ -9,7 +9,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getContactMessages, sendToContact } from '@/lib/chatwoot';
+import { getContactMessages, sendToContact, sendTemplateToContact } from '@/lib/chatwoot';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,13 +35,38 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!Number.isFinite(contactId)) {
     return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
   }
-  let content = '';
+  let body: {
+    content?: unknown;
+    templateName?: unknown;
+    category?: unknown;
+    language?: unknown;
+    bodyParams?: unknown;
+  };
   try {
-    const body = (await req.json()) as { content?: unknown };
-    content = typeof body.content === 'string' ? body.content.trim() : '';
+    body = await req.json();
   } catch {
     return Response.json({ ok: false, error: 'body inválido' }, { status: 400 });
   }
+
+  // Modo plantilla (fuera de la ventana de 24h).
+  if (typeof body.templateName === 'string' && body.templateName) {
+    const content = typeof body.content === 'string' ? body.content : '';
+    const bodyParams =
+      body.bodyParams && typeof body.bodyParams === 'object'
+        ? (body.bodyParams as Record<string, string>)
+        : {};
+    const res = await sendTemplateToContact(contactId, {
+      name: body.templateName,
+      category: typeof body.category === 'string' ? body.category : 'marketing',
+      language: typeof body.language === 'string' ? body.language : 'es_MX',
+      bodyParams,
+      content,
+    });
+    return Response.json(res, { status: res.ok ? 200 : 500 });
+  }
+
+  // Modo texto libre (dentro de la ventana de 24h).
+  const content = typeof body.content === 'string' ? body.content.trim() : '';
   if (!content) {
     return Response.json({ ok: false, error: 'content vacío' }, { status: 400 });
   }

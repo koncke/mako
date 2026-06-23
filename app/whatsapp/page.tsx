@@ -38,6 +38,16 @@ interface Mensaje {
   saliente: boolean;
   fecha: number | null;
   template: string | null;
+  status: string | null;
+  error: string | null;
+}
+
+interface Template {
+  name: string;
+  category: string;
+  language: string;
+  params: string[];
+  body: string;
 }
 
 interface Paso {
@@ -127,6 +137,8 @@ export default function WhatsAppPage() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selTpl, setSelTpl] = useState<string>('');
 
   const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
   const [loadingSeqs, setLoadingSeqs] = useState(true);
@@ -154,6 +166,15 @@ export default function WhatsAppPage() {
         if (list[0]) setSelSeqId(list[0].id);
       } finally {
         setLoadingSeqs(false);
+      }
+    })();
+    void (async () => {
+      try {
+        const r = await fetch('/api/whatsapp/templates');
+        const j = await r.json();
+        setTemplates(j.ok ? j.templates : []);
+      } catch {
+        /* sin templates */
       }
     })();
   }, []);
@@ -199,6 +220,36 @@ export default function WhatsAppPage() {
     }
   }
 
+  async function enviarTemplate() {
+    const t = templates.find((x) => x.name === selTpl);
+    if (!t || selId == null || sending) return;
+    setSending(true);
+    setSendError(null);
+    const param = t.params[0];
+    const nombre = contactos.find((c) => c.contactId === selId)?.contacto ?? '';
+    const bodyParams: Record<string, string> = param ? { [param]: nombre } : {};
+    const content = param ? t.body.split(`{{${param}}}`).join(nombre) : t.body;
+    try {
+      const r = await fetch(`/api/whatsapp/contacts/${selId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateName: t.name, category: t.category, language: t.language, bodyParams, content }),
+      });
+      const j = await r.json();
+      if (!j.ok) {
+        setSendError(j.error || 'No se pudo enviar la plantilla.');
+      } else {
+        const rr = await fetch(`/api/whatsapp/contacts/${selId}/messages`);
+        const jj = await rr.json();
+        setMensajes(jj.ok ? jj.mensajes : []);
+      }
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function toggleSeq(id: number, activa: boolean) {
     setSecuencias((prev) => prev.map((s) => (s.id === id ? { ...s, activa } : s)));
     await fetch('/api/whatsapp/secuencias', {
@@ -217,6 +268,9 @@ export default function WhatsAppPage() {
   });
   const sel = contactos.find((c) => c.contactId === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
+  const ahoraSec = Date.now() / 1000;
+  const ventanaAbierta = mensajes.some((m) => !m.saliente && m.fecha != null && ahoraSec - m.fecha < 24 * 3600);
+  const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
@@ -305,17 +359,35 @@ export default function WhatsAppPage() {
                         <div style={{ maxWidth: '78%', padding: '10px 13px', borderRadius: mine ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.template ? 'var(--auto-bubble)' : (mine ? 'var(--wa-bubble)' : 'var(--surface)'), border: '1px solid ' + (m.template ? 'var(--warn-fill)' : (mine ? 'rgba(28,138,84,.30)' : 'var(--border)')), boxShadow: '0 1px 2px rgba(23,21,17,.04)' }}>
                           {m.template && <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: '5px' }}>⚡ Plantilla · {m.template}</div>}
                           <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto ?? ''}</div>
-                          <div style={{ fontSize: '10.5px', color: 'var(--faint)', marginTop: '5px', textAlign: mine ? 'right' : 'left' }}>{fmtTime(m.fecha)}</div>
+                          <div style={{ fontSize: '10.5px', color: m.status === 'failed' ? 'var(--warn)' : 'var(--faint)', marginTop: '5px', textAlign: mine ? 'right' : 'left' }}>
+                            {fmtTime(m.fecha)}
+                            {mine && m.status ? ' · ' + (m.status === 'delivered' ? 'entregado ✓✓' : m.status === 'read' ? 'leído ✓✓' : m.status === 'sent' ? 'enviado ✓' : m.status === 'failed' ? 'falló ✗' : m.status) : ''}
+                            {mine && m.status === 'failed' && m.error ? ` — ${m.error}` : ''}
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
-                <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-                  <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }} placeholder="Escribí un mensaje… (válido dentro de la ventana de 24h)" style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
-                  <button onClick={() => void enviar()} disabled={sending} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar'}</button>
-                </div>
+                {ventanaAbierta ? (
+                  <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }} placeholder="Escribí un mensaje…" style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
+                    <button onClick={() => void enviar()} disabled={sending} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar'}</button>
+                  </div>
+                ) : (
+                  <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '8px' }}>Ventana de 24h cerrada (el lead no escribió hace más de un día). Fuera de la ventana WhatsApp solo entrega <strong>plantillas aprobadas</strong>:</div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <select value={selTpl} onChange={(e) => setSelTpl(e.target.value)} style={{ flex: 1, height: '44px', padding: '0 12px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', outline: 'none' }}>
+                        <option value="">Elegí una plantilla…</option>
+                        {templatesInbox.map((t) => <option key={t.name} value={t.name}>{t.name} ({t.category})</option>)}
+                      </select>
+                      <button onClick={() => void enviarTemplate()} disabled={sending || !selTpl} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: (sending || !selTpl) ? 'default' : 'pointer', opacity: (sending || !selTpl) ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar plantilla'}</button>
+                    </div>
+                    {selTpl && (() => { const t = templatesInbox.find((x) => x.name === selTpl); if (!t) return null; const txt = t.params[0] ? t.body.split(`{{${t.params[0]}}}`).join(sel?.contacto ?? '') : t.body; return <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--faint)', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{txt}</div>; })()}
+                  </div>
+                )}
               </>
             )}
           </div>

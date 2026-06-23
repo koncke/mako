@@ -216,6 +216,8 @@ export type ChatwootMessage = {
   saliente: boolean;
   fecha: number | null;
   template: string | null;
+  status: string | null;   // sent | delivered | read | failed
+  error: string | null;    // motivo si falló
 };
 
 type MsgRaw = {
@@ -223,7 +225,8 @@ type MsgRaw = {
   content?: string | null;
   message_type?: number; // 0 incoming · 1 outgoing
   created_at?: number;
-  content_attributes?: { template_params?: { name?: string } };
+  status?: string;
+  content_attributes?: { template_params?: { name?: string }; external_error?: string };
 };
 type MsgListResp = { payload?: MsgRaw[] };
 
@@ -240,6 +243,8 @@ export async function getMessages(conversationId: number): Promise<ChatwootMessa
     saliente: m.message_type === 1,
     fecha: m.created_at ?? null,
     template: m.content_attributes?.template_params?.name ?? null,
+    status: m.status ?? null,
+    error: m.content_attributes?.external_error ?? null,
   }));
 }
 
@@ -312,6 +317,76 @@ export async function sendToContact(contactId: number, content: string): Promise
     const c = cfg();
     const conversationId = await crearOReusarConversacion(c, contactId);
     return await sendText(conversationId, content);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── Templates aprobados (para mandar fuera de la ventana de 24h) ─────────────
+export type TemplateInfo = {
+  name: string;
+  category: string;   // marketing | utility | authentication
+  language: string;
+  params: string[];   // nombres de las variables del body (ej. ['nombre'])
+  body: string;       // texto del body con {{var}}
+};
+
+type TplComponent = {
+  type?: string;
+  text?: string;
+  example?: { body_text_named_params?: Array<{ param_name?: string }> };
+};
+type TplRaw = { name?: string; category?: string; language?: string; status?: string; components?: TplComponent[] };
+type InboxResp = { message_templates?: TplRaw[] };
+
+export async function getApprovedTemplates(): Promise<TemplateInfo[]> {
+  const c = cfg();
+  const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
+  return (r.message_templates ?? [])
+    .filter((t) => (t.status ?? '').toUpperCase() === 'APPROVED')
+    .map((t) => {
+      const body = (t.components ?? []).find((x) => x.type === 'BODY');
+      const params = (body?.example?.body_text_named_params ?? [])
+        .map((p) => p.param_name ?? '')
+        .filter(Boolean);
+      return {
+        name: t.name ?? '',
+        category: (t.category ?? 'marketing').toLowerCase(),
+        language: t.language ?? 'es_MX',
+        params,
+        body: body?.text ?? '',
+      };
+    })
+    .filter((t) => t.name);
+}
+
+// Manda un template aprobado al contacto (reusa su conversación). Sirve fuera
+// de la ventana de 24h. `content` es el texto renderizado para mostrar en el hilo.
+export async function sendTemplateToContact(
+  contactId: number,
+  tpl: { name: string; category: string; language: string; bodyParams: Record<string, string>; content: string },
+): Promise<SendResult> {
+  try {
+    const c = cfg();
+    const conversationId = await crearOReusarConversacion(c, contactId);
+    await cwFetch(
+      `${c.apiBase}/conversations/${conversationId}/messages`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          content: tpl.content,
+          message_type: 'outgoing',
+          template_params: {
+            name: tpl.name,
+            category: tpl.category,
+            language: tpl.language,
+            processed_params: { body: tpl.bodyParams },
+          },
+        }),
+      },
+      c.token,
+    );
+    return { ok: true, conversationId };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
