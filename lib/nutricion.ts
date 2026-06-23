@@ -166,7 +166,9 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
 export async function leadsDeCohorte(triggerTipo: string): Promise<number[]> {
   const supabase = getSupabaseServer();
-  const desde = haceDiasISO(VENTANA_DIAS);
+  const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
+  const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
+  const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes
 
   if (triggerTipo === 'instant_form_sin_agenda') {
     const { data, error } = await supabase
@@ -194,6 +196,155 @@ export async function leadsDeCohorte(triggerTipo: string): Promise<number[]> {
     return rows
       .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) >= UMBRAL_VSL_PCT)
       .map((r) => r.id);
+  }
+
+  if (triggerTipo === 'vio_poco_vsl') {
+    // Tiene tracking de visitante (entró a la landing) pero NO alcanzó el umbral
+    // de retención del VSL y no agendó. Complemento exacto de vio_vsl_sin_agendar.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id, visitor_id')
+      .not('visitor_id', 'is', null)
+      .is('fecha_agenda', null)
+      .eq('estado_lead', 'abierto')
+      .gte('created_at', desde);
+    if (error) throw new Error(`cohorte vio-poco-vsl: ${error.message}`);
+    const rows = (data ?? []) as Array<{ id: number; visitor_id: string }>;
+    const eng = await getVslEngagementMap(rows.map((r) => r.visitor_id));
+    return rows
+      .filter((r) => (eng.get(r.visitor_id)?.max_pct ?? 0) < UMBRAL_VSL_PCT)
+      .map((r) => r.id);
+  }
+
+  if (triggerTipo === 'agendado_sin_confirmar') {
+    // J1 futura y todavía sin asistencia registrada. El modelo no tiene un campo
+    // "confirmó asistencia" → usamos la J1 próxima como disparador del recordatorio.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .not('fecha_junta_1', 'is', null)
+      .gte('fecha_junta_1', hoy)
+      .is('asistio_j1', null)
+      .eq('estado_lead', 'abierto');
+    if (error) throw new Error(`cohorte agendado-sin-confirmar: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'no_show_j1') {
+    // No asistió a J1 (asistio_j1 = false), todavía abierto, J1 reciente.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('asistio_j1', false)
+      .eq('estado_lead', 'abierto')
+      .gte('fecha_junta_1', fechaDesde45);
+    if (error) throw new Error(`cohorte no-show-j1: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'post_j1_sin_avanzar') {
+    // Asistió a J1 pero sigue sin calificar y sin J2 agendada.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('asistio_j1', true)
+      .is('calificado', null)
+      .is('fecha_junta_2', null)
+      .eq('estado_lead', 'abierto')
+      .gte('fecha_junta_1', fechaDesde45);
+    if (error) throw new Error(`cohorte post-j1-sin-avanzar: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'post_j1_calificado_sin_j2') {
+    // Calificado en J1 pero todavía no agendó la J2.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('calificado', true)
+      .is('fecha_junta_2', null)
+      .is('asistio_j2', null)
+      .eq('estado_lead', 'abierto')
+      .gte('fecha_junta_1', fechaDesde45);
+    if (error) throw new Error(`cohorte calificado-sin-j2: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'no_show_j2') {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('asistio_j2', false)
+      .eq('estado_lead', 'abierto')
+      .gte('fecha_junta_2', fechaDesde45);
+    if (error) throw new Error(`cohorte no-show-j2: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'post_j2_sin_cerrar') {
+    // Asistió a J2 pero todavía no hay cierre.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .eq('asistio_j2', true)
+      .is('cerro', null)
+      .is('fecha_cierre', null)
+      .eq('estado_lead', 'abierto')
+      .gte('fecha_junta_2', fechaDesde45);
+    if (error) throw new Error(`cohorte post-j2-sin-cerrar: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'confirmado_sin_pago') {
+    // Confirmó verbalmente (fecha_confirmacion) pero todavía no registró el primer pago.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .not('fecha_confirmacion', 'is', null)
+      .is('fecha_primer_pago', null)
+      .in('estado_lead', ['abierto', 'ganado'])
+      .gte('fecha_confirmacion', fechaDesde45);
+    if (error) throw new Error(`cohorte confirmado-sin-pago: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'post_pago') {
+    // Registró el primer pago hace poco → bienvenida (una sola vez por dedup de inscripción).
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .not('fecha_primer_pago', 'is', null)
+      .gte('fecha_primer_pago', fechaDesde45)
+      .in('estado_lead', ['abierto', 'ganado']);
+    if (error) throw new Error(`cohorte post-pago: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'reactivacion_viejo') {
+    // Frío: nunca agendó, abierto, creado entre 30 y 90 días atrás.
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .is('fecha_agenda', null)
+      .eq('estado_lead', 'abierto')
+      .lt('created_at', desde)
+      .gte('created_at', haceDiasISO(90));
+    if (error) throw new Error(`cohorte reactivacion-viejo: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  }
+
+  if (triggerTipo === 'ultimo_intento_antes_noresp') {
+    // Último intento antes de marcar no-responde: nunca agendó, abierto, creado
+    // entre 90 y 365 días atrás (más viejo que la reactivación).
+    const { data, error } = await supabase
+      .from('leads')
+      .select('id')
+      .is('fecha_agenda', null)
+      .eq('estado_lead', 'abierto')
+      .lt('created_at', haceDiasISO(90))
+      .gte('created_at', haceDiasISO(365));
+    if (error) throw new Error(`cohorte ultimo-intento: ${error.message}`);
+    return ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
   }
 
   // trigger desconocido → sin cohorte (no rompe el cron)
