@@ -297,20 +297,39 @@ export async function sendText(conversationId: number, content: string): Promise
 // generan varias por contacto). Para el inbox agrupamos por contacto y
 // mergeamos los mensajes de todas sus conversaciones.
 
-type ContactConvsResp = { payload?: Array<{ id?: number; status?: string; last_activity_at?: number }> };
+type ContactConvsResp = {
+  payload?: Array<{ id?: number; status?: string; last_activity_at?: number; inbox_id?: number }>;
+};
+type ContactConv = { id: number; status: string; last_activity_at: number; inboxId: number | null };
 
-async function contactConversaciones(
-  c: Cfg,
-  contactId: number,
-): Promise<Array<{ id: number; status: string; last_activity_at: number }>> {
+async function contactConversaciones(c: Cfg, contactId: number): Promise<ContactConv[]> {
   const r = await cwFetch<ContactConvsResp>(
     `${c.apiBase}/contacts/${contactId}/conversations`,
     { method: 'GET' },
     c.token,
   );
   return (r.payload ?? [])
-    .filter((x): x is { id: number; status?: string; last_activity_at?: number } => typeof x.id === 'number')
-    .map((x) => ({ id: x.id, status: x.status ?? 'open', last_activity_at: x.last_activity_at ?? 0 }));
+    .filter((x): x is NonNullable<ContactConvsResp['payload']>[number] & { id: number } => typeof x.id === 'number')
+    .map((x) => ({
+      id: x.id,
+      status: x.status ?? 'open',
+      last_activity_at: x.last_activity_at ?? 0,
+      inboxId: typeof x.inbox_id === 'number' ? x.inbox_id : null,
+    }));
+}
+
+// ── Guard: el contacto pertenece al inbox de WhatsApp ────────────────────────
+// Los endpoints internos reciben el contactId CRUDO de la URL. El gate de la
+// app es una contraseña COMPARTIDA, así que sin esto cualquiera con la sesión
+// podría leer/mandar WhatsApp a CUALQUIER contacto de la cuenta de Chatwoot
+// (incluidos contactos de otros inboxes). Exigimos que el contacto tenga al
+// menos una conversación en CHATWOOT_WA_INBOX_ID — que es exactamente como el
+// inbox de la app expone a los contactos (listConversations filtra por inbox).
+export async function contactoEnInboxWA(contactId: number): Promise<boolean> {
+  if (!Number.isInteger(contactId) || contactId <= 0) return false;
+  const c = cfg();
+  const convs = await contactConversaciones(c, contactId);
+  return convs.some((cv) => cv.inboxId === c.inbox);
 }
 
 // Conversación abierta del contacto (o la más reciente, o una nueva).

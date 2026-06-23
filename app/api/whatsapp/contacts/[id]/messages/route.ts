@@ -9,9 +9,23 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getContactMessages, sendToContact, sendTemplateToContact } from '@/lib/chatwoot';
+import { getContactMessages, sendToContact, sendTemplateToContact, contactoEnInboxWA } from '@/lib/chatwoot';
 
 export const dynamic = 'force-dynamic';
+
+// El contactId viene crudo de la URL: validamos server-side que el contacto sea
+// del inbox de WhatsApp antes de leer/escribir (ver contactoEnInboxWA). Devuelve
+// la Response a cortar, o null si el contacto es legítimo.
+async function bloquearSiFueraDelInbox(contactId: number): Promise<Response | null> {
+  try {
+    if (await contactoEnInboxWA(contactId)) return null;
+    return Response.json({ ok: false, error: 'contacto fuera del inbox de WhatsApp' }, { status: 403 });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[api:whatsapp/contacts messages guard] ${msg}`);
+    return Response.json({ ok: false, error: msg }, { status: 500 });
+  }
+}
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -19,6 +33,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (!Number.isFinite(contactId)) {
     return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
   }
+  const bloqueo = await bloquearSiFueraDelInbox(contactId);
+  if (bloqueo) return bloqueo;
   try {
     const mensajes = await getContactMessages(contactId);
     return Response.json({ ok: true, mensajes });
@@ -35,6 +51,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!Number.isFinite(contactId)) {
     return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
   }
+  const bloqueo = await bloquearSiFueraDelInbox(contactId);
+  if (bloqueo) return bloqueo;
   let body: {
     content?: unknown;
     templateName?: unknown;

@@ -5,9 +5,12 @@
 // servicios externos (webhooks de Calendly/Meta/Fathom, el beacon del VSL, y
 // los crons — todos con su propia auth por firma/secret).
 //
-// SEGURO de desplegar: si DASHBOARD_PASSWORD no está seteado, el gate queda
-// INACTIVO (no bloquea nada). Se activa al cargar DASHBOARD_PASSWORD +
-// AUTH_COOKIE_VALUE en las env vars (Vercel).
+// Activación: el gate se prende con DASHBOARD_PASSWORD + AUTH_COOKIE_VALUE
+// (env vars de Vercel). Si falta alguna:
+//   - en local/dev → el gate queda INACTIVO (no-op), para no romper el flujo
+//     sin Supabase ni envs cargadas.
+//   - en producción → FAIL-CLOSED: se NIEGAN las rutas protegidas. Si alguien
+//     olvida la env en Vercel preferimos un dashboard cerrado a uno abierto.
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -16,19 +19,37 @@ import { NextResponse, type NextRequest } from 'next/server';
 const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/login', '/api/auth'];
 
 export function middleware(req: NextRequest) {
-  // Gate inactivo hasta configurar la contraseña.
-  if (!process.env.DASHBOARD_PASSWORD) return NextResponse.next();
-
   const { pathname } = req.nextUrl;
+
+  // Las rutas públicas pasan siempre (tienen su propia auth por firma/secret).
+  // Se evalúa primero para que ni el modo fail-closed las toque.
   if (PUBLICOS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     return NextResponse.next();
   }
 
-  const cookie = req.cookies.get('mako_auth')?.value;
   const esperado = process.env.AUTH_COOKIE_VALUE;
-  if (esperado && cookie === esperado) return NextResponse.next();
+  const configurado = Boolean(process.env.DASHBOARD_PASSWORD && esperado);
 
-  // No autenticado.
+  // Gate sin configurar: no-op en local/dev, fail-closed en producción.
+  if (!configurado) {
+    const esProd =
+      process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+    if (!esProd) return NextResponse.next();
+    console.error(
+      '[gate] DASHBOARD_PASSWORD/AUTH_COOKIE_VALUE sin setear en producción → negando rutas protegidas',
+    );
+    return denegar(req, pathname);
+  }
+
+  const cookie = req.cookies.get('mako_auth')?.value;
+  if (cookie === esperado) return NextResponse.next();
+
+  return denegar(req, pathname);
+}
+
+// Niega una ruta protegida: 401 JSON para las APIs, redirect a /login para las
+// páginas (preservando el destino en ?next).
+function denegar(req: NextRequest, pathname: string) {
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ ok: false, error: 'no autenticado' }, { status: 401 });
   }

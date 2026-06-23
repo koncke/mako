@@ -191,9 +191,28 @@ const iconComposer: CSSProperties = {
 };
 // Animación de la onda de grabación + parpadeo del punto rojo.
 const WAVE_CSS = '@keyframes mako-wave{0%{transform:scaleY(.28)}100%{transform:scaleY(1)}}@keyframes mako-blink{0%,49%{opacity:1}50%,100%{opacity:.25}}';
-// Flecha de "enviar" tipo WhatsApp.
+// Íconos de línea estilo WhatsApp (heredan color por currentColor).
 function SendArrow() {
   return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5 L21 12 L3 3.5 L3 10 L15 12 L3 14 Z" fill="currentColor" /></svg>;
+}
+const strokeProps = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+function IconSmiley() {
+  return <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" {...strokeProps} /><path d="M8.5 14.5a4.2 4.2 0 0 0 7 0" {...strokeProps} /><circle cx="9" cy="10" r="1" fill="currentColor" /><circle cx="15" cy="10" r="1" fill="currentColor" /></svg>;
+}
+function IconClip() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5l-8.6 8.6a4.6 4.6 0 0 1-6.5-6.5l8.7-8.7a3.1 3.1 0 0 1 4.3 4.3l-8.7 8.7a1.55 1.55 0 0 1-2.2-2.2l7.9-7.9" {...strokeProps} /></svg>;
+}
+function IconMic() {
+  return <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" {...strokeProps} /><path d="M5.5 11a6.5 6.5 0 0 0 13 0" {...strokeProps} /><path d="M12 17.5V21" {...strokeProps} /></svg>;
+}
+function IconTrash() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 6h17M8 6V4h8v2M6.5 6l1 14h9l1-14M10 10.5v6M14 10.5v6" {...strokeProps} /></svg>;
+}
+function IconPause() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.2" fill="currentColor" /><rect x="14" y="5" width="4" height="14" rx="1.2" fill="currentColor" /></svg>;
+}
+function IconPlay() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5l13 7.5-13 7.5z" fill="currentColor" /></svg>;
 }
 
 // Beep de notificación reutilizando un único AudioContext (no acumula contextos;
@@ -245,9 +264,14 @@ export default function WhatsAppPage() {
   const [toast, setToast] = useState<string | null>(null);
   const totalSinLeerRef = useRef<number | null>(null);
   const selIdRef = useRef<string | null>(null);
+  const msgScrollRef = useRef<HTMLDivElement | null>(null);
+  const stickBottomRef = useRef(true);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { const raw = localStorage.getItem('mako-wa-drafts'); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  });
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [adjuntos, setAdjuntos] = useState<Record<string, File | null>>({});
@@ -257,6 +281,7 @@ export default function WhatsAppPage() {
   const [emojiOpen, setEmojiOpen] = useState(false);
   // Grabación de nota de voz
   const [recording, setRecording] = useState(false);
+  const [recPaused, setRecPaused] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
   const mediaRecRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -336,9 +361,22 @@ export default function WhatsAppPage() {
     try { mediaRecRef.current?.stream.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
   }, []);
 
+  // Persistir borradores por chat → sobreviven a navegar / recargar.
+  useEffect(() => {
+    try { localStorage.setItem('mako-wa-drafts', JSON.stringify(drafts)); } catch { /* noop */ }
+  }, [drafts]);
+
+  // Mantener el hilo pegado al fondo (al abrir un chat y al llegar mensajes),
+  // salvo que el usuario haya scrolleado hacia arriba a leer historial.
+  useEffect(() => {
+    const el = msgScrollRef.current;
+    if (el && stickBottomRef.current) el.scrollTop = el.scrollHeight;
+  }, [mensajes]);
+
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
     selIdRef.current = selId;
+    stickBottomRef.current = true;
     setSendError(null);
     setEmojiOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -540,6 +578,7 @@ export default function WhatsAppPage() {
       const type = rec.mimeType || '';
       const blob = new Blob(chunksRef.current, { type });
       setRecording(false);
+      setRecPaused(false);
       setRecSecs(0);
       if (cancelled) return;
       if (!blob.size) { setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
@@ -553,13 +592,27 @@ export default function WhatsAppPage() {
     mediaRecRef.current = rec;
     rec.start();
     setRecording(true);
+    setRecPaused(false);
     setRecSecs(0);
     recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
   }
 
   function stopRec(cancel: boolean) {
     recCancelRef.current = cancel;
+    if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
     try { mediaRecRef.current?.stop(); } catch { /* ya estaba parado */ }
+  }
+
+  function pauseRec() {
+    try { mediaRecRef.current?.pause(); } catch { /* noop */ }
+    if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+    setRecPaused(true);
+  }
+
+  function resumeRec() {
+    try { mediaRecRef.current?.resume(); } catch { /* noop */ }
+    if (!recTimerRef.current) recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
+    setRecPaused(false);
   }
 
   async function enviarTemplate() {
@@ -696,7 +749,6 @@ export default function WhatsAppPage() {
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>Chatwoot conectado
             </span>
           </div>
-          <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>Conversaciones reales de WhatsApp · secuencias de <strong style={{ color: 'var(--ink)' }}>nutrición</strong> automáticas.</div>
         </div>
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
           <button onClick={() => setView('chats')} style={isChats ? tabActive : tabIdle}>Conversaciones</button>
@@ -771,7 +823,7 @@ export default function WhatsAppPage() {
                   </div>
                   {etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <span style={ch.style}><span style={ch.dot}></span>{ch.label}</span>; })()}
                 </div>
-                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
+                <div ref={msgScrollRef} onScroll={() => { const el = msgScrollRef.current; if (el) stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
                   {loadingMsgs && <div style={{ color: 'var(--dim)', fontSize: '13.5px' }}>Cargando mensajes…</div>}
                   {!loadingMsgs && mensajes.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13.5px' }}>Sin mensajes.</div>}
                   {mensajes.map((m) => {
@@ -811,16 +863,17 @@ export default function WhatsAppPage() {
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
                 {ventanaAbierta ? (
                   recording ? (
-                    <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px' }}>
                       <style>{WAVE_CSS}</style>
-                      <button onClick={() => stopRec(true)} title="Cancelar" aria-label="Cancelar grabación" style={{ flex: 'none', width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--warn)', cursor: 'pointer', fontSize: '18px' }}>🗑</button>
-                      <span style={{ flex: 'none', width: '9px', height: '9px', borderRadius: '50%', background: '#e53935', animation: 'mako-blink 1s steps(1) infinite' }}></span>
-                      <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: '14px', color: 'var(--ink)', minWidth: '40px' }}>{fmtDur(recSecs)}</span>
-                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '2px', height: '24px', overflow: 'hidden' }}>
-                        {Array.from({ length: 44 }).map((_, i) => (
-                          <span key={i} style={{ flex: 'none', width: '3px', height: '20px', borderRadius: '2px', background: 'var(--good)', transformOrigin: 'center', animation: 'mako-wave .7s ease-in-out infinite alternate', animationDelay: `${(i % 11) * 0.06}s` }}></span>
+                      <button onClick={() => stopRec(true)} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ flex: 'none', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconTrash /></button>
+                      <span style={{ flex: 'none', width: '9px', height: '9px', borderRadius: '50%', background: '#e53935', animation: recPaused ? 'none' : 'mako-blink 1s steps(1) infinite', opacity: recPaused ? 0.4 : 1 }}></span>
+                      <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: '14px', color: 'var(--ink)', minWidth: '42px', textAlign: 'right' }}>{fmtDur(recSecs)}</span>
+                      <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: '2px', height: '24px', width: '120px', overflow: 'hidden' }}>
+                        {Array.from({ length: 24 }).map((_, i) => (
+                          <span key={i} style={{ flex: 'none', width: '3px', height: '20px', borderRadius: '2px', background: 'var(--good)', transformOrigin: 'center', animation: 'mako-wave .7s ease-in-out infinite alternate', animationDelay: `${(i % 11) * 0.06}s`, animationPlayState: recPaused ? 'paused' : 'running' }}></span>
                         ))}
                       </div>
+                      <button onClick={recPaused ? resumeRec : pauseRec} title={recPaused ? 'Reanudar' : 'Pausar'} aria-label={recPaused ? 'Reanudar grabación' : 'Pausar grabación'} style={{ flex: 'none', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--ink)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{recPaused ? <IconPlay /> : <IconPause />}</button>
                       <button onClick={() => stopRec(false)} disabled={sending} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
                     </div>
                   ) : (
@@ -846,15 +899,15 @@ export default function WhatsAppPage() {
                         <button onClick={() => { setAdjunto(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} title="Quitar adjunto" style={{ ...iconBtn, flex: 'none' }}>✕</button>
                       </div>
                     )}
-                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '6px', position: 'relative', zIndex: 40 }}>
+                    <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'flex-end', gap: '4px', position: 'relative', zIndex: 40 }}>
                       <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={(e) => { pickFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
-                      <button onClick={() => setEmojiOpen((v) => !v)} title="Emojis" aria-label="Emojis" style={{ ...iconComposer, color: emojiOpen ? 'var(--accent)' : 'var(--dim)' }}>😊</button>
-                      <button onClick={() => fileInputRef.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={iconComposer}>📎</button>
-                      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarComposer(); } }} placeholder={adjunto ? 'Agregá un texto (opcional)…' : 'Escribí un mensaje…'} style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 16px', borderRadius: '22px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
+                      <button onClick={() => setEmojiOpen((v) => !v)} title="Emojis" aria-label="Emojis" style={{ ...iconComposer, color: emojiOpen ? 'var(--accent)' : 'var(--dim)' }}><IconSmiley /></button>
+                      <button onClick={() => fileInputRef.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={iconComposer}><IconClip /></button>
+                      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarComposer(); } }} placeholder={adjunto ? 'Agregá un texto (opcional)…' : 'Escribí un mensaje…'} rows={1} style={{ flex: 1, minHeight: '40px', maxHeight: '120px', resize: 'none', padding: '9px 16px', borderRadius: '21px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.35, outline: 'none' }} />
                       {(draft.trim() || adjunto) ? (
-                        <button onClick={enviarComposer} disabled={sending} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
+                        <button onClick={enviarComposer} disabled={sending} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
                       ) : (
-                        <button onClick={() => void startRec()} disabled={sending} title="Grabar nota de voz" aria-label="Grabar nota de voz" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🎤</button>
+                        <button onClick={() => void startRec()} disabled={sending} title="Grabar nota de voz" aria-label="Grabar nota de voz" style={{ ...iconComposer, color: 'var(--dim)' }}><IconMic /></button>
                       )}
                     </div>
                   </div>

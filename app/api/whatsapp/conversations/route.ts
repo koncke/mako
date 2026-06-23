@@ -29,8 +29,8 @@ function derivarEtapa(l: LeadRow): { key: string; label: string } {
   if (l.fecha_primer_pago) return { key: 'cliente', label: 'Cliente' };
   if (l.fecha_confirmacion && l.cerro !== true) return { key: 'por-cobrar', label: 'Por cobrar' };
   if (l.asistio_j2 === false) return { key: 'no-show', label: 'No-show' };
-  if (l.fecha_junta_2 || l.asistio_j2 === true) return { key: 'j2', label: 'En J2' };
-  if (l.asistio_j1 === true) return { key: 'post-j1', label: 'Post J1' };
+  if (l.fecha_junta_2 || l.asistio_j2 === true) return { key: 'j2', label: 'En R2' };
+  if (l.asistio_j1 === true) return { key: 'post-j1', label: 'Post R1' };
   if (l.asistio_j1 === false) return { key: 'no-show', label: 'No-show' };
   if (l.fecha_agenda) return { key: 'agendo', label: 'Agendó' };
   if (l.visitor_id) return { key: 'vio-vsl', label: 'Vio VSL' };

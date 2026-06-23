@@ -9,7 +9,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { sendAttachmentToContact } from '@/lib/chatwoot';
+import { sendAttachmentToContact, contactoEnInboxWA } from '@/lib/chatwoot';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +46,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const contactId = Number(id);
   if (!Number.isFinite(contactId)) {
     return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+  }
+
+  // El contactId viene crudo de la URL: validamos que el contacto sea del inbox
+  // de WhatsApp ANTES de bufferear el multipart (ver contactoEnInboxWA).
+  try {
+    if (!(await contactoEnInboxWA(contactId))) {
+      return Response.json({ ok: false, error: 'contacto fuera del inbox de WhatsApp' }, { status: 403 });
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[api:whatsapp/contacts attachments guard] ${msg}`);
+    return Response.json({ ok: false, error: msg }, { status: 500 });
   }
 
   // Corte temprano por Content-Length (antes de bufferear el multipart entero).

@@ -945,10 +945,10 @@ export function textoCohorteJ1(fechaJ1: string | null, hoy: Date = new Date()): 
   if (dias === null) return null;
   if (dias < 0) {
     const faltan = Math.abs(dias);
-    return `faltan ${faltan} ${faltan === 1 ? 'día' : 'días'} para J1`;
+    return `faltan ${faltan} ${faltan === 1 ? 'día' : 'días'} para R1`;
   }
-  if (dias === 0) return 'J1 es hoy';
-  return `${dias} ${dias === 1 ? 'día' : 'días'} desde J1`;
+  if (dias === 0) return 'R1 es hoy';
+  return `${dias} ${dias === 1 ? 'día' : 'días'} desde R1`;
 }
 
 /**
