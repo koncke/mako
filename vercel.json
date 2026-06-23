@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/cron/nutricion",
-      "schedule": "0 15 * * *"
+      "schedule": "0 15-23 * * *"
     }
   ]
 }

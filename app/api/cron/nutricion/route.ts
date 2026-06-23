@@ -42,7 +42,12 @@ export async function GET(request: NextRequest) {
   const unauth = checkAuth(request);
   if (unauth) return unauth;
 
-  const commit = new URL(request.url).searchParams.get('commit') === '1';
+  const url = new URL(request.url);
+  const sendEnabled = process.env.NUTRICION_SEND_ENABLED === 'true';
+  // El cron programado commitea (inscribe + envía) SOLO cuando el envío real está
+  // habilitado. Antes de ir a vivo queda en dry-run para no consumir el backlog.
+  // ?commit=1 fuerza el commit en modo simulado (para probar la máquina a mano).
+  const commit = sendEnabled || url.searchParams.get('commit') === '1';
 
   try {
     if (!commit) {
@@ -61,9 +66,13 @@ export async function GET(request: NextRequest) {
     }
 
     const inscriptas = await comprometerInscripciones();
-    const ignorarVentana = new URL(request.url).searchParams.get('ignorar_ventana') === '1';
-    const proc = await procesarEnvios({ ignorarVentana });
-    return Response.json({ ok: true, modo: 'commit', inscriptas, ...proc });
+    const proc = await procesarEnvios({ ignorarVentana: url.searchParams.get('ignorar_ventana') === '1' });
+    return Response.json({
+      ok: true,
+      modo: sendEnabled ? 'commit (envío real)' : 'commit (simulado)',
+      inscriptas,
+      ...proc,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[cron:nutricion] error: ${msg}`);
