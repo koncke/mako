@@ -87,6 +87,59 @@ export async function getSecuenciasActivas(): Promise<Secuencia[]> {
   }));
 }
 
+export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: number };
+
+// Todas las secuencias (activas y pausadas) + conteo de inscriptos y enviados.
+// Para la tab /whatsapp. Dos queries (no N+1): trae los ids y cuenta en JS.
+export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('nutricion_secuencias')
+    .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
+    .order('id', { ascending: true });
+  if (error) throw new Error(`getSecuenciasConStats: ${error.message}`);
+  const rows = (data ?? []) as Array<{
+    id: number; clave: string; nombre: string; etapa: string;
+    trigger_tipo: string; activa: boolean; pasos: unknown;
+  }>;
+
+  const [insc, env] = await Promise.all([
+    supabase.from('nutricion_inscripciones').select('secuencia_id'),
+    supabase.from('nutricion_envios').select('secuencia_id').in('estado', ['enviado', 'simulado']),
+  ]);
+  const tally = (arr: Array<{ secuencia_id: number | null }> | null): Map<number, number> => {
+    const m = new Map<number, number>();
+    for (const r of arr ?? []) {
+      if (r.secuencia_id == null) continue;
+      m.set(r.secuencia_id, (m.get(r.secuencia_id) ?? 0) + 1);
+    }
+    return m;
+  };
+  const inscMap = tally(insc.data as Array<{ secuencia_id: number | null }> | null);
+  const envMap = tally(env.data as Array<{ secuencia_id: number | null }> | null);
+
+  return rows.map((r) => ({
+    id: r.id,
+    clave: r.clave,
+    nombre: r.nombre,
+    etapa: r.etapa,
+    trigger_tipo: r.trigger_tipo,
+    activa: r.activa,
+    pasos: Array.isArray(r.pasos) ? (r.pasos as PasoSecuencia[]) : [],
+    inscriptos: inscMap.get(r.id) ?? 0,
+    enviados: envMap.get(r.id) ?? 0,
+  }));
+}
+
+export async function setSecuenciaActiva(id: number, activa: boolean): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase
+    .from('nutricion_secuencias')
+    .update({ activa, updated_at: ahoraISO() })
+    .eq('id', id);
+  if (error) throw new Error(`setSecuenciaActiva: ${error.message}`);
+}
+
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
 export async function leadsDeCohorte(triggerTipo: string): Promise<number[]> {
   const supabase = getSupabaseServer();
