@@ -178,6 +178,13 @@ export function Sidebar() {
               {USER_NAV.map((it) => (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)} style={{ display: 'block', padding: '10px 15px', fontSize: 14, fontWeight: it.match(pathname) ? 600 : 500, color: it.match(pathname) ? 'var(--ink)' : 'var(--dim)', textDecoration: 'none' }}>{it.label}</Link>
               ))}
+              <button
+                type="button"
+                onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/login'; }}
+                style={{ width: '100%', textAlign: 'left', display: 'block', padding: '10px 15px', fontSize: 14, fontWeight: 500, color: 'var(--dim)', background: 'none', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+              >
+                Cerrar sesión
+              </button>
             </div>
           </>
         )}
