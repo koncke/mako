@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import Link from 'next/link';
 import { Dropdown } from '../components/Dropdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,6 +78,25 @@ interface Secuencia {
   enviados: number;
 }
 
+interface Ficha {
+  id: number;
+  nombre: string;
+  empresa: string | null;
+  email: string | null;
+  telefono: string | null;
+  estado: { emoji: string; label: string; color: string };
+  textoJ1: string | null;
+  estado_lead: string;
+  calificado: boolean | null;
+  cerro: boolean | null;
+  asistio_j1: boolean | null;
+  asistio_j2: boolean | null;
+  monto_cierre_usd: number | null;
+  origen: { origen_lead: string | null; campana: string | null; adset: string | null; anuncio: string | null; utm_source: string | null };
+  comportamiento: { sin_datos: boolean; plays: number; max_pct: number | null; agendoSinVerVsl: boolean };
+  fechas: { created_at: string; fecha_agenda: string | null; fecha_junta_1: string | null; fecha_junta_2: string | null };
+}
+
 type View = 'chats' | 'sequences';
 
 const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te comparto el video de nuevo'];
@@ -108,6 +128,12 @@ function fmtDelay(horas: number): string {
   if (horas < 1) return 'inmediato';
   if (horas < 24) return `${Math.round(horas)} h`;
   return `día ${Math.round(horas / 24)}`;
+}
+
+function fmtFechaCorta(s: string | null): string {
+  if (!s) return '—';
+  const [y, m, d] = s.slice(0, 10).split('-');
+  return y && m && d ? `${d}/${m}/${y}` : s;
 }
 
 const avatarStyle: CSSProperties = {
@@ -172,6 +198,11 @@ export default function WhatsAppPage() {
   const [savingSeq, setSavingSeq] = useState(false);
   const [seqError, setSeqError] = useState<string | null>(null);
 
+  const [fichaOpen, setFichaOpen] = useState(false);
+  const [ficha, setFicha] = useState<Ficha | null>(null);
+  const [loadingFicha, setLoadingFicha] = useState(false);
+  const [fichaError, setFichaError] = useState<string | null>(null);
+
   // ── Carga inicial ──
   useEffect(() => {
     void (async () => {
@@ -213,6 +244,14 @@ export default function WhatsAppPage() {
     setEditPasos(null);
     setSeqError(null);
   }, [selSeqId]);
+
+  // ── Cerrar el pop-up de ficha con Escape ──
+  useEffect(() => {
+    if (!fichaOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFichaOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fichaOpen]);
 
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
@@ -405,6 +444,24 @@ export default function WhatsAppPage() {
     }
   }
 
+  // ── Ficha del lead (pop-up) ──
+  async function abrirFicha(leadId: number) {
+    setFichaOpen(true);
+    setFicha(null);
+    setFichaError(null);
+    setLoadingFicha(true);
+    try {
+      const r = await fetch(`/api/whatsapp/lead/${leadId}`);
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo cargar la ficha');
+      setFicha(j.ficha);
+    } catch (e) {
+      setFichaError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLoadingFicha(false);
+    }
+  }
+
   // ── Derivados ──
   const isChats = view === 'chats';
   const q = search.trim().toLowerCase();
@@ -551,10 +608,18 @@ export default function WhatsAppPage() {
           {/* CONTEXTO */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', padding: '18px' }}>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '12px' }}>Lead</div>
-            <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{sel?.contacto ?? '—'}</div>
+            {sel?.leadId ? (
+              <button onClick={() => void abrirFicha(sel.leadId!)} style={{ textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{sel?.contacto ?? '—'}</button>
+            ) : (
+              <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{sel?.contacto ?? '—'}</div>
+            )}
             <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px' }}>{sel?.empresa ?? 'Sin empresa registrada'}</div>
             {sel && etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <div style={{ marginTop: '10px' }}><span style={ch.style}><span style={ch.dot}></span>{ch.label}</span></div>; })()}
-            <a href={sel?.leadId ? `/leads/${sel.leadId}` : '/leads'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>{sel?.leadId ? 'Abrir ficha en CRM →' : 'Buscar en CRM →'}</a>
+            {sel?.leadId ? (
+              <button onClick={() => void abrirFicha(sel.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
+            ) : (
+              <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Buscar en CRM →</Link>
+            )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '18px 0' }}></div>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '11px' }}>Plantillas rápidas</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -680,6 +745,113 @@ export default function WhatsAppPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* POP-UP FICHA DEL LEAD */}
+      {fichaOpen && (
+        <div onClick={() => setFichaOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '560px', maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '18px', boxShadow: '0 20px 60px rgba(0,0,0,0.45)', overflow: 'hidden' }}>
+            {loadingFicha && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--dim)', fontSize: '14px' }}>Cargando ficha…</div>}
+            {!loadingFicha && fichaError && (
+              <div style={{ padding: '24px' }}>
+                <div style={{ color: 'var(--bad)', fontSize: '14px', marginBottom: '14px' }}>{fichaError}</div>
+                <button onClick={() => setFichaOpen(false)} style={btnGhost}>Cerrar</button>
+              </div>
+            )}
+            {!loadingFicha && ficha && (() => {
+              const f = ficha;
+              const origenTxt = f.origen.origen_lead === 'instant_form' ? '📋 Instant Form (Meta)' : f.origen.origen_lead === 'calendly' ? '📅 Calendly' : 'Orgánico / manual';
+              const bl = (b: boolean | null) => (b === null ? null : b ? 'Sí' : 'No');
+              const filasOrigen: Array<[string, string | null]> = [
+                ['Origen', origenTxt],
+                ['Campaña', f.origen.campana],
+                ['Adset', f.origen.adset],
+                ['Anuncio', f.origen.anuncio],
+                ['UTM source', f.origen.utm_source],
+              ];
+              const filasComercial: Array<[string, string | null]> = [
+                ['Estado', f.estado_lead],
+                ['Calificado', bl(f.calificado)],
+                ['Asistió J1', bl(f.asistio_j1)],
+                ['Asistió J2', bl(f.asistio_j2)],
+                ['Cerró', bl(f.cerro)],
+                ['Monto cierre', f.monto_cierre_usd != null ? `US$ ${f.monto_cierre_usd.toLocaleString('es-MX')}` : null],
+              ];
+              const filasFechas: Array<[string, string]> = [
+                ['Creado', fmtFechaCorta(f.fechas.created_at)],
+                ['Agenda', fmtFechaCorta(f.fechas.fecha_agenda)],
+                ['Junta 1', fmtFechaCorta(f.fechas.fecha_junta_1)],
+                ['Junta 2', fmtFechaCorta(f.fechas.fecha_junta_2)],
+              ];
+              const tit: CSSProperties = { fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', margin: '18px 0 8px' };
+              const fila = (k: string, v: string) => (
+                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '13.5px', padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--dim)' }}>{k}</span>
+                  <span style={{ color: 'var(--ink)', fontWeight: 500, textAlign: 'right' }}>{v}</span>
+                </div>
+              );
+              return (
+                <>
+                  <div style={{ padding: '20px 22px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '14px', flex: 'none' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '20px', fontWeight: 600, color: 'var(--ink)' }}>{f.nombre}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px' }}>{f.empresa ?? 'Sin empresa'} · Lead #{f.id}</div>
+                      <div style={{ marginTop: '9px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: f.estado.color }}>{f.estado.emoji} {f.estado.label}</span>
+                        {f.textoJ1 && <span style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--faint)' }}>{f.textoJ1}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => setFichaOpen(false)} style={{ ...iconBtn, width: '30px', height: '30px', flex: 'none' }}>✕</button>
+                  </div>
+
+                  <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 22px 18px' }}>
+                    <div style={tit}>Comportamiento · VSL</div>
+                    <div style={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface-2)', padding: '14px' }}>
+                      {f.comportamiento.sin_datos ? (
+                        <div style={{ fontSize: '13.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Sin tracking de visitante (agendó antes del tracking del VSL, o llegó por instant form sin pasar por la landing).</div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)' }}>
+                            {f.comportamiento.plays > 0
+                              ? f.comportamiento.max_pct !== null
+                                ? `Vio hasta el ${f.comportamiento.max_pct}% del VSL`
+                                : `Reprodujo el VSL ${f.comportamiento.plays}×`
+                              : 'No reprodujo el VSL'}
+                          </div>
+                          {f.comportamiento.max_pct !== null && (
+                            <div style={{ marginTop: '9px', height: '8px', borderRadius: '999px', background: 'var(--border)', overflow: 'hidden' }}>
+                              <div style={{ width: `${f.comportamiento.max_pct}%`, height: '100%', background: 'var(--good)' }}></div>
+                            </div>
+                          )}
+                          {f.comportamiento.agendoSinVerVsl && (
+                            <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--warn)', background: 'var(--warn-fill)', borderRadius: '8px', padding: '8px 10px', lineHeight: 1.4 }}>⚠️ Agendó SIN ver el VSL — llega con menos contexto, dedicale unos minutos extra a explicar el modelo.</div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div style={tit}>Contacto</div>
+                    {fila('Teléfono', f.telefono ?? '—')}
+                    {fila('Email', f.email ?? '—')}
+
+                    <div style={tit}>Origen</div>
+                    {filasOrigen.filter(([, v]) => v).map(([k, v]) => fila(k, v as string))}
+
+                    <div style={tit}>Estado comercial</div>
+                    {filasComercial.filter(([, v]) => v != null).map(([k, v]) => fila(k, v as string))}
+
+                    <div style={tit}>Fechas</div>
+                    {filasFechas.map(([k, v]) => fila(k, v))}
+                  </div>
+
+                  <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', flex: 'none' }}>
+                    <Link href={`/leads/${f.id}`} style={{ fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Abrir ficha completa en CRM →</Link>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
