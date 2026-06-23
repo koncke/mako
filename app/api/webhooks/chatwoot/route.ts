@@ -82,6 +82,27 @@ export async function POST(req: NextRequest) {
     console.error(`[webhook:chatwoot] pausa: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  // 1.5) Si el lead respondió y SIGUE ABIERTO, pasa a "Nutrición - Manual"
+  //      (pipeline_stage='manual') para que un humano lo atienda. No degradamos
+  //      leads ganados/perdidos/descalificados.
+  try {
+    if (leadId) {
+      const supabase = getSupabaseServer();
+      const { data } = await supabase
+        .from('leads')
+        .select('estado_lead, pipeline_stage')
+        .eq('id', leadId)
+        .maybeSingle();
+      const estado = (data as { estado_lead?: string } | null)?.estado_lead;
+      const stage = (data as { pipeline_stage?: string } | null)?.pipeline_stage;
+      if (estado === 'abierto' && stage !== 'manual') {
+        await supabase.from('leads').update({ pipeline_stage: 'manual', nutricion_realizada: true }).eq('id', leadId);
+      }
+    }
+  } catch (err) {
+    console.error(`[webhook:chatwoot] stage manual: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   // 2) Avisar a Mauricio por Telegram.
   const base = (process.env.CHATWOOT_BASE_URL || '').replace(/\/$/, '');
   const acc = process.env.CHATWOOT_ACCOUNT_ID || '3';

@@ -11,7 +11,7 @@
 //    El cuerpo de cada paso es una plantilla aprobada de Meta (solo lectura).
 // =============================================================================
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Dropdown } from '../components/Dropdown';
@@ -32,6 +32,7 @@ interface Contacto {
   contacto: string;
   telefono: string | null;
   avatar: string | null;      // foto de perfil del contacto (Chatwoot)
+  bloqueado: boolean;
   ultimoMensaje: string | null;
   ultimaActividad: number;
   sinLeer: number;
@@ -279,6 +280,8 @@ export default function WhatsAppPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selTpl, setSelTpl] = useState<string>('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [unreadAtOpen, setUnreadAtOpen] = useState(0);
+  const [blocking, setBlocking] = useState(false);
   // Grabación de nota de voz
   const [recording, setRecording] = useState(false);
   const [recPaused, setRecPaused] = useState(false);
@@ -385,9 +388,17 @@ export default function WhatsAppPage() {
       recCancelRef.current = true;
       try { mediaRecRef.current.stop(); } catch { /* noop */ }
     }
-    if (selId == null) { setMensajes([]); return; }
+    if (selId == null) { setMensajes([]); setUnreadAtOpen(0); return; }
     const grupo = contactos.find((c) => c.id === selId);
     const ids = grupo?.convIds ?? [];
+    setUnreadAtOpen(grupo?.sinLeer ?? 0);
+    // Marcar leído en Chatwoot + limpiar el badge localmente (como WhatsApp).
+    if (grupo && grupo.sinLeer > 0) {
+      void fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/read`, { method: 'POST' }).catch(() => {});
+      const n = grupo.sinLeer;
+      setContactos((prev) => prev.map((c) => (c.id === grupo.id ? { ...c, sinLeer: 0 } : c)));
+      totalSinLeerRef.current = Math.max(0, (totalSinLeerRef.current ?? 0) - n);
+    }
     if (!ids.length) { setMensajes([]); return; }
     setLoadingMsgs(true);
     setSendError(null);
@@ -465,6 +476,27 @@ export default function WhatsAppPage() {
       setSendError(e instanceof Error ? e.message : String(e));
     } finally {
       setSending(false);
+    }
+  }
+
+  async function toggleBloqueo() {
+    if (!sel || blocking) return;
+    const nuevo = !sel.bloqueado;
+    if (nuevo && !window.confirm(`¿Bloquear a ${sel.contacto}? No le van a llegar más mensajes y el lead pasa a "Descalificado".`)) return;
+    setBlocking(true);
+    setSendError(null);
+    try {
+      const r = await fetch(`/api/whatsapp/contacts/${sel.sendContactId}/block`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocked: nuevo, leadId: sel.leadId }),
+      });
+      const j = await r.json();
+      if (!j.ok) setSendError(j.error || 'No se pudo actualizar el bloqueo.');
+      else setContactos((prev) => prev.map((c) => (c.id === sel.id ? { ...c, bloqueado: nuevo } : c)));
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBlocking(false);
     }
   }
 
@@ -583,11 +615,23 @@ export default function WhatsAppPage() {
       if (cancelled) return;
       if (!blob.size) { setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
       const ext = AUDIO_EXT[type.split(';')[0].trim()];
-      if (!ext) {
-        setSendError('Tu navegador graba en un formato que WhatsApp no acepta. Usá Firefox/Safari, o adjuntá un audio con 📎.');
+      if (ext) {
+        void enviarAudio(blob, ext, destGrupo);
         return;
       }
-      void enviarAudio(blob, ext, destGrupo);
+      // Formato que WhatsApp no acepta (webm de Chrome/Edge) → convertir a MP3.
+      setSending(true);
+      void (async () => {
+        try {
+          const { blobToMp3 } = await import('./audio');
+          const mp3 = await blobToMp3(blob);
+          setSending(false);
+          await enviarAudio(mp3, 'mp3', destGrupo);
+        } catch (e) {
+          setSending(false);
+          setSendError('No se pudo convertir el audio (' + (e instanceof Error ? e.message : 'error') + '). Probá de nuevo.');
+        }
+      })();
     };
     mediaRecRef.current = rec;
     rec.start();
@@ -730,6 +774,15 @@ export default function WhatsAppPage() {
   const sel = contactos.find((c) => c.id === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
+  // Índice del primer mensaje no leído (para el divisor "X mensajes no leídos").
+  const firstUnreadIdx = (() => {
+    if (unreadAtOpen <= 0) return -1;
+    let cnt = 0;
+    for (let i = mensajes.length - 1; i >= 0; i--) {
+      if (!mensajes[i].saliente) { cnt++; if (cnt === unreadAtOpen) return i; }
+    }
+    return -1;
+  })();
   const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
@@ -826,10 +879,16 @@ export default function WhatsAppPage() {
                 <div ref={msgScrollRef} onScroll={() => { const el = msgScrollRef.current; if (el) stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
                   {loadingMsgs && <div style={{ color: 'var(--dim)', fontSize: '13.5px' }}>Cargando mensajes…</div>}
                   {!loadingMsgs && mensajes.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13.5px' }}>Sin mensajes.</div>}
-                  {mensajes.map((m) => {
+                  {mensajes.map((m, i) => {
                     const mine = m.saliente;
                     return (
-                      <div key={m.id} style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+                      <Fragment key={m.id}>
+                        {i === firstUnreadIdx && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '2px 0' }}>
+                            <span style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '999px', padding: '3px 12px' }}>{unreadAtOpen} {unreadAtOpen === 1 ? 'mensaje no leído' : 'mensajes no leídos'}</span>
+                          </div>
+                        )}
+                      <div style={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start' }}>
                         <div style={{ maxWidth: '78%', padding: '10px 13px', borderRadius: mine ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: m.template ? 'var(--auto-bubble)' : (mine ? 'var(--wa-bubble)' : 'var(--surface)'), border: '1px solid ' + (m.template ? 'var(--warn-fill)' : (mine ? 'rgba(28,138,84,.30)' : 'var(--border)')), boxShadow: '0 1px 2px rgba(23,21,17,.04)' }}>
                           {m.template && <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: '5px' }}>⚡ Plantilla · {m.template}</div>}
                           {m.adjuntos && m.adjuntos.length > 0 && (
@@ -857,6 +916,7 @@ export default function WhatsAppPage() {
                           </div>
                         </div>
                       </div>
+                      </Fragment>
                     );
                   })}
                 </div>
@@ -943,6 +1003,12 @@ export default function WhatsAppPage() {
               <button onClick={() => setDetalleLeadId(sel.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : (
               <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Buscar en CRM →</Link>
+            )}
+            {sel?.bloqueado && (
+              <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}>⛔ Contacto bloqueado</div>
+            )}
+            {sel && (
+              <button onClick={() => void toggleBloqueo()} disabled={blocking} style={{ marginTop: '12px', width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (sel.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: sel.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : sel.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
             )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '18px 0' }}></div>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '11px' }}>Plantillas rápidas</div>

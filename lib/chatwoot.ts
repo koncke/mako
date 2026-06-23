@@ -176,6 +176,7 @@ export type ChatwootConversation = {
   sinLeer: number;
   estado: string;
   puedeResponder: boolean;   // can_reply de Chatwoot = ventana de 24h abierta
+  bloqueado: boolean;        // contacto bloqueado en Chatwoot (meta.sender.blocked)
 };
 
 type ConvRaw = {
@@ -185,7 +186,7 @@ type ConvRaw = {
   last_activity_at?: number;
   can_reply?: boolean;
   messages?: Array<{ content?: string | null }>;
-  meta?: { sender?: { id?: number; name?: string; phone_number?: string; thumbnail?: string; avatar_url?: string } };
+  meta?: { sender?: { id?: number; name?: string; phone_number?: string; thumbnail?: string; avatar_url?: string; blocked?: boolean } };
 };
 type ConvListResp = { data?: { payload?: ConvRaw[]; meta?: { all_count?: number } }; payload?: ConvRaw[] };
 
@@ -203,6 +204,7 @@ function mapConv(cv: ConvRaw): ChatwootConversation {
     sinLeer: cv.unread_count ?? 0,
     estado: cv.status ?? 'open',
     puedeResponder: cv.can_reply !== false,
+    bloqueado: cv.meta?.sender?.blocked ?? false,
   };
 }
 
@@ -330,6 +332,40 @@ export async function contactoEnInboxWA(contactId: number): Promise<boolean> {
   const c = cfg();
   const convs = await contactConversaciones(c, contactId);
   return convs.some((cv) => cv.inboxId === c.inbox);
+}
+
+// ── Bloquear / desbloquear contacto (lo mismo que el botón del dashboard) ─────
+export type BlockResult = { ok: true; blocked: boolean } | { ok: false; error: string };
+
+export async function blockContact(contactId: number, blocked: boolean): Promise<BlockResult> {
+  try {
+    const c = cfg();
+    await cwFetch(
+      `${c.apiBase}/contacts/${contactId}/${blocked ? 'block' : 'unblock'}`,
+      { method: 'POST', body: JSON.stringify({}) },
+      c.token,
+    );
+    return { ok: true, blocked };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── Marcar como leído (limpia unread_count vía update_last_seen) ──────────────
+export async function markConversationRead(conversationId: number): Promise<void> {
+  const c = cfg();
+  await cwFetch(
+    `${c.apiBase}/conversations/${conversationId}/update_last_seen`,
+    { method: 'POST', body: JSON.stringify({}) },
+    c.token,
+  ).catch(() => {});
+}
+
+// Marca leídas TODAS las conversaciones de un contacto (la app agrupa por persona).
+export async function markContactRead(contactId: number): Promise<void> {
+  const c = cfg();
+  const convs = await contactConversaciones(c, contactId).catch(() => [] as ContactConv[]);
+  await Promise.all(convs.map((cv) => markConversationRead(cv.id)));
 }
 
 // Conversación abierta del contacto (o la más reciente, o una nueva).
