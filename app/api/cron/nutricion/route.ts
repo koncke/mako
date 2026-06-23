@@ -1,17 +1,20 @@
 // =============================================================================
-// Cron: motor de nutrición (VSL funnel) — Hito 0 (dry-run)
+// Cron: motor de nutrición (VSL funnel)
 // =============================================================================
 // Cada corrida: (1) inscribe leads que cayeron en la cohorte de una secuencia
-// activa, (2) procesa los envíos vencidos. Hito 0 NO envía por ningún canal —
-// los canales (Resend / Chatwoot) llegan en hitos siguientes.
+// activa, (2) procesa los envíos vencidos con rate-limiting anti-baneo (ventana
+// horaria, tope diario/por-corrida, 1 msg/lead cada 20h).
 //
 // Modos:
 //   - default        → dry-run puro: computa y muestra, NO escribe nada.
-//   - ?commit=1       → persiste inscripciones y avanza la máquina; los envíos
-//                       se registran como 'simulado' (sin canal real todavía).
+//   - ?commit=1       → persiste inscripciones y procesa envíos. El envío REAL
+//                       por WhatsApp (Chatwoot) ocurre solo si
+//                       NUTRICION_SEND_ENABLED=true; si no, avanza 'simulado'.
+//   - ?commit=1&ignorar_ventana=1 → ignora la ventana horaria (tests).
 //
-// El cron programado en vercel.json corre sin querystring → siempre dry-run.
-// Auth: Bearer ${CRON_SECRET} (mismo patrón que los demás crons).
+// El cron de vercel.json corre sin querystring → dry-run. Para enviar de verdad
+// hay que llamarlo con ?commit=1 (o ajustar el cron al ir a vivo).
+// Auth: Bearer ${CRON_SECRET}.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -19,7 +22,7 @@ import {
   planificarInscripciones,
   planificarEnvios,
   comprometerInscripciones,
-  comprometerEnviosSimulados,
+  procesarEnvios,
 } from '@/lib/nutricion';
 
 export const dynamic = 'force-dynamic';
@@ -58,14 +61,9 @@ export async function GET(request: NextRequest) {
     }
 
     const inscriptas = await comprometerInscripciones();
-    const procesados = await comprometerEnviosSimulados();
-    return Response.json({
-      ok: true,
-      modo: 'commit (simulado)',
-      inscriptas,
-      procesados,
-      nota: 'Hito 0: no se envió por ningún canal real. El envío real llega con Resend/Chatwoot.',
-    });
+    const ignorarVentana = new URL(request.url).searchParams.get('ignorar_ventana') === '1';
+    const proc = await procesarEnvios({ ignorarVentana });
+    return Response.json({ ok: true, modo: 'commit', inscriptas, ...proc });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[cron:nutricion] error: ${msg}`);

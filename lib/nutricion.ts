@@ -13,6 +13,7 @@
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { getVslEngagementMap } from '@/lib/leads';
+import { sendWhatsappTemplate } from '@/lib/chatwoot';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -22,7 +23,10 @@ export type PasoSecuencia = {
   delay_horas: number;
   asunto: string | null;
   cuerpo: string;
-  template_wa: string | null;
+  template_wa: string | null;                 // nombre del template aprobado (WhatsApp)
+  template_categoria?: 'marketing' | 'utility' | 'authentication';
+  template_idioma?: string;                   // ej. 'es_MX'
+  template_param?: string;                    // clave del body que recibe el nombre (default 'nombre')
 };
 
 export type Secuencia = {
@@ -39,6 +43,16 @@ export type Secuencia = {
 export const UMBRAL_VSL_PCT = 50;
 // No inscribir leads más viejos que esto (días) — evita revivir cohortes muertas.
 const VENTANA_DIAS = 30;
+
+// ── Rate-limiter / anti-baneo de WhatsApp (defaults conservadores; override por env) ──
+// El envío REAL por WhatsApp solo ocurre con NUTRICION_SEND_ENABLED=true; si no, se simula.
+const SEND_ENABLED = process.env.NUTRICION_SEND_ENABLED === 'true';
+const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles
+const MAX_POR_CORRIDA = Number(process.env.NUTRICION_MAX_POR_CORRIDA ?? '6'); // tope por corrida del cron
+const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h
+const TZ_OFFSET_MX = -6;          // ventana horaria evaluada en hora de México
+const VENTANA_INICIO = 9;
+const VENTANA_FIN = 21;
 
 function ahoraISO(): string {
   return new Date().toISOString();
@@ -218,21 +232,91 @@ export async function planificarEnvios(): Promise<PlanEnvio[]> {
   });
 }
 
-// Avanza la máquina de estados de los vencidos SIN enviar de verdad: registra
-// el envío como 'simulado' y mueve el paso. Los canales reales (Resend/Chatwoot)
-// reemplazan el "simulado" en los hitos 1 y 2.
-export async function comprometerEnviosSimulados(): Promise<number> {
+function haceHorasISO(h: number): string {
+  return new Date(Date.now() - h * 3600 * 1000).toISOString();
+}
+
+function dentroDeVentana(): boolean {
+  const hLocal = (new Date().getUTCHours() + TZ_OFFSET_MX + 24) % 24;
+  return hLocal >= VENTANA_INICIO && hLocal < VENTANA_FIN;
+}
+
+async function enviosUltimas24h(): Promise<number> {
+  const supabase = getSupabaseServer();
+  const { count, error } = await supabase
+    .from('nutricion_envios')
+    .select('id', { count: 'exact', head: true })
+    .in('estado', ['enviado', 'simulado'])
+    .gte('created_at', haceHorasISO(24));
+  if (error) throw new Error(`enviosUltimas24h: ${error.message}`);
+  return count ?? 0;
+}
+
+async function leadTuvoEnvioReciente(leadId: number): Promise<boolean> {
+  const supabase = getSupabaseServer();
+  const { count } = await supabase
+    .from('nutricion_envios')
+    .select('id', { count: 'exact', head: true })
+    .eq('lead_id', leadId)
+    .in('estado', ['enviado', 'simulado'])
+    .gte('created_at', haceHorasISO(HS_MIN_ENTRE_MSGS));
+  return (count ?? 0) > 0;
+}
+
+export type ResultadoProceso = {
+  saltado?: string;
+  enviados: number;
+  simulados: number;
+  fallos: number;
+  detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
+};
+
+// Procesa los envíos vencidos con rate-limiting anti-baneo: ventana horaria,
+// tope diario (24h móviles), tope por corrida y guard de 20h por lead. Envía de
+// verdad por WhatsApp solo si NUTRICION_SEND_ENABLED=true y el paso tiene
+// template aprobado; si no, registra el avance como 'simulado'. Un 'fallo' NO
+// avanza el paso (se reintenta en la próxima corrida).
+export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promise<ResultadoProceso> {
+  const res: ResultadoProceso = { enviados: 0, simulados: 0, fallos: 0, detalle: [] };
+
+  if (!opts?.ignorarVentana && !dentroDeVentana()) {
+    return { ...res, saltado: 'fuera-de-ventana-horaria' };
+  }
+  const presupuesto = MAX_POR_DIA - (await enviosUltimas24h());
+  if (presupuesto <= 0) return { ...res, saltado: 'tope-diario' };
+  const cupo = Math.min(MAX_POR_CORRIDA, presupuesto);
+
   const supabase = getSupabaseServer();
   const secuencias = await getSecuenciasActivas();
   const porId = new Map(secuencias.map((s) => [s.id, s]));
-  const due = await inscripcionesVencidas();
-  let procesados = 0;
+
+  // Traemos más de `cupo` por si algunos se saltan por el guard por-lead.
+  const { data: dueRaw, error } = await supabase
+    .from('nutricion_inscripciones')
+    .select('id, lead_id, secuencia_id, paso_actual')
+    .eq('estado', 'activa')
+    .lte('proximo_envio_at', ahoraISO())
+    .order('proximo_envio_at', { ascending: true })
+    .limit(cupo * 3);
+  if (error) throw new Error(`procesarEnvios: ${error.message}`);
+  const due = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number }>;
+  if (due.length === 0) return res;
+
+  const leadIds = [...new Set(due.map((d) => d.lead_id))];
+  const { data: leadsData } = await supabase
+    .from('leads')
+    .select('id, nombre, telefono')
+    .in('id', leadIds);
+  const leadMap = new Map(
+    ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null }>).map((l) => [l.id, l]),
+  );
 
   for (const insc of due) {
+    if (res.enviados + res.simulados >= cupo) break;
+
     const sec = porId.get(insc.secuencia_id);
-    if (!sec) continue;
-    const paso = sec.pasos[insc.paso_actual];
-    if (!paso) {
+    const paso = sec?.pasos[insc.paso_actual];
+    if (!sec || !paso) {
       await supabase
         .from('nutricion_inscripciones')
         .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() })
@@ -240,15 +324,56 @@ export async function comprometerEnviosSimulados(): Promise<number> {
       continue;
     }
 
+    if (await leadTuvoEnvioReciente(insc.lead_id)) {
+      res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
+      continue; // no avanzar; se reintenta en otra corrida
+    }
+
+    const lead = leadMap.get(insc.lead_id);
+    let estado: 'enviado' | 'simulado' | 'fallo' = 'simulado';
+    let nota: string | undefined;
+
+    if (SEND_ENABLED && paso.canal === 'whatsapp') {
+      if (!lead?.telefono) {
+        estado = 'fallo';
+        nota = 'lead sin teléfono';
+      } else if (!paso.template_wa) {
+        estado = 'fallo';
+        nota = 'paso sin template_wa';
+      } else {
+        const r = await sendWhatsappTemplate({
+          phone: lead.telefono,
+          name: lead.nombre ?? '',
+          content: paso.cuerpo,
+          template: {
+            name: paso.template_wa,
+            category: paso.template_categoria ?? 'marketing',
+            language: paso.template_idioma ?? 'es_MX',
+            bodyParams: { [paso.template_param ?? 'nombre']: lead.nombre ?? '' },
+          },
+        });
+        estado = r.ok ? 'enviado' : 'fallo';
+        if (!r.ok) nota = r.error;
+      }
+    }
+    // email → 'simulado' hasta el hito de Resend.
+
     await supabase.from('nutricion_envios').insert({
       inscripcion_id: insc.id,
       lead_id: insc.lead_id,
       secuencia_id: insc.secuencia_id,
       paso: insc.paso_actual + 1,
       canal: paso.canal,
-      estado: 'simulado',
+      estado,
+      destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : null,
       asunto: paso.asunto,
     });
+
+    if (estado === 'fallo') {
+      res.fallos += 1;
+      res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, nota });
+      continue; // no avanzar el paso; se reintenta
+    }
 
     const siguiente = sec.pasos[insc.paso_actual + 1];
     await supabase
@@ -260,9 +385,13 @@ export async function comprometerEnviosSimulados(): Promise<number> {
         updated_at: ahoraISO(),
       })
       .eq('id', insc.id);
-    procesados += 1;
+
+    if (estado === 'enviado') res.enviados += 1;
+    else res.simulados += 1;
+    res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado });
   }
-  return procesados;
+
+  return res;
 }
 
 // Pausa la nutrición de un lead cuando responde (lo usará /api/webhooks/chatwoot
