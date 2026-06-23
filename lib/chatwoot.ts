@@ -328,9 +328,11 @@ export async function getContactMessages(contactId: number): Promise<ChatwootMes
 }
 
 // Mensajes mergeados de una LISTA de conversaciones (para agrupar por persona
-// cuando Chatwoot tiene varios contactos del mismo teléfono).
+// cuando Chatwoot tiene varios contactos del mismo teléfono). Cap a las ~15 más
+// recientes (los convIds vienen recent-first) para no hacer 40 fetches por hilo.
 export async function getMessagesForConvs(ids: number[]): Promise<ChatwootMessage[]> {
-  const arrays = await Promise.all(ids.map((id) => getMessages(id).catch(() => [] as ChatwootMessage[])));
+  const recientes = ids.slice(0, 15);
+  const arrays = await Promise.all(recientes.map((id) => getMessages(id).catch(() => [] as ChatwootMessage[])));
   return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
 }
 
