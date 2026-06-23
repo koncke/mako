@@ -1,34 +1,35 @@
 'use client';
 
 // =============================================================================
-// WhatsApp — Inbox real (Chatwoot) + Secuencias de nutrición (motor de la app)
+// WhatsApp — Inbox real (Chatwoot, agrupado por contacto) + Secuencias
 // =============================================================================
-//  - Conversaciones: lista/hilo/contexto en vivo desde Chatwoot vía
-//    /api/whatsapp/conversations y .../[id]/messages. Responder = texto libre
-//    (solo válido dentro de la ventana de 24h del lead).
-//  - Secuencias: las 13 etapas reales de nutricion_secuencias, con activar/pausar
-//    persistido. El cuerpo de cada paso es un template aprobado de Meta (se
-//    muestra, no se edita acá — editarlo no cambiaría lo que WhatsApp envía).
-// El <aside> y el rootStyle los aporta app/layout.tsx; acá solo <main>.
+//  - Conversaciones: un hilo por persona (junta las conversaciones que Chatwoot
+//    haya creado para ese contacto), con todos los mensajes incl. respuestas.
+//    Responder = texto libre (solo entra dentro de la ventana de 24h del lead).
+//    Cada contacto muestra su etapa del funnel; se puede filtrar por etapa.
+//  - Secuencias: las 13 etapas reales de nutricion_secuencias (activar/pausar).
+//    El cuerpo de cada paso es una plantilla aprobada de Meta (solo lectura).
 // =============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tipos (espejo de las API internas)
+// Tipos
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Conversacion {
-  id: number;
+interface Contacto {
+  contactId: number;
+  primaryConvId: number;
   contacto: string;
   telefono: string | null;
   ultimoMensaje: string | null;
-  ultimaActividad: number | null;
+  ultimaActividad: number;
   sinLeer: number;
-  estado: string;
   leadId: number | null;
   empresa: string | null;
   estadoLead: string | null;
+  etapaKey: string | null;
+  etapaLabel: string | null;
 }
 
 interface Mensaje {
@@ -64,6 +65,11 @@ type View = 'chats' | 'sequences';
 
 const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te comparto el video de nuevo'];
 
+const ETAPA_COLOR: Record<string, string> = {
+  cliente: '#1D9E75', 'por-cobrar': '#C7417B', 'no-show': '#B5630A', j2: '#4F5BD5',
+  'post-j1': '#6A4BD8', agendo: '#9D4EDD', 'vio-vsl': '#185FA5', form: '#888780', abierto: '#888780',
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,8 +83,7 @@ function fmtTime(unixSec: number | null): string {
   if (!unixSec) return '';
   const d = new Date(unixSec * 1000);
   const hoy = new Date();
-  const mismaFecha = d.toDateString() === hoy.toDateString();
-  return mismaFecha
+  return d.toDateString() === hoy.toDateString()
     ? d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
     : d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
 }
@@ -95,12 +100,13 @@ const avatarStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px',
 };
 
-function estadoChip(estado: string | null): CSSProperties | null {
-  if (!estado) return null;
+function etapaChip(key: string | null, label: string | null): { style: CSSProperties; dot: CSSProperties; label: string } | null {
+  if (!key || !label) return null;
+  const color = ETAPA_COLOR[key] ?? '#888780';
   return {
-    display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 600,
-    padding: '3px 9px', borderRadius: '999px', background: 'var(--surface-2)',
-    color: 'var(--dim)', border: '1px solid var(--border)', whiteSpace: 'nowrap', textTransform: 'capitalize',
+    label,
+    dot: { width: '8px', height: '8px', flex: 'none', borderRadius: '50%', background: color },
+    style: { display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', fontWeight: 600, padding: '3px 9px', borderRadius: '999px', background: 'var(--surface-2)', color: 'var(--dim)', border: '1px solid var(--border)', whiteSpace: 'nowrap' },
   };
 }
 
@@ -111,18 +117,17 @@ function estadoChip(estado: string | null): CSSProperties | null {
 export default function WhatsAppPage() {
   const [view, setView] = useState<View>('chats');
 
-  // Conversaciones
-  const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
+  const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [search, setSearch] = useState('');
-  const [selConvId, setSelConvId] = useState<number | null>(null);
+  const [filtroEtapa, setFiltroEtapa] = useState<string>('todas');
+  const [selId, setSelId] = useState<number | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  // Secuencias
   const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
   const [loadingSeqs, setLoadingSeqs] = useState(true);
   const [selSeqId, setSelSeqId] = useState<number | null>(null);
@@ -133,9 +138,9 @@ export default function WhatsAppPage() {
       try {
         const r = await fetch('/api/whatsapp/conversations');
         const j = await r.json();
-        const list: Conversacion[] = j.ok ? j.conversaciones : [];
-        setConversaciones(list);
-        if (list[0]) setSelConvId(list[0].id);
+        const list: Contacto[] = j.ok ? j.contactos : [];
+        setContactos(list);
+        if (list[0]) setSelId(list[0].contactId);
       } finally {
         setLoadingConvs(false);
       }
@@ -153,48 +158,39 @@ export default function WhatsAppPage() {
     })();
   }, []);
 
-  // ── Mensajes de la conversación seleccionada ──
+  // ── Mensajes del contacto seleccionado ──
   useEffect(() => {
-    if (selConvId == null) {
-      setMensajes([]);
-      return;
-    }
+    if (selId == null) { setMensajes([]); return; }
     setLoadingMsgs(true);
     setSendError(null);
     void (async () => {
       try {
-        const r = await fetch(`/api/whatsapp/conversations/${selConvId}/messages`);
+        const r = await fetch(`/api/whatsapp/contacts/${selId}/messages`);
         const j = await r.json();
         setMensajes(j.ok ? j.mensajes : []);
       } finally {
         setLoadingMsgs(false);
       }
     })();
-  }, [selConvId]);
-
-  async function refetchMensajes(id: number) {
-    const r = await fetch(`/api/whatsapp/conversations/${id}/messages`);
-    const j = await r.json();
-    setMensajes(j.ok ? j.mensajes : []);
-  }
+  }, [selId]);
 
   async function enviar() {
     const txt = draft.trim();
-    if (!txt || selConvId == null || sending) return;
+    if (!txt || selId == null || sending) return;
     setSending(true);
     setSendError(null);
     try {
-      const r = await fetch(`/api/whatsapp/conversations/${selConvId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: txt }),
+      const r = await fetch(`/api/whatsapp/contacts/${selId}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: txt }),
       });
       const j = await r.json();
       if (!j.ok) {
-        setSendError(j.error || 'No se pudo enviar (¿fuera de la ventana de 24h? necesita template).');
+        setSendError(j.error || 'No se pudo enviar.');
       } else {
         setDraft('');
-        await refetchMensajes(selConvId);
+        const rr = await fetch(`/api/whatsapp/contacts/${selId}/messages`);
+        const jj = await rr.json();
+        setMensajes(jj.ok ? jj.mensajes : []);
       }
     } catch (e) {
       setSendError(e instanceof Error ? e.message : String(e));
@@ -206,23 +202,25 @@ export default function WhatsAppPage() {
   async function toggleSeq(id: number, activa: boolean) {
     setSecuencias((prev) => prev.map((s) => (s.id === id ? { ...s, activa } : s)));
     await fetch('/api/whatsapp/secuencias', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, activa }),
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, activa }),
     });
   }
 
   // ── Derivados ──
   const isChats = view === 'chats';
   const q = search.trim().toLowerCase();
-  const convsFiltradas = conversaciones.filter((c) =>
-    !q || c.contacto.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q),
-  );
-  const sel = conversaciones.find((c) => c.id === selConvId) ?? null;
+  const etapasPresentes = [...new Map(contactos.filter((c) => c.etapaKey).map((c) => [c.etapaKey, c.etapaLabel])).entries()];
+  const filtrados = contactos.filter((c) => {
+    if (filtroEtapa !== 'todas' && c.etapaKey !== filtroEtapa) return false;
+    if (q && !(c.contacto.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q))) return false;
+    return true;
+  });
+  const sel = contactos.find((c) => c.contactId === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
+  const chipBtn = (active: boolean): CSSProperties => ({ padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
@@ -248,24 +246,22 @@ export default function WhatsAppPage() {
           {/* LISTA */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por nombre, empresa o teléfono…"
-                style={{ width: '100%', padding: '10px 13px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', outline: 'none' }}
-              />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o teléfono…" style={{ width: '100%', padding: '10px 13px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', outline: 'none' }} />
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
+                <button onClick={() => setFiltroEtapa('todas')} style={chipBtn(filtroEtapa === 'todas')}>Todas</button>
+                {etapasPresentes.map(([k, label]) => (
+                  <button key={k} onClick={() => setFiltroEtapa(k as string)} style={chipBtn(filtroEtapa === k)}>{label}</button>
+                ))}
+              </div>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
-              {loadingConvs && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando conversaciones…</div>}
-              {!loadingConvs && convsFiltradas.length === 0 && <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13.5px' }}>Sin conversaciones.</div>}
-              {convsFiltradas.map((c) => {
-                const active = c.id === selConvId;
+              {loadingConvs && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
+              {!loadingConvs && filtrados.length === 0 && <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13.5px' }}>Sin conversaciones.</div>}
+              {filtrados.map((c) => {
+                const active = c.contactId === selId;
+                const chip = etapaChip(c.etapaKey, c.etapaLabel);
                 return (
-                  <div
-                    key={c.id}
-                    onClick={() => setSelConvId(c.id)}
-                    style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}
-                  >
+                  <div key={c.contactId} onClick={() => setSelId(c.contactId)} style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
                     <div style={avatarStyle}>{initials(c.contacto)}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
@@ -274,10 +270,8 @@ export default function WhatsAppPage() {
                       </div>
                       <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.ultimoMensaje ?? '—'}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '7px' }}>
-                        {c.empresa && <span style={{ fontSize: '11.5px', color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.empresa}</span>}
-                        {c.sinLeer > 0 && (
-                          <span style={{ marginLeft: 'auto', flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--good)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.sinLeer}</span>
-                        )}
+                        {chip && <span style={chip.style}><span style={chip.dot}></span>{chip.label}</span>}
+                        {c.sinLeer > 0 && <span style={{ marginLeft: 'auto', flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--good)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.sinLeer}</span>}
                       </div>
                     </div>
                   </div>
@@ -299,7 +293,7 @@ export default function WhatsAppPage() {
                       <div style={{ fontSize: '12px', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{sel.telefono ?? '—'}</div>
                     </div>
                   </div>
-                  {sel.estadoLead && estadoChip(sel.estadoLead) && <span style={estadoChip(sel.estadoLead) as CSSProperties}>{sel.estadoLead}</span>}
+                  {etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <span style={ch.style}><span style={ch.dot}></span>{ch.label}</span>; })()}
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
                   {loadingMsgs && <div style={{ color: 'var(--dim)', fontSize: '13.5px' }}>Cargando mensajes…</div>}
@@ -319,13 +313,7 @@ export default function WhatsAppPage() {
                 </div>
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
                 <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-                  <textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }}
-                    placeholder="Escribí un mensaje… (válido dentro de la ventana de 24h)"
-                    style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }}
-                  />
+                  <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }} placeholder="Escribí un mensaje… (válido dentro de la ventana de 24h)" style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
                   <button onClick={() => void enviar()} disabled={sending} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar'}</button>
                 </div>
               </>
@@ -337,9 +325,8 @@ export default function WhatsAppPage() {
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '12px' }}>Lead</div>
             <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{sel?.contacto ?? '—'}</div>
             <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px' }}>{sel?.empresa ?? 'Sin empresa registrada'}</div>
-            <a href={sel?.leadId ? `/leads/${sel.leadId}` : '/leads'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>
-              {sel?.leadId ? 'Abrir ficha en CRM →' : 'Buscar en CRM →'}
-            </a>
+            {sel && etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <div style={{ marginTop: '10px' }}><span style={ch.style}><span style={ch.dot}></span>{ch.label}</span></div>; })()}
+            <a href={sel?.leadId ? `/leads/${sel.leadId}` : '/leads'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>{sel?.leadId ? 'Abrir ficha en CRM →' : 'Buscar en CRM →'}</a>
             <div style={{ height: '1px', background: 'var(--border)', margin: '18px 0' }}></div>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '11px' }}>Plantillas rápidas</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -359,7 +346,7 @@ export default function WhatsAppPage() {
             <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)', fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Secuencias por etapa</div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {loadingSeqs && <div style={{ padding: '14px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
-              {!loadingSeqs && secuencias.length === 0 && <div style={{ padding: '14px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay secuencias cargadas todavía.</div>}
+              {!loadingSeqs && secuencias.length === 0 && <div style={{ padding: '14px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay secuencias todavía.</div>}
               {secuencias.map((s) => {
                 const active = s.id === selSeqId;
                 return (
@@ -387,12 +374,7 @@ export default function WhatsAppPage() {
                     </div>
                     <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '4px' }}>{seqSel.enviados} enviados · {seqSel.inscriptos} inscriptos · trigger: <code style={{ fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{seqSel.trigger_tipo}</code></div>
                   </div>
-                  <button
-                    onClick={() => void toggleSeq(seqSel.id, !seqSel.activa)}
-                    style={{ flex: 'none', padding: '9px 16px', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, border: '1px solid ' + (seqSel.activa ? 'var(--border-strong)' : 'var(--good)'), background: seqSel.activa ? 'var(--surface)' : 'var(--good-bg)', color: seqSel.activa ? 'var(--dim)' : 'var(--good)' }}
-                  >
-                    {seqSel.activa ? '⏸ Pausar secuencia' : '▶ Activar secuencia'}
-                  </button>
+                  <button onClick={() => void toggleSeq(seqSel.id, !seqSel.activa)} style={{ flex: 'none', padding: '9px 16px', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, border: '1px solid ' + (seqSel.activa ? 'var(--border-strong)' : 'var(--good)'), background: seqSel.activa ? 'var(--surface)' : 'var(--good-bg)', color: seqSel.activa ? 'var(--dim)' : 'var(--good)' }}>{seqSel.activa ? '⏸ Pausar secuencia' : '▶ Activar secuencia'}</button>
                 </div>
                 <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px' }}>
                   {seqSel.pasos.map((st, i) => (
@@ -411,9 +393,7 @@ export default function WhatsAppPage() {
                       </div>
                     </div>
                   ))}
-                  <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>
-                    El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no acá. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.
-                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '8px', paddingLeft: '50px', lineHeight: 1.5 }}>El cuerpo de cada paso es una <strong>plantilla aprobada de Meta</strong> — se administra desde Meta/Chatwoot, no acá. Variable disponible: <code style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '5px', padding: '1px 5px', fontFamily: "'Geist Mono', monospace" }}>{'{{nombre}}'}</code>.</div>
                 </div>
               </>
             )}

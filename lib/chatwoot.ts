@@ -137,7 +137,7 @@ export async function sendWhatsappTemplate(params: {
   try {
     const c = cfg();
     const contactId = await buscarOCrearContacto(c, params.phone, params.name);
-    const conversationId = await crearConversacion(c, contactId);
+    const conversationId = await crearOReusarConversacion(c, contactId);
     await cwFetch(
       `${c.apiBase}/conversations/${conversationId}/messages`,
       {
@@ -167,6 +167,7 @@ export async function sendWhatsappTemplate(params: {
 
 export type ChatwootConversation = {
   id: number;
+  contactId: number;
   contacto: string;
   telefono: string | null;
   ultimoMensaje: string | null;
@@ -181,7 +182,7 @@ type ConvRaw = {
   status?: string;
   last_activity_at?: number;
   messages?: Array<{ content?: string | null }>;
-  meta?: { sender?: { name?: string; phone_number?: string } };
+  meta?: { sender?: { id?: number; name?: string; phone_number?: string } };
 };
 type ConvListResp = { data?: { payload?: ConvRaw[] }; payload?: ConvRaw[] };
 
@@ -198,6 +199,7 @@ export async function listConversations(limit = 50): Promise<ChatwootConversatio
     const last = msgs.length ? msgs[msgs.length - 1] : undefined;
     return {
       id: cv.id ?? 0,
+      contactId: cv.meta?.sender?.id ?? 0,
       contacto: cv.meta?.sender?.name ?? 'Sin nombre',
       telefono: cv.meta?.sender?.phone_number ?? null,
       ultimoMensaje: last?.content ?? null,
@@ -250,6 +252,66 @@ export async function sendText(conversationId: number, content: string): Promise
       c.token,
     );
     return { ok: true, conversationId };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── Vista por contacto (un hilo por persona, no por conversación) ────────────
+// Chatwoot crea una conversación por interacción (los recordatorios de n8n
+// generan varias por contacto). Para el inbox agrupamos por contacto y
+// mergeamos los mensajes de todas sus conversaciones.
+
+type ContactConvsResp = { payload?: Array<{ id?: number; status?: string; last_activity_at?: number }> };
+
+async function contactConversaciones(
+  c: Cfg,
+  contactId: number,
+): Promise<Array<{ id: number; status: string; last_activity_at: number }>> {
+  const r = await cwFetch<ContactConvsResp>(
+    `${c.apiBase}/contacts/${contactId}/conversations`,
+    { method: 'GET' },
+    c.token,
+  );
+  return (r.payload ?? [])
+    .filter((x): x is { id: number; status?: string; last_activity_at?: number } => typeof x.id === 'number')
+    .map((x) => ({ id: x.id, status: x.status ?? 'open', last_activity_at: x.last_activity_at ?? 0 }));
+}
+
+// Conversación abierta del contacto (o la más reciente, o una nueva).
+async function crearOReusarConversacion(c: Cfg, contactId: number): Promise<number> {
+  try {
+    const convs = await contactConversaciones(c, contactId);
+    if (convs.length) {
+      const abierta = convs.find((x) => x.status === 'open');
+      const elegida = abierta ?? convs.sort((a, b) => b.last_activity_at - a.last_activity_at)[0];
+      if (elegida) return elegida.id;
+    }
+  } catch {
+    /* si falla el lookup, creamos una nueva */
+  }
+  return crearConversacion(c, contactId);
+}
+
+// Todos los mensajes de un contacto (merge de sus conversaciones, cronológico).
+export async function getContactMessages(contactId: number): Promise<ChatwootMessage[]> {
+  const c = cfg();
+  const convs = await contactConversaciones(c, contactId);
+  const todos: ChatwootMessage[] = [];
+  for (const cv of convs) {
+    const msgs = await getMessages(cv.id);
+    todos.push(...msgs);
+  }
+  return todos.sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
+}
+
+// Responde texto libre al contacto (reusa su conversación abierta). Solo llega
+// si está dentro de la ventana de 24h del lead.
+export async function sendToContact(contactId: number, content: string): Promise<SendResult> {
+  try {
+    const c = cfg();
+    const conversationId = await crearOReusarConversacion(c, contactId);
+    return await sendText(conversationId, content);
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
