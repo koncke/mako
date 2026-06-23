@@ -11,7 +11,7 @@
 //    El cuerpo de cada paso es una plantilla aprobada de Meta (solo lectura).
 // =============================================================================
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { Dropdown } from '../components/Dropdown';
 
@@ -25,6 +25,7 @@ interface Contacto {
   sendContactId: number;      // contacto al que se le manda (el de la conv más reciente)
   contacto: string;
   telefono: string | null;
+  avatar: string | null;      // foto de perfil del contacto (Chatwoot)
   ultimoMensaje: string | null;
   ultimaActividad: number;
   sinLeer: number;
@@ -148,6 +149,19 @@ const avatarStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px',
 };
 
+// Foto de perfil del contacto (Chatwoot) con fallback a iniciales si no hay
+// URL o si la imagen no carga.
+function Avatar({ src, name }: { src: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (src && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt={name} onError={() => setFailed(true)} style={{ ...avatarStyle, objectFit: 'cover' }} />
+    );
+  }
+  return <div style={avatarStyle}>{initials(name)}</div>;
+}
+
 const btnSeqBase: CSSProperties = {
   flex: 'none', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer',
   fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600,
@@ -194,6 +208,8 @@ export default function WhatsAppPage() {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [adjunto, setAdjunto] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selTpl, setSelTpl] = useState<string>('');
 
@@ -259,8 +275,21 @@ export default function WhatsAppPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [fichaOpen]);
 
+  // ── Preview local del adjunto de imagen (revoca el object URL al cambiar) ──
+  const adjuntoPreview = useMemo(
+    () => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null),
+    [adjunto],
+  );
+  useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
+
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
+    // Al cambiar de conversación, descartar el borrador/adjunto/plantilla de la
+    // anterior — si no, un archivo staged se enviaría al contacto equivocado.
+    setAdjunto(null);
+    setDraft('');
+    setSelTpl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
     if (selId == null) { setMensajes([]); return; }
     const grupo = contactos.find((c) => c.id === selId);
     const ids = grupo?.convIds ?? [];
@@ -347,6 +376,49 @@ export default function WhatsAppPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  async function enviarAdjunto() {
+    const grupo = contactos.find((c) => c.id === selId);
+    if (!adjunto || !grupo || sending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', adjunto);
+      if (draft.trim()) fd.append('content', draft.trim());
+      const r = await fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/attachments`, {
+        method: 'POST', body: fd,
+      });
+      const j = await r.json();
+      if (!j.ok) {
+        setSendError(j.error || 'No se pudo enviar el archivo.');
+      } else {
+        setDraft('');
+        setAdjunto(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        await refetchHilo(grupo);
+      }
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function enviarComposer() {
+    if (adjunto) void enviarAdjunto();
+    else void enviar();
+  }
+
+  function pickFile(f: File | null) {
+    if (!f) return;
+    setSendError(null);
+    if (f.size > 16 * 1024 * 1024) {
+      setSendError('El archivo supera el máximo de 16 MB.');
+      return;
+    }
+    setAdjunto(f);
   }
 
   async function enviarTemplate() {
@@ -535,7 +607,7 @@ export default function WhatsAppPage() {
                 const chip = etapaChip(c.etapaKey, c.etapaLabel);
                 return (
                   <div key={c.id} onClick={() => setSelId(c.id)} style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
-                    <div style={avatarStyle}>{initials(c.contacto)}</div>
+                    <Avatar src={c.avatar} name={c.contacto} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
                         <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contacto}</span>
@@ -559,8 +631,15 @@ export default function WhatsAppPage() {
             {sel && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0 }}>
-                    <div style={avatarStyle}>{initials(sel.contacto)}</div>
+                  <div
+                    onClick={sel.leadId ? () => void abrirFicha(sel.leadId!) : undefined}
+                    onKeyDown={sel.leadId ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void abrirFicha(sel.leadId!); } } : undefined}
+                    role={sel.leadId ? 'button' : undefined}
+                    tabIndex={sel.leadId ? 0 : undefined}
+                    title={sel.leadId ? 'Ver detalle del lead' : undefined}
+                    style={{ display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0, cursor: sel.leadId ? 'pointer' : 'default' }}
+                  >
+                    <Avatar src={sel.avatar} name={sel.contacto} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: '15.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.contacto}</div>
                       <div style={{ fontSize: '12px', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{sel.telefono ?? '—'}</div>
@@ -608,9 +687,28 @@ export default function WhatsAppPage() {
                 </div>
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
                 {ventanaAbierta ? (
-                  <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-                    <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar(); } }} placeholder="Escribí un mensaje…" style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
-                    <button onClick={() => void enviar()} disabled={sending} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar'}</button>
+                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                    {adjunto && (
+                      <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {adjuntoPreview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={adjuntoPreview} alt={adjunto.name} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }} />
+                        ) : (
+                          <div style={{ width: '48px', height: '48px', flex: 'none', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{adjunto.type.startsWith('audio/') ? '🎵' : adjunto.type.startsWith('video/') ? '🎬' : '📄'}</div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adjunto.name}</div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--faint)' }}>{(adjunto.size / 1024).toFixed(0)} KB</div>
+                        </div>
+                        <button onClick={() => { setAdjunto(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} title="Quitar adjunto" style={{ ...iconBtn, flex: 'none' }}>✕</button>
+                      </div>
+                    )}
+                    <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+                      <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
+                      <button onClick={() => fileInputRef.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--dim)', cursor: sending ? 'default' : 'pointer', fontSize: '18px' }}>📎</button>
+                      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComposer(); } }} placeholder={adjunto ? 'Agregá un texto (opcional)…' : 'Escribí un mensaje…'} style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
+                      <button onClick={enviarComposer} disabled={sending || (!draft.trim() && !adjunto)} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: (sending || (!draft.trim() && !adjunto)) ? 'default' : 'pointer', opacity: (sending || (!draft.trim() && !adjunto)) ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar'}</button>
+                    </div>
                   </div>
                 ) : (
                   <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>

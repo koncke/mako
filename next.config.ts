@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    // El middleware (proxy) bufferea el body con tope 10MB por defecto y, si se
+    // pasa, TRUNCA el archivo en silencio (no falla) → un adjunto >10MB llegaría
+    // corrupto a Chatwoot. Subimos a 20MB para cubrir el tope real de subida del
+    // inbox (route /api/whatsapp/.../attachments cap a 16MB).
+    proxyClientMaxBodySize: '20mb',
+  },
 };
 
 export default nextConfig;

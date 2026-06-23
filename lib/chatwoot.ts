@@ -170,6 +170,7 @@ export type ChatwootConversation = {
   contactId: number;
   contacto: string;
   telefono: string | null;
+  avatar: string | null;     // foto de perfil del contacto (meta.sender.thumbnail)
   ultimoMensaje: string | null;
   ultimaActividad: number | null;
   sinLeer: number;
@@ -184,7 +185,7 @@ type ConvRaw = {
   last_activity_at?: number;
   can_reply?: boolean;
   messages?: Array<{ content?: string | null }>;
-  meta?: { sender?: { id?: number; name?: string; phone_number?: string } };
+  meta?: { sender?: { id?: number; name?: string; phone_number?: string; thumbnail?: string; avatar_url?: string } };
 };
 type ConvListResp = { data?: { payload?: ConvRaw[]; meta?: { all_count?: number } }; payload?: ConvRaw[] };
 
@@ -196,6 +197,7 @@ function mapConv(cv: ConvRaw): ChatwootConversation {
     contactId: cv.meta?.sender?.id ?? 0,
     contacto: cv.meta?.sender?.name ?? 'Sin nombre',
     telefono: cv.meta?.sender?.phone_number ?? null,
+    avatar: cv.meta?.sender?.thumbnail || cv.meta?.sender?.avatar_url || null,
     ultimoMensaje: last?.content ?? null,
     ultimaActividad: cv.last_activity_at ?? null,
     sinLeer: cv.unread_count ?? 0,
@@ -350,6 +352,73 @@ export async function sendToContact(contactId: number, content: string): Promise
     const c = cfg();
     const conversationId = await crearOReusarConversacion(c, contactId);
     return await sendText(conversationId, content);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+const EXT_POR_MIME: Record<string, string> = {
+  'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
+  'video/mp4': '.mp4', 'video/3gpp': '.3gp',
+  'audio/mpeg': '.mp3', 'audio/aac': '.aac', 'audio/ogg': '.ogg', 'audio/amr': '.amr', 'audio/mp4': '.m4a',
+  'application/pdf': '.pdf',
+};
+
+// Limpia el nombre que viene del cliente (quita control chars y separadores de
+// ruta, lo acota) y le pone extensión por MIME si no tiene — WhatsApp infiere el
+// tipo por extensión.
+function nombreArchivoSeguro(name: string, mime: string): string {
+  let n = Array.from(name || '')
+    .filter((ch) => ch.charCodeAt(0) >= 32)
+    .join('')
+    .replace(/[/\\]/g, '_')
+    .trim()
+    .slice(0, 120);
+  if (!n) n = 'archivo';
+  if (!/\.[a-z0-9]{1,8}$/i.test(n)) {
+    const ext = EXT_POR_MIME[(mime || '').split(';')[0].trim()];
+    if (ext) n += ext;
+  }
+  return n;
+}
+
+function mensajeErrorChatwoot(status: number): string {
+  if (status === 413) return 'El archivo es demasiado grande para WhatsApp.';
+  if (status === 415 || status === 422) return 'WhatsApp no acepta este tipo de archivo.';
+  if (status === 401 || status === 403) return 'Sin permisos para enviar en Chatwoot.';
+  if (status === 404) return 'No se encontró la conversación del contacto.';
+  if (status >= 500) return 'Chatwoot no está disponible en este momento.';
+  return 'No se pudo enviar el archivo.';
+}
+
+// Envía un archivo/multimedia al contacto (reusa su conversación abierta). Solo
+// llega dentro de la ventana de 24h. OJO: multipart NO puede pasar por cwFetch
+// (authHeaders fuerza Content-Type: application/json y rompería el boundary).
+// Con FormData nativo NO seteamos Content-Type: fetch arma el boundary solo.
+export async function sendAttachmentToContact(
+  contactId: number,
+  blob: Blob,
+  filename: string,
+  content?: string,
+): Promise<SendResult> {
+  try {
+    const c = cfg();
+    const conversationId = await crearOReusarConversacion(c, contactId);
+    const fd = new FormData();
+    fd.append('message_type', 'outgoing');
+    if (content && content.trim()) fd.append('content', content.trim());
+    fd.append('attachments[]', blob, nombreArchivoSeguro(filename, blob.type));
+    const res = await fetch(`${c.apiBase}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: { api_access_token: c.token }, // sin Content-Type → boundary automático
+      body: fd,
+    });
+    if (!res.ok) {
+      const raw = await res.text();
+      console.error(`[chatwoot sendAttachment] ${res.status}: ${raw.slice(0, 300)}`);
+      return { ok: false, error: mensajeErrorChatwoot(res.status) };
+    }
+    return { ok: true, conversationId };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

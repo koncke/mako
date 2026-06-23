@@ -67,7 +67,7 @@ export async function GET() {
     };
 
     type Acc = {
-      id: string; contacto: string; telefono: string | null;
+      id: string; contacto: string; telefono: string | null; avatar: string | null;
       sendContactId: number; convIds: number[];
       ultimoMensaje: string | null; ultimaActividad: number; sinLeer: number; ventanaAbierta: boolean;
     };
@@ -78,7 +78,7 @@ export async function GET() {
       const act = c.ultimaActividad ?? 0;
       if (!prev) {
         grupos.set(key, {
-          id: key, contacto: c.contacto, telefono: c.telefono,
+          id: key, contacto: c.contacto, telefono: c.telefono, avatar: c.avatar,
           sendContactId: c.contactId, convIds: [c.id],
           ultimoMensaje: c.ultimoMensaje, ultimaActividad: act, sinLeer: c.sinLeer, ventanaAbierta: c.puedeResponder,
         });
@@ -92,6 +92,7 @@ export async function GET() {
           prev.sendContactId = c.contactId || prev.sendContactId;
           if (c.telefono) prev.telefono = c.telefono;
         }
+        if (!prev.avatar && c.avatar) prev.avatar = c.avatar;
         // nos quedamos con el nombre más completo
         if (c.contacto && c.contacto !== 'Sin nombre' && c.contacto.length > prev.contacto.length) prev.contacto = c.contacto;
       }
@@ -109,6 +110,7 @@ export async function GET() {
           sendContactId: ct.sendContactId,
           contacto: ct.contacto,
           telefono: ct.telefono,
+          avatar: ct.avatar,
           ultimoMensaje: ct.ultimoMensaje,
           ultimaActividad: ct.ultimaActividad,
           sinLeer: ct.sinLeer,
