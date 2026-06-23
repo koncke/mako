@@ -28,12 +28,16 @@ const DOCS_OK = new Set([
   'text/plain',
 ]);
 
+// WhatsApp solo entrega estos formatos de audio. webm (Chrome/Edge) NO entra:
+// si lo dejáramos pasar, Meta lo dropea y el mensaje queda "fallado".
+const AUDIO_OK = new Set(['audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/amr', 'audio/3gpp']);
+
 function mimePermitido(t: string): boolean {
   if (!t) return true; // tipo desconocido (raro): que decida Meta
   const base = t.split(';')[0].trim().toLowerCase();
   if (base.startsWith('image/')) return ['image/jpeg', 'image/png', 'image/webp'].includes(base);
   if (base.startsWith('video/')) return ['video/mp4', 'video/3gpp'].includes(base);
-  if (base.startsWith('audio/')) return true; // aac/mp3/ogg/amr/m4a
+  if (base.startsWith('audio/')) return AUDIO_OK.has(base);
   return DOCS_OK.has(base);
 }
 

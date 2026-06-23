@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Dropdown } from '../components/Dropdown';
+import { EmojiPicker } from './EmojiPicker';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
 // Se carga on-demand (ssr:false) igual que en app/_components/Desglose.tsx.
@@ -143,6 +144,29 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
   return <div style={avatarStyle}>{initials(name)}</div>;
 }
 
+// Tildes de estado tipo WhatsApp: ✓ enviado (gris), ✓✓ entregado (gris),
+// ✓✓ leído (azul), ! falló (rojo, con el motivo en el tooltip).
+function Ticks({ status, error }: { status: string | null; error: string | null }) {
+  if (status === 'failed') {
+    return <span title={error ?? 'No se entregó'} style={{ color: 'var(--bad)', fontWeight: 700, fontSize: '11.5px', lineHeight: 1 }}>!</span>;
+  }
+  if (status === 'sending' || status === 'progress' || status === 'pending') {
+    return <span title="Pendiente" style={{ color: 'var(--faint)', fontSize: '11px', lineHeight: 1 }}>🕓</span>;
+  }
+  const color = status === 'read' ? '#53bdeb' : 'var(--faint)';
+  const props = { stroke: color, strokeWidth: 1.4, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
+  if (status === 'delivered' || status === 'read') {
+    return (
+      <svg width="16" height="11" viewBox="0 0 16 11" aria-label={status === 'read' ? 'leído' : 'entregado'} style={{ flex: 'none' }}>
+        <path d="M1 6 L4 9 L9.5 2.5" {...props} />
+        <path d="M5.5 6 L8.5 9 L14 2.5" {...props} />
+      </svg>
+    );
+  }
+  // 'sent', null o desconocido → un solo tick (nunca afirmamos "entregado" de más).
+  return <svg width="13" height="11" viewBox="0 0 13 11" aria-label="enviado" style={{ flex: 'none' }}><path d="M2 6 L5 9 L11 2.5" {...props} /></svg>;
+}
+
 const btnSeqBase: CSSProperties = {
   flex: 'none', padding: '9px 14px', borderRadius: '10px', cursor: 'pointer',
   fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600,
@@ -158,6 +182,42 @@ const numInput: CSSProperties = {
   width: '78px', padding: '7px 10px', borderRadius: '9px', border: '1px solid var(--border-strong)',
   background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '13px',
 };
+
+// Botón redondo del compositor (emoji / adjuntar), estilo WhatsApp.
+const iconComposer: CSSProperties = {
+  flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none',
+  background: 'transparent', color: 'var(--dim)', display: 'flex', alignItems: 'center',
+  justifyContent: 'center', fontSize: '20px', lineHeight: 1,
+};
+// Animación de la onda de grabación + parpadeo del punto rojo.
+const WAVE_CSS = '@keyframes mako-wave{0%{transform:scaleY(.28)}100%{transform:scaleY(1)}}@keyframes mako-blink{0%,49%{opacity:1}50%,100%{opacity:.25}}';
+// Flecha de "enviar" tipo WhatsApp.
+function SendArrow() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5 L21 12 L3 3.5 L3 10 L15 12 L3 14 Z" fill="currentColor" /></svg>;
+}
+
+// Beep de notificación reutilizando un único AudioContext (no acumula contextos;
+// el navegador limita ~6). Se reanuda si quedó suspendido por la política de autoplay.
+let _audioCtx: AudioContext | null = null;
+function playBeep() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    if (!_audioCtx) _audioCtx = new Ctx();
+    const ctx = _audioCtx;
+    if (ctx.state === 'suspended') void ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.36);
+  } catch { /* sin audio */ }
+}
 
 function etapaChip(key: string | null, label: string | null): { style: CSSProperties; dot: CSSProperties; label: string } | null {
   if (!key || !label) return null;
@@ -184,6 +244,7 @@ export default function WhatsAppPage() {
   const [selId, setSelId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const totalSinLeerRef = useRef<number | null>(null);
+  const selIdRef = useRef<string | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -193,6 +254,14 @@ export default function WhatsAppPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selTpl, setSelTpl] = useState<string>('');
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  // Grabación de nota de voz
+  const [recording, setRecording] = useState(false);
+  const [recSecs, setRecSecs] = useState(0);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recCancelRef = useRef(false);
 
   const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
   const [loadingSeqs, setLoadingSeqs] = useState(true);
@@ -208,6 +277,7 @@ export default function WhatsAppPage() {
   const draft = selId ? (drafts[selId] ?? '') : '';
   const adjunto = selId ? (adjuntos[selId] ?? null) : null;
   const setDraft = (v: string) => { if (selId) setDrafts((d) => ({ ...d, [selId]: v })); };
+  const appendDraft = (s: string) => { if (selId) setDrafts((d) => ({ ...d, [selId]: (d[selId] ?? '') + s })); };
   const setAdjunto = (f: File | null) => { if (selId) setAdjuntos((a) => ({ ...a, [selId]: f })); };
 
   // ── Carga inicial ──
@@ -260,10 +330,23 @@ export default function WhatsAppPage() {
   );
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
 
+  // Al desmontar: cortar timer + micrófono si quedó algo grabando.
+  useEffect(() => () => {
+    if (recTimerRef.current) clearInterval(recTimerRef.current);
+    try { mediaRecRef.current?.stream.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
+  }, []);
+
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
+    selIdRef.current = selId;
     setSendError(null);
+    setEmojiOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    // Cancelar cualquier grabación en curso al cambiar de chat.
+    if (mediaRecRef.current && mediaRecRef.current.state === 'recording') {
+      recCancelRef.current = true;
+      try { mediaRecRef.current.stop(); } catch { /* noop */ }
+    }
     if (selId == null) { setMensajes([]); return; }
     const grupo = contactos.find((c) => c.id === selId);
     const ids = grupo?.convIds ?? [];
@@ -274,7 +357,7 @@ export default function WhatsAppPage() {
       try {
         const r = await fetch(`/api/whatsapp/thread?ids=${ids.join(',')}`);
         const j = await r.json();
-        setMensajes(j.ok ? j.mensajes : []);
+        if (selIdRef.current === selId) setMensajes(j.ok ? j.mensajes : []);
       } finally {
         setLoadingMsgs(false);
       }
@@ -284,22 +367,6 @@ export default function WhatsAppPage() {
 
   // ── Notificación (con sonido) de mensajes entrantes — polling cada 20s ──
   useEffect(() => {
-    const beep = () => {
-      try {
-        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const ctx = new Ctx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.frequency.value = 880;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.36);
-      } catch { /* sin audio */ }
-    };
     const tick = async () => {
       try {
         const r = await fetch('/api/whatsapp/conversations');
@@ -311,11 +378,21 @@ export default function WhatsAppPage() {
         if (prev != null && total > prev) {
           const nuevo = [...list].sort((a, b) => b.ultimaActividad - a.ultimaActividad).find((c) => c.sinLeer > 0);
           setToast(`Nuevo mensaje${nuevo ? ` de ${nuevo.contacto}` : ''}`);
-          beep();
+          playBeep();
           setTimeout(() => setToast(null), 6000);
         }
         totalSinLeerRef.current = total;
         setContactos(list);
+        // Refrescar EN VIVO el hilo abierto (mensajes entrantes + cambios de tick).
+        const openId = selIdRef.current;
+        if (openId) {
+          const g = list.find((c) => c.id === openId);
+          if (g) {
+            const rr = await fetch(`/api/whatsapp/thread?ids=${g.convIds.join(',')}`);
+            const jj = await rr.json();
+            if (selIdRef.current === openId) setMensajes(jj.ok ? jj.mensajes : []);
+          }
+        }
       } catch { /* ignore */ }
     };
     const iv = setInterval(() => void tick(), 20000);
@@ -325,7 +402,8 @@ export default function WhatsAppPage() {
   async function refetchHilo(grupo: Contacto) {
     const rr = await fetch(`/api/whatsapp/thread?ids=${grupo.convIds.join(',')}`);
     const jj = await rr.json();
-    setMensajes(jj.ok ? jj.mensajes : []);
+    // Solo pintar si seguís en ese chat (evita pisar el hilo si cambiaste).
+    if (selIdRef.current === grupo.id) setMensajes(jj.ok ? jj.mensajes : []);
   }
 
   async function enviar() {
@@ -393,6 +471,95 @@ export default function WhatsAppPage() {
       return;
     }
     setAdjunto(f);
+  }
+
+  // ── Nota de voz ──
+  function fmtDur(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
+
+  function pickAudioMime(): string {
+    if (typeof MediaRecorder === 'undefined') return '';
+    for (const c of ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm']) {
+      if (MediaRecorder.isTypeSupported(c)) return c;
+    }
+    return '';
+  }
+
+  // Mapa MIME→extensión SOLO para formatos que WhatsApp acepta. Si el navegador
+  // graba en otro (p.ej. webm de Chrome/Edge), no mandamos (Meta lo dropea).
+  const AUDIO_EXT: Record<string, string> = {
+    'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',
+    'audio/aac': 'aac', 'audio/amr': 'amr', 'audio/3gpp': '3gp',
+  };
+
+  async function enviarAudio(blob: Blob, ext: string, grupo: Contacto) {
+    if (!blob.size) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, `audio-${Date.now()}.${ext}`);
+      const r = await fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/attachments`, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!j.ok) setSendError(j.error || 'No se pudo enviar el audio.');
+      else await refetchHilo(grupo);
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function startRec() {
+    if (recording || sending) return;
+    const destGrupo = contactos.find((c) => c.id === selId);
+    if (!destGrupo) return;
+    setSendError(null);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setSendError('No se pudo acceder al micrófono. Revisá los permisos.');
+      return;
+    }
+    let rec: MediaRecorder;
+    try {
+      const mime = pickAudioMime();
+      rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
+      setSendError('Tu navegador no permite grabar audio.');
+      return;
+    }
+    chunksRef.current = [];
+    recCancelRef.current = false;
+    rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+      const cancelled = recCancelRef.current;
+      const type = rec.mimeType || '';
+      const blob = new Blob(chunksRef.current, { type });
+      setRecording(false);
+      setRecSecs(0);
+      if (cancelled) return;
+      if (!blob.size) { setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
+      const ext = AUDIO_EXT[type.split(';')[0].trim()];
+      if (!ext) {
+        setSendError('Tu navegador graba en un formato que WhatsApp no acepta. Usá Firefox/Safari, o adjuntá un audio con 📎.');
+        return;
+      }
+      void enviarAudio(blob, ext, destGrupo);
+    };
+    mediaRecRef.current = rec;
+    rec.start();
+    setRecording(true);
+    setRecSecs(0);
+    recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
+  }
+
+  function stopRec(cancel: boolean) {
+    recCancelRef.current = cancel;
+    try { mediaRecRef.current?.stop(); } catch { /* ya estaba parado */ }
   }
 
   async function enviarTemplate() {
@@ -632,10 +799,9 @@ export default function WhatsAppPage() {
                             </div>
                           )}
                           {m.texto && <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto}</div>}
-                          <div style={{ fontSize: '10.5px', color: m.status === 'failed' ? 'var(--warn)' : 'var(--faint)', marginTop: '5px', textAlign: mine ? 'right' : 'left' }}>
-                            {fmtTime(m.fecha)}
-                            {mine && m.status ? ' · ' + (m.status === 'delivered' ? 'entregado ✓✓' : m.status === 'read' ? 'leído ✓✓' : m.status === 'sent' ? 'enviado ✓' : m.status === 'failed' ? 'falló ✗' : m.status) : ''}
-                            {mine && m.status === 'failed' && m.error ? ` — ${m.error}` : ''}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: mine ? 'flex-end' : 'flex-start', gap: '5px', marginTop: '3px' }}>
+                            <span style={{ fontSize: '10.5px', color: 'var(--faint)' }}>{fmtTime(m.fecha)}</span>
+                            {mine && <Ticks status={m.status} error={m.error} />}
                           </div>
                         </div>
                       </div>
@@ -644,7 +810,27 @@ export default function WhatsAppPage() {
                 </div>
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
                 {ventanaAbierta ? (
-                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                  recording ? (
+                    <div style={{ borderTop: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <style>{WAVE_CSS}</style>
+                      <button onClick={() => stopRec(true)} title="Cancelar" aria-label="Cancelar grabación" style={{ flex: 'none', width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--warn)', cursor: 'pointer', fontSize: '18px' }}>🗑</button>
+                      <span style={{ flex: 'none', width: '9px', height: '9px', borderRadius: '50%', background: '#e53935', animation: 'mako-blink 1s steps(1) infinite' }}></span>
+                      <span style={{ flex: 'none', fontVariantNumeric: 'tabular-nums', fontSize: '14px', color: 'var(--ink)', minWidth: '40px' }}>{fmtDur(recSecs)}</span>
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '2px', height: '24px', overflow: 'hidden' }}>
+                        {Array.from({ length: 44 }).map((_, i) => (
+                          <span key={i} style={{ flex: 'none', width: '3px', height: '20px', borderRadius: '2px', background: 'var(--good)', transformOrigin: 'center', animation: 'mako-wave .7s ease-in-out infinite alternate', animationDelay: `${(i % 11) * 0.06}s` }}></span>
+                        ))}
+                      </div>
+                      <button onClick={() => stopRec(false)} disabled={sending} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
+                    </div>
+                  ) : (
+                  <div style={{ borderTop: '1px solid var(--border)', position: 'relative' }}>
+                    {emojiOpen && <div onClick={() => setEmojiOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }} />}
+                    {emojiOpen && (
+                      <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: '10px', zIndex: 40 }}>
+                        <EmojiPicker onPick={appendDraft} onClose={() => setEmojiOpen(false)} />
+                      </div>
+                    )}
                     {adjunto && (
                       <div style={{ padding: '10px 16px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         {adjuntoPreview ? (
@@ -660,13 +846,19 @@ export default function WhatsAppPage() {
                         <button onClick={() => { setAdjunto(null); if (fileInputRef.current) fileInputRef.current.value = ''; }} title="Quitar adjunto" style={{ ...iconBtn, flex: 'none' }}>✕</button>
                       </div>
                     )}
-                    <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-                      <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
-                      <button onClick={() => fileInputRef.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--dim)', cursor: sending ? 'default' : 'pointer', fontSize: '18px' }}>📎</button>
-                      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarComposer(); } }} placeholder={adjunto ? 'Agregá un texto (opcional)…' : 'Escribí un mensaje…'} style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
-                      <button onClick={enviarComposer} disabled={sending || (!draft.trim() && !adjunto)} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: (sending || (!draft.trim() && !adjunto)) ? 'default' : 'pointer', opacity: (sending || (!draft.trim() && !adjunto)) ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar'}</button>
+                    <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'flex-end', gap: '6px', position: 'relative', zIndex: 40 }}>
+                      <input ref={fileInputRef} type="file" accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx" style={{ display: 'none' }} onChange={(e) => { pickFile(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+                      <button onClick={() => setEmojiOpen((v) => !v)} title="Emojis" aria-label="Emojis" style={{ ...iconComposer, color: emojiOpen ? 'var(--accent)' : 'var(--dim)' }}>😊</button>
+                      <button onClick={() => fileInputRef.current?.click()} disabled={sending} title="Adjuntar archivo" aria-label="Adjuntar archivo" style={iconComposer}>📎</button>
+                      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); enviarComposer(); } }} placeholder={adjunto ? 'Agregá un texto (opcional)…' : 'Escribí un mensaje…'} style={{ flex: 1, minHeight: '44px', maxHeight: '120px', resize: 'none', padding: '12px 16px', borderRadius: '22px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.4, outline: 'none' }} />
+                      {(draft.trim() || adjunto) ? (
+                        <button onClick={enviarComposer} disabled={sending} title="Enviar" aria-label="Enviar" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
+                      ) : (
+                        <button onClick={() => void startRec()} disabled={sending} title="Grabar nota de voz" aria-label="Grabar nota de voz" style={{ flex: 'none', width: '44px', height: '44px', borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🎤</button>
+                      )}
                     </div>
                   </div>
+                  )
                 ) : (
                   <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '8px' }}>Ventana de 24h cerrada (el lead no escribió hace más de un día). Fuera de la ventana WhatsApp solo entrega <strong>plantillas aprobadas</strong>:</div>
