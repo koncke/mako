@@ -174,6 +174,7 @@ export type ChatwootConversation = {
   ultimaActividad: number | null;
   sinLeer: number;
   estado: string;
+  puedeResponder: boolean;   // can_reply de Chatwoot = ventana de 24h abierta
 };
 
 type ConvRaw = {
@@ -181,33 +182,53 @@ type ConvRaw = {
   unread_count?: number;
   status?: string;
   last_activity_at?: number;
+  can_reply?: boolean;
   messages?: Array<{ content?: string | null }>;
   meta?: { sender?: { id?: number; name?: string; phone_number?: string } };
 };
-type ConvListResp = { data?: { payload?: ConvRaw[] }; payload?: ConvRaw[] };
+type ConvListResp = { data?: { payload?: ConvRaw[]; meta?: { all_count?: number } }; payload?: ConvRaw[] };
 
-export async function listConversations(limit = 50): Promise<ChatwootConversation[]> {
+function mapConv(cv: ConvRaw): ChatwootConversation {
+  const msgs = cv.messages ?? [];
+  const last = msgs.length ? msgs[msgs.length - 1] : undefined;
+  return {
+    id: cv.id ?? 0,
+    contactId: cv.meta?.sender?.id ?? 0,
+    contacto: cv.meta?.sender?.name ?? 'Sin nombre',
+    telefono: cv.meta?.sender?.phone_number ?? null,
+    ultimoMensaje: last?.content ?? null,
+    ultimaActividad: cv.last_activity_at ?? null,
+    sinLeer: cv.unread_count ?? 0,
+    estado: cv.status ?? 'open',
+    puedeResponder: cv.can_reply !== false,
+  };
+}
+
+// Trae TODAS las conversaciones del inbox paginando (las páginas extra en
+// paralelo para que no sea lento). Chatwoot devuelve ~25 por página.
+export async function listConversations(maxPages = 12): Promise<ChatwootConversation[]> {
   const c = cfg();
-  const r = await cwFetch<ConvListResp>(
-    `${c.apiBase}/conversations?inbox_id=${c.inbox}&status=all&assignee_type=all&page=1`,
-    { method: 'GET' },
-    c.token,
-  );
-  const payload = r.data?.payload ?? r.payload ?? [];
-  return payload.slice(0, limit).map((cv) => {
-    const msgs = cv.messages ?? [];
-    const last = msgs.length ? msgs[msgs.length - 1] : undefined;
-    return {
-      id: cv.id ?? 0,
-      contactId: cv.meta?.sender?.id ?? 0,
-      contacto: cv.meta?.sender?.name ?? 'Sin nombre',
-      telefono: cv.meta?.sender?.phone_number ?? null,
-      ultimoMensaje: last?.content ?? null,
-      ultimaActividad: cv.last_activity_at ?? null,
-      sinLeer: cv.unread_count ?? 0,
-      estado: cv.status ?? 'open',
-    };
-  });
+  const url = (page: number) =>
+    `${c.apiBase}/conversations?inbox_id=${c.inbox}&status=all&assignee_type=all&page=${page}`;
+
+  const first = await cwFetch<ConvListResp>(url(1), { method: 'GET' }, c.token);
+  const firstPayload = first.data?.payload ?? first.payload ?? [];
+  const all: ChatwootConversation[] = firstPayload.map(mapConv);
+
+  const allCount = first.data?.meta?.all_count ?? all.length;
+  const pages = Math.min(maxPages, Math.max(1, Math.ceil(allCount / 25)));
+  if (pages > 1) {
+    const rest = await Promise.all(
+      Array.from({ length: pages - 1 }, (_, i) =>
+        cwFetch<ConvListResp>(url(i + 2), { method: 'GET' }, c.token).catch(() => ({}) as ConvListResp),
+      ),
+    );
+    for (const p of rest) {
+      const pl = p.data?.payload ?? p.payload ?? [];
+      for (const cv of pl) all.push(mapConv(cv));
+    }
+  }
+  return all;
 }
 
 export type ChatwootMessage = {
@@ -302,12 +323,8 @@ async function crearOReusarConversacion(c: Cfg, contactId: number): Promise<numb
 export async function getContactMessages(contactId: number): Promise<ChatwootMessage[]> {
   const c = cfg();
   const convs = await contactConversaciones(c, contactId);
-  const todos: ChatwootMessage[] = [];
-  for (const cv of convs) {
-    const msgs = await getMessages(cv.id);
-    todos.push(...msgs);
-  }
-  return todos.sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
+  const arrays = await Promise.all(convs.map((cv) => getMessages(cv.id).catch(() => [] as ChatwootMessage[])));
+  return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
 }
 
 // Responde texto libre al contacto (reusa su conversación abierta). Solo llega

@@ -60,7 +60,7 @@ export async function GET() {
     type Acc = {
       contactId: number; contacto: string; telefono: string | null;
       primaryConvId: number; ultimoMensaje: string | null; ultimaActividad: number;
-      sinLeer: number;
+      sinLeer: number; ventanaAbierta: boolean;
     };
     const porContacto = new Map<number, Acc>();
     for (const c of convs) {
@@ -71,9 +71,11 @@ export async function GET() {
         porContacto.set(key, {
           contactId: key, contacto: c.contacto, telefono: c.telefono,
           primaryConvId: c.id, ultimoMensaje: c.ultimoMensaje, ultimaActividad: act, sinLeer: c.sinLeer,
+          ventanaAbierta: c.puedeResponder,
         });
       } else {
         prev.sinLeer += c.sinLeer;
+        prev.ventanaAbierta = prev.ventanaAbierta || c.puedeResponder;
         if (act >= prev.ultimaActividad) {
           prev.ultimaActividad = act;
           prev.ultimoMensaje = c.ultimoMensaje;
@@ -97,6 +99,7 @@ export async function GET() {
           ultimoMensaje: ct.ultimoMensaje,
           ultimaActividad: ct.ultimaActividad,
           sinLeer: ct.sinLeer,
+          ventanaAbierta: ct.ventanaAbierta,
           leadId: lead?.id ?? null,
           empresa: lead?.empresa ?? null,
           estadoLead: lead?.estado_lead ?? null,

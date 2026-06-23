@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
+import { Dropdown } from '../components/Dropdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -25,6 +26,7 @@ interface Contacto {
   ultimoMensaje: string | null;
   ultimaActividad: number;
   sinLeer: number;
+  ventanaAbierta: boolean;
   leadId: number | null;
   empresa: string | null;
   estadoLead: string | null;
@@ -131,6 +133,7 @@ export default function WhatsAppPage() {
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todas');
+  const [soloVentana, setSoloVentana] = useState(false);
   const [selId, setSelId] = useState<number | null>(null);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
@@ -263,13 +266,13 @@ export default function WhatsAppPage() {
   const etapasPresentes = [...new Map(contactos.filter((c) => c.etapaKey).map((c) => [c.etapaKey, c.etapaLabel])).entries()];
   const filtrados = contactos.filter((c) => {
     if (filtroEtapa !== 'todas' && c.etapaKey !== filtroEtapa) return false;
+    if (soloVentana && !c.ventanaAbierta) return false;
     if (q && !(c.contacto.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q))) return false;
     return true;
   });
   const sel = contactos.find((c) => c.contactId === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
-  const ahoraSec = Date.now() / 1000;
-  const ventanaAbierta = mensajes.some((m) => !m.saliente && m.fecha != null && ahoraSec - m.fecha < 24 * 3600);
+  const ventanaAbierta = sel?.ventanaAbierta ?? false;
   const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
@@ -301,11 +304,16 @@ export default function WhatsAppPage() {
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o teléfono…" style={{ width: '100%', padding: '10px 13px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', outline: 'none' }} />
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
-                <button onClick={() => setFiltroEtapa('todas')} style={chipBtn(filtroEtapa === 'todas')}>Todas</button>
-                {etapasPresentes.map(([k, label]) => (
-                  <button key={k} onClick={() => setFiltroEtapa(k as string)} style={chipBtn(filtroEtapa === k)}>{label}</button>
-                ))}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
+                <Dropdown
+                  value={filtroEtapa}
+                  onChange={setFiltroEtapa}
+                  width={158}
+                  ariaLabel="Filtrar por etapa"
+                  buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
+                  options={[{ value: 'todas', label: 'Todas las etapas' }, ...etapasPresentes.map(([k, label]) => ({ value: (k as string) ?? '', label: (label as string) ?? '', color: ETAPA_COLOR[(k as string) ?? ''] }))]}
+                />
+                <button onClick={() => setSoloVentana((v) => !v)} style={chipBtn(soloVentana)}>⏱ Ventana 24h</button>
               </div>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
