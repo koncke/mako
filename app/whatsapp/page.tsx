@@ -285,6 +285,8 @@ export default function WhatsAppPage() {
   const msgCacheRef = useRef<Map<string, Mensaje[]>>(new Map());
   // Última actividad vista por chat → detectar mensajes nuevos por-chat (no por total).
   const activitySnapRef = useRef<Map<string, number>>(new Map());
+  // Actividad del hilo abierto en su última carga → refetchear sólo si cambió.
+  const openActivityRef = useRef(0);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
@@ -305,12 +307,14 @@ export default function WhatsAppPage() {
   const [blockMotivo, setBlockMotivo] = useState('');
   const [blockTarget, setBlockTarget] = useState<{ cid: number; gid: string; lid: number | null; nombre: string } | null>(null);
   const [audioFase, setAudioFase] = useState<string | null>(null); // "Convirtiendo…" / "Enviando…"
-  // Grabación de nota de voz (opus-recorder → OGG/Opus, el formato nativo de WhatsApp)
+  // Grabación de nota de voz (MediaRecorder → transcodifica a MP3, único formato
+  // que este Chatwoot/WABA entrega; ogg/m4a dan 131053).
   const [recording, setRecording] = useState(false);
   const [recPaused, setRecPaused] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
-  const recorderRef = useRef<import('opus-recorder').default | null>(null);
-  const oggChunksRef = useRef<Uint8Array[]>([]);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const recStreamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const recActiveRef = useRef(false);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recCancelRef = useRef(false);
@@ -388,12 +392,12 @@ export default function WhatsAppPage() {
   );
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
 
-  // Al desmontar: cortar timer + grabación (cancelando, sin envío espurio) y cerrar el contexto.
+  // Al desmontar: cortar timer + grabación (cancelando, sin envío espurio) + micrófono.
   useEffect(() => () => {
     if (recTimerRef.current) clearInterval(recTimerRef.current);
     recCancelRef.current = true;
-    try { void recorderRef.current?.stop(); } catch { /* noop */ }
-    try { recorderRef.current?.close(); } catch { /* noop */ }
+    try { mediaRecRef.current?.stop(); } catch { /* noop */ }
+    try { recStreamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
   }, []);
 
   // Persistir borradores por chat → sobreviven a navegar / recargar.
@@ -431,13 +435,15 @@ export default function WhatsAppPage() {
     if (recActiveRef.current) {
       recCancelRef.current = true;
       if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
-      try { void recorderRef.current?.stop(); } catch { /* noop */ }
+      try { mediaRecRef.current?.stop(); } catch { /* noop */ }
+      try { recStreamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
       setRecording(false); setRecPaused(false); setRecSecs(0);
     }
-    if (selId == null) { setMensajes([]); setUnreadAtOpen(0); return; }
+    if (selId == null) { setMensajes([]); setUnreadAtOpen(0); openActivityRef.current = 0; return; }
     const grupo = contactos.find((c) => c.id === selId);
     const ids = grupo?.convIds ?? [];
     setUnreadAtOpen(grupo?.sinLeer ?? 0);
+    openActivityRef.current = grupo?.ultimaActividad ?? 0;
     // Marcar leído en Chatwoot + limpiar el badge localmente (como WhatsApp).
     if (grupo) {
       readGroupsRef.current.set(grupo.id, grupo.ultimaActividad);
@@ -475,57 +481,68 @@ export default function WhatsAppPage() {
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
-  // ── Notificación (con sonido) de mensajes entrantes — polling cada 10s ──
+  // ── Notificación (con sonido) + live update — polling liviano cada 6s ──
+  // Pide SOLO la página 1 (las 25 conversaciones más recientes; las novedades
+  // siempre suben ahí) y las MERGEA en la lista, en vez de re-traer todo.
   useEffect(() => {
     const tick = async () => {
       try {
-        const r = await fetch('/api/whatsapp/conversations');
+        const r = await fetch('/api/whatsapp/conversations?recent=1');
         const j = await r.json();
         if (!j.ok) return;
         const openId = selIdRef.current;
-        const srv = j.contactos as Contacto[];
+        const recientes = j.contactos as Contacto[];
         const snap = activitySnapRef.current;
         const firstRun = snap.size === 0; // baseline: no notificar en el primer poll
 
-        // Detección de entrantes POR CHAT (no por total agregado, que enmascara) +
-        // corrección del badge (chat abierto y leídos en sesión van a 0).
+        // Detección de entrantes POR CHAT (no por total, que enmascara).
         let entrante: Contacto | null = null;
-        const list: Contacto[] = srv.map((c) => {
+        for (const c of recientes) {
           const prevAct = snap.get(c.id);
           const subio = prevAct != null && c.ultimaActividad > prevAct;
           snap.set(c.id, c.ultimaActividad);
-          // mensaje nuevo del lead en un chat NO abierto: unread del server subió
-          // (solo los entrantes incrementan unread_count, los salientes no).
+          // mensaje nuevo del lead en un chat NO abierto: el unread del server subió
+          // (sólo los entrantes incrementan unread_count; los salientes no).
           if (!firstRun && subio && c.id !== openId && c.sinLeer > 0) {
             if (!entrante || c.ultimaActividad > entrante.ultimaActividad) entrante = c;
           }
-          if (c.id === openId) return { ...c, sinLeer: 0 };
-          const readAt = readGroupsRef.current.get(c.id);
-          if (readAt != null) {
-            if (c.ultimaActividad <= readAt) return { ...c, sinLeer: 0 };
-            readGroupsRef.current.delete(c.id);
-          }
-          return c;
-        });
-
+        }
         if (entrante) {
           setToast(`Nuevo mensaje de ${(entrante as Contacto).contacto}`);
           playBeep();
           setTimeout(() => setToast(null), 6000);
         }
-        totalSinLeerRef.current = list.reduce((s, c) => s + c.sinLeer, 0);
-        setContactos(list);
 
-        // Chat abierto: refetch del hilo + beep si el ÚLTIMO mensaje es del lead y nuevo.
+        // Merge: actualizar/agregar los recientes en la lista existente + corregir badge.
+        setContactos((prev) => {
+          const byId = new Map(prev.map((c) => [c.id, c]));
+          for (const c of recientes) {
+            let corr = c;
+            if (c.id === openId) corr = { ...c, sinLeer: 0 };
+            else {
+              const readAt = readGroupsRef.current.get(c.id);
+              if (readAt != null) {
+                if (c.ultimaActividad <= readAt) corr = { ...c, sinLeer: 0 };
+                else readGroupsRef.current.delete(c.id);
+              }
+            }
+            byId.set(c.id, corr);
+          }
+          const merged = [...byId.values()].sort((a, b) => b.ultimaActividad - a.ultimaActividad);
+          totalSinLeerRef.current = merged.reduce((s, c) => s + c.sinLeer, 0);
+          return merged;
+        });
+
+        // Chat abierto: refetch del hilo SÓLO si su actividad cambió (no en cada poll).
         if (openId) {
-          const g = list.find((c) => c.id === openId);
-          if (g) {
-            const prevOpen = readGroupsRef.current.get(openId) ?? 0;
+          const g = recientes.find((c) => c.id === openId);
+          if (g && g.ultimaActividad > openActivityRef.current) {
+            openActivityRef.current = g.ultimaActividad;
             const rr = await fetch(`/api/whatsapp/thread?ids=${g.convIds.join(',')}`);
             const jj = await rr.json();
             const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
             const ultimo = msgs[msgs.length - 1];
-            if (!firstRun && ultimo && !ultimo.saliente && g.ultimaActividad > prevOpen) playBeep();
+            if (!firstRun && ultimo && !ultimo.saliente) playBeep(); // entrante en el chat abierto
             readGroupsRef.current.set(openId, g.ultimaActividad);
             void fetch(`/api/whatsapp/contacts/${g.sendContactId}/read`, { method: 'POST' }).catch(() => {});
             cacheMsgs(g.id, msgs);
@@ -534,7 +551,7 @@ export default function WhatsAppPage() {
         }
       } catch { /* ignore */ }
     };
-    const iv = setInterval(() => void tick(), 10000);
+    const iv = setInterval(() => void tick(), 6000);
     return () => clearInterval(iv);
   }, []);
 
@@ -558,6 +575,12 @@ export default function WhatsAppPage() {
     const txt = draft.trim();
     const grupo = contactos.find((c) => c.id === selId);
     if (!txt || !grupo || sending) return;
+    // Optimista: el mensaje aparece YA (con reloj de "pendiente"); no esperamos el
+    // round-trip a Chatwoot (que tarda). El refetch lo reemplaza por el real.
+    const tempId = -Date.now();
+    const optimista: Mensaje = { id: tempId, texto: txt, saliente: true, fecha: Math.floor(Date.now() / 1000), template: null, status: 'sending', error: null, adjuntos: [] };
+    setMensajes((m) => [...m, optimista]);
+    setDraft('');
     setSending(true);
     setSendError(null);
     try {
@@ -566,12 +589,16 @@ export default function WhatsAppPage() {
       });
       const j = await r.json();
       if (!j.ok) {
+        setMensajes((m) => m.filter((x) => x.id !== tempId));
+        setDraft(txt);
         setSendError(j.error || 'No se pudo enviar.');
       } else {
-        setDraft('');
+        openActivityRef.current = Math.floor(Date.now() / 1000); // ya lo tenemos cargado
         await refetchHilo(grupo);
       }
     } catch (e) {
+      setMensajes((m) => m.filter((x) => x.id !== tempId));
+      setDraft(txt);
       setSendError(e instanceof Error ? e.message : String(e));
     } finally {
       setSending(false);
@@ -676,62 +703,76 @@ export default function WhatsAppPage() {
     const destGrupo = contactos.find((c) => c.id === selId);
     if (!destGrupo) return;
     setSendError(null);
+    let stream: MediaStream;
     try {
-      const Recorder = (await import('opus-recorder')).default;
-      if (!Recorder.isRecordingSupported()) { setSendError('Tu navegador no soporta grabar audio.'); return; }
-      const rec = new Recorder({
-        encoderPath: '/encoderWorker.min.js',
-        numberOfChannels: 1,
-        encoderSampleRate: 16000, // igual que las notas de voz de WhatsApp
-        encoderApplication: 2048, // VOIP / voz
-        encoderBitRate: 16000,
-        streamPages: false,
-      });
-      const thisRec = rec;
-      oggChunksRef.current = [];
-      recCancelRef.current = false;
-      rec.ondataavailable = (typedArray) => { if (typedArray && typedArray.length) oggChunksRef.current.push(new Uint8Array(typedArray)); };
-      rec.onstop = () => {
-        recActiveRef.current = false;
-        if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
-        // Cancelado si lo pidieron O si arrancó otra grabación (este stop quedó viejo).
-        const cancelled = recCancelRef.current || recorderRef.current !== thisRec;
-        const blob = new Blob(oggChunksRef.current as BlobPart[], { type: 'audio/ogg; codecs=opus' });
-        try { thisRec.close(); } catch { /* cierra el AudioContext: sin esto se acumulan y a las ~6 se rompe */ }
-        if (recorderRef.current === thisRec) recorderRef.current = null;
-        setRecording(false);
-        setRecPaused(false);
-        setRecSecs(0);
-        if (cancelled) return;
-        void enviarAudio(blob, 'ogg', destGrupo);
-      };
-      await rec.start();
-      recorderRef.current = rec;
-      recActiveRef.current = true;
-      setRecording(true);
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setSendError('No se pudo acceder al micrófono. Revisá los permisos.');
+      return;
+    }
+    let rec: MediaRecorder;
+    try {
+      rec = new MediaRecorder(stream);
+    } catch {
+      stream.getTracks().forEach((t) => t.stop());
+      setSendError('Tu navegador no permite grabar audio.');
+      return;
+    }
+    const thisRec = rec;
+    recStreamRef.current = stream;
+    chunksRef.current = [];
+    recCancelRef.current = false;
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunksRef.current.push(e.data); };
+    rec.onstop = () => {
+      recActiveRef.current = false;
+      stream.getTracks().forEach((t) => t.stop()); // libera el micrófono
+      if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+      // Cancelado si lo pidieron O si arrancó otra grabación (este stop quedó viejo).
+      const cancelled = recCancelRef.current || mediaRecRef.current !== thisRec;
+      const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+      if (mediaRecRef.current === thisRec) mediaRecRef.current = null;
+      setRecording(false);
       setRecPaused(false);
       setRecSecs(0);
-      recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
-    } catch (e) {
-      recActiveRef.current = false;
-      setSendError('No se pudo iniciar la grabación (' + (e instanceof Error ? e.message : 'micrófono/permiso') + ').');
-    }
+      if (cancelled || !blob.size) { if (!cancelled) setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
+      // Transcodificar a MP3 (único formato que WhatsApp entrega acá) y enviar.
+      setSending(true);
+      setAudioFase('Procesando audio…');
+      void (async () => {
+        try {
+          const { blobToMp3 } = await import('./audio');
+          const mp3 = await blobToMp3(blob);
+          await enviarAudio(mp3, 'mp3', destGrupo);
+        } catch (err) {
+          setSending(false);
+          setAudioFase(null);
+          if (selIdRef.current === destGrupo.id) setSendError('No se pudo procesar el audio (' + (err instanceof Error ? err.message : 'error') + ').');
+        }
+      })();
+    };
+    mediaRecRef.current = rec;
+    recActiveRef.current = true;
+    rec.start();
+    setRecording(true);
+    setRecPaused(false);
+    setRecSecs(0);
+    recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
   }
 
   function stopRec(cancel: boolean) {
     recCancelRef.current = cancel;
     if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
-    try { void recorderRef.current?.stop(); } catch { /* ya estaba parado */ }
+    try { mediaRecRef.current?.stop(); } catch { /* ya estaba parado */ }
   }
 
   function pauseRec() {
-    try { recorderRef.current?.pause(); } catch { /* noop */ }
+    try { mediaRecRef.current?.pause(); } catch { /* noop */ }
     if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
     setRecPaused(true);
   }
 
   function resumeRec() {
-    try { recorderRef.current?.resume(); } catch { /* noop */ }
+    try { mediaRecRef.current?.resume(); } catch { /* noop */ }
     if (!recTimerRef.current) recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
     setRecPaused(false);
   }

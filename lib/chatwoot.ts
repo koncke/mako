@@ -395,7 +395,10 @@ export async function getContactMessages(contactId: number): Promise<ChatwootMes
 // cuando Chatwoot tiene varios contactos del mismo teléfono). Cap a las ~15 más
 // recientes (los convIds vienen recent-first) para no hacer 40 fetches por hilo.
 export async function getMessagesForConvs(ids: number[]): Promise<ChatwootMessage[]> {
-  const recientes = ids.slice(0, 15);
+  // Solo las 4 conversaciones MÁS RECIENTES (vienen ordenadas recent-first): los
+  // mensajes actuales viven en la última conversación. Bajar de 15→4 hace que abrir
+  // un chat sea ~4x más rápido (cada getMessages a Chatwoot tarda ~0.8s).
+  const recientes = ids.slice(0, 4);
   const arrays = await Promise.all(recientes.map((id) => getMessages(id).catch(() => [] as ChatwootMessage[])));
   return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
 }

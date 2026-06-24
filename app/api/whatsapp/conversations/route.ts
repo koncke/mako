@@ -38,9 +38,13 @@ function derivarEtapa(l: LeadRow): { key: string; label: string } {
   return { key: 'abierto', label: 'Abierto' };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const convs = await listConversations(200);
+    // ?recent=1 → solo la página 1 (las 25 conversaciones más recientes). Lo usa
+    // el polling: las novedades siempre suben a la página 1, así cada poll pega
+    // 1 request a Chatwoot (~2.4s) en vez de 7 páginas (~5s).
+    const recent = new URL(req.url).searchParams.get('recent') === '1';
+    const convs = await listConversations(recent ? 1 : 200);
 
     // Lead por teléfono (best-effort: dígitos completos o últimos 10).
     const supabase = getSupabaseServer();
