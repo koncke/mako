@@ -10,9 +10,11 @@ import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, type Paso
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const secuencias = await getSecuenciasConStats();
+    const etapa = req.nextUrl.searchParams.get('etapa') || '';
+    const todas = await getSecuenciasConStats();
+    const secuencias = etapa ? todas.filter((s) => s.etapa === etapa) : todas;
     return Response.json({ ok: true, secuencias });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

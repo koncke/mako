@@ -488,6 +488,35 @@ export async function sendAttachmentToContact(
   }
 }
 
+// ── Credenciales de Meta (WhatsApp Cloud) que vive el inbox de Chatwoot ──────
+// El inbox de Chatwoot guarda en provider_config el token de Meta (api_key, con
+// scope whatsapp_business_management) + el WABA id + el phone_number_id. Los
+// reusamos para hablarle directo a la Graph API (crear/listar plantillas) sin
+// pedirle credenciales nuevas a Mauricio. Se cachea (no cambian entre requests).
+export type WabaConfig = { token: string; wabaId: string; phoneNumberId: string; version: string };
+let _wabaCache: WabaConfig | null = null;
+
+type ProviderConfigResp = {
+  provider_config?: { api_key?: string; phone_number_id?: string; business_account_id?: string };
+};
+
+export async function getWabaConfig(): Promise<WabaConfig> {
+  if (_wabaCache) return _wabaCache;
+  const c = cfg();
+  const r = await cwFetch<ProviderConfigResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
+  const pc = r.provider_config ?? {};
+  if (!pc.api_key || !pc.business_account_id) {
+    throw new Error('El inbox de Chatwoot no tiene provider_config de WhatsApp Cloud (api_key / business_account_id).');
+  }
+  _wabaCache = {
+    token: pc.api_key,
+    wabaId: pc.business_account_id,
+    phoneNumberId: pc.phone_number_id ?? '',
+    version: process.env.META_API_VERSION || 'v21.0',
+  };
+  return _wabaCache;
+}
+
 // ── Templates aprobados (para mandar fuera de la ventana de 24h) ─────────────
 export type TemplateInfo = {
   name: string;
