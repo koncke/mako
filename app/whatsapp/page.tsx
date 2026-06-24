@@ -219,6 +219,16 @@ function IconPlay() {
 // Beep de notificación reutilizando un único AudioContext (no acumula contextos;
 // el navegador limita ~6). Se reanuda si quedó suspendido por la política de autoplay.
 let _audioCtx: AudioContext | null = null;
+// Crea/reanuda el AudioContext en el primer gesto del usuario, para que el beep
+// suene (la política de autoplay bloquea el audio antes de cualquier interacción).
+function unlockAudio() {
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    if (!_audioCtx) _audioCtx = new Ctx();
+    if (_audioCtx.state === 'suspended') void _audioCtx.resume();
+  } catch { /* sin audio */ }
+}
 function playBeep() {
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -270,6 +280,9 @@ export default function WhatsAppPage() {
   // Chats marcados como leídos en sesión → groupId : ultimaActividad al leer.
   // Sirve para que el polling no re-pinte el badge (update_last_seen laggea).
   const readGroupsRef = useRef<Map<string, number>>(new Map());
+  // Cache de mensajes por chat → reabrir un chat es instantáneo (no se ve el
+  // chat anterior mientras carga; se refresca en segundo plano).
+  const msgCacheRef = useRef<Map<string, Mensaje[]>>(new Map());
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
@@ -286,12 +299,16 @@ export default function WhatsAppPage() {
   const [unreadAtOpen, setUnreadAtOpen] = useState(0);
   const [unreadAnchorId, setUnreadAnchorId] = useState<number | null>(null);
   const [blocking, setBlocking] = useState(false);
-  // Grabación de nota de voz
+  const [blockModalOpen, setBlockModalOpen] = useState(false);
+  const [blockMotivo, setBlockMotivo] = useState('');
+  const [audioFase, setAudioFase] = useState<string | null>(null); // "Convirtiendo…" / "Enviando…"
+  // Grabación de nota de voz (opus-recorder → OGG/Opus, el formato nativo de WhatsApp)
   const [recording, setRecording] = useState(false);
   const [recPaused, setRecPaused] = useState(false);
   const [recSecs, setRecSecs] = useState(0);
-  const mediaRecRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const recorderRef = useRef<import('opus-recorder').default | null>(null);
+  const oggChunksRef = useRef<Uint8Array[]>([]);
+  const recActiveRef = useRef(false);
   const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recCancelRef = useRef(false);
 
@@ -368,10 +385,10 @@ export default function WhatsAppPage() {
   );
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
 
-  // Al desmontar: cortar timer + micrófono si quedó algo grabando.
+  // Al desmontar: cortar timer + grabación si quedó algo activo.
   useEffect(() => () => {
     if (recTimerRef.current) clearInterval(recTimerRef.current);
-    try { mediaRecRef.current?.stream.getTracks().forEach((t) => t.stop()); } catch { /* noop */ }
+    try { void recorderRef.current?.stop(); } catch { /* noop */ }
   }, []);
 
   // Persistir borradores por chat → sobreviven a navegar / recargar.
@@ -406,10 +423,10 @@ export default function WhatsAppPage() {
     setEmojiOpen(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
     // Cancelar cualquier grabación en curso (incluida pausada) al cambiar de chat.
-    if (mediaRecRef.current && mediaRecRef.current.state !== 'inactive') {
+    if (recActiveRef.current) {
       recCancelRef.current = true;
       if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
-      try { mediaRecRef.current.stop(); } catch { /* noop */ }
+      try { void recorderRef.current?.stop(); } catch { /* noop */ }
     }
     if (selId == null) { setMensajes([]); setUnreadAtOpen(0); return; }
     const grupo = contactos.find((c) => c.id === selId);
@@ -426,21 +443,33 @@ export default function WhatsAppPage() {
       }
     }
     if (!ids.length) { setMensajes([]); return; }
-    setLoadingMsgs(true);
+    // Instantáneo desde cache (no se ve el chat anterior); si no hay, vacío + spinner.
+    const cached = msgCacheRef.current.get(selId);
+    if (cached) { setMensajes(cached); setLoadingMsgs(false); }
+    else { setMensajes([]); setLoadingMsgs(true); }
     setSendError(null);
     void (async () => {
       try {
         const r = await fetch(`/api/whatsapp/thread?ids=${ids.join(',')}`);
         const j = await r.json();
-        if (selIdRef.current === selId) setMensajes(j.ok ? j.mensajes : []);
+        const msgs: Mensaje[] = j.ok ? j.mensajes : [];
+        msgCacheRef.current.set(selId, msgs);
+        if (selIdRef.current === selId) setMensajes(msgs);
       } finally {
-        setLoadingMsgs(false);
+        if (selIdRef.current === selId) setLoadingMsgs(false);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId]);
 
-  // ── Notificación (con sonido) de mensajes entrantes — polling cada 20s ──
+  // Desbloquear el audio del beep en el primer gesto del usuario.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    return () => window.removeEventListener('pointerdown', unlock);
+  }, []);
+
+  // ── Notificación (con sonido) de mensajes entrantes — polling cada 10s ──
   useEffect(() => {
     const tick = async () => {
       try {
@@ -460,11 +489,15 @@ export default function WhatsAppPage() {
           }
           return c;
         });
-        // Si el chat abierto trae unread nuevo del server, re-marcamos leído.
-        const openSrv = (j.contactos as Contacto[]).find((c) => c.id === openId);
-        if (openSrv && openSrv.sinLeer > 0) {
-          readGroupsRef.current.set(openId!, openSrv.ultimaActividad);
-          void fetch(`/api/whatsapp/contacts/${openSrv.sendContactId}/read`, { method: 'POST' }).catch(() => {});
+        // Chat abierto: si llegó algo nuevo, suena igual (feedback) y se re-marca leído.
+        const openSrv = openId ? (j.contactos as Contacto[]).find((c) => c.id === openId) : undefined;
+        if (openSrv && openId) {
+          const lastRead = readGroupsRef.current.get(openId) ?? 0;
+          if (openSrv.ultimaActividad > lastRead && openSrv.sinLeer > 0) {
+            playBeep();
+            void fetch(`/api/whatsapp/contacts/${openSrv.sendContactId}/read`, { method: 'POST' }).catch(() => {});
+          }
+          readGroupsRef.current.set(openId, openSrv.ultimaActividad);
         }
         const total = list.reduce((s, c) => s + c.sinLeer, 0);
         const prev = totalSinLeerRef.current;
@@ -482,20 +515,24 @@ export default function WhatsAppPage() {
           if (g) {
             const rr = await fetch(`/api/whatsapp/thread?ids=${g.convIds.join(',')}`);
             const jj = await rr.json();
-            if (selIdRef.current === openId) setMensajes(jj.ok ? jj.mensajes : []);
+            const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
+            msgCacheRef.current.set(g.id, msgs);
+            if (selIdRef.current === openId) setMensajes(msgs);
           }
         }
       } catch { /* ignore */ }
     };
-    const iv = setInterval(() => void tick(), 20000);
+    const iv = setInterval(() => void tick(), 10000);
     return () => clearInterval(iv);
   }, []);
 
   async function refetchHilo(grupo: Contacto) {
     const rr = await fetch(`/api/whatsapp/thread?ids=${grupo.convIds.join(',')}`);
     const jj = await rr.json();
+    const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
+    msgCacheRef.current.set(grupo.id, msgs);
     // Solo pintar si seguís en ese chat (evita pisar el hilo si cambiaste).
-    if (selIdRef.current === grupo.id) setMensajes(jj.ok ? jj.mensajes : []);
+    if (selIdRef.current === grupo.id) setMensajes(msgs);
   }
 
   async function enviar() {
@@ -522,20 +559,27 @@ export default function WhatsAppPage() {
     }
   }
 
-  async function toggleBloqueo() {
+  function toggleBloqueo() {
     if (!sel || blocking) return;
-    const nuevo = !sel.bloqueado;
-    if (nuevo && !window.confirm(`¿Bloquear a ${sel.contacto}? No le van a llegar más mensajes y el lead pasa a "Descalificado".`)) return;
+    if (sel.bloqueado) { void aplicarBloqueo(false, ''); }         // desbloquear directo
+    else { setBlockMotivo(''); setBlockModalOpen(true); }          // bloquear → pide motivo
+  }
+
+  async function aplicarBloqueo(nuevo: boolean, motivo: string) {
+    if (!sel || blocking) return;
+    const cid = sel.sendContactId;
+    const gid = sel.id;
+    const lid = sel.leadId;
     setBlocking(true);
     setSendError(null);
     try {
-      const r = await fetch(`/api/whatsapp/contacts/${sel.sendContactId}/block`, {
+      const r = await fetch(`/api/whatsapp/contacts/${cid}/block`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blocked: nuevo, leadId: sel.leadId }),
+        body: JSON.stringify({ blocked: nuevo, leadId: lid, motivo }),
       });
       const j = await r.json();
       if (!j.ok) setSendError(j.error || 'No se pudo actualizar el bloqueo.');
-      else setContactos((prev) => prev.map((c) => (c.id === sel.id ? { ...c, bloqueado: nuevo } : c)));
+      else { setContactos((prev) => prev.map((c) => (c.id === gid ? { ...c, bloqueado: nuevo } : c))); setBlockModalOpen(false); }
     } catch (e) {
       setSendError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -589,25 +633,11 @@ export default function WhatsAppPage() {
   // ── Nota de voz ──
   function fmtDur(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 
-  function pickAudioMime(): string {
-    if (typeof MediaRecorder === 'undefined') return '';
-    for (const c of ['audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm']) {
-      if (MediaRecorder.isTypeSupported(c)) return c;
-    }
-    return '';
-  }
-
-  // Mapa MIME→extensión SOLO para formatos que WhatsApp acepta. Si el navegador
-  // graba en otro (p.ej. webm de Chrome/Edge), no mandamos (Meta lo dropea).
-  const AUDIO_EXT: Record<string, string> = {
-    'audio/ogg': 'ogg', 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a',
-    'audio/aac': 'aac', 'audio/amr': 'amr', 'audio/3gpp': '3gp',
-  };
-
   async function enviarAudio(blob: Blob, ext: string, grupo: Contacto) {
     const enEseChat = () => selIdRef.current === grupo.id;
-    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
+    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, probá de nuevo.'); setAudioFase(null); return; }
     setSending(true);
+    setAudioFase('Enviando audio…');
     setSendError(null);
     try {
       const fd = new FormData();
@@ -620,6 +650,7 @@ export default function WhatsAppPage() {
       if (enEseChat()) setSendError(e instanceof Error ? e.message : String(e));
     } finally {
       setSending(false);
+      setAudioFase(null);
     }
   }
 
@@ -628,77 +659,57 @@ export default function WhatsAppPage() {
     const destGrupo = contactos.find((c) => c.id === selId);
     if (!destGrupo) return;
     setSendError(null);
-    let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      setSendError('No se pudo acceder al micrófono. Revisá los permisos.');
-      return;
-    }
-    let rec: MediaRecorder;
-    try {
-      const mime = pickAudioMime();
-      rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-    } catch {
-      stream.getTracks().forEach((t) => t.stop());
-      setSendError('Tu navegador no permite grabar audio.');
-      return;
-    }
-    chunksRef.current = [];
-    recCancelRef.current = false;
-    rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
-    rec.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
-      const cancelled = recCancelRef.current;
-      const type = rec.mimeType || '';
-      const blob = new Blob(chunksRef.current, { type });
-      setRecording(false);
+      const Recorder = (await import('opus-recorder')).default;
+      const rec = new Recorder({
+        encoderPath: '/encoderWorker.min.js',
+        numberOfChannels: 1,
+        encoderSampleRate: 16000, // igual que las notas de voz de WhatsApp
+        encoderApplication: 2048, // VOIP / voz
+        encoderBitRate: 16000,
+        streamPages: false,
+      });
+      oggChunksRef.current = [];
+      recCancelRef.current = false;
+      rec.ondataavailable = (typedArray) => { if (typedArray && typedArray.length) oggChunksRef.current.push(new Uint8Array(typedArray)); };
+      rec.onstop = () => {
+        recActiveRef.current = false;
+        if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
+        const cancelled = recCancelRef.current;
+        const blob = new Blob(oggChunksRef.current as BlobPart[], { type: 'audio/ogg; codecs=opus' });
+        setRecording(false);
+        setRecPaused(false);
+        setRecSecs(0);
+        if (cancelled) return;
+        void enviarAudio(blob, 'ogg', destGrupo);
+      };
+      await rec.start();
+      recorderRef.current = rec;
+      recActiveRef.current = true;
+      setRecording(true);
       setRecPaused(false);
       setRecSecs(0);
-      if (cancelled) return;
-      if (!blob.size) { setSendError('La grabación quedó vacía, probá de nuevo.'); return; }
-      const ext = AUDIO_EXT[type.split(';')[0].trim()];
-      if (ext) {
-        void enviarAudio(blob, ext, destGrupo);
-        return;
-      }
-      // Formato que WhatsApp no acepta (webm de Chrome/Edge) → convertir a MP3.
-      // Mantenemos sending=true de punta a punta (enviarAudio lo apaga en su finally).
-      setSending(true);
-      void (async () => {
-        try {
-          const { blobToMp3 } = await import('./audio');
-          const mp3 = await blobToMp3(blob);
-          await enviarAudio(mp3, 'mp3', destGrupo);
-        } catch (e) {
-          setSending(false);
-          setSendError('No se pudo convertir el audio (' + (e instanceof Error ? e.message : 'error') + '). Probá de nuevo.');
-        }
-      })();
-    };
-    mediaRecRef.current = rec;
-    rec.start();
-    setRecording(true);
-    setRecPaused(false);
-    setRecSecs(0);
-    recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
+      recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
+    } catch (e) {
+      recActiveRef.current = false;
+      setSendError('No se pudo iniciar la grabación (' + (e instanceof Error ? e.message : 'micrófono/permiso') + ').');
+    }
   }
 
   function stopRec(cancel: boolean) {
     recCancelRef.current = cancel;
     if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
-    try { mediaRecRef.current?.stop(); } catch { /* ya estaba parado */ }
+    try { void recorderRef.current?.stop(); } catch { /* ya estaba parado */ }
   }
 
   function pauseRec() {
-    try { mediaRecRef.current?.pause(); } catch { /* noop */ }
+    try { recorderRef.current?.pause(); } catch { /* noop */ }
     if (recTimerRef.current) { clearInterval(recTimerRef.current); recTimerRef.current = null; }
     setRecPaused(true);
   }
 
   function resumeRec() {
-    try { mediaRecRef.current?.resume(); } catch { /* noop */ }
+    try { recorderRef.current?.resume(); } catch { /* noop */ }
     if (!recTimerRef.current) recTimerRef.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
     setRecPaused(false);
   }
@@ -809,12 +820,20 @@ export default function WhatsAppPage() {
   const isChats = view === 'chats';
   const q = search.trim().toLowerCase();
   const etapasPresentes = [...new Map(contactos.filter((c) => c.etapaKey).map((c) => [c.etapaKey, c.etapaLabel])).entries()];
-  const filtrados = contactos.filter((c) => {
-    if (filtroEtapa !== 'todas' && c.etapaKey !== filtroEtapa) return false;
-    if (soloVentana && !c.ventanaAbierta) return false;
-    if (q && !(c.contacto.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q))) return false;
-    return true;
-  });
+  const filtrados = contactos
+    .filter((c) => {
+      if (filtroEtapa !== 'todas' && c.etapaKey !== filtroEtapa) return false;
+      if (soloVentana && !c.ventanaAbierta) return false;
+      if (q && !(c.contacto.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q))) return false;
+      return true;
+    })
+    // Los chats con un borrador sin enviar van arriba (como WhatsApp).
+    .sort((a, b) => {
+      const da = (drafts[a.id] ?? '').trim() ? 1 : 0;
+      const db = (drafts[b.id] ?? '').trim() ? 1 : 0;
+      if (da !== db) return db - da;
+      return b.ultimaActividad - a.ultimaActividad;
+    });
   const sel = contactos.find((c) => c.id === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
@@ -877,7 +896,7 @@ export default function WhatsAppPage() {
                         <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contacto}</span>
                         <span style={{ flex: 'none', fontSize: '11px', color: 'var(--faint)' }}>{fmtTime(c.ultimaActividad)}</span>
                       </div>
-                      <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.ultimoMensaje ?? '—'}</div>
+                      <div style={{ fontSize: '12.5px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: (drafts[c.id] ?? '').trim() ? 'var(--ink)' : 'var(--dim)' }}>{(drafts[c.id] ?? '').trim() ? (<><span style={{ color: 'var(--bad)', fontWeight: 600 }}>Borrador:</span> {drafts[c.id].trim()}</>) : (c.ultimoMensaje ?? '—')}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '7px' }}>
                         {chip && <span style={chip.style}><span style={chip.dot}></span>{chip.label}</span>}
                         {c.sinLeer > 0 && <span style={{ marginLeft: 'auto', flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--good)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.sinLeer}</span>}
@@ -912,7 +931,12 @@ export default function WhatsAppPage() {
                   {etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <span style={ch.style}><span style={ch.dot}></span>{ch.label}</span>; })()}
                 </div>
                 <div ref={msgScrollRef} onScroll={() => { const el = msgScrollRef.current; if (el) stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
-                  {loadingMsgs && <div style={{ color: 'var(--dim)', fontSize: '13.5px' }}>Cargando mensajes…</div>}
+                  {loadingMsgs && mensajes.length === 0 && (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+                      <span style={{ width: '28px', height: '28px', border: '3px solid var(--border)', borderTopColor: 'var(--good)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+                    </div>
+                  )}
                   {!loadingMsgs && mensajes.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13.5px' }}>Sin mensajes.</div>}
                   {mensajes.map((m) => {
                     const mine = m.saliente;
@@ -955,6 +979,13 @@ export default function WhatsAppPage() {
                     );
                   })}
                 </div>
+                {audioFase && (
+                  <div style={{ padding: '8px 16px', background: 'var(--good-bg)', color: 'var(--good)', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+                    <span style={{ width: '13px', height: '13px', border: '2px solid var(--good)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+                    {audioFase} (puede tardar unos segundos)
+                  </div>
+                )}
                 {sendError && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px' }}>{sendError}</div>}
                 {sel.bloqueado ? (
                   <div style={{ padding: '16px', borderTop: '1px solid var(--border)', textAlign: 'center', fontSize: '13px', color: 'var(--dim)' }}>⛔ Contacto bloqueado. <button onClick={() => void toggleBloqueo()} disabled={blocking} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Desbloquear</button> para volver a escribir.</div>
@@ -1177,6 +1208,22 @@ export default function WhatsAppPage() {
       {/* DETALLE DEL LEAD — el MISMO modal editable del CRM (LeadDetail) */}
       {detalleLeadId != null && (
         <LeadEditModal leadId={detalleLeadId} onClose={() => setDetalleLeadId(null)} />
+      )}
+
+      {/* CONFIRMAR BLOQUEO — pide motivo (se guarda en el lead como descalificado) */}
+      {blockModalOpen && sel && (
+        <div onClick={() => !blocking && setBlockModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '440px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px', boxShadow: '0 20px 60px rgba(0,0,0,0.45)' }}>
+            <div style={{ fontSize: '17px', fontWeight: 600, color: 'var(--ink)' }}>Bloquear a {sel.contacto}</div>
+            <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '6px', lineHeight: 1.5 }}>No le van a llegar más mensajes y el lead pasa a <strong>Descalificado</strong>. El motivo se guarda en la ficha del lead.</div>
+            <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', margin: '16px 0 5px' }}>Motivo del bloqueo</label>
+            <textarea value={blockMotivo} onChange={(e) => setBlockMotivo(e.target.value)} placeholder="Ej: spam, no es el público objetivo, agresivo…" autoFocus rows={3} style={{ width: '100%', resize: 'none', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', outline: 'none' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+              <button onClick={() => setBlockModalOpen(false)} disabled={blocking} style={btnGhost}>Cancelar</button>
+              <button onClick={() => void aplicarBloqueo(true, blockMotivo)} disabled={blocking || !blockMotivo.trim()} style={{ ...btnSeqBase, padding: '9px 16px', border: '1px solid var(--bad)', background: 'var(--bad)', color: '#fff', opacity: (blocking || !blockMotivo.trim()) ? 0.6 : 1 }}>{blocking ? 'Bloqueando…' : 'Bloquear'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

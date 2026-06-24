@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
   }
 
-  let body: { blocked?: unknown; leadId?: unknown };
+  let body: { blocked?: unknown; leadId?: unknown; motivo?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
   const blocked = body.blocked === true;
   const leadId = Number(body.leadId);
+  const motivo = typeof body.motivo === 'string' && body.motivo.trim() ? body.motivo.trim() : MOTIVO_BLOQUEO;
 
   try {
     if (!(await contactoEnInboxWA(contactId))) {
@@ -44,18 +45,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (Number.isFinite(leadId) && leadId > 0) {
       try {
         if (blocked) {
-          await setPipelineStage(leadId, 'descal', { motivo: MOTIVO_BLOQUEO });
+          await setPipelineStage(leadId, 'descal', { motivo });
         } else {
-          // Solo revertir si el bloqueo fue quien lo descalificó (marcado por el
-          // motivo). Si el lead cambió de estado por otra razón, no lo tocamos.
+          // Al desbloquear, si el lead está descalificado lo devolvemos a "abierto"
+          // (el bloqueo es lo que lo descalifica en este flujo).
           const supabase = getSupabaseServer();
           const { data } = await supabase
             .from('leads')
-            .select('estado_lead, motivo_perdida')
+            .select('estado_lead')
             .eq('id', leadId)
             .maybeSingle();
-          const l = (data ?? {}) as { estado_lead?: string; motivo_perdida?: string | null };
-          if (l.estado_lead === 'descalificado' && l.motivo_perdida === MOTIVO_BLOQUEO) {
+          const l = (data ?? {}) as { estado_lead?: string };
+          if (l.estado_lead === 'descalificado') {
             await updateLead(leadId, { estado_lead: 'abierto', motivo_perdida: null });
             await supabase.from('leads').update({ pipeline_stage: null }).eq('id', leadId);
           }
