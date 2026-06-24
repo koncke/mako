@@ -23,7 +23,8 @@ export const MAIN_NAV: NavItem[] = [
   { key: 'general', label: 'Vista General', href: '/general', match: starts('/general') },
   { key: 'crm', label: 'CRM', href: '/leads', badge: true, match: starts('/leads') },
   { key: 'funnel', label: 'Funnel', href: '/funnel', glyph: '⤳', match: starts('/funnel') },
-  { key: 'marketing', label: 'Marketing', href: '/marketing', match: starts('/marketing') },
+  { key: 'marketing', label: 'Marketing', href: '/marketing', match: (p) => starts('/marketing')(p) && !starts('/marketing/salud')(p) },
+  { key: 'estado-meta', label: 'Estado de Meta', href: '/marketing/salud', glyph: '◈', match: starts('/marketing/salud') },
   { key: 'comercial', label: 'Comercial', href: '/comercial', match: starts('/comercial') },
 ];
 

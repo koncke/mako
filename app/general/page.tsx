@@ -27,6 +27,7 @@ import {
 import { fmtUSD, fmtNum } from '@/lib/format';
 import { DIAS_J1_J2_ALERTA } from '@/lib/config';
 import { getCuotasPendientes, getRevenueBreakdowns, type RevItem, type RevenueBreakdowns } from '@/lib/pagos';
+import { getMetaAccountHealth } from '@/lib/meta-health';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
 import { EditarMeta } from './EditarMeta';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
@@ -57,7 +58,7 @@ export default async function GeneralPage() {
   const hoy = hoyEnTijuana();
   const ayer = ayerEnTijuana();
 
-  const [objR, compR, pendR, madR, fatR, tramoR, cuotasR] = await Promise.allSettled([
+  const [objR, compR, pendR, madR, fatR, tramoR, cuotasR, saludR] = await Promise.allSettled([
     getObjetivoProgreso(hoy),
     getResumenComparativo(ayer),
     getPendientesDeMarcar(hoy),
@@ -65,6 +66,7 @@ export default async function GeneralPage() {
     getFatigaAdsets(hoy),
     getTramoJ1J2Reciente(hoy, 60),
     getCuotasPendientes(hoy),
+    getMetaAccountHealth(),
   ]);
 
   const objetivo = objR.status === 'fulfilled' ? objR.value : null;
@@ -74,6 +76,7 @@ export default async function GeneralPage() {
   const fatiga = fatR.status === 'fulfilled' ? fatR.value : [];
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
   const cuotas = cuotasR.status === 'fulfilled' ? cuotasR.value : { vencidas: [], porVencer: [] };
+  const saludMeta = saludR.status === 'fulfilled' ? saludR.value : null;
 
   // Desgloses (una sola ola paralela):
   //  - Hero del objetivo: breakdowns en [objetivo.desde, hoy] (.sold cierres, .cash pagos).
@@ -100,6 +103,24 @@ export default async function GeneralPage() {
 
   // ── Semáforo: alertas accionables (compacto) ──
   const alertas: Alerta[] = [];
+  // Salud de la cuenta de Meta (live). UNSETTLED/DISABLED/saldo impago → la cuenta
+  // no entrega aunque las campañas figuren ACTIVAS: urgencia roja al tope.
+  if (saludMeta && saludMeta.severidad !== 'verde') {
+    const esRojo = saludMeta.severidad === 'rojo';
+    const saldo = saludMeta.balanceMxn > 0
+      ? `Adeudo ~${saludMeta.balanceMxn.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN${saludMeta.fundingCard ? ` (${saludMeta.fundingCard})` : ''}. `
+      : '';
+    alertas.push({
+      nivel: esRojo ? 'rojo' : 'ambar',
+      titulo: esRojo
+        ? `Cuenta de Meta: ${saludMeta.statusLabel} — entrega frenada`
+        : `Cuenta de Meta: ${saludMeta.statusLabel} — vigilar`,
+      detalle: esRojo
+        ? `${saldo}Los anuncios figuran ACTIVOS pero la cuenta no está entregando${saludMeta.disableReasonLabel ? ` (${saludMeta.disableReasonLabel})` : ''}. Regularizá el pago en Meta cuanto antes.`
+        : `Estado de cuenta "${saludMeta.statusLabel}". La entrega puede estar limitada — revisá el Business Manager.`,
+      href: '/marketing/salud', hrefLabel: 'Estado de Meta',
+    });
+  }
   // Desglose de cuotas (lead · monto · vence · días) con botón Editar lead.
   const cuotaItems = (arr: typeof cuotas.vencidas): DesgloseItem[] => arr.map((c) => ({
     nombre: c.lead_nombre,

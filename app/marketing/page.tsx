@@ -150,6 +150,7 @@ export default async function Page({
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Marketing</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+          <Link href="/marketing/salud" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}>◈ Estado de entrega →</Link>
           <FechaFiltro hoyReal={hoyReal} />
         </div>
       </header>

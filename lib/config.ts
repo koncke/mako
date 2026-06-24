@@ -69,3 +69,12 @@ export const RECON_LEADS_VALIDACION = 10;
  * Panel Recon: gasto (USD) sin un solo lead que amerita apagar el anuncio.
  */
 export const RECON_SPEND_SIN_LEADS_USD = 80;
+
+/**
+ * Estado de Meta (Fase 18). Saldo adeudado (MXN) a partir del cual, si la cuenta
+ * NO está activa (account_status !== 1), se dispara la alerta roja "entrega
+ * frenada" en el Semáforo. Default 1 MXN para no alertar por centavos de redondeo
+ * (cupones, ajustes). El status problemático (UNSETTLED/DISABLED/…) ya alerta por
+ * sí solo aunque el saldo sea 0.
+ */
+export const META_BALANCE_ALERTA_MXN = 1;
