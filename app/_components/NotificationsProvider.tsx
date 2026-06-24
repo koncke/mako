@@ -176,7 +176,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [toast, setToast] = useState<{ gid: string; nombre: string; avatar: string | null } | null>(null);
-  const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string } | null>(null);
+  const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string; motivo?: string } | null>(null);
 
   const openChatRef = useRef<string | null>(null);
   const activitySnapRef = useRef<Map<string, number>>(new Map());
@@ -258,7 +258,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       const r = await fetch('/api/whatsapp/templates/status');
       const j = await r.json();
       if (!j.ok) return;
-      const tpls = j.templates as Array<{ name: string; status: string }>;
+      const tpls = j.templates as Array<{ name: string; status: string; motivo?: string | null }>;
       const aprobadas = new Set(tpls.filter((t) => t.status === 'approved').map((t) => t.name));
       const rechazadas = new Set(tpls.filter((t) => t.status === 'rejected').map((t) => t.name));
       if (!tplBaselineRef.current) {
@@ -273,13 +273,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       for (const n of rechazadas) if (!rejectedSnapRef.current.has(n)) nuevaRej = n;
       approvedSnapRef.current = aprobadas;
       rejectedSnapRef.current = rechazadas;
-      const mostrar = (tipo: 'ok' | 'rej', name: string) => {
-        setTplToast({ tipo, name });
+      const mostrar = (tipo: 'ok' | 'rej', name: string, motivo?: string) => {
+        setTplToast({ tipo, name, motivo });
         if (tplToastTimerRef.current) clearTimeout(tplToastTimerRef.current);
-        tplToastTimerRef.current = setTimeout(() => setTplToast(null), 6000);
+        // el rechazo se queda 9s (hay que leer el motivo); la aprobación 6s.
+        tplToastTimerRef.current = setTimeout(() => setTplToast(null), tipo === 'rej' ? 9000 : 6000);
       };
       if (nuevaOk) { playApproval(); mostrar('ok', nuevaOk); }
-      else if (nuevaRej) { playRejected(); mostrar('rej', nuevaRej); }
+      else if (nuevaRej) { playRejected(); mostrar('rej', nuevaRej, tpls.find((t) => t.name === nuevaRej)?.motivo ?? undefined); }
     } catch { /* ignore */ }
   };
 
@@ -381,7 +382,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           </span>
           <span style={{ minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{tplToast.tipo === 'ok' ? 'Plantilla aprobada' : 'Plantilla rechazada'}</span>
-            <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', fontFamily: "'Geist Mono', monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 260 }}>{tplToast.name} · ver →</span>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 270 }}>{tplToast.name}</span>
+            <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.35, maxWidth: 270 }}>{tplToast.tipo === 'rej' && tplToast.motivo ? tplToast.motivo : 'ver →'}</span>
           </span>
         </button>
       )}

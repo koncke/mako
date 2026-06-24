@@ -6,7 +6,7 @@
 // una sola llamada a la Graph API.
 // =============================================================================
 
-import { listMetaTemplates, reconcileDrafts } from '@/lib/meta-templates';
+import { listMetaTemplates, reconcileDrafts, explicarRechazo } from '@/lib/meta-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,10 @@ export async function GET() {
     const metas = await listMetaTemplates();
     // mantener la tabla de borradores al día (best-effort, no rompe la respuesta)
     await reconcileDrafts(metas).catch(() => {});
-    return Response.json({ ok: true, templates: metas.map((m) => ({ name: m.name, status: m.status })) });
+    return Response.json({
+      ok: true,
+      templates: metas.map((m) => ({ name: m.name, status: m.status, motivo: m.status === 'rejected' ? explicarRechazo(m.rejectedReason) : null })),
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[api:whatsapp/templates/status] ${msg}`);

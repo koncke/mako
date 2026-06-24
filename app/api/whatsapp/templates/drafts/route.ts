@@ -10,9 +10,27 @@
 
 import type { NextRequest } from 'next/server';
 import {
-  listDrafts, upsertDraft, deleteDraft, enviarBorradorAMeta, listMetaTemplates, reconcileDrafts,
+  listDrafts, upsertDraft, deleteDraft, getDraft, enviarBorradorAMeta, editTemplate,
+  deleteMetaTemplate, deleteDraftByName, listMetaTemplates, reconcileDrafts, explicarRechazo,
   type TemplateDraft,
 } from '@/lib/meta-templates';
+
+function normalizarDraft(d: Partial<TemplateDraft>): TemplateDraft {
+  return {
+    id: d.id,
+    name: d.name ?? '',
+    language: d.language ?? 'es_MX',
+    category: d.category ?? 'marketing',
+    body: d.body ?? '',
+    header: d.header ?? null,
+    footer: d.footer ?? null,
+    buttons: Array.isArray(d.buttons) ? d.buttons : [],
+    params: Array.isArray(d.params) ? d.params : [],
+    status: d.status ?? 'borrador',
+    meta_template_id: d.meta_template_id ?? null,
+    etapa: d.etapa ?? null,
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +48,8 @@ export async function GET(req: NextRequest) {
         return [];
       }),
     ]);
-    return Response.json({ ok: true, drafts, meta });
+    const metaConMotivo = meta.map((m) => ({ ...m, rejectedMotivo: m.status === 'rejected' ? explicarRechazo(m.rejectedReason) : null }));
+    return Response.json({ ok: true, drafts, meta: metaConMotivo });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[api:whatsapp/templates/drafts GET] ${msg}`);
@@ -78,7 +97,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  let body: { id?: unknown; action?: unknown };
+  let body: { id?: unknown; action?: unknown; metaId?: unknown; draft?: Partial<TemplateDraft> };
   try {
     body = await req.json();
   } catch {
@@ -97,6 +116,14 @@ export async function PATCH(req: NextRequest) {
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
       return Response.json({ ok: true, status: r.status });
     }
+    // Editar una plantilla EXISTENTE en Meta (aprobada/rechazada). Vuelve a revisión.
+    if (action === 'edit') {
+      const metaId = typeof body.metaId === 'string' ? body.metaId : '';
+      if (!metaId || !body.draft) return Response.json({ ok: false, error: 'falta metaId / draft' }, { status: 400 });
+      const r = await editTemplate(metaId, normalizarDraft(body.draft));
+      if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
+      return Response.json({ ok: true, status: 'pending' });
+    }
     return Response.json({ ok: false, error: 'action desconocida' }, { status: 400 });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -106,9 +133,22 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const id = Number(req.nextUrl.searchParams.get('id'));
-  if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id inválido' }, { status: 400 });
+  const sp = req.nextUrl.searchParams;
+  const name = sp.get('name');
+  const idRaw = sp.get('id');
   try {
+    // Borrar por NOMBRE = plantilla de Meta (aprobada/cualquiera) + su borrador local.
+    if (name) {
+      const r = await deleteMetaTemplate(name);
+      if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
+      await deleteDraftByName(name);
+      return Response.json({ ok: true });
+    }
+    const id = Number(idRaw);
+    if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'falta id o name' }, { status: 400 });
+    // Si el borrador ya está en Meta (enviado/aprobado/rechazado), borrarlo también allá.
+    const d = await getDraft(id);
+    if (d && d.status !== 'borrador' && d.name) await deleteMetaTemplate(d.name).catch(() => {});
     await deleteDraft(id);
     return Response.json({ ok: true });
   } catch (err) {

@@ -40,7 +40,7 @@ type Draft = {
   body: string; header?: string | null; footer?: string | null; buttons: Button[]; params: Param[];
   status: string; meta_template_id?: string | null; rejection_reason?: string | null; validacion?: Validacion | null; etapa?: string | null;
 };
-type MetaTpl = { name: string; language: string; category: string; status: string; body: string; params: string[]; metaId: string | null };
+type MetaTpl = { name: string; language: string; category: string; status: string; body: string; header: string | null; footer: string | null; buttons: Button[]; params: string[]; rejectedReason: string | null; rejectedMotivo: string | null; metaId: string | null };
 type Item = { kind: 'draft'; draft: Draft } | { kind: 'meta'; meta: MetaTpl };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -92,10 +92,12 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const [edit, setEdit] = useState<Draft | null>(null);
   const [validacion, setValidacion] = useState<Validacion | null>(null);
   const [validacionStale, setValidacionStale] = useState(false); // el texto cambió desde la última validación
+  const [validacionOpen, setValidacionOpen] = useState(true);     // recomendaciones desplegadas o cerradas (X)
   const [validando, setValidando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [confirmEnviar, setConfirmEnviar] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [borrarMetaName, setBorrarMetaName] = useState<string | null>(null); // confirmar borrar plantilla de Meta
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [restaurado, setRestaurado] = useState(false);
@@ -122,8 +124,8 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const s = JSON.parse(raw) as { edit?: Draft; validacion?: Validacion | null; validacionStale?: boolean };
-        if (s.edit) { setEdit(s.edit); setValidacion(s.validacion ?? null); setValidacionStale(!!s.validacionStale); }
+        const s = JSON.parse(raw) as { edit?: Draft; validacion?: Validacion | null; validacionStale?: boolean; validacionOpen?: boolean };
+        if (s.edit) { setEdit(s.edit); setValidacion(s.validacion ?? null); setValidacionStale(!!s.validacionStale); setValidacionOpen(s.validacionOpen !== false); }
       }
     } catch { /* sin storage */ }
     setRestaurado(true);
@@ -133,10 +135,10 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   useEffect(() => {
     if (!restaurado) return;
     try {
-      if (edit) localStorage.setItem(STORAGE_KEY, JSON.stringify({ edit, validacion, validacionStale }));
+      if (edit) localStorage.setItem(STORAGE_KEY, JSON.stringify({ edit, validacion, validacionStale, validacionOpen }));
       else localStorage.removeItem(STORAGE_KEY);
     } catch { /* sin storage */ }
-  }, [edit, validacion, validacionStale, restaurado]);
+  }, [edit, validacion, validacionStale, validacionOpen, restaurado]);
 
   const items: Item[] = useMemo(() => {
     const draftNames = new Set(drafts.map((d) => `${d.name}::${d.language}`));
@@ -153,14 +155,27 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     return true;
   }), [items, filtro, filtroEtapa]);
 
-  const abrirNueva = () => { setSel(null); setEdit(emptyDraft()); setValidacion(null); setValidacionStale(false); setError(null); setAviso(null); lastValidatedRef.current = ''; };
+  const abrirNueva = () => { setSel(null); setEdit(emptyDraft()); setValidacion(null); setValidacionStale(false); setValidacionOpen(true); setError(null); setAviso(null); lastValidatedRef.current = ''; };
   const abrirItem = (it: Item) => {
-    setSel(it); setError(null); setAviso(null); setAutocomplete(null);
+    setSel(it); setError(null); setAviso(null); setAutocomplete(null); setValidacionOpen(true);
     if (it.kind === 'draft') {
       setEdit({ ...it.draft, header: it.draft.header ?? '', footer: it.draft.footer ?? '', buttons: it.draft.buttons ?? [], params: it.draft.params ?? [] });
       setValidacion(it.draft.validacion ?? null); setValidacionStale(false);
       lastValidatedRef.current = it.draft.validacion ? firma(it.draft) : '';
     } else { setEdit(null); setValidacion(null); }
+  };
+
+  // Editar una plantilla YA en Meta: la cargamos al editor (con su meta_template_id).
+  // Al guardar cambios, se edita en Meta y vuelve a revisión.
+  const editarMeta = (m: MetaTpl) => {
+    const params = detectarVars(m.body).map((v) => ({ name: v, example: ejemploDe(v) }));
+    setSel(null); setError(null); setAviso(null); setAutocomplete(null);
+    setValidacion(null); setValidacionStale(false); setValidacionOpen(true); lastValidatedRef.current = '';
+    setEdit({
+      name: m.name, language: m.language, category: (['marketing', 'utility', 'authentication'].includes(m.category) ? m.category : 'marketing') as Draft['category'],
+      body: m.body, header: m.header ?? '', footer: m.footer ?? '', buttons: m.buttons ?? [], params,
+      status: m.status, meta_template_id: m.metaId, rejection_reason: m.rejectedMotivo, etapa: '',
+    });
   };
 
   // Deep-link desde el pop-up de aprobación: abrir esa plantilla cuando esté en la lista.
@@ -297,15 +312,24 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     if (!edit) return;
     setEnviando(true); setError(null);
     try {
-      // SIEMPRE guardar primero (persiste el ejemplo de cada variable); si no, Meta
-      // ve el BODY sin example. Recién después, enviar.
-      const id = await guardar();
-      if (!id) { setEnviando(false); setConfirmEnviar(false); return; }
-      const j = await fetch('/api/whatsapp/templates/drafts', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit', id }),
-      }).then((r) => r.json());
-      if (!j.ok) setError(j.error || 'Meta rechazó la solicitud.');
-      else { setAviso('✓ Enviada a Meta. Queda en revisión (suele tardar minutos).'); setEdit((cur) => (cur ? { ...cur, status: 'pending' } : cur)); await cargar(); }
+      if (edit.meta_template_id) {
+        // Editar una plantilla EXISTENTE en Meta → vuelve a revisión.
+        const j = await fetch('/api/whatsapp/templates/drafts', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'edit', metaId: edit.meta_template_id, draft: edit }),
+        }).then((r) => r.json());
+        if (!j.ok) setError(j.error || 'Meta rechazó los cambios.');
+        else { setAviso('✓ Cambios enviados. La plantilla vuelve a revisión de Meta.'); setEdit((cur) => (cur ? { ...cur, status: 'pending' } : cur)); await cargar(); }
+      } else {
+        // Crear: SIEMPRE guardar primero (persiste el ejemplo de cada variable) y enviar.
+        const id = await guardar();
+        if (!id) { setEnviando(false); setConfirmEnviar(false); return; }
+        const j = await fetch('/api/whatsapp/templates/drafts', {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit', id }),
+        }).then((r) => r.json());
+        if (!j.ok) setError(j.error || 'Meta rechazó la solicitud.');
+        else { setAviso('✓ Enviada a Meta. Queda en revisión (suele tardar minutos).'); setEdit((cur) => (cur ? { ...cur, status: 'pending' } : cur)); await cargar(); }
+      }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setEnviando(false); setConfirmEnviar(false); }
   };
@@ -319,16 +343,32 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
 
+  // Borrar una plantilla que YA vive en Meta (por nombre). Destructivo → con confirmación.
+  const ejecutarBorrarMeta = async () => {
+    if (!borrarMetaName) return;
+    setError(null);
+    try {
+      const j = await fetch(`/api/whatsapp/templates/drafts?name=${encodeURIComponent(borrarMetaName)}`, { method: 'DELETE' }).then((r) => r.json());
+      if (!j.ok) setError(j.error || 'No se pudo borrar.');
+      else { await cargar(); setEdit(null); setSel(null); setValidacion(null); }
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBorrarMetaName(null); }
+  };
+
   const reconciliar = async () => {
     await fetch('/api/whatsapp/templates/drafts', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reconcile' }) });
     await cargar();
   };
 
+  const esEdicionMeta = !!edit?.meta_template_id; // editando una plantilla que ya está en Meta
   const nombreOk = edit ? /^[a-z0-9_]{1,512}$/.test(edit.name) : false;
   const bodyOk = edit ? edit.body.trim().length > 0 : false;
   const paramsCompletos = edit ? edit.params.every((p) => p.example.trim()) : false;
   const puedeGuardar = nombreOk && bodyOk && !guardando;
-  const puedeEnviar = puedeGuardar && paramsCompletos && (edit?.status === 'borrador' || edit?.status === 'rejected');
+  const puedeEnviar = puedeGuardar && paramsCompletos && (
+    esEdicionMeta ? (edit?.status === 'approved' || edit?.status === 'rejected')
+                  : (edit?.status === 'borrador' || edit?.status === 'rejected')
+  );
 
   const btnPrimary: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
   const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
@@ -371,7 +411,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
       {/* DETALLE / EDITOR */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
         {!edit && sel?.kind === 'meta' ? (
-          <MetaView meta={sel.meta} />
+          <MetaView meta={sel.meta} onEditar={() => editarMeta(sel.meta)} onEliminar={() => setBorrarMetaName(sel.meta.name)} />
         ) : !edit ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, padding: 20, textAlign: 'center' }}>
             Elegí una plantilla o creá una nueva para redactarla, validarla con MaKo y enviarla a aprobar a Meta.
@@ -444,24 +484,31 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
 
             <ButtonsEditor buttons={edit.buttons} onChange={(b) => patchEdit({ buttons: b })} />
 
-            {/* Validación EN VIVO */}
-            {(validacion || validando) && (
-              <ValidacionCard v={validacion} validando={validando} stale={validacionStale} onAplicar={aplicarPropuesta} />
+            {edit.status === 'rejected' && edit.rejection_reason && (
+              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13 }}><strong>Meta la rechazó.</strong> {edit.rejection_reason}</div>
+            )}
+
+            {/* Validación EN VIVO — con X para cerrar y pill para reabrir */}
+            {validacionOpen && (validacion || validando) && (
+              <ValidacionCard v={validacion} validando={validando} stale={validacionStale} onAplicar={aplicarPropuesta} onClose={() => setValidacionOpen(false)} />
+            )}
+            {!validacionOpen && validacion && (
+              <button onClick={() => setValidacionOpen(true)} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '7px 12px', borderRadius: 999, border: `1px solid ${(RIESGO_META[validacion.riesgo] ?? RIESGO_META.MEDIO).color}`, background: (RIESGO_META[validacion.riesgo] ?? RIESGO_META.MEDIO).bg, color: (RIESGO_META[validacion.riesgo] ?? RIESGO_META.MEDIO).color, fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>✨ Ver recomendaciones de MaKo · riesgo {validacion.riesgo}</button>
             )}
 
             {error && <Banner tono="bad" texto={error} onClose={() => setError(null)} />}
             {aviso && <Banner tono="good" texto={aviso} onClose={() => setAviso(null)} />}
-            {edit.status === 'rejected' && edit.rejection_reason && (
-              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13 }}>Meta la rechazó: {edit.rejection_reason}</div>
-            )}
 
             {/* Acciones */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', paddingTop: 4 }}>
-              <button onClick={() => void validar(edit)} disabled={validando || !bodyOk} style={{ ...btnGhost, opacity: validando || !bodyOk ? 0.6 : 1 }}>{validando ? 'MaKo revisando…' : '✨ Validar ahora'}</button>
-              <button onClick={() => void guardar()} disabled={!puedeGuardar} style={{ ...btnGhost, opacity: !puedeGuardar ? 0.6 : 1 }}>{guardando ? 'Guardando…' : 'Guardar borrador'}</button>
-              <button onClick={() => setConfirmEnviar(true)} disabled={!puedeEnviar} title={!paramsCompletos ? 'Completá los ejemplos de las variables' : ''} style={{ ...btnPrimary, marginLeft: 'auto', opacity: !puedeEnviar ? 0.5 : 1 }}>Enviar a Meta a aprobar →</button>
-              {edit.id && <button onClick={() => void borrar(edit.id!)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Borrar</button>}
+              <button onClick={() => { setValidacionOpen(true); void validar(edit); }} disabled={validando || !bodyOk} style={{ ...btnGhost, opacity: validando || !bodyOk ? 0.6 : 1 }}>{validando ? 'MaKo revisando…' : '✨ Validar ahora'}</button>
+              {!esEdicionMeta && <button onClick={() => void guardar()} disabled={!puedeGuardar} style={{ ...btnGhost, opacity: !puedeGuardar ? 0.6 : 1 }}>{guardando ? 'Guardando…' : 'Guardar borrador'}</button>}
+              <button onClick={() => setConfirmEnviar(true)} disabled={!puedeEnviar} title={!paramsCompletos ? 'Completá los ejemplos de las variables' : ''} style={{ ...btnPrimary, marginLeft: 'auto', opacity: !puedeEnviar ? 0.5 : 1 }}>{esEdicionMeta ? 'Guardar cambios en Meta →' : 'Enviar a Meta a aprobar →'}</button>
+              {esEdicionMeta
+                ? <button onClick={() => setBorrarMetaName(edit.name)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Eliminar de Meta</button>
+                : edit.id && <button onClick={() => void borrar(edit.id!)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Borrar</button>}
             </div>
+            {esEdicionMeta && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Estás editando una plantilla que ya vive en Meta. Al guardar cambios vuelve a revisión (el nombre y el idioma no se pueden cambiar).</div>}
             {!paramsCompletos && edit.params.length > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>Para enviar a Meta, completá los ejemplos de cada variable.</div>}
           </div>
         )}
@@ -470,12 +517,29 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
       {confirmEnviar && edit && (
         <div onClick={() => !enviando && setConfirmEnviar(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(92vw, 460px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22, fontFamily: SANS }}>
-            <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>Enviar a aprobar a Meta</div>
-            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>Vas a enviar <code style={{ fontFamily: MONO }}>{edit.name}</code> a Meta para revisión. Una vez enviada no se puede editar (sí borrar y rehacer). Meta suele responder en minutos.</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{esEdicionMeta ? 'Guardar cambios en Meta' : 'Enviar a aprobar a Meta'}</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+              {esEdicionMeta
+                ? <>Vas a editar <code style={{ fontFamily: MONO }}>{edit.name}</code> en Meta. La plantilla <strong>vuelve a revisión</strong> (si estaba aprobada, deja de poder usarse hasta que la re-aprueben). Meta suele responder en minutos.</>
+                : <>Vas a enviar <code style={{ fontFamily: MONO }}>{edit.name}</code> a Meta para revisión. Una vez enviada no se puede editar (sí borrar y rehacer). Meta suele responder en minutos.</>}
+            </div>
             {validacion?.riesgo === 'ALTO' && <div style={{ marginTop: 12, padding: '9px 11px', borderRadius: 9, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)', fontSize: 12.5 }}>⚠ MaKo marcó riesgo ALTO de rechazo. Revisá las correcciones antes de enviar.</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
               <button onClick={() => setConfirmEnviar(false)} disabled={enviando} style={btnGhost}>Cancelar</button>
-              <button onClick={() => void enviarAMeta()} disabled={enviando} style={{ ...btnPrimary, opacity: enviando ? 0.6 : 1 }}>{enviando ? 'Enviando…' : 'Confirmar y enviar'}</button>
+              <button onClick={() => void enviarAMeta()} disabled={enviando} style={{ ...btnPrimary, opacity: enviando ? 0.6 : 1 }}>{enviando ? (esEdicionMeta ? 'Guardando…' : 'Enviando…') : (esEdicionMeta ? 'Confirmar cambios' : 'Confirmar y enviar')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {borrarMetaName && (
+        <div onClick={() => setBorrarMetaName(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 'min(92vw, 440px)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22, fontFamily: SANS }}>
+            <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>Eliminar de Meta</div>
+            <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>Vas a <strong>eliminar</strong> <code style={{ fontFamily: MONO }}>{borrarMetaName}</code> de Meta. Si la usás en alguna secuencia, dejará de enviarse. Esta acción no se puede deshacer.</div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
+              <button onClick={() => setBorrarMetaName(null)} style={btnGhost}>Cancelar</button>
+              <button onClick={() => void ejecutarBorrarMeta()} style={{ ...btnPrimary, background: 'var(--bad)' }}>Eliminar definitivamente</button>
             </div>
           </div>
         </div>
@@ -495,7 +559,7 @@ function Banner({ tono, texto, onClose }: { tono: 'good' | 'bad'; texto: string;
   );
 }
 
-function ValidacionCard({ v, validando, stale, onAplicar }: { v: Validacion | null; validando: boolean; stale: boolean; onAplicar: () => void }) {
+function ValidacionCard({ v, validando, stale, onAplicar, onClose }: { v: Validacion | null; validando: boolean; stale: boolean; onAplicar: () => void; onClose: () => void }) {
   const r = v ? (RIESGO_META[v.riesgo] ?? RIESGO_META.MEDIO) : RIESGO_META.MEDIO;
   return (
     <div style={{ border: `1px solid ${v ? r.color : 'var(--border-strong)'}`, borderRadius: 12, padding: 14, background: v ? r.bg : 'var(--surface-2)' }}>
@@ -504,6 +568,7 @@ function ValidacionCard({ v, validando, stale, onAplicar }: { v: Validacion | nu
         {validando && <span style={{ fontSize: 11.5, color: 'var(--dim)', fontFamily: MONO }}>actualizando…</span>}
         {!validando && stale && v && <span style={{ fontSize: 11, color: 'var(--warn)', fontFamily: MONO }}>· editaste, se revalida sola</span>}
         {v && <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--dim)', fontFamily: MONO }}>sugerida: {v.categoria_sugerida}</span>}
+        <button onClick={onClose} aria-label="Cerrar recomendaciones" title="Cerrar (la podés reabrir abajo)" style={{ marginLeft: v ? 0 : 'auto', flex: 'none', border: 'none', background: 'transparent', color: v ? r.color : 'var(--dim)', cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0, opacity: 0.7 }}>✕</button>
       </div>
       {v && v.hallazgos.map((h, i) => {
         const ref = refDeRegla(h.regla);
@@ -526,17 +591,27 @@ function ValidacionCard({ v, validando, stale, onAplicar }: { v: Validacion | nu
   );
 }
 
-function MetaView({ meta }: { meta: MetaTpl }) {
+function MetaView({ meta, onEditar, onEliminar }: { meta: MetaTpl; onEditar: () => void; onEliminar: () => void }) {
   const chip = statusChip(meta.status.toLowerCase());
+  const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 24, fontFamily: SANS }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{meta.name}</span>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: chip.color, background: chip.bg }}>{chip.label}</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={onEditar} style={{ ...btnGhost, background: 'var(--ink)', color: 'var(--on-sidebar, #F3F0E7)', border: 'none' }}>✎ Editar</button>
+          <button onClick={onEliminar} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Eliminar</button>
+        </div>
       </div>
       <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 16, fontFamily: MONO }}>{meta.category} · {meta.language}{meta.params.length ? ` · vars: ${meta.params.join(', ')}` : ''}</div>
+      {meta.status === 'rejected' && meta.rejectedMotivo && (
+        <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13, marginBottom: 14 }}><strong>Meta la rechazó.</strong> {meta.rejectedMotivo}</div>
+      )}
+      {meta.header && <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{meta.header}</div>}
       <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{meta.body || '—'}</div>
-      <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.5 }}>Esta plantilla ya vive en Meta. Su status se sincroniza automáticamente. Para cambiarla, creá una nueva versión.</div>
+      {meta.footer && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{meta.footer}</div>}
+      <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.5 }}>Editar reenvía la plantilla a revisión de Meta. El nombre y el idioma no se pueden cambiar.</div>
     </div>
   );
 }

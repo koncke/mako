@@ -249,42 +249,123 @@ export type MetaTemplate = {
   category: string;       // minúsculas: marketing | utility | authentication
   status: string;         // minúsculas: pending | approved | rejected | paused | disabled
   body: string;
+  header: string | null;
+  footer: string | null;
+  buttons: TemplateButton[];
   params: string[];       // nombres de variables del body
+  rejectedReason: string | null; // motivo de Meta si está rechazada (enum)
   metaId: string | null;
 };
 
+type GraphBtn = { type?: string; text?: string; url?: string; phone_number?: string };
 type GraphTplComponent = {
-  type?: string; text?: string;
+  type?: string; format?: string; text?: string;
+  buttons?: GraphBtn[];
   example?: { body_text_named_params?: Array<{ param_name?: string }> };
 };
 type GraphTpl = {
   id?: string; name?: string; language?: string; category?: string; status?: string;
+  rejected_reason?: string;
   components?: GraphTplComponent[];
 };
 
-// Lista las plantillas reales del WABA en Meta (con su status en vivo).
+// Motivos de rechazo de Meta (enum) → explicación en español.
+const MOTIVO_RECHAZO: Record<string, string> = {
+  INVALID_FORMAT: 'Formato inválido: revisá las variables (no empezar/terminar con {{ }}, ejemplos, header/footer sin variables) y los límites.',
+  ABUSIVE_CONTENT: 'Contenido abusivo o que viola las políticas de WhatsApp.',
+  SCAM: 'Meta lo marcó como posible engaño/estafa.',
+  INVALID_BUTTON_FORMAT: 'Formato de botón inválido (texto, URL o tipo).',
+  TAG_CONTENT_MISMATCH: 'El contenido no coincide con la categoría elegida.',
+  PROMOTIONAL: 'Contenido promocional en una categoría que no lo permite (debería ser Marketing).',
+  NONE: 'Sin motivo específico informado por Meta.',
+};
+export function explicarRechazo(reason?: string | null): string {
+  if (!reason || reason === 'NONE') return MOTIVO_RECHAZO.NONE;
+  return MOTIVO_RECHAZO[reason] ?? `Meta la rechazó (${reason}).`;
+}
+
+// Lista las plantillas reales del WABA en Meta (con su status, componentes y motivo de rechazo).
 export async function listMetaTemplates(): Promise<MetaTemplate[]> {
   const waba = await getWabaConfig();
   const url =
     `https://graph.facebook.com/${waba.version}/${waba.wabaId}/message_templates` +
-    `?fields=name,status,category,language,components,id&limit=200`;
+    `?fields=name,status,category,language,components,id,rejected_reason&limit=200`;
   const res = await fetchConTimeout(url, { headers: { Authorization: `Bearer ${waba.token}` } });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) throw new Error(j?.error?.message || `Meta ${res.status}`);
   // Convención: minúsculas en todo el código/DB; MAYÚSCULAS sólo en el payload de salida a Meta.
   return ((j.data ?? []) as GraphTpl[]).map((t) => {
-    const body = (t.components ?? []).find((c) => c.type === 'BODY');
+    const comps = t.components ?? [];
+    const body = comps.find((c) => c.type === 'BODY');
+    const header = comps.find((c) => c.type === 'HEADER' && (c.format ?? 'TEXT') === 'TEXT');
+    const footer = comps.find((c) => c.type === 'FOOTER');
+    const btns = comps.find((c) => c.type === 'BUTTONS');
     const params = (body?.example?.body_text_named_params ?? []).map((p) => p.param_name ?? '').filter(Boolean);
+    const buttons: TemplateButton[] = (btns?.buttons ?? []).map((b) => {
+      if (b.type === 'URL') return { type: 'URL', text: b.text ?? '', url: b.url ?? '' };
+      if (b.type === 'PHONE_NUMBER') return { type: 'PHONE_NUMBER', text: b.text ?? '', phone_number: b.phone_number ?? '' };
+      return { type: 'QUICK_REPLY', text: b.text ?? '' };
+    });
+    const rr = (t.rejected_reason ?? '').toUpperCase();
     return {
       name: t.name ?? '',
       language: t.language ?? '',
       category: (t.category ?? '').toLowerCase(),
       status: (t.status ?? '').toLowerCase(),
       body: body?.text ?? '',
+      header: header?.text ?? null,
+      footer: footer?.text ?? null,
+      buttons,
       params,
+      rejectedReason: rr && rr !== 'NONE' ? rr : null,
       metaId: t.id ?? null,
     };
   }).filter((t) => t.name);
+}
+
+// Editar una plantilla existente en Meta (POST /{id}). El nombre y el idioma NO se
+// pueden cambiar; sí el contenido y la categoría. Al editar vuelve a PENDING.
+export async function editTemplate(
+  metaId: string,
+  d: TemplateDraft,
+): Promise<{ ok: boolean; error?: string }> {
+  const errVars = validarVarsParaMeta(d);
+  if (errVars) return { ok: false, error: errVars };
+  const waba = await getWabaConfig();
+  let res: Response;
+  try {
+    res = await fetchConTimeout(`https://graph.facebook.com/${waba.version}/${metaId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${waba.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category: d.category.toUpperCase(), components: buildComponents(d) }),
+    });
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'Meta no respondió a tiempo, probá de nuevo.' : String(e) };
+  }
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.error) return { ok: false, error: j?.error?.error_user_msg || j?.error?.message || `Meta ${res.status}` };
+  return { ok: true };
+}
+
+// Borra una plantilla de Meta por nombre (todos los idiomas).
+export async function deleteMetaTemplate(name: string): Promise<{ ok: boolean; error?: string }> {
+  const waba = await getWabaConfig();
+  try {
+    const res = await fetchConTimeout(
+      `https://graph.facebook.com/${waba.version}/${waba.wabaId}/message_templates?name=${encodeURIComponent(name)}`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${waba.token}` } },
+    );
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || j.error) return { ok: false, error: j?.error?.error_user_msg || j?.error?.message || `Meta ${res.status}` };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
+export async function deleteDraftByName(name: string): Promise<void> {
+  const supabase = getSupabaseServer();
+  await supabase.from('whatsapp_template_drafts').delete().eq('name', name);
 }
 
 // Reconcilia: para los borradores en 'pending', mira el status real en Meta y lo
@@ -301,7 +382,7 @@ export async function reconcileDrafts(metasArg?: MetaTemplate[]): Promise<number
     if (!m || !d.id) continue;
     const st = m.status.toLowerCase();
     if ((st === 'approved' || st === 'rejected' || st === 'paused' || st === 'disabled') && st !== d.status) {
-      await setDraftStatus(d.id, st as TemplateStatus);
+      await setDraftStatus(d.id, st as TemplateStatus, st === 'rejected' ? { rejection_reason: explicarRechazo(m.rejectedReason) } : { rejection_reason: null });
       cambios += 1;
     }
   }
