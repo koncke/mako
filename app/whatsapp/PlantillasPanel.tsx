@@ -188,6 +188,19 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelect, items]);
 
+  // Cuando se recarga la lista, sincronizar al editor abierto los campos que maneja
+  // el server (status + motivo de rechazo), sin tocar el contenido que estás editando.
+  useEffect(() => {
+    setEdit((cur) => {
+      if (!cur?.id) return cur;
+      const fresh = drafts.find((d) => d.id === cur.id);
+      if (fresh && (fresh.status !== cur.status || fresh.rejection_reason !== cur.rejection_reason)) {
+        return { ...cur, status: fresh.status, rejection_reason: fresh.rejection_reason };
+      }
+      return cur;
+    });
+  }, [drafts]);
+
   // Si estabas editando una plantilla de Meta que ya no existe (borrada/cambió),
   // limpiamos el editor para no mandar un PATCH a un id fantasma.
   useEffect(() => {

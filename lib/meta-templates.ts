@@ -368,24 +368,26 @@ export async function markDraftPendingByName(name: string, language: string): Pr
     .eq('language', language);
 }
 
-// Reconcilia: para los borradores en 'pending', mira el status real en Meta y lo
-// actualiza (approved/rejected). Devuelve cuántos cambió. Acepta la lista de Meta
-// ya traída (para no pegarle dos veces a la Graph API desde el endpoint de status).
+// Reconcilia el status real en Meta para los borradores en 'pending' Y los ya
+// 'rejected' (para BACKFILL del motivo: un rejected no vuelve a 'pending', así que
+// si quedó sin motivo hay que rellenarlo igual). Devuelve cuántos cambió. Acepta
+// la lista de Meta ya traída (para no pegarle dos veces a la Graph API).
 export async function reconcileDrafts(metasArg?: MetaTemplate[]): Promise<number> {
-  const pendientes = await listDrafts({ status: 'pending' });
-  if (!pendientes.length) return 0;
+  const [pend, rej] = await Promise.all([listDrafts({ status: 'pending' }), listDrafts({ status: 'rejected' })]);
+  const candidatos = [...pend, ...rej];
+  if (!candidatos.length) return 0;
   const metas = metasArg ?? await listMetaTemplates();
   const byName = new Map(metas.map((m) => [`${m.name}::${m.language}`, m]));
   let cambios = 0;
-  for (const d of pendientes) {
+  for (const d of candidatos) {
     const m = byName.get(`${d.name}::${d.language}`);
     if (!m || !d.id) continue;
     const st = m.status.toLowerCase();
-    if ((st === 'approved' || st === 'rejected' || st === 'paused' || st === 'disabled') && st !== d.status) {
-      // guardamos el ENUM crudo de Meta; la traducción se aplica al renderizar.
-      await setDraftStatus(d.id, st as TemplateStatus, st === 'rejected' ? { rejection_reason: m.rejectedReason } : { rejection_reason: null });
-      cambios += 1;
-    }
+    const reason = st === 'rejected' ? m.rejectedReason : null; // ENUM crudo; se traduce al renderizar
+    const statusCambio = (st === 'approved' || st === 'rejected' || st === 'paused' || st === 'disabled') && st !== d.status;
+    const faltaMotivo = st === 'rejected' && d.status === 'rejected' && !d.rejection_reason && !!reason;
+    if (statusCambio) { await setDraftStatus(d.id, st as TemplateStatus, { rejection_reason: reason }); cambios += 1; }
+    else if (faltaMotivo) { await setDraftStatus(d.id, 'rejected', { rejection_reason: reason }); cambios += 1; }
   }
   return cambios;
 }
