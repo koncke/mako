@@ -125,6 +125,10 @@ export async function GET(req: Request) {
           sinLeer: ct.sinLeer,
           ultimoEntrante: ct.ultimoEntrante,
           ventanaAbierta: ct.ventanaAbierta,
+          // La ventana de 24h vence 24h después del ÚLTIMO mensaje del lead. Lo podemos
+          // calcular cuando el último mensaje es entrante (si respondimos último, no
+          // tenemos ese timestamp en la lista → null y se muestra solo "ventana abierta").
+          ventanaVenceAt: ct.ventanaAbierta && ct.ultimoEntrante ? ct.ultimaActividad + 86400 : null,
           leadId: lead?.id ?? null,
           empresa: lead?.empresa ?? null,
           estadoLead: lead?.estado_lead ?? null,

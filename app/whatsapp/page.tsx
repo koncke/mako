@@ -105,6 +105,15 @@ function fmtTime(unixSec: number | null): string {
     : d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
 }
 
+// Tiempo restante de la ventana de 24h (formato corto + flag de urgencia).
+function fmtVentana(venceAt: number, nowSec: number): { txt: string; urgente: boolean; vencida: boolean } {
+  const rem = venceAt - nowSec;
+  if (rem <= 0) return { txt: 'vencida', urgente: true, vencida: true };
+  const h = Math.floor(rem / 3600);
+  const m = Math.floor((rem % 3600) / 60);
+  return { txt: h > 0 ? `${h}h ${m}m` : `${m}m`, urgente: rem < 3600, vencida: false };
+}
+
 function fmtDelay(horas: number): string {
   if (horas < 1) return 'inmediato';
   if (horas < 24) return `${Math.round(horas)} h`;
@@ -289,6 +298,7 @@ function WhatsAppInner() {
   const [seqTab, setSeqTab] = useState<'secuencias' | 'plantillas' | 'mako'>('secuencias');
   const [seqEtapaFiltro, setSeqEtapaFiltro] = useState('todas');
   const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null); // deep-link desde el pop-up de aprobación
+  const [now, setNow] = useState(0); // reloj para el contador de la ventana de 24h (tick cada 30s)
 
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null);
 
@@ -333,6 +343,13 @@ function WhatsAppInner() {
   // Al salir de /whatsapp, ningún chat queda "abierto" → el provider vuelve a
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
   useEffect(() => () => setOpenChat(null), [setOpenChat]);
+
+  // Reloj para el contador de la ventana de 24h (cada 30s alcanza).
+  useEffect(() => {
+    setNow(Math.floor(Date.now() / 1000));
+    const iv = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   // ── Deep-link desde los pop-ups: ?chat= (chat) o ?stab=plantillas&tpl= (plantilla) ──
   useEffect(() => {
@@ -823,6 +840,13 @@ function WhatsAppInner() {
   const seqEtapasPresentes = [...new Set(secuencias.map((s) => s.etapa).filter(Boolean))];
   const seqFiltradas = seqEtapaFiltro === 'todas' ? secuencias : secuencias.filter((s) => s.etapa === seqEtapaFiltro);
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
+  // Vencimiento de la ventana del chat abierto: 24h tras el último mensaje ENTRANTE
+  // del hilo (exacto, aun si respondimos último); si no hay hilo, el del provider.
+  const ventanaVenceSel = (() => {
+    if (!ventanaAbierta) return null;
+    for (let i = mensajes.length - 1; i >= 0; i--) { if (!mensajes[i].saliente && mensajes[i].fecha) return mensajes[i].fecha! + 86400; }
+    return sel?.ventanaVenceAt ?? null;
+  })();
   const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
@@ -882,6 +906,7 @@ function WhatsAppInner() {
                       <div style={{ fontSize: '12.5px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: (drafts[c.id] ?? '').trim() ? 'var(--ink)' : 'var(--dim)' }}>{(drafts[c.id] ?? '').trim() ? (<><span style={{ color: 'var(--bad)', fontWeight: 600 }}>Borrador:</span> {drafts[c.id].trim()}</>) : (c.ultimoMensaje ?? '—')}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '7px' }}>
                         {chip && <span style={chip.style}><span style={chip.dot}></span>{chip.label}</span>}
+                        {now > 0 && c.ventanaVenceAt != null && (() => { const v = fmtVentana(c.ventanaVenceAt, now); return <span title="Tiempo restante de la ventana de 24h" style={{ flex: 'none', fontSize: '10.5px', fontWeight: 600, color: v.urgente ? 'var(--bad)' : 'var(--good)' }}>⏱ {v.vencida ? 'vencida' : v.txt}</span>; })()}
                         {c.sinLeer > 0 && <span title="Mensaje nuevo sin leer" style={{ marginLeft: 'auto', flex: 'none', width: '11px', height: '11px', borderRadius: '50%', background: 'var(--good)' }} />}
                       </div>
                     </div>
@@ -911,7 +936,12 @@ function WhatsAppInner() {
                       <div style={{ fontSize: '12px', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{sel.telefono ?? '—'}</div>
                     </div>
                   </div>
-                  {etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <span style={ch.style}><span style={ch.dot}></span>{ch.label}</span>; })()}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 'none' }}>
+                    {now > 0 && ventanaVenceSel != null && (() => { const v = fmtVentana(ventanaVenceSel, now); return (
+                      <span title="Tiempo restante de la ventana de 24h para escribirle texto libre" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid ' + (v.urgente ? 'var(--bad)' : 'var(--good)'), color: v.urgente ? 'var(--bad)' : 'var(--good)', background: v.urgente ? 'var(--bad-bg)' : 'var(--good-bg)' }}>⏱ {v.vencida ? 'Ventana vencida' : `${v.txt} de ventana`}</span>
+                    ); })()}
+                    {etapaChip(sel.etapaKey, sel.etapaLabel) && (() => { const ch = etapaChip(sel.etapaKey, sel.etapaLabel)!; return <span style={ch.style}><span style={ch.dot}></span>{ch.label}</span>; })()}
+                  </div>
                 </div>
                 <div ref={msgScrollRef} onScroll={() => { const el = msgScrollRef.current; if (el) stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; }} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-2)' }}>
                   {loadingMsgs && mensajes.length === 0 && (

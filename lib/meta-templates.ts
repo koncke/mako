@@ -142,9 +142,14 @@ function buildComponents(d: TemplateDraft): GraphComponent[] {
   if (d.header && d.header.trim()) comps.push({ type: 'HEADER', format: 'TEXT', text: d.header.trim() });
 
   const body: GraphComponent = { type: 'BODY', text: d.body };
-  if (d.params.length) {
-    body.example = { body_text_named_params: d.params.map((p) => ({ param_name: p.name, example: p.example })) };
-  }
+  // Meta cuenta CADA aparición de {{var}} como una posición → el example necesita
+  // un item por aparición (en orden), no por variable única. (Verificado contra la API.)
+  const exMap = new Map(d.params.map((p) => [p.name, p.example]));
+  const ocurrencias: Array<{ param_name: string; example: string }> = [];
+  const reBody = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+  let mm: RegExpExecArray | null;
+  while ((mm = reBody.exec(d.body)) !== null) ocurrencias.push({ param_name: mm[1], example: exMap.get(mm[1]) ?? '' });
+  if (ocurrencias.length) body.example = { body_text_named_params: ocurrencias };
   comps.push(body);
 
   if (d.footer && d.footer.trim()) comps.push({ type: 'FOOTER', text: d.footer.trim() });
@@ -163,15 +168,15 @@ function buildComponents(d: TemplateDraft): GraphComponent[] {
 }
 
 // Payload exacto del POST /{WABA}/message_templates (útil también para mostrarlo).
-// OJO: NO mandamos `parameter_format: 'NAMED'`. Con ese campo, una variable
-// repetida (ej. {{nombre}} dos veces) hace que Meta rechace con "BODY missing
-// example" (verificado contra la Graph API). Sin el campo, Meta autodetecta el
-// formato named desde la sintaxis {{nombre}} y acepta el example una sola vez.
+// parameter_format: 'NAMED' es OBLIGATORIO para variables {{nombre}}: sin él, Meta
+// las interpreta como posicionales (tipo "Número") y rechaza con "parámetros
+// incorrectos, deben ser {{1}}, {{2}}". El example va por aparición (ver buildComponents).
 export function buildGraphPayload(d: TemplateDraft): Record<string, unknown> {
   return {
     name: d.name.trim(),
     language: d.language || 'es_MX',
     category: d.category.toUpperCase(),
+    parameter_format: 'NAMED',
     components: buildComponents(d),
   };
 }

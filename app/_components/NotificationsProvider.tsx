@@ -27,6 +27,7 @@ export interface Contacto {
   sinLeer: number;            // sintético: 1 = tiene mensaje nuevo sin leer, 0 = leído
   ultimoEntrante: boolean;    // el último mensaje es del lead (entrante)
   ventanaAbierta: boolean;
+  ventanaVenceAt: number | null; // unix secs cuando vence la ventana de 24h (o null)
   leadId: number | null;
   empresa: string | null;
   estadoLead: string | null;
@@ -290,8 +291,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (pathRef.current.startsWith('/login')) return; // sin sesión no polleamos
       try {
         tickRef.current += 1;
-        // Status de plantillas: siembra al 1er tick, después ~cada 60s.
-        if (tickRef.current === 1 || tickRef.current % 10 === 0) void checkTemplates();
+        // Status de plantillas: siembra al 1er tick, después ~cada 30s.
+        if (tickRef.current === 1 || tickRef.current % 5 === 0) void checkTemplates();
         const full = tickRef.current % 10 === 0; // ~cada 60s resync de TODA la lista
         const r = await fetch(`/api/whatsapp/conversations${full ? '' : '?recent=1'}`);
         const j = await r.json();
