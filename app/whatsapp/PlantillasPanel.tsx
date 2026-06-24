@@ -193,6 +193,11 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const abrirItem = (it: Item) => {
     setSel(it); setEdit(null); setValidacion(null); setError(null); setAviso(null); setAutocomplete(null);
   };
+  // Salir del editor sin enviar a Meta: vuelve a la vista del item (o al vacío).
+  const cancelarEdicion = () => {
+    setEdit(null); setValidacion(null); setValidacionStale(false); setError(null); setAviso(null);
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* sin storage */ }
+  };
   // Botón "Editar" desde la vista: abre el editor del item seleccionado.
   const iniciarEdicion = () => {
     if (!sel) return;
@@ -210,7 +215,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   // Al guardar cambios, se edita en Meta y vuelve a revisión.
   const editarMeta = (m: MetaTpl) => {
     const params = detectarVars(m.body).map((v) => ({ name: v, example: ejemploDe(v) }));
-    setSel(null); setError(null); setAviso(null); setAutocomplete(null);
+    setError(null); setAviso(null); setAutocomplete(null); // mantenemos sel para volver a la vista al cancelar
     setValidacion(null); setValidacionStale(false); setValidacionOpen(true); lastValidatedRef.current = '';
     // El header multimedia: Meta no devuelve el handle (expira) → pedimos re-subir
     // (handle vacío; el envío lo exige con headerMediaOk).
@@ -526,6 +531,10 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
           </div>
         ) : (
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <button onClick={cancelarEdicion} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>← Volver{sel ? ' (descartar cambios)' : ''}</button>
+              <span style={{ fontSize: 11.5, color: 'var(--faint)', fontFamily: MONO }}>{edit.id || edit.meta_template_id ? 'Editando' : 'Nueva plantilla'}</span>
+            </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 200px' }}>
                 <label style={labelBase}>Nombre (minúsculas, guiones bajos)</label>
@@ -546,10 +555,11 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5, flexWrap: 'wrap' }}>
                 <label style={{ ...labelBase, margin: 0 }}>Encabezado (opcional)</label>
-                <Dropdown value={headerTipo} onChange={cambiarHeaderTipo} width={150} ariaLabel="Tipo de encabezado" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }}
-                  options={[{ value: 'NONE', label: 'Ninguno' }, { value: 'TEXT', label: 'Texto' }, { value: 'IMAGE', label: '🖼️ Imagen' }, { value: 'VIDEO', label: '🎬 Video' }, { value: 'DOCUMENT', label: '📄 Documento' }]} />
+                <Dropdown value={headerTipo} onChange={cambiarHeaderTipo} width={170} ariaLabel="Tipo de encabezado" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }}
+                  options={[{ value: 'NONE', label: 'Ninguno' }, { value: 'TEXT', label: 'Texto' }, { value: 'IMAGE', label: '🖼️ Imagen' }, { value: 'VIDEO', label: '🎬 Video' }, { value: 'DOCUMENT', label: '📄 Documento (PDF)' }]} />
+                {headerTipo === 'NONE' && <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>← elegí Imagen / Video / Documento para adjuntar un archivo</span>}
               </div>
               {headerTipo === 'TEXT' && (
                 <input value={edit.header ?? ''} maxLength={60} onChange={(e) => patchEdit({ header: e.target.value })} placeholder="Texto de encabezado (máx 60, sin variables)" style={inputBase} />

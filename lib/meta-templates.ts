@@ -335,7 +335,12 @@ export async function listMetaTemplates(): Promise<MetaTemplate[]> {
     const header = headerComp && (headerComp.format ?? 'TEXT') === 'TEXT' ? headerComp : undefined;
     const footer = comps.find((c) => c.type === 'FOOTER');
     const btns = comps.find((c) => c.type === 'BUTTONS');
-    const params = (body?.example?.body_text_named_params ?? []).map((p) => p.param_name ?? '').filter(Boolean);
+    // Los params salen del CUERPO ({{var}}); Meta NO incluye el example en la lista,
+    // así que derivarlos del example dejaba params vacío y rompía el envío (error 132000).
+    const bodyText = body?.text ?? '';
+    const fromBody = [...new Set([...bodyText.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)].map((mm) => mm[1]))];
+    const fromExample = (body?.example?.body_text_named_params ?? []).map((p) => p.param_name ?? '').filter(Boolean);
+    const params = fromBody.length ? fromBody : fromExample;
     const buttons: TemplateButton[] = (btns?.buttons ?? []).map((b) => {
       if (b.type === 'URL') return { type: 'URL', text: b.text ?? '', url: b.url ?? '' };
       if (b.type === 'PHONE_NUMBER') return { type: 'PHONE_NUMBER', text: b.text ?? '', phone_number: b.phone_number ?? '' };
