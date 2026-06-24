@@ -380,11 +380,13 @@ function WhatsAppInner() {
   // (clampeado a los entrantes realmente cargados → no se rompe ni se desplaza).
   useEffect(() => {
     if (unreadAnchorId !== null || unreadAtOpen <= 0 || mensajes.length === 0) return;
-    const incoming: number[] = [];
-    for (let i = 0; i < mensajes.length; i++) if (!mensajes[i].saliente) incoming.push(i);
-    if (!incoming.length) return;
-    const target = Math.min(unreadAtOpen, incoming.length);
-    setUnreadAnchorId(mensajes[incoming[incoming.length - target]].id);
+    // Conteo real de "no leídos" = la racha de entrantes al final del hilo (lo que
+    // llegó nuevo desde tu último mensaje saliente). sinLeer es sólo el flag 1/0.
+    let run = 0;
+    for (let i = mensajes.length - 1; i >= 0; i--) { if (mensajes[i].saliente) break; run++; }
+    if (run === 0) return;
+    setUnreadAnchorId(mensajes[mensajes.length - run].id);
+    if (run !== unreadAtOpen) setUnreadAtOpen(run); // mostrar el conteo real en el divisor
   }, [mensajes, unreadAtOpen, unreadAnchorId]);
 
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
@@ -860,7 +862,7 @@ function WhatsAppInner() {
                       <div style={{ fontSize: '12.5px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: (drafts[c.id] ?? '').trim() ? 'var(--ink)' : 'var(--dim)' }}>{(drafts[c.id] ?? '').trim() ? (<><span style={{ color: 'var(--bad)', fontWeight: 600 }}>Borrador:</span> {drafts[c.id].trim()}</>) : (c.ultimoMensaje ?? '—')}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '7px' }}>
                         {chip && <span style={chip.style}><span style={chip.dot}></span>{chip.label}</span>}
-                        {c.sinLeer > 0 && <span style={{ marginLeft: 'auto', flex: 'none', minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--good)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.sinLeer}</span>}
+                        {c.sinLeer > 0 && <span title="Mensaje nuevo sin leer" style={{ marginLeft: 'auto', flex: 'none', width: '11px', height: '11px', borderRadius: '50%', background: 'var(--good)' }} />}
                       </div>
                     </div>
                   </div>

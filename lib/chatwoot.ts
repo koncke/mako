@@ -174,6 +174,7 @@ export type ChatwootConversation = {
   ultimoMensaje: string | null;
   ultimaActividad: number | null;
   sinLeer: number;
+  ultimoEntrante: boolean;   // el último mensaje real es entrante (type 0) → señal de "nuevo"
   estado: string;
   puedeResponder: boolean;   // can_reply de Chatwoot = ventana de 24h abierta
   bloqueado: boolean;        // contacto bloqueado en Chatwoot (meta.sender.blocked)
@@ -185,7 +186,8 @@ type ConvRaw = {
   status?: string;
   last_activity_at?: number;
   can_reply?: boolean;
-  messages?: Array<{ content?: string | null }>;
+  // message_type: 0=entrante 1=saliente 2=actividad(sistema) 3=plantilla(saliente)
+  messages?: Array<{ content?: string | null; message_type?: number }>;
   meta?: { sender?: { id?: number; name?: string; phone_number?: string; thumbnail?: string; avatar_url?: string; blocked?: boolean } };
 };
 type ConvListResp = { data?: { payload?: ConvRaw[]; meta?: { all_count?: number } }; payload?: ConvRaw[] };
@@ -193,15 +195,19 @@ type ConvListResp = { data?: { payload?: ConvRaw[]; meta?: { all_count?: number 
 function mapConv(cv: ConvRaw): ChatwootConversation {
   const msgs = cv.messages ?? [];
   const last = msgs.length ? msgs[msgs.length - 1] : undefined;
+  // Último mensaje "real" ignorando actividades de sistema (type 2), para que la
+  // dirección no la enmascare un evento como "conversación resuelta".
+  const real = [...msgs].reverse().find((m) => m.message_type !== 2) ?? last;
   return {
     id: cv.id ?? 0,
     contactId: cv.meta?.sender?.id ?? 0,
     contacto: cv.meta?.sender?.name ?? 'Sin nombre',
     telefono: cv.meta?.sender?.phone_number ?? null,
     avatar: cv.meta?.sender?.thumbnail || cv.meta?.sender?.avatar_url || null,
-    ultimoMensaje: last?.content ?? null,
+    ultimoMensaje: real?.content ?? last?.content ?? null,
     ultimaActividad: cv.last_activity_at ?? null,
     sinLeer: cv.unread_count ?? 0,
+    ultimoEntrante: (real?.message_type ?? 1) === 0,
     estado: cv.status ?? 'open',
     puedeResponder: cv.can_reply !== false,
     bloqueado: cv.meta?.sender?.blocked ?? false,

@@ -24,7 +24,8 @@ export interface Contacto {
   bloqueado: boolean;
   ultimoMensaje: string | null;
   ultimaActividad: number;
-  sinLeer: number;
+  sinLeer: number;            // sintético: 1 = tiene mensaje nuevo sin leer, 0 = leído
+  ultimoEntrante: boolean;    // el último mensaje es del lead (entrante)
   ventanaAbierta: boolean;
   leadId: number | null;
   empresa: string | null;
@@ -86,6 +87,28 @@ function initials(name: string): string {
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '·';
 }
 
+// ── Estado de "leído" propio ──────────────────────────────────────────────────
+// El unread_count de Chatwoot viene SIEMPRE en 0 en este WABA (el agent_last_seen
+// se mantiene al día desde el dashboard/la app), así que es inservible para saber
+// qué está sin leer. Lo resolvemos del lado del cliente: por cada chat guardamos
+// hasta qué `last_activity_at` ya leímos. Un chat está SIN LEER si su último
+// mensaje es entrante y su actividad supera ese marcador. Persistimos en
+// localStorage para que sobreviva recargas.
+const LEIDO_KEY = 'mako-wa-leido';
+function cargarLeido(): Map<string, number> {
+  try {
+    const raw = localStorage.getItem(LEIDO_KEY);
+    if (!raw) return new Map();
+    return new Map(Object.entries(JSON.parse(raw) as Record<string, number>));
+  } catch { return new Map(); }
+}
+function guardarLeido(m: Map<string, number>) {
+  try { localStorage.setItem(LEIDO_KEY, JSON.stringify(Object.fromEntries(m))); } catch { /* sin storage */ }
+}
+function tieneSinLeer(c: Contacto, leido: Map<string, number>): boolean {
+  return c.ultimoEntrante && c.ultimaActividad > (leido.get(c.id) ?? 0);
+}
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '';
@@ -95,19 +118,24 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const openChatRef = useRef<string | null>(null);
   const activitySnapRef = useRef<Map<string, number>>(new Map());
-  const readGroupsRef = useRef<Map<string, number>>(new Map());
+  const leidoRef = useRef<Map<string, number>>(new Map()); // gid → last_activity ya leído
+  const contactosRef = useRef<Contacto[]>([]);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baselineReadyRef = useRef(false); // no notificar hasta tener la línea base
   const tickRef = useRef(0);               // cada N ticks, resync de la lista completa
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
+  contactosRef.current = contactos;
 
   const unreadTotal = contactos.reduce((s, c) => s + c.sinLeer, 0);
 
   const setOpenChat = (id: string | null) => { openChatRef.current = id; };
   const marcarLeido = (gid: string, sendContactId: number) => {
-    const g = contactos.find((c) => c.id === gid);
-    if (g) readGroupsRef.current.set(gid, g.ultimaActividad);
+    const g = contactosRef.current.find((c) => c.id === gid);
+    // leído hasta la actividad actual del chat (o "ahora" si todavía no la tenemos).
+    const hasta = g?.ultimaActividad ?? Math.floor(Date.now() / 1000);
+    leidoRef.current.set(gid, hasta);
+    guardarLeido(leidoRef.current);
     setContactos((prev) => prev.map((c) => (c.id === gid ? { ...c, sinLeer: 0 } : c)));
     void fetch(`/api/whatsapp/contacts/${sendContactId}/read`, { method: 'POST' }).catch(() => {});
   };
@@ -127,7 +155,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         const j = await r.json();
         const list: Contacto[] = j.ok ? j.contactos : [];
         if (!alive) return;
-        setContactos(list);
+        const leido = cargarLeido();
+        if (leido.size === 0) {
+          // Primera vez en este navegador: tomamos TODO como leído (baseline) para no
+          // spamear el badge con conversaciones viejas; sólo notificamos lo que llegue.
+          for (const c of list) leido.set(c.id, c.ultimaActividad);
+          guardarLeido(leido);
+        }
+        leidoRef.current = leido;
+        setContactos(list.map((c) => ({ ...c, sinLeer: tieneSinLeer(c, leido) ? 1 : 0 })));
         for (const c of list) activitySnapRef.current.set(c.id, c.ultimaActividad);
         baselineReadyRef.current = true; // recién acá empezamos a NOTIFICAR
       } finally {
@@ -165,8 +201,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           const prevAct = snap.get(c.id);
           const subio = prevAct != null && c.ultimaActividad > prevAct;
           snap.set(c.id, c.ultimaActividad);
-          // mensaje nuevo del lead (unread del server subió) en un chat que NO es el abierto
-          if (detectar && subio && c.id !== openId && c.sinLeer > 0) {
+          // mensaje NUEVO del lead = último mensaje entrante + actividad que subió,
+          // en un chat que NO es el que estás viendo. (unread_count de Chatwoot no sirve.)
+          if (detectar && subio && c.ultimoEntrante && c.id !== openId) {
             if (!entrante || c.ultimaActividad > entrante.ultimaActividad) entrante = c;
           }
         }
@@ -178,20 +215,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           toastTimerRef.current = setTimeout(() => setToast(null), 5000);
         }
 
-        // Merge en la lista (preserva los que no vienen en página 1) + corrige badge.
+        // Merge en la lista (preserva los que no vienen en página 1) y recalcula el
+        // sinLeer sintético con NUESTRO marcador de leído (el server siempre da 0).
         setContactos((prev) => {
+          const leido = leidoRef.current;
           const byId = new Map(prev.map((c) => [c.id, c]));
           for (const c of recientes) {
-            let corr = c;
-            if (c.id === openId) corr = { ...c, sinLeer: 0 };
-            else {
-              const readAt = readGroupsRef.current.get(c.id);
-              if (readAt != null) {
-                if (c.ultimaActividad <= readAt) corr = { ...c, sinLeer: 0 };
-                else readGroupsRef.current.delete(c.id);
-              }
-            }
-            byId.set(c.id, corr);
+            const abierto = c.id === openId;
+            if (abierto) { leido.set(c.id, c.ultimaActividad); guardarLeido(leido); }
+            byId.set(c.id, { ...c, sinLeer: !abierto && tieneSinLeer(c, leido) ? 1 : 0 });
           }
           return [...byId.values()].sort((a, b) => b.ultimaActividad - a.ultimaActividad);
         });

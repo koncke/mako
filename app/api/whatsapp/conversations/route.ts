@@ -74,6 +74,7 @@ export async function GET(req: Request) {
       id: string; contacto: string; telefono: string | null; avatar: string | null;
       sendContactId: number; convs: Array<{ id: number; act: number }>; bloqueado: boolean;
       ultimoMensaje: string | null; ultimaActividad: number; sinLeer: number; ventanaAbierta: boolean;
+      ultimoEntrante: boolean;
     };
     const grupos = new Map<string, Acc>();
     for (const c of convs) {
@@ -85,6 +86,7 @@ export async function GET(req: Request) {
           id: key, contacto: c.contacto, telefono: c.telefono, avatar: c.avatar,
           sendContactId: c.contactId, convs: [{ id: c.id, act }], bloqueado: c.bloqueado,
           ultimoMensaje: c.ultimoMensaje, ultimaActividad: act, sinLeer: c.sinLeer, ventanaAbierta: c.puedeResponder,
+          ultimoEntrante: c.ultimoEntrante,
         });
       } else {
         prev.convs.push({ id: c.id, act });
@@ -94,6 +96,7 @@ export async function GET(req: Request) {
         if (act >= prev.ultimaActividad) {
           prev.ultimaActividad = act;
           prev.ultimoMensaje = c.ultimoMensaje;
+          prev.ultimoEntrante = c.ultimoEntrante;
           prev.sendContactId = c.contactId || prev.sendContactId;
           if (c.telefono) prev.telefono = c.telefono;
         }
@@ -120,6 +123,7 @@ export async function GET(req: Request) {
           ultimoMensaje: ct.ultimoMensaje,
           ultimaActividad: ct.ultimaActividad,
           sinLeer: ct.sinLeer,
+          ultimoEntrante: ct.ultimoEntrante,
           ventanaAbierta: ct.ventanaAbierta,
           leadId: lead?.id ?? null,
           empresa: lead?.empresa ?? null,
