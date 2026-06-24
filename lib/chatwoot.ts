@@ -515,9 +515,13 @@ export async function getWabaConfig(): Promise<WabaConfig> {
   // app_id del token (lo necesita el resumable-upload de muestras de media).
   let appId = '';
   try {
-    const dt = await fetch(`https://graph.facebook.com/${version}/debug_token?input_token=${encodeURIComponent(pc.api_key)}&access_token=${encodeURIComponent(pc.api_key)}`);
-    const dj = await dt.json();
-    appId = String(dj?.data?.app_id ?? '');
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const dt = await fetch(`https://graph.facebook.com/${version}/debug_token?input_token=${encodeURIComponent(pc.api_key)}&access_token=${encodeURIComponent(pc.api_key)}`, { signal: ctrl.signal });
+      const dj = await dt.json();
+      appId = String(dj?.data?.app_id ?? '');
+    } finally { clearTimeout(to); }
   } catch { /* sin app_id → la subida de media fallará con mensaje claro */ }
   const value: WabaConfig = {
     token: pc.api_key,

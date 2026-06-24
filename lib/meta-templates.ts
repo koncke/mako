@@ -214,7 +214,7 @@ export async function uploadMediaSample(
       { method: 'POST' }, 20000,
     );
     const j1 = await u1.json().catch(() => ({}));
-    if (!j1.id) return { ok: false, error: j1?.error?.message || 'No se pudo iniciar la subida.' };
+    if (!u1.ok || !j1.id) return { ok: false, error: j1?.error?.message || `No se pudo iniciar la subida (${u1.status}).` };
     const u2 = await fetchConTimeout(
       `https://graph.facebook.com/${waba.version}/${j1.id}`,
       { method: 'POST', headers: { Authorization: `OAuth ${waba.token}`, file_offset: '0' }, body: buf }, 30000,

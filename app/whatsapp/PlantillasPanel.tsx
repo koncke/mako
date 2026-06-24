@@ -107,7 +107,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const [borrarMetaName, setBorrarMetaName] = useState<string | null>(null); // confirmar borrar plantilla de Meta
   const [subiendoMedia, setSubiendoMedia] = useState(false);
   const [cooldowns, setCooldowns] = useState<Record<string, number>>({}); // name → unix secs hasta cuando NO se puede reenviar (Meta procesa borrado)
-  const [nowSec, setNowSec] = useState(0);
+  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [restaurado, setRestaurado] = useState(false);
@@ -154,7 +154,11 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const s = JSON.parse(raw) as { edit?: Draft; validacion?: Validacion | null; validacionStale?: boolean; validacionOpen?: boolean };
-        if (s.edit) { setEdit(s.edit); setValidacion(s.validacion ?? null); setValidacionStale(!!s.validacionStale); setValidacionOpen(s.validacionOpen !== false); }
+        if (s.edit) {
+          // El handle de media puede haber expirado en Meta → forzar re-subida.
+          if (s.edit.headerMedia) s.edit.headerMedia = { ...s.edit.headerMedia, handle: '', filename: '' };
+          setEdit(s.edit); setValidacion(s.validacion ?? null); setValidacionStale(!!s.validacionStale); setValidacionOpen(s.validacionOpen !== false);
+        }
       }
     } catch { /* sin storage */ }
     setRestaurado(true);
@@ -208,9 +212,14 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     const params = detectarVars(m.body).map((v) => ({ name: v, example: ejemploDe(v) }));
     setSel(null); setError(null); setAviso(null); setAutocomplete(null);
     setValidacion(null); setValidacionStale(false); setValidacionOpen(true); lastValidatedRef.current = '';
+    // El header multimedia: Meta no devuelve el handle (expira) → pedimos re-subir
+    // (handle vacío; el envío lo exige con headerMediaOk).
+    const esMedia = m.headerFormat === 'IMAGE' || m.headerFormat === 'VIDEO' || m.headerFormat === 'DOCUMENT';
     setEdit({
       name: m.name, language: m.language, category: (['marketing', 'utility', 'authentication'].includes(m.category) ? m.category : 'marketing') as Draft['category'],
-      body: m.body, header: m.header ?? '', footer: m.footer ?? '', buttons: m.buttons ?? [], params,
+      body: m.body, header: esMedia ? '' : (m.header ?? ''),
+      headerMedia: esMedia ? { format: m.headerFormat as HeaderMedia['format'], handle: '', filename: '' } : null,
+      footer: m.footer ?? '', buttons: m.buttons ?? [], params,
       status: m.status, meta_template_id: m.metaId, rejection_reason: m.rejectedReason, etapa: '',
     });
   };
@@ -388,7 +397,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   };
 
   // Meta bloquea recrear un nombre mientras procesa su borrado (~1 min).
-  const esCooldownError = (msg: string) => /being deleted|try again|less than 1 minute|en menos de un minuto/i.test(msg || '');
+  const esCooldownError = (msg: string) => /being deleted|try again|less than 1 minute|en menos de un minuto|content can't be added|rate.?limit|too many/i.test(msg || '');
   const manejarErrorEnvio = (msg: string) => {
     if (edit && esCooldownError(msg)) {
       setCooldown(edit.name, Math.floor(Date.now() / 1000) + 65);
@@ -398,6 +407,11 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
 
   const enviarAMeta = async () => {
     if (!edit) return;
+    if (edit.headerMedia && !edit.headerMedia.handle?.trim()) {
+      setConfirmEnviar(false);
+      setError('Subí (o re-subí) el archivo del encabezado antes de enviar a Meta.');
+      return;
+    }
     setEnviando(true); setError(null);
     try {
       if (edit.meta_template_id) {
@@ -457,8 +471,9 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const bodyOk = edit ? edit.body.trim().length > 0 : false;
   const paramsCompletos = edit ? edit.params.every((p) => p.example.trim()) : false;
   const puedeGuardar = nombreOk && bodyOk && !guardando;
+  const headerMediaOk = !edit?.headerMedia || !!edit.headerMedia.handle?.trim(); // si hay header media, exige el archivo subido
   const cooldownActivo = edit ? cooldownRestante(edit.name) : 0; // segundos a esperar (Meta procesa borrado)
-  const puedeEnviar = puedeGuardar && paramsCompletos && cooldownActivo === 0 && (
+  const puedeEnviar = puedeGuardar && paramsCompletos && headerMediaOk && cooldownActivo === 0 && (
     esEdicionMeta ? (edit?.status === 'approved' || edit?.status === 'rejected')
                   : (edit?.status === 'borrador' || edit?.status === 'rejected')
   );
@@ -541,11 +556,13 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
               )}
               {(headerTipo === 'IMAGE' || headerTipo === 'VIDEO' || headerTipo === 'DOCUMENT') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  {edit.headerMedia
+                  {edit.headerMedia?.handle
                     ? <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>✓ {MEDIA_LABEL[edit.headerMedia.format]} cargada: <code style={{ fontFamily: MONO }}>{edit.headerMedia.filename}</code></span>
-                    : <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Subí una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar se reemplaza por el archivo real.</span>}
+                    : edit.headerMedia // formato elegido pero sin archivo (ej. al editar una plantilla de Meta)
+                      ? <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600 }}>Subí (o re-subí) el archivo: Meta no conserva la muestra anterior.</span>
+                      : <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Subí una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar se reemplaza por el archivo real.</span>}
                   <label style={{ ...btnGhost, cursor: subiendoMedia ? 'default' : 'pointer', opacity: subiendoMedia ? 0.6 : 1 }}>
-                    {subiendoMedia ? 'Subiendo…' : (edit.headerMedia ? 'Cambiar archivo' : 'Subir archivo')}
+                    {subiendoMedia ? 'Subiendo…' : (edit.headerMedia?.handle ? 'Cambiar archivo' : 'Subir archivo')}
                     <input type="file" hidden disabled={subiendoMedia} accept={headerTipo === 'IMAGE' ? 'image/jpeg,image/png' : headerTipo === 'VIDEO' ? 'video/mp4' : 'application/pdf'} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirMedia(f); e.target.value = ''; }} />
                   </label>
                 </div>
