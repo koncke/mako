@@ -11,6 +11,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MAIN_NAV, TOOLS_NAV, USER_NAV, type NavItem } from './nav';
 import { MakoLogo, MakoWord } from './MakoBrand';
+import { useNotifications } from './NotificationsProvider';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -95,9 +96,9 @@ function NavLink({
             fontWeight: 600,
             padding: '2px 8px',
             borderRadius: 999,
-            background: 'var(--bad)',
+            background: item.key === 'whatsapp' ? 'var(--good)' : 'var(--bad)',
             color: '#fff',
-            animation: 'pulseRed 1.6s infinite',
+            ...(item.key === 'whatsapp' ? {} : { animation: 'pulseRed 1.6s infinite' }),
           }}
         >
           {badge}
@@ -112,6 +113,9 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const [badge, setBadge] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
+  const { unreadTotal } = useNotifications();
+  // Cuenta a mostrar por item: CRM = datos sin marcar, WhatsApp = mensajes sin leer.
+  const badgeFor = (item: NavItem) => (item.key === 'whatsapp' ? unreadTotal : item.key === 'crm' ? badge : 0);
 
   // Mantener el filtro de fecha global (?desde&hasta) al navegar entre secciones.
   const desde = searchParams.get('desde');
@@ -147,7 +151,7 @@ export function Sidebar() {
       {/* Navegación */}
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {MAIN_NAV.map((item) => (
-          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badge} query={dateQuery} />
+          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} />
         ))}
 
         <div
@@ -165,7 +169,7 @@ export function Sidebar() {
         </div>
 
         {TOOLS_NAV.map((item) => (
-          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badge} query={dateQuery} />
+          <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} />
         ))}
       </nav>
 

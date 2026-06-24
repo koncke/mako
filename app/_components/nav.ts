@@ -29,7 +29,7 @@ export const MAIN_NAV: NavItem[] = [
 
 export const TOOLS_NAV: NavItem[] = [
   { key: 'closing', label: 'Closing Analysis', href: '/closing', match: starts('/closing') },
-  { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', match: starts('/whatsapp') },
+  { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', badge: true, match: starts('/whatsapp') },
   { key: 'email', label: 'Email Marketing', href: '/email', match: starts('/email') },
   {
     key: 'mako',

@@ -11,11 +11,13 @@
 //    El cuerpo de cada paso es una plantilla aprobada de Meta (solo lectura).
 // =============================================================================
 
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
 import { EmojiPicker } from './EmojiPicker';
+import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
 // Se carga on-demand (ssr:false) igual que en app/_components/Desglose.tsx.
@@ -25,28 +27,10 @@ const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) =>
 // Tipos
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface Contacto {
-  id: string;                 // clave de grupo (por teléfono) — junta duplicados
-  convIds: number[];          // todas las conversaciones de esa persona
-  sendContactId: number;      // contacto al que se le manda (el de la conv más reciente)
-  contacto: string;
-  telefono: string | null;
-  avatar: string | null;      // foto de perfil del contacto (Chatwoot)
-  bloqueado: boolean;
-  ultimoMensaje: string | null;
-  ultimaActividad: number;
-  sinLeer: number;
-  ventanaAbierta: boolean;
-  leadId: number | null;
-  empresa: string | null;
-  estadoLead: string | null;
-  etapaKey: string | null;
-  etapaLabel: string | null;
-}
-
 interface Adjunto {
   tipo: string;
   url: string;
+  ext?: string | null;
 }
 
 interface Mensaje {
@@ -216,39 +200,6 @@ function IconPlay() {
   return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5l13 7.5-13 7.5z" fill="currentColor" /></svg>;
 }
 
-// Beep de notificación reutilizando un único AudioContext (no acumula contextos;
-// el navegador limita ~6). Se reanuda si quedó suspendido por la política de autoplay.
-let _audioCtx: AudioContext | null = null;
-// Crea/reanuda el AudioContext en el primer gesto del usuario, para que el beep
-// suene (la política de autoplay bloquea el audio antes de cualquier interacción).
-function unlockAudio() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    if (!_audioCtx) _audioCtx = new Ctx();
-    if (_audioCtx.state === 'suspended') void _audioCtx.resume();
-  } catch { /* sin audio */ }
-}
-function playBeep() {
-  try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    if (!_audioCtx) _audioCtx = new Ctx();
-    const ctx = _audioCtx;
-    if (ctx.state === 'suspended') void ctx.resume();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = 880;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.36);
-  } catch { /* sin audio */ }
-}
-
 function etapaChip(key: string | null, label: string | null): { style: CSSProperties; dot: CSSProperties; label: string } | null {
   if (!key || !label) return null;
   const color = ETAPA_COLOR[key] ?? '#888780';
@@ -264,29 +215,34 @@ function etapaChip(key: string | null, label: string | null): { style: CSSProper
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function WhatsAppPage() {
+  // useSearchParams (deep-link ?chat=) exige un boundary de Suspense en la página.
+  return (
+    <Suspense fallback={null}>
+      <WhatsAppInner />
+    </Suspense>
+  );
+}
+
+function WhatsAppInner() {
   const [view, setView] = useState<View>('chats');
 
-  const [contactos, setContactos] = useState<Contacto[]>([]);
-  const [loadingConvs, setLoadingConvs] = useState(true);
+  // Contactos + estado de no-leídos viven en el provider global (un solo poller,
+  // corre en toda la app). Acá los consumimos.
+  const { contactos, setContactos, loadingConvs, setOpenChat, marcarLeido } = useNotifications();
+  const searchParamsWA = useSearchParams();
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todas');
   const [soloVentana, setSoloVentana] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const totalSinLeerRef = useRef<number | null>(null);
   const selIdRef = useRef<string | null>(null);
   const msgScrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
-  // Chats marcados como leídos en sesión → groupId : ultimaActividad al leer.
-  // Sirve para que el polling no re-pinte el badge (update_last_seen laggea).
-  const readGroupsRef = useRef<Map<string, number>>(new Map());
   // Cache de mensajes por chat → reabrir un chat es instantáneo (no se ve el
   // chat anterior mientras carga; se refresca en segundo plano).
   const msgCacheRef = useRef<Map<string, Mensaje[]>>(new Map());
-  // Última actividad vista por chat → detectar mensajes nuevos por-chat (no por total).
-  const activitySnapRef = useRef<Map<string, number>>(new Map());
   // Actividad del hilo abierto en su última carga → refetchear sólo si cambió.
   const openActivityRef = useRef(0);
+  const lastSearchRef = useRef(''); // último ?chat= aplicado (deep-link)
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>(() => {
@@ -308,6 +264,7 @@ export default function WhatsAppPage() {
   const [blockTarget, setBlockTarget] = useState<{ cid: number; gid: string; lid: number | null; nombre: string } | null>(null);
   const [audioFase, setAudioFase] = useState<string | null>(null); // "Procesando…" / "Enviando…"
   const [audioFaseGid, setAudioFaseGid] = useState<string | null>(null); // a qué chat pertenece
+  const [lightbox, setLightbox] = useState<{ tipo: 'image' | 'pdf'; url: string } | null>(null); // preview de adjunto
   // Grabación de nota de voz (MediaRecorder → transcodifica a MP3, único formato
   // que este Chatwoot/WABA entrega; ogg/m4a dan 131053).
   const [recording, setRecording] = useState(false);
@@ -343,22 +300,8 @@ export default function WhatsAppPage() {
   const appendDraft = (s: string) => { if (selId) setDrafts((d) => ({ ...d, [selId]: (d[selId] ?? '') + s })); };
   const setAdjunto = (f: File | null) => { if (selId) setAdjuntos((a) => ({ ...a, [selId]: f })); };
 
-  // ── Carga inicial ──
+  // ── Carga inicial (secuencias + plantillas; los contactos vienen del provider) ──
   useEffect(() => {
-    void (async () => {
-      try {
-        const r = await fetch('/api/whatsapp/conversations');
-        const j = await r.json();
-        const list: Contacto[] = j.ok ? j.contactos : [];
-        setContactos(list);
-        totalSinLeerRef.current = list.reduce((s, c) => s + c.sinLeer, 0);
-        // Baseline del snapshot → el primer poll ya detecta novedades desde la carga.
-        for (const c of list) activitySnapRef.current.set(c.id, c.ultimaActividad);
-        if (list[0]) setSelId(list[0].id);
-      } finally {
-        setLoadingConvs(false);
-      }
-    })();
     void (async () => {
       try {
         const r = await fetch('/api/whatsapp/secuencias');
@@ -380,6 +323,20 @@ export default function WhatsAppPage() {
       }
     })();
   }, []);
+
+  // ── Selección de chat: deep-link (?chat= desde el pop-up) o el primero ──
+  useEffect(() => {
+    const s = searchParamsWA.toString();
+    const target = searchParamsWA.get('chat');
+    if (s !== lastSearchRef.current && target && contactos.some((c) => c.id === target)) {
+      lastSearchRef.current = s;
+      setView('chats');
+      setSelId(target);
+      return;
+    }
+    if (selId == null && contactos.length) setSelId(contactos[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactos, searchParamsWA]);
 
   // ── Al cambiar de secuencia, descartar edición en curso ──
   useEffect(() => {
@@ -429,6 +386,7 @@ export default function WhatsAppPage() {
   // ── Mensajes del contacto seleccionado (merge de sus conversaciones) ──
   useEffect(() => {
     selIdRef.current = selId;
+    setOpenChat(selId); // el provider suprime el pop-up/sonido del chat que estás viendo
     stickBottomRef.current = true;
     setUnreadAnchorId(null);
     setSendError(null);
@@ -447,16 +405,8 @@ export default function WhatsAppPage() {
     const ids = grupo?.convIds ?? [];
     setUnreadAtOpen(grupo?.sinLeer ?? 0);
     openActivityRef.current = grupo?.ultimaActividad ?? 0;
-    // Marcar leído en Chatwoot + limpiar el badge localmente (como WhatsApp).
-    if (grupo) {
-      readGroupsRef.current.set(grupo.id, grupo.ultimaActividad);
-      if (grupo.sinLeer > 0) {
-        void fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/read`, { method: 'POST' }).catch(() => {});
-        const n = grupo.sinLeer;
-        setContactos((prev) => prev.map((c) => (c.id === grupo.id ? { ...c, sinLeer: 0 } : c)));
-        totalSinLeerRef.current = Math.max(0, (totalSinLeerRef.current ?? 0) - n);
-      }
-    }
+    // Marcar leído (limpia el badge en Chatwoot + en el provider).
+    if (grupo && grupo.sinLeer > 0) marcarLeido(grupo.id, grupo.sendContactId);
     if (!ids.length) { setMensajes([]); return; }
     // Instantáneo desde cache (no se ve el chat anterior); si no hay, vacío + spinner.
     const cached = msgCacheRef.current.get(selId);
@@ -477,86 +427,22 @@ export default function WhatsAppPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selId]);
 
-  // Desbloquear el audio del beep en el primer gesto del usuario.
+  // El provider global actualiza `contactos` cada 6s. Cuando sube la actividad del
+  // chat ABIERTO, recargamos su hilo en vivo (mensajes nuevos) y lo marcamos leído.
   useEffect(() => {
-    const unlock = () => unlockAudio();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    return () => window.removeEventListener('pointerdown', unlock);
-  }, []);
-
-  // ── Notificación (con sonido) + live update — polling liviano cada 6s ──
-  // Pide SOLO la página 1 (las 25 conversaciones más recientes; las novedades
-  // siempre suben ahí) y las MERGEA en la lista, en vez de re-traer todo.
-  useEffect(() => {
-    const tick = async () => {
-      try {
-        const r = await fetch('/api/whatsapp/conversations?recent=1');
-        const j = await r.json();
-        if (!j.ok) return;
-        const openId = selIdRef.current;
-        const recientes = j.contactos as Contacto[];
-        const snap = activitySnapRef.current;
-        const firstRun = snap.size === 0; // baseline: no notificar en el primer poll
-
-        // Detección de entrantes POR CHAT (no por total, que enmascara).
-        let entrante: Contacto | null = null;
-        for (const c of recientes) {
-          const prevAct = snap.get(c.id);
-          const subio = prevAct != null && c.ultimaActividad > prevAct;
-          snap.set(c.id, c.ultimaActividad);
-          // mensaje nuevo del lead en un chat NO abierto: el unread del server subió
-          // (sólo los entrantes incrementan unread_count; los salientes no).
-          if (!firstRun && subio && c.id !== openId && c.sinLeer > 0) {
-            if (!entrante || c.ultimaActividad > entrante.ultimaActividad) entrante = c;
-          }
-        }
-        if (entrante) {
-          setToast(`Nuevo mensaje de ${(entrante as Contacto).contacto}`);
-          playBeep();
-          setTimeout(() => setToast(null), 6000);
-        }
-
-        // Merge: actualizar/agregar los recientes en la lista existente + corregir badge.
-        setContactos((prev) => {
-          const byId = new Map(prev.map((c) => [c.id, c]));
-          for (const c of recientes) {
-            let corr = c;
-            if (c.id === openId) corr = { ...c, sinLeer: 0 };
-            else {
-              const readAt = readGroupsRef.current.get(c.id);
-              if (readAt != null) {
-                if (c.ultimaActividad <= readAt) corr = { ...c, sinLeer: 0 };
-                else readGroupsRef.current.delete(c.id);
-              }
-            }
-            byId.set(c.id, corr);
-          }
-          const merged = [...byId.values()].sort((a, b) => b.ultimaActividad - a.ultimaActividad);
-          totalSinLeerRef.current = merged.reduce((s, c) => s + c.sinLeer, 0);
-          return merged;
-        });
-
-        // Chat abierto: refetch del hilo SÓLO si su actividad cambió (no en cada poll).
-        if (openId) {
-          const g = recientes.find((c) => c.id === openId);
-          if (g && g.ultimaActividad > openActivityRef.current) {
-            openActivityRef.current = g.ultimaActividad;
-            const rr = await fetch(`/api/whatsapp/thread?ids=${g.convIds.join(',')}`);
-            const jj = await rr.json();
-            const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
-            const ultimo = msgs[msgs.length - 1];
-            if (!firstRun && ultimo && !ultimo.saliente) playBeep(); // entrante en el chat abierto
-            readGroupsRef.current.set(openId, g.ultimaActividad);
-            void fetch(`/api/whatsapp/contacts/${g.sendContactId}/read`, { method: 'POST' }).catch(() => {});
-            cacheMsgs(g.id, msgs);
-            if (selIdRef.current === openId) setMensajes(msgs);
-          }
-        }
-      } catch { /* ignore */ }
-    };
-    const iv = setInterval(() => void tick(), 6000);
-    return () => clearInterval(iv);
-  }, []);
+    const g = selId ? contactos.find((c) => c.id === selId) : undefined;
+    if (!g || g.ultimaActividad <= openActivityRef.current) return;
+    openActivityRef.current = g.ultimaActividad;
+    void (async () => {
+      const rr = await fetch(`/api/whatsapp/thread?ids=${g.convIds.join(',')}`);
+      const jj = await rr.json();
+      const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
+      cacheMsgs(g.id, msgs);
+      if (selIdRef.current === g.id) setMensajes(msgs);
+      marcarLeido(g.id, g.sendContactId);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactos, selId]);
 
   function cacheMsgs(id: string, msgs: Mensaje[]) {
     const m = msgCacheRef.current;
@@ -919,9 +805,6 @@ export default function WhatsAppPage() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
-      {toast && (
-        <div onClick={() => setToast(null)} style={{ position: 'fixed', top: 20, right: 24, zIndex: 1000, background: 'var(--ink)', color: 'var(--on-sidebar)', padding: '12px 16px', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,.28)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>💬 {toast}</div>
-      )}
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '18px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '7px' }}>
@@ -1026,20 +909,29 @@ export default function WhatsAppPage() {
                           {m.template && <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: '5px' }}>⚡ Plantilla · {m.template}</div>}
                           {m.adjuntos && m.adjuntos.length > 0 && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: m.texto ? '6px' : 0 }}>
-                              {m.adjuntos.map((a, ai) => (
-                                a.tipo === 'image' ? (
-                                  <a key={ai} href={a.url} target="_blank" rel="noreferrer">
+                              {m.adjuntos.map((a, ai) => {
+                                const esPdf = a.ext === 'pdf' || a.url.toLowerCase().includes('.pdf');
+                                return a.tipo === 'image' ? (
+                                  <button key={ai} onClick={() => setLightbox({ tipo: 'image', url: a.url })} title="Ver imagen" style={{ padding: 0, border: 'none', background: 'none', cursor: 'pointer', display: 'block' }}>
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={a.url} alt="adjunto" style={{ maxWidth: '240px', maxHeight: '280px', borderRadius: '10px', display: 'block' }} />
-                                  </a>
+                                  </button>
                                 ) : a.tipo === 'audio' ? (
                                   <audio key={ai} controls src={a.url} style={{ width: '240px' }} />
                                 ) : a.tipo === 'video' ? (
                                   <video key={ai} controls src={a.url} style={{ maxWidth: '240px', borderRadius: '10px' }} />
+                                ) : esPdf ? (
+                                  <button key={ai} onClick={() => setLightbox({ tipo: 'pdf', url: a.url })} title="Ver PDF" style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '9px 12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', maxWidth: '240px' }}>
+                                    <span style={{ fontSize: '20px', flex: 'none' }}>📄</span>
+                                    <span style={{ minWidth: 0, textAlign: 'left' }}>
+                                      <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Documento PDF</span>
+                                      <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--accent)' }}>Ver previsualización</span>
+                                    </span>
+                                  </button>
                                 ) : (
                                   <a key={ai} href={a.url} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--accent)', textDecoration: 'none' }}>📎 Abrir archivo</a>
-                                )
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                           {m.texto && <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto}</div>}
@@ -1297,6 +1189,22 @@ export default function WhatsAppPage() {
               <button onClick={() => void aplicarBloqueo(true, blockMotivo, blockTarget)} disabled={blocking || !blockMotivo.trim()} style={{ ...btnSeqBase, padding: '9px 16px', border: '1px solid var(--bad)', background: 'var(--bad)', color: '#fff', opacity: (blocking || !blockMotivo.trim()) ? 0.6 : 1 }}>{blocking ? 'Bloqueando…' : 'Bloquear'}</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* PREVISUALIZACIÓN de adjuntos (imagen / PDF) */}
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '24px' }}>
+          <button onClick={() => setLightbox(null)} title="Cerrar" aria-label="Cerrar" style={{ position: 'fixed', top: 18, right: 22, width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1501 }}>✕</button>
+          {lightbox.tipo === 'image' ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lightbox.url} alt="adjunto" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: '8px', objectFit: 'contain' }} />
+          ) : (
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '90vw', maxWidth: '900px', height: '88vh', background: 'var(--surface)', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <iframe src={lightbox.url} title="PDF" style={{ flex: 1, width: '100%', border: 'none' }} />
+              <a href={lightbox.url} target="_blank" rel="noreferrer" style={{ padding: '10px 14px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}>Abrir / descargar en pestaña nueva →</a>
+            </div>
+          )}
         </div>
       )}
     </main>

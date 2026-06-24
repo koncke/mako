@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
+import { NotificationsProvider } from './_components/NotificationsProvider';
 
 export const metadata: Metadata = {
   title: 'Marketing OS — Mauricio Bustos',
@@ -35,14 +36,18 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
-        <div style={rootStyle}>
-          {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense
-              evita el error de prerender en cualquier ruta estática. */}
-          <Suspense fallback={null}>
-            <Sidebar />
-          </Suspense>
-          {children}
-        </div>
+        {/* Notificaciones de WhatsApp a nivel app: badge del sidebar + sonido +
+            pop-up, corriendo en cualquier sección. */}
+        <NotificationsProvider>
+          <div style={rootStyle}>
+            {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense
+                evita el error de prerender en cualquier ruta estática. */}
+            <Suspense fallback={null}>
+              <Sidebar />
+            </Suspense>
+            {children}
+          </div>
+        </NotificationsProvider>
       </body>
     </html>
   );
