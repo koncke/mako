@@ -324,6 +324,10 @@ function WhatsAppInner() {
     })();
   }, []);
 
+  // Al salir de /whatsapp, ningún chat queda "abierto" → el provider vuelve a
+  // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
+  useEffect(() => () => setOpenChat(null), [setOpenChat]);
+
   // ── Selección de chat: deep-link (?chat= desde el pop-up) o el primero ──
   useEffect(() => {
     const s = searchParamsWA.toString();
@@ -439,7 +443,7 @@ function WhatsAppInner() {
       const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
       cacheMsgs(g.id, msgs);
       if (selIdRef.current === g.id) setMensajes(msgs);
-      marcarLeido(g.id, g.sendContactId);
+      if (g.sinLeer > 0) marcarLeido(g.id, g.sendContactId); // sólo si hay no-leídos
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactos, selId]);
@@ -485,9 +489,9 @@ function WhatsAppInner() {
         setDraft(txt);
         setSendError(j.error || 'No se pudo enviar.');
       } else {
-        // Incluir SIEMPRE la conversación donde se envió (la que eligió el server)
-        // en el refetch, aunque no esté entre las 4 más recientes del cliente.
-        await refetchHilo(grupo, typeof j.conversationId === 'number' ? j.conversationId : undefined);
+        // Dejamos el optimista como "enviado" (sin parpadeo); el poll del chat
+        // abierto lo reconcilia con el mensaje real de Chatwoot en unos segundos.
+        setMensajes((m) => m.map((x) => (x.id === tempId ? { ...x, status: 'sent' } : x)));
       }
     } catch (e) {
       setMensajes((m) => m.filter((x) => x.id !== tempId));
@@ -1194,8 +1198,8 @@ function WhatsAppInner() {
 
       {/* PREVISUALIZACIÓN de adjuntos (imagen / PDF) */}
       {lightbox && (
-        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1500, padding: '24px' }}>
-          <button onClick={() => setLightbox(null)} title="Cerrar" aria-label="Cerrar" style={{ position: 'fixed', top: 18, right: 22, width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 1501 }}>✕</button>
+        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2500, padding: '24px' }}>
+          <button onClick={() => setLightbox(null)} title="Cerrar" aria-label="Cerrar" style={{ position: 'fixed', top: 18, right: 22, width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', fontSize: '18px', cursor: 'pointer', zIndex: 2501 }}>✕</button>
           {lightbox.tipo === 'image' ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={lightbox.url} alt="adjunto" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: '8px', objectFit: 'contain' }} />

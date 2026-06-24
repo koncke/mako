@@ -12,7 +12,7 @@ import {
   createContext, useContext, useEffect, useRef, useState,
   type Dispatch, type SetStateAction, type MutableRefObject, type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export interface Contacto {
   id: string;
@@ -88,6 +88,7 @@ function initials(name: string): string {
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname() || '';
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [toast, setToast] = useState<{ gid: string; nombre: string; avatar: string | null } | null>(null);
@@ -96,6 +97,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const activitySnapRef = useRef<Map<string, number>>(new Map());
   const readGroupsRef = useRef<Map<string, number>>(new Map());
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const baselineReadyRef = useRef(false); // no notificar hasta tener la línea base
+  const tickRef = useRef(0);               // cada N ticks, resync de la lista completa
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
 
   const unreadTotal = contactos.reduce((s, c) => s + c.sinLeer, 0);
 
@@ -112,8 +117,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     router.push(`/whatsapp?chat=${encodeURIComponent(gid)}&n=${Date.now()}`);
   };
 
-  // Carga inicial (lista completa) + baseline del snapshot.
+  // Carga inicial (lista completa) + baseline del snapshot. En /login no corre.
   useEffect(() => {
+    if (pathname.startsWith('/login')) { setLoadingConvs(false); return; }
     let alive = true;
     void (async () => {
       try {
@@ -123,11 +129,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         if (!alive) return;
         setContactos(list);
         for (const c of list) activitySnapRef.current.set(c.id, c.ultimaActividad);
+        baselineReadyRef.current = true; // recién acá empezamos a NOTIFICAR
       } finally {
         if (alive) setLoadingConvs(false);
       }
     })();
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Desbloquear el audio en el primer gesto del usuario (autoplay policy).
@@ -140,14 +148,17 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // Polling GLOBAL cada 6s (sólo página 1: las novedades suben ahí).
   useEffect(() => {
     const tick = async () => {
+      if (pathRef.current.startsWith('/login')) return; // sin sesión no polleamos
       try {
-        const r = await fetch('/api/whatsapp/conversations?recent=1');
+        tickRef.current += 1;
+        const full = tickRef.current % 10 === 0; // ~cada 60s resync de TODA la lista
+        const r = await fetch(`/api/whatsapp/conversations${full ? '' : '?recent=1'}`);
         const j = await r.json();
         if (!j.ok) return;
         const recientes = j.contactos as Contacto[];
         const openId = openChatRef.current;
         const snap = activitySnapRef.current;
-        const firstRun = snap.size === 0;
+        const detectar = baselineReadyRef.current; // sólo notificar tras la línea base
 
         let entrante: Contacto | null = null;
         for (const c of recientes) {
@@ -155,7 +166,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           const subio = prevAct != null && c.ultimaActividad > prevAct;
           snap.set(c.id, c.ultimaActividad);
           // mensaje nuevo del lead (unread del server subió) en un chat que NO es el abierto
-          if (!firstRun && subio && c.id !== openId && c.sinLeer > 0) {
+          if (detectar && subio && c.id !== openId && c.sinLeer > 0) {
             if (!entrante || c.ultimaActividad > entrante.ultimaActividad) entrante = c;
           }
         }
