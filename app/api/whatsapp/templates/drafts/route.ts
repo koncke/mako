@@ -49,10 +49,10 @@ export async function POST(req: NextRequest) {
   if (!d || !d.name || typeof d.body !== 'string') {
     return Response.json({ ok: false, error: 'falta draft.name / draft.body' }, { status: 400 });
   }
-  // nombre meta-safe: minúsculas, números y guiones bajos.
-  const nameOk = /^[a-z0-9_]+$/.test(d.name);
+  // nombre meta-safe: minúsculas, números y guiones bajos, máx 512 (límite de Meta).
+  const nameOk = /^[a-z0-9_]{1,512}$/.test(d.name);
   if (!nameOk) {
-    return Response.json({ ok: false, error: 'El nombre solo admite minúsculas, números y guiones bajos.' }, { status: 400 });
+    return Response.json({ ok: false, error: 'El nombre solo admite minúsculas, números y guiones bajos (máx 512).' }, { status: 400 });
   }
   try {
     const draft = await upsertDraft({

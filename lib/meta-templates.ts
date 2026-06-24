@@ -173,21 +173,55 @@ export function buildGraphPayload(d: TemplateDraft): Record<string, unknown> {
   };
 }
 
+// fetch con timeout (Meta a veces tarda; no queremos colgar la pantalla).
+async function fetchConTimeout(url: string, init: RequestInit, ms = 9000): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...init, signal: ctrl.signal }); }
+  finally { clearTimeout(t); }
+}
+
+// Valida que las variables sean nombradas ({{nombre}}, no {{1}}) y con ejemplo, y
+// que header/footer sean estáticos. Meta rechaza lo contrario con parameter_format NAMED.
+function validarVarsParaMeta(d: TemplateDraft): string | null {
+  const tieneVar = (s: string | null | undefined) => !!s && /\{\{\s*[a-zA-Z0-9_]+\s*\}\}/.test(s);
+  if (tieneVar(d.header)) return 'El encabezado no puede tener variables; las variables van solo en el cuerpo.';
+  if (tieneVar(d.footer)) return 'El pie no puede tener variables.';
+  const vars: string[] = [];
+  const re = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(d.body)) !== null) vars.push(m[1]);
+  for (const v of vars) {
+    if (/^\d/.test(v)) return `Usá variables con nombre (ej. {{nombre}}), no posicionales como {{${v}}}: Meta las rechaza en este formato.`;
+    if (!d.params.some((p) => p.name === v)) return `Falta el ejemplo de la variable {{${v}}}.`;
+  }
+  return null;
+}
+
 // Envía una plantilla a aprobar a Meta. Devuelve el status inicial (PENDING) y el id.
 export async function submitTemplate(
   d: TemplateDraft,
 ): Promise<{ ok: boolean; status?: string; metaId?: string; error?: string }> {
+  const errVars = validarVarsParaMeta(d);
+  if (errVars) return { ok: false, error: errVars };
+
   const waba = await getWabaConfig();
-  const res = await fetch(`https://graph.facebook.com/${waba.version}/${waba.wabaId}/message_templates`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${waba.token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(buildGraphPayload(d)),
-  });
+  let res: Response;
+  try {
+    res = await fetchConTimeout(`https://graph.facebook.com/${waba.version}/${waba.wabaId}/message_templates`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${waba.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildGraphPayload(d)),
+    });
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'Meta no respondió a tiempo, probá de nuevo.' : String(e) };
+  }
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) {
     const err = j?.error?.error_user_msg || j?.error?.message || `Meta ${res.status}`;
     return { ok: false, error: err };
   }
+  if (!j.id) return { ok: false, error: 'Meta no devolvió el id de la plantilla (no se pudo confirmar el envío).' };
   return { ok: true, status: (j.status as string) || 'PENDING', metaId: j.id as string };
 }
 
@@ -209,8 +243,8 @@ export async function enviarBorradorAMeta(
 export type MetaTemplate = {
   name: string;
   language: string;
-  category: string;       // MARKETING | UTILITY | AUTHENTICATION
-  status: string;         // PENDING | APPROVED | REJECTED | PAUSED | DISABLED | ...
+  category: string;       // minúsculas: marketing | utility | authentication
+  status: string;         // minúsculas: pending | approved | rejected | paused | disabled
   body: string;
   params: string[];       // nombres de variables del body
   metaId: string | null;
@@ -231,17 +265,18 @@ export async function listMetaTemplates(): Promise<MetaTemplate[]> {
   const url =
     `https://graph.facebook.com/${waba.version}/${waba.wabaId}/message_templates` +
     `?fields=name,status,category,language,components,id&limit=200`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${waba.token}` } });
+  const res = await fetchConTimeout(url, { headers: { Authorization: `Bearer ${waba.token}` } });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || j.error) throw new Error(j?.error?.message || `Meta ${res.status}`);
+  // Convención: minúsculas en todo el código/DB; MAYÚSCULAS sólo en el payload de salida a Meta.
   return ((j.data ?? []) as GraphTpl[]).map((t) => {
     const body = (t.components ?? []).find((c) => c.type === 'BODY');
     const params = (body?.example?.body_text_named_params ?? []).map((p) => p.param_name ?? '').filter(Boolean);
     return {
       name: t.name ?? '',
       language: t.language ?? '',
-      category: (t.category ?? '').toUpperCase(),
-      status: (t.status ?? '').toUpperCase(),
+      category: (t.category ?? '').toLowerCase(),
+      status: (t.status ?? '').toLowerCase(),
       body: body?.text ?? '',
       params,
       metaId: t.id ?? null,

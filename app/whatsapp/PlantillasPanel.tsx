@@ -68,10 +68,11 @@ const FILTROS = [
 
 const emptyDraft = (): Draft => ({ name: '', language: 'es_MX', category: 'marketing', body: '', header: '', footer: '', buttons: [], params: [], status: 'borrador', etapa: '' });
 
-// Variables {{nombre}} presentes en header + body (únicas, en orden de aparición).
+// Variables {{nombre}} del cuerpo (únicas, en orden). DEBEN ser nombradas (empezar
+// con letra o _): Meta usa parameter_format NAMED y rechaza posicionales {{1}}.
 function detectarVars(text: string): string[] {
   const out: string[] = [];
-  const re = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
+  const re = /\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) { const n = m[1].toLowerCase(); if (!out.includes(n)) out.push(n); }
   return out;
@@ -138,9 +139,10 @@ export function PlantillasPanel() {
     }
   };
 
-  // Sincroniza la lista de params con las variables detectadas en header+body.
+  // Sincroniza la lista de params con las variables del CUERPO (header/footer van
+  // estáticos; Meta requiere el ejemplo de cada variable del body).
   const syncParams = (d: Draft): Param[] => {
-    const vars = detectarVars(`${d.header ?? ''} ${d.body}`);
+    const vars = detectarVars(d.body);
     return vars.map((v) => d.params.find((p) => p.name === v) ?? { name: v, example: '' });
   };
   const patchEdit = (patch: Partial<Draft>) => {
@@ -220,7 +222,7 @@ export function PlantillasPanel() {
     await cargar();
   };
 
-  const nombreOk = edit ? /^[a-z0-9_]+$/.test(edit.name) : false;
+  const nombreOk = edit ? /^[a-z0-9_]{1,512}$/.test(edit.name) : false;
   const bodyOk = edit ? edit.body.trim().length > 0 : false;
   const paramsCompletos = edit ? edit.params.every((p) => p.example.trim()) : false;
   const puedeGuardar = nombreOk && bodyOk && !guardando;
@@ -293,7 +295,7 @@ export function PlantillasPanel() {
             </div>
 
             <div>
-              <label style={labelBase}>Encabezado (opcional, máx 60)</label>
+              <label style={labelBase}>Encabezado (opcional, máx 60, texto fijo sin variables)</label>
               <input value={edit.header ?? ''} maxLength={60} onChange={(e) => patchEdit({ header: e.target.value })} placeholder="Texto de encabezado" style={inputBase} />
             </div>
 

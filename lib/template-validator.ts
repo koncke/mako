@@ -53,6 +53,7 @@ function parseResult(raw: string): ValidacionResult {
       };
     } catch { /* cae al fallback */ }
   }
+  console.warn('[template-validator] respuesta no interpretable, fallback a MEDIO:', raw.slice(0, 200));
   return {
     riesgo: 'MEDIO',
     categoria_sugerida: 'marketing',
@@ -76,7 +77,7 @@ export async function validarPlantilla(draft: TemplateDraft): Promise<Validacion
   const raw = await chatClaude(
     SYSTEM,
     [{ role: 'user', content: `Evaluá esta plantilla y devolvé el JSON:\n${JSON.stringify(entrada, null, 2)}` }],
-    { effort: 'high', maxTokens: 2500 },
+    { effort: 'high', maxTokens: 4000 },
   );
   return parseResult(raw);
 }
