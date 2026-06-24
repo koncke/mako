@@ -440,8 +440,8 @@ export function PlantillasPanel() {
               <ValidacionCard v={validacion} validando={validando} stale={validacionStale} onAplicar={aplicarPropuesta} />
             )}
 
-            {error && <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13 }}>{error}</div>}
-            {aviso && <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--good)', background: 'var(--good-bg)', color: 'var(--good)', fontSize: 13 }}>{aviso}</div>}
+            {error && <Banner tono="bad" texto={error} onClose={() => setError(null)} />}
+            {aviso && <Banner tono="good" texto={aviso} onClose={() => setAviso(null)} />}
             {edit.status === 'rejected' && edit.rejection_reason && (
               <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13 }}>Meta la rechazó: {edit.rejection_reason}</div>
             )}
@@ -471,6 +471,17 @@ export function PlantillasPanel() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Banner({ tono, texto, onClose }: { tono: 'good' | 'bad'; texto: string; onClose: () => void }) {
+  const color = tono === 'bad' ? 'var(--bad)' : 'var(--good)';
+  const bg = tono === 'bad' ? 'var(--bad-bg)' : 'var(--good-bg)';
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: 10, border: `1px solid ${color}`, background: bg, color, fontSize: 13 }}>
+      <span style={{ flex: 1, minWidth: 0, lineHeight: 1.45 }}>{texto}</span>
+      <button onClick={onClose} aria-label="Cerrar" title="Cerrar" style={{ flex: 'none', border: 'none', background: 'transparent', color, cursor: 'pointer', fontSize: 15, lineHeight: 1, padding: 0, opacity: 0.7 }}>✕</button>
     </div>
   );
 }

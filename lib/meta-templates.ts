@@ -163,12 +163,15 @@ function buildComponents(d: TemplateDraft): GraphComponent[] {
 }
 
 // Payload exacto del POST /{WABA}/message_templates (útil también para mostrarlo).
+// OJO: NO mandamos `parameter_format: 'NAMED'`. Con ese campo, una variable
+// repetida (ej. {{nombre}} dos veces) hace que Meta rechace con "BODY missing
+// example" (verificado contra la Graph API). Sin el campo, Meta autodetecta el
+// formato named desde la sintaxis {{nombre}} y acepta el example una sola vez.
 export function buildGraphPayload(d: TemplateDraft): Record<string, unknown> {
   return {
     name: d.name.trim(),
     language: d.language || 'es_MX',
     category: d.category.toUpperCase(),
-    parameter_format: 'NAMED',
     components: buildComponents(d),
   };
 }
