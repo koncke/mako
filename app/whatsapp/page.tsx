@@ -351,6 +351,8 @@ export default function WhatsAppPage() {
         const list: Contacto[] = j.ok ? j.contactos : [];
         setContactos(list);
         totalSinLeerRef.current = list.reduce((s, c) => s + c.sinLeer, 0);
+        // Baseline del snapshot → el primer poll ya detecta novedades desde la carga.
+        for (const c of list) activitySnapRef.current.set(c.id, c.ultimaActividad);
         if (list[0]) setSelId(list[0].id);
       } finally {
         setLoadingConvs(false);
