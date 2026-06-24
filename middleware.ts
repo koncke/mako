@@ -16,7 +16,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 // Prefijos públicos (no requieren login).
-const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/login', '/api/auth'];
+// '/vsl' es la landing pública de venta de MaKo (no figura en el sidebar).
+const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/login', '/api/auth', '/vsl'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

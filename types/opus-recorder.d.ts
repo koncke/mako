@@ -14,8 +14,10 @@ declare module 'opus-recorder' {
     state: 'inactive' | 'recording' | 'paused';
     start(): Promise<void>;
     stop(): Promise<void> | void;
+    close(): void;
     pause(): void;
     resume(): void;
+    static isRecordingSupported(): boolean;
     ondataavailable: (typedArray: Uint8Array) => void;
     onstart: () => void;
     onstop: () => void;

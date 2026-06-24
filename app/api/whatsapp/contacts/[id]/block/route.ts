@@ -44,22 +44,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // Reflejar en el lead (si lo matcheamos).
     if (Number.isFinite(leadId) && leadId > 0) {
       try {
+        const supabase = getSupabaseServer();
+        const { data } = await supabase
+          .from('leads')
+          .select('estado_lead')
+          .eq('id', leadId)
+          .maybeSingle();
+        const estado = (data as { estado_lead?: string } | null)?.estado_lead;
         if (blocked) {
-          await setPipelineStage(leadId, 'descal', { motivo });
-        } else {
-          // Al desbloquear, si el lead está descalificado lo devolvemos a "abierto"
-          // (el bloqueo es lo que lo descalifica en este flujo).
-          const supabase = getSupabaseServer();
-          const { data } = await supabase
-            .from('leads')
-            .select('estado_lead')
-            .eq('id', leadId)
-            .maybeSingle();
-          const l = (data ?? {}) as { estado_lead?: string };
-          if (l.estado_lead === 'descalificado') {
-            await updateLead(leadId, { estado_lead: 'abierto', motivo_perdida: null });
-            await supabase.from('leads').update({ pipeline_stage: null }).eq('id', leadId);
+          // Solo descalificamos si el lead estaba ABIERTO (en juego). No pisamos
+          // ganados/perdidos/descalificados ni su motivo histórico.
+          if (estado === 'abierto') {
+            await setPipelineStage(leadId, 'descal', { motivo });
           }
+        } else if (estado === 'descalificado') {
+          // Desbloquear: lo devolvemos a "abierto" (el bloqueo es lo que descalifica acá).
+          await updateLead(leadId, { estado_lead: 'abierto', motivo_perdida: null });
+          await supabase.from('leads').update({ pipeline_stage: null }).eq('id', leadId);
         }
       } catch (e) {
         console.error(`[api:whatsapp/contacts block] lead sync: ${e instanceof Error ? e.message : String(e)}`);
