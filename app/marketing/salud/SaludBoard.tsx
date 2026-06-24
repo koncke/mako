@@ -4,7 +4,7 @@
 // SaludBoard — Estado de Meta (cuenta): banner + resumen de entrega + recos.
 // =============================================================================
 // La salud a nivel CUENTA. El árbol Campaña→Conjunto→Anuncio vive ahora en el
-// navegador de Marketing (/marketing/campanas). Acá: estado/pago de la cuenta,
+// navegador Ads Manager (/ads-manager). Acá: estado/pago de la cuenta,
 // resumen de entrega, recomendaciones (Meta + MaKo) y "Analizar con MaKo".
 
 import { useTransition } from 'react';
@@ -43,7 +43,7 @@ export function SaludBoard({ health }: { health: MetaHealth }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <MakoButton chartKey="meta-cuenta" titulo="Estado de la cuenta de Meta" contexto={ctxCuenta} sugerencias={['¿Qué hago primero?', '¿Por qué no está entregando?', '¿Cómo recupero el ritmo?', '¿Qué riesgos ves?']} />
-        <Link href="/marketing/campanas" style={{ marginLeft: 'auto', padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>◫ Campañas, conjuntos y anuncios →</Link>
+        <Link href="/ads-manager" style={{ marginLeft: 'auto', padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>◫ Ads Manager →</Link>
         <button type="button" onClick={refrescar} disabled={pending} style={{ padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: pending ? 'default' : 'pointer', opacity: pending ? 0.6 : 1 }}>{pending ? 'Actualizando…' : '↻ Actualizar'}</button>
       </div>
 
@@ -52,7 +52,7 @@ export function SaludBoard({ health }: { health: MetaHealth }) {
       <Recomendaciones recos={health.recomendaciones} recosMetaDisponibles={health.recosMetaDisponibles} />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
-        Estado en vivo de Meta Ads · v25.0. El detalle por campaña/conjunto/anuncio vive en <Link href="/marketing/campanas" style={{ color: 'var(--accent)' }}>Marketing → Campañas, conjuntos y anuncios</Link>.
+        Estado en vivo de Meta Ads · v25.0. El detalle por campaña/conjunto/anuncio vive en <Link href="/ads-manager" style={{ color: 'var(--accent)' }}>Ads Manager</Link>.
       </footer>
     </div>
   );

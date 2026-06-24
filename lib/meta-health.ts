@@ -50,9 +50,12 @@ export type NodoEstado = {
   configuredStatus: string | null;
   statusLabel: string;
   semaforo: Semaforo;
-  // Presupuesto diario (MXN) si el nodo lo tiene propio (campaña CBO o adset).
+  // Presupuesto (MXN) si el nodo lo tiene propio (campaña CBO o adset ABO).
   dailyBudgetMxn?: number | null;
+  lifetimeBudgetMxn?: number | null;
   budgetRemainingMxn?: number | null;
+  // Dónde vive el presupuesto: 'campaign' = CBO, 'adset' = ABO, null = lo hereda.
+  budgetLevel?: 'campaign' | 'adset' | null;
   // campaigns: objetivo (OUTCOME_LEADS, etc.)
   objective?: string | null;
   // adsets: fase de aprendizaje (Meta a veces no la devuelve → degrada a gris)
@@ -396,7 +399,10 @@ function toNodo(
   };
   if (level === 'campaign' || level === 'adset') {
     nodo.dailyBudgetMxn = centavosAMxn(raw.daily_budget);
+    nodo.lifetimeBudgetMxn = centavosAMxn(raw.lifetime_budget);
     nodo.budgetRemainingMxn = centavosAMxn(raw.budget_remaining);
+    // CBO si la campaña tiene budget propio; ABO si el conjunto lo tiene.
+    nodo.budgetLevel = nodo.dailyBudgetMxn != null || nodo.lifetimeBudgetMxn != null ? level : null;
   }
   if (level === 'campaign') nodo.objective = raw.objective != null ? String(raw.objective) : null;
   if (level === 'adset') nodo.learning = learningInfo(raw.learning_stage_info);
@@ -540,8 +546,8 @@ export async function getMetaHealth(): Promise<MetaHealth> {
   // MaKo "le pregunta a Meta primero": pedimos recommendations en cada nivel +
   // el edge de cuenta, y las combinamos con las sugerencias derivadas.
   const [campR, adsetR, adR, accRecoR] = await Promise.allSettled([
-    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,objective,recommendations')),
-    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,budget_remaining,learning_stage_info,recommendations')),
+    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,lifetime_budget,objective,recommendations')),
+    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,lifetime_budget,budget_remaining,learning_stage_info,recommendations')),
     graphGetAll(edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations')),
     fetchAccountRecommendations(),
   ]);

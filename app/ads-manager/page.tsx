@@ -1,15 +1,14 @@
 // =============================================================================
-// /marketing/campanas — navegador estilo Meta: Campañas · Conjuntos · Anuncios
+// /ads-manager — réplica de Meta Ads Manager (Campañas · Conjuntos · Anuncios)
 // =============================================================================
-// Cruza el ESTADO de entrega en vivo (Meta, vía /api/meta-health en el cliente)
-// con el RENDIMIENTO almacenado (getSenalesRecon) + CRM (cierres/cash) — el cruce
-// que Meta no tiene. El detalle de anuncio reusa el modal AdDetalle existente;
-// campañas y conjuntos abren su modal de gráficos (EntityDetalle).
+// Tabla estilo Meta: ordenable por columna, multiselección, columnas
+// configurables, primera columna fija, encender/apagar y editar presupuesto
+// (CBO/ABO) en la celda. El estado de entrega es live (Meta vía /api/meta-health);
+// el rendimiento (senales) + CRM enriquecen las columnas.
 
-import Link from 'next/link';
 import { getSenalesRecon, type SenalRecon } from '@/lib/queries';
 import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
-import { FechaFiltro } from '../../_components/FechaFiltro';
+import { FechaFiltro } from '../_components/FechaFiltro';
 import { CampanasBrowser } from './CampanasBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +16,7 @@ export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
 
-export default async function CampanasPage({
+export default async function AdsManagerPage({
   searchParams,
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
@@ -33,9 +32,8 @@ export default async function CampanasPage({
   const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
   const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
 
-  // El núcleo de la vista es el ESTADO en vivo de Meta (lo trae el browser por
-  // /api/meta-health). El rendimiento (senales, Supabase) es enriquecimiento: si
-  // falla (p.ej. sin Supabase), degradamos a columnas "—" en vez de romper.
+  // El núcleo es el ESTADO en vivo (browser → /api/meta-health). El rendimiento
+  // (senales/Supabase) enriquece; si falla, degradamos a columnas "—".
   let senales: SenalRecon[] = [];
   let perfError: string | null = null;
   try {
@@ -48,11 +46,10 @@ export default async function CampanasPage({
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
         <div>
-          <Link href="/marketing" style={{ fontSize: 13.5, color: 'var(--dim)', textDecoration: 'none' }}>← Marketing</Link>
-          <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', margin: '10px 0 8px' }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
             Estado + rendimiento · {fmtDDMMYYYY(rangoDesde)} – {fmtDDMMYYYY(rangoHasta)}
           </div>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Campañas, conjuntos y anuncios</h1>
+          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Manager</h1>
         </div>
         <FechaFiltro hoyReal={hoyReal} />
       </header>

@@ -10,8 +10,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { BreakdownCharts, fmtUSD, type Demo, type BD } from '../ad-charts';
-import { MakoButton } from '../../_components/ChartIA';
+import { BreakdownCharts, fmtUSD, type Demo, type BD } from '../marketing/ad-charts';
+import { MakoButton } from '../_components/ChartIA';
 import { colorDeSemaforo, bgDeSemaforo, type Semaforo, type Reco } from '@/lib/meta-health';
 
 const MONO = "'Geist Mono', monospace";
