@@ -11,7 +11,7 @@
 import type { NextRequest } from 'next/server';
 import {
   listDrafts, upsertDraft, deleteDraft, getDraft, enviarBorradorAMeta, editTemplate,
-  deleteMetaTemplate, deleteDraftByName, listMetaTemplates, reconcileDrafts, explicarRechazo,
+  deleteMetaTemplate, deleteDraftByName, markDraftPendingByName, listMetaTemplates, reconcileDrafts, explicarRechazo,
   type TemplateDraft,
 } from '@/lib/meta-templates';
 
@@ -120,8 +120,11 @@ export async function PATCH(req: NextRequest) {
     if (action === 'edit') {
       const metaId = typeof body.metaId === 'string' ? body.metaId : '';
       if (!metaId || !body.draft) return Response.json({ ok: false, error: 'falta metaId / draft' }, { status: 400 });
-      const r = await editTemplate(metaId, normalizarDraft(body.draft));
+      const d = normalizarDraft(body.draft);
+      const r = await editTemplate(metaId, d);
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
+      // si existe fila local con ese nombre/idioma, dejarla en pending (vuelve a revisión).
+      await markDraftPendingByName(d.name, d.language).catch(() => {});
       return Response.json({ ok: true, status: 'pending' });
     }
     return Response.json({ ok: false, error: 'action desconocida' }, { status: 400 });
@@ -146,9 +149,13 @@ export async function DELETE(req: NextRequest) {
     }
     const id = Number(idRaw);
     if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'falta id o name' }, { status: 400 });
-    // Si el borrador ya está en Meta (enviado/aprobado/rechazado), borrarlo también allá.
+    // Si el borrador ya está en Meta (enviado/aprobado/rechazado), borrarlo también allá
+    // PRIMERO; si Meta falla, no borramos el local (evita huérfanas en Meta).
     const d = await getDraft(id);
-    if (d && d.status !== 'borrador' && d.name) await deleteMetaTemplate(d.name).catch(() => {});
+    if (d && d.status !== 'borrador' && d.name) {
+      const rm = await deleteMetaTemplate(d.name);
+      if (!rm.ok) return Response.json({ ok: false, error: rm.error }, { status: 400 });
+    }
     await deleteDraft(id);
     return Response.json({ ok: true });
   } catch (err) {

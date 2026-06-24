@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
-import { VARIABLES_LEAD, refDeRegla } from '../../lib/template-vars';
+import { VARIABLES_LEAD, refDeRegla, explicarRechazo } from '../../lib/template-vars';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -174,7 +174,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     setEdit({
       name: m.name, language: m.language, category: (['marketing', 'utility', 'authentication'].includes(m.category) ? m.category : 'marketing') as Draft['category'],
       body: m.body, header: m.header ?? '', footer: m.footer ?? '', buttons: m.buttons ?? [], params,
-      status: m.status, meta_template_id: m.metaId, rejection_reason: m.rejectedMotivo, etapa: '',
+      status: m.status, meta_template_id: m.metaId, rejection_reason: m.rejectedReason, etapa: '',
     });
   };
 
@@ -182,10 +182,22 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const appliedSelectRef = useRef<string | null>(null);
   useEffect(() => {
     if (!initialSelect || initialSelect === appliedSelectRef.current) return;
-    const it = items.find((i) => (i.kind === 'draft' ? i.draft.name : i.meta.name) === initialSelect);
+    const target = initialSelect.toLowerCase();
+    const it = items.find((i) => (i.kind === 'draft' ? i.draft.name : i.meta.name).toLowerCase() === target);
     if (it) { appliedSelectRef.current = initialSelect; abrirItem(it); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelect, items]);
+
+  // Si estabas editando una plantilla de Meta que ya no existe (borrada/cambió),
+  // limpiamos el editor para no mandar un PATCH a un id fantasma.
+  useEffect(() => {
+    if (!edit?.meta_template_id || metas.length === 0) return;
+    if (!metas.some((m) => m.metaId === edit.meta_template_id)) {
+      setAviso('La plantilla que editabas ya no está en Meta (se borró o cambió). Volvé a abrirla.');
+      setEdit(null); setSel(null); setValidacion(null);
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* sin storage */ }
+    }
+  }, [metas, edit?.meta_template_id]);
 
   // Firma del contenido relevante para saber si hay que revalidar.
   function firma(d: Draft): string { return JSON.stringify([d.category, d.header, d.body, d.footer, d.params]); }
@@ -212,7 +224,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
       const j = await fetch('/api/whatsapp/templates/validate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ draft: d }),
       }).then((r) => r.json());
-      if (j.ok) { setValidacion(j.validacion); setValidacionStale(false); }
+      if (j.ok) { setValidacion(j.validacion); setValidacionStale(false); if (j.validacion?.riesgo === 'ALTO') setValidacionOpen(true); }
       else setError(j.error || 'No se pudo validar.');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setValidando(false); }
@@ -485,7 +497,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
             <ButtonsEditor buttons={edit.buttons} onChange={(b) => patchEdit({ buttons: b })} />
 
             {edit.status === 'rejected' && edit.rejection_reason && (
-              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13 }}><strong>Meta la rechazó.</strong> {edit.rejection_reason}</div>
+              <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13 }}><strong>Meta la rechazó.</strong> {explicarRechazo(edit.rejection_reason)}</div>
             )}
 
             {/* Validación EN VIVO — con X para cerrar y pill para reabrir */}

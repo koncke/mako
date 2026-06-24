@@ -67,3 +67,20 @@ export function refDeRegla(codigo?: string | null): ReglaRef {
   const c = codigo.trim().toUpperCase().match(/[BSM]\d+/)?.[0];
   return (c && REF_POR_CODIGO[c]) || REF_GENERAL;
 }
+
+// ── Motivo de rechazo de Meta (enum) → explicación en español ──
+// Guardamos el enum crudo en la DB y traducimos SOLO al renderizar (client + server).
+const MOTIVO_RECHAZO: Record<string, string> = {
+  INVALID_FORMAT: 'Formato inválido: revisá las variables (no empezar/terminar con {{ }}, ejemplos cargados, header/footer sin variables) y los límites de caracteres.',
+  ABUSIVE_CONTENT: 'Contenido abusivo o que viola las políticas de WhatsApp.',
+  SCAM: 'Meta lo marcó como posible engaño/estafa.',
+  INVALID_BUTTON_FORMAT: 'Formato de botón inválido (texto, URL o tipo).',
+  TAG_CONTENT_MISMATCH: 'El contenido no coincide con la categoría elegida.',
+  PROMOTIONAL: 'Contenido promocional en una categoría que no lo permite (debería ser Marketing).',
+  NONE: 'Sin motivo específico informado por Meta.',
+};
+export function explicarRechazo(reason?: string | null): string {
+  if (!reason || reason === 'NONE') return MOTIVO_RECHAZO.NONE;
+  // si es un enum conocido, traducimos; si ya viene como texto, lo devolvemos tal cual.
+  return MOTIVO_RECHAZO[reason] ?? reason;
+}

@@ -269,20 +269,9 @@ type GraphTpl = {
   components?: GraphTplComponent[];
 };
 
-// Motivos de rechazo de Meta (enum) → explicación en español.
-const MOTIVO_RECHAZO: Record<string, string> = {
-  INVALID_FORMAT: 'Formato inválido: revisá las variables (no empezar/terminar con {{ }}, ejemplos, header/footer sin variables) y los límites.',
-  ABUSIVE_CONTENT: 'Contenido abusivo o que viola las políticas de WhatsApp.',
-  SCAM: 'Meta lo marcó como posible engaño/estafa.',
-  INVALID_BUTTON_FORMAT: 'Formato de botón inválido (texto, URL o tipo).',
-  TAG_CONTENT_MISMATCH: 'El contenido no coincide con la categoría elegida.',
-  PROMOTIONAL: 'Contenido promocional en una categoría que no lo permite (debería ser Marketing).',
-  NONE: 'Sin motivo específico informado por Meta.',
-};
-export function explicarRechazo(reason?: string | null): string {
-  if (!reason || reason === 'NONE') return MOTIVO_RECHAZO.NONE;
-  return MOTIVO_RECHAZO[reason] ?? `Meta la rechazó (${reason}).`;
-}
+// La traducción del motivo de rechazo vive en template-vars (client-safe) y se
+// re-exporta acá para los endpoints. Guardamos el enum crudo en la DB.
+export { explicarRechazo } from '@/lib/template-vars';
 
 // Lista las plantillas reales del WABA en Meta (con su status, componentes y motivo de rechazo).
 export async function listMetaTemplates(): Promise<MetaTemplate[]> {
@@ -368,6 +357,17 @@ export async function deleteDraftByName(name: string): Promise<void> {
   await supabase.from('whatsapp_template_drafts').delete().eq('name', name);
 }
 
+// Tras editar en Meta una plantilla que TAMBIÉN tiene fila local: dejarla en
+// pending (idempotente; si no hay fila no hace nada).
+export async function markDraftPendingByName(name: string, language: string): Promise<void> {
+  const supabase = getSupabaseServer();
+  await supabase
+    .from('whatsapp_template_drafts')
+    .update({ status: 'pending', rejection_reason: null, updated_at: new Date().toISOString() })
+    .eq('name', name)
+    .eq('language', language);
+}
+
 // Reconcilia: para los borradores en 'pending', mira el status real en Meta y lo
 // actualiza (approved/rejected). Devuelve cuántos cambió. Acepta la lista de Meta
 // ya traída (para no pegarle dos veces a la Graph API desde el endpoint de status).
@@ -382,7 +382,8 @@ export async function reconcileDrafts(metasArg?: MetaTemplate[]): Promise<number
     if (!m || !d.id) continue;
     const st = m.status.toLowerCase();
     if ((st === 'approved' || st === 'rejected' || st === 'paused' || st === 'disabled') && st !== d.status) {
-      await setDraftStatus(d.id, st as TemplateStatus, st === 'rejected' ? { rejection_reason: explicarRechazo(m.rejectedReason) } : { rejection_reason: null });
+      // guardamos el ENUM crudo de Meta; la traducción se aplica al renderizar.
+      await setDraftStatus(d.id, st as TemplateStatus, st === 'rejected' ? { rejection_reason: m.rejectedReason } : { rejection_reason: null });
       cambios += 1;
     }
   }
