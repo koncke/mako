@@ -17,6 +17,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
 import { EmojiPicker } from './EmojiPicker';
+import { MakoChat } from '../_components/MakoChat';
+import { PlantillasPanel } from './PlantillasPanel';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
@@ -283,6 +285,9 @@ function WhatsAppInner() {
   const [editPasos, setEditPasos] = useState<Paso[] | null>(null);
   const [savingSeq, setSavingSeq] = useState(false);
   const [seqError, setSeqError] = useState<string | null>(null);
+  // Sub-secciones de "Secuencias automáticas": secuencias · plantillas · MaKo.
+  const [seqTab, setSeqTab] = useState<'secuencias' | 'plantillas' | 'mako'>('secuencias');
+  const [seqEtapaFiltro, setSeqEtapaFiltro] = useState('todas');
 
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null);
 
@@ -802,6 +807,10 @@ function WhatsAppInner() {
     });
   const sel = contactos.find((c) => c.id === selId) ?? null;
   const seqSel = secuencias.find((s) => s.id === selSeqId) ?? null;
+  // Feature 5: filtro por etapa de las secuencias.
+  const ETAPA_SEQ_LABEL: Record<string, string> = { nutri: 'Nutrición', postagenda: 'Post-agenda', noshow: 'No-show', nopaga: 'No paga', manual: 'Manual' };
+  const seqEtapasPresentes = [...new Set(secuencias.map((s) => s.etapa).filter(Boolean))];
+  const seqFiltradas = seqEtapaFiltro === 'todas' ? secuencias : secuencias.filter((s) => s.etapa === seqEtapaFiltro);
   const ventanaAbierta = sel?.ventanaAbierta ?? false;
   const templatesInbox = templates.filter((t) => t.params.length <= 1); // autollenables con {{nombre}}
 
@@ -1060,15 +1069,45 @@ function WhatsAppInner() {
         </div>
       )}
 
-      {/* ============= SECUENCIAS ============= */}
+      {/* ============= SECUENCIAS AUTOMÁTICAS (3 sub-secciones) ============= */}
       {!isChats && (
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px' }}>
+            <button onClick={() => setSeqTab('secuencias')} style={seqTab === 'secuencias' ? tabActive : tabIdle}>Secuencias</button>
+            <button onClick={() => setSeqTab('plantillas')} style={seqTab === 'plantillas' ? tabActive : tabIdle}>Plantillas</button>
+            <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
+          </div>
+
+          {seqTab === 'plantillas' && <PlantillasPanel />}
+
+          {seqTab === 'mako' && (
+            <div style={{ flex: 1, minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
+              <MakoChat
+                chartKey="whatsapp-secuencias"
+                titulo="Secuencias y plantillas de WhatsApp"
+                sugerencias={['¿Esta secuencia tiene sentido para el funnel?', '¿Este mensaje lo aprobaría Meta?', '¿Qué plantilla me falta?', '¿Cómo reactivo a los que no agendaron?']}
+              />
+            </div>
+          )}
+
+          {seqTab === 'secuencias' && (
         <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '320px 1fr', gap: '16px' }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)', fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Secuencias por etapa</div>
+            <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Secuencias por etapa</div>
+              <Dropdown
+                value={seqEtapaFiltro}
+                onChange={setSeqEtapaFiltro}
+                width="100%"
+                ariaLabel="Filtrar secuencias por etapa"
+                buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
+                options={[{ value: 'todas', label: 'Todas las etapas' }, ...seqEtapasPresentes.map((e) => ({ value: e, label: ETAPA_SEQ_LABEL[e] ?? e }))]}
+              />
+            </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {loadingSeqs && <div style={{ padding: '14px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
-              {!loadingSeqs && secuencias.length === 0 && <div style={{ padding: '14px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay secuencias todavía.</div>}
-              {secuencias.map((s) => {
+              {!loadingSeqs && seqFiltradas.length === 0 && <div style={{ padding: '14px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay secuencias en esta etapa.</div>}
+              {seqFiltradas.map((s) => {
                 const active = s.id === selSeqId;
                 return (
                   <div key={s.id} onClick={() => setSelSeqId(s.id)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 12px', borderRadius: '11px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
@@ -1174,6 +1213,8 @@ function WhatsAppInner() {
               </>
             )}
           </div>
+        </div>
+          )}
         </div>
       )}
 
