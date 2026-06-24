@@ -24,12 +24,12 @@ export const MAIN_NAV: NavItem[] = [
   { key: 'crm', label: 'CRM', href: '/leads', badge: true, match: starts('/leads') },
   { key: 'funnel', label: 'Funnel', href: '/funnel', glyph: '⤳', match: starts('/funnel') },
   { key: 'marketing', label: 'Marketing', href: '/marketing', match: (p) => starts('/marketing')(p) && !starts('/marketing/salud')(p) },
-  { key: 'estado-meta', label: 'Estado de Meta', href: '/marketing/salud', glyph: '◈', match: starts('/marketing/salud') },
   { key: 'comercial', label: 'Comercial', href: '/comercial', match: starts('/comercial') },
 ];
 
 export const TOOLS_NAV: NavItem[] = [
   { key: 'closing', label: 'Closing Analysis', href: '/closing', match: starts('/closing') },
+  { key: 'script-analyst', label: 'Script Analyst', href: '/script-analyst', match: starts('/script-analyst') },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', badge: true, match: starts('/whatsapp') },
   { key: 'email', label: 'Email Marketing', href: '/email', match: starts('/email') },
   {
@@ -43,6 +43,7 @@ export const TOOLS_NAV: NavItem[] = [
 
 // Opciones del menú del usuario (abajo del sidebar): config de MaKo.
 export const USER_NAV: NavItem[] = [
+  { key: 'estado-meta', label: 'Estado de Meta', href: '/marketing/salud', match: starts('/marketing/salud') },
   { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', match: starts('/contexto') },
   { key: 'onboarding', label: 'Onboarding', href: '/onboarding', match: starts('/onboarding') },
 ];

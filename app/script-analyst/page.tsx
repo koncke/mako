@@ -1,15 +1,14 @@
 // =============================================================================
-// /marketing/anuncios — todos los anuncios ganadores (vista completa)
+// /script-analyst — Análisis de guiones (por ahora: Anuncios ganadores)
 // =============================================================================
-// Respeta el filtro global de fecha (?desde&hasta) y lo mantiene en el link de
-// regreso. Muestra el comparador de agendas (Meta vs CRM) y delega el filtro
-// por campaña/adset, el orden y el modal de detalle a AnunciosBrowser (cliente).
+// Movido desde /marketing/anuncios. Mantiene el comparador de agendas (Meta vs
+// CRM) y el browser de anuncios con su modal de detalle. A futuro suma análisis
+// de guiones/copys.
 
-import Link from 'next/link';
 import { getSenalesRecon, getAgendasComparador, type SenalRecon, type AgendasComparador } from '@/lib/queries';
 import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
-import { FechaFiltro } from '../../_components/FechaFiltro';
-import { tieneSenal } from '../AnuncioCard';
+import { FechaFiltro } from '../_components/FechaFiltro';
+import { tieneSenal } from '../marketing/AnuncioCard';
 import { AnunciosBrowser } from './AnunciosBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +20,7 @@ function fmtPeriodoLabel(desde: string, hasta: string): string {
   return `${fmtDDMMYYYY(desde)} – ${fmtDDMMYYYY(hasta)}`;
 }
 
-export default async function AnunciosPage({
+export default async function ScriptAnalystPage({
   searchParams,
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
@@ -32,16 +31,11 @@ export default async function AnunciosPage({
   const desdeParam = params.desde;
   const hastaParam = params.hasta;
   const filtroActivo =
-    !!desdeParam &&
-    !!hastaParam &&
-    esFechaValida(desdeParam) &&
-    esFechaValida(hastaParam) &&
-    desdeParam <= hastaParam &&
-    hastaParam <= hoyReal;
+    !!desdeParam && !!hastaParam && esFechaValida(desdeParam) && esFechaValida(hastaParam) &&
+    desdeParam <= hastaParam && hastaParam <= hoyReal;
 
   const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
   const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
-  const backHref = filtroActivo ? `/marketing?desde=${rangoDesde}&hasta=${rangoHasta}` : '/marketing';
 
   let senales: SenalRecon[] = [];
   let comparador: AgendasComparador | null = null;
@@ -60,10 +54,12 @@ export default async function AnunciosPage({
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
         <div>
-          <Link href={backHref} style={{ fontSize: 13.5, color: 'var(--dim)', textDecoration: 'none' }}>← Marketing</Link>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
+            Script Analyst · {fmtPeriodoLabel(rangoDesde, rangoHasta)}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
             <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h1>
-            <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{conSenal.length} con señal · {fmtPeriodoLabel(rangoDesde, rangoHasta)}</span>
+            <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{conSenal.length} con señal</span>
           </div>
         </div>
         <FechaFiltro hoyReal={hoyReal} />

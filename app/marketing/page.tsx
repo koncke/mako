@@ -36,9 +36,7 @@ import { FechaFiltro } from '../_components/FechaFiltro';
 import { TendenciasSection } from '../_components/TendenciasSection';
 import { MakoButton } from '../_components/ChartIA';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
-import { tieneSenal, compararCombo } from './AnuncioCard';
 import { ResumenCreativos } from './ResumenCreativos';
-import { AnunciosGanadoresGrid } from './AnunciosGanadoresGrid';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -150,7 +148,7 @@ export default async function Page({
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Marketing</h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-          <Link href="/marketing/salud" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}>◈ Estado de entrega →</Link>
+          <Link href="/marketing/campanas" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}>◫ Campañas y anuncios →</Link>
           <FechaFiltro hoyReal={hoyReal} />
         </div>
       </header>
@@ -170,7 +168,7 @@ export default async function Page({
 
           <ResumenCreativos desde={rangoDesde} hasta={rangoHasta} />
 
-          <AnunciosGanadores senales={senales} filtroActivo={filtroActivo} desde={rangoDesde} hasta={rangoHasta} />
+          <CampanasEntry senales={senales} filtroActivo={filtroActivo} desde={rangoDesde} hasta={rangoHasta} />
 
           <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
             Datos automáticos · Meta · YouTube · Calendly · Meta Lead Ads. Montos en USD.
@@ -432,27 +430,16 @@ function SaludDelFunnel({ mkt, funnel, senales }: { mkt: MarketingWindow; funnel
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-function AnunciosGanadores({ senales, filtroActivo, desde, hasta }: { senales: SenalRecon[]; filtroActivo: boolean; desde: string; hasta: string }) {
-  const conSenal = senales.filter(tieneSenal).sort(compararCombo);
-  const top = conSenal.slice(0, 6);
-  const totalConSenal = conSenal.length;
-  // Llevar el filtro de fecha a la vista completa.
-  const verTodosHref = filtroActivo ? `/marketing/anuncios?desde=${desde}&hasta=${hasta}` : '/marketing/anuncios';
-
+function CampanasEntry({ senales, filtroActivo, desde, hasta }: { senales: SenalRecon[]; filtroActivo: boolean; desde: string; hasta: string }) {
+  const conGasto = senales.filter((s) => s.spend_usd > 0).length;
+  const href = filtroActivo ? `/marketing/campanas?desde=${desde}&hasta=${hasta}` : '/marketing/campanas';
   return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h2>
-        <Link href={verTodosHref} style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer', textDecoration: 'none' }}>Ver los {totalConSenal} →</Link>
+    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+      <div style={{ minWidth: 0 }}>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 6px', color: 'var(--ink)' }}>Campañas, conjuntos y anuncios</h2>
+        <p style={{ fontSize: 14, color: 'var(--dim)', margin: 0, maxWidth: 580 }}>Estado de entrega en vivo (activo · aprendizaje · pausado · rechazado) cruzado con el rendimiento del rango y los cierres del CRM. {conGasto} anuncio{conGasto === 1 ? '' : 's'} con gasto en el período.</p>
       </div>
-
-      {top.length === 0 ? (
-        <p style={{ fontSize: 14, color: 'var(--faint)', margin: 0 }}>
-          Aún sin anuncios con gasto en el rango. Cuando el cron traiga datos a nivel anuncio, aparecen acá.
-        </p>
-      ) : (
-        <AnunciosGanadoresGrid top={top} desde={desde} hasta={hasta} />
-      )}
+      <Link href={href} style={{ flex: 'none', padding: '12px 20px', borderRadius: 11, background: 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>Abrir navegador →</Link>
     </section>
   );
 }

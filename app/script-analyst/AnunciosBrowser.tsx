@@ -3,15 +3,16 @@
 // =============================================================================
 // AnunciosBrowser — filtro/orden por campaña y adset + modal de detalle
 // =============================================================================
-// El detalle (gráficos recharts + mapa d3-geo) vive en ../ad-charts y se carga
-// on-demand al abrir un anuncio (next/dynamic), para no pesar el bundle inicial.
+// Movido desde /marketing/anuncios a /script-analyst (Anuncios ganadores).
+// El detalle (gráficos recharts + mapa d3-geo) vive en ../marketing/ad-charts y
+// se carga on-demand al abrir un anuncio (next/dynamic).
 
 import { useMemo, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import type { SenalRecon } from '@/lib/queries';
-import { AnuncioCard, compararCombo } from '../AnuncioCard';
+import { AnuncioCard, compararCombo } from '../marketing/AnuncioCard';
 
-const AdDetalle = dynamic(() => import('../ad-charts').then((m) => m.AdDetalle), { ssr: false });
+const AdDetalle = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetalle), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

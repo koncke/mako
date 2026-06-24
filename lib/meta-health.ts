@@ -50,10 +50,17 @@ export type NodoEstado = {
   configuredStatus: string | null;
   statusLabel: string;
   semaforo: Semaforo;
+  // Presupuesto diario (MXN) si el nodo lo tiene propio (campaña CBO o adset).
+  dailyBudgetMxn?: number | null;
+  budgetRemainingMxn?: number | null;
+  // campaigns: objetivo (OUTCOME_LEADS, etc.)
+  objective?: string | null;
   // adsets: fase de aprendizaje (Meta a veces no la devuelve → degrada a gris)
   learning?: { status: string | null; label: string; semaforo: Semaforo };
   // ads: problemas de revisión/políticas si los hay
   issues?: Issue[];
+  // recomendaciones nativas de Meta para este nodo (suelen venir vacías).
+  recosMeta?: Reco[];
 };
 
 export type MetaAccountHealth = {
@@ -329,6 +336,25 @@ export async function getMetaAccountHealth(): Promise<MetaAccountHealth> {
   return computeAccountHealth(await fetchAccountRaw());
 }
 
+/**
+ * Recomendaciones nativas a nivel CUENTA (edge act_<id>/recommendations).
+ * El endpoint existe y es válido, pero para cuentas restringidas/sin permiso
+ * ads_management suele devolver lista vacía. Falla suave → [].
+ */
+export async function fetchAccountRecommendations(): Promise<Reco[]> {
+  try {
+    const acct = getEnv('META_AD_ACCOUNT_ID');
+    const ver = getEnv('META_API_VERSION');
+    const token = getEnv('META_ACCESS_TOKEN');
+    const url = new URL(`${GRAPH_BASE}/${ver}/${acct}/recommendations`);
+    url.searchParams.set('access_token', token);
+    const body = await graphGet(url.toString());
+    return parseRecosMeta(body.data);
+  } catch {
+    return [];
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Edges: campañas / conjuntos / anuncios
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,6 +370,12 @@ function edgeUrl(path: string, fields: string): () => URL {
     url.searchParams.set('access_token', token);
     return url;
   };
+}
+
+function centavosAMxn(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n / 100 : null;
 }
 
 function toNodo(
@@ -362,11 +394,18 @@ function toNodo(
     statusLabel: statusLabel(eff),
     semaforo: statusSemaforo(eff),
   };
+  if (level === 'campaign' || level === 'adset') {
+    nodo.dailyBudgetMxn = centavosAMxn(raw.daily_budget);
+    nodo.budgetRemainingMxn = centavosAMxn(raw.budget_remaining);
+  }
+  if (level === 'campaign') nodo.objective = raw.objective != null ? String(raw.objective) : null;
   if (level === 'adset') nodo.learning = learningInfo(raw.learning_stage_info);
   if (level === 'ad') {
     const issues = parseIssues(raw.issues_info);
     if (issues.length) nodo.issues = issues;
   }
+  const recos = parseRecosMeta(raw.recommendations);
+  if (recos.length) nodo.recosMeta = recos;
   return nodo;
 }
 
@@ -498,23 +537,30 @@ export async function getMetaHealth(): Promise<MetaHealth> {
   const account = computeAccountHealth(accountRaw);
 
   // Edges en paralelo, tolerante: si una falla, sigue con lo que haya.
-  const [campR, adsetR, adR] = await Promise.allSettled([
-    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status')),
-    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,learning_stage_info')),
+  // MaKo "le pregunta a Meta primero": pedimos recommendations en cada nivel +
+  // el edge de cuenta, y las combinamos con las sugerencias derivadas.
+  const [campR, adsetR, adR, accRecoR] = await Promise.allSettled([
+    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,objective,recommendations')),
+    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,budget_remaining,learning_stage_info,recommendations')),
     graphGetAll(edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations')),
+    fetchAccountRecommendations(),
   ]);
 
   const campaignsRaw = campR.status === 'fulfilled' ? campR.value : [];
   const adsetsRaw = adsetR.status === 'fulfilled' ? adsetR.value : [];
   const adsRaw = adR.status === 'fulfilled' ? adR.value : [];
+  const accRecos = accRecoR.status === 'fulfilled' ? accRecoR.value : [];
   const parcial = [campR, adsetR, adR].some((r) => r.status === 'rejected');
 
   const campaigns = campaignsRaw.map((r) => toNodo(r, 'campaign', null));
   const adsets = adsetsRaw.map((r) => toNodo(r, 'adset', 'campaign_id'));
   const ads = adsRaw.map((r) => toNodo(r, 'ad', 'adset_id'));
 
-  // Recomendaciones nativas de Meta (raras vía API): aplanar las de todos los nodos.
-  const recosMeta: Reco[] = adsRaw.flatMap((r) => parseRecosMeta(r.recommendations));
+  // Recomendaciones nativas de Meta (raras vía API): cuenta + cada nivel.
+  const recosMeta: Reco[] = [
+    ...accRecos,
+    ...[...campaigns, ...adsets, ...ads].flatMap((n) => n.recosMeta ?? []),
+  ];
   const recosMetaDisponibles = recosMeta.length > 0;
 
   const sugerencias = sugerenciasMako(account, campaigns, adsets, ads);
