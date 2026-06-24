@@ -242,7 +242,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     setOptimistic((m) => { const n = new Map(m); const cur = { ...(n.get(id) ?? {}) }; delete cur[k]; if (Object.keys(cur).length === 0) n.delete(id); else n.set(id, cur); return n; });
   const permMsg = (j: { error_subcode?: number; message?: string }) =>
     j.error_subcode === 4841013
-      ? `El token no tiene permiso de escritura en Meta. Hace falta un System User token con ads_management (el actual es de tipo Página). Detalle: ${j.message ?? ''}`
+      ? `Meta bloqueó la escritura (permiso 4841013). El token ya es System User con ads_management y rol MANAGE; el bloqueo restante suele ser la 2FA obligatoria de la empresa (el admin que controla el system user debe tener 2FA activada) y/o la cuenta restringida por pago. Detalle: ${j.message ?? ''}`
       : `Meta rechazó el cambio: ${j.message ?? 'error'}`;
 
   async function writeStatus(lvl: Level, id: string, next: 'ACTIVE' | 'PAUSED') {

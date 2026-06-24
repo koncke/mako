@@ -63,7 +63,7 @@ export async function GET() {
       recomendaciones,
       empty,
       ...(empty
-        ? { reason: 'Meta no devuelve recomendaciones por API para esta cuenta ahora mismo. Motivo probable: la cuenta tiene un error de pago (account_status=3) y el token es de tipo Página. Las recomendaciones del Ads Manager web vuelven al resolver el pago y usar un token de Usuario/System User con ads_management.' }
+        ? { reason: 'Meta no devuelve recomendaciones por API para esta cuenta ahora mismo. Con el token correcto (System User + ads_management), el bloqueo restante suele ser la cuenta restringida por pago (account_status=3) y/o la 2FA obligatoria de la empresa. Al resolver el pago y la 2FA del admin, este endpoint trae las recomendaciones del Ads Manager.' }
         : {}),
     });
   } catch (err) {
