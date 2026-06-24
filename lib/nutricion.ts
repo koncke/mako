@@ -14,6 +14,7 @@
 import { getSupabaseServer } from '@/lib/supabase';
 import { getVslEngagementMap } from '@/lib/leads';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
+import { valoresVariablesLead } from '@/lib/template-vars';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -532,10 +533,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
   const leadIds = [...new Set(due.map((d) => d.lead_id))];
   const { data: leadsData } = await supabase
     .from('leads')
-    .select('id, nombre, telefono')
+    .select('id, nombre, telefono, empresa')
     .in('id', leadIds);
   const leadMap = new Map(
-    ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null }>).map((l) => [l.id, l]),
+    ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null }>).map((l) => [l.id, l]),
   );
 
   for (const insc of due) {
@@ -576,7 +577,9 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
             name: paso.template_wa,
             category: paso.template_categoria ?? 'marketing',
             language: paso.template_idioma ?? 'es_MX',
-            bodyParams: { [paso.template_param ?? 'nombre']: lead.nombre ?? '' },
+            // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
+            // la plantilla usa las que necesite.
+            bodyParams: valoresVariablesLead(lead),
           },
         });
         estado = r.ok ? 'enviado' : 'fallo';
