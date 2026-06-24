@@ -1207,7 +1207,8 @@ function WhatsAppInner() {
             <img src={lightbox.url} alt="adjunto" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: '8px', objectFit: 'contain' }} />
           ) : (
             <div onClick={(e) => e.stopPropagation()} style={{ width: '90vw', maxWidth: '900px', height: '88vh', background: 'var(--surface)', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <iframe src={lightbox.url} title="PDF" style={{ flex: 1, width: '100%', border: 'none' }} />
+              {/* via proxy de nuestro origen: Railway bloquea el embed directo */}
+              <iframe src={`/api/whatsapp/file?url=${encodeURIComponent(lightbox.url)}`} title="PDF" style={{ flex: 1, width: '100%', border: 'none' }} />
               <a href={lightbox.url} target="_blank" rel="noreferrer" style={{ padding: '10px 14px', fontSize: '13px', fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}>Abrir / descargar en pestaña nueva →</a>
             </div>
           )}

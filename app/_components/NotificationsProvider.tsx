@@ -52,23 +52,58 @@ export function useNotifications(): NotifCtx {
   return c;
 }
 
-// ── Sonido (un único AudioContext; se reanuda en el primer gesto del usuario) ──
+// ── Sonido de notificación ────────────────────────────────────────────────────
+// Un único AudioContext (se reanuda en el primer gesto del usuario por la autoplay
+// policy) y el mp3 de /notif.mp3 precargado a un AudioBuffer, así suena al instante
+// y aun estando en otra pestaña/sección de la app. Si falla, cae a un beep simple.
 let _audioCtx: AudioContext | null = null;
-function unlockAudio() {
+let _notifBuf: AudioBuffer | null = null;
+let _notifLoading = false;
+
+function ctxOf(): AudioContext | null {
   try {
     const C = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!C) return;
+    if (!C) return null;
     if (!_audioCtx) _audioCtx = new C();
-    if (_audioCtx.state === 'suspended') void _audioCtx.resume();
-  } catch { /* sin audio */ }
+    return _audioCtx;
+  } catch { return null; }
+}
+function loadNotif() {
+  const ctx = ctxOf();
+  if (!ctx || _notifBuf || _notifLoading) return;
+  _notifLoading = true;
+  void fetch('/notif.mp3')
+    .then((r) => r.arrayBuffer())
+    .then((b) => ctx.decodeAudioData(b))
+    .then((buf) => { _notifBuf = buf; })
+    .catch(() => {})
+    .finally(() => { _notifLoading = false; });
+}
+function unlockAudio() {
+  const ctx = ctxOf();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+  loadNotif(); // precargar el sample tras el primer gesto
 }
 function playBeep() {
+  const ctx = ctxOf();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+  if (_notifBuf) {
+    try {
+      const src = ctx.createBufferSource();
+      src.buffer = _notifBuf;
+      const gain = ctx.createGain();
+      gain.gain.value = 0.9;
+      src.connect(gain);
+      gain.connect(ctx.destination);
+      src.start();
+      return;
+    } catch { /* cae al beep */ }
+  } else {
+    loadNotif(); // por si todavía no se cargó
+  }
   try {
-    const C = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!C) return;
-    if (!_audioCtx) _audioCtx = new C();
-    const ctx = _audioCtx;
-    if (ctx.state === 'suspended') void ctx.resume();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.frequency.value = 880;
