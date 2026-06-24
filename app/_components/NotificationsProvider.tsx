@@ -117,6 +117,32 @@ function playBeep() {
   } catch { /* sin audio */ }
 }
 
+// Acorde de varias notas (para sonidos distintos al del mensaje).
+function playChord(notas: Array<[number, number]>, tipo: OscillatorType = 'triangle') {
+  const ctx = ctxOf();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') void ctx.resume();
+  try {
+    for (const [freq, t] of notas) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = tipo;
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const start = ctx.currentTime + t;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.26, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.2);
+      osc.start(start);
+      osc.stop(start + 0.22);
+    }
+  } catch { /* sin audio */ }
+}
+// Aprobada: chime ascendente alegre (do-mi-sol). Rechazada: dos notas descendentes.
+function playApproval() { playChord([[660, 0], [880, 0.12], [1175, 0.24]]); }
+function playRejected() { playChord([[440, 0], [311, 0.18]], 'sine'); }
+
 function initials(name: string): string {
   const p = (name || '').trim().split(/\s+/);
   return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '·';
@@ -150,6 +176,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [toast, setToast] = useState<{ gid: string; nombre: string; avatar: string | null } | null>(null);
+  const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string } | null>(null);
 
   const openChatRef = useRef<string | null>(null);
   const activitySnapRef = useRef<Map<string, number>>(new Map());
@@ -158,6 +185,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baselineReadyRef = useRef(false); // no notificar hasta tener la línea base
   const tickRef = useRef(0);               // cada N ticks, resync de la lista completa
+  // Estado de plantillas en Meta: para avisar cuando una se aprueba/rechaza.
+  const approvedSnapRef = useRef<Set<string>>(new Set());
+  const rejectedSnapRef = useRef<Set<string>>(new Set());
+  const tplBaselineRef = useRef(false);
+  const tplToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
   contactosRef.current = contactos;
@@ -178,6 +210,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setToast(null);
     // nonce → reabrir el MISMO chat (clic al pop-up otra vez) igual dispara la selección.
     router.push(`/whatsapp?chat=${encodeURIComponent(gid)}&n=${Date.now()}`);
+  };
+  const goToPlantilla = (name: string) => {
+    setTplToast(null);
+    router.push(`/whatsapp?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
   };
 
   // Carga inicial (lista completa) + baseline del snapshot. En /login no corre.
@@ -216,12 +252,45 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
+  // Plantillas: detecta aprobaciones/rechazos en Meta y avisa (sonido + pop-up).
+  const checkTemplates = async () => {
+    try {
+      const r = await fetch('/api/whatsapp/templates/status');
+      const j = await r.json();
+      if (!j.ok) return;
+      const tpls = j.templates as Array<{ name: string; status: string }>;
+      const aprobadas = new Set(tpls.filter((t) => t.status === 'approved').map((t) => t.name));
+      const rechazadas = new Set(tpls.filter((t) => t.status === 'rejected').map((t) => t.name));
+      if (!tplBaselineRef.current) {
+        approvedSnapRef.current = aprobadas;
+        rejectedSnapRef.current = rechazadas;
+        tplBaselineRef.current = true;
+        return; // primera vez: sólo sembramos baseline, no notificamos
+      }
+      let nuevaOk: string | null = null;
+      for (const n of aprobadas) if (!approvedSnapRef.current.has(n)) nuevaOk = n;
+      let nuevaRej: string | null = null;
+      for (const n of rechazadas) if (!rejectedSnapRef.current.has(n)) nuevaRej = n;
+      approvedSnapRef.current = aprobadas;
+      rejectedSnapRef.current = rechazadas;
+      const mostrar = (tipo: 'ok' | 'rej', name: string) => {
+        setTplToast({ tipo, name });
+        if (tplToastTimerRef.current) clearTimeout(tplToastTimerRef.current);
+        tplToastTimerRef.current = setTimeout(() => setTplToast(null), 6000);
+      };
+      if (nuevaOk) { playApproval(); mostrar('ok', nuevaOk); }
+      else if (nuevaRej) { playRejected(); mostrar('rej', nuevaRej); }
+    } catch { /* ignore */ }
+  };
+
   // Polling GLOBAL cada 6s (sólo página 1: las novedades suben ahí).
   useEffect(() => {
     const tick = async () => {
       if (pathRef.current.startsWith('/login')) return; // sin sesión no polleamos
       try {
         tickRef.current += 1;
+        // Status de plantillas: siembra al 1er tick, después ~cada 60s.
+        if (tickRef.current === 1 || tickRef.current % 10 === 0) void checkTemplates();
         const full = tickRef.current % 10 === 0; // ~cada 60s resync de TODA la lista
         const r = await fetch(`/api/whatsapp/conversations${full ? '' : '?recent=1'}`);
         const j = await r.json();
@@ -292,6 +361,27 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           <span style={{ minWidth: 0 }}>
             <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toast.nombre}</span>
             <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>Te envió un mensaje · abrir chat →</span>
+          </span>
+        </button>
+      )}
+      {tplToast && (
+        <button
+          onClick={() => goToPlantilla(tplToast.name)}
+          style={{
+            position: 'fixed', top: toast ? 92 : 18, right: 18, zIndex: 2000, maxWidth: 340,
+            display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 14,
+            border: `1px solid ${tplToast.tipo === 'ok' ? 'var(--good)' : 'var(--bad)'}`, background: 'var(--surface)',
+            boxShadow: '0 16px 44px rgba(23,21,17,.28)', cursor: 'pointer', textAlign: 'left',
+            fontFamily: "'Geist', sans-serif", animation: 'mako-toast-in .22s ease-out',
+          }}
+        >
+          <style>{'@keyframes mako-toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}'}</style>
+          <span style={{ width: 38, height: 38, flex: 'none', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, background: tplToast.tipo === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: tplToast.tipo === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
+            {tplToast.tipo === 'ok' ? '✓' : '✕'}
+          </span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{tplToast.tipo === 'ok' ? 'Plantilla aprobada' : 'Plantilla rechazada'}</span>
+            <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', fontFamily: "'Geist Mono', monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 260 }}>{tplToast.name} · ver →</span>
           </span>
         </button>
       )}

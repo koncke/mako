@@ -82,7 +82,7 @@ function detectarVars(text: string): string[] {
 const inputBase: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
 const labelBase: CSSProperties = { display: 'block', fontSize: 12, color: 'var(--dim)', marginBottom: 5, fontWeight: 600 };
 
-export function PlantillasPanel() {
+export function PlantillasPanel({ initialSelect }: { initialSelect?: string | null }) {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [metas, setMetas] = useState<MetaTpl[]>([]);
   const [loading, setLoading] = useState(true);
@@ -162,6 +162,15 @@ export function PlantillasPanel() {
       lastValidatedRef.current = it.draft.validacion ? firma(it.draft) : '';
     } else { setEdit(null); setValidacion(null); }
   };
+
+  // Deep-link desde el pop-up de aprobación: abrir esa plantilla cuando esté en la lista.
+  const appliedSelectRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialSelect || initialSelect === appliedSelectRef.current) return;
+    const it = items.find((i) => (i.kind === 'draft' ? i.draft.name : i.meta.name) === initialSelect);
+    if (it) { appliedSelectRef.current = initialSelect; abrirItem(it); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSelect, items]);
 
   // Firma del contenido relevante para saber si hay que revalidar.
   function firma(d: Draft): string { return JSON.stringify([d.category, d.header, d.body, d.footer, d.params]); }

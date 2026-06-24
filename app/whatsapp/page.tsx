@@ -288,6 +288,7 @@ function WhatsAppInner() {
   // Sub-secciones de "Secuencias automáticas": secuencias · plantillas · MaKo.
   const [seqTab, setSeqTab] = useState<'secuencias' | 'plantillas' | 'mako'>('secuencias');
   const [seqEtapaFiltro, setSeqEtapaFiltro] = useState('todas');
+  const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null); // deep-link desde el pop-up de aprobación
 
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null);
 
@@ -333,15 +334,25 @@ function WhatsAppInner() {
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
   useEffect(() => () => setOpenChat(null), [setOpenChat]);
 
-  // ── Selección de chat: deep-link (?chat= desde el pop-up) o el primero ──
+  // ── Deep-link desde los pop-ups: ?chat= (chat) o ?stab=plantillas&tpl= (plantilla) ──
   useEffect(() => {
     const s = searchParamsWA.toString();
-    const target = searchParamsWA.get('chat');
-    if (s !== lastSearchRef.current && target && contactos.some((c) => c.id === target)) {
-      lastSearchRef.current = s;
-      setView('chats');
-      setSelId(target);
-      return;
+    if (s !== lastSearchRef.current) {
+      const stab = searchParamsWA.get('stab');
+      if (stab === 'plantillas') {
+        lastSearchRef.current = s;
+        setView('sequences');
+        setSeqTab('plantillas');
+        setPlantillaTarget(searchParamsWA.get('tpl') || null);
+        return;
+      }
+      const target = searchParamsWA.get('chat');
+      if (target && contactos.some((c) => c.id === target)) {
+        lastSearchRef.current = s;
+        setView('chats');
+        setSelId(target);
+        return;
+      }
     }
     if (selId == null && contactos.length) setSelId(contactos[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1078,7 +1089,7 @@ function WhatsAppInner() {
             <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
           </div>
 
-          {seqTab === 'plantillas' && <PlantillasPanel />}
+          {seqTab === 'plantillas' && <PlantillasPanel initialSelect={plantillaTarget} />}
 
           {seqTab === 'mako' && (
             <div style={{ flex: 1, minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>

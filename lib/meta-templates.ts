@@ -288,11 +288,12 @@ export async function listMetaTemplates(): Promise<MetaTemplate[]> {
 }
 
 // Reconcilia: para los borradores en 'pending', mira el status real en Meta y lo
-// actualiza (approved/rejected). Devuelve cuántos cambió.
-export async function reconcileDrafts(): Promise<number> {
+// actualiza (approved/rejected). Devuelve cuántos cambió. Acepta la lista de Meta
+// ya traída (para no pegarle dos veces a la Graph API desde el endpoint de status).
+export async function reconcileDrafts(metasArg?: MetaTemplate[]): Promise<number> {
   const pendientes = await listDrafts({ status: 'pending' });
   if (!pendientes.length) return 0;
-  const metas = await listMetaTemplates();
+  const metas = metasArg ?? await listMetaTemplates();
   const byName = new Map(metas.map((m) => [`${m.name}::${m.language}`, m]));
   let cambios = 0;
   for (const d of pendientes) {
