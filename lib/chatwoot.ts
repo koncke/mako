@@ -398,7 +398,7 @@ export async function getMessagesForConvs(ids: number[]): Promise<ChatwootMessag
   // Solo las 4 conversaciones MÁS RECIENTES (vienen ordenadas recent-first): los
   // mensajes actuales viven en la última conversación. Bajar de 15→4 hace que abrir
   // un chat sea ~4x más rápido (cada getMessages a Chatwoot tarda ~0.8s).
-  const recientes = ids.slice(0, 4);
+  const recientes = ids.slice(0, 6);
   const arrays = await Promise.all(recientes.map((id) => getMessages(id).catch(() => [] as ChatwootMessage[])));
   return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
 }

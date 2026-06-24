@@ -306,7 +306,8 @@ export default function WhatsAppPage() {
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [blockMotivo, setBlockMotivo] = useState('');
   const [blockTarget, setBlockTarget] = useState<{ cid: number; gid: string; lid: number | null; nombre: string } | null>(null);
-  const [audioFase, setAudioFase] = useState<string | null>(null); // "Convirtiendo…" / "Enviando…"
+  const [audioFase, setAudioFase] = useState<string | null>(null); // "Procesando…" / "Enviando…"
+  const [audioFaseGid, setAudioFaseGid] = useState<string | null>(null); // a qué chat pertenece
   // Grabación de nota de voz (MediaRecorder → transcodifica a MP3, único formato
   // que este Chatwoot/WABA entrega; ogg/m4a dan 131053).
   const [recording, setRecording] = useState(false);
@@ -564,8 +565,11 @@ export default function WhatsAppPage() {
     while (m.size > 40) { const oldest = m.keys().next().value; if (oldest === undefined) break; m.delete(oldest); }
   }
 
-  async function refetchHilo(grupo: Contacto) {
-    const rr = await fetch(`/api/whatsapp/thread?ids=${grupo.convIds.join(',')}`);
+  async function refetchHilo(grupo: Contacto, extraConvId?: number) {
+    // Prependear la conv donde se acaba de enviar garantiza que el thread (que
+    // corta a las más recientes) la incluya y el mensaje no "desaparezca".
+    const ids = extraConvId ? [extraConvId, ...grupo.convIds.filter((x) => x !== extraConvId)] : grupo.convIds;
+    const rr = await fetch(`/api/whatsapp/thread?ids=${ids.join(',')}`);
     const jj = await rr.json();
     const msgs: Mensaje[] = jj.ok ? jj.mensajes : [];
     cacheMsgs(grupo.id, msgs);
@@ -595,8 +599,9 @@ export default function WhatsAppPage() {
         setDraft(txt);
         setSendError(j.error || 'No se pudo enviar.');
       } else {
-        openActivityRef.current = Math.floor(Date.now() / 1000); // ya lo tenemos cargado
-        await refetchHilo(grupo);
+        // Incluir SIEMPRE la conversación donde se envió (la que eligió el server)
+        // en el refetch, aunque no esté entre las 4 más recientes del cliente.
+        await refetchHilo(grupo, typeof j.conversationId === 'number' ? j.conversationId : undefined);
       }
     } catch (e) {
       setMensajes((m) => m.filter((x) => x.id !== tempId));
@@ -681,9 +686,10 @@ export default function WhatsAppPage() {
 
   async function enviarAudio(blob: Blob, ext: string, grupo: Contacto) {
     const enEseChat = () => selIdRef.current === grupo.id;
-    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, probá de nuevo.'); setAudioFase(null); return; }
+    if (!blob.size) { if (enEseChat()) setSendError('La grabación quedó vacía, probá de nuevo.'); setAudioFase(null); setAudioFaseGid(null); return; }
     setSending(true);
     setAudioFase('Enviando audio…');
+    setAudioFaseGid(grupo.id);
     setSendError(null);
     try {
       const fd = new FormData();
@@ -697,6 +703,7 @@ export default function WhatsAppPage() {
     } finally {
       setSending(false);
       setAudioFase(null);
+      setAudioFaseGid(null);
     }
   }
 
@@ -740,6 +747,7 @@ export default function WhatsAppPage() {
       // Transcodificar a MP3 (único formato que WhatsApp entrega acá) y enviar.
       setSending(true);
       setAudioFase('Procesando audio…');
+      setAudioFaseGid(destGrupo.id);
       void (async () => {
         try {
           const { blobToMp3 } = await import('./audio');
@@ -748,6 +756,7 @@ export default function WhatsAppPage() {
         } catch (err) {
           setSending(false);
           setAudioFase(null);
+          setAudioFaseGid(null);
           if (selIdRef.current === destGrupo.id) setSendError('No se pudo procesar el audio (' + (err instanceof Error ? err.message : 'error') + ').');
         }
       })();
@@ -1044,7 +1053,7 @@ export default function WhatsAppPage() {
                     );
                   })}
                 </div>
-                {audioFase && (
+                {audioFase && audioFaseGid === selId && (
                   <div style={{ padding: '8px 16px', background: 'var(--good-bg)', color: 'var(--good)', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
                     <span style={{ width: '13px', height: '13px', border: '2px solid var(--good)', borderTopColor: 'transparent', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />

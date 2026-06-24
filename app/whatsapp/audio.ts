@@ -24,6 +24,19 @@ export async function blobToMp3(blob: Blob): Promise<Blob> {
   await ctx.close().catch(() => {}); // cerrar SIEMPRE (no acumular AudioContexts)
 
   if (!audioBuf.length) throw new Error('audio vacío');
+
+  // MP3 sólo soporta ciertas tasas; si el navegador dio una exótica, resampleamos
+  // a 44100 (un header con tasa inválida puede dar 131053 en Meta).
+  const TASAS_MP3 = new Set([8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000]);
+  if (!TASAS_MP3.has(audioBuf.sampleRate)) {
+    const off = new OfflineAudioContext(1, Math.ceil(audioBuf.duration * 44100), 44100);
+    const src = off.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(off.destination);
+    src.start();
+    audioBuf = await off.startRendering();
+  }
+
   const sampleRate = audioBuf.sampleRate;
   const ch0 = audioBuf.getChannelData(0);
   const ch1 = audioBuf.numberOfChannels > 1 ? audioBuf.getChannelData(1) : null;
