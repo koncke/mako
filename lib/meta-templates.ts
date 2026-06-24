@@ -22,6 +22,8 @@ export type TemplateParam = { name: string; example: string };
 
 export type TemplateCategoria = 'marketing' | 'utility' | 'authentication';
 export type TemplateStatus = 'borrador' | 'pending' | 'approved' | 'rejected' | 'paused' | 'disabled';
+export type HeaderMediaFormat = 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+export type HeaderMedia = { format: HeaderMediaFormat; handle: string; filename: string };
 
 export type TemplateDraft = {
   id?: number;
@@ -29,7 +31,8 @@ export type TemplateDraft = {
   language: string;
   category: TemplateCategoria;
   body: string;
-  header?: string | null;
+  header?: string | null;              // encabezado de TEXTO (si no hay headerMedia)
+  headerMedia?: HeaderMedia | null;    // encabezado MULTIMEDIA (imagen/video/documento)
   footer?: string | null;
   buttons: TemplateButton[];
   params: TemplateParam[];
@@ -43,7 +46,7 @@ export type TemplateDraft = {
 
 type DraftRow = {
   id: number; name: string; language: string; category: TemplateCategoria; body: string;
-  header: string | null; footer: string | null; buttons: unknown; params: unknown;
+  header: string | null; header_media: unknown; footer: string | null; buttons: unknown; params: unknown;
   status: TemplateStatus; meta_template_id: string | null; rejection_reason: string | null;
   validacion: unknown; etapa: string | null; updated_at: string;
 };
@@ -56,6 +59,7 @@ function rowToDraft(r: DraftRow): TemplateDraft {
     category: r.category,
     body: r.body,
     header: r.header,
+    headerMedia: r.header_media && typeof r.header_media === 'object' ? (r.header_media as HeaderMedia) : null,
     footer: r.footer,
     buttons: Array.isArray(r.buttons) ? (r.buttons as TemplateButton[]) : [],
     params: Array.isArray(r.params) ? (r.params as TemplateParam[]) : [],
@@ -96,6 +100,7 @@ export async function upsertDraft(d: TemplateDraft): Promise<TemplateDraft> {
     category: d.category,
     body: d.body ?? '',
     header: d.header?.trim() || null,
+    header_media: d.headerMedia ?? null,
     footer: d.footer?.trim() || null,
     buttons: d.buttons ?? [],
     params: d.params ?? [],
@@ -139,7 +144,12 @@ type GraphComponent = Record<string, unknown>;
 
 function buildComponents(d: TemplateDraft): GraphComponent[] {
   const comps: GraphComponent[] = [];
-  if (d.header && d.header.trim()) comps.push({ type: 'HEADER', format: 'TEXT', text: d.header.trim() });
+  // Encabezado: multimedia (con su handle de muestra) tiene prioridad sobre texto.
+  if (d.headerMedia?.handle) {
+    comps.push({ type: 'HEADER', format: d.headerMedia.format, example: { header_handle: [d.headerMedia.handle] } });
+  } else if (d.header && d.header.trim()) {
+    comps.push({ type: 'HEADER', format: 'TEXT', text: d.header.trim() });
+  }
 
   const body: GraphComponent = { type: 'BODY', text: d.body };
   // Meta cuenta CADA aparición de {{var}} como una posición → el example necesita
@@ -187,6 +197,34 @@ async function fetchConTimeout(url: string, init: RequestInit, ms = 9000): Promi
   const t = setTimeout(() => ctrl.abort(), ms);
   try { return await fetch(url, { ...init, signal: ctrl.signal }); }
   finally { clearTimeout(t); }
+}
+
+// Sube una MUESTRA de media (imagen/video/documento) al resumable-upload de Meta y
+// devuelve el "handle" para usar en el encabezado de la plantilla. Dos pasos:
+// 1) POST /{app_id}/uploads → sesión; 2) POST /{session} con los bytes → { h }.
+export async function uploadMediaSample(
+  bytes: ArrayBuffer, mime: string, filename: string,
+): Promise<{ ok: boolean; handle?: string; error?: string }> {
+  const waba = await getWabaConfig();
+  if (!waba.appId) return { ok: false, error: 'No se pudo obtener el app_id de Meta (para subir la muestra).' };
+  const buf = Buffer.from(bytes);
+  try {
+    const u1 = await fetchConTimeout(
+      `https://graph.facebook.com/${waba.version}/${waba.appId}/uploads?file_name=${encodeURIComponent(filename)}&file_length=${buf.length}&file_type=${encodeURIComponent(mime)}&access_token=${encodeURIComponent(waba.token)}`,
+      { method: 'POST' }, 20000,
+    );
+    const j1 = await u1.json().catch(() => ({}));
+    if (!j1.id) return { ok: false, error: j1?.error?.message || 'No se pudo iniciar la subida.' };
+    const u2 = await fetchConTimeout(
+      `https://graph.facebook.com/${waba.version}/${j1.id}`,
+      { method: 'POST', headers: { Authorization: `OAuth ${waba.token}`, file_offset: '0' }, body: buf }, 30000,
+    );
+    const j2 = await u2.json().catch(() => ({}));
+    if (!j2.h) return { ok: false, error: j2?.error?.message || 'No se pudo subir el archivo.' };
+    return { ok: true, handle: j2.h as string };
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.name === 'AbortError' ? 'La subida tardó demasiado.' : String(e) };
+  }
 }
 
 // Valida que las variables sean nombradas ({{nombre}}, no {{1}}) y con ejemplo, y
@@ -255,6 +293,7 @@ export type MetaTemplate = {
   status: string;         // minúsculas: pending | approved | rejected | paused | disabled
   body: string;
   header: string | null;
+  headerFormat: string | null; // TEXT | IMAGE | VIDEO | DOCUMENT | null
   footer: string | null;
   buttons: TemplateButton[];
   params: string[];       // nombres de variables del body
@@ -291,7 +330,9 @@ export async function listMetaTemplates(): Promise<MetaTemplate[]> {
   return ((j.data ?? []) as GraphTpl[]).map((t) => {
     const comps = t.components ?? [];
     const body = comps.find((c) => c.type === 'BODY');
-    const header = comps.find((c) => c.type === 'HEADER' && (c.format ?? 'TEXT') === 'TEXT');
+    const headerComp = comps.find((c) => c.type === 'HEADER');
+    const headerFormat = headerComp?.format ?? null;
+    const header = headerComp && (headerComp.format ?? 'TEXT') === 'TEXT' ? headerComp : undefined;
     const footer = comps.find((c) => c.type === 'FOOTER');
     const btns = comps.find((c) => c.type === 'BUTTONS');
     const params = (body?.example?.body_text_named_params ?? []).map((p) => p.param_name ?? '').filter(Boolean);
@@ -308,6 +349,7 @@ export async function listMetaTemplates(): Promise<MetaTemplate[]> {
       status: (t.status ?? '').toLowerCase(),
       body: body?.text ?? '',
       header: header?.text ?? null,
+      headerFormat,
       footer: footer?.text ?? null,
       buttons,
       params,

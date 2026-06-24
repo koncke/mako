@@ -493,7 +493,7 @@ export async function sendAttachmentToContact(
 // scope whatsapp_business_management) + el WABA id + el phone_number_id. Los
 // reusamos para hablarle directo a la Graph API (crear/listar plantillas) sin
 // pedirle credenciales nuevas a Mauricio. Se cachea (no cambian entre requests).
-export type WabaConfig = { token: string; wabaId: string; phoneNumberId: string; version: string };
+export type WabaConfig = { token: string; wabaId: string; phoneNumberId: string; version: string; appId: string };
 // Cache con TTL: si Mauricio re-autentica WhatsApp en Chatwoot el token cambia, así
 // que no lo cacheamos para siempre (si no, 401 fantasma hasta reiniciar el proceso).
 let _wabaCache: { value: WabaConfig; expiresAt: number } | null = null;
@@ -511,11 +511,20 @@ export async function getWabaConfig(): Promise<WabaConfig> {
   if (!pc.api_key || !pc.business_account_id) {
     throw new Error('El inbox de Chatwoot no tiene provider_config de WhatsApp Cloud (api_key / business_account_id).');
   }
+  const version = process.env.META_API_VERSION || 'v21.0';
+  // app_id del token (lo necesita el resumable-upload de muestras de media).
+  let appId = '';
+  try {
+    const dt = await fetch(`https://graph.facebook.com/${version}/debug_token?input_token=${encodeURIComponent(pc.api_key)}&access_token=${encodeURIComponent(pc.api_key)}`);
+    const dj = await dt.json();
+    appId = String(dj?.data?.app_id ?? '');
+  } catch { /* sin app_id → la subida de media fallará con mensaje claro */ }
   const value: WabaConfig = {
     token: pc.api_key,
     wabaId: pc.business_account_id,
     phoneNumberId: pc.phone_number_id ?? '',
-    version: process.env.META_API_VERSION || 'v21.0',
+    version,
+    appId,
   };
   _wabaCache = { value, expiresAt: Date.now() + WABA_TTL_MS };
   return value;

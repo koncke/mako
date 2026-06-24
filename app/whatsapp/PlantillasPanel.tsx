@@ -32,15 +32,16 @@ const CATEGORIAS = [
 
 type Button = { type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER'; text: string; url?: string; phone_number?: string };
 type Param = { name: string; example: string };
+type HeaderMedia = { format: 'IMAGE' | 'VIDEO' | 'DOCUMENT'; handle: string; filename: string };
 type Hallazgo = { regla: string; problema: string; correccion: string };
 type Propuesta = { name?: string; category?: 'marketing' | 'utility' | 'authentication'; header?: string; body?: string; footer?: string } | null;
 type Validacion = { riesgo: 'ALTO' | 'MEDIO' | 'BAJO'; categoria_sugerida: string; hallazgos: Hallazgo[]; propuesta: Propuesta };
 type Draft = {
   id?: number; name: string; language: string; category: 'marketing' | 'utility' | 'authentication';
-  body: string; header?: string | null; footer?: string | null; buttons: Button[]; params: Param[];
+  body: string; header?: string | null; headerMedia?: HeaderMedia | null; footer?: string | null; buttons: Button[]; params: Param[];
   status: string; meta_template_id?: string | null; rejection_reason?: string | null; validacion?: Validacion | null; etapa?: string | null;
 };
-type MetaTpl = { name: string; language: string; category: string; status: string; body: string; header: string | null; footer: string | null; buttons: Button[]; params: string[]; rejectedReason: string | null; rejectedMotivo: string | null; metaId: string | null };
+type MetaTpl = { name: string; language: string; category: string; status: string; body: string; header: string | null; headerFormat: string | null; footer: string | null; buttons: Button[]; params: string[]; rejectedReason: string | null; rejectedMotivo: string | null; metaId: string | null };
 type Item = { kind: 'draft'; draft: Draft } | { kind: 'meta'; meta: MetaTpl };
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
@@ -79,6 +80,12 @@ function detectarVars(text: string): string[] {
   return out;
 }
 
+// Reemplaza {{var}} por su valor de ejemplo (para ver la versión "final").
+function renderConEjemplos(text: string, ej: Map<string, string>): string {
+  return (text || '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, n) => ej.get(n) || `{{${n}}}`);
+}
+const MEDIA_LABEL: Record<string, string> = { IMAGE: '🖼️ Imagen', VIDEO: '🎬 Video', DOCUMENT: '📄 Documento', TEXT: 'Texto' };
+
 const inputBase: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
 const labelBase: CSSProperties = { display: 'block', fontSize: 12, color: 'var(--dim)', marginBottom: 5, fontWeight: 600 };
 
@@ -98,6 +105,9 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const [confirmEnviar, setConfirmEnviar] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [borrarMetaName, setBorrarMetaName] = useState<string | null>(null); // confirmar borrar plantilla de Meta
+  const [subiendoMedia, setSubiendoMedia] = useState(false);
+  const [cooldowns, setCooldowns] = useState<Record<string, number>>({}); // name → unix secs hasta cuando NO se puede reenviar (Meta procesa borrado)
+  const [nowSec, setNowSec] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [restaurado, setRestaurado] = useState(false);
@@ -118,6 +128,25 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   }, []);
 
   useEffect(() => { void cargar(); }, [cargar]);
+
+  // Reloj para los cooldowns de reenvío (#1).
+  useEffect(() => {
+    setNowSec(Math.floor(Date.now() / 1000));
+    const iv = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  // Cooldowns: persisten en localStorage (sobreviven recargas) y se purgan al vencer.
+  useEffect(() => {
+    try { const raw = localStorage.getItem('mako-wa-tpl-cooldowns'); if (raw) setCooldowns(JSON.parse(raw)); } catch { /* sin storage */ }
+  }, []);
+  const setCooldown = useCallback((name: string, until: number) => {
+    setCooldowns((prev) => {
+      const next = { ...prev, [name]: until };
+      try { localStorage.setItem('mako-wa-tpl-cooldowns', JSON.stringify(next)); } catch { /* sin storage */ }
+      return next;
+    });
+  }, []);
+  const cooldownRestante = (name: string): number => Math.max(0, (cooldowns[name] ?? 0) - nowSec);
 
   // Restaurar el borrador en curso (texto + recomendaciones) al volver a la tab.
   useEffect(() => {
@@ -156,13 +185,21 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   }), [items, filtro, filtroEtapa]);
 
   const abrirNueva = () => { setSel(null); setEdit(emptyDraft()); setValidacion(null); setValidacionStale(false); setValidacionOpen(true); setError(null); setAviso(null); lastValidatedRef.current = ''; };
+  // Clic en un item = VISTA (read-only). El editor se abre con "Editar".
   const abrirItem = (it: Item) => {
-    setSel(it); setError(null); setAviso(null); setAutocomplete(null); setValidacionOpen(true);
-    if (it.kind === 'draft') {
-      setEdit({ ...it.draft, header: it.draft.header ?? '', footer: it.draft.footer ?? '', buttons: it.draft.buttons ?? [], params: it.draft.params ?? [] });
-      setValidacion(it.draft.validacion ?? null); setValidacionStale(false);
-      lastValidatedRef.current = it.draft.validacion ? firma(it.draft) : '';
-    } else { setEdit(null); setValidacion(null); }
+    setSel(it); setEdit(null); setValidacion(null); setError(null); setAviso(null); setAutocomplete(null);
+  };
+  // Botón "Editar" desde la vista: abre el editor del item seleccionado.
+  const iniciarEdicion = () => {
+    if (!sel) return;
+    setError(null); setAviso(null); setAutocomplete(null); setValidacionOpen(true);
+    if (sel.kind === 'draft') {
+      setEdit({ ...sel.draft, header: sel.draft.header ?? '', headerMedia: sel.draft.headerMedia ?? null, footer: sel.draft.footer ?? '', buttons: sel.draft.buttons ?? [], params: sel.draft.params ?? [] });
+      setValidacion(sel.draft.validacion ?? null); setValidacionStale(false);
+      lastValidatedRef.current = sel.draft.validacion ? firma(sel.draft) : '';
+    } else {
+      editarMeta(sel.meta);
+    }
   };
 
   // Editar una plantilla YA en Meta: la cargamos al editor (con su meta_template_id).
@@ -185,7 +222,6 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     const target = initialSelect.toLowerCase();
     const it = items.find((i) => (i.kind === 'draft' ? i.draft.name : i.meta.name).toLowerCase() === target);
     if (it) { appliedSelectRef.current = initialSelect; abrirItem(it); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSelect, items]);
 
   // Cuando se recarga la lista, sincronizar al editor abierto los campos que maneja
@@ -297,6 +333,24 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     setAutocomplete(null);
   };
 
+  // Tipo de encabezado actual (para el selector): media, texto o ninguno.
+  const headerTipo: string = edit?.headerMedia ? edit.headerMedia.format : (edit?.header ? 'TEXT' : 'NONE');
+  const cambiarHeaderTipo = (tipo: string) => {
+    if (tipo === 'NONE') patchEdit({ header: '', headerMedia: null });
+    else if (tipo === 'TEXT') patchEdit({ headerMedia: null });
+    else patchEdit({ header: '', headerMedia: edit?.headerMedia?.format === tipo ? edit.headerMedia : null });
+  };
+  const subirMedia = async (file: File) => {
+    setSubiendoMedia(true); setError(null);
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const j = await fetch('/api/whatsapp/templates/media', { method: 'POST', body: fd }).then((r) => r.json());
+      if (!j.ok) setError(j.error || 'No se pudo subir el archivo.');
+      else patchEdit({ headerMedia: { format: j.format, handle: j.handle, filename: j.filename }, header: '' });
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setSubiendoMedia(false); }
+  };
+
   const aplicarPropuesta = () => {
     const p = validacion?.propuesta;
     if (!p) return;
@@ -333,6 +387,15 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     finally { setGuardando(false); }
   };
 
+  // Meta bloquea recrear un nombre mientras procesa su borrado (~1 min).
+  const esCooldownError = (msg: string) => /being deleted|try again|less than 1 minute|en menos de un minuto/i.test(msg || '');
+  const manejarErrorEnvio = (msg: string) => {
+    if (edit && esCooldownError(msg)) {
+      setCooldown(edit.name, Math.floor(Date.now() / 1000) + 65);
+      setError('Meta todavía está procesando el borrado anterior de esta plantilla. Esperá ~1 minuto y reintentá (el botón se habilita solo).');
+    } else setError(msg);
+  };
+
   const enviarAMeta = async () => {
     if (!edit) return;
     setEnviando(true); setError(null);
@@ -343,7 +406,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'edit', metaId: edit.meta_template_id, draft: edit }),
         }).then((r) => r.json());
-        if (!j.ok) setError(j.error || 'Meta rechazó los cambios.');
+        if (!j.ok) manejarErrorEnvio(j.error || 'Meta rechazó los cambios.');
         else { setAviso('✓ Cambios enviados. La plantilla vuelve a revisión de Meta.'); setEdit((cur) => (cur ? { ...cur, status: 'pending' } : cur)); await cargar(); }
       } else {
         // Crear: SIEMPRE guardar primero (persiste el ejemplo de cada variable) y enviar.
@@ -352,7 +415,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
         const j = await fetch('/api/whatsapp/templates/drafts', {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit', id }),
         }).then((r) => r.json());
-        if (!j.ok) setError(j.error || 'Meta rechazó la solicitud.');
+        if (!j.ok) manejarErrorEnvio(j.error || 'Meta rechazó la solicitud.');
         else { setAviso('✓ Enviada a Meta. Queda en revisión (suele tardar minutos).'); setEdit((cur) => (cur ? { ...cur, status: 'pending' } : cur)); await cargar(); }
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -361,9 +424,12 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
 
   const borrar = async (id: number) => {
     setError(null);
+    const nombre = (sel?.kind === 'draft' ? sel.draft.name : edit?.name) || '';
+    const eraEnMeta = (sel?.kind === 'draft' ? sel.draft.status : edit?.status) !== 'borrador';
     try {
       const j = await fetch(`/api/whatsapp/templates/drafts?id=${id}`, { method: 'DELETE' }).then((r) => r.json());
       if (!j.ok) { setError(j.error || 'No se pudo borrar.'); return; }
+      if (eraEnMeta && nombre) setCooldown(nombre, Math.floor(Date.now() / 1000) + 65); // Meta procesa el borrado ~1 min
       await cargar(); setEdit(null); setSel(null); setValidacion(null);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
@@ -372,10 +438,11 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const ejecutarBorrarMeta = async () => {
     if (!borrarMetaName) return;
     setError(null);
+    const nombre = borrarMetaName;
     try {
-      const j = await fetch(`/api/whatsapp/templates/drafts?name=${encodeURIComponent(borrarMetaName)}`, { method: 'DELETE' }).then((r) => r.json());
+      const j = await fetch(`/api/whatsapp/templates/drafts?name=${encodeURIComponent(nombre)}`, { method: 'DELETE' }).then((r) => r.json());
       if (!j.ok) setError(j.error || 'No se pudo borrar.');
-      else { await cargar(); setEdit(null); setSel(null); setValidacion(null); }
+      else { setCooldown(nombre, Math.floor(Date.now() / 1000) + 65); await cargar(); setEdit(null); setSel(null); setValidacion(null); }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setBorrarMetaName(null); }
   };
@@ -390,7 +457,8 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const bodyOk = edit ? edit.body.trim().length > 0 : false;
   const paramsCompletos = edit ? edit.params.every((p) => p.example.trim()) : false;
   const puedeGuardar = nombreOk && bodyOk && !guardando;
-  const puedeEnviar = puedeGuardar && paramsCompletos && (
+  const cooldownActivo = edit ? cooldownRestante(edit.name) : 0; // segundos a esperar (Meta procesa borrado)
+  const puedeEnviar = puedeGuardar && paramsCompletos && cooldownActivo === 0 && (
     esEdicionMeta ? (edit?.status === 'approved' || edit?.status === 'rejected')
                   : (edit?.status === 'borrador' || edit?.status === 'rejected')
   );
@@ -435,8 +503,8 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
 
       {/* DETALLE / EDITOR */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-        {!edit && sel?.kind === 'meta' ? (
-          <MetaView meta={sel.meta} onEditar={() => editarMeta(sel.meta)} onEliminar={() => setBorrarMetaName(sel.meta.name)} />
+        {!edit && sel ? (
+          <TemplatePreview item={sel} onEditar={iniciarEdicion} onEliminar={() => { const n = sel.kind === 'draft' ? sel.draft.name : sel.meta.name; const esBorrador = sel.kind === 'draft' && sel.draft.status === 'borrador'; if (esBorrador && sel.draft.id) void borrar(sel.draft.id); else setBorrarMetaName(n); }} />
         ) : !edit ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, padding: 20, textAlign: 'center' }}>
             Elegí una plantilla o creá una nueva para redactarla, validarla con MaKo y enviarla a aprobar a Meta.
@@ -463,8 +531,25 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
             </div>
 
             <div>
-              <label style={labelBase}>Encabezado (opcional, máx 60, texto fijo sin variables)</label>
-              <input value={edit.header ?? ''} maxLength={60} onChange={(e) => patchEdit({ header: e.target.value })} placeholder="Texto de encabezado" style={inputBase} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+                <label style={{ ...labelBase, margin: 0 }}>Encabezado (opcional)</label>
+                <Dropdown value={headerTipo} onChange={cambiarHeaderTipo} width={150} ariaLabel="Tipo de encabezado" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }}
+                  options={[{ value: 'NONE', label: 'Ninguno' }, { value: 'TEXT', label: 'Texto' }, { value: 'IMAGE', label: '🖼️ Imagen' }, { value: 'VIDEO', label: '🎬 Video' }, { value: 'DOCUMENT', label: '📄 Documento' }]} />
+              </div>
+              {headerTipo === 'TEXT' && (
+                <input value={edit.header ?? ''} maxLength={60} onChange={(e) => patchEdit({ header: e.target.value })} placeholder="Texto de encabezado (máx 60, sin variables)" style={inputBase} />
+              )}
+              {(headerTipo === 'IMAGE' || headerTipo === 'VIDEO' || headerTipo === 'DOCUMENT') && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  {edit.headerMedia
+                    ? <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>✓ {MEDIA_LABEL[edit.headerMedia.format]} cargada: <code style={{ fontFamily: MONO }}>{edit.headerMedia.filename}</code></span>
+                    : <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Subí una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar se reemplaza por el archivo real.</span>}
+                  <label style={{ ...btnGhost, cursor: subiendoMedia ? 'default' : 'pointer', opacity: subiendoMedia ? 0.6 : 1 }}>
+                    {subiendoMedia ? 'Subiendo…' : (edit.headerMedia ? 'Cambiar archivo' : 'Subir archivo')}
+                    <input type="file" hidden disabled={subiendoMedia} accept={headerTipo === 'IMAGE' ? 'image/jpeg,image/png' : headerTipo === 'VIDEO' ? 'video/mp4' : 'application/pdf'} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirMedia(f); e.target.value = ''; }} />
+                  </label>
+                </div>
+              )}
             </div>
 
             <div style={{ position: 'relative' }}>
@@ -528,11 +613,12 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', paddingTop: 4 }}>
               <button onClick={() => { setValidacionOpen(true); void validar(edit); }} disabled={validando || !bodyOk} style={{ ...btnGhost, opacity: validando || !bodyOk ? 0.6 : 1 }}>{validando ? 'MaKo revisando…' : '✨ Validar ahora'}</button>
               {!esEdicionMeta && <button onClick={() => void guardar()} disabled={!puedeGuardar} style={{ ...btnGhost, opacity: !puedeGuardar ? 0.6 : 1 }}>{guardando ? 'Guardando…' : 'Guardar borrador'}</button>}
-              <button onClick={() => setConfirmEnviar(true)} disabled={!puedeEnviar} title={!paramsCompletos ? 'Completá los ejemplos de las variables' : ''} style={{ ...btnPrimary, marginLeft: 'auto', opacity: !puedeEnviar ? 0.5 : 1 }}>{esEdicionMeta ? 'Guardar cambios en Meta →' : 'Enviar a Meta a aprobar →'}</button>
+              <button onClick={() => setConfirmEnviar(true)} disabled={!puedeEnviar} title={cooldownActivo > 0 ? `Meta procesa el borrado: esperá ${cooldownActivo}s` : (!paramsCompletos ? 'Completá los ejemplos de las variables' : '')} style={{ ...btnPrimary, marginLeft: 'auto', opacity: !puedeEnviar ? 0.5 : 1 }}>{cooldownActivo > 0 ? `Esperá ${cooldownActivo}s…` : (esEdicionMeta ? 'Guardar cambios en Meta →' : 'Enviar a Meta a aprobar →')}</button>
               {esEdicionMeta
                 ? <button onClick={() => setBorrarMetaName(edit.name)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Eliminar de Meta</button>
                 : edit.id && <button onClick={() => void borrar(edit.id!)} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Borrar</button>}
             </div>
+            {cooldownActivo > 0 && <div style={{ fontSize: 11.5, color: 'var(--warn)' }}>Meta está procesando el borrado de <code style={{ fontFamily: MONO }}>{edit.name}</code>. Vas a poder reenviar en {cooldownActivo}s.</div>}
             {esEdicionMeta && <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>Estás editando una plantilla que ya vive en Meta. Al guardar cambios vuelve a revisión (el nombre y el idioma no se pueden cambiar).</div>}
             {!paramsCompletos && edit.params.length > 0 && <div style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'right' }}>Para enviar a Meta, completá los ejemplos de cada variable.</div>}
           </div>
@@ -616,27 +702,54 @@ function ValidacionCard({ v, validando, stale, onAplicar, onClose }: { v: Valida
   );
 }
 
-function MetaView({ meta, onEditar, onEliminar }: { meta: MetaTpl; onEditar: () => void; onEliminar: () => void }) {
-  const chip = statusChip(meta.status.toLowerCase());
+// Vista read-only de una plantilla (borrador o de Meta), mostrando la versión
+// FINAL (variables reemplazadas por sus ejemplos). El editor se abre con "Editar".
+function TemplatePreview({ item, onEditar, onEliminar }: { item: Item; onEditar: () => void; onEliminar: () => void }) {
+  const isDraft = item.kind === 'draft';
+  const name = isDraft ? item.draft.name : item.meta.name;
+  const status = (isDraft ? item.draft.status : item.meta.status).toLowerCase();
+  const category = isDraft ? item.draft.category : item.meta.category;
+  const language = isDraft ? item.draft.language : item.meta.language;
+  const body = isDraft ? item.draft.body : item.meta.body;
+  const headerText = isDraft ? (item.draft.headerMedia ? null : item.draft.header) : (item.meta.headerFormat === 'TEXT' ? item.meta.header : null);
+  const headerFmt = isDraft ? (item.draft.headerMedia?.format ?? null) : (item.meta.headerFormat && item.meta.headerFormat !== 'TEXT' ? item.meta.headerFormat : null);
+  const headerFile = isDraft ? item.draft.headerMedia?.filename : null;
+  const footer = isDraft ? item.draft.footer : item.meta.footer;
+  const buttons = isDraft ? item.draft.buttons : item.meta.buttons;
+  const ejemplos = new Map<string, string>();
+  if (isDraft) for (const p of item.draft.params) ejemplos.set(p.name, p.example || ejemploDe(p.name));
+  else for (const n of item.meta.params) ejemplos.set(n, ejemploDe(n));
+  const rejected = status === 'rejected' ? (isDraft ? explicarRechazo(item.draft.rejection_reason) : item.meta.rejectedMotivo) : null;
+  const chip = statusChip(status);
   const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 24, fontFamily: SANS }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{meta.name}</span>
+        <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{name}</span>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: chip.color, background: chip.bg }}>{chip.label}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <button onClick={onEditar} style={{ ...btnGhost, background: 'var(--ink)', color: 'var(--on-sidebar, #F3F0E7)', border: 'none' }}>✎ Editar</button>
           <button onClick={onEliminar} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Eliminar</button>
         </div>
       </div>
-      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 16, fontFamily: MONO }}>{meta.category} · {meta.language}{meta.params.length ? ` · vars: ${meta.params.join(', ')}` : ''}</div>
-      {meta.status === 'rejected' && meta.rejectedMotivo && (
-        <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13, marginBottom: 14 }}><strong>Meta la rechazó.</strong> {meta.rejectedMotivo}</div>
+      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 16, fontFamily: MONO }}>{category} · {language}{ejemplos.size ? ` · vars: ${[...ejemplos.keys()].join(', ')}` : ''}</div>
+      {rejected && (
+        <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13, marginBottom: 14 }}><strong>Meta la rechazó.</strong> {rejected}</div>
       )}
-      {meta.header && <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{meta.header}</div>}
-      <div style={{ padding: '14px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{meta.body || '—'}</div>
-      {meta.footer && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{meta.footer}</div>}
-      <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.5 }}>Editar reenvía la plantilla a revisión de Meta. El nombre y el idioma no se pueden cambiar.</div>
+      {/* Vista previa estilo WhatsApp con la versión final (ejemplos sustituidos) */}
+      <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Vista previa (con datos de ejemplo)</div>
+      <div style={{ maxWidth: 460, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--wa-bubble, var(--surface-2))' }}>
+        {headerFmt && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 120, borderRadius: 8, background: 'var(--surface)', border: '1px dashed var(--border-strong)', color: 'var(--dim)', fontSize: 13, marginBottom: 8 }}>{MEDIA_LABEL[headerFmt] ?? headerFmt}{headerFile ? ` · ${headerFile}` : ''}</div>}
+        {headerText && <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{renderConEjemplos(headerText, ejemplos)}</div>}
+        <div style={{ color: 'var(--ink)', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{renderConEjemplos(body, ejemplos) || '—'}</div>
+        {footer && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{footer}</div>}
+        {buttons.length > 0 && (
+          <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {buttons.map((b, i) => <div key={i} style={{ textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{b.type === 'URL' ? '🔗 ' : b.type === 'PHONE_NUMBER' ? '📞 ' : '↩ '}{b.text}</div>)}
+          </div>
+        )}
+      </div>
+      {status !== 'borrador' && <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 14, lineHeight: 1.5 }}>Editar reenvía la plantilla a revisión de Meta. El nombre y el idioma no se pueden cambiar.</div>}
     </div>
   );
 }
