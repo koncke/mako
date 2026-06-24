@@ -352,7 +352,9 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const cambiarHeaderTipo = (tipo: string) => {
     if (tipo === 'NONE') patchEdit({ header: '', headerMedia: null });
     else if (tipo === 'TEXT') patchEdit({ headerMedia: null });
-    else patchEdit({ header: '', headerMedia: edit?.headerMedia?.format === tipo ? edit.headerMedia : null });
+    // Media: seteamos un placeholder (handle vacío) para que el tipo "quede" elegido
+    // y aparezca el botón de subir; el envío exige el handle (headerMediaOk).
+    else patchEdit({ header: '', headerMedia: edit?.headerMedia?.format === tipo ? edit.headerMedia : { format: tipo as HeaderMedia['format'], handle: '', filename: '' } });
   };
   const subirMedia = async (file: File) => {
     setSubiendoMedia(true); setError(null);
@@ -568,9 +570,7 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   {edit.headerMedia?.handle
                     ? <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>✓ {MEDIA_LABEL[edit.headerMedia.format]} cargada: <code style={{ fontFamily: MONO }}>{edit.headerMedia.filename}</code></span>
-                    : edit.headerMedia // formato elegido pero sin archivo (ej. al editar una plantilla de Meta)
-                      ? <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600 }}>Subí (o re-subí) el archivo: Meta no conserva la muestra anterior.</span>
-                      : <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Subí una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar se reemplaza por el archivo real.</span>}
+                    : <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 600 }}>↓ Subí una muestra ({headerTipo === 'IMAGE' ? 'jpg/png' : headerTipo === 'VIDEO' ? 'mp4' : 'pdf'}). Meta la usa para revisar; al enviar de verdad se reemplaza por el archivo real.</span>}
                   <label style={{ ...btnGhost, cursor: subiendoMedia ? 'default' : 'pointer', opacity: subiendoMedia ? 0.6 : 1 }}>
                     {subiendoMedia ? 'Subiendo…' : (edit.headerMedia?.handle ? 'Cambiar archivo' : 'Subir archivo')}
                     <input type="file" hidden disabled={subiendoMedia} accept={headerTipo === 'IMAGE' ? 'image/jpeg,image/png' : headerTipo === 'VIDEO' ? 'video/mp4' : 'application/pdf'} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirMedia(f); e.target.value = ''; }} />

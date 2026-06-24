@@ -136,6 +136,7 @@ export async function sendWhatsappTemplate(params: {
 }): Promise<SendResult> {
   try {
     const c = cfg();
+    await ensureTemplateSynced(c, params.template.name);
     const contactId = await buscarOCrearContacto(c, params.phone, params.name);
     const conversationId = await crearOReusarConversacion(c, contactId);
     await cwFetch(
@@ -572,6 +573,18 @@ export async function getApprovedTemplates(): Promise<TemplateInfo[]> {
     .filter((t) => t.name);
 }
 
+// Las plantillas creadas vía Graph API tardan en sincronizarse a Chatwoot, y sin
+// eso Chatwoot arma mal los parámetros al enviar (error 132000). Forzamos el sync
+// si la plantilla no está en su lista todavía.
+async function ensureTemplateSynced(c: Cfg, name: string): Promise<void> {
+  try {
+    const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
+    if ((r.message_templates ?? []).some((t) => t.name === name)) return; // ya está sincronizada
+    await cwFetch(`${c.apiBase}/inboxes/${c.inbox}/sync_templates`, { method: 'POST' }, c.token);
+    await new Promise((res) => setTimeout(res, 4000)); // darle tiempo al sync de Chatwoot
+  } catch { /* si falla, intentamos enviar igual */ }
+}
+
 // Manda un template aprobado al contacto (reusa su conversación). Sirve fuera
 // de la ventana de 24h. `content` es el texto renderizado para mostrar en el hilo.
 export async function sendTemplateToContact(
@@ -580,6 +593,7 @@ export async function sendTemplateToContact(
 ): Promise<SendResult> {
   try {
     const c = cfg();
+    await ensureTemplateSynced(c, tpl.name);
     const conversationId = await crearOReusarConversacion(c, contactId);
     await cwFetch(
       `${c.apiBase}/conversations/${conversationId}/messages`,
