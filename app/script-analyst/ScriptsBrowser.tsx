@@ -301,11 +301,34 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
 
   // ── cuadrante (SVG) ──
   function quadMap(items: ScriptView[], mode: 'ads' | 'angle', selId: string | null): ReactNode {
-    const W = 560, H = 412, padL = 46, padR = 16, padT = 22, padB = 42;
-    const x0 = 8, x1 = 32, y0 = 10, y1 = 32;
+    const W = 560, H = 412, padL = 48, padR = 26, padT = 30, padB = 44;
+    // Ejes que se ajustan a los datos reales (no a rangos fijos del mock) → los
+    // puntos se reparten y no se desbordan. Las divisorias van en la MEDIANA de
+    // tus guiones: comparación RELATIVA (cada guion contra el resto), honesta y
+    // que reparte los puntos en los 4 cuadrantes. El veredicto de la tabla sigue
+    // usando umbrales absolutos (HOOK_MID/HOLD_MID), que es otra cosa.
+    const median = (arr: number[]): number => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+    const fit = (vals: number[], minSpan: number): [number, number] => {
+      if (!vals.length) return [0, minSpan];
+      let lo = Math.min(...vals), hi = Math.max(...vals);
+      if (hi - lo < minSpan) { const c = (lo + hi) / 2; lo = c - minSpan / 2; hi = c + minSpan / 2; }
+      const pad = (hi - lo) * 0.16; lo -= pad; hi += pad;
+      if (lo < 0) lo = 0;
+      return [lo, hi];
+    };
+    const hookVals = items.map((s) => s.hookRate), holdVals = items.map((s) => hold(s));
+    const [x0, x1] = fit(hookVals, 8), [y0, y1] = fit(holdVals, 8);
+    const xMed = median(hookVals), yMed = median(holdVals);
     const xOf = (v: number) => padL + ((Math.min(Math.max(v, x0), x1) - x0) / (x1 - x0)) * (W - padL - padR);
     const yOf = (v: number) => padT + (1 - (Math.min(Math.max(v, y0), y1) - y0) / (y1 - y0)) * (H - padT - padB);
-    const L = padL, R = W - padR, T = padT, B = H - padB, xMid = xOf(HOOK_MID), yMid = yOf(HOLD_MID);
+    const L = padL, R = W - padR, T = padT, B = H - padB, xMid = xOf(xMed), yMid = yOf(yMed);
+    // Centros confinados al área del gráfico (incluyendo el radio) → nunca se salen.
+    const cxOf = (v: number, r: number) => Math.min(R - r - 3, Math.max(L + r + 3, xOf(v)));
+    const cyOf = (v: number, r: number) => Math.min(B - r - 3, Math.max(T + r + 13, yOf(v)));
     const els: ReactNode[] = [];
     els.push(h('rect', { key: 'tr', x: xMid, y: T, width: R - xMid, height: yMid - T, fill: 'rgba(28,138,84,.09)' }));
     els.push(h('rect', { key: 'tl', x: L, y: T, width: xMid - L, height: yMid - T, fill: 'rgba(47,109,219,.06)' }));
@@ -315,12 +338,14 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
       els.push(h('text', { key: `${k}a`, x, y, textAnchor: an, fontSize: 11.5, fontWeight: 700, fill: c, fontFamily: 'Geist Mono, monospace' }, t1));
       els.push(h('text', { key: `${k}b`, x, y: y + 14, textAnchor: an, fontSize: 10, fill: '#A39E91', fontFamily: 'Geist, sans-serif' }, t2));
     };
-    ql('q1', R - 10, T + 16, 'end', '#1C8A54', 'ESCALAR', 'paran y se quedan');
-    ql('q2', L + 10, T + 16, 'start', '#2F6DDB', 'MEJORAR GANCHO', 'entran pocos');
-    ql('q3', R - 10, B - 20, 'end', '#9A6A09', 'REESCRIBIR CUERPO', 'paran y se van');
-    ql('q4', L + 10, B - 20, 'start', '#CF4E29', 'REPENSAR', 'ni frenan ni retienen');
+    ql('q1', R - 10, T + 16, 'end', '#1C8A54', 'ESCALAR', 'mejores en ambas');
+    ql('q2', L + 10, T + 16, 'start', '#2F6DDB', 'MEJORAR GANCHO', 'retienen, gancho flojo');
+    ql('q3', R - 10, B - 20, 'end', '#9A6A09', 'REESCRIBIR CUERPO', 'frenan, no retienen');
+    ql('q4', L + 10, B - 20, 'start', '#CF4E29', 'REPENSAR', 'flojos en ambas');
     els.push(h('line', { key: 'cx', x1: xMid, y1: T, x2: xMid, y2: B, stroke: '#D8D3C6', strokeDasharray: '4 4' }));
     els.push(h('line', { key: 'cy', x1: L, y1: yMid, x2: R, y2: yMid, stroke: '#D8D3C6', strokeDasharray: '4 4' }));
+    els.push(h('text', { key: 'mx', x: Math.min(R - 24, Math.max(L + 24, xMid)), y: T - 10, textAnchor: 'middle', fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `med ${Math.round(xMed)}%`));
+    els.push(h('text', { key: 'my', x: L - 6, y: yMid - 4, textAnchor: 'end', fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `med ${Math.round(yMed)}%`));
     els.push(h('line', { key: 'ax', x1: L, y1: B, x2: R, y2: B, stroke: '#E7E3D9' }));
     els.push(h('line', { key: 'ay', x1: L, y1: T, x2: L, y2: B, stroke: '#E7E3D9' }));
     els.push(h('text', { key: 'xt', x: (L + R) / 2, y: H - 7, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#6B675C', fontFamily: 'Geist Mono, monospace' }, 'HOOK RATE → ¿frena el scroll?'));
@@ -332,18 +357,21 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
         const g = byA[k], sp = g.reduce((s, x) => s + x.spend, 0);
         const mh = sp > 0 ? g.reduce((s, x) => s + x.hookRate * x.spend, 0) / sp : 0;
         const mo = sp > 0 ? g.reduce((s, x) => s + hold(x) * x.spend, 0) / sp : 0;
-        const cx = xOf(mh), cy = yOf(mo), r = 13 + Math.sqrt(sp) / 9, c = angleInfo(k).c;
+        const r = Math.min(38, 13 + Math.sqrt(sp) / 9), c = angleInfo(k).c;
+        const cx = cxOf(mh, r), cy = cyOf(mo, r);
         els.push(h('circle', { key: `c${k}`, cx, cy, r, fill: rgba(c, .74), stroke: '#fff', strokeWidth: 2, style: { cursor: 'pointer' }, onClick: () => { setAngle(k); setMapMode('ads'); } }));
         els.push(h('text', { key: `n${k}`, x: cx, y: cy + 4, textAnchor: 'middle', fontSize: 12, fontWeight: 700, fill: '#fff', fontFamily: 'Geist, sans-serif', style: { pointerEvents: 'none' } }, g.length));
         els.push(h('text', { key: `l${k}`, x: cx, y: cy - r - 5, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#1A1813', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F2F0EA', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, angleInfo(k).label));
       });
     } else {
       items.forEach((s) => {
-        const cx = xOf(s.hookRate), cy = yOf(hold(s)), r = 7 + (Math.min(s.spend, 2100) / 2100) * 15, c = angleInfo(s.angle).c, on = s.id === selId;
+        const c = angleInfo(s.angle).c, on = s.id === selId;
+        const r = 7 + (Math.min(s.spend, 2100) / 2100) * 15;
+        const cx = cxOf(s.hookRate, on ? r + 4 : r), cy = cyOf(hold(s), on ? r + 4 : r);
         const conf = confidence(s); const op = conf === 'alta' ? .82 : conf === 'media' ? .5 : .26; const low = conf === 'baja';
         if (on) els.push(h('circle', { key: `o${s.id}`, cx, cy, r: r + 4, fill: 'none', stroke: '#1A1813', strokeWidth: 1.5 }));
         els.push(h('circle', { key: `c${s.id}`, cx, cy, r, fill: rgba(c, op), stroke: low ? '#A39E91' : '#fff', strokeWidth: 1.5, strokeDasharray: low ? '3 2' : undefined, style: { cursor: 'pointer' }, onClick: () => setOpenAd(s.id) }));
-        els.push(h('text', { key: `l${s.id}`, x: cx, y: cy - r - 5, textAnchor: 'middle', fontSize: 10, fontWeight: 600, fill: low ? '#A39E91' : '#1A1813', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F2F0EA', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, s.short));
+        els.push(h('text', { key: `l${s.id}`, x: cx, y: cy - (on ? r + 4 : r) - 5, textAnchor: 'middle', fontSize: 10, fontWeight: 600, fill: low ? '#A39E91' : '#1A1813', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F2F0EA', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, s.short));
       });
     }
     return h('svg', { viewBox: `0 0 ${W} ${H}`, style: { width: '100%', height: 'auto', display: 'block' } }, ...els);
@@ -374,16 +402,16 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
         <SyncBar syncing={syncing} syncMsg={syncMsg} lastSync={lastSync} counts={counts} onSync={sincronizar} />
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '48px 32px', textAlign: 'center' }}>
           <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
-            {errorMsg ? 'Sin datos disponibles' : 'Todavía no hay guiones analizados en este período'}
+            {errorMsg ? 'Sin datos disponibles' : 'Todavía no hay guiones analizados'}
           </div>
           <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, maxWidth: 560, margin: '0 auto' }}>
             {errorMsg
               ? 'No se pudo leer la base (en local faltan las claves de Supabase). En producción, sincronizá para analizar los guiones de los video ads con transcript.'
-              : 'Sincronizá para que MaKo lea los guiones de los video ads (los que ya tienen transcript), los clasifique y arme los patrones. Aparecen acá los guiones con gasto en el período elegido.'}
+              : 'Sincronizá para que MaKo lea los guiones de los video ads (los que ya tienen transcript), los clasifique y arme los patrones. Aparecen acá todos los guiones con gasto que ya tienen transcript.'}
           </div>
           {!errorMsg && counts.sinTranscript > 0 && (
             <div style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)', marginTop: 16 }}>
-              {counts.sinTranscript} anuncios con gasto sin transcript todavía · {counts.analizadas} guiones analizados en total
+              {counts.sinTranscript} anuncios de Meta sin analizar todavía · {counts.analizadas} guiones analizados en total
             </div>
           )}
           {errorMsg && <div style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--dim)', marginTop: 16, wordBreak: 'break-word' }}>{errorMsg}</div>}
@@ -437,7 +465,7 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
             </div>
           </button>
         ) : (
-          <div style={{ fontSize: 13.5, color: 'var(--faint)', margin: '16px 0' }}>Faltan agendas en el período para sacar el patrón de dashboard. Sincronizá o ampliá el rango de fechas.</div>
+          <div style={{ fontSize: 13.5, color: 'var(--faint)', margin: '16px 0' }}>Faltan agendas para sacar el patrón de dashboard. Sincronizá para traer más datos.</div>
         )}
 
         {P.cards.length > 0 && (
@@ -510,8 +538,8 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
             ))}
             <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5, borderTop: '1px solid var(--border)', paddingTop: 11, marginTop: 3 }}>
               {mapMode === 'ads'
-                ? 'Cada punto es un anuncio. El tamaño = spend; las burbujas translúcidas con borde punteado tienen poca muestra — no te fíes todavía. Con cientos de ads, cambiá a “Por ángulo”.'
-                : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Tocala para ver sus guiones.'}
+                ? 'Cada punto es un anuncio; el tamaño = spend y las translúcidas de borde punteado tienen poca muestra. Los ejes se ajustan a tus datos y las líneas son la MEDIANA de tus guiones (comparación relativa: cada guion contra el resto), por eso se reparten en los cuadrantes. El veredicto de la tabla usa umbrales fijos.'
+                : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Las líneas son la mediana de tus guiones. Tocala para ver sus guiones.'}
             </div>
           </div>
         </div>
@@ -624,7 +652,7 @@ function SyncBar({ syncing, syncMsg, lastSync, counts, onSync }: { syncing: bool
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
       <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>
-        {counts.analizadas} guiones analizados{counts.sinTranscript > 0 ? ` · ${counts.sinTranscript} con gasto sin transcript` : ''}{counts.errores > 0 ? ` · ${counts.errores} con error` : ''}
+        {counts.analizadas} guiones analizados{counts.sinTranscript > 0 ? ` · ${counts.sinTranscript} sin analizar` : ''}{counts.errores > 0 ? ` · ${counts.errores} con error` : ''}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {syncMsg ? <span style={{ fontSize: 11.5, color: 'var(--dim)', maxWidth: 360, textAlign: 'right' }}>{syncMsg}</span>

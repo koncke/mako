@@ -7,8 +7,9 @@
 //     en bloques (beats) y un diagnóstico estructural + un gancho a probar.
 //   • Lo CUANTITATIVO (vivo, nunca se guarda): spend, hook rate, retención por
 //     cuartiles de Meta, frecuencia, agendas (Meta) y cierres (CRM) — se calcula
-//     en cada render cruzando getSenalesRecon × marketing_metrics_daily, así las
-//     métricas no quedan stale.
+//     en cada render agregando marketing_metrics_daily por ad_id (getScriptMetrics,
+//     paginado y de todo el histórico) + cierres del CRM, así las métricas no
+//     quedan stale ni dependen de un rango de fechas.
 //
 // La retención NO viene como curva por segundo (Meta no la da por API en este
 // proyecto). Se reconstruye desde los CUARTILES (video_p25/p50/p75/p100 sobre los
@@ -26,7 +27,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { chatClaude } from './anthropic';
-import { getSenalesRecon, type SenalRecon } from './queries';
+import { TIPO_DE_CAMBIO_USD_MXN } from './config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Vocabularios controlados (deben coincidir con los del diseño / la vista)
@@ -119,7 +120,7 @@ export type ScriptAnalystView = {
     analizadas: number;    // total con análisis completo
     pendientes: number;    // con transcript pendiente / sin analizar
     descartadas: number;   // sin transcript / tipo imagen
-    sinTranscript: number; // ads con señal en el período pero sin transcript
+    sinTranscript: number; // ads de Meta con métricas pero sin fila en script_analyses (aún sin analizar)
     errores: number;
     total: number;         // filas en script_analyses
   };
@@ -537,45 +538,112 @@ export async function analyzeOne(adId: string): Promise<ScriptStatus> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Métricas de retención por cuartiles (vivo, desde marketing_metrics_daily)
+// Métricas vivas por anuncio — TODO el histórico, restringido a los ad_ids
+// analizados (acotado) y paginado → no depende de un rango de fechas ni trunca.
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function getRetentionByAd(adIds: string[], desde: string, hasta: string): Promise<Map<string, RetSums>> {
-  const map = new Map<string, RetSums>();
+type AdMetrics = {
+  adName: string | null; lastFecha: string | null;
+  spendUsd: number; impressions: number; leads: number; agendas: number; linkClicks: number;
+  v3s: number; thru: number; p25: number; p50: number; p75: number; p100: number;
+  freqSum: number; freqN: number; dias: Set<string>;
+};
+
+/** Agrega marketing_metrics_daily (todo el histórico) para los ad_ids dados. */
+async function getScriptMetrics(adIds: string[]): Promise<Map<string, AdMetrics>> {
+  const map = new Map<string, AdMetrics>();
   if (!adIds.length) return map;
   const supabase = getSupabaseServer();
   const ids = new Set(adIds);
-  for (let i = 0; i < adIds.length; i += 300) {
-    const chunk = adIds.slice(i, i + 300);
+  for (let i = 0; i < adIds.length; i += 200) {
+    const chunk = adIds.slice(i, i + 200);
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabase
         .from('marketing_metrics_daily')
-        .select('ad_id, video_3s_views, video_thruplay, video_p25, video_p50, video_p75, video_p100')
+        .select('ad_id, ad_name, fecha, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency, video_p25, video_p50, video_p75, video_p100')
         .eq('plataforma', 'meta')
         .in('ad_id', chunk)
-        .gte('fecha', desde)
-        .lte('fecha', hasta)
         .order('ad_id', { ascending: true })
         .order('fecha', { ascending: true })
         .range(from, from + PAGE - 1);
-      if (error) throw new Error(`Error leyendo retención: ${error.message}`);
-      const rows = (data ?? []) as Array<Record<string, number | string | null>>;
+      if (error) throw new Error(`Error leyendo métricas de anuncios: ${error.message}`);
+      const rows = (data ?? []) as Array<Record<string, string | number | null>>;
       for (const row of rows) {
         const id = String(row.ad_id ?? '');
         if (!ids.has(id)) continue;
-        const acc = map.get(id) ?? { v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0 };
-        acc.v3s += Number(row.video_3s_views ?? 0);
-        acc.thru += Number(row.video_thruplay ?? 0);
-        acc.p25 += Number(row.video_p25 ?? 0);
-        acc.p50 += Number(row.video_p50 ?? 0);
-        acc.p75 += Number(row.video_p75 ?? 0);
-        acc.p100 += Number(row.video_p100 ?? 0);
-        map.set(id, acc);
+        const m = map.get(id) ?? { adName: null, lastFecha: null, spendUsd: 0, impressions: 0, leads: 0, agendas: 0, linkClicks: 0, v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0, freqSum: 0, freqN: 0, dias: new Set<string>() };
+        const spendMxn = Number(row.spend ?? 0);
+        m.spendUsd += spendMxn / TIPO_DE_CAMBIO_USD_MXN;
+        m.impressions += Number(row.impressions ?? 0);
+        m.leads += Number(row.leads_count ?? 0);
+        m.agendas += Number(row.agendas_meta ?? 0);
+        m.linkClicks += Number(row.link_clicks ?? 0);
+        m.v3s += Number(row.video_3s_views ?? 0);
+        m.thru += Number(row.video_thruplay ?? 0);
+        m.p25 += Number(row.video_p25 ?? 0);
+        m.p50 += Number(row.video_p50 ?? 0);
+        m.p75 += Number(row.video_p75 ?? 0);
+        m.p100 += Number(row.video_p100 ?? 0);
+        const f = row.frequency == null ? null : Number(row.frequency);
+        if (f != null && Number.isFinite(f) && f > 0) { m.freqSum += f; m.freqN++; } // paridad con getSenalesRecon: excluye 0/null
+        const fecha = String(row.fecha ?? '');
+        if (spendMxn > 0 && fecha) m.dias.add(fecha);
+        if (fecha && (!m.lastFecha || fecha > m.lastFecha)) { m.lastFecha = fecha; if (row.ad_name) m.adName = String(row.ad_name); }
+        map.set(id, m);
       }
       if (rows.length < PAGE) break;
     }
   }
   return map;
+}
+
+/** Cierres por anuncio: leads con estado 'ganado' atribuidos a cada ad_id. */
+async function getCierresByAd(adIds: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (!adIds.length) return map;
+  const supabase = getSupabaseServer();
+  for (let i = 0; i < adIds.length; i += 200) {
+    const chunk = adIds.slice(i, i + 200);
+    // Paginado con orden estable (id, único) — hay 1 fila por lead 'ganado' y
+    // crecen con el tiempo: sin paginar, PostgREST truncaría a 1000 y subcontaría.
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('meta_ad_id')
+        .in('meta_ad_id', chunk)
+        .eq('estado_lead', 'ganado')
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`Error leyendo cierres: ${error.message}`);
+      const rows = (data ?? []) as Array<{ meta_ad_id: string | null }>;
+      for (const r of rows) {
+        const id = String(r.meta_ad_id ?? '');
+        if (id) map.set(id, (map.get(id) ?? 0) + 1);
+      }
+      if (rows.length < PAGE) break;
+    }
+  }
+  return map;
+}
+
+/** Todos los ad_id de Meta con métricas (para el contador de cobertura). */
+async function getAllMetaAdIds(): Promise<Set<string>> {
+  const supabase = getSupabaseServer();
+  const set = new Set<string>();
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('marketing_metrics_daily')
+      .select('ad_id')
+      .eq('plataforma', 'meta')
+      .not('ad_id', 'is', null)
+      .order('ad_id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Error leyendo ad_ids: ${error.message}`);
+    const rows = (data ?? []) as Array<{ ad_id: string | null }>;
+    for (const r of rows) if (r.ad_id) set.add(r.ad_id);
+    if (rows.length < PAGE) break;
+  }
+  return set;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -593,86 +661,66 @@ type StoredView = {
   dur: number | null; status: ScriptStatus; updated_at: string;
 };
 
-function tieneSenal(s: SenalRecon): boolean {
-  return s.leads > 0 || s.agendas > 0 || s.spend_usd > 0;
-}
-
-/** Datos para /script-analyst: guiones analizados con métricas vivas del período. */
-export async function getScriptAnalystView(desde: string, hasta: string): Promise<ScriptAnalystView> {
+/** Datos para /script-analyst: TODOS los guiones analizados con sus métricas
+ *  vivas de todo el histórico (sin filtro de fecha). */
+export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   const supabase = getSupabaseServer();
-  const [senalesRaw, analysesRes] = await Promise.all([
-    getSenalesRecon(desde, hasta),
-    supabase.from('script_analyses').select(VIEW_COLS),
+  const { data: rowsData, error } = await supabase.from('script_analyses').select(VIEW_COLS);
+  if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
+
+  const rows = (rowsData ?? []) as unknown as StoredView[];
+  const analizadas = rows.filter((r) => r.status === 'analizada' && (r.beats?.length ?? 0) > 0);
+  const ids = analizadas.map((r) => r.ad_id);
+
+  const [metrics, cierresByAd, allAdIds] = await Promise.all([
+    getScriptMetrics(ids),
+    getCierresByAd(ids),
+    getAllMetaAdIds(),
   ]);
-  if (analysesRes.error) throw new Error(`Error leyendo script_analyses: ${analysesRes.error.message}`);
 
-  const senales = senalesRaw.filter(tieneSenal);
-  const senalByAd = new Map(senales.map((s) => [s.ad_id, s]));
-
-  const rows = (analysesRes.data ?? []) as unknown as StoredView[];
-  const analizadas = rows.filter((r) => r.status === 'analizada');
-
+  const analyzedIds = new Set(rows.map((r) => r.ad_id));
   const counts = {
     enVista: 0,
-    analizadas: analizadas.length,
+    analizadas: rows.filter((r) => r.status === 'analizada').length,
     pendientes: rows.filter((r) => r.status === 'pendiente').length,
     descartadas: rows.filter((r) => r.status === 'descartada').length,
-    sinTranscript: 0,
+    sinTranscript: [...allAdIds].filter((id) => !analyzedIds.has(id)).length,
     errores: rows.filter((r) => r.status === 'error').length,
     total: rows.length,
   };
   let lastSync: string | null = null;
   for (const r of rows) if (!lastSync || r.updated_at > lastSync) lastSync = r.updated_at;
 
-  // Guiones que están analizados Y tienen señal en el período.
-  const visibles = analizadas.filter((r) => senalByAd.has(r.ad_id) && (r.beats?.length ?? 0) > 0);
-  counts.enVista = visibles.length;
-  // Anuncios con señal pero sin análisis (para el contador "sin transcript").
-  const analizadasIds = new Set(rows.map((r) => r.ad_id));
-  counts.sinTranscript = senales.filter((s) => !analizadasIds.has(s.ad_id)).length;
-
-  const retByAd = await getRetentionByAd(visibles.map((r) => r.ad_id), desde, hasta);
-
-  const scripts: ScriptView[] = visibles.map((r) => {
-    const s = senalByAd.get(r.ad_id)!;
-    const ret = retByAd.get(r.ad_id);
+  const scripts: ScriptView[] = [];
+  for (const r of analizadas) {
+    const m = metrics.get(r.ad_id);
+    if (!m) continue; // analizado pero sin métricas de Meta → no se muestra
+    const spend = m.spendUsd, impressions = m.impressions;
+    if (!(m.leads > 0 || m.agendas > 0 || spend > 0)) continue; // tieneSenal
+    const hookRate = impressions > 0 ? clampPct((m.v3s / impressions) * 100) : 0;
+    const holdRate = m.v3s > 0 ? clampPct((m.thru / m.v3s) * 100) : 0;
+    const ctr = impressions > 0 ? (m.linkClicks / impressions) * 100 : 0;
+    const freq = m.freqN > 0 ? m.freqSum / m.freqN : 0;
+    const ret: RetSums = { v3s: m.v3s, thru: m.thru, p25: m.p25, p50: m.p50, p75: m.p75, p100: m.p100 };
     const dur = r.dur && r.dur > 0 ? r.dur : Math.max(...(r.beats ?? []).map((b) => b.t0), 30) + 4;
-    const hookRate = clampPct(s.hook_rate ?? 0);
-    const holdRate = clampPct(s.hold_rate ?? 0);
-    const impressions = s.impressions ?? 0;
-    const plays3s = ret?.v3s ?? r0((hookRate / 100) * impressions);
-    const thru = ret?.thru ?? r0((holdRate / 100) * plays3s);
     const curve = retentionCurve(ret, holdRate);
-    const finalRet = retAt(curve, 1);
+    const plays3s = m.v3s || r0((hookRate / 100) * impressions);
+    const thru = m.thru || r0((holdRate / 100) * plays3s);
     const beats: ViewBeat[] = (r.beats ?? []).map((b) => ({ ...b, ret: retAt(curve, dur > 0 ? b.t0 / dur : 0) }));
-    const freq = s.frequency ?? 0;
-    return {
-      id: r.ad_id,
-      adId: r.ad_id,
-      name: r.ad_name ?? s.ad_name ?? r.ad_id,
+    scripts.push({
+      id: r.ad_id, adId: r.ad_id,
+      name: r.ad_name ?? m.adName ?? r.ad_id,
       short: r.short ?? (r.ad_name ?? r.ad_id).slice(0, 24),
-      angle: r.angle ?? 'capataz',
-      hookType: r.hook_type ?? 'promesa',
-      format: r.format ?? 'Video',
-      tags: r.tags ?? [],
-      dur,
-      hookRate: r0(hookRate),
-      ctr: Math.round((s.ctr_link ?? 0) * 10) / 10,
-      agendas: s.agendas ?? 0,
-      cierres: s.cierres ?? 0,
-      spend: s.spend_usd ?? 0,
-      impressions,
-      reach: freq > 0 ? r0(impressions / freq) : impressions,
-      freq,
-      days: s.dias_corriendo ?? 0,
-      plays3s,
-      thru,
-      finalRet,
-      beats,
+      angle: r.angle ?? 'capataz', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
+      tags: r.tags ?? [], dur,
+      hookRate: r0(hookRate), ctr: Math.round(ctr * 10) / 10,
+      agendas: m.agendas, cierres: cierresByAd.get(r.ad_id) ?? 0, spend, impressions,
+      reach: freq > 0 ? r0(impressions / freq) : impressions, freq, days: m.dias.size,
+      plays3s, thru, finalRet: retAt(curve, 1), beats,
       note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
       suggestion: r.suggestion,
-    };
-  });
-
+    });
+  }
+  counts.enVista = scripts.length;
   return { scripts, counts, lastSync };
 }
