@@ -287,6 +287,11 @@ export default function Landing() {
 // de utilidades; incluye media queries, hover y keyframes.
 // =============================================================================
 const CSS = `
+/* La landing es una ruta "suelta": ocultamos el Sidebar del layout raíz de la
+   app SOLO cuando esta página está montada (sin tocar layout.tsx ni Sidebar).
+   display:none también evita que Next prefetchee los Links del sidebar. */
+body:has(.vsl-root) aside { display: none !important; }
+
 .vsl-root {
   position: fixed; inset: 0; z-index: 100;
   overflow-y: auto; overflow-x: hidden;
