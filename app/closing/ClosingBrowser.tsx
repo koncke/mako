@@ -1,22 +1,20 @@
 'use client';
 
 // =============================================================================
-// ClosingBrowser v2 — Closing Analyst
+// ClosingBrowser v2.1 — Closing Analyst (rediseño liviano)
 // =============================================================================
-// Lista filtrable/ordenable de llamadas de venta + panel de detalle con:
-//   · grabación de Fathom embebida (thumbnail → player) que SALTA al segundo
-//     exacto de cada momento/objeción/línea del transcript;
-//   · score + dimensiones SPIN/ejecución con cita de evidencia clicable;
-//   · fortalezas / debilidades / objeciones;
-//   · timeline de momentos clave;
-//   · transcript completo (on-demand) anotado con marcadores buenos/malos.
-// Datos reales desde closing_analyses (props del server). Sin transcript ⇒ no
-// se promedia (el v1 metía 0s falsos).
+// Principio: un solo borde estructural (lista | detalle); todo lo demás se separa
+// con aire y jerarquía tipográfica, no con cajas. El veredicto (score + outcome)
+// domina arriba; las citas y notas largas viven a un clic (acordeones). Mantiene
+// todas las funciones: grabación embebida con deep-link al segundo exacto,
+// dimensiones SPIN/ejecución, momentos, objeciones, transcript anotado, coaching,
+// filtros y orden.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import type { ClosingViewData, ClosingAnalysisRow, ClosingDim, DimGroup } from '@/lib/closing';
+import { Dropdown } from '../components/Dropdown';
+import type { ClosingViewData, ClosingAnalysisRow, ClosingDim, ClosingEvidence, DimGroup } from '@/lib/closing';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -32,7 +30,7 @@ function fmtScore(s: number | null | undefined): string {
 function fmtFecha(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');
-  return y && m && d ? `${d}/${m}/${y}` : '—';
+  return y && m && d ? `${d}/${m}` : '—';
 }
 function fmtDur(min: number | null): string {
   return min == null ? '—' : `${min} min`;
@@ -42,8 +40,7 @@ function firstName(s: string | null | undefined): string {
 }
 function mmss(sec: number | null | undefined): string {
   const s = Math.max(0, Math.round(sec ?? 0));
-  const m = Math.floor(s / 60);
-  return `${m}:${String(s % 60).padStart(2, '0')}`;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 function isSafeHttpUrl(u: string | null | undefined): u is string {
   return !!u && /^https?:\/\//i.test(u);
@@ -54,16 +51,6 @@ function embedToken(c: ClosingAnalysisRow): string | null {
   return m ? m[1] : null;
 }
 
-function typeChip(type: string | null): CSSProperties {
-  const r2 = type === 'R2';
-  return {
-    display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
-    fontFamily: MONO, letterSpacing: '.04em',
-    background: r2 ? 'rgba(28,138,84,.12)' : 'rgba(200,135,12,.12)',
-    color: r2 ? 'var(--good)' : '#9A6A09',
-    border: '1px solid ' + (r2 ? 'rgba(28,138,84,.28)' : 'rgba(200,135,12,.30)'),
-  };
-}
 const MO_TONE: Record<string, string> = { good: 'var(--good)', bad: 'var(--bad)', neutral: 'var(--warn)' };
 const GROUP_DEFS: { key: DimGroup; label: string }[] = [
   { key: 'spin', label: 'Método SPIN' },
@@ -73,7 +60,11 @@ const GROUP_DEFS: { key: DimGroup; label: string }[] = [
 type SortKey = 'fecha' | 'score' | 'duracion';
 type DetailTab = 'resumen' | 'momentos' | 'transcript';
 
-// ---- componente principal --------------------------------------------------
+function Label({ children, color, style }: { children: React.ReactNode; color?: string; style?: CSSProperties }) {
+  return <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: color ?? 'var(--dim)', ...style }}>{children}</div>;
+}
+
+// ---- principal -------------------------------------------------------------
 
 export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; errorMsg: string | null }) {
   const router = useRouter();
@@ -84,6 +75,7 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
   const [outcomeF, setOutcomeF] = useState<'todos' | 'good' | 'warn' | 'bad'>('todos');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<SortKey>('fecha');
+  const [showFilters, setShowFilters] = useState(false);
   const [selId, setSelId] = useState<number | null>(calls[0]?.recording_id ?? null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -91,7 +83,7 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
   const closers = useMemo(() => [...new Set(calls.map((c) => c.closer).filter((c): c is string => !!c))], [calls]);
 
   const visible = useMemo(() => {
-    let v = calls.filter((c) => {
+    const v = calls.filter((c) => {
       if (tipoF !== 'todos' && c.tipo !== tipoF) return false;
       if (closerF !== 'todos' && c.closer !== closerF) return false;
       if (outcomeF !== 'todos' && c.outcome_tone !== outcomeF) return false;
@@ -101,12 +93,11 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
       }
       return true;
     });
-    v = [...v].sort((a, b) => {
+    return v.sort((a, b) => {
       if (sort === 'score') return (b.score ?? -1) - (a.score ?? -1);
       if (sort === 'duracion') return (b.duration_min ?? 0) - (a.duration_min ?? 0);
       return (b.call_date ?? '').localeCompare(a.call_date ?? '');
     });
-    return v;
   }, [calls, tipoF, closerF, outcomeF, q, sort]);
 
   const sel = useMemo(() => {
@@ -116,107 +107,117 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
   }, [calls, selId, visible]);
 
   async function sincronizar() {
-    setSyncing(true); setSyncMsg('Trayendo y analizando llamadas de Fathom…');
+    setSyncing(true); setSyncMsg('Trayendo y analizando llamadas…');
     try {
       const r = await fetch('/api/closing/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló el sync');
-      setSyncMsg(`Listo: ${j.ventas} de venta · ${j.servicio} de servicio${j.restantes > 0 ? ` · quedan ${j.restantes}` : ''}.`);
+      setSyncMsg(`${j.ventas} de venta · ${j.servicio} de servicio${j.restantes > 0 ? ` · quedan ${j.restantes}` : ''}.`);
       router.refresh();
     } catch (e) { setSyncMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
     finally { setSyncing(false); }
   }
 
   const conectado = !errorMsg;
-  const chip = (active: boolean): CSSProperties => ({
-    padding: '6px 11px', borderRadius: 9, cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600,
-    border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'),
-    background: active ? 'var(--ink)' : 'var(--surface)', color: active ? 'var(--on-sidebar)' : 'var(--dim)',
+  const tToggle = (active: boolean): CSSProperties => ({
+    padding: '4px 9px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: active ? 600 : 500,
+    border: 'none', background: 'transparent', color: active ? 'var(--ink)' : 'var(--faint)',
   });
 
+  const subParts = [
+    `${counts.servicio} de servicio excluidas`,
+    counts.pendientes ? `${counts.pendientes} sin analizar` : null,
+  ].filter(Boolean).join(' · ');
+
   return (
-    <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '26px 32px 18px' }}>
+    <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '28px 0 0' }}>
       {/* HEADER */}
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 14 }}>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', padding: '0 32px', marginBottom: 22 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-            <h1 style={{ fontWeight: 600, fontSize: 36, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Closing Analyst</h1>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, background: conectado ? 'var(--good-bg)' : 'var(--bad-bg)', border: '1px solid ' + (conectado ? 'var(--good)' : 'var(--bad)'), color: conectado ? 'var(--good)' : 'var(--bad)', fontSize: 12.5, fontWeight: 600 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: conectado ? 'var(--good)' : 'var(--bad)' }} />{conectado ? 'Fathom conectado' : 'Sin conexión a datos'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 5 }}>
+            <h1 style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Closing Analyst</h1>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: conectado ? 'var(--good)' : 'var(--bad)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: conectado ? 'var(--good)' : 'var(--bad)' }} />{conectado ? 'Fathom' : 'Sin datos'}
             </span>
           </div>
-          <div style={{ fontSize: 14, color: 'var(--dim)' }}>Desempeño del closer en cada R1 / R2 — grabación, SPIN, objeciones, transcript anotado. Entrega de servicio excluida.</div>
+          <div style={{ fontSize: 13, color: 'var(--faint)' }}>Desempeño del closer en cada R1 / R2{subParts ? ` · ${subParts}` : ''}</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <button onClick={sincronizar} disabled={syncing} style={{ padding: '8px 14px', borderRadius: 10, cursor: syncing ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, border: '1px solid var(--accent)', background: syncing ? 'var(--surface-2)' : 'var(--accent)', color: syncing ? 'var(--dim)' : '#fff' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+          <button onClick={sincronizar} disabled={syncing} style={{ padding: '7px 13px', borderRadius: 9, cursor: syncing ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)' }}>
             {syncing ? 'Sincronizando…' : '↻ Sincronizar'}
           </button>
-          {syncMsg ? <div style={{ fontSize: 12, color: 'var(--dim)', maxWidth: 420, textAlign: 'right' }}>{syncMsg}</div>
-            : lastSync && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontFamily: MONO }}>Último sync: {fmtFecha(lastSync)}</div>}
+          {syncMsg ? <div style={{ fontSize: 11.5, color: 'var(--dim)', maxWidth: 360, textAlign: 'right' }}>{syncMsg}</div>
+            : lastSync && <div style={{ fontSize: 11, color: 'var(--faint)', fontFamily: MONO }}>sync {fmtFecha(lastSync)}</div>}
         </div>
       </header>
 
-      {/* KPIs */}
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 14 }}>
-        <Kpi label="Score promedio" value={kpis.scorePromedio != null ? fmtScore(kpis.scorePromedio) : '—'} sub={`${kpis.conScore} llamadas con transcript`} color={kpis.scorePromedio != null ? scoreColor(kpis.scorePromedio) : 'var(--faint)'} />
-        <Kpi label="R1 · diagnóstico" value={kpis.r1Prom != null ? fmtScore(kpis.r1Prom) : '—'} sub="score promedio" color={kpis.r1Prom != null ? scoreColor(kpis.r1Prom) : 'var(--faint)'} />
-        <Kpi label="R2 · cierre" value={kpis.r2Prom != null ? fmtScore(kpis.r2Prom) : '—'} sub="score promedio" color={kpis.r2Prom != null ? scoreColor(kpis.r2Prom) : 'var(--faint)'} />
+      {/* KPIs — cifras sin caja */}
+      <section style={{ display: 'flex', padding: '0 32px', marginBottom: 24 }}>
+        <Kpi label="Score promedio" value={kpis.scorePromedio != null ? fmtScore(kpis.scorePromedio) : '—'} sub={`${kpis.conScore} llamadas`} color={kpis.scorePromedio != null ? scoreColor(kpis.scorePromedio) : 'var(--faint)'} first />
+        <Kpi label="R1 / R2" value={`${fmtScore(kpis.r1Prom)} / ${fmtScore(kpis.r2Prom)}`} sub="diagnóstico / cierre" color="var(--ink)" />
         <Kpi label="Ganadas" value={String(kpis.ganadas)} sub={`de ${counts.ventas} de venta`} color={kpis.ganadas ? 'var(--good)' : 'var(--faint)'} />
-        <Kpi label="Servicio excluido" value={String(counts.servicio)} sub={counts.pendientes ? `${counts.pendientes} sin transcript` : 'no son venta'} color="var(--dim)" />
       </section>
 
       {errorMsg && (
-        <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 14, padding: '14px 18px', marginBottom: 14 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--bad)', marginBottom: 2 }}>No se pudieron leer los análisis</div>
-          <div style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--dim)' }}>{errorMsg}</div>
+        <div style={{ margin: '0 32px 16px', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px' }}>
+          <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--bad)' }}>No se pudieron leer los análisis</div>
+          <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>{errorMsg}</div>
         </div>
       )}
 
       {calls.length === 0 ? (
         <EmptyState counts={counts} hasError={!!errorMsg} syncing={syncing} onSync={sincronizar} />
       ) : (
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '320px 1fr', gap: 14 }}>
-          {/* LISTA + FILTROS */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 13px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar lead, empresa…" style={{ width: '100%', boxSizing: 'border-box', padding: '7px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13, color: 'var(--ink)', fontFamily: "'Geist', sans-serif" }} />
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {(['todos', 'R1', 'R2'] as const).map((t) => <button key={t} onClick={() => setTipoF(t)} style={chip(tipoF === t)}>{t === 'todos' ? 'Todas' : t}</button>)}
-                {(['todos', 'good', 'warn', 'bad'] as const).map((o) => o !== 'todos' && (
-                  <button key={o} onClick={() => setOutcomeF(outcomeF === o ? 'todos' : o)} style={{ ...chip(outcomeF === o), borderColor: outcomeF === o ? MO_TONE[o === 'warn' ? 'neutral' : o] : 'var(--border-strong)' }} title={o === 'good' ? 'Ganadas/buenas' : o === 'bad' ? 'Malas/perdidas' : 'Medias'}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: MO_TONE[o === 'warn' ? 'neutral' : o], display: 'inline-block' }} />
-                  </button>
-                ))}
+        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '300px 1fr', borderTop: '1px solid var(--border)' }}>
+          {/* LISTA */}
+          <div style={{ borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px 10px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar lead, empresa…" style={{ width: '100%', boxSizing: 'border-box', padding: '6px 2px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', fontSize: 13, color: 'var(--ink)', fontFamily: "'Geist', sans-serif", outline: 'none' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                {(['todos', 'R1', 'R2'] as const).map((t) => <button key={t} onClick={() => setTipoF(t)} style={tToggle(tipoF === t)}>{t === 'todos' ? 'Todas' : t}</button>)}
+                <div style={{ marginLeft: 'auto' }}>
+                  <Dropdown value={sort} onChange={(v) => setSort(v as SortKey)} ariaLabel="Ordenar"
+                    buttonStyle={{ padding: '4px 8px', fontSize: 12, border: 'none', background: 'transparent', color: 'var(--dim)' }}
+                    options={[{ value: 'fecha', label: 'Fecha' }, { value: 'score', label: 'Score' }, { value: 'duracion', label: 'Duración' }]} />
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'space-between' }}>
-                {closers.length > 1 && (
-                  <select value={closerF} onChange={(e) => setCloserF(e.target.value)} style={{ flex: 1, minWidth: 0, padding: '5px 7px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 12, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>
-                    <option value="todos">Todos los closers</option>
-                    {closers.map((c) => <option key={c} value={c}>{firstName(c)}</option>)}
-                  </select>
-                )}
-                <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)} style={{ padding: '5px 7px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 12, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>
-                  <option value="fecha">↓ Fecha</option>
-                  <option value="score">↓ Score</option>
-                  <option value="duracion">↓ Duración</option>
-                </select>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button onClick={() => setShowFilters((s) => !s)} style={{ fontSize: 11, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: "'Geist', sans-serif" }}>{showFilters ? '− Filtros' : '+ Filtros'}</button>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{visible.length} de {calls.length}</span>
               </div>
-              <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>{visible.length} de {calls.length} llamadas</div>
+              {showFilters && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    {(['good', 'warn', 'bad'] as const).map((o) => (
+                      <button key={o} onClick={() => setOutcomeF(outcomeF === o ? 'todos' : o)} title={o === 'good' ? 'Buenas' : o === 'bad' ? 'Malas' : 'Medias'}
+                        style={{ width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', border: '2px solid ' + (outcomeF === o ? MO_TONE[o === 'warn' ? 'neutral' : o] : 'transparent'), background: MO_TONE[o === 'warn' ? 'neutral' : o], padding: 0, opacity: outcomeF === 'todos' || outcomeF === o ? 1 : 0.3 }} />
+                    ))}
+                  </div>
+                  {closers.length > 1 && (
+                    <select value={closerF} onChange={(e) => setCloserF(e.target.value)} style={{ marginLeft: 'auto', padding: '3px 6px', borderRadius: 7, border: '1px solid var(--border)', background: 'transparent', fontSize: 11.5, color: 'var(--dim)', fontFamily: "'Geist', sans-serif" }}>
+                      <option value="todos">Todos los closers</option>
+                      {closers.map((c) => <option key={c} value={c}>{firstName(c)}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 7 }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 8 }}>
               {visible.map((c) => {
                 const active = sel?.recording_id === c.recording_id;
+                const noTr = c.has_transcript === false;
                 return (
-                  <div key={c.recording_id} onClick={() => setSelId(c.recording_id)} style={{ padding: '11px 12px', borderRadius: 11, cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lead_nombre || c.invitee_email || c.title}</span>
-                      <span style={{ flex: 'none', fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: '#fff', background: c.score != null ? scoreColor(c.score) : 'var(--faint)' }}>{fmtScore(c.score)}</span>
+                  <div key={c.recording_id} onClick={() => setSelId(c.recording_id)}
+                    style={{ padding: '11px 14px 11px 14px', cursor: 'pointer', borderLeft: '2px solid ' + (active ? 'var(--accent)' : 'transparent'), background: active ? 'var(--surface-2)' : 'transparent', opacity: noTr ? 0.55 : 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lead_nombre || c.invitee_email || c.title}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5, flex: 'none' }}>
+                        {noTr && <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--bad)' }} />}
+                        <span style={{ fontSize: 14, fontWeight: 700, color: c.score != null ? scoreColor(c.score) : 'var(--faint)', fontFamily: MONO, fontVariantNumeric: 'tabular-nums' }}>{fmtScore(c.score)}</span>
+                      </span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.lead_empresa || c.invitee_email || '—'}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                      <span style={typeChip(c.tipo)}>{c.tipo ?? '—'}</span>
-                      {c.has_transcript === false && <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--bad)' }}>sin transcript</span>}
-                      <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--faint)' }}>{fmtFecha(c.call_date)} · {fmtDur(c.duration_min)}</span>
+                    <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ fontFamily: MONO, color: 'var(--dim)' }}>{c.tipo ?? '—'}</span> · {c.lead_empresa || c.invitee_email || '—'} · {fmtFecha(c.call_date)}
                     </div>
                   </div>
                 );
@@ -226,21 +227,19 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
           </div>
 
           {/* DETALLE */}
-          {sel ? <Detail key={sel.recording_id} sel={sel} onRefresh={() => router.refresh()} /> : <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }} />}
+          {sel ? <Detail key={sel.recording_id} sel={sel} onRefresh={() => router.refresh()} /> : <div />}
         </div>
       )}
     </main>
   );
 }
 
-function Kpi({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
+function Kpi({ label, value, sub, color, first }: { label: string; value: string; sub: string; color: string; first?: boolean }) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 13, padding: '13px 15px' }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 7 }}>{label}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 24, fontWeight: 600, color, fontVariantNumeric: 'tabular-nums' }}>{value}</span>
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{sub}</div>
+    <div style={{ paddingLeft: first ? 0 : 40, marginLeft: first ? 0 : 40, borderLeft: first ? 'none' : '1px solid var(--border)' }}>
+      <Label style={{ fontSize: 10, letterSpacing: '.08em' }}>{label}</Label>
+      <div style={{ fontSize: 32, fontWeight: 600, color, fontFamily: MONO, fontVariantNumeric: 'tabular-nums', marginTop: 6, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 4 }}>{sub}</div>
     </div>
   );
 }
@@ -251,12 +250,11 @@ type TranscriptLine = { t_seconds: number; speaker: string | null; text: string 
 
 function Detail({ sel, onRefresh }: { sel: ClosingAnalysisRow; onRefresh: () => void }) {
   const token = embedToken(sel);
-  const [seek, setSeek] = useState<number | null>(null);     // segundo a reproducir (null = thumbnail)
+  const [seek, setSeek] = useState<number | null>(null);
   const [tab, setTab] = useState<DetailTab>('resumen');
   const [reanalyzing, setReanalyzing] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-
-  const play = useCallback((sec: number) => { setSeek(Math.max(0, Math.round(sec))); }, []);
+  const play = useCallback((sec: number) => setSeek(Math.max(0, Math.round(sec))), []);
 
   async function reanalizar() {
     setReanalyzing(true); setMsg(null);
@@ -270,55 +268,47 @@ function Detail({ sel, onRefresh }: { sel: ClosingAnalysisRow; onRefresh: () => 
   }
 
   const tone = sel.outcome_tone ?? 'warn';
-  const outcomeChip: CSSProperties = {
-    display: 'inline-block', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 999,
-    background: tone === 'good' ? 'var(--good-bg)' : tone === 'warn' ? 'var(--warn-bg)' : 'var(--bad-bg)',
-    color: tone === 'good' ? 'var(--good)' : tone === 'warn' ? 'var(--warn)' : 'var(--bad)',
-    border: '1px solid ' + (tone === 'good' ? 'var(--good)' : tone === 'warn' ? 'var(--warn-fill)' : 'var(--bad)'),
-  };
+  const toneColor = tone === 'good' ? 'var(--good)' : tone === 'bad' ? 'var(--bad)' : 'var(--warn)';
 
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-      {/* cabecera */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '16px 22px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4, flexWrap: 'wrap' }}>
-            <span style={typeChip(sel.tipo)}>{sel.tipo ?? '—'}</span>
-            {sel.outcome && <span style={outcomeChip}>{sel.outcome}</span>}
-            {sel.has_transcript === false && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--bad)' }}>análisis sin transcript</span>}
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+      {/* VEREDICTO */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22, padding: '24px 40px 22px' }}>
+        <div style={{ flex: 'none', textAlign: 'center', minWidth: 56 }}>
+          <div style={{ fontSize: 48, fontWeight: 600, lineHeight: 1, color: sel.score != null ? scoreColor(sel.score) : 'var(--faint)', fontFamily: MONO, fontVariantNumeric: 'tabular-nums' }}>{fmtScore(sel.score)}</div>
+          <div style={{ fontSize: 10, color: 'var(--faint)', fontFamily: MONO, marginTop: 2 }}>/ 10</div>
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', marginBottom: 5 }}>
+            <span style={{ color: 'var(--dim)', textTransform: 'uppercase' }}>{sel.tipo ?? '—'}</span>
+            {sel.outcome && <span style={{ color: toneColor, fontWeight: 600 }}> · {sel.outcome}</span>}
+            <span style={{ color: 'var(--faint)' }}> · {fmtFecha(sel.call_date)} · {fmtDur(sel.duration_min)}</span>
+            {sel.has_transcript === false && <span style={{ color: 'var(--bad)' }}> · sin transcript</span>}
           </div>
-          <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>{sel.lead_nombre || sel.invitee_email || sel.title}</h2>
+          <h2 style={{ fontWeight: 600, fontSize: 24, letterSpacing: '-0.02em', margin: 0, color: 'var(--ink)' }}>{sel.lead_nombre || sel.invitee_email || sel.title}</h2>
           <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3 }}>
-            {sel.lead_empresa || sel.invitee_email || '—'} · Closer: <strong style={{ color: 'var(--ink)' }}>{sel.closer || '—'}</strong> · {fmtFecha(sel.call_date)} · {fmtDur(sel.duration_min)}
+            {sel.lead_empresa || sel.invitee_email || '—'} · Closer <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{firstName(sel.closer)}</strong>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flex: 'none' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 32, fontWeight: 600, lineHeight: 1, color: sel.score != null ? scoreColor(sel.score) : 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{fmtScore(sel.score)}</div>
-            <div style={{ fontSize: 10.5, color: 'var(--faint)', fontFamily: MONO }}>SCORE / 10</div>
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {sel.lead_id != null && <a href={`/leads/${sel.lead_id}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', textDecoration: 'none', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '4px 9px' }}>Lead →</a>}
-            <button onClick={reanalizar} disabled={reanalyzing} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 8, padding: '4px 9px', cursor: reanalyzing ? 'default' : 'pointer' }}>{reanalyzing ? '…' : '↻'}</button>
-          </div>
+        <div style={{ flex: 'none', display: 'flex', gap: 14, alignItems: 'center', paddingTop: 4 }}>
+          {sel.lead_id != null && <a href={`/leads/${sel.lead_id}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', textDecoration: 'none' }}>Lead →</a>}
+          <button onClick={reanalizar} disabled={reanalyzing} title="Re-analizar" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: reanalyzing ? 'default' : 'pointer', padding: 0 }}>{reanalyzing ? '…' : '↻'}</button>
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 40px 48px' }}>
         {/* GRABACIÓN */}
-        <div style={{ padding: '16px 22px 0' }}>
-          <Player token={token} seek={seek} shareUrl={sel.share_url} onPlay={play} />
-        </div>
+        <Player token={token} seek={seek} shareUrl={sel.share_url} onPlay={play} />
 
         {/* TABS */}
-        <div style={{ display: 'flex', gap: 4, padding: '14px 22px 0', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', gap: 2, marginTop: 22, borderBottom: '1px solid var(--border)' }}>
           {([['resumen', 'Análisis'], ['momentos', `Momentos${sel.moments?.length ? ' · ' + sel.moments.length : ''}`], ['transcript', 'Transcript']] as [DetailTab, string][]).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, fontFamily: "'Geist', sans-serif", cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '2px solid ' + (tab === k ? 'var(--accent)' : 'transparent'), color: tab === k ? 'var(--ink)' : 'var(--dim)' }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} style={{ padding: '9px 13px', fontSize: 13, fontWeight: 600, fontFamily: "'Geist', sans-serif", cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '2px solid ' + (tab === k ? 'var(--accent)' : 'transparent'), color: tab === k ? 'var(--ink)' : 'var(--faint)', marginBottom: -1 }}>{l}</button>
           ))}
         </div>
 
-        <div style={{ padding: '18px 22px 24px' }}>
-          {msg && <div style={{ fontSize: 12, color: 'var(--bad)', marginBottom: 10 }}>{msg}</div>}
+        <div style={{ paddingTop: 24 }}>
+          {msg && <div style={{ fontSize: 12, color: 'var(--bad)', marginBottom: 12 }}>{msg}</div>}
           {tab === 'resumen' && <ResumenTab sel={sel} onPlay={play} />}
           {tab === 'momentos' && <MomentosTab sel={sel} onPlay={play} />}
           {tab === 'transcript' && <TranscriptTab sel={sel} onPlay={play} />}
@@ -328,56 +318,54 @@ function Detail({ sel, onRefresh }: { sel: ClosingAnalysisRow; onRefresh: () => 
   );
 }
 
-// ---- player embebido -------------------------------------------------------
+// ---- player ----------------------------------------------------------------
 
 function Player({ token, seek, shareUrl, onPlay }: { token: string | null; seek: number | null; shareUrl: string | null; onPlay: (s: number) => void }) {
   if (!token) {
     return isSafeHttpUrl(shareUrl)
-      ? <a href={shareUrl} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: 18, border: '1px dashed var(--border-strong)', borderRadius: 12, color: 'var(--accent)', fontWeight: 600, fontSize: 13, textDecoration: 'none' }}>▶ Ver grabación en Fathom</a>
-      : <div style={{ padding: 14, border: '1px dashed var(--border-strong)', borderRadius: 12, color: 'var(--faint)', fontSize: 13, textAlign: 'center' }}>Sin grabación disponible</div>;
+      ? <a href={shareUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>▶ Ver grabación en Fathom</a>
+      : <div style={{ fontSize: 13, color: 'var(--faint)' }}>Sin grabación disponible</div>;
   }
   if (seek == null) {
     const thumb = `https://fathom.video/share/${token}/thumbnail`;
     return (
       <div onClick={() => onPlay(0)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onPlay(0); }}
-        style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer' }}>
+        style={{ position: 'relative', width: '100%', maxWidth: 520, aspectRatio: '16 / 9', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={thumb} alt="Grabación" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(23,21,17,.18)' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(0,0,0,.3)' }}>
-            <span style={{ marginLeft: 4, borderStyle: 'solid', borderWidth: '10px 0 10px 16px', borderColor: 'transparent transparent transparent var(--ink)' }} />
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(23,21,17,.16)' }}>
+          <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 20px rgba(0,0,0,.3)' }}>
+            <span style={{ marginLeft: 4, borderStyle: 'solid', borderWidth: '9px 0 9px 14px', borderColor: 'transparent transparent transparent var(--ink)' }} />
           </div>
-          <span style={{ position: 'absolute', bottom: 10, fontSize: 11, color: '#fff', fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>Reproducir grabación</span>
         </div>
       </div>
     );
   }
-  const src = `https://fathom.video/embed/${token}?timestamp=${seek}&autoplay=1`;
   return (
     <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: '#000' }}>
-      <iframe key={`${token}-${seek}`} src={src} title="Grabación de Fathom" allow="autoplay; fullscreen" allowFullScreen frameBorder={0} style={{ width: '100%', height: '100%', border: 0 }} />
+      <iframe key={`${token}-${seek}`} src={`https://fathom.video/embed/${token}?timestamp=${seek}&autoplay=1`} title="Grabación de Fathom" allow="autoplay; fullscreen" allowFullScreen frameBorder={0} style={{ width: '100%', height: '100%', border: 0 }} />
     </div>
   );
 }
 
-// ---- tab: resumen / análisis ----------------------------------------------
+// ---- tab: análisis ---------------------------------------------------------
 
 function TimeBtn({ sec, onPlay, color }: { sec: number | null | undefined; onPlay: (s: number) => void; color?: string }) {
   if (sec == null) return null;
   return (
-    <button onClick={() => onPlay(sec)} title="Reproducir desde acá" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: color ?? 'var(--accent)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 6px', cursor: 'pointer', flex: 'none' }}>▶ {mmss(sec)}</button>
+    <button onClick={(e) => { e.stopPropagation(); onPlay(sec); }} title="Reproducir desde acá"
+      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: color ?? 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, flex: 'none', whiteSpace: 'nowrap' }}>▶ {mmss(sec)}</button>
   );
 }
 
 function ResumenTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: number) => void }) {
   const dims = sel.dims ?? [];
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* resumen + next step */}
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>
-        <Label>Resumen del análisis</Label>
-        <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)', marginTop: 8 }}>{sel.summary || 'Sin resumen.'}</div>
-        {sel.next_step && <div style={{ marginTop: 10, fontSize: 13, color: 'var(--ink)' }}><strong style={{ color: 'var(--accent)' }}>Próximo paso:</strong> {sel.next_step}</div>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 32, maxWidth: 720 }}>
+      {/* resumen */}
+      <div>
+        <div style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--ink)' }}>{sel.summary || 'Sin resumen.'}</div>
+        {sel.next_step && <div style={{ marginTop: 12, fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink)' }}><Label color="var(--accent)" style={{ display: 'inline' }}>Próximo paso · </Label>{sel.next_step}</div>}
       </div>
 
       {/* dimensiones */}
@@ -386,48 +374,37 @@ function ResumenTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: numb
         if (!gd.length) return null;
         return (
           <div key={g.key}>
-            <Label>{g.label}</Label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
-              {gd.map((d, i) => <DimRow key={d.label + i} d={d} onPlay={onPlay} />)}
-            </div>
+            <Label style={{ marginBottom: 4 }}>{g.label}</Label>
+            <div>{gd.map((d, i) => <DimRow key={d.label + i} d={d} onPlay={onPlay} />)}</div>
           </div>
         );
       })}
 
       {/* fortalezas / debilidades */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <EvidenceCol title="Fortalezas" items={sel.strengths ?? []} tone="good" onPlay={onPlay} />
-        <EvidenceCol title="A mejorar" items={sel.weaknesses ?? []} tone="bad" onPlay={onPlay} />
-      </div>
+      {((sel.strengths?.length ?? 0) > 0 || (sel.weaknesses?.length ?? 0) > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28 }}>
+          <EvidenceCol title="Fortalezas" items={sel.strengths ?? []} tone="good" onPlay={onPlay} />
+          <EvidenceCol title="A mejorar" items={sel.weaknesses ?? []} tone="bad" onPlay={onPlay} />
+        </div>
+      )}
 
       {/* objeciones */}
       {(sel.objections?.length ?? 0) > 0 && (
         <div>
-          <Label>Objeciones</Label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {sel.objections!.map((o, i) => (
-              <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', borderLeft: '3px solid ' + (o.handled ? 'var(--good)' : 'var(--bad)') }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: o.handled ? 'var(--good)' : 'var(--bad)' }}>{o.handled ? 'MANEJADA' : 'SIN RESOLVER'}</span>
-                  <TimeBtn sec={o.t_seconds} onPlay={onPlay} />
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>“{o.quote}”</div>
-                {o.note && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>{o.note}</div>}
-              </div>
-            ))}
-          </div>
+          <Label style={{ marginBottom: 8 }}>Objeciones</Label>
+          <div>{sel.objections!.map((o, i) => <ObjectionRow key={i} o={o} onPlay={onPlay} />)}</div>
         </div>
       )}
 
       {/* coaching */}
       {(sel.recs?.length ?? 0) > 0 && (
-        <div style={{ background: 'rgba(200,135,12,.07)', border: '1px solid rgba(200,135,12,.28)', borderRadius: 12, padding: '14px 16px' }}>
-          <Label color="#9A6A09">Coaching · qué mejorar</Label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 10 }}>
+        <div>
+          <Label color="var(--accent)" style={{ marginBottom: 10 }}>Coaching · qué mejorar</Label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {sel.recs!.map((r, i) => (
-              <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                <span style={{ flex: 'none', width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', marginTop: 7 }} />
-                <span style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)' }}>{r}</span>
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ flex: 'none', width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', marginTop: 8 }} />
+                <span style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>{r}</span>
               </div>
             ))}
           </div>
@@ -438,44 +415,81 @@ function ResumenTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: numb
 }
 
 function DimRow({ d, onPlay }: { d: ClosingDim; onPlay: (s: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const expandable = !!(d.note || d.quote);
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 5 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{d.label}</span>
-        <span style={{ fontSize: 13, fontWeight: 600, color: scoreColor(d.score), fontVariantNumeric: 'tabular-nums' }}>{fmtScore(d.score)} / 10</span>
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
+      <div onClick={() => expandable && setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 0', cursor: expandable ? 'pointer' : 'default' }}>
+        <span style={{ width: 152, flex: 'none', fontSize: 14, fontWeight: 500, color: 'var(--ink)' }}>{d.label}</span>
+        <div style={{ flex: 1, height: 4, borderRadius: 999, background: 'var(--surface-2)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: d.score * 10 + '%', background: scoreColor(d.score), borderRadius: 999 }} />
+        </div>
+        <span style={{ width: 28, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, color: scoreColor(d.score), fontFamily: MONO, fontVariantNumeric: 'tabular-nums' }}>{fmtScore(d.score)}</span>
+        <span style={{ width: 12, flex: 'none', fontSize: 10, color: 'var(--faint)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>{expandable ? '›' : ''}</span>
       </div>
-      <div style={{ height: 6, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: d.score * 10 + '%', background: scoreColor(d.score), borderRadius: 999 }} />
-      </div>
-      <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.5 }}>{d.note}</div>
-      {d.quote && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '7px 10px' }}>
-          <TimeBtn sec={d.t_seconds} onPlay={onPlay} />
-          <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.45, fontStyle: 'italic' }}>“{d.quote}”</span>
+      {open && (
+        <div style={{ padding: '0 0 14px 168px' }}>
+          {d.note && <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--dim)' }}>{d.note}</div>}
+          {d.quote && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 8, borderLeft: '2px solid var(--border)', paddingLeft: 12 }}>
+              <TimeBtn sec={d.t_seconds} onPlay={onPlay} />
+              <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, fontStyle: 'italic' }}>“{d.quote}”</span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function EvidenceCol({ title, items, tone, onPlay }: { title: string; items: ClosingAnalysisRow['strengths']; tone: 'good' | 'bad'; onPlay: (s: number) => void }) {
+function EvidenceCol({ title, items, tone, onPlay }: { title: string; items: ClosingEvidence[]; tone: 'good' | 'bad'; onPlay: (s: number) => void }) {
   const color = tone === 'good' ? 'var(--good)' : 'var(--bad)';
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? items : items.slice(0, 2);
   return (
     <div>
-      <Label color={color}>{title}</Label>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-        {(items ?? []).length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>—</div>}
-        {(items ?? []).map((s, i) => (
-          <div key={i} style={{ borderLeft: '3px solid ' + color, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 11px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{s.title}</span>
-              <TimeBtn sec={s.t_seconds} onPlay={onPlay} color={color} />
+      <Label color={color} style={{ marginBottom: 10 }}>{title}</Label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+        {items.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>—</div>}
+        {shown.map((s, i) => {
+          const exp = !!(s.quote || s.note);
+          const open = openIdx === i;
+          return (
+            <div key={i}>
+              <div onClick={() => exp && setOpenIdx(open ? null : i)} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', cursor: exp ? 'pointer' : 'default' }}>
+                <span style={{ flex: 'none', width: 5, height: 5, borderRadius: '50%', background: color, marginTop: 7 }} />
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.45, flex: 1 }}>{s.title}</span>
+                <TimeBtn sec={s.t_seconds} onPlay={onPlay} color={color} />
+              </div>
+              {open && (
+                <div style={{ paddingLeft: 14, marginTop: 5 }}>
+                  {s.quote && <div style={{ fontSize: 12.5, color: 'var(--dim)', fontStyle: 'italic', lineHeight: 1.5 }}>“{s.quote}”</div>}
+                  {s.note && <div style={{ fontSize: 13, color: 'var(--ink)', marginTop: 4, lineHeight: 1.55 }}>{s.note}</div>}
+                </div>
+              )}
             </div>
-            {s.quote && <div style={{ fontSize: 12, color: 'var(--dim)', fontStyle: 'italic', lineHeight: 1.45 }}>“{s.quote}”</div>}
-            {s.note && <div style={{ fontSize: 12.5, color: 'var(--ink)', marginTop: 4, lineHeight: 1.45 }}>{s.note}</div>}
-          </div>
-        ))}
+          );
+        })}
+        {items.length > 2 && (
+          <button onClick={() => setShowAll((v) => !v)} style={{ alignSelf: 'flex-start', fontSize: 11.5, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, fontFamily: "'Geist', sans-serif" }}>{showAll ? '− menos' : `+ ${items.length - 2} más`}</button>
+        )}
       </div>
+    </div>
+  );
+}
+
+function ObjectionRow({ o, onPlay }: { o: NonNullable<ClosingAnalysisRow['objections']>[number]; onPlay: (s: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const color = o.handled ? 'var(--good)' : 'var(--bad)';
+  return (
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
+      <div onClick={() => o.note && setOpen((v) => !v)} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 0', cursor: o.note ? 'pointer' : 'default' }}>
+        <span style={{ flex: 'none', fontSize: 13, fontWeight: 700, color, width: 16, textAlign: 'center' }}>{o.handled ? '✓' : '✕'}</span>
+        <span style={{ flex: 1, fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.45, whiteSpace: open ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>“{o.quote}”</span>
+        <TimeBtn sec={o.t_seconds} onPlay={onPlay} />
+      </div>
+      {open && o.note && <div style={{ padding: '0 0 12px 26px', fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }}>{o.note}</div>}
     </div>
   );
 }
@@ -486,15 +500,16 @@ function MomentosTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: num
   const moments = sel.moments ?? [];
   if (!moments.length) return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Sin momentos marcados.</div>;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div style={{ maxWidth: 720 }}>
       {moments.map((m, i) => {
         const accent = MO_TONE[m.tone] ?? 'var(--warn)';
         return (
-          <div key={i} onClick={() => m.t_seconds != null && onPlay(m.t_seconds)} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', borderLeft: '3px solid ' + accent, cursor: m.t_seconds != null ? 'pointer' : 'default' }}>
+          <div key={i} onClick={() => m.t_seconds != null && onPlay(m.t_seconds)} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '11px 0', borderBottom: '1px solid var(--border)', cursor: m.t_seconds != null ? 'pointer' : 'default' }}>
+            <span style={{ flex: 'none', width: 7, height: 7, borderRadius: '50%', background: accent, marginTop: 6 }} />
             <TimeBtn sec={m.t_seconds} onPlay={onPlay} color={accent} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink)' }}>{m.quote}</div>
-              {m.tag && <div style={{ fontSize: 11.5, fontWeight: 600, color: accent, marginTop: 3 }}>{m.tag}</div>}
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--ink)' }}>{m.quote}</div>
+              {m.tag && <div style={{ fontSize: 11, fontWeight: 600, color: accent, marginTop: 2 }}>{m.tag}</div>}
             </div>
           </div>
         );
@@ -503,7 +518,7 @@ function MomentosTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: num
   );
 }
 
-// ---- tab: transcript (on-demand + anotado) ---------------------------------
+// ---- tab: transcript -------------------------------------------------------
 
 function TranscriptTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: number) => void }) {
   const [lines, setLines] = useState<TranscriptLine[] | null>(null);
@@ -524,63 +539,44 @@ function TranscriptTab({ sel, onPlay }: { sel: ClosingAnalysisRow; onPlay: (s: n
     return () => { alive = false; };
   }, [sel.recording_id]);
 
-  // marcadores por t_seconds (del análisis): para resaltar la línea más cercana
-  const marks = useMemo(() => {
-    const arr = (sel.annotations ?? []).map((a) => ({ t: a.t_seconds, tone: a.tone, label: a.label }));
-    return arr.sort((a, b) => a.t - b.t);
-  }, [sel.annotations]);
+  const marks = useMemo(() => (sel.annotations ?? []).map((a) => ({ t: a.t_seconds, tone: a.tone, label: a.label })).sort((a, b) => a.t - b.t), [sel.annotations]);
 
   if (loading) return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Cargando transcript…</div>;
   if (err) return <div style={{ fontSize: 13, color: 'var(--bad)' }}>No se pudo cargar el transcript: {err}</div>;
   if (!lines || !lines.length) return <div style={{ fontSize: 13, color: 'var(--faint)' }}>Sin transcript.</div>;
 
-  // para cada marcador, encontrar el índice de línea con t_seconds más cercano (>=)
   const markByLine = new Map<number, { tone: 'good' | 'bad'; label: string }>();
   for (const mk of marks) {
     let best = 0, bestDiff = Infinity;
-    for (let i = 0; i < lines.length; i++) {
-      const diff = Math.abs(lines[i].t_seconds - mk.t);
-      if (diff < bestDiff) { bestDiff = diff; best = i; }
-    }
+    for (let i = 0; i < lines.length; i++) { const diff = Math.abs(lines[i].t_seconds - mk.t); if (diff < bestDiff) { bestDiff = diff; best = i; } }
     if (bestDiff <= 30) markByLine.set(best, { tone: mk.tone, label: mk.label });
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, fontSize: 11.5, color: 'var(--dim)' }}>
-        <span style={{ fontFamily: MONO }}>{lines.length} líneas</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--good)' }} /> buen momento</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--bad)' }} /> a mejorar</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {lines.map((l, i) => {
-          const mk = markByLine.get(i);
-          return (
-            <div key={i} id={`tl-${i}`} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '5px 8px', borderRadius: 7, background: mk ? (mk.tone === 'good' ? 'var(--good-bg)' : 'var(--bad-bg)') : 'transparent', borderLeft: mk ? '3px solid ' + (mk.tone === 'good' ? 'var(--good)' : 'var(--bad)') : '3px solid transparent' }}>
-              <button onClick={() => onPlay(l.t_seconds)} title="Reproducir" style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', flex: 'none', paddingTop: 2 }}>{mmss(l.t_seconds)}</button>
-              <div style={{ minWidth: 0 }}>
-                {mk && <div style={{ fontSize: 10.5, fontWeight: 700, color: mk.tone === 'good' ? 'var(--good)' : 'var(--bad)', marginBottom: 1 }}>{mk.label}</div>}
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>{l.speaker || '—'}: </span>
-                <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{l.text}</span>
-              </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 1, maxWidth: 760 }}>
+      {lines.map((l, i) => {
+        const mk = markByLine.get(i);
+        return (
+          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '5px 8px', borderRadius: 6, background: mk ? (mk.tone === 'good' ? 'var(--good-bg)' : 'var(--bad-bg)') : 'transparent', borderLeft: '2px solid ' + (mk ? (mk.tone === 'good' ? 'var(--good)' : 'var(--bad)') : 'transparent') }}>
+            <button onClick={() => onPlay(l.t_seconds)} title="Reproducir" style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', flex: 'none', paddingTop: 2 }}>{mmss(l.t_seconds)}</button>
+            <div style={{ minWidth: 0 }}>
+              {mk && <div style={{ fontSize: 10.5, fontWeight: 700, color: mk.tone === 'good' ? 'var(--good)' : 'var(--bad)', marginBottom: 1 }}>{mk.label}</div>}
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>{l.speaker || '—'}: </span>
+              <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{l.text}</span>
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// ---- misc ------------------------------------------------------------------
-
-function Label({ children, color }: { children: React.ReactNode; color?: string }) {
-  return <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: color ?? 'var(--dim)' }}>{children}</div>;
-}
+// ---- vacío -----------------------------------------------------------------
 
 function EmptyState({ counts, hasError, syncing, onSync }: { counts: ClosingViewData['counts']; hasError: boolean; syncing: boolean; onSync: () => void }) {
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ maxWidth: 540, textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '40px 36px' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <div style={{ maxWidth: 520, textAlign: 'center' }}>
         <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>{hasError ? 'Sin datos disponibles' : 'Todavía no hay llamadas de venta analizadas'}</div>
         <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 20 }}>
           {hasError ? 'No se pudo conectar a la base de datos (en local faltan las claves de Supabase). En producción, sincronizá para traer y analizar las llamadas de Fathom.' : 'Sincronizá para traer las llamadas históricas de Fathom, matchearlas con los leads y analizar las de venta. Las de entrega de servicio se excluyen.'}
