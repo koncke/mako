@@ -13,7 +13,7 @@
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
-import type { ScriptView, ScriptAnalystView, QuadPoint } from '@/lib/script-analyst';
+import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion } from '@/lib/script-analyst';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -128,77 +128,131 @@ function decorateBeats(sc: ScriptView): DecoratedBeat[] {
 }
 
 // ── Patrones ganadores (determinístico sobre los guiones confiables) ──
-type PatternCard = {
-  key: string; chip: string; c: string; big: string; tlabel: string; bigColor: string; stmt: string;
-  aLabel: string; aVal: string; a: number; bLabel: string; bVal: string; b: number; max: number; ads: ScriptView[];
+type Polarity = 'bueno' | 'malo' | 'proceso';
+const POL: Record<Polarity, { c: string; label: string }> = {
+  bueno: { c: '#1C8A54', label: 'Seguí' }, malo: { c: '#CF4E29', label: 'Cortá' }, proceso: { c: '#9A6A09', label: 'Proceso' },
 };
-type Patterns = {
-  marquee: { pct: number; rateWith: number; rateWithout: number; lift: string; spendShare: number; nWin: number; nDashWin: number; ads: ScriptView[] };
-  cards: PatternCard[];
+type Pattern = {
+  key: string; polarity: Polarity; chip: string; big: string; bigColor: string; tlabel: string; stmt: string;
+  aLabel: string; aVal: string; a: number; bLabel: string; bVal: string; b: number; max: number; ads: ScriptView[]; priority: number;
 };
-function buildPatterns(ads: ScriptView[]): Patterns {
+
+// Patrones positivos (seguí), negativos (cortá) y de proceso (cómo estás probando).
+// `ads` = todos los guiones con señal; `reliable` = confianza != baja (≥8k impr).
+// Los POSITIVOS se calculan sobre reliable (no celebrar ruido); los de proceso y
+// los negativos de desperdicio sobre TODOS (su punto es justo la falta de prueba).
+function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   const won = (a: ScriptView) => a.agendas > 0;
   const tag = (a: ScriptView, t: string) => a.tags.indexOf(t) >= 0;
   const mean = (arr: ScriptView[], f: (x: ScriptView) => number) => (arr.length ? arr.reduce((s, x) => s + f(x), 0) / arr.length : 0);
   const sum = (arr: ScriptView[], f: (x: ScriptView) => number) => arr.reduce((s, x) => s + f(x), 0);
-  const r = (x: number) => Math.round(x);
-  const winners = ads.filter(won);
-  const dash = ads.filter((a) => tag(a, 'dashboard')), noDash = ads.filter((a) => !tag(a, 'dashboard'));
-  const dashWin = winners.filter((a) => tag(a, 'dashboard'));
-  const spendWin = sum(winners, (a) => a.spend), spendDashWin = sum(dashWin, (a) => a.spend);
-  const marquee = {
-    pct: winners.length ? r((dashWin.length / winners.length) * 100) : 0,
-    rateWith: dash.length ? r((dash.filter(won).length / dash.length) * 100) : 0,
-    rateWithout: noDash.length ? r((noDash.filter(won).length / noDash.length) * 100) : 0,
-    nWin: winners.length, nDashWin: dashWin.length,
-    spendShare: spendWin > 0 ? r((spendDashWin / spendWin) * 100) : 0,
-    ads: dash.filter(won), lift: '0',
-  };
-  marquee.lift = (marquee.rateWith / Math.max(marquee.rateWithout, 1)).toFixed(1);
+  const r = Math.round;
+  const total = ads.length;
+  const out: Pattern[] = [];
+  if (!total) return out;
+  const bySpend = (arr: ScriptView[]) => arr.slice().sort((a, b) => b.spend - a.spend);
 
-  const cards: PatternCard[] = [];
-  const gH = ads.filter((a) => a.hookType === 'resultado' || a.hookType === 'pregunta'), gD = ads.filter((a) => a.hookType === 'dolor');
-  if (gH.length && gD.length) {
-    cards.push({ key: 'hook', chip: 'Tipo de gancho', c: '#C8870C', big: `${r(mean(gH, (a) => a.hookRate))}%`, tlabel: 'hook con cifra o pregunta', bigColor: '#C8870C',
-      stmt: `Los ganchos que abren con una cifra o una pregunta promedian ${r(mean(gH, (a) => a.hookRate))}% de hook rate — bastante más que abrir con dolor abstracto.`,
-      aLabel: 'cifra/pregunta', aVal: `${r(mean(gH, (a) => a.hookRate))}%`, a: mean(gH, (a) => a.hookRate), bLabel: 'dolor', bVal: `${r(mean(gD, (a) => a.hookRate))}%`, b: mean(gD, (a) => a.hookRate), max: 30, ads: gH });
+  // ── PROCESO ──
+  const under = ads.filter((a) => a.spend < 10 || a.days < 3);
+  if (under.length / total >= 0.5) {
+    const share = r((under.length / total) * 100);
+    out.push({ key: 'subtesteo', polarity: 'proceso', chip: 'Sub-testeo', big: `${share}%`, bigColor: POL.proceso.c, tlabel: 'guiones con <$10 o <3 días', priority: 10,
+      stmt: `El ${share}% de tus guiones (${under.length} de ${total}) no pasaron $10 o estuvieron activos menos de 3 días: no los estás probando, los estás asomando. Cualquier "ganador" se apoya en muy pocos guiones realmente testeados.`,
+      aLabel: 'sub-testeados', aVal: String(under.length), a: under.length, bLabel: 'probados', bVal: String(total - under.length), b: total - under.length, max: total, ads: bySpend(under) });
   }
-  const gA = ads.filter((a) => a.dur >= 44), gB = ads.filter((a) => a.dur < 44);
-  if (gA.length && gB.length) {
-    const diff = r(mean(gA, (a) => hold(a))) - r(mean(gB, (a) => hold(a)));
-    cards.push({ key: 'dur', chip: 'Duración', c: '#0E8E7E', stmt: `Los guiones de 44s o más retienen ${diff >= 0 ? '+' : ''}${diff} pts al CTA frente a los de menos de 44s. Dan tiempo a construir el deseo.`,
-      aLabel: '≥44s', aVal: `${r(mean(gA, (a) => hold(a)))}%`, a: mean(gA, (a) => hold(a)), bLabel: '<44s', bVal: `${r(mean(gB, (a) => hold(a)))}%`, b: mean(gB, (a) => hold(a)), max: 35, ads: gA,
-      big: `${diff >= 0 ? '+' : ''}${diff} pts`, tlabel: 'retención extra en 44s o más', bigColor: '#0E8E7E' });
+  const byAngAll: Record<string, ScriptView[]> = {};
+  ads.forEach((a) => { (byAngAll[a.angle] = byAngAll[a.angle] || []).push(a); });
+  const domAngle = Object.keys(byAngAll).sort((x, y) => byAngAll[y].length - byAngAll[x].length)[0];
+  if (domAngle && byAngAll[domAngle].length / total >= 0.6) {
+    const share = r((byAngAll[domAngle].length / total) * 100);
+    const nSub = Object.keys(byAngAll).filter((k) => byAngAll[k].length <= 2).length;
+    out.push({ key: 'concentracion', polarity: 'proceso', chip: 'Ángulo dominante', big: `${share}%`, bigColor: POL.proceso.c, tlabel: `son del ángulo ${angleInfo(domAngle).label}`, priority: 10,
+      stmt: `${share}% de tus guiones atacan por "${angleInfo(domAngle).label}". Estás optimizando dentro de un solo ángulo y dejaste ${nSub} casi sin probar. No sabés si es el mejor o el único que probaste — abrí 2-3 guiones por ángulo flojo.`,
+      aLabel: angleInfo(domAngle).label, aVal: `${share}%`, a: share, bLabel: 'otros', bVal: `${100 - share}%`, b: 100 - share, max: 100, ads: byAngAll[domAngle] });
   }
-  const iA = ads.filter((a) => tag(a, 'implementacion')), iB = ads.filter((a) => !tag(a, 'implementacion'));
-  if (iA.length && iB.length) {
-    cards.push({ key: 'impl', chip: 'Contenido', c: '#7C4DD6', stmt: `Mostrar cómo se implementa (el setup, el panel en marcha) está en los guiones con más cierres: ${mean(iA, (a) => a.cierres).toFixed(1)} vs ${mean(iB, (a) => a.cierres).toFixed(1)} de los que no lo muestran.`,
-      aLabel: 'lo muestran', aVal: mean(iA, (a) => a.cierres).toFixed(1), a: mean(iA, (a) => a.cierres), bLabel: 'no', bVal: mean(iB, (a) => a.cierres).toFixed(1), b: mean(iB, (a) => a.cierres), max: Math.max(mean(iA, (a) => a.cierres), 0.1), ads: iA,
-      big: `${(mean(iA, (a) => a.cierres) / Math.max(mean(iB, (a) => a.cierres), 0.1)).toFixed(1)}×`, tlabel: 'cierres al mostrar el setup', bigColor: '#7C4DD6' });
+  const baja = ads.filter((a) => a.impressions < 8000), nAlta = ads.filter((a) => a.impressions >= 25000).length;
+  if (baja.length / total >= 0.5) {
+    const share = r((baja.length / total) * 100);
+    out.push({ key: 'muestrachica', polarity: 'proceso', chip: 'Confianza', big: `${share}%`, bigColor: POL.proceso.c, tlabel: 'guiones de muestra chica', priority: 9,
+      stmt: `El ${share}% de tus guiones tiene muestra chica (<8k impresiones). Solo ${nAlta} llegan a confianza alta — los "ganadores" se apoyan en poquitos guiones de verdad probados.`,
+      aLabel: 'muestra chica', aVal: String(baja.length), a: baja.length, bLabel: 'confiables', bVal: String(total - baja.length), b: total - baja.length, max: total, ads: bySpend(baja) });
   }
-  // eficiencia: agendas por $1k por ángulo
-  const byAng: Record<string, ScriptView[]> = {};
-  ads.forEach((a) => { (byAng[a.angle] = byAng[a.angle] || []).push(a); });
-  let bestEff: { k: string; per1k: number } | null = null, waste: { k: string; sp: number; g: ScriptView[] } | null = null;
-  Object.keys(byAng).forEach((k) => {
-    const g = byAng[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas), per1k = sp > 0 ? (ag / sp) * 1000 : 0;
-    if (ag > 0 && (!bestEff || per1k > bestEff.per1k)) bestEff = { k, per1k };
-    if (ag === 0 && sp > 0 && (!waste || sp > waste.sp)) waste = { k, sp, g };
-  });
-  if (bestEff && waste) {
-    const be = bestEff as { k: string; per1k: number }, wa = waste as { k: string; sp: number; g: ScriptView[] };
-    cards.push({ key: 'eff', chip: 'Eficiencia $', c: '#1C8A54', stmt: `El ángulo ${angleInfo(be.k).label} agenda ${be.per1k.toFixed(1)} juntas por cada $1,000. El ángulo ${angleInfo(wa.k).label} gastó ${fmtUSD(wa.sp)} sin una sola agenda — pausalo.`,
-      aLabel: angleInfo(be.k).label, aVal: be.per1k.toFixed(1), a: be.per1k, bLabel: angleInfo(wa.k).label, bVal: '0', b: 0, max: Math.max(be.per1k, 1), ads: wa.g,
-      big: be.per1k.toFixed(1), tlabel: `juntas por $1k · ${angleInfo(be.k).label}`, bigColor: '#1C8A54' });
+
+  // ── MALO ──
+  const waste = ads.filter((a) => a.agendas === 0 && a.spend > 0), wasteSpend = sum(waste, (a) => a.spend);
+  if (wasteSpend >= 50) {
+    out.push({ key: 'quemado', polarity: 'malo', chip: 'Plata quemada', big: fmtK(wasteSpend), bigColor: POL.malo.c, tlabel: `${waste.length} guiones, 0 agendas`, priority: 9,
+      stmt: `Quemaste ${fmtUSD(wasteSpend)} en ${waste.length} guiones que no agendaron una sola junta. Pausá los que ya tienen impresiones suficientes (no es falta de muestra, no convierten) y reinvertí.`,
+      aLabel: '0 agendas', aVal: String(waste.length), a: waste.length, bLabel: 'agendaron', bVal: String(ads.filter(won).length), b: ads.filter(won).length, max: total, ads: bySpend(waste) });
   }
-  // fatiga
+  let wasteAng: { k: string; sp: number; g: ScriptView[] } | null = null;
+  Object.keys(byAngAll).forEach((k) => { const g = byAngAll[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas); if (ag === 0 && sp >= 50 && (!wasteAng || sp > wasteAng.sp)) wasteAng = { k, sp, g }; });
+  if (wasteAng && (wasteSpend < 50 || (wasteAng as { sp: number }).sp < 0.85 * wasteSpend)) { const w = wasteAng as { k: string; sp: number; g: ScriptView[] };
+    out.push({ key: 'angulo-quemado', polarity: 'malo', chip: 'Ángulo a cortar', big: fmtK(w.sp), bigColor: POL.malo.c, tlabel: `${angleInfo(w.k).label}: 0 agendas`, priority: 8,
+      stmt: `Cortá el ángulo ${angleInfo(w.k).label}: quemó ${fmtUSD(w.sp)} sin agendar nada. Mové esa plata al ángulo que sí rinde.`,
+      aLabel: 'gastado', aVal: fmtK(w.sp), a: w.sp, bLabel: 'agendas', bVal: '0', b: 0, max: w.sp, ads: bySpend(w.g) });
+  }
+  const leak = reliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) < HOLD_MID);
+  if (leak.length >= 2 && sum(leak, (a) => a.spend) >= 50) {
+    out.push({ key: 'gancho-sin-cuerpo', polarity: 'malo', chip: 'Gancho sin cuerpo', big: String(leak.length), bigColor: POL.malo.c, tlabel: 'frenan pero no retienen', priority: 8,
+      stmt: `${leak.length} guiones frenan el scroll (hook ${r(mean(leak, (a) => a.hookRate))}% promedio) pero pierden a la gente antes del CTA (${r(mean(leak, (a) => hold(a)))}%). El problema no es la entrada, es el cuerpo: reescribí el medio.`,
+      aLabel: 'hook', aVal: `${r(mean(leak, (a) => a.hookRate))}%`, a: mean(leak, (a) => a.hookRate), bLabel: 'ret. CTA', bVal: `${r(mean(leak, (a) => hold(a)))}%`, b: mean(leak, (a) => hold(a)), max: Math.max(mean(leak, (a) => a.hookRate), 30), ads: bySpend(leak) });
+  }
   const fat = ads.filter((a) => a.freq >= 2.4), healthy = ads.filter((a) => a.freq < 1.8);
-  if (fat.length && healthy.length) {
-    cards.push({ key: 'fat', chip: 'Fatiga', c: '#CF4E29', stmt: `${fat.length} guiones ya pasaron frecuencia 2.5 — la misma gente los vio de más y su costo por resultado sube. Rotá el creativo antes de que se quemen.`,
-      aLabel: 'saturados', aVal: `${mean(fat, (a) => a.freq).toFixed(1)}x`, a: mean(fat, (a) => a.freq), bLabel: 'sanos', bVal: `${mean(healthy, (a) => a.freq).toFixed(1)}x`, b: mean(healthy, (a) => a.freq), max: 3, ads: fat,
-      big: String(fat.length), tlabel: 'guiones saturados (frec. >2.5)', bigColor: '#CF4E29' });
+  if (fat.length >= 2) {
+    out.push({ key: 'fatiga', polarity: 'malo', chip: 'Fatiga', big: String(fat.length), bigColor: POL.malo.c, tlabel: 'guiones saturados (frec. ≥2.4)', priority: 7,
+      stmt: `${fat.length} guiones ya pasaron frecuencia 2.4 — la misma gente los vio de más y su costo por resultado sube. Mismo guion, creativo nuevo, antes de que se quemen.`,
+      aLabel: 'saturados', aVal: `${mean(fat, (a) => a.freq).toFixed(1)}x`, a: mean(fat, (a) => a.freq), bLabel: 'sanos', bVal: healthy.length ? `${mean(healthy, (a) => a.freq).toFixed(1)}x` : '—', b: healthy.length ? mean(healthy, (a) => a.freq) : 0, max: Math.max(mean(fat, (a) => a.freq), 3), ads: bySpend(fat) });
   }
-  return { marquee, cards };
+  const weakHook = reliable.filter((a) => a.hookRate < HOOK_MID && hold(a) >= HOLD_MID);
+  if (weakHook.length >= 2) {
+    out.push({ key: 'gancho-flojo', polarity: 'malo', chip: 'Gancho flojo', big: String(weakHook.length), bigColor: POL.malo.c, tlabel: 'cuerpo retiene, gancho bajo', priority: 6,
+      stmt: `${weakHook.length} guiones retienen bien una vez que arrancan (${r(mean(weakHook, (a) => hold(a)))}%) pero el gancho no frena el scroll (${r(mean(weakHook, (a) => a.hookRate))}%). Buen cuerpo desperdiciado: probá los ganchos que sugiere MaKo en cada uno.`,
+      aLabel: 'ret. CTA', aVal: `${r(mean(weakHook, (a) => hold(a)))}%`, a: mean(weakHook, (a) => hold(a)), bLabel: 'hook', bVal: `${r(mean(weakHook, (a) => a.hookRate))}%`, b: mean(weakHook, (a) => a.hookRate), max: Math.max(mean(weakHook, (a) => hold(a)), 30), ads: bySpend(weakHook) });
+  }
+
+  // ── BUENO (sobre reliable) ──
+  const dash = reliable.filter((a) => tag(a, 'dashboard')), noDash = reliable.filter((a) => !tag(a, 'dashboard'));
+  if (dash.length >= 2 && noDash.length >= 2) {
+    const rw = r((dash.filter(won).length / dash.length) * 100), rwo = r((noDash.filter(won).length / noDash.length) * 100);
+    if (rw > rwo) out.push({ key: 'dashboard', polarity: 'bueno', chip: 'Dashboard', big: `${rw}%`, bigColor: POL.bueno.c, tlabel: 'de los que muestran panel agendan', priority: 7,
+      stmt: `Mostrá el panel en pantalla: los guiones que muestran un dashboard agendan ${rw}% vs ${rwo}% de los que no. Es tu patrón ganador más claro.`,
+      aLabel: 'con panel', aVal: `${rw}%`, a: rw, bLabel: 'sin panel', bVal: `${rwo}%`, b: rwo, max: 100, ads: dash.filter(won) });
+  }
+  const escalables = reliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) >= HOLD_MID && a.agendas > 0 && a.freq < 2.4);
+  if (escalables.length >= 2) {
+    out.push({ key: 'escalar', polarity: 'bueno', chip: 'Escalá esto', big: String(escalables.length), bigColor: POL.bueno.c, tlabel: 'listos para más presupuesto', priority: 7,
+      stmt: `${escalables.length} guiones ya frenan, retienen, agendan y tienen frecuencia sana. Subiles presupuesto — son tus candidatos a escalar ya.`,
+      aLabel: 'listos', aVal: String(escalables.length), a: escalables.length, bLabel: 'confiables', bVal: String(reliable.length), b: reliable.length, max: Math.max(reliable.length, 1), ads: bySpend(escalables) });
+  }
+  const gH = reliable.filter((a) => a.hookType === 'resultado' || a.hookType === 'pregunta'), gD = reliable.filter((a) => a.hookType === 'dolor');
+  if (gH.length >= 2 && gD.length >= 2 && mean(gH, (a) => a.hookRate) > mean(gD, (a) => a.hookRate)) {
+    out.push({ key: 'hook', polarity: 'bueno', chip: 'Tipo de gancho', big: `${r(mean(gH, (a) => a.hookRate))}%`, bigColor: POL.bueno.c, tlabel: 'hook con cifra o pregunta', priority: 6,
+      stmt: `Los ganchos que abren con una cifra o una pregunta promedian ${r(mean(gH, (a) => a.hookRate))}% de hook rate — más que abrir con dolor abstracto (${r(mean(gD, (a) => a.hookRate))}%).`,
+      aLabel: 'cifra/pregunta', aVal: `${r(mean(gH, (a) => a.hookRate))}%`, a: mean(gH, (a) => a.hookRate), bLabel: 'dolor', bVal: `${r(mean(gD, (a) => a.hookRate))}%`, b: mean(gD, (a) => a.hookRate), max: 50, ads: gH });
+  }
+  let bestEff: { k: string; per1k: number; g: ScriptView[] } | null = null;
+  Object.keys(byAngAll).forEach((k) => { const g = byAngAll[k], sp = sum(g, (x) => x.spend), ag = sum(g, (x) => x.agendas), per1k = sp > 0 ? (ag / sp) * 1000 : 0; if (ag > 0 && (!bestEff || per1k > bestEff.per1k)) bestEff = { k, per1k, g }; });
+  if (bestEff) { const be = bestEff as { k: string; per1k: number; g: ScriptView[] };
+    out.push({ key: 'eff', polarity: 'bueno', chip: 'Eficiencia $', big: be.per1k.toFixed(1), bigColor: POL.bueno.c, tlabel: `juntas por $1k · ${angleInfo(be.k).label}`, priority: 6,
+      stmt: `El ángulo ${angleInfo(be.k).label} agenda ${be.per1k.toFixed(1)} juntas por cada $1,000 — es tu ángulo más eficiente. Metele más guiones.`,
+      aLabel: angleInfo(be.k).label, aVal: be.per1k.toFixed(1), a: be.per1k, bLabel: 'objetivo', bVal: '—', b: 0, max: Math.max(be.per1k, 1), ads: bySpend(be.g) });
+  }
+  const gLong = reliable.filter((a) => a.dur >= 44), gShort = reliable.filter((a) => a.dur < 44);
+  if (gLong.length >= 2 && gShort.length >= 2) {
+    const diff = Math.round(mean(gLong, (a) => hold(a)) - mean(gShort, (a) => hold(a)));
+    if (diff > 0) out.push({ key: 'dur', polarity: 'bueno', chip: 'Duración', big: `+${diff} pts`, bigColor: POL.bueno.c, tlabel: 'retención extra en 44s o más', priority: 5,
+      stmt: `Los guiones de 44s o más retienen +${diff} pts al CTA frente a los de menos de 44s. Dan tiempo a construir el deseo.`,
+      aLabel: '≥44s', aVal: `${r(mean(gLong, (a) => hold(a)))}%`, a: mean(gLong, (a) => hold(a)), bLabel: '<44s', bVal: `${r(mean(gShort, (a) => hold(a)))}%`, b: mean(gShort, (a) => hold(a)), max: 35, ads: bySpend(gLong) });
+  }
+  const iA = reliable.filter((a) => tag(a, 'implementacion')), iB = reliable.filter((a) => !tag(a, 'implementacion'));
+  if (iA.length >= 2 && iB.length >= 2 && mean(iA, (a) => a.cierres) > mean(iB, (a) => a.cierres)) {
+    out.push({ key: 'impl', polarity: 'bueno', chip: 'Contenido', big: `${(mean(iA, (a) => a.cierres) / Math.max(mean(iB, (a) => a.cierres), 0.1)).toFixed(1)}×`, bigColor: POL.bueno.c, tlabel: 'cierres al mostrar el setup', priority: 5,
+      stmt: `Mostrar cómo se implementa (el setup, el panel en marcha) está en los guiones con más cierres: ${mean(iA, (a) => a.cierres).toFixed(1)} vs ${mean(iB, (a) => a.cierres).toFixed(1)} de los que no.`,
+      aLabel: 'lo muestran', aVal: mean(iA, (a) => a.cierres).toFixed(1), a: mean(iA, (a) => a.cierres), bLabel: 'no', bVal: mean(iB, (a) => a.cierres).toFixed(1), b: mean(iB, (a) => a.cierres), max: Math.max(mean(iA, (a) => a.cierres), 0.1), ads: bySpend(iA) });
+  }
+
+  return out.sort((x, y) => y.priority - x.priority);
 }
 
 type DrillRow = { id: string; name: string; angleColor: string; sub: string; verdictLabel: string; verdictChip: CSSProperties };
@@ -210,24 +264,29 @@ function drillRows(ads: ScriptView[]): DrillRow[] {
   }));
 }
 
-// MaKo: conclusiones derivadas de los patrones reales del período.
-function makoConclusions(reliable: ScriptView[], P: Patterns): { text: string; bullets: string[] } {
-  const bullets: string[] = [];
-  if (P.marquee.nWin > 0 && P.marquee.nDashWin > 0 && P.marquee.rateWith > P.marquee.rateWithout) {
-    bullets.push(`Mostrá el dashboard en pantalla. Los guiones que muestran un panel agendan ${P.marquee.rateWith}% vs ${P.marquee.rateWithout}% y concentran ${P.marquee.spendShare}% del spend que sí agenda.`);
-  }
-  const eff = P.cards.find((c) => c.key === 'eff');
-  if (eff) bullets.push(`Cortá el ángulo ${eff.bLabel}: gastó sin agendar, mientras ${eff.aLabel} rinde ${eff.aVal} juntas por cada $1k. Movele ese presupuesto.`);
-  const fat = P.cards.find((c) => c.key === 'fat');
-  if (fat) bullets.push(`Refrescá los ${fat.big} guiones saturados (frecuencia >2.5): mismo guion, creativo nuevo, antes de que suba el costo por resultado.`);
-  const hookCard = P.cards.find((c) => c.key === 'hook');
-  if (hookCard) bullets.push(`Abrí con cifra o pregunta: promedian ${hookCard.aVal} de hook rate frente a ${hookCard.bVal} al abrir con dolor abstracto.`);
-  const impl = P.cards.find((c) => c.key === 'impl');
-  if (impl && bullets.length < 4) bullets.push(`Mostrá la implementación: los guiones que enseñan el setup promedian ${impl.aVal} cierres vs ${impl.bVal} de los que no.`);
-  const text = reliable.length
-    ? `Leí los ${reliable.length} guiones con señal suficiente, cruzando guion, spend, frecuencia y resultado. Ponderado por lo que cada uno gastó, esto es lo que importa:`
-    : 'Todavía no hay guiones con suficiente señal para sacar patrones confiables. Dejá correr más presupuesto y volvé.';
-  return { text, bullets: bullets.slice(0, 4) };
+// MaKo: las conclusiones SON los patrones más urgentes, en palabras.
+function makoConclusions(reliable: ScriptView[], patterns: Pattern[]): { text: string; bullets: string[] } {
+  const text = patterns.length
+    ? `Leí tus guiones cruzando guion, spend, frecuencia y resultado${reliable.length ? ` (${reliable.length} con señal suficiente)` : ''}. Esto es lo que importa, de lo más urgente a lo menos:`
+    : 'Todavía no hay guiones con datos suficientes para sacar patrones. Sincronizá o dejá correr más presupuesto.';
+  return { text, bullets: patterns.slice(0, 4).map((p) => p.stmt) };
+}
+
+function humanizeAgo(iso: string | null): string {
+  if (!iso) return 'sin registro';
+  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (!Number.isFinite(m) || m < 0) return 'sin registro';
+  if (m < 60) return `hace ${m}m`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `hace ${h}h` : `hace ${Math.round(h / 24)}d`;
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} style={{ width: 38, height: 22, flex: 'none', borderRadius: 999, border: 'none', padding: 2, cursor: 'pointer', background: on ? 'var(--good)' : 'var(--border-strong)', display: 'inline-flex', alignItems: 'center', transition: 'background .15s' }}>
+      <span style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', transform: on ? 'translateX(16px)' : 'translateX(0)', transition: 'transform .15s', boxShadow: '0 1px 3px rgba(0,0,0,.25)' }} />
+    </button>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -239,7 +298,6 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
 
   const [angle, setAngle] = useState('todos');
   const [mapMode, setMapMode] = useState<'ads' | 'angle'>('ads');
-  const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
   const [openAd, setOpenAd] = useState<string | null>(null);
   const [drill, setDrill] = useState<{ title: string; aLabel: string; aVal: string; aColor: string; aBar: CSSProperties; bLabel: string; bVal: string; bBar: CSSProperties; rows: DrillRow[] } | null>(null);
   const [mako, setMako] = useState(false);
@@ -251,11 +309,18 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
   const [quadWin, setQuadWin] = useState('todo');
   const [quadPoints, setQuadPoints] = useState<QuadPoint[] | null>(null);
   const [quadLoading, setQuadLoading] = useState(false);
+  const [hideSmall, setHideSmall] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [confirmSync, setConfirmSync] = useState(false);
+  const [guionText, setGuionText] = useState('');
+  const [valorando, setValorando] = useState(false);
+  const [valoracion, setValoracion] = useState<Valoracion | null>(null);
+  const [valError, setValError] = useState<string | null>(null);
 
-  async function sincronizar() {
+  async function sincronizar(force = false) {
     setSyncing(true); setSyncMsg('Analizando guiones…');
     try {
-      const r = await fetch('/api/script-analyst/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      const r = await fetch('/api/script-analyst/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló el sync');
       setSyncMsg(`${j.analizados} analizados${j.restantes > 0 ? ` · quedan ${j.restantes}` : ''}.`);
@@ -285,14 +350,32 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
     } catch { setQuadPoints([]); }
     finally { setQuadLoading(false); }
   }
+  async function valorar() {
+    if (guionText.trim().length < 80) { setValError('Pegá el guion completo (unas líneas) para poder valorarlo.'); return; }
+    setValorando(true); setValError(null); setValoracion(null);
+    try {
+      const r = await fetch('/api/script-analyst/valorar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guion: guionText }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'falló');
+      setValoracion(j.valoracion as Valoracion);
+    } catch (e) { setValError(e instanceof Error ? e.message : String(e)); }
+    finally { setValorando(false); }
+  }
 
   const reliable = useMemo(() => ads.filter((a) => confidence(a) !== 'baja'), [ads]);
   const visible = useMemo(() => ads.filter((s) => angle === 'todos' || s.angle === angle), [ads, angle]);
-  // Puntos del cuadrante: histórico (de props) o la ventana fetcheada, filtrados por ángulo.
+  // Puntos del cuadrante: histórico (de props) o la ventana fetcheada; filtrados por ángulo y muestra.
   const allTimePoints = useMemo<QuadPoint[]>(() => ads.map((s) => ({ id: s.id, short: s.short, angle: s.angle, hookRate: s.hookRate, hold: hold(s), spend: s.spend, impressions: s.impressions, agendas: s.agendas })), [ads]);
-  const quadItems = useMemo(() => (quadPoints ?? allTimePoints).filter((p) => angle === 'todos' || p.angle === angle), [quadPoints, allTimePoints, angle]);
-  const P = useMemo(() => buildPatterns(reliable), [reliable]);
+  const quadItems = useMemo(() => (quadPoints ?? allTimePoints).filter((p) => (angle === 'todos' || p.angle === angle) && (!hideSmall || p.impressions >= 8000)), [quadPoints, allTimePoints, angle, hideSmall]);
+  const P = useMemo(() => buildPatterns(ads, reliable), [ads, reliable]);
   const mk = useMemo(() => makoConclusions(reliable, P), [reliable, P]);
+  const activeFilters = (quadWin !== 'todo' ? 1 : 0) + (angle !== 'todos' ? 1 : 0) + (mapMode !== 'ads' ? 1 : 0) + (hideSmall ? 1 : 0);
+  const syncGate = useMemo(() => {
+    const pend = counts.sinTranscript + counts.pendientes;
+    const mins = lastSync ? Math.round((Date.now() - Date.parse(lastSync)) / 60000) : null;
+    const level: 'nada' | 'reciente' | 'ok' = pend === 0 ? 'nada' : (mins != null && Number.isFinite(mins) && mins < 60) ? 'reciente' : 'ok';
+    return { pend, level };
+  }, [counts, lastSync]);
 
   // KPIs (ponderados por spend)
   const totalSpend = ads.reduce((s, a) => s + a.spend, 0);
@@ -301,31 +384,7 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
   const wasteSpend = ads.filter((a) => a.agendas === 0).reduce((s, a) => s + a.spend, 0);
   const wasteN = ads.filter((a) => a.agendas === 0).length;
 
-  // tabla
-  const cols: Array<{ key: string; label: string; al: 'left' | 'right' }> = [
-    { key: 'name', label: 'Anuncio', al: 'left' }, { key: 'angle', label: 'Ángulo', al: 'left' },
-    { key: 'hookRate', label: 'Hook', al: 'right' }, { key: 'hold', label: 'Ret. CTA', al: 'right' },
-    { key: 'spend', label: 'Spend', al: 'right' }, { key: 'freq', label: 'Frec.', al: 'right' },
-    { key: 'agendas', label: 'Agendas', al: 'right' }, { key: 'cpa', label: '$/agenda', al: 'right' },
-    { key: 'verdict', label: 'Veredicto', al: 'left' },
-  ];
-  const val = (a: ScriptView, k: string): number | string => {
-    if (k === 'angle') return angleInfo(a.angle).label;
-    if (k === 'hold') return hold(a);
-    if (k === 'cpa') { const c = cpa(a); return c == null ? Infinity : c; }
-    if (k === 'verdict') return verdictOf(a);
-    if (k === 'name') return a.name;
-    return (a as unknown as Record<string, number>)[k];
-  };
-  const sorted = useMemo(() => visible.slice().sort((x, y) => {
-    const vx = val(x, sort.key), vy = val(y, sort.key);
-    if (typeof vx === 'string' && typeof vy === 'string') return sort.dir * vx.localeCompare(vy);
-    const nx = vx as number, ny = vy as number;
-    const d = nx - ny;
-    // $/agenda mapea null→Infinity; Infinity−Infinity=NaN rompe el contrato de sort.
-    const safe = Number.isFinite(d) ? d : nx === ny ? 0 : nx > ny ? 1 : -1;
-    return sort.dir * safe;
-  }), [visible, sort]);
+  // (la tabla/tarjetas y su orden viven en <GuionesPanel/>)
 
   // ── cuadrante (SVG) ──
   function quadMap(items: QuadPoint[], mode: 'ads' | 'angle', selId: string | null, hoverId: string | null, onHover: (id: string | null) => void): ReactNode {
@@ -400,9 +459,9 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
     return h('svg', { viewBox: `0 0 ${W} ${H}`, style: { width: '100%', height: 'auto', display: 'block' } }, ...els);
   }
 
-  function openPattern(p: PatternCard | { stmt: string; aLabel: string; aVal: string; a: number; bLabel: string; bVal: string; b: number; max: number; c: string; ads: ScriptView[] }) {
+  function openPattern(p: Pattern) {
     setDrill({
-      title: p.stmt, aLabel: p.aLabel, aVal: p.aVal, aColor: p.c, aBar: bar(p.a, p.max, p.c),
+      title: p.stmt, aLabel: p.aLabel, aVal: p.aVal, aColor: p.bigColor, aBar: bar(p.a, p.max, p.bigColor),
       bLabel: p.bLabel, bVal: p.bVal, bBar: bar(p.b, p.max, 'var(--border-strong)'),
       rows: drillRows(p.ads),
     });
@@ -422,7 +481,7 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
   if (ads.length === 0) {
     return (
       <div style={{ marginTop: 24 }}>
-        <SyncBar syncing={syncing} syncMsg={syncMsg} lastSync={lastSync} counts={counts} onSync={sincronizar} />
+        <SyncBar syncing={syncing} syncMsg={syncMsg} lastSync={lastSync} counts={counts} onSync={() => sincronizar()} />
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '48px 32px', textAlign: 'center' }}>
           <div style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
             {errorMsg ? 'Sin datos disponibles' : 'Todavía no hay guiones analizados'}
@@ -443,11 +502,9 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
     );
   }
 
-  const tableCount = `${visible.length}${angle === 'todos' ? ' guiones' : ` en ${angleInfo(angle).label}`}`;
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)', marginTop: 24 }}>
-      <SyncBar syncing={syncing} syncMsg={syncMsg} lastSync={lastSync} counts={counts} onSync={sincronizar} />
+      <SyncBar syncing={syncing} syncMsg={syncMsg} lastSync={lastSync} counts={counts} onSync={() => setConfirmSync(true)} />
 
       {/* KPIs */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
@@ -470,46 +527,55 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
       {/* PATRONES */}
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 6 }}>
-          <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Patrones Ganadores</h2>
-          <button onClick={() => setMako(true)} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}>
-            {spark(14, 'sap')}<span>Conclusiones con <span style={{ fontFamily: 'Georgia,serif', fontWeight: 700 }}><span style={{ color: '#EF9F27' }}>M</span>a<span style={{ color: '#EF9F27' }}>K</span>o</span></span>
-          </button>
+          <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Patrones</h2>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => setConfirmSync(true)} disabled={syncing} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: '1px solid var(--border-strong)', background: syncing ? 'var(--surface-2)' : 'var(--surface)', color: syncing ? 'var(--dim)' : 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: syncing ? 'default' : 'pointer' }}>{syncing ? 'Actualizando…' : '↻ Actualizar'}</button>
+            <button onClick={() => setMako(true)} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}>
+              {spark(14, 'sap')}<span>Conclusiones con <span style={{ fontFamily: 'Georgia,serif', fontWeight: 700 }}><span style={{ color: '#EF9F27' }}>M</span>a<span style={{ color: '#EF9F27' }}>K</span>o</span></span>
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', margin: '0 0 4px' }}>
+          <span><span style={{ color: POL.bueno.c }}>●</span> seguí</span><span><span style={{ color: POL.malo.c }}>●</span> cortá</span><span><span style={{ color: POL.proceso.c }}>●</span> proceso</span>
         </div>
 
-        {P.marquee.nWin > 0 && P.marquee.nDashWin > 0 ? (
-          <button onClick={() => openPattern({ stmt: `Guiones que agendaron y muestran un panel/dashboard en el guión. Los que lo mencionan agendan ${P.marquee.rateWith}% vs ${P.marquee.rateWithout}% de los que no.`, aLabel: 'mencionan', aVal: `${P.marquee.rateWith}%`, a: P.marquee.rateWith, bLabel: 'no mencionan', bVal: `${P.marquee.rateWithout}%`, b: P.marquee.rateWithout, max: 100, c: '#C8870C', ads: P.marquee.ads })}
-            style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: 'linear-gradient(100deg,rgba(28,138,84,.13),rgba(28,138,84,.03))', border: '1px solid rgba(28,138,84,.36)', borderRadius: 16, padding: '22px 24px', margin: '18px 0 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
-              <div style={{ flex: 'none' }}><div style={{ fontSize: 54, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--good)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{P.marquee.pct}%</div></div>
-              <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>de los guiones que <span style={{ color: 'var(--good)' }}>agendaron</span> menciona o muestra un <b>panel / dashboard</b> en el guión.</div>
-                <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.5 }}>Los que lo mencionan agendan <b style={{ color: 'var(--ink)' }}>{P.marquee.rateWithout > 0 ? `${P.marquee.lift}× más` : 'mucho más'}</b> ({P.marquee.rateWith}% vs {P.marquee.rateWithout}%) y concentran <b style={{ color: 'var(--ink)' }}>{P.marquee.spendShare}%</b> del spend que sí agenda. <span style={{ color: 'var(--good)', fontWeight: 600 }}>ver anuncios →</span></div>
-              </div>
-            </div>
-          </button>
+        {P.length === 0 ? (
+          <div style={{ fontSize: 13.5, color: 'var(--faint)', margin: '16px 0' }}>Todavía no hay patrones — faltan guiones con datos. Tocá Actualizar para analizar los pendientes.</div>
         ) : (
-          <div style={{ fontSize: 13.5, color: 'var(--faint)', margin: '16px 0' }}>Faltan agendas para sacar el patrón de dashboard. Sincronizá para traer más datos.</div>
-        )}
-
-        {P.cards.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(184px,1fr))', gap: 12 }}>
-            {P.cards.map((p) => (
-              <button key={p.key} onClick={() => openPattern(p)} style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 17px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 152 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 9px', borderRadius: 999, fontFamily: MONO, letterSpacing: '.04em', background: rgba(p.c, .12), color: p.c, border: `1px solid ${rgba(p.c, .3)}` }}>{p.chip}</span>
-                  <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>ver →</span>
+          <>
+            <button onClick={() => openPattern(P[0])} style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', background: rgba(POL[P[0].polarity].c, .07), border: `1px solid ${rgba(POL[P[0].polarity].c, .36)}`, borderRadius: 16, padding: '22px 24px', margin: '14px 0 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
+                <div style={{ flex: 'none' }}>
+                  <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 700, padding: '3px 10px', borderRadius: 999, fontFamily: MONO, letterSpacing: '.06em', textTransform: 'uppercase', background: rgba(POL[P[0].polarity].c, .14), color: POL[P[0].polarity].c, marginBottom: 10 }}>{POL[P[0].polarity].label} · {P[0].chip}</span>
+                  <div style={{ fontSize: 50, fontWeight: 600, letterSpacing: '-0.02em', color: POL[P[0].polarity].c, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{P[0].big}</div>
                 </div>
-                <div style={{ marginTop: 'auto' }}>
-                  <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.02em', color: p.bigColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{p.big}</div>
-                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.35, marginTop: 6 }}>{p.tlabel}</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 13 }}>
-                    <div style={{ height: 6, borderRadius: 4, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}><div style={bar(p.a, p.max, p.c)} /></div>
-                    <div style={{ height: 6, borderRadius: 4, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}><div style={bar(p.b, p.max, 'var(--border-strong)')} /></div>
-                  </div>
+                <div style={{ flex: 1, minWidth: 240 }}>
+                  <div style={{ fontSize: 16.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.4 }}>{P[0].stmt}</div>
+                  <div style={{ fontSize: 12.5, color: POL[P[0].polarity].c, fontWeight: 600, marginTop: 8 }}>ver guiones →</div>
                 </div>
-              </button>
-            ))}
-          </div>
+              </div>
+            </button>
+            {P.length > 1 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(184px,1fr))', gap: 12 }}>
+                {P.slice(1, 9).map((p) => (
+                  <button key={p.key} onClick={() => openPattern(p)} style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: `3px solid ${POL[p.polarity].c}`, borderRadius: 14, padding: '16px 17px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 152 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 9px', borderRadius: 999, fontFamily: MONO, letterSpacing: '.04em', background: rgba(POL[p.polarity].c, .12), color: POL[p.polarity].c, border: `1px solid ${rgba(POL[p.polarity].c, .3)}` }}>{p.chip}</span>
+                      <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>ver →</span>
+                    </div>
+                    <div style={{ marginTop: 'auto' }}>
+                      <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.02em', color: p.bigColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{p.big}</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.35, marginTop: 6 }}>{p.tlabel}</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 13 }}>
+                        <div style={{ height: 6, borderRadius: 4, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}><div style={bar(p.a, p.max, POL[p.polarity].c)} /></div>
+                        <div style={{ height: 6, borderRadius: 4, background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}><div style={bar(p.b, p.max, 'var(--border-strong)')} /></div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* confidence guard */}
@@ -542,13 +608,43 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Cuadrante de Retención</h2>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Dropdown value={quadWin} onChange={onQuadWin} ariaLabel="Período del gráfico" buttonStyle={{ padding: '9px 14px', fontSize: 13.5 }}
-              options={[{ value: 'todo', label: 'Todo el histórico' }, { value: '90', label: 'Últimos 90 días' }, { value: '30', label: 'Últimos 30 días' }, { value: '7', label: 'Últimos 7 días' }]} />
-            <Dropdown value={angle} onChange={setAngle} ariaLabel="Ángulo" buttonStyle={{ padding: '9px 14px', fontSize: 13.5 }}
-              options={[{ value: 'todos', label: 'Todos los ángulos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />
-            <Dropdown value={mapMode} onChange={(v) => setMapMode(v as 'ads' | 'angle')} ariaLabel="Vista" buttonStyle={{ padding: '9px 14px', fontSize: 13.5 }}
-              options={[{ value: 'ads', label: 'Por anuncio' }, { value: 'angle', label: 'Por ángulo' }]} />
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: activeFilters > 0 ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              <span aria-hidden>⚙</span> Filtros
+              {activeFilters > 0 && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--accent)', borderRadius: 999, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{activeFilters}</span>}
+              <span aria-hidden style={{ fontSize: 10, color: 'var(--faint)' }}>▾</span>
+            </button>
+            {filtersOpen && (
+              <>
+                <div onClick={() => setFiltersOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
+                <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 300, maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 15 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtros</span>
+                    {activeFilters > 0 && <button onClick={() => { onQuadWin('todo'); setAngle('todos'); setMapMode('ads'); setHideSmall(false); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Período</span>
+                    <Dropdown value={quadWin} onChange={onQuadWin} ariaLabel="Período" width="100%" options={[{ value: 'todo', label: 'Todo el histórico' }, { value: '90', label: 'Últimos 90 días' }, { value: '30', label: 'Últimos 30 días' }, { value: '7', label: 'Últimos 7 días' }]} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ángulo</span>
+                    <Dropdown value={angle} onChange={setAngle} ariaLabel="Ángulo" width="100%" options={[{ value: 'todos', label: 'Todos los ángulos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Vista</span>
+                    <Dropdown value={mapMode} onChange={(v) => setMapMode(v as 'ads' | 'angle')} ariaLabel="Vista" width="100%" options={[{ value: 'ads', label: 'Por anuncio' }, { value: 'angle', label: 'Por ángulo' }]} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Muestra</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <span style={{ fontSize: 13.5, color: 'var(--ink)' }}>Ocultar muestra chica</span>
+                      <Toggle on={hideSmall} onChange={setHideSmall} />
+                    </div>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>esconde los de baja confianza (&lt;8k impresiones)</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 244px', gap: 30, alignItems: 'center' }}>
@@ -575,46 +671,21 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
         </div>
       </section>
 
-      {/* TABLA */}
+      {/* ANALIZA NUEVO GUION */}
       <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-          <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Guiones</h2>
-          <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>{tableCount} · clic para el embudo</span>
+        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Analizá un guion nuevo</h2>
+        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>Pegá un guion que todavía no subiste a Meta. MaKo lo compara con lo que ya te funciona y te dice qué esperar y cómo probarlo.</div>
+        <textarea value={guionText} onChange={(e) => setGuionText(e.target.value)} placeholder="Pegá acá el guion completo del video…" rows={6} style={{ width: '100%', marginTop: 14, padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, lineHeight: 1.5, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
+          <button onClick={valorar} disabled={valorando} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 11, border: 'none', background: valorando ? 'var(--surface-2)' : '#171511', color: valorando ? 'var(--dim)' : '#F3F0E7', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: valorando ? 'default' : 'pointer' }}>{valorando ? 'Valorando…' : <>{spark(14, 'sva')} Valorar guion</>}</button>
+          {valError && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>{valError}</span>}
+          {guionText.length > 0 && !valorando && <button onClick={() => { setGuionText(''); setValoracion(null); setValError(null); }} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>limpiar</button>}
         </div>
-        <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 13 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 1000 }}>
-            <thead><tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
-              {cols.map((c) => (
-                <th key={c.key} onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? -s.dir : (c.key === 'name' || c.key === 'angle' ? 1 : -1) }))}
-                  style={{ padding: `13px ${c.al === 'right' ? '14px' : '16px'}`, textAlign: c.al, fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: sort.key === c.key ? 'var(--ink)' : 'var(--dim)', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none' }}>
-                  {c.label}{sort.key === c.key ? (sort.dir < 0 ? '  ▾' : '  ▴') : ''}
-                </th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {sorted.map((a) => {
-                const v = verdictOf(a), ho = hold(a), conf = confidence(a), cp = cpa(a);
-                return (
-                  <tr key={a.id} onClick={() => setOpenAd(a.id)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
-                    <td style={{ padding: '13px 16px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                      <span title={`Confianza ${CONF[conf].label} · ${a.impressions.toLocaleString('en-US')} impres.`} style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: CONF[conf].c, boxShadow: `0 0 0 3px ${rgba(CONF[conf].c, .2)}` }} />
-                      <span style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
-                    </div></td>
-                    <td style={{ padding: '13px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--dim)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: angleInfo(a.angle).c }} />{angleInfo(a.angle).label}</span></td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: hookColor(a.hookRate) }}>{a.hookRate}%</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: retColor(ho) }}>{ho}%</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{fmtUSD(a.spend)}</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: fatColor(a) }}>{a.freq.toFixed(2)}</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: a.agendas > 0 ? 'var(--good)' : 'var(--faint)' }}>{a.agendas}</td>
-                    <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: cp == null ? 'var(--faint)' : cp <= 300 ? 'var(--good)' : 'var(--ink)' }}>{cp == null ? '—' : fmtUSD(cp)}</td>
-                    <td style={{ padding: '13px 16px' }}><span style={verdictChip(v)}>{VERDICT[v].label}</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {valoracion && <ValoracionView v={valoracion} />}
       </section>
+
+      {/* GUIONES */}
+      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={6} fullHref="/script-analyst/guiones" />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6, lineHeight: 1.6 }}>
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.
@@ -673,6 +744,49 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
           </div>
         </div>
       )}
+
+      {/* CONFIRMACIÓN DE ACTUALIZAR */}
+      {confirmSync && (
+        <div onClick={() => setConfirmSync(false)} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '56px 20px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 22px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Actualizar patrones</div>
+                <div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)', marginTop: 3 }}>{syncGate.level === 'nada' ? 'Ya está todo al día' : syncGate.level === 'reciente' ? 'Recién sincronizaste' : 'Actualizar patrones'}</div>
+              </div>
+              <button onClick={() => setConfirmSync(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            </div>
+            <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {syncGate.level === 'nada' ? (
+                <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 13.5, lineHeight: 1.5, color: 'var(--dim)' }}>
+                  No hay guiones nuevos sin analizar — los patrones ya reflejan los {counts.analizadas} guiones analizados. Volvé cuando entren anuncios nuevos con transcript.{counts.errores > 0 ? ` Hay ${counts.errores} con error — actualizar puede reintentarlos.` : ''}
+                </div>
+              ) : syncGate.level === 'reciente' ? (
+                <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}>
+                  <span style={{ flex: 'none', color: '#7A5908', fontWeight: 700, fontSize: 15 }}>!</span>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#5A4408' }}>Se actualizó {humanizeAgo(lastSync)}. Si recién lo corriste, los {syncGate.pend} pendiente{syncGate.pend === 1 ? '' : 's'} quizá todavía se están procesando.</div>
+                </div>
+              ) : (
+                <div style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--ink)' }}>Hay <b>{syncGate.pend}</b> guion{syncGate.pend === 1 ? '' : 'es'} nuevo{syncGate.pend === 1 ? '' : 's'} sin analizar.</div>
+              )}
+              {syncGate.pend > 0 && <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--faint)' }}>Esto corre MaKo (Claude) sobre {syncGate.pend} guion{syncGate.pend === 1 ? '' : 'es'} y puede tardar ~30-60s. Al terminar, los patrones y las conclusiones se recalculan solos.</div>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
+                {syncGate.level === 'nada' ? (
+                  <>
+                    <button onClick={() => { setConfirmSync(false); sincronizar(true); }} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Actualizar igual</button>
+                    <button onClick={() => setConfirmSync(false)} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => setConfirmSync(false)} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={() => { setConfirmSync(false); sincronizar(syncGate.level === 'reciente'); }} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{syncGate.level === 'reciente' ? 'Actualizar igual' : 'Sí, actualizar'}</button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -696,7 +810,7 @@ function SyncBar({ syncing, syncMsg, lastSync, counts, onSync }: { syncing: bool
 }
 
 // ── Modal del embudo de un guion ──
-function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null }) {
+export function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null }) {
   const v = verdictOf(sel), ho = hold(sel), vc = VERDICT[v].c, conf = confidence(sel), cp = cpa(sel);
   const beats = decorateBeats(sel);
   const chips = [
@@ -773,5 +887,213 @@ function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: ScriptView; o
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Valoración de un guion nuevo ──
+const VV: Record<string, { label: string; c: string }> = {
+  'escalar-candidato': { label: 'Candidato a escalar', c: '#1C8A54' },
+  'mejorar-gancho': { label: 'Mejorar gancho', c: '#2F6DDB' },
+  'reescribir-cuerpo': { label: 'Reescribir cuerpo', c: '#9A6A09' },
+  'repensar-angulo': { label: 'Repensar ángulo', c: '#CF4E29' },
+  'promesa-pero-validar': { label: 'Promesa — validar', c: '#6B675C' },
+};
+function Chip({ label, value }: { label: string; value: string }) {
+  return <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '7px 11px' }}><span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--faint)' }}>{label}</span><span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{value}</span></div>;
+}
+function PatList({ title, color, items }: { title: string; color: string; items: Array<{ patron: string; evidencia: string }> }) {
+  if (!items.length) return null;
+  return (
+    <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '14px 16px' }}>
+      <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color, marginBottom: 10 }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>{items.map((it, i) => (<div key={i}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{it.patron}</div><div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.4 }}>{it.evidencia}</div></div>))}</div>
+    </div>
+  );
+}
+function ValoracionView({ v }: { v: Valoracion }) {
+  const vv = VV[v.prediccion.verdicto] ?? { label: v.prediccion.verdicto, c: '#6B675C' };
+  const sat = v.perfil.angulo_saturado && v.clasificacion.angle === v.perfil.angulo_saturado;
+  return (
+    <div style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}>
+        <span style={{ flex: 'none', color: '#7A5908', fontWeight: 700, fontSize: 15 }}>!</span>
+        <div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#5A4408' }}>Predicción sin datos. Este guion no corrió en Meta; abajo es lo que MaKo espera comparándolo con tus {v.perfil.n_total} guiones reales ({v.perfil.n_confiables} con señal suficiente).</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+        <span style={angleChip(v.clasificacion.angle)}>{angleInfo(v.clasificacion.angle).label}</span>
+        {sat && <span style={{ fontSize: 11, color: 'var(--bad)' }}>ángulo ya saturado en tu cuenta</span>}
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--dim)' }}>{v.clasificacion.hook_type} · {v.clasificacion.format}</span>
+        <span style={{ marginLeft: 'auto', display: 'inline-block', fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: rgba(vv.c, .1), color: vv.c, border: `1px solid ${rgba(vv.c, .32)}` }}>{vv.label}</span>
+      </div>
+      {v.clasificacion.tags.length > 0 && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{v.clasificacion.tags.map((t) => <span key={t} style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px' }}>{t}</span>)}</div>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Chip label="Hook (est.)" value={`${v.prediccion.hook_rate_estimado.min}–${v.prediccion.hook_rate_estimado.max}%`} />
+        <Chip label="Ret. CTA (est.)" value={`${v.prediccion.retencion_cta_estimada.min}–${v.prediccion.retencion_cta_estimada.max}%`} />
+        <Chip label="Confianza" value="Sin dato real" />
+      </div>
+      <div style={{ background: rgba(vv.c, .06), border: `1px solid ${rgba(vv.c, .26)}`, borderRadius: 13, padding: '16px 18px' }}>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: vv.c, marginBottom: 8 }}>{v.lectura_estructural.title}</div>
+        <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--ink)' }}>{v.lectura_estructural.text}</div>
+        {v.prediccion.razon && <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--dim)', marginTop: 8 }}>{v.prediccion.razon}</div>}
+      </div>
+      {v.beats.length > 0 && (
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>El guion en bloques</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {v.beats.map((b, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderLeft: `3px solid ${(KIND[b.kind]?.c) || '#6B675C'}`, paddingLeft: 12 }}>
+                <span style={kindChip(b.kind)}>{KIND[b.kind]?.label || b.kind}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--ink)' }}>{b.text}</div>
+                  {v.lectura_estructural.punto_de_fuga?.beat_index === i && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 3 }}>▼ punto de fuga: {v.lectura_estructural.punto_de_fuga.motivo}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {(v.patrones_match.length > 0 || v.patrones_miss.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
+          <PatList title="Cumple" color="#1C8A54" items={v.patrones_match} />
+          <PatList title="Se pierde / reproduce" color="#CF4E29" items={v.patrones_miss} />
+        </div>
+      )}
+      {v.reescrituras.length > 0 && (
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 13, padding: '14px 16px' }}>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9A6A09', marginBottom: 10 }}>Qué probar</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{v.reescrituras.map((r, i) => (<div key={i}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{r.que_cambiar}</div><div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{r.propuesta}</div></div>))}</div>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(28,138,84,.06)', border: '1px solid rgba(28,138,84,.26)', borderRadius: 13, padding: '14px 16px' }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: '#1C8A54' }}>Plan de validación</span>
+        <Chip label="Presupuesto" value={fmtUSD(v.plan_validacion.presupuesto_usd)} />
+        <Chip label="Días" value={String(v.plan_validacion.dias_minimos)} />
+        <Chip label="Impresiones" value={v.plan_validacion.impresiones_objetivo.toLocaleString('en-US')} />
+        {v.plan_validacion.control && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>control: {v.plan_validacion.control}</span>}
+        {v.plan_validacion.nota && <div style={{ flexBasis: '100%', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{v.plan_validacion.nota}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Lista de Guiones (tabla / tarjetas, con preview o completa) ──
+function Bar({ label, val, color }: { label: string; val: number; color: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+      <span style={{ width: 54, flex: 'none', fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }}>{label}</span>
+      <div style={{ flex: 1, height: 6, borderRadius: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', overflow: 'hidden' }}><div style={{ height: '100%', width: `${Math.max(2, Math.min(100, val))}%`, background: color }} /></div>
+      <span style={{ width: 34, flex: 'none', textAlign: 'right', fontFamily: MONO, fontSize: 12, fontWeight: 600, color }}>{val}%</span>
+    </div>
+  );
+}
+function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void }) {
+  const v = verdictOf(s), ho = hold(s), conf = confidence(s), cp = cpa(s);
+  return (
+    <button onClick={() => onOpen(s.id)} style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+          <span title={`Confianza ${CONF[conf].label}`} style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: CONF[conf].c, boxShadow: `0 0 0 3px ${rgba(CONF[conf].c, .2)}` }} />
+          <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
+        </div>
+        <span style={verdictChip(v)}>{VERDICT[v].label}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={angleChip(s.angle)}>{angleInfo(s.angle).label}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)' }}>{fmtUSD(s.spend)} · {s.days}d · {s.agendas} ag</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 2 }}>
+        <Bar label="Hook" val={s.hookRate} color={hookColor(s.hookRate)} />
+        <Bar label="Ret. CTA" val={ho} color={retColor(ho)} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}><span>frec {s.freq.toFixed(2)}</span><span>{cp == null ? '— $/ag' : `${fmtUSD(cp)}/ag`}</span></div>
+    </button>
+  );
+}
+export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string }) {
+  const [view, setView] = useState<'tabla' | 'cards'>('tabla');
+  const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
+  const val = (a: ScriptView, k: string): number | string => {
+    if (k === 'angle') return angleInfo(a.angle).label;
+    if (k === 'hold') return hold(a);
+    if (k === 'cpa') { const c = cpa(a); return c == null ? Infinity : c; }
+    if (k === 'verdict') return verdictOf(a);
+    if (k === 'name') return a.name;
+    return (a as unknown as Record<string, number>)[k];
+  };
+  const sorted = useMemo(() => scripts.slice().sort((x, y) => {
+    const vx = val(x, sort.key), vy = val(y, sort.key);
+    if (typeof vx === 'string' && typeof vy === 'string') return sort.dir * vx.localeCompare(vy);
+    const nx = vx as number, ny = vy as number, d = nx - ny;
+    return sort.dir * (Number.isFinite(d) ? d : nx === ny ? 0 : nx > ny ? 1 : -1);
+  }), [scripts, sort]);
+  const shown = limit ? sorted.slice(0, limit) : sorted;
+  const cols: Array<{ key: string; label: string; al: 'left' | 'right' }> = [
+    { key: 'name', label: 'Anuncio', al: 'left' }, { key: 'angle', label: 'Ángulo', al: 'left' },
+    { key: 'hookRate', label: 'Hook', al: 'right' }, { key: 'hold', label: 'Ret. CTA', al: 'right' },
+    { key: 'spend', label: 'Spend', al: 'right' }, { key: 'freq', label: 'Frec.', al: 'right' },
+    { key: 'agendas', label: 'Agendas', al: 'right' }, { key: 'cpa', label: '$/agenda', al: 'right' },
+    { key: 'verdict', label: 'Veredicto', al: 'left' },
+  ];
+  return (
+    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+          <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Guiones</h2>
+          <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>{scripts.length}{limit && scripts.length > limit ? ` · top ${limit}` : ''} · clic para el embudo</span>
+        </div>
+        <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
+          {(['tabla', 'cards'] as const).map((m) => (<button key={m} onClick={() => setView(m)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, background: view === m ? 'var(--surface)' : 'transparent', color: view === m ? 'var(--ink)' : 'var(--dim)', boxShadow: view === m ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }}>{m === 'tabla' ? 'Tabla' : 'Tarjetas'}</button>))}
+        </div>
+      </div>
+      {view === 'cards' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>{shown.map((s) => <GuionCard key={s.id} s={s} onOpen={onOpen} />)}</div>
+      ) : (
+        <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 13 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 1000 }}>
+            <thead><tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
+              {cols.map((c) => (<th key={c.key} onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? -s.dir : (c.key === 'name' || c.key === 'angle' ? 1 : -1) }))} style={{ padding: `13px ${c.al === 'right' ? '14px' : '16px'}`, textAlign: c.al, fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: sort.key === c.key ? 'var(--ink)' : 'var(--dim)', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none' }}>{c.label}{sort.key === c.key ? (sort.dir < 0 ? '  ▾' : '  ▴') : ''}</th>))}
+            </tr></thead>
+            <tbody>
+              {shown.map((a) => { const v = verdictOf(a), ho = hold(a), conf = confidence(a), cp = cpa(a); return (
+                <tr key={a.id} onClick={() => onOpen(a.id)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+                  <td style={{ padding: '13px 16px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><span title={`Confianza ${CONF[conf].label} · ${a.impressions.toLocaleString('en-US')} impres.`} style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: CONF[conf].c, boxShadow: `0 0 0 3px ${rgba(CONF[conf].c, .2)}` }} /><span style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span></div></td>
+                  <td style={{ padding: '13px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--dim)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: angleInfo(a.angle).c }} />{angleInfo(a.angle).label}</span></td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: hookColor(a.hookRate) }}>{a.hookRate}%</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: retColor(ho) }}>{ho}%</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{fmtUSD(a.spend)}</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: fatColor(a) }}>{a.freq.toFixed(2)}</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: a.agendas > 0 ? 'var(--good)' : 'var(--faint)' }}>{a.agendas}</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: cp == null ? 'var(--faint)' : cp <= 300 ? 'var(--good)' : 'var(--ink)' }}>{cp == null ? '—' : fmtUSD(cp)}</td>
+                  <td style={{ padding: '13px 16px' }}><span style={verdictChip(v)}>{VERDICT[v].label}</span></td>
+                </tr>); })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {limit && fullHref && scripts.length > limit && (
+        <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Ver los {scripts.length} guiones →</a></div>
+      )}
+    </section>
+  );
+}
+export function GuionesFull({ scripts }: { scripts: ScriptView[] }) {
+  const router = useRouter();
+  const [openAd, setOpenAd] = useState<string | null>(null);
+  const [reMsg, setReMsg] = useState<string | null>(null);
+  async function reanalizar(adId: string) {
+    setReMsg('Re-analizando…');
+    try {
+      const r = await fetch('/api/script-analyst/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'falló');
+      setReMsg('Listo.'); router.refresh();
+    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  const sel = openAd ? scripts.find((a) => a.id === openAd) ?? null : null;
+  return (
+    <>
+      <GuionesPanel scripts={scripts} onOpen={setOpenAd} />
+      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} />}
+    </>
   );
 }

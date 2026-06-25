@@ -773,3 +773,188 @@ export async function getQuadrantData(desde?: string, hasta?: string): Promise<Q
   }
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// "Analiza nuevo guion" — valorar un guion que TODAVÍA NO corrió en Meta,
+// comparándolo contra el perfil real de la cuenta (lo que ya sabemos que rinde).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HOOK_BENCH = 28, HOLD_BENCH = 10; // mismos umbrales que el veredicto de la vista
+
+type AngleEff = { angle: string; n: number; spend: number; agendas: number; per1k: number };
+type TagStat = { tag: string; n: number; agendas: number; rateWith: number; rateWithout: number };
+type HookStat = { hook_type: string; n: number; hookRate: number };
+type Exemplar = { short: string; angle: string; hook_type: string; tags: string[]; dur: number; hookRate: number; hold: number; agendas: number; cpa: number | null; beats: StoredBeat[] };
+
+export type AccountProfile = {
+  n_total: number; n_confiables: number;
+  distribucion_angulos: Record<string, number>;
+  angulo_saturado: string | null;
+  eficiencia_por_angulo: AngleEff[];
+  tags_que_agendan: TagStat[];
+  hook_rate_por_hook_type: HookStat[];
+  benchmarks: { hook_mid: number; hold_mid: number; hook_mediana: number; retencion_mediana: number };
+  patron_duracion: { holdLargos: number; holdCortos: number };
+  under_testing: { share: number; n: number; total: number };
+  exemplares_top: Exemplar[];
+  anti_exemplar: { short: string; angle: string; tags: string[]; spend: number; note: string } | null;
+};
+
+const holdOf = (s: ScriptView): number => (s.beats.length ? s.beats[s.beats.length - 1].ret : s.finalRet);
+const median = (arr: number[]): number => { if (!arr.length) return 0; const a = [...arr].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+
+/** Perfil de la cuenta para alimentar la valoración de un guion nuevo. */
+export async function buildAccountProfile(): Promise<AccountProfile> {
+  const { scripts } = await getScriptAnalystView();
+  const won = (s: ScriptView) => s.agendas > 0;
+  const reliable = scripts.filter((s) => s.impressions >= 8000);
+
+  const dist: Record<string, number> = {};
+  scripts.forEach((s) => { dist[s.angle] = (dist[s.angle] || 0) + 1; });
+  const anguloSaturado = Object.keys(dist).find((k) => dist[k] / Math.max(scripts.length, 1) >= 0.6) ?? null;
+
+  const byAng: Record<string, ScriptView[]> = {};
+  scripts.forEach((s) => { (byAng[s.angle] = byAng[s.angle] || []).push(s); });
+  const eficiencia: AngleEff[] = Object.keys(byAng).map((k) => {
+    const g = byAng[k], sp = g.reduce((a, s) => a + s.spend, 0), ag = g.reduce((a, s) => a + s.agendas, 0);
+    return { angle: k, n: g.length, spend: Math.round(sp), agendas: ag, per1k: sp > 0 ? Math.round((ag / sp) * 1000 * 10) / 10 : 0 };
+  }).sort((a, b) => b.per1k - a.per1k);
+
+  const tags: TagStat[] = TAG_VOCAB.map((t) => {
+    const withT = reliable.filter((s) => s.tags.includes(t)), noT = reliable.filter((s) => !s.tags.includes(t));
+    return { tag: t, n: withT.length, agendas: withT.reduce((a, s) => a + s.agendas, 0),
+      rateWith: withT.length ? Math.round((withT.filter(won).length / withT.length) * 100) : 0,
+      rateWithout: noT.length ? Math.round((noT.filter(won).length / noT.length) * 100) : 0 };
+  }).filter((x) => x.n > 0).sort((a, b) => (b.rateWith - b.rateWithout) - (a.rateWith - a.rateWithout));
+
+  const byHook: Record<string, ScriptView[]> = {};
+  reliable.forEach((s) => { (byHook[s.hookType] = byHook[s.hookType] || []).push(s); });
+  const hookStats: HookStat[] = Object.keys(byHook).map((k) => {
+    const g = byHook[k], sp = g.reduce((a, s) => a + s.spend, 0);
+    const hr = sp > 0 ? g.reduce((a, s) => a + s.hookRate * s.spend, 0) / sp : g.reduce((a, s) => a + s.hookRate, 0) / g.length;
+    return { hook_type: k, n: g.length, hookRate: Math.round(hr) };
+  }).sort((a, b) => b.hookRate - a.hookRate);
+
+  const meanHold = (arr: ScriptView[]) => (arr.length ? Math.round(arr.reduce((a, s) => a + holdOf(s), 0) / arr.length) : 0);
+  const under = scripts.filter((s) => s.spend < 10 || s.days < 3);
+  const exem: Exemplar[] = scripts
+    .filter((s) => s.hookRate >= HOOK_BENCH && holdOf(s) >= HOLD_BENCH && s.impressions >= 25000)
+    .sort((a, b) => b.agendas - a.agendas).slice(0, 3)
+    .map((s) => ({ short: s.short, angle: s.angle, hook_type: s.hookType, tags: s.tags, dur: Math.round(s.dur), hookRate: s.hookRate, hold: holdOf(s), agendas: s.agendas, cpa: s.agendas > 0 ? Math.round(s.spend / s.agendas) : null, beats: s.beats.map((b) => ({ kind: b.kind, t0: b.t0, text: b.text })) }));
+  const anti0 = scripts.filter((s) => s.spend > 300 && s.agendas === 0).sort((a, b) => b.spend - a.spend)[0];
+
+  return {
+    n_total: scripts.length, n_confiables: reliable.length,
+    distribucion_angulos: dist, angulo_saturado: anguloSaturado,
+    eficiencia_por_angulo: eficiencia, tags_que_agendan: tags, hook_rate_por_hook_type: hookStats,
+    benchmarks: { hook_mid: HOOK_BENCH, hold_mid: HOLD_BENCH, hook_mediana: Math.round(median(scripts.map((s) => s.hookRate))), retencion_mediana: Math.round(median(scripts.map(holdOf))) },
+    patron_duracion: { holdLargos: meanHold(scripts.filter((s) => s.dur >= 44)), holdCortos: meanHold(scripts.filter((s) => s.dur < 44)) },
+    under_testing: { share: scripts.length ? Math.round((under.length / scripts.length) * 100) : 0, n: under.length, total: scripts.length },
+    exemplares_top: exem,
+    anti_exemplar: anti0 ? { short: anti0.short, angle: anti0.angle, tags: anti0.tags, spend: Math.round(anti0.spend), note: anti0.note?.text ?? '' } : null,
+  };
+}
+
+export const VERDICTOS_VALORAR = ['escalar-candidato', 'mejorar-gancho', 'reescribir-cuerpo', 'repensar-angulo', 'promesa-pero-validar'] as const;
+export type VerdictoValorar = (typeof VERDICTOS_VALORAR)[number];
+
+export type Valoracion = {
+  clasificacion: { angle: ScriptAngle; hook_type: HookType; tags: string[]; format: string; short: string };
+  beats: StoredBeat[];
+  lectura_estructural: { title: string; text: string; punto_de_fuga: { beat_index: number; motivo: string } | null };
+  patrones_match: Array<{ patron: string; evidencia: string }>;
+  patrones_miss: Array<{ patron: string; evidencia: string }>;
+  prediccion: { verdicto: VerdictoValorar; hook_rate_estimado: { min: number; max: number }; retencion_cta_estimada: { min: number; max: number }; razon: string };
+  reescrituras: Array<{ que_cambiar: string; propuesta: string }>;
+  plan_validacion: { presupuesto_usd: number; dias_minimos: number; impresiones_objetivo: number; control: string; nota: string };
+  perfil: { n_total: number; n_confiables: number; angulo_saturado: string | null; under_testing_share: number };
+};
+
+const SYSTEM_VALORACION = `Sos MaKo, analista de guiones de Mauricio Bustos (video ads en Meta para vender un programa de mentoría a dueños de negocio). Te paso un GUION NUEVO que TODAVÍA NO corrió en Meta (no tiene datos) y el PERFIL REAL de la cuenta (lo que ya sabemos que rinde y lo que no). Tu trabajo es darle una VALORACIÓN comparándolo contra ese perfil — no contra benchmarks de internet, contra LO QUE LE FUNCIONA A ÉL.
+
+Sé honesto sobre la incertidumbre: el guion no tiene datos, así que toda predicción es una hipótesis basada en el parecido con los guiones reales de la cuenta. Nunca afirmes performance como un hecho.
+
+Clasificá con los vocabularios CERRADOS: angle (visionario|capataz|dolor|testimonio|oferta), hook_type (promesa|testimonio|pregunta|dolor|resultado|recordatorio), tags (subconjunto de: sistema, sin-frio, caso-exito, dashboard, testimonio, pregunta-hook, cifra-hook, dolor, cupos, recordatorio, implementacion). Partí el guion en 3-7 beats {kind (gancho|contexto|problema|mecanismo|prueba|objecion|recordatorio|oferta|cta), t0 (segundo estimado, el primero 0, creciente), text}.
+
+Usá el perfil para:
+- Decir qué PATRONES GANADORES de la cuenta CUMPLE (con el dato real, ej. "muestra dashboard, y los guiones con dashboard agendan X% vs Y%") y cuáles SE PIERDE o qué patrón NEGATIVO REPRODUCE (ej. "es otro guion de dolor, ángulo ya saturado en 84% de tu cuenta" o "se parece al anti-ejemplo que gastó $X sin agendar").
+- Predecir un veredicto ∈ {escalar-candidato, mejorar-gancho, reescribir-cuerpo, repensar-angulo, promesa-pero-validar} y rangos ESTIMADOS de hook rate y retención al CTA, calibrados contra las medianas reales de la cuenta y el hook_rate del hook_type elegido.
+- Dar un plan de validación atado al patrón de sub-testeo: cuánto gastar y cuántos días para no caer en "lo asomaste pero no lo probaste" (objetivo ~8000 impresiones = confianza media), y contra qué guion existente correrlo como control.
+
+Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown), con este esquema:
+{
+  "clasificacion": { "angle": "...", "hook_type": "...", "tags": [".."], "format": "..", "short": ".." },
+  "beats": [ { "kind": "..", "t0": 0, "text": ".." } ],
+  "lectura_estructural": { "title": "..", "text": "..", "punto_de_fuga": { "beat_index": 0, "motivo": ".." } },
+  "patrones_match": [ { "patron": "..", "evidencia": ".." } ],
+  "patrones_miss": [ { "patron": "..", "evidencia": ".." } ],
+  "prediccion": { "verdicto": "escalar-candidato|mejorar-gancho|reescribir-cuerpo|repensar-angulo|promesa-pero-validar", "hook_rate_estimado": { "min": 0, "max": 0 }, "retencion_cta_estimada": { "min": 0, "max": 0 }, "razon": ".." },
+  "reescrituras": [ { "que_cambiar": "..", "propuesta": ".." } ],
+  "plan_validacion": { "presupuesto_usd": 0, "dias_minimos": 0, "impresiones_objetivo": 8000, "control": "..", "nota": ".." }
+}
+Todo en español rioplatense (voseo), concreto y sin relleno.`;
+
+function buildValorarPrompt(guion: string, dur: number | undefined, p: AccountProfile): string {
+  return `## Guion nuevo (sin datos todavía)
+Duración estimada: ${dur != null ? `${Math.round(dur)}s` : 'no indicada'}
+
+${guion.trim()}
+
+## Perfil real de la cuenta (con qué comparar)
+${JSON.stringify(p)}
+
+Valorá el guion contra ESTE perfil y devolvé el JSON pedido.`;
+}
+
+function sanitizeValoracion(raw: Record<string, unknown>, dur: number | undefined, p: AccountProfile): Valoracion {
+  const c = (raw.clasificacion ?? {}) as Record<string, unknown>;
+  const tags = Array.isArray(c.tags) ? [...new Set((c.tags as unknown[]).map(String).filter((x) => (TAG_VOCAB as readonly string[]).includes(x)))] : [];
+  const beats = sanitizeBeats(raw.beats as ClaudeScript['beats'], dur ?? null);
+  const le = (raw.lectura_estructural ?? {}) as Record<string, unknown>;
+  const pf = (raw.punto_de_fuga ?? le.punto_de_fuga) as Record<string, unknown> | undefined;
+  const pred = (raw.prediccion ?? {}) as Record<string, unknown>;
+  const rng = (v: unknown): { min: number; max: number } => { const o = (v ?? {}) as Record<string, unknown>; const a = clampPct(o.min), b = clampPct(o.max); return { min: Math.min(a, b), max: Math.max(a, b) }; };
+  const arr = (v: unknown, keys: [string, string]) => (Array.isArray(v) ? v.map((x) => { const o = (x ?? {}) as Record<string, unknown>; return { [keys[0]]: String(o[keys[0]] ?? ''), [keys[1]]: String(o[keys[1]] ?? '') }; }) : []);
+  const plan = (raw.plan_validacion ?? {}) as Record<string, unknown>;
+  return {
+    clasificacion: {
+      angle: oneOf<ScriptAngle>(c.angle, ANGLES, 'dolor'), hook_type: oneOf<HookType>(c.hook_type, HOOK_TYPES, 'promesa'),
+      tags, format: c.format ? String(c.format).slice(0, 60) : 'Video', short: c.short ? String(c.short).slice(0, 40) : 'Guion nuevo',
+    },
+    beats,
+    lectura_estructural: {
+      title: le.title ? String(le.title) : 'Lectura del guion',
+      text: le.text ? String(le.text) : '',
+      punto_de_fuga: pf && beats.length > 0 && Number.isFinite(Number(pf.beat_index)) ? { beat_index: Math.min(beats.length - 1, Math.max(0, Math.round(Number(pf.beat_index)))), motivo: String(pf.motivo ?? '') } : null,
+    },
+    patrones_match: arr(raw.patrones_match, ['patron', 'evidencia']) as Array<{ patron: string; evidencia: string }>,
+    patrones_miss: arr(raw.patrones_miss, ['patron', 'evidencia']) as Array<{ patron: string; evidencia: string }>,
+    prediccion: {
+      verdicto: oneOf<VerdictoValorar>(pred.verdicto, VERDICTOS_VALORAR, 'promesa-pero-validar'),
+      hook_rate_estimado: rng(pred.hook_rate_estimado), retencion_cta_estimada: rng(pred.retencion_cta_estimada),
+      razon: pred.razon ? String(pred.razon) : '',
+    },
+    reescrituras: arr(raw.reescrituras, ['que_cambiar', 'propuesta']) as Array<{ que_cambiar: string; propuesta: string }>,
+    plan_validacion: {
+      presupuesto_usd: Math.max(0, Math.round(Number(plan.presupuesto_usd) || 0)),
+      dias_minimos: Math.max(0, Math.round(Number(plan.dias_minimos) || 0)),
+      impresiones_objetivo: Math.max(0, Math.round(Number(plan.impresiones_objetivo) || 8000)),
+      control: plan.control ? String(plan.control) : '', nota: plan.nota ? String(plan.nota) : '',
+    },
+    perfil: { n_total: p.n_total, n_confiables: p.n_confiables, angulo_saturado: p.angulo_saturado, under_testing_share: p.under_testing.share },
+  };
+}
+
+/** Corre Claude sobre un guion nuevo (sin datos). PURA: nunca tira. */
+export async function valorarGuion(guion: string, dur?: number): Promise<{ ok: true; valoracion: Valoracion } | { ok: false; error: string }> {
+  try {
+    const profile = await buildAccountProfile();
+    const text = await chatClaude(SYSTEM_VALORACION, [{ role: 'user', content: buildValorarPrompt(guion, dur, profile) }], {
+      model: ANALYSIS_MODEL, thinking: true, effort: 'high', maxTokens: 6000,
+    });
+    const raw = parseJsonObject(text) as Record<string, unknown>;
+    return { ok: true, valoracion: sanitizeValoracion(raw, dur, profile) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
