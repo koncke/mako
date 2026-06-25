@@ -13,7 +13,7 @@
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
-import type { ScriptView, ScriptAnalystView } from '@/lib/script-analyst';
+import type { ScriptView, ScriptAnalystView, QuadPoint } from '@/lib/script-analyst';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -35,7 +35,13 @@ const VERDICT: Record<string, { label: string; c: string }> = {
 const CONF: Record<string, { label: string; c: string }> = {
   alta: { label: 'Alta', c: '#1C8A54' }, media: { label: 'Media', c: '#A8770F' }, baja: { label: 'Baja', c: '#A39E91' },
 };
-const HOOK_MID = 20, HOLD_MID = 22;
+// Umbrales ABSOLUTOS recalibrados a los datos reales (el mock usaba 20/22, pero
+// la retención al CTA real ronda 8% de mediana → 22 dejaba todo abajo). Benchmarks
+// FIJOS: "buen gancho ≥28% frena el scroll", "retiene al CTA ≥10% = 1 de cada 10
+// llega". Alimentan el veredicto (tabla) Y las divisorias FIJAS del cuadrante.
+const HOOK_MID = 28, HOLD_MID = 10;
+// Dominio FIJO del cuadrante: el marco no se auto-escala ni se mueve nunca.
+const QUAD_XMAX = 55, QUAD_YMAX = 30;
 const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
 
 // ── Helpers puros ──
@@ -49,16 +55,18 @@ function fmtK(n: number): string { return n >= 1000 ? `$${(n / 1000).toFixed(1)}
 function hookColor(hr: number): string { return hr >= 22 ? 'var(--good)' : hr >= 15 ? 'var(--warn)' : 'var(--bad)'; }
 function retColor(r: number): string { return r >= 25 ? 'var(--good)' : r >= 18 ? 'var(--warn)' : 'var(--bad)'; }
 function angleInfo(k: string) { return ANGLE[k] ?? { label: k, c: '#6B675C' }; }
-function confidence(a: ScriptView): 'alta' | 'media' | 'baja' { return a.impressions >= 25000 ? 'alta' : a.impressions >= 8000 ? 'media' : 'baja'; }
+function confFromImpr(impressions: number): 'alta' | 'media' | 'baja' { return impressions >= 25000 ? 'alta' : impressions >= 8000 ? 'media' : 'baja'; }
+function confidence(a: ScriptView): 'alta' | 'media' | 'baja' { return confFromImpr(a.impressions); }
 function fatigue(a: ScriptView): 'alta' | 'media' | 'ok' { return a.freq >= 2.4 ? 'alta' : a.freq >= 1.8 ? 'media' : 'ok'; }
 function fatColor(a: ScriptView): string { const f = fatigue(a); return f === 'alta' ? 'var(--bad)' : f === 'media' ? 'var(--warn)' : 'var(--dim)'; }
 function cpa(a: ScriptView): number | null { return a.agendas > 0 ? a.spend / a.agendas : null; }
 function hold(a: ScriptView): number { return a.beats.length ? a.beats[a.beats.length - 1].ret : a.finalRet; }
-function verdictOf(a: ScriptView): string {
-  if (confidence(a) === 'baja') return 'validar';
-  const hi = a.hookRate >= HOOK_MID, ho = hold(a) >= HOLD_MID;
+function verdictFromVals(hookRate: number, holdv: number, impressions: number): string {
+  if (confFromImpr(impressions) === 'baja') return 'validar';
+  const hi = hookRate >= HOOK_MID, ho = holdv >= HOLD_MID;
   return hi ? (ho ? 'escalar' : 'reescribir') : (ho ? 'mejorar' : 'repensar');
 }
+function verdictOf(a: ScriptView): string { return verdictFromVals(a.hookRate, hold(a), a.impressions); }
 function angleChip(k: string): CSSProperties {
   const a = angleInfo(k);
   return { display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 6, fontFamily: MONO, letterSpacing: '.04em', background: rgba(a.c, .12), color: a.c, border: `1px solid ${rgba(a.c, .3)}` };
@@ -239,6 +247,10 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [reMsg, setReMsg] = useState<string | null>(null);
+  const [hoverPt, setHoverPt] = useState<string | null>(null);
+  const [quadWin, setQuadWin] = useState('todo');
+  const [quadPoints, setQuadPoints] = useState<QuadPoint[] | null>(null);
+  const [quadLoading, setQuadLoading] = useState(false);
 
   async function sincronizar() {
     setSyncing(true); setSyncMsg('Analizando guiones…');
@@ -260,9 +272,25 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
       setReMsg('Listo.'); router.refresh();
     } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
   }
+  // Filtro de fecha PROPIO del cuadrante: recalcula los puntos en una ventana sin
+  // tocar KPIs/patrones/tabla (que siguen siendo histórico completo).
+  async function onQuadWin(v: string) {
+    setQuadWin(v);
+    if (v === 'todo') { setQuadPoints(null); return; }
+    setQuadLoading(true);
+    try {
+      const r = await fetch(`/api/script-analyst/quadrant?dias=${encodeURIComponent(v)}`);
+      const j = await r.json();
+      setQuadPoints(j.ok ? (j.points as QuadPoint[]) : []);
+    } catch { setQuadPoints([]); }
+    finally { setQuadLoading(false); }
+  }
 
   const reliable = useMemo(() => ads.filter((a) => confidence(a) !== 'baja'), [ads]);
   const visible = useMemo(() => ads.filter((s) => angle === 'todos' || s.angle === angle), [ads, angle]);
+  // Puntos del cuadrante: histórico (de props) o la ventana fetcheada, filtrados por ángulo.
+  const allTimePoints = useMemo<QuadPoint[]>(() => ads.map((s) => ({ id: s.id, short: s.short, angle: s.angle, hookRate: s.hookRate, hold: hold(s), spend: s.spend, impressions: s.impressions, agendas: s.agendas })), [ads]);
+  const quadItems = useMemo(() => (quadPoints ?? allTimePoints).filter((p) => angle === 'todos' || p.angle === angle), [quadPoints, allTimePoints, angle]);
   const P = useMemo(() => buildPatterns(reliable), [reliable]);
   const mk = useMemo(() => makoConclusions(reliable, P), [reliable, P]);
 
@@ -300,79 +328,74 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
   }), [visible, sort]);
 
   // ── cuadrante (SVG) ──
-  function quadMap(items: ScriptView[], mode: 'ads' | 'angle', selId: string | null): ReactNode {
-    const W = 560, H = 412, padL = 48, padR = 26, padT = 30, padB = 44;
-    // Ejes que se ajustan a los datos reales (no a rangos fijos del mock) → los
-    // puntos se reparten y no se desbordan. Las divisorias van en la MEDIANA de
-    // tus guiones: comparación RELATIVA (cada guion contra el resto), honesta y
-    // que reparte los puntos en los 4 cuadrantes. El veredicto de la tabla sigue
-    // usando umbrales absolutos (HOOK_MID/HOLD_MID), que es otra cosa.
-    const median = (arr: number[]): number => {
-      if (!arr.length) return 0;
-      const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2);
-      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-    };
-    const fit = (vals: number[], minSpan: number): [number, number] => {
-      if (!vals.length) return [0, minSpan];
-      let lo = Math.min(...vals), hi = Math.max(...vals);
-      if (hi - lo < minSpan) { const c = (lo + hi) / 2; lo = c - minSpan / 2; hi = c + minSpan / 2; }
-      const pad = (hi - lo) * 0.16; lo -= pad; hi += pad;
-      if (lo < 0) lo = 0;
-      return [lo, hi];
-    };
-    const hookVals = items.map((s) => s.hookRate), holdVals = items.map((s) => hold(s));
-    const [x0, x1] = fit(hookVals, 8), [y0, y1] = fit(holdVals, 8);
-    const xMed = median(hookVals), yMed = median(holdVals);
+  function quadMap(items: QuadPoint[], mode: 'ads' | 'angle', selId: string | null, hoverId: string | null, onHover: (id: string | null) => void): ReactNode {
+    const W = 560, H = 432, padL = 52, padR = 24, padT = 40, padB = 58; // gutters arriba/abajo para los rótulos externos
+    // Dominio FIJO (no se auto-escala) + divisorias en benchmarks ABSOLUTOS fijos
+    // (HOOK_MID/HOLD_MID) → el marco significa lo mismo en cada render y ventana.
+    const x0 = 0, x1 = QUAD_XMAX, y0 = 0, y1 = QUAD_YMAX;
     const xOf = (v: number) => padL + ((Math.min(Math.max(v, x0), x1) - x0) / (x1 - x0)) * (W - padL - padR);
     const yOf = (v: number) => padT + (1 - (Math.min(Math.max(v, y0), y1) - y0) / (y1 - y0)) * (H - padT - padB);
-    const L = padL, R = W - padR, T = padT, B = H - padB, xMid = xOf(xMed), yMid = yOf(yMed);
-    // Centros confinados al área del gráfico (incluyendo el radio) → nunca se salen.
-    const cxOf = (v: number, r: number) => Math.min(R - r - 3, Math.max(L + r + 3, xOf(v)));
-    const cyOf = (v: number, r: number) => Math.min(B - r - 3, Math.max(T + r + 13, yOf(v)));
+    const L = padL, R = W - padR, T = padT, B = H - padB, xMid = xOf(HOOK_MID), yMid = yOf(HOLD_MID);
+    const cxOf = (v: number, r: number) => Math.min(R - r - 2, Math.max(L + r + 2, xOf(v)));
+    const cyOf = (v: number, r: number) => Math.min(B - r - 2, Math.max(T + r + 2, yOf(v)));
     const els: ReactNode[] = [];
     els.push(h('rect', { key: 'tr', x: xMid, y: T, width: R - xMid, height: yMid - T, fill: 'rgba(28,138,84,.09)' }));
     els.push(h('rect', { key: 'tl', x: L, y: T, width: xMid - L, height: yMid - T, fill: 'rgba(47,109,219,.06)' }));
     els.push(h('rect', { key: 'br', x: xMid, y: yMid, width: R - xMid, height: B - yMid, fill: 'rgba(200,135,12,.10)' }));
     els.push(h('rect', { key: 'bl', x: L, y: yMid, width: xMid - L, height: B - yMid, fill: 'rgba(207,78,41,.07)' }));
-    const ql = (k: string, x: number, y: number, an: 'start' | 'end', c: string, t1: string, t2: string) => {
-      els.push(h('text', { key: `${k}a`, x, y, textAnchor: an, fontSize: 11.5, fontWeight: 700, fill: c, fontFamily: 'Geist Mono, monospace' }, t1));
-      els.push(h('text', { key: `${k}b`, x, y: y + 14, textAnchor: an, fontSize: 10, fill: '#A39E91', fontFamily: 'Geist, sans-serif' }, t2));
-    };
-    ql('q1', R - 10, T + 16, 'end', '#1C8A54', 'ESCALAR', 'mejores en ambas');
-    ql('q2', L + 10, T + 16, 'start', '#2F6DDB', 'MEJORAR GANCHO', 'retienen, gancho flojo');
-    ql('q3', R - 10, B - 20, 'end', '#9A6A09', 'REESCRIBIR CUERPO', 'frenan, no retienen');
-    ql('q4', L + 10, B - 20, 'start', '#CF4E29', 'REPENSAR', 'flojos en ambas');
-    els.push(h('line', { key: 'cx', x1: xMid, y1: T, x2: xMid, y2: B, stroke: '#D8D3C6', strokeDasharray: '4 4' }));
-    els.push(h('line', { key: 'cy', x1: L, y1: yMid, x2: R, y2: yMid, stroke: '#D8D3C6', strokeDasharray: '4 4' }));
-    els.push(h('text', { key: 'mx', x: Math.min(R - 24, Math.max(L + 24, xMid)), y: T - 10, textAnchor: 'middle', fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `med ${Math.round(xMed)}%`));
-    els.push(h('text', { key: 'my', x: L - 6, y: yMid - 4, textAnchor: 'end', fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `med ${Math.round(yMed)}%`));
     els.push(h('line', { key: 'ax', x1: L, y1: B, x2: R, y2: B, stroke: '#E7E3D9' }));
     els.push(h('line', { key: 'ay', x1: L, y1: T, x2: L, y2: B, stroke: '#E7E3D9' }));
-    els.push(h('text', { key: 'xt', x: (L + R) / 2, y: H - 7, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#6B675C', fontFamily: 'Geist Mono, monospace' }, 'HOOK RATE → ¿frena el scroll?'));
+    els.push(h('line', { key: 'cx', x1: xMid, y1: T, x2: xMid, y2: B, stroke: 'var(--border-strong)' }));
+    els.push(h('line', { key: 'cy', x1: L, y1: yMid, x2: R, y2: yMid, stroke: 'var(--border-strong)' }));
+    els.push(h('text', { key: 'bx', x: xMid + 4, y: T + 12, fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `gancho ${HOOK_MID}%`));
+    els.push(h('text', { key: 'by', x: R - 4, y: yMid - 4, textAnchor: 'end', fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `retiene ${HOLD_MID}%`));
+    // RÓTULOS DE CUADRANTE — FUERA del área de datos (en los gutters)
+    const gl = (x: number, y: number, c: string, t: string) => els.push(h('text', { key: `g${t}`, x, y, textAnchor: 'middle', fontSize: 11, fontWeight: 700, fill: c, fontFamily: 'Geist Mono, monospace', letterSpacing: '.05em' }, t));
+    gl((L + xMid) / 2, T - 14, '#2F6DDB', 'MEJORAR GANCHO');
+    gl((xMid + R) / 2, T - 14, '#1C8A54', 'ESCALAR');
+    gl((L + xMid) / 2, B + 22, '#CF4E29', 'REPENSAR');
+    gl((xMid + R) / 2, B + 22, '#9A6A09', 'REESCRIBIR CUERPO');
+    els.push(h('text', { key: 'xt', x: (L + R) / 2, y: H - 8, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#6B675C', fontFamily: 'Geist Mono, monospace' }, 'HOOK RATE → ¿frena el scroll?'));
     els.push(h('text', { key: 'yt', x: 14, y: (T + B) / 2, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#6B675C', fontFamily: 'Geist Mono, monospace', transform: `rotate(-90 14 ${(T + B) / 2})` }, 'RETENCIÓN AL CTA →'));
     if (mode === 'angle') {
-      const byA: Record<string, ScriptView[]> = {};
-      items.forEach((a) => { (byA[a.angle] = byA[a.angle] || []).push(a); });
+      const byA: Record<string, QuadPoint[]> = {};
+      items.forEach((p) => { (byA[p.angle] = byA[p.angle] || []).push(p); });
       Object.keys(byA).forEach((k) => {
         const g = byA[k], sp = g.reduce((s, x) => s + x.spend, 0);
         const mh = sp > 0 ? g.reduce((s, x) => s + x.hookRate * x.spend, 0) / sp : 0;
-        const mo = sp > 0 ? g.reduce((s, x) => s + hold(x) * x.spend, 0) / sp : 0;
-        const r = Math.min(38, 13 + Math.sqrt(sp) / 9), c = angleInfo(k).c;
+        const mo = sp > 0 ? g.reduce((s, x) => s + x.hold * x.spend, 0) / sp : 0;
+        const r = Math.min(36, 13 + Math.sqrt(sp) / 9), c = angleInfo(k).c;
         const cx = cxOf(mh, r), cy = cyOf(mo, r);
         els.push(h('circle', { key: `c${k}`, cx, cy, r, fill: rgba(c, .74), stroke: '#fff', strokeWidth: 2, style: { cursor: 'pointer' }, onClick: () => { setAngle(k); setMapMode('ads'); } }));
         els.push(h('text', { key: `n${k}`, x: cx, y: cy + 4, textAnchor: 'middle', fontSize: 12, fontWeight: 700, fill: '#fff', fontFamily: 'Geist, sans-serif', style: { pointerEvents: 'none' } }, g.length));
         els.push(h('text', { key: `l${k}`, x: cx, y: cy - r - 5, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#1A1813', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F2F0EA', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, angleInfo(k).label));
       });
     } else {
-      items.forEach((s) => {
-        const c = angleInfo(s.angle).c, on = s.id === selId;
-        const r = 7 + (Math.min(s.spend, 2100) / 2100) * 15;
-        const cx = cxOf(s.hookRate, on ? r + 4 : r), cy = cyOf(hold(s), on ? r + 4 : r);
-        const conf = confidence(s); const op = conf === 'alta' ? .82 : conf === 'media' ? .5 : .26; const low = conf === 'baja';
-        if (on) els.push(h('circle', { key: `o${s.id}`, cx, cy, r: r + 4, fill: 'none', stroke: '#1A1813', strokeWidth: 1.5 }));
-        els.push(h('circle', { key: `c${s.id}`, cx, cy, r, fill: rgba(c, op), stroke: low ? '#A39E91' : '#fff', strokeWidth: 1.5, strokeDasharray: low ? '3 2' : undefined, style: { cursor: 'pointer' }, onClick: () => setOpenAd(s.id) }));
-        els.push(h('text', { key: `l${s.id}`, x: cx, y: cy - (on ? r + 4 : r) - 5, textAnchor: 'middle', fontSize: 10, fontWeight: 600, fill: low ? '#A39E91' : '#1A1813', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F2F0EA', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, s.short));
-      });
+      // Chicas arriba (al final) para que queden clickeables sobre las grandes.
+      const pts = items.map((p) => ({ p, r: 7 + (Math.min(p.spend, 2100) / 2100) * 15 })).sort((a, b) => b.r - a.r);
+      for (const { p, r } of pts) {
+        const on = p.id === selId, hov = p.id === hoverId;
+        const cx = cxOf(p.hookRate, r), cy = cyOf(p.hold, r);
+        const conf = confFromImpr(p.impressions); const low = conf === 'baja';
+        const op = hov ? .95 : conf === 'alta' ? .8 : conf === 'media' ? .5 : .28;
+        const c = angleInfo(p.angle).c;
+        if (on || hov) els.push(h('circle', { key: `o${p.id}`, cx, cy, r: r + 4, fill: 'none', stroke: '#1A1813', strokeWidth: 1.5 }));
+        els.push(h('circle', { key: `c${p.id}`, cx, cy, r, fill: rgba(c, op), stroke: low ? '#A39E91' : '#fff', strokeWidth: 1.5, strokeDasharray: low ? '3 2' : undefined, style: { cursor: 'pointer' }, onClick: () => setOpenAd(p.id), onMouseEnter: () => onHover(p.id), onMouseLeave: () => onHover(null) }));
+      }
+      // Tooltip del hover (al final → encima de todo); título del guion SOLO acá.
+      const hp = items.find((p) => p.id === hoverId);
+      if (hp) {
+        const r = 7 + (Math.min(hp.spend, 2100) / 2100) * 15;
+        const bx0 = cxOf(hp.hookRate, r), by0 = cyOf(hp.hold, r);
+        const tw = 188, th = 56;
+        const tx = Math.min(R - tw, Math.max(L, bx0 + 10)), ty = Math.min(B - th, Math.max(T, by0 - th - 8));
+        const v = verdictFromVals(hp.hookRate, hp.hold, hp.impressions);
+        els.push(h('g', { key: 'tip', style: { pointerEvents: 'none' } },
+          h('rect', { x: tx, y: ty, width: tw, height: th, rx: 9, fill: 'var(--surface)', stroke: 'var(--border-strong)' }),
+          h('text', { x: tx + 11, y: ty + 18, fontSize: 12.5, fontWeight: 700, fill: 'var(--ink)', fontFamily: 'Geist, sans-serif' }, hp.short.length > 26 ? `${hp.short.slice(0, 25)}…` : hp.short),
+          h('text', { x: tx + 11, y: ty + 34, fontSize: 11, fill: 'var(--dim)', fontFamily: 'Geist Mono, monospace' }, `hook ${hp.hookRate}%  ·  ret ${hp.hold}%  ·  ${fmtUSD(hp.spend)}`),
+          h('text', { x: tx + 11, y: ty + 49, fontSize: 11, fontWeight: 600, fill: VERDICT[v].c, fontFamily: 'Geist, sans-serif' }, `${VERDICT[v].label}  ·  ${hp.agendas} ag`)));
+      }
     }
     return h('svg', { viewBox: `0 0 ${W} ${H}`, style: { width: '100%', height: 'auto', display: 'block' } }, ...els);
   }
@@ -520,6 +543,8 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Cuadrante de Retención</h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Dropdown value={quadWin} onChange={onQuadWin} ariaLabel="Período del gráfico" buttonStyle={{ padding: '9px 14px', fontSize: 13.5 }}
+              options={[{ value: 'todo', label: 'Todo el histórico' }, { value: '90', label: 'Últimos 90 días' }, { value: '30', label: 'Últimos 30 días' }, { value: '7', label: 'Últimos 7 días' }]} />
             <Dropdown value={angle} onChange={setAngle} ariaLabel="Ángulo" buttonStyle={{ padding: '9px 14px', fontSize: 13.5 }}
               options={[{ value: 'todos', label: 'Todos los ángulos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />
             <Dropdown value={mapMode} onChange={(v) => setMapMode(v as 'ads' | 'angle')} ariaLabel="Vista" buttonStyle={{ padding: '9px 14px', fontSize: 13.5 }}
@@ -527,7 +552,12 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 244px', gap: 30, alignItems: 'center' }}>
-          <div>{quadMap(visible, mapMode, openAd)}</div>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginBottom: 4, minHeight: 16 }}>
+              {quadLoading ? 'Recalculando…' : `${quadWin === 'todo' ? 'Todo el histórico' : `Últimos ${quadWin} días`} · ${quadItems.length} guion${quadItems.length === 1 ? '' : 'es'}`}
+            </div>
+            {quadMap(quadItems, mapMode, openAd, hoverPt, setHoverPt)}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Cómo leerlo</div>
             {quadLegend.map((q) => (
@@ -538,8 +568,8 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
             ))}
             <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.5, borderTop: '1px solid var(--border)', paddingTop: 11, marginTop: 3 }}>
               {mapMode === 'ads'
-                ? 'Cada punto es un anuncio; el tamaño = spend y las translúcidas de borde punteado tienen poca muestra. Los ejes se ajustan a tus datos y las líneas son la MEDIANA de tus guiones (comparación relativa: cada guion contra el resto), por eso se reparten en los cuadrantes. El veredicto de la tabla usa umbrales fijos.'
-                : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Las líneas son la mediana de tus guiones. Tocala para ver sus guiones.'}
+                ? `Cada punto es un anuncio (pasá el cursor para ver cuál); el tamaño = spend y las translúcidas de borde punteado tienen poca muestra. Ejes FIJOS con cortes en gancho ${HOOK_MID}% y retención ${HOLD_MID}% — la posición significa lo mismo siempre. La retención al CTA es baja para casi todos (es estructural del video), por eso la mayoría cae en la banda inferior; ahí lo que manda es el gancho (izq/der) y el spend (tamaño).`
+                : 'Cada burbuja es un ángulo (número = cuántos anuncios), ponderado por spend. Los cortes son fijos. Tocala para ver sus guiones.'}
             </div>
           </div>
         </div>

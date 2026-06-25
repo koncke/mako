@@ -549,8 +549,9 @@ type AdMetrics = {
   freqSum: number; freqN: number; dias: Set<string>;
 };
 
-/** Agrega marketing_metrics_daily (todo el histórico) para los ad_ids dados. */
-async function getScriptMetrics(adIds: string[]): Promise<Map<string, AdMetrics>> {
+/** Agrega marketing_metrics_daily para los ad_ids dados. Sin fechas = todo el
+ *  histórico; con desde/hasta = solo esa ventana (para el filtro del cuadrante). */
+async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string): Promise<Map<string, AdMetrics>> {
   const map = new Map<string, AdMetrics>();
   if (!adIds.length) return map;
   const supabase = getSupabaseServer();
@@ -558,11 +559,14 @@ async function getScriptMetrics(adIds: string[]): Promise<Map<string, AdMetrics>
   for (let i = 0; i < adIds.length; i += 200) {
     const chunk = adIds.slice(i, i + 200);
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
+      let q = supabase
         .from('marketing_metrics_daily')
         .select('ad_id, ad_name, fecha, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency, video_p25, video_p50, video_p75, video_p100')
         .eq('plataforma', 'meta')
-        .in('ad_id', chunk)
+        .in('ad_id', chunk);
+      if (desde) q = q.gte('fecha', desde);
+      if (hasta) q = q.lte('fecha', hasta);
+      const { data, error } = await q
         .order('ad_id', { ascending: true })
         .order('fecha', { ascending: true })
         .range(from, from + PAGE - 1);
@@ -723,4 +727,49 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   }
   counts.enVista = scripts.length;
   return { scripts, counts, lastSync };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cuadrante con filtro de fecha PROPIO (solo ese gráfico): recalcula hook rate y
+// retención al CTA de cada guion para una ventana, sin tocar el resto de la tab.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Punto del cuadrante (todo lo que necesita el gráfico, recalculable por ventana). */
+export type QuadPoint = {
+  id: string; short: string; angle: ScriptAngle;
+  hookRate: number; hold: number; spend: number; impressions: number; agendas: number;
+};
+
+/** Recalcula los puntos del cuadrante para una ventana (o todo, sin fechas). */
+export async function getQuadrantData(desde?: string, hasta?: string): Promise<QuadPoint[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('script_analyses')
+    .select('ad_id, short, angle, beats, dur')
+    .eq('status', 'analizada');
+  if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
+
+  const rows = (data ?? []) as Array<{ ad_id: string; short: string | null; angle: ScriptAngle | null; beats: StoredBeat[] | null; dur: number | null }>;
+  const withBeats = rows.filter((r) => (r.beats?.length ?? 0) > 0);
+  const metrics = await getScriptMetrics(withBeats.map((r) => r.ad_id), desde, hasta);
+
+  const out: QuadPoint[] = [];
+  for (const r of withBeats) {
+    const m = metrics.get(r.ad_id);
+    if (!m) continue;
+    if (!(m.leads > 0 || m.agendas > 0 || m.spendUsd > 0)) continue; // tieneSenal en la ventana
+    const impressions = m.impressions;
+    const hookRate = impressions > 0 ? clampPct((m.v3s / impressions) * 100) : 0;
+    const holdRate = m.v3s > 0 ? clampPct((m.thru / m.v3s) * 100) : 0;
+    const dur = r.dur && r.dur > 0 ? r.dur : Math.max(...(r.beats ?? []).map((b) => b.t0), 30) + 4;
+    const curve = retentionCurve({ v3s: m.v3s, thru: m.thru, p25: m.p25, p50: m.p50, p75: m.p75, p100: m.p100 }, holdRate);
+    const beats = r.beats ?? [];
+    const lastT0 = beats.length ? beats[beats.length - 1].t0 : dur;
+    out.push({
+      id: r.ad_id, short: r.short ?? r.ad_id.slice(0, 24), angle: r.angle ?? 'capataz',
+      hookRate: r0(hookRate), hold: retAt(curve, dur > 0 ? lastT0 / dur : 1),
+      spend: m.spendUsd, impressions, agendas: m.agendas,
+    });
+  }
+  return out;
 }
