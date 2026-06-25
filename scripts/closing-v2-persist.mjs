@@ -22,9 +22,22 @@ const sec = (n) => { const v = Math.round(Number(n)); return Number.isFinite(v) 
 const arr = (x) => (Array.isArray(x) ? x : []);
 const str = (x) => (x == null ? '' : String(x));
 
+// Canonicaliza los 7 labels de dimensión (algunos análisis vienen sin acentos).
+const CANON = {
+  'situacion': 'Situación', 'problema': 'Problema', 'implicacion': 'Implicación',
+  'necesidad / beneficio': 'Necesidad / beneficio', 'necesidad/beneficio': 'Necesidad / beneficio',
+  'presentacion de la propuesta': 'Presentación de la propuesta',
+  'manejo de objeciones': 'Manejo de objeciones',
+  'cta / siguientes pasos': 'CTA / siguientes pasos', 'cta/siguientes pasos': 'CTA / siguientes pasos',
+};
+const canonLabel = (s) => {
+  const k = str(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return CANON[k] || str(s);
+};
+
 function clean(a) {
   const dims = arr(a.dims).filter((d) => d && (d.g === 'spin' || d.g === 'exec') && d.label)
-    .map((d) => ({ g: d.g, label: str(d.label), score: clamp(d.score) ?? 0, note: str(d.note), quote: str(d.quote), t_seconds: sec(d.t_seconds) }));
+    .map((d) => ({ g: d.g, label: canonLabel(d.label), score: clamp(d.score) ?? 0, note: str(d.note), quote: str(d.quote), t_seconds: sec(d.t_seconds) }));
   const moments = arr(a.moments).filter((m) => m && m.quote)
     .map((m) => ({ t_seconds: sec(m.t_seconds), t: mmss(sec(m.t_seconds)), tone: mtone(m.tone), tag: str(m.tag), quote: str(m.quote) }))
     .sort((x, y) => x.t_seconds - y.t_seconds);
@@ -65,7 +78,7 @@ async function main() {
     const row = {
       recording_id: rid,
       category, origen_clasif: 'claude_v2', analysis_version: 2,
-      tipo: esVenta ? (a.tipo === 'R1' || a.tipo === 'R2' ? a.tipo : 'R1') : null,
+      tipo: esVenta ? (a.tipo === 'R1' || a.tipo === 'R2' ? a.tipo : null) : null,
       score: esVenta && hasTr ? clamp(a.score) : null,
       outcome: esVenta ? str(a.outcome) || 'Sin definir' : null,
       outcome_tone: esVenta ? tone(a.outcome_tone) : null,

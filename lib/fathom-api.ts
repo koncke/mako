@@ -93,17 +93,18 @@ async function fathomGet<T>(path: string, params: Record<string, string | number
   }
   let lastErr = '';
   for (let i = 0; i < tries; i++) {
+    const backoff = () => (i < tries - 1 ? sleep(700 * (i + 1)) : Promise.resolve()); // no dormir tras el último intento
     let res: Response;
     try {
       res = await fetch(url, { headers: { 'X-Api-Key': apiKey(), accept: 'application/json' }, cache: 'no-store' });
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
-      await sleep(700 * (i + 1));
+      await backoff();
       continue;
     }
     if (res.status === 429 || res.status >= 500) {
       lastErr = `Fathom ${res.status}`;
-      await sleep(700 * (i + 1));
+      await backoff();
       continue;
     }
     if (!res.ok) {
@@ -186,8 +187,12 @@ export async function fetchRecordingSummary(recordingId: number): Promise<Fathom
  */
 export async function fetchMeetingContent(meta: FathomMeeting): Promise<FathomMeeting> {
   const id = meta.recording_id;
+  // El transcript NO se traga: si falla tras los reintentos, propaga para que el
+  // caller marque la fila como 'error' (visible), en vez de simular "sin
+  // transcript" → 'pendiente' y reintentar para siempre (bug del v1). El summary
+  // sí es opcional (complementario), se tolera su fallo.
   const [transcript, summary] = await Promise.all([
-    fetchRecordingTranscript(id).catch(() => [] as FathomTranscriptItem[]),
+    fetchRecordingTranscript(id),
     fetchRecordingSummary(id).catch(() => null),
   ]);
   return { ...meta, transcript, default_summary: summary };

@@ -406,6 +406,19 @@ function embedTokenOf(shareUrl: string | null): string | null {
 const toSec = (n: unknown): number => { const v = Math.round(Number(n)); return Number.isFinite(v) && v >= 0 ? v : 0; };
 const toMmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
+// Canonicaliza los 7 labels de dimensión (algunos análisis vienen sin acentos).
+const DIM_CANON: Record<string, string> = {
+  'situacion': 'Situación', 'problema': 'Problema', 'implicacion': 'Implicación',
+  'necesidad / beneficio': 'Necesidad / beneficio', 'necesidad/beneficio': 'Necesidad / beneficio',
+  'presentacion de la propuesta': 'Presentación de la propuesta',
+  'manejo de objeciones': 'Manejo de objeciones',
+  'cta / siguientes pasos': 'CTA / siguientes pasos', 'cta/siguientes pasos': 'CTA / siguientes pasos',
+};
+function canonDimLabel(s: string): string {
+  const k = s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return DIM_CANON[k] ?? s;
+}
+
 /** Campos comunes a toda fila (identidad + grabación). */
 function baseFields(m: FathomMeeting, lead: LeadMatch | null) {
   const start = meetingStartIso(m);
@@ -465,7 +478,7 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
 
   const dims: ClosingDim[] = Array.isArray(a.dims)
     ? a.dims.filter((d) => d && (d.g === 'spin' || d.g === 'exec') && d.label)
-        .map((d) => ({ g: d.g, label: String(d.label), score: clampScore(d.score), note: String(d.note ?? ''), quote: String((d as { quote?: string }).quote ?? ''), t_seconds: toSec((d as { t_seconds?: number }).t_seconds) }))
+        .map((d) => ({ g: d.g, label: canonDimLabel(String(d.label)), score: clampScore(d.score), note: String(d.note ?? ''), quote: String((d as { quote?: string }).quote ?? ''), t_seconds: toSec((d as { t_seconds?: number }).t_seconds) }))
     : [];
   const moments: ClosingMoment[] = Array.isArray(a.moments)
     ? a.moments.filter((mo) => mo && mo.quote)
@@ -490,7 +503,7 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
     has_transcript: hasTr,
     category,
     origen_clasif: 'claude',
-    tipo: esVenta ? (a.tipo === 'R1' || a.tipo === 'R2' ? a.tipo : 'R1') : null,
+    tipo: esVenta ? (a.tipo === 'R1' || a.tipo === 'R2' ? a.tipo : null) : null,
     score: ventaOk ? clampScore(a.score) : null,
     outcome: esVenta ? (a.outcome ?? 'Sin definir') : null,
     outcome_tone: esVenta ? normTone(a.outcome_tone) : null,
@@ -726,7 +739,10 @@ export async function getClosingViewData(): Promise<ClosingViewData> {
 
   if (ventasRes.error) throw new Error(`Error leyendo cierres: ${ventasRes.error.message}`);
 
-  const calls = (ventasRes.data ?? []) as unknown as ClosingAnalysisRow[];
+  // PostgREST serializa NUMERIC como STRING (precisión). Coercionamos score a
+  // número para que los KPIs (typeof === 'number') y el promedio funcionen.
+  const numScore = (v: unknown): number | null => { const n = Number(v); return v != null && Number.isFinite(n) ? n : null; };
+  const calls = ((ventasRes.data ?? []) as unknown as ClosingAnalysisRow[]).map((c) => ({ ...c, score: numScore(c.score) }));
 
   const counts = { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, pendientes: 0, total: 0 };
   let lastSync: string | null = null;
