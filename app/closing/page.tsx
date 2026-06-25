@@ -19,7 +19,8 @@ export const revalidate = 0;
 
 const EMPTY: ClosingViewData = {
   calls: [],
-  counts: { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, total: 0 },
+  counts: { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, pendientes: 0, total: 0 },
+  kpis: { scorePromedio: null, conScore: 0, ganadas: 0, r1Prom: null, r2Prom: null },
   lastSync: null,
 };
 

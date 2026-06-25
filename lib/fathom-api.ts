@@ -82,20 +82,37 @@ function apiKey(): string {
   return key;
 }
 
-async function fathomGet<T>(path: string, params: Record<string, string | number | boolean | undefined> = {}): Promise<T> {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Reintenta en 429 / 5xx / red, con backoff. El bug del v1 fue tragar estos
+// fallos en silencio (transcript vacío → análisis basura con score 0).
+async function fathomGet<T>(path: string, params: Record<string, string | number | boolean | undefined> = {}, tries = 4): Promise<T> {
   const url = new URL(`${BASE}${path}`);
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   }
-  const res = await fetch(url, {
-    headers: { 'X-Api-Key': apiKey(), accept: 'application/json' },
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Fathom ${res.status} en ${path}: ${body.slice(0, 200)}`);
+  let lastErr = '';
+  for (let i = 0; i < tries; i++) {
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { 'X-Api-Key': apiKey(), accept: 'application/json' }, cache: 'no-store' });
+    } catch (e) {
+      lastErr = e instanceof Error ? e.message : String(e);
+      await sleep(700 * (i + 1));
+      continue;
+    }
+    if (res.status === 429 || res.status >= 500) {
+      lastErr = `Fathom ${res.status}`;
+      await sleep(700 * (i + 1));
+      continue;
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Fathom ${res.status} en ${path}: ${body.slice(0, 200)}`);
+    }
+    return (await res.json()) as T;
   }
-  return (await res.json()) as T;
+  throw new Error(`Fathom sin respuesta en ${path} tras ${tries} intentos: ${lastErr}`);
 }
 
 // ── Listado (metadata) ──────────────────────────────────────────────────────

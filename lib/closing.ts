@@ -32,7 +32,6 @@ import {
   meetingTitle,
   meetingDurationMin,
   meetingStartIso,
-  transcriptToText,
   type FathomMeeting,
 } from './fathom-api';
 
@@ -47,14 +46,19 @@ export type DimGroup = 'spin' | 'exec';
 export type Tone = 'good' | 'warn' | 'bad';
 export type MomentTone = 'good' | 'bad' | 'neutral';
 
-export type ClosingDim = { g: DimGroup; label: string; score: number; note: string };
-export type ClosingMoment = { t: string; tone: MomentTone; tag: string; quote: string };
+// v2: dims y moments llevan evidencia citada + t_seconds (deep-link al clip).
+export type ClosingDim = { g: DimGroup; label: string; score: number; note: string; quote?: string; t_seconds?: number };
+export type ClosingMoment = { t: string; t_seconds?: number; tone: MomentTone; tag: string; quote: string };
+export type ClosingEvidence = { title: string; quote: string; t_seconds: number; note: string };
+export type ClosingObjection = { quote: string; t_seconds: number; handled: boolean; note: string };
+export type ClosingAnnotation = { t_seconds: number; tone: 'good' | 'bad'; label: string };
 
 /** Fila persistida en closing_analyses. */
 export type ClosingAnalysisRow = {
   recording_id: number;
   call_url: string | null;
   share_url: string | null;
+  embed_token: string | null;
   title: string | null;
   call_date: string | null;
   started_at: string | null;
@@ -71,9 +75,17 @@ export type ClosingAnalysisRow = {
   outcome: string | null;
   outcome_tone: Tone | null;
   summary: string | null;
+  next_step: string | null;
   dims: ClosingDim[] | null;
   moments: ClosingMoment[] | null;
   recs: string[] | null;
+  strengths: ClosingEvidence[] | null;
+  weaknesses: ClosingEvidence[] | null;
+  objections: ClosingObjection[] | null;
+  annotations: ClosingAnnotation[] | null;
+  has_transcript: boolean | null;
+  transcript_items: number | null;
+  analysis_version: number | null;
   status: ClosingStatus;
   error: string | null;
   model: string | null;
@@ -214,7 +226,9 @@ Pistas fuertes:
 - Si se discute precio/propuesta/condiciones y la persona aún decide si contratar → VENTA.
 - Si se ejecutan tareas, OKRs, métricas, accountability de un negocio ya en programa → ENTREGA DE SERVICIO.
 
-Si es VENTA, además puntuás (0-10) estas dimensiones:
+Si el transcript dice "(sin transcript)": poné has_transcript=false y NO inventes análisis (arrays vacíos, score null).
+
+Si es VENTA y hay transcript, hacé un análisis PROFUNDO, específico y CITADO (nada de frases genéricas). Cada evidencia cita el transcript con su t_seconds real (el número de [Ns]). Puntuás (0-10):
 SPIN (g="spin"): "Situación", "Problema", "Implicación", "Necesidad / beneficio".
 Ejecución (g="exec"): "Presentación de la propuesta", "Manejo de objeciones", "CTA / siguientes pasos".
 En R1 puede no haber propuesta formal: puntuá esa dimensión por cómo encaminó hacia la R2.
@@ -223,30 +237,45 @@ Devolvés EXCLUSIVAMENTE un objeto JSON válido (sin texto fuera del JSON, sin m
 {
   "es_venta": boolean,
   "categoria": "venta" | "entrega_servicio" | "interna" | "otro",
-  "razon": string,                      // 1 frase: por qué esa categoría
-  "tipo": "R1" | "R2" | null,           // solo si es_venta
-  "score": number,                       // 0-10, una décima; solo si es_venta (si no, 0)
-  "outcome": string,                     // desenlace corto, p.ej. "Cierre ganado", "Pasó a R2", "Perdido", "Facturando", "Sin definir"
+  "razon": string,                      // 1 frase
+  "tipo": "R1" | "R2" | null,
+  "has_transcript": boolean,
+  "score": number,                       // de 0 a 10 con una décima (ej. 7.5), NUNCA escala 0-100; null si no es venta o sin transcript
+  "outcome": string,                     // "Cierre ganado" / "Pasó a R2" / "Perdido" / "Sin definir"
   "outcome_tone": "good" | "warn" | "bad",
-  "summary": string,                     // 2-4 frases en español rioplatense, análisis del desempeño
-  "dims": [ { "g": "spin"|"exec", "label": string, "score": number, "note": string } ],  // 7 items si es_venta, [] si no
-  "moments": [ { "t": "MM:SS", "tone": "good"|"bad"|"neutral", "tag": string, "quote": string } ], // 2-4 momentos clave con timestamp; [] si no es venta
-  "recs": [ string ]                      // 2-4 recomendaciones de coaching accionables; [] si no es venta
+  "summary": string,                     // 4-6 frases: contexto, desarrollo, quiebre, resultado
+  "next_step": string,                   // qué hacer ahora con el lead
+  "dims": [ { "g":"spin"|"exec", "label": string, "score": number, "note": string, "quote": string, "t_seconds": number } ],  // 7 items
+  "strengths": [ { "title": string, "quote": string, "t_seconds": number, "note": string } ],   // 2-4
+  "weaknesses": [ { "title": string, "quote": string, "t_seconds": number, "note": string } ],  // 2-4
+  "objections": [ { "quote": string, "t_seconds": number, "handled": boolean, "note": string } ], // las que aparezcan
+  "moments": [ { "t_seconds": number, "tone":"good"|"bad"|"neutral", "tag": string, "quote": string } ], // 6-12 hitos
+  "annotations": [ { "t_seconds": number, "tone":"good"|"bad", "label": string } ],   // 8-20 marcadores sobre TODA la llamada
+  "recs": [ string ]                      // 3-5 recomendaciones de coaching accionables
 }
-Las notas, summary, tags, quotes y recs van en español rioplatense (voseo), concretas y sin relleno. Los timestamps deben salir del transcript.`;
+Para entrega_servicio/interna/otro: completá categoria, razon, summary (1-2 frases), arrays vacíos y score null. Todo en español rioplatense (voseo), concreto y sin relleno. Los t_seconds salen de los [Ns] del transcript.`;
 
+type EvidenceJson = { title?: string; quote?: string; t_seconds?: number; note?: string };
+type ObjectionJson = { quote?: string; t_seconds?: number; handled?: boolean; note?: string };
+type AnnotationJson = { t_seconds?: number; tone?: string; label?: string };
 type ClaudeAnalysis = {
   es_venta: boolean;
   categoria: 'venta' | 'entrega_servicio' | 'interna' | 'otro';
   razon?: string;
   tipo?: CallTipo | null;
+  has_transcript?: boolean;
   score?: number;
   outcome?: string;
   outcome_tone?: Tone;
   summary?: string;
+  next_step?: string;
   dims?: ClosingDim[];
   moments?: ClosingMoment[];
   recs?: string[];
+  strengths?: EvidenceJson[];
+  weaknesses?: EvidenceJson[];
+  objections?: ObjectionJson[];
+  annotations?: AnnotationJson[];
 };
 
 /** Extrae el primer objeto JSON de un texto (tolera fences ```json). */
@@ -259,13 +288,39 @@ function parseJsonObject(text: string): unknown {
 }
 
 function clampScore(n: unknown): number {
-  const v = typeof n === 'number' ? n : Number(n);
+  let v = typeof n === 'number' ? n : Number(n);
   if (!Number.isFinite(v)) return 0;
+  if (v > 10) v = v / 10; // tolera respuestas en escala 0-100
   return Math.max(0, Math.min(10, Math.round(v * 10) / 10));
 }
 
 function normTone(t: unknown): Tone {
   return t === 'good' || t === 'bad' ? t : 'warn';
+}
+
+/** Transcript con segundos precomputados: "[123s · 2:03] Hablante: texto". */
+function transcriptWithSeconds(items: FathomMeeting['transcript'], maxChars = 60000): string {
+  if (!items || !items.length) return '';
+  const toSec = (ts?: string | null) => {
+    if (!ts) return 0;
+    const p = String(ts).split(':').map(Number);
+    if (p.some((n) => Number.isNaN(n))) return 0;
+    if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+    if (p.length === 2) return p[0] * 60 + p[1];
+    return p[0] || 0;
+  };
+  const out: string[] = [];
+  let len = 0;
+  for (const it of items) {
+    const tx = (it.text ?? '').trim();
+    if (!tx) continue;
+    const s = toSec(it.timestamp);
+    const line = `[${s}s · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}] ${it.speaker?.display_name ?? '—'}: ${tx}`;
+    if (len + line.length > maxChars) { out.push('… (transcript recortado)'); break; }
+    out.push(line);
+    len += line.length + 1;
+  }
+  return out.join('\n');
 }
 
 function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null): string {
@@ -278,7 +333,7 @@ function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null): string {
     .filter((s) => s.trim() !== '-')
     .slice(0, 20)
     .join('\n');
-  const transcript = transcriptToText(m.transcript, 16000);
+  const transcript = transcriptWithSeconds(m.transcript);
 
   const leadCtx = lead
     ? [
@@ -308,7 +363,7 @@ ${summaryMd}
 ## Action items
 ${actions || '(ninguno)'}
 
-## Transcript (extracto, con timestamps)
+## Transcript completo  [segundos · mm:ss] Hablante: texto
 ${transcript || '(sin transcript)'}
 
 Analizá la llamada y devolvé el JSON pedido.`;
@@ -344,13 +399,22 @@ function safeFecha(iso: string | null): string | null {
   try { return isoToFechaTijuana(iso); } catch { return null; }
 }
 
-/** Fila descartada (no es venta) a partir de la heurística — sin Claude. */
-function descartadaRow(m: FathomMeeting, lead: LeadMatch | null, category: ClosingCategory): ClosingAnalysisRow {
+function embedTokenOf(shareUrl: string | null): string | null {
+  const mm = (shareUrl ?? '').match(/\/share\/([^/?]+)/);
+  return mm ? mm[1] : null;
+}
+const toSec = (n: unknown): number => { const v = Math.round(Number(n)); return Number.isFinite(v) && v >= 0 ? v : 0; };
+const toMmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/** Campos comunes a toda fila (identidad + grabación). */
+function baseFields(m: FathomMeeting, lead: LeadMatch | null) {
   const start = meetingStartIso(m);
+  const tn = m.transcript?.length ?? null;
   return {
     recording_id: m.recording_id,
     call_url: m.url ?? null,
     share_url: m.share_url ?? null,
+    embed_token: embedTokenOf(m.share_url ?? null),
     title: meetingTitle(m) || null,
     call_date: safeFecha(start),
     started_at: start,
@@ -360,16 +424,25 @@ function descartadaRow(m: FathomMeeting, lead: LeadMatch | null, category: Closi
     lead_id: lead?.id ?? null,
     lead_nombre: lead?.nombre ?? null,
     lead_empresa: lead?.empresa ?? null,
+    has_transcript: tn != null ? tn > 0 : null,
+    transcript_items: tn,
+  };
+}
+
+const NULL_V2 = {
+  tipo: null, score: null, outcome: null, outcome_tone: null, next_step: null,
+  dims: null, moments: null, recs: null, strengths: null, weaknesses: null, objections: null, annotations: null,
+} as const;
+
+/** Fila descartada (no es venta) a partir de la heurística — sin Claude. */
+function descartadaRow(m: FathomMeeting, lead: LeadMatch | null, category: ClosingCategory): ClosingAnalysisRow {
+  return {
+    ...baseFields(m, lead),
     category,
     origen_clasif: 'heuristica',
-    tipo: null,
-    score: null,
-    outcome: null,
-    outcome_tone: null,
+    ...NULL_V2,
     summary: null,
-    dims: null,
-    moments: null,
-    recs: null,
+    analysis_version: 2,
     status: 'descartada',
     error: null,
     model: null,
@@ -377,9 +450,10 @@ function descartadaRow(m: FathomMeeting, lead: LeadMatch | null, category: Closi
   };
 }
 
-/** Fila a partir del análisis de Claude. */
+/** Fila a partir del análisis de Claude (v2). */
 function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis): ClosingAnalysisRow {
-  const start = meetingStartIso(m);
+  const base = baseFields(m, lead);
+  const hasTr = a.has_transcript !== false && base.has_transcript !== false;
   const esVenta = a.es_venta === true && a.categoria === 'venta';
   const category: ClosingCategory = esVenta
     ? 'venta'
@@ -389,47 +463,48 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
         ? 'interna'
         : 'sin_clasificar';
 
-  const dims = Array.isArray(a.dims)
-    ? a.dims
-        .filter((d) => d && (d.g === 'spin' || d.g === 'exec') && d.label)
-        .map((d) => ({ g: d.g, label: String(d.label), score: clampScore(d.score), note: String(d.note ?? '') }))
+  const dims: ClosingDim[] = Array.isArray(a.dims)
+    ? a.dims.filter((d) => d && (d.g === 'spin' || d.g === 'exec') && d.label)
+        .map((d) => ({ g: d.g, label: String(d.label), score: clampScore(d.score), note: String(d.note ?? ''), quote: String((d as { quote?: string }).quote ?? ''), t_seconds: toSec((d as { t_seconds?: number }).t_seconds) }))
     : [];
-  const moments = Array.isArray(a.moments)
-    ? a.moments
-        .filter((mo) => mo && mo.quote)
-        .map((mo) => ({
-          t: String(mo.t ?? ''),
-          tone: (mo.tone === 'good' || mo.tone === 'bad' ? mo.tone : 'neutral') as MomentTone,
-          tag: String(mo.tag ?? ''),
-          quote: String(mo.quote ?? ''),
-        }))
+  const moments: ClosingMoment[] = Array.isArray(a.moments)
+    ? a.moments.filter((mo) => mo && mo.quote)
+        .map((mo) => { const s = toSec((mo as { t_seconds?: number }).t_seconds); return { t_seconds: s, t: toMmss(s), tone: (mo.tone === 'good' || mo.tone === 'bad' ? mo.tone : 'neutral') as MomentTone, tag: String(mo.tag ?? ''), quote: String(mo.quote ?? '') }; })
+        .sort((x, y) => (x.t_seconds ?? 0) - (y.t_seconds ?? 0))
+    : [];
+  const ev = (x: EvidenceJson) => ({ title: String(x.title ?? ''), quote: String(x.quote ?? ''), t_seconds: toSec(x.t_seconds), note: String(x.note ?? '') });
+  const strengths = Array.isArray(a.strengths) ? a.strengths.filter((x) => x && (x.title || x.quote)).map(ev) : [];
+  const weaknesses = Array.isArray(a.weaknesses) ? a.weaknesses.filter((x) => x && (x.title || x.quote)).map(ev) : [];
+  const objections = Array.isArray(a.objections)
+    ? a.objections.filter((x) => x && x.quote).map((x) => ({ quote: String(x.quote ?? ''), t_seconds: toSec(x.t_seconds), handled: !!x.handled, note: String(x.note ?? '') })).sort((p, q) => p.t_seconds - q.t_seconds)
+    : [];
+  const annotations = Array.isArray(a.annotations)
+    ? a.annotations.filter((x) => x && Number.isFinite(Number(x.t_seconds))).map((x) => ({ t_seconds: toSec(x.t_seconds), tone: (x.tone === 'bad' ? 'bad' : 'good') as 'good' | 'bad', label: String(x.label ?? '') })).sort((p, q) => p.t_seconds - q.t_seconds)
     : [];
   const recs = Array.isArray(a.recs) ? a.recs.map((r) => String(r)).filter(Boolean) : [];
 
+  // venta sin transcript real → no fabricamos score; queda pendiente de re-análisis.
+  const ventaOk = esVenta && hasTr;
   return {
-    recording_id: m.recording_id,
-    call_url: m.url ?? null,
-    share_url: m.share_url ?? null,
-    title: meetingTitle(m) || null,
-    call_date: safeFecha(start),
-    started_at: start,
-    duration_min: meetingDurationMin(m),
-    closer: deriveCloser(m, lead),
-    invitee_email: primaryInviteeEmail(m, lead),
-    lead_id: lead?.id ?? null,
-    lead_nombre: lead?.nombre ?? null,
-    lead_empresa: lead?.empresa ?? null,
+    ...base,
+    has_transcript: hasTr,
     category,
     origen_clasif: 'claude',
     tipo: esVenta ? (a.tipo === 'R1' || a.tipo === 'R2' ? a.tipo : 'R1') : null,
-    score: esVenta ? clampScore(a.score) : null,
+    score: ventaOk ? clampScore(a.score) : null,
     outcome: esVenta ? (a.outcome ?? 'Sin definir') : null,
     outcome_tone: esVenta ? normTone(a.outcome_tone) : null,
     summary: a.summary ?? null,
-    dims: esVenta ? dims : null,
-    moments: esVenta ? moments : null,
-    recs: esVenta ? recs : null,
-    status: esVenta ? 'analizada' : 'descartada',
+    next_step: esVenta ? (a.next_step ?? null) : null,
+    dims: ventaOk ? dims : null,
+    moments: ventaOk ? moments : null,
+    recs: ventaOk ? recs : null,
+    strengths: ventaOk ? strengths : null,
+    weaknesses: ventaOk ? weaknesses : null,
+    objections: ventaOk ? objections : null,
+    annotations: ventaOk ? annotations : null,
+    analysis_version: 2,
+    status: esVenta ? (hasTr ? 'analizada' : 'pendiente') : 'descartada',
     error: null,
     model: ANALYSIS_MODEL,
     analyzed_at: new Date().toISOString(),
@@ -520,14 +595,15 @@ export async function syncClosingCalls(opts: { max?: number; timeBudgetMs?: numb
 
   if (doneRows.error) throw new Error(`Error leyendo closing_analyses: ${doneRows.error.message}`);
   const doneData = (doneRows.data ?? []) as Array<{ recording_id: number; status: string }>;
-  // Ya resueltas: cualquier status menos 'error' (los errores se reintentan).
+  // Se reintentan: 'error' (falló) y 'pendiente' (venta sin transcript). El resto
+  // ya está resuelto y se saltea.
+  const retryable = (s: string) => s === 'error' || s === 'pendiente';
   const done = new Set(
-    doneData.filter((r) => (opts.force ? false : r.status !== 'error')).map((r) => r.recording_id),
+    doneData.filter((r) => (opts.force ? false : !retryable(r.status))).map((r) => r.recording_id),
   );
-  // Grabaciones que ya fallaron antes: se reintentan pero AL FINAL de la cola,
-  // para que un cluster de errores determinísticos no acapare el presupuesto y
-  // mate de hambre al backlog sin analizar.
-  const errorIds = new Set(doneData.filter((r) => r.status === 'error').map((r) => r.recording_id));
+  // Los reintentos van AL FINAL de la cola, para que un cluster de fallos
+  // determinísticos no acapare el presupuesto y mate de hambre al backlog nuevo.
+  const errorIds = new Set(doneData.filter((r) => retryable(r.status)).map((r) => r.recording_id));
 
   const result: SyncResult = {
     total_fathom: meetings.length,
@@ -612,17 +688,30 @@ export type ClosingViewData = {
     internas: number;
     test: number;
     errores: number;
+    pendientes: number;            // venta sin transcript (análisis incompleto)
     total: number;
+  };
+  kpis: {
+    scorePromedio: number | null;  // solo ventas con transcript y score
+    conScore: number;              // n de ventas con score válido
+    ganadas: number;               // outcome_tone good
+    r1Prom: number | null;
+    r2Prom: number | null;
   };
   lastSync: string | null;          // updated_at más reciente
 };
 
 const VIEW_COLS =
-  'recording_id, call_url, share_url, title, call_date, started_at, duration_min, closer, invitee_email, ' +
+  'recording_id, call_url, share_url, embed_token, title, call_date, started_at, duration_min, closer, invitee_email, ' +
   'lead_id, lead_nombre, lead_empresa, category, origen_clasif, tipo, score, outcome, outcome_tone, ' +
-  'summary, dims, moments, recs, status, error, model, analyzed_at, updated_at';
+  'summary, next_step, dims, moments, recs, strengths, weaknesses, objections, annotations, ' +
+  'has_transcript, transcript_items, analysis_version, status, error, model, analyzed_at, updated_at';
 
-/** Datos para /closing: las llamadas de venta analizadas + contadores. */
+function avg(nums: number[]): number | null {
+  return nums.length ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10 : null;
+}
+
+/** Datos para /closing: las llamadas de venta analizadas + contadores + KPIs. */
 export async function getClosingViewData(): Promise<ClosingViewData> {
   const supabase = getSupabaseServer();
   const [ventasRes, allRes] = await Promise.all([
@@ -630,6 +719,7 @@ export async function getClosingViewData(): Promise<ClosingViewData> {
       .from('closing_analyses')
       .select(VIEW_COLS)
       .eq('category', 'venta')
+      .eq('status', 'analizada')        // solo ventas con análisis completo (v2)
       .order('call_date', { ascending: false, nullsFirst: false }),
     supabase.from('closing_analyses').select('category, status, updated_at'),
   ]);
@@ -638,7 +728,7 @@ export async function getClosingViewData(): Promise<ClosingViewData> {
 
   const calls = (ventasRes.data ?? []) as unknown as ClosingAnalysisRow[];
 
-  const counts = { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, total: 0 };
+  const counts = { ventas: 0, servicio: 0, internas: 0, test: 0, errores: 0, pendientes: 0, total: 0 };
   let lastSync: string | null = null;
   for (const r of (allRes.data ?? []) as Array<{ category: string; status: string; updated_at: string }>) {
     counts.total++;
@@ -647,8 +737,19 @@ export async function getClosingViewData(): Promise<ClosingViewData> {
     else if (r.category === 'interna') counts.internas++;
     else if (r.category === 'test') counts.test++;
     if (r.status === 'error') counts.errores++;
+    if (r.category === 'venta' && r.status === 'pendiente') counts.pendientes++;
     if (!lastSync || r.updated_at > lastSync) lastSync = r.updated_at;
   }
 
-  return { calls, counts, lastSync };
+  // KPIs SOLO sobre ventas con transcript real y score (no promediar 0s falsos).
+  const scored = calls.filter((c) => c.has_transcript !== false && typeof c.score === 'number');
+  const kpis = {
+    scorePromedio: avg(scored.map((c) => c.score as number)),
+    conScore: scored.length,
+    ganadas: calls.filter((c) => c.outcome_tone === 'good').length,
+    r1Prom: avg(scored.filter((c) => c.tipo === 'R1').map((c) => c.score as number)),
+    r2Prom: avg(scored.filter((c) => c.tipo === 'R2').map((c) => c.score as number)),
+  };
+
+  return { calls, counts, kpis, lastSync };
 }

@@ -43,3 +43,8 @@ next-env.d.ts
 # Material de especificación (no versionar)
 Mejoras_v3_MauricioBustos.pdf
 *.mejoras.pdf
+
+# Closing Analyst v2 — archivos de trabajo (transcripts/análisis temporales)
+scripts/_closing_work/
+scripts/_closing_work_out/
+scripts/_closing_rids.json
