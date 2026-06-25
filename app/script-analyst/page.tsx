@@ -1,20 +1,31 @@
 // =============================================================================
-// /script-analyst — Análisis de guiones (por ahora: Anuncios ganadores)
+// /script-analyst — Scripts Analyst
 // =============================================================================
-// Movido desde /marketing/anuncios. Mantiene el comparador de agendas (Meta vs
-// CRM) y el browser de anuncios con su modal de detalle. A futuro suma análisis
-// de guiones/copys.
+// Analiza los GUIONES de los video ads: cruza el análisis cualitativo de Claude
+// (ángulo, gancho, beats, diagnóstico — guardado en script_analyses) con las
+// métricas vivas de Meta×CRM (spend, hook rate, retención por cuartiles, agendas,
+// cierres, frecuencia). La página solo lee; el componente cliente dispara el sync
+// y muestra los patrones, el cuadrante de retención y el embudo por guion.
+//
+// La data cualitativa la llena /api/script-analyst/sync + el cron script-analyst
+// -sync, después de que transcribe-ads haya generado los transcripts.
+// =============================================================================
 
-import { getSenalesRecon, getAgendasComparador, type SenalRecon, type AgendasComparador } from '@/lib/queries';
+import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/script-analyst';
 import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
 import { FechaFiltro } from '../_components/FechaFiltro';
-import { tieneSenal } from '../marketing/AnuncioCard';
-import { AnunciosBrowser } from './AnunciosBrowser';
+import { ScriptsBrowser } from './ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
+
+const EMPTY: ScriptAnalystView = {
+  scripts: [],
+  counts: { enVista: 0, analizadas: 0, pendientes: 0, descartadas: 0, sinTranscript: 0, errores: 0, total: 0 },
+  lastSync: null,
+};
 
 function fmtPeriodoLabel(desde: string, hasta: string): string {
   return `${fmtDDMMYYYY(desde)} – ${fmtDDMMYYYY(hasta)}`;
@@ -37,75 +48,32 @@ export default async function ScriptAnalystPage({
   const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
   const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
 
-  let senales: SenalRecon[] = [];
-  let comparador: AgendasComparador | null = null;
+  let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   try {
-    [senales, comparador] = await Promise.all([
-      getSenalesRecon(rangoDesde, rangoHasta),
-      getAgendasComparador(rangoDesde, rangoHasta),
-    ]);
+    data = await getScriptAnalystView(rangoDesde, rangoHasta);
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
-  const conSenal = senales.filter(tieneSenal);
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
+      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 8 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
             Script Analyst · {fmtPeriodoLabel(rangoDesde, rangoHasta)}
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-            <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Anuncios ganadores</h1>
-            <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{conSenal.length} con señal</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Scripts Analyst</h1>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: 12.5, fontWeight: 600 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Meta Ads
+            </span>
           </div>
         </div>
         <FechaFiltro hoyReal={hoyReal} />
       </header>
 
-      {comparador && <ComparadorAgendas c={comparador} />}
-
-      {errorMsg ? (
-        <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 16, padding: '24px 28px' }}>
-          <p style={{ fontWeight: 600, fontSize: 18, margin: '0 0 4px', color: 'var(--bad)' }}>Error consultando datos</p>
-          <p style={{ fontFamily: MONO, fontSize: 14, margin: 0, color: 'var(--dim)' }}>{errorMsg}</p>
-        </div>
-      ) : (
-        <AnunciosBrowser senales={conSenal} desde={rangoDesde} hasta={rangoHasta} />
-      )}
+      <ScriptsBrowser data={data} errorMsg={errorMsg} />
     </main>
-  );
-}
-
-// Comparador de agendas: Meta (Programaciones) vs CRM (agendas reales).
-function ComparadorAgendas({ c }: { c: AgendasComparador }) {
-  const gap = c.crm - c.meta;
-  const cell: React.CSSProperties = { flex: 1, minWidth: 160, padding: '16px 18px', borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)' };
-  return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)', marginBottom: 22 }}>
-      <h2 style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em', margin: '0 0 4px', color: 'var(--ink)' }}>Agendas: Meta vs CRM</h2>
-      <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '0 0 16px' }}>
-        Meta atribuye con su modelo (clic/vista). El CRM cuenta todas las agendas del período (incluye orgánico, directo y leads sin UTM). La brecha es esperable.
-      </p>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <div style={cell}>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Suma según Meta</div>
-          <div style={{ fontWeight: 600, fontSize: 30, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{c.meta}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4 }}>Programaciones atribuidas a anuncios</div>
-        </div>
-        <div style={cell}>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Reales en el CRM</div>
-          <div style={{ fontWeight: 600, fontSize: 30, color: 'var(--good)', fontVariantNumeric: 'tabular-nums' }}>{c.crm}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4 }}>Leads con Reunión 1 en el período</div>
-        </div>
-        <div style={cell}>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Brecha (CRM − Meta)</div>
-          <div style={{ fontWeight: 600, fontSize: 30, color: gap >= 0 ? 'var(--ink)' : 'var(--bad)', fontVariantNumeric: 'tabular-nums' }}>{gap >= 0 ? '+' : ''}{gap}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 4 }}>No atribuibles a un anuncio</div>
-        </div>
-      </div>
-    </section>
   );
 }

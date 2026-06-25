@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/closing-sync",
       "schedule": "30 14 * * *"
+    },
+    {
+      "path": "/api/cron/script-analyst-sync",
+      "schedule": "0 16 * * *"
     }
   ]
 }
