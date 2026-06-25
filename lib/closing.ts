@@ -52,6 +52,7 @@ export type ClosingMoment = { t: string; t_seconds?: number; tone: MomentTone; t
 export type ClosingEvidence = { title: string; quote: string; t_seconds: number; note: string };
 export type ClosingObjection = { quote: string; t_seconds: number; handled: boolean; note: string };
 export type ClosingAnnotation = { t_seconds: number; tone: 'good' | 'bad'; label: string };
+export type ClosingEdit = { at: string; autor: string; tipo: 'manual' | 'mako'; resumen: string; score_antes: number | null; score_despues: number | null };
 
 /** Fila persistida en closing_analyses. */
 export type ClosingAnalysisRow = {
@@ -86,6 +87,7 @@ export type ClosingAnalysisRow = {
   has_transcript: boolean | null;
   transcript_items: number | null;
   analysis_version: number | null;
+  edit_history: ClosingEdit[] | null;
   status: ClosingStatus;
   error: string | null;
   model: string | null;
@@ -323,7 +325,7 @@ function transcriptWithSeconds(items: FathomMeeting['transcript'], maxChars = 60
   return out.join('\n');
 }
 
-function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null): string {
+function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): string {
   const externals = externalInviteeEmails(m);
   const start = meetingStartIso(m);
   const dur = meetingDurationMin(m);
@@ -365,7 +367,7 @@ ${actions || '(ninguno)'}
 
 ## Transcript completo  [segundos · mm:ss] Hablante: texto
 ${transcript || '(sin transcript)'}
-
+${feedback ? `\n## Revisión humana (IMPORTANTE — tenelo en cuenta y ajustá tu análisis)\nQuien escuchó la llamada dice: "${feedback}"\nRe-evaluá la llamada incorporando esta observación; si corresponde, ajustá scores, outcome, notas y momentos.\n` : ''}
 Analizá la llamada y devolvé el JSON pedido.`;
 }
 
@@ -374,9 +376,9 @@ export type AnalyzeResult =
   | { ok: false; error: string };
 
 /** Corre Claude sobre una meeting con contenido. PURA: nunca tira, devuelve {ok}. */
-export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null): Promise<AnalyzeResult> {
+export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
   try {
-    const text = await chatClaude(SYSTEM_ANALISIS, [{ role: 'user', content: buildUserPrompt(m, lead) }], {
+    const text = await chatClaude(SYSTEM_ANALISIS, [{ role: 'user', content: buildUserPrompt(m, lead, feedback) }], {
       model: ANALYSIS_MODEL,
       thinking: true,
       effort: 'high',
@@ -445,6 +447,7 @@ function baseFields(m: FathomMeeting, lead: LeadMatch | null) {
 const NULL_V2 = {
   tipo: null, score: null, outcome: null, outcome_tone: null, next_step: null,
   dims: null, moments: null, recs: null, strengths: null, weaknesses: null, objections: null, annotations: null,
+  edit_history: null,
 } as const;
 
 /** Fila descartada (no es venta) a partir de la heurística — sin Claude. */
@@ -517,6 +520,7 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
     objections: ventaOk ? objections : null,
     annotations: ventaOk ? annotations : null,
     analysis_version: 2,
+    edit_history: null,
     status: esVenta ? (hasTr ? 'analizada' : 'pendiente') : 'descartada',
     error: null,
     model: ANALYSIS_MODEL,
@@ -526,9 +530,13 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
 
 async function upsertRow(row: ClosingAnalysisRow): Promise<void> {
   const supabase = getSupabaseServer();
+  // No tocamos edit_history desde el análisis/sync — solo lo manejan las
+  // revisiones humanas (así un re-análisis no borra el historial de cambios).
+  const { edit_history: _eh, ...rest } = row;
+  void _eh;
   const { error } = await supabase
     .from('closing_analyses')
-    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'recording_id' });
+    .upsert({ ...rest, updated_at: new Date().toISOString() }, { onConflict: 'recording_id' });
   if (error) throw new Error(`Error guardando análisis ${row.recording_id}: ${error.message}`);
 }
 
@@ -690,6 +698,100 @@ export async function analyzeOne(recordingId: number): Promise<ClosingStatus> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Revisión humana del análisis (editar a mano o re-evaluar con MaKo) + historial
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ReviseManualInput = {
+  dims?: Array<{ label: string; score: number }>;   // overrides de score por dimensión
+  outcome?: string;
+  outcome_tone?: Tone;
+  summary?: string;
+  next_step?: string;
+  note?: string;     // comentario del revisor (para el historial)
+  autor?: string;
+};
+
+function pushHistory(prev: ClosingEdit[] | null, e: ClosingEdit): ClosingEdit[] {
+  return [...(Array.isArray(prev) ? prev : []), e];
+}
+
+/** Edición MANUAL: pisa scores de dimensiones / outcome / resumen y recalcula el
+ *  puntaje final como promedio de las dimensiones. Registra el cambio. */
+export async function reviseAnalysis(recordingId: number, input: ReviseManualInput): Promise<{ score: number | null }> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('closing_analyses')
+    .select('score, dims, outcome, outcome_tone, summary, next_step, edit_history')
+    .eq('recording_id', recordingId)
+    .maybeSingle();
+  if (error) throw new Error(`Error leyendo análisis ${recordingId}: ${error.message}`);
+  if (!data) throw new Error(`Análisis ${recordingId} no existe`);
+
+  const prevScore = data.score == null ? null : Number(data.score);
+  const curDims = (Array.isArray(data.dims) ? data.dims : []) as ClosingDim[];
+  // aplicar overrides de score por label
+  const overrideBy = new Map((input.dims ?? []).map((d) => [d.label, clampScore(d.score)]));
+  const newDims = curDims.map((d) => (overrideBy.has(d.label) ? { ...d, score: overrideBy.get(d.label)! } : d));
+  // el score final = promedio de dimensiones (los cambios afectan el puntaje)
+  const dimScores = newDims.map((d) => d.score).filter((s) => typeof s === 'number');
+  const newScore = dimScores.length ? Math.round((dimScores.reduce((a, b) => a + b, 0) / dimScores.length) * 10) / 10 : prevScore;
+
+  const patch: Record<string, unknown> = {
+    dims: newDims,
+    score: newScore,
+    origen_clasif: 'manual',
+    edited_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  if (input.outcome !== undefined) patch.outcome = input.outcome;
+  if (input.outcome_tone !== undefined) patch.outcome_tone = normTone(input.outcome_tone);
+  if (input.summary !== undefined) patch.summary = input.summary;
+  if (input.next_step !== undefined) patch.next_step = input.next_step;
+  patch.edit_history = pushHistory(data.edit_history as ClosingEdit[] | null, {
+    at: new Date().toISOString(), autor: input.autor || 'manual', tipo: 'manual',
+    resumen: input.note || 'Edición manual de la valoración', score_antes: prevScore, score_despues: newScore,
+  });
+
+  const { error: upErr } = await supabase.from('closing_analyses').update(patch).eq('recording_id', recordingId);
+  if (upErr) throw new Error(`Error guardando revisión ${recordingId}: ${upErr.message}`);
+  return { score: newScore };
+}
+
+/** Re-evaluación CON MaKo: re-corre el análisis pasándole el comentario del
+ *  revisor; pisa el análisis y registra el cambio (conservando el historial). */
+export async function reviseWithMako(recordingId: number, note: string, autor?: string): Promise<{ score: number | null }> {
+  const supabase = getSupabaseServer();
+  const { data: prev } = await supabase
+    .from('closing_analyses').select('score, edit_history').eq('recording_id', recordingId).maybeSingle();
+  const prevScore = prev?.score == null ? null : Number(prev.score);
+
+  const [meetings, leadsByEmail] = await Promise.all([fetchAllMeetings(), getLeadsByEmail()]);
+  const meta = meetings.find((m) => m.recording_id === recordingId);
+  if (!meta) throw new Error(`Grabación ${recordingId} no encontrada en Fathom`);
+  const lead = matchMeetingToLead(meta, leadsByEmail);
+  const m = await fetchMeetingContent(meta);
+  const res = await analyzeMeeting(m, lead, note);
+  if (!res.ok) throw new Error(`MaKo no pudo re-evaluar: ${res.error}`);
+  const row = analyzedRow(m, lead, res.analysis);
+
+  const { edit_history: _eh, recording_id: _rid, ...analysisFields } = row;
+  void _eh; void _rid;
+  const patch: Record<string, unknown> = {
+    ...analysisFields,
+    origen_clasif: 'mako_revisado',
+    edited_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    edit_history: pushHistory((prev?.edit_history as ClosingEdit[] | null) ?? null, {
+      at: new Date().toISOString(), autor: autor || 'MaKo', tipo: 'mako',
+      resumen: note, score_antes: prevScore, score_despues: row.score,
+    }),
+  };
+  const { error: upErr } = await supabase.from('closing_analyses').update(patch).eq('recording_id', recordingId);
+  if (upErr) throw new Error(`Error guardando re-evaluación ${recordingId}: ${upErr.message}`);
+  return { score: row.score };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Lectura para la vista
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -718,7 +820,7 @@ const VIEW_COLS =
   'recording_id, call_url, share_url, embed_token, title, call_date, started_at, duration_min, closer, invitee_email, ' +
   'lead_id, lead_nombre, lead_empresa, category, origen_clasif, tipo, score, outcome, outcome_tone, ' +
   'summary, next_step, dims, moments, recs, strengths, weaknesses, objections, annotations, ' +
-  'has_transcript, transcript_items, analysis_version, status, error, model, analyzed_at, updated_at';
+  'has_transcript, transcript_items, analysis_version, edit_history, status, error, model, analyzed_at, updated_at';
 
 function avg(nums: number[]): number | null {
   return nums.length ? Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10 : null;
