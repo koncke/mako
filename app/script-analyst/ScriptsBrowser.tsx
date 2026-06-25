@@ -13,7 +13,7 @@
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
-import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion } from '@/lib/script-analyst';
+import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/script-analyst';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -291,7 +291,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; errorMsg: string | null }) {
+export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAnalystView; errorMsg: string | null; drafts?: ScriptDraft[] }) {
   const router = useRouter();
   const ads = data.scripts;
   const { counts, lastSync } = data;
@@ -358,8 +358,13 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló');
       setValoracion(j.valoracion as Valoracion);
+      router.refresh(); // recarga el historial con el guion recién guardado
     } catch (e) { setValError(e instanceof Error ? e.message : String(e)); }
     finally { setValorando(false); }
+  }
+  function viewDraft(d: ScriptDraft) { setValoracion(d.valoracion); setGuionText(d.guion); setValError(null); }
+  async function borrarDraft(id: number) {
+    try { await fetch(`/api/script-analyst/valorar?id=${id}`, { method: 'DELETE' }); router.refresh(); } catch { /* no crítico */ }
   }
 
   const reliable = useMemo(() => ads.filter((a) => confidence(a) !== 'baja'), [ads]);
@@ -682,6 +687,26 @@ export function ScriptsBrowser({ data, errorMsg }: { data: ScriptAnalystView; er
           {guionText.length > 0 && !valorando && <button onClick={() => { setGuionText(''); setValoracion(null); setValError(null); }} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>limpiar</button>}
         </div>
         {valoracion && <ValoracionView v={valoracion} />}
+
+        {drafts.length > 0 && (
+          <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>Historial · {drafts.length}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {drafts.map((d) => { const vv = VV[d.verdicto ?? ''] ?? { label: d.verdicto ?? '—', c: '#6B675C' }; return (
+                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px' }}>
+                  <button onClick={() => viewDraft(d)} style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit', padding: 0 }}>
+                    {d.angle && <span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: angleInfo(d.angle).c }} />}
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', maxWidth: 200 }}>{d.short || 'Guion'}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>{d.guion.replace(/\s+/g, ' ').slice(0, 80)}…</span>
+                  </button>
+                  <span style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: rgba(vv.c, .1), color: vv.c, border: `1px solid ${rgba(vv.c, .3)}`, whiteSpace: 'nowrap', flex: 'none' }}>{vv.label}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap', flex: 'none' }}>{d.created_at.slice(0, 10)}</span>
+                  <button onClick={() => borrarDraft(d.id)} aria-label="Borrar del historial" title="Borrar del historial" style={{ flex: 'none', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--faint)', fontSize: 13, cursor: 'pointer' }}>✕</button>
+                </div>
+              ); })}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* GUIONES */}

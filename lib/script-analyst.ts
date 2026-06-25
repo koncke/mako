@@ -958,3 +958,45 @@ export async function valorarGuion(guion: string, dur?: number): Promise<{ ok: t
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+// ── Historial de guiones nuevos valorados (script_drafts) ──
+export type ScriptDraft = {
+  id: number; guion: string; short: string | null; angle: string | null; hook_type: string | null; verdicto: string | null;
+  valoracion: Valoracion; created_at: string;
+};
+
+const DRAFT_COLS = 'id, guion, short, angle, hook_type, verdicto, valoracion, created_at';
+
+/** Guarda un guion nuevo + su valoración. Devuelve la fila persistida. */
+export async function saveDraft(guion: string, valoracion: Valoracion): Promise<ScriptDraft> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('script_drafts')
+    .insert({
+      guion, short: valoracion.clasificacion.short, angle: valoracion.clasificacion.angle,
+      hook_type: valoracion.clasificacion.hook_type, verdicto: valoracion.prediccion.verdicto,
+      valoracion, model: ANALYSIS_MODEL,
+    })
+    .select(DRAFT_COLS)
+    .single();
+  if (error) throw new Error(`Error guardando guion: ${error.message}`);
+  return data as unknown as ScriptDraft;
+}
+
+/** Historial de guiones valorados, más recientes primero. */
+export async function getDrafts(limit = 50): Promise<ScriptDraft[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase
+    .from('script_drafts')
+    .select(DRAFT_COLS)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Error leyendo guiones guardados: ${error.message}`);
+  return (data ?? []) as unknown as ScriptDraft[];
+}
+
+export async function deleteDraft(id: number): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase.from('script_drafts').delete().eq('id', id);
+  if (error) throw new Error(`Error borrando guion: ${error.message}`);
+}

@@ -11,7 +11,7 @@
 // que transcribe-ads haya generado los transcripts. La página solo lee.
 // =============================================================================
 
-import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/script-analyst';
+import { getScriptAnalystView, getDrafts, type ScriptAnalystView, type ScriptDraft } from '@/lib/script-analyst';
 import { ScriptsBrowser } from './ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -28,11 +28,15 @@ const EMPTY: ScriptAnalystView = {
 export default async function ScriptAnalystPage() {
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
+  let drafts: ScriptDraft[] = [];
   try {
     data = await getScriptAnalystView();
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
+  try {
+    drafts = await getDrafts();
+  } catch { /* el historial no es crítico para la vista */ }
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
@@ -48,7 +52,7 @@ export default async function ScriptAnalystPage() {
         </div>
       </header>
 
-      <ScriptsBrowser data={data} errorMsg={errorMsg} />
+      <ScriptsBrowser data={data} errorMsg={errorMsg} drafts={drafts} />
     </main>
   );
 }
