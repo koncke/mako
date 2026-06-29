@@ -55,9 +55,11 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMa
   // actual; si el override quedó huérfano (etapa eliminada del funnel), se ignora
   // y se usa la etapa derivada de los campos del lead.
   const override = l.pipeline_stage;
-  const stage = override && (!validStageKeys || validStageKeys.has(override)) ? override : deriveStageKey(l);
+  const derived = deriveStageKey(l);
+  const stage = override && (!validStageKeys || validStageKeys.has(override)) ? override : derived;
   return {
     id: l.id,
+    derivedStage: derived,   // posición REAL en el funnel (ignora override manual) — la usa el worklist
     name: l.nombre,
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',

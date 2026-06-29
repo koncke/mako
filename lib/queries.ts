@@ -1994,7 +1994,7 @@ async function _getPendientesDeMarcar(
         lead_id: l.id,
         lead_nombre: l.nombre,
         tipo: 'A',
-        mensaje: `¿Asistió a la R1 del ${fmtFechaPendiente(l.fecha_junta_1)}?`,
+        mensaje: `Pasó la R1 del ${fmtFechaPendiente(l.fecha_junta_1)} — marcá si asistió y cómo siguió`,
         fecha: l.fecha_junta_1,
       });
       continue;
@@ -2012,7 +2012,7 @@ async function _getPendientesDeMarcar(
         lead_id: l.id,
         lead_nombre: l.nombre,
         tipo: 'B',
-        mensaje: `Tuvo R1 hace ${dias} días: agendá la R2 o marcá la resolución`,
+        mensaje: `Asistió a la R1 hace ${dias} días y sigue sin R2 — agendá la R2 o marcá cómo terminó`,
         fecha: l.fecha_junta_1,
       });
       continue;
@@ -2023,7 +2023,7 @@ async function _getPendientesDeMarcar(
         lead_id: l.id,
         lead_nombre: l.nombre,
         tipo: 'C',
-        mensaje: `¿Asistió a la R2 del ${fmtFechaPendiente(l.fecha_junta_2)}?`,
+        mensaje: `Pasó la R2 del ${fmtFechaPendiente(l.fecha_junta_2)} — marcá si asistió y cómo siguió`,
         fecha: l.fecha_junta_2,
       });
       continue;

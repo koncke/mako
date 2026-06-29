@@ -51,6 +51,7 @@ export type CrmLead = {
   company: string;
   origin: string;
   stage: string;
+  derivedStage: string;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
   monto: number;
   totalCobrado: number;
@@ -356,9 +357,12 @@ export function CrmBoard({
   const optionsForMarcar = (m: CrmMarcar): FunnelTransition[] => {
     const lead = leads.find((l) => l.id === m.leadId);
     if (!lead) return [];
+    // Opciones según la posición REAL en el funnel (derivada de los datos), no
+    // según el override manual (ej. un lead parkeado en "Nutrición - Manual" igual
+    // muestra los pasos que le corresponden por su etapa real).
     // !t.auto: excluye nutriciones automáticas (ej. Post Agenda, que corre antes
     // de la reunión) — no son resultados que el humano elija acá.
-    let opts = transitionsFrom(transitions, effStage(lead)).filter((t) => !t.auto);
+    let opts = transitionsFrom(transitions, lead.derivedStage).filter((t) => !t.auto);
     if (lead.asistioJ1 === true) opts = opts.filter((t) => t.asistioJ1 !== false);
     if (lead.asistioJ2 === true) opts = opts.filter((t) => t.asistioJ2 !== false);
     return opts;
