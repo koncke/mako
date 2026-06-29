@@ -265,6 +265,11 @@ body:has(.vsl-root) aside { display: none !important; }
 .vsl-root .mk-feature-grid > a { transition: box-shadow .22s ease, transform .22s ease; }
 .vsl-root .mk-feature-grid > a:hover { transform: translateY(-3px); box-shadow: 0 20px 44px -22px rgba(16,19,25,.26); }
 
+/* "¿Para quién es esto?": las dos columnas (✓ / ✕) a la misma altura. */
+.vsl-root .mk-pq-grid { align-items: stretch !important; }
+/* Calendly: alto suficiente para que el agendamiento no requiera scroll interno. */
+.vsl-root #cal-embed { height: 1100px !important; }
+
 @media (max-width:600px){ .vsl-root .mk-hdr-cupos{display:none !important} }
 @media (max-width:768px){
   .vsl-root .mk-root h1{font-size:36px !important;line-height:1.14 !important}
@@ -304,7 +309,7 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root .mk-feature-grid{grid-template-columns:1fr !important}
   .vsl-root .mk-feature-grid > a{min-height:0 !important;padding:22px 20px !important}
   .vsl-root .mk-checklist{grid-template-columns:1fr !important;gap:16px !important}
-  .vsl-root #cal-embed{min-width:0 !important;width:100% !important}
+  .vsl-root #cal-embed{min-width:0 !important;width:100% !important;height:1200px !important}
   .vsl-root #testimonios > div{padding:52px 18px 62px !important}
 }
 
