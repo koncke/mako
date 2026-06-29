@@ -153,7 +153,7 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
           onChange={(e) => onSearch(e.target.value)}
           placeholder="Buscar por nombre, email, empresa o teléfono…"
           className="flex-1 min-w-[220px] px-4 py-2.5 rounded-lg border text-base"
-          style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
+          style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
         />
         <Select value={estado} onChange={(v) => navegar({ estado: v })} placeholder="Estado"
           options={[['abierto', 'Abierto'], ['ganado', 'Ganado'], ['perdido', 'Perdido'], ['descalificado', 'Descalificado'], ['no_responde', 'No responde']]} />
@@ -266,7 +266,7 @@ function Select({ value, onChange, placeholder, options }: {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="px-3 py-2.5 rounded-lg border text-base"
-      style={{ background: '#0a0a0a', borderColor: value ? 'var(--accent-yellow)' : 'var(--card-border)', color: value ? 'var(--text)' : 'var(--text-dim)' }}
+      style={{ background: 'var(--surface-2)', borderColor: value ? 'var(--accent-yellow)' : 'var(--card-border)', color: value ? 'var(--text)' : 'var(--text-dim)' }}
     >
       <option value="">{placeholder}: todos</option>
       {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}

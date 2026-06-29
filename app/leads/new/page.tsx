@@ -41,7 +41,7 @@ export default function NewLeadPage() {
             autoFocus
             className="w-full px-3 py-2 rounded border text-lg"
             style={{
-              background: '#0a0a0a',
+              background: 'var(--surface-2)',
               borderColor: 'var(--card-border)',
               color: 'var(--text)',
             }}
@@ -55,7 +55,7 @@ export default function NewLeadPage() {
               name="email"
               className="w-full px-3 py-2 rounded border text-lg"
               style={{
-                background: '#0a0a0a',
+                background: 'var(--surface-2)',
                 borderColor: 'var(--card-border)',
                 color: 'var(--text)',
               }}
@@ -67,7 +67,7 @@ export default function NewLeadPage() {
               name="telefono"
               className="w-full px-3 py-2 rounded border text-lg"
               style={{
-                background: '#0a0a0a',
+                background: 'var(--surface-2)',
                 borderColor: 'var(--card-border)',
                 color: 'var(--text)',
               }}
@@ -81,7 +81,7 @@ export default function NewLeadPage() {
             name="empresa"
             className="w-full px-3 py-2 rounded border text-lg"
             style={{
-              background: '#0a0a0a',
+              background: 'var(--surface-2)',
               borderColor: 'var(--card-border)',
               color: 'var(--text)',
             }}
@@ -95,7 +95,7 @@ export default function NewLeadPage() {
               name="fecha_agenda"
               className="w-full px-3 py-2 rounded border text-lg"
               style={{
-                background: '#0a0a0a',
+                background: 'var(--surface-2)',
                 borderColor: 'var(--card-border)',
                 color: 'var(--text)',
               }}
@@ -107,7 +107,7 @@ export default function NewLeadPage() {
               name="fecha_junta_1"
               className="w-full px-3 py-2 rounded border text-lg"
               style={{
-                background: '#0a0a0a',
+                background: 'var(--surface-2)',
                 borderColor: 'var(--card-border)',
                 color: 'var(--text)',
               }}

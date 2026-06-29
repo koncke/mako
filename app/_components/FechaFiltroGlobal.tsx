@@ -166,7 +166,7 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
                   onChange={(e) => setCustomDesde(e.target.value)}
                   className="flex-1 min-w-0 px-2 py-2 rounded border text-sm"
                   style={{
-                    background: '#0a0a0a',
+                    background: 'var(--surface-2)',
                     borderColor: 'var(--card-border)',
                     color: 'var(--text)',
                     colorScheme: 'dark',
@@ -181,7 +181,7 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
                   onChange={(e) => setCustomHasta(e.target.value)}
                   className="flex-1 min-w-0 px-2 py-2 rounded border text-sm"
                   style={{
-                    background: '#0a0a0a',
+                    background: 'var(--surface-2)',
                     borderColor: 'var(--card-border)',
                     color: 'var(--text)',
                     colorScheme: 'dark',

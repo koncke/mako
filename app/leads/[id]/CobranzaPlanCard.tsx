@@ -99,7 +99,7 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
             value={totalCuotas}
             onChange={(e) => setTotalCuotas(e.target.value)}
             className="w-full px-3 py-2 rounded border text-lg"
-            style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
           >
             <option value="0">Sin cuotas (solo inicial)</option>
             {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -112,7 +112,7 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
             value={diaPago}
             onChange={(e) => setDiaPago(e.target.value)}
             className="w-full px-3 py-2 rounded border text-lg"
-            style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
           >
             {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
               <option key={d} value={d}>{d}</option>
@@ -246,7 +246,7 @@ function CuotaRow({
             value={fechaPago}
             onChange={(e) => setFechaPago(e.target.value)}
             className="px-2 py-1.5 rounded border text-sm"
-            style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
           />
           <button
             type="button"
@@ -299,7 +299,7 @@ function NumInput({ value, onChange }: { value: string; onChange: (v: string) =>
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="w-full px-3 py-2 rounded border text-lg"
-      style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
+      style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
     />
   );
 }

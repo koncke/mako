@@ -101,7 +101,7 @@ export function PendienteActions({
                 onChange={(e) => setMotivo(e.target.value)}
                 placeholder="Motivo (opcional)"
                 className="px-3 py-1.5 rounded border text-sm"
-                style={{ background: '#0a0a0a', borderColor: 'var(--card-border)', color: 'var(--text)' }}
+                style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
               />
               <button
                 type="button"

@@ -237,7 +237,7 @@ export function EditLeadForm({ lead }: { lead: Lead }) {
                 required={estado === 'ganado'}
                 className="w-full px-3 py-2 rounded border text-lg"
                 style={{
-                  background: '#0a0a0a',
+                  background: 'var(--surface-2)',
                   borderColor: 'var(--card-border)',
                   color: 'var(--text)',
                 }}
@@ -389,7 +389,7 @@ function TextInput({
       required={required}
       className="w-full px-3 py-2 rounded border text-lg"
       style={{
-        background: '#0a0a0a',
+        background: 'var(--surface-2)',
         borderColor: 'var(--card-border)',
         color: 'var(--text)',
       }}
@@ -517,7 +517,7 @@ function MotivoSugerencias({
         placeholder="Motivo (texto libre)"
         className="w-full px-3 py-2 rounded border text-lg"
         style={{
-          background: '#0a0a0a',
+          background: 'var(--surface-2)',
           borderColor: 'var(--card-border)',
           color: 'var(--text)',
         }}
