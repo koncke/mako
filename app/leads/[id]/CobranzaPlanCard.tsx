@@ -1,36 +1,27 @@
 'use client';
 
 // =============================================================================
-// CobranzaPlanCard — plan de pagos + lista de cuotas (Fase 8-bis)
-// =============================================================================
-// Reemplaza los campos sueltos de cobranza. El plan (cobro inicial + cuotas)
-// genera filas en `pagos`; cada cuota se marca cobrada con su fecha real. El
-// cash collected del dashboard se lee de estas filas.
+// CobranzaPlanCard — plan de pagos + lista de cuotas (rediseño claro)
 // =============================================================================
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { savePlanPagosAction, marcarPagoAction } from '../actions';
+import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead } from '@/lib/leads';
 import type { Pago } from '@/lib/pagos';
 
-function hoyISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+const MONO = "'Geist Mono', monospace";
+const SANS = "'Geist', sans-serif";
+const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
+const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-function fmtFecha(yyyy_mm_dd: string | null): string {
-  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
-  return fmtDDMMYYYY(yyyy_mm_dd);
-}
-
+function hoyISO(): string { return new Date().toISOString().slice(0, 10); }
+function fmtFecha(s: string | null): string { return fmtDDMMYYYY(s); }
 function fmtUSD(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 }
 
 export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] }) {
@@ -38,7 +29,6 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
 
-  // Estado del formulario del plan
   const [cobroInicial, setCobroInicial] = useState(lead.cobro_inicial_usd?.toString() ?? '');
   const [montoCuota, setMontoCuota] = useState(lead.monto_cuota_usd?.toString() ?? '');
   const [totalCuotas, setTotalCuotas] = useState<string>(lead.total_cuotas?.toString() ?? '0');
@@ -62,7 +52,7 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
           total_cuotas: nCuotas > 0 ? nCuotas : null,
           dia_de_pago: parseInt(diaPago, 10) || null,
         });
-        setFeedback({ kind: 'ok', msg: 'Plan guardado ✓' });
+        setFeedback({ kind: 'ok', msg: 'Plan guardado' });
         router.refresh();
       } catch (err) {
         setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
@@ -71,101 +61,54 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
   };
 
   return (
-    <section
-      className="rounded-xl border p-6 md:p-8"
-      style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-    >
-      <h2
-        className="text-[28px] mb-1"
-        style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}
-      >
-        Plan de pagos
-      </h2>
-      <p className="text-base mb-5" style={{ color: 'var(--text-dim)' }}>
-        Cobro inicial + cuotas mensuales. Al guardar se generan las cuotas; cada
-        una se marca cobrada con su fecha real. El cash del dashboard lee de acá.
+    <section style={card}>
+      <div style={{ ...sectLabel, marginBottom: 6 }}>Plan de pagos</div>
+      <p style={{ fontSize: 13.5, color: 'var(--dim)', marginBottom: 16, lineHeight: 1.5 }}>
+        Cobro inicial + cuotas mensuales. Al guardar se generan las cuotas; cada una se marca cobrada con su fecha real. El cash del dashboard lee de acá.
       </p>
 
-      {/* ── Formulario del plan ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Field label="Monto del cobro inicial (USD)">
-          <NumInput value={cobroInicial} onChange={setCobroInicial} />
-        </Field>
-        <Field label="Monto de cada cuota (USD)">
-          <NumInput value={montoCuota} onChange={setMontoCuota} />
-        </Field>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+        <Field label="Monto del cobro inicial (USD)"><input className="lead-field" type="number" step="0.01" min="0" value={cobroInicial} onChange={(e) => setCobroInicial(e.target.value)} /></Field>
+        <Field label="Monto de cada cuota (USD)"><input className="lead-field" type="number" step="0.01" min="0" value={montoCuota} onChange={(e) => setMontoCuota(e.target.value)} /></Field>
         <Field label="Total de cuotas">
-          <select
+          <Dropdown
             value={totalCuotas}
-            onChange={(e) => setTotalCuotas(e.target.value)}
-            className="w-full px-3 py-2 rounded border text-lg"
-            style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
-          >
-            <option value="0">Sin cuotas (solo inicial)</option>
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <option key={n} value={n}>{n} cuota{n === 1 ? '' : 's'}</option>
-            ))}
-          </select>
+            onChange={setTotalCuotas}
+            width="100%"
+            ariaLabel="Total de cuotas"
+            options={[{ value: '0', label: 'Sin cuotas (solo inicial)' }, ...[1, 2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: `${n} cuota${n === 1 ? '' : 's'}` }))]}
+          />
         </Field>
         <Field label="Día de pago (1–28)" hint="Tope 28 para que exista en todos los meses.">
-          <select
+          <Dropdown
             value={diaPago}
-            onChange={(e) => setDiaPago(e.target.value)}
-            className="w-full px-3 py-2 rounded border text-lg"
-            style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
-          >
-            {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+            onChange={setDiaPago}
+            width="100%"
+            ariaLabel="Día de pago"
+            options={Array.from({ length: 28 }, (_, i) => i + 1).map((d) => ({ value: String(d), label: String(d) }))}
+          />
         </Field>
       </div>
 
-      <div className="flex items-center justify-between mt-5 flex-wrap gap-3">
-        <div className="text-base" style={{ color: 'var(--text-dim)' }}>
-          Total del plan:{' '}
-          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fmtUSD(totalPlan)}</span>
-          {nCuotas > 0 && (
-            <span className="text-sm ml-2">
-              ({fmtUSD(inicialNum)} inicial + {nCuotas} × {fmtUSD(cuotaNum)})
-            </span>
-          )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ fontSize: 14, color: 'var(--dim)' }}>
+          Total del plan: <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmtUSD(totalPlan)}</span>
+          {nCuotas > 0 && <span style={{ fontSize: 13, marginLeft: 8 }}>({fmtUSD(inicialNum)} inicial + {nCuotas} × {fmtUSD(cuotaNum)})</span>}
         </div>
-        <button
-          type="button"
-          onClick={guardarPlan}
-          disabled={pending}
-          className="px-5 py-2.5 rounded-lg font-medium text-base disabled:opacity-50"
-          style={{ background: 'var(--accent-yellow)', color: '#000' }}
-        >
-          {pending ? 'Guardando…' : 'Guardar plan'}
-        </button>
+        <button type="button" onClick={guardarPlan} disabled={pending} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
       </div>
 
       {feedback && (
-        <div
-          className="rounded-lg px-4 py-3 text-base mt-4"
-          style={{
-            background: feedback.kind === 'ok' ? '#0f2d20' : '#2a1410',
-            color: feedback.kind === 'ok' ? 'var(--accent-green)' : 'var(--accent-orange)',
-          }}
-        >
-          {feedback.msg}
-        </div>
+        <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, marginTop: 14, background: feedback.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</div>
       )}
 
-      {/* ── Lista de cuotas ── */}
       {pagos.length > 0 && (
-        <div className="mt-7">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xl" style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}>
-              Cuotas
-            </h3>
-            <div className="text-sm" style={{ color: 'var(--text-dim)' }}>
-              Cobrado {fmtUSD(cobrado)} · Pendiente {fmtUSD(pendiente)}
-            </div>
+        <div style={{ marginTop: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+            <div style={sectLabel}>Cuotas</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)' }}>Cobrado {fmtUSD(cobrado)} · Pendiente {fmtUSD(pendiente)}</div>
           </div>
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {pagos.map((p) => (
               <CuotaRow key={p.id} pago={p} leadId={lead.id} pending={pending} startTransition={startTransition} router={router} setFeedback={setFeedback} />
             ))}
@@ -176,130 +119,49 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CuotaRow — una fila de pago con botón de marcar cobrada
-// ─────────────────────────────────────────────────────────────────────────────
-function CuotaRow({
-  pago,
-  leadId,
-  pending,
-  startTransition,
-  router,
-  setFeedback,
-}: {
-  pago: Pago;
-  leadId: number;
-  pending: boolean;
-  startTransition: React.TransitionStartFunction;
-  router: ReturnType<typeof useRouter>;
-  setFeedback: (f: { kind: 'ok' | 'err'; msg: string } | null) => void;
+function CuotaRow({ pago, leadId, pending, startTransition, router, setFeedback }: {
+  pago: Pago; leadId: number; pending: boolean; startTransition: React.TransitionStartFunction;
+  router: ReturnType<typeof useRouter>; setFeedback: (f: { kind: 'ok' | 'err'; msg: string } | null) => void;
 }) {
   const [fechaPago, setFechaPago] = useState(pago.fecha_pago ?? hoyISO());
-
   const vencida = !pago.pagado && pago.fecha_esperada !== null && pago.fecha_esperada < hoyISO();
   const etiqueta = pago.numero === 0 ? 'Cobro inicial' : `Cuota ${pago.numero}`;
 
   const marcar = (pagado: boolean) => {
     setFeedback(null);
     startTransition(async () => {
-      try {
-        await marcarPagoAction(pago.id, leadId, pagado, pagado ? fechaPago : null);
-        router.refresh();
-      } catch (err) {
-        setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
-      }
+      try { await marcarPagoAction(pago.id, leadId, pagado, pagado ? fechaPago : null); router.refresh(); }
+      catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
 
   return (
-    <div
-      className="flex items-center justify-between gap-3 rounded-lg border px-4 py-3 flex-wrap"
-      style={{
-        borderColor: vencida ? 'var(--accent-orange)' : 'var(--card-border)',
-        background: pago.pagado ? 'rgba(40,167,69,0.06)' : 'transparent',
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{etiqueta}</span>
-        <span style={{ color: 'var(--text-dim)' }}>{fmtUSD(Number(pago.monto_usd))}</span>
-        <span className="text-sm" style={{ color: vencida ? 'var(--accent-orange)' : 'var(--text-dim)' }}>
-          {pago.pagado
-            ? `cobrada el ${fmtFecha(pago.fecha_pago)}`
-            : `vence ${fmtFecha(pago.fecha_esperada)}${vencida ? ' · vencida' : ''}`}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 11, border: '1px solid ' + (vencida ? 'var(--bad)' : 'var(--border-strong)'), padding: '11px 14px', flexWrap: 'wrap', background: pago.pagado ? 'var(--good-bg)' : 'var(--surface-2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ color: 'var(--ink)', fontWeight: 600, fontSize: 14 }}>{etiqueta}</span>
+        <span style={{ color: 'var(--dim)', fontSize: 14 }}>{fmtUSD(Number(pago.monto_usd))}</span>
+        <span style={{ fontSize: 13, color: vencida ? 'var(--bad)' : 'var(--dim)' }}>
+          {pago.pagado ? `cobrada el ${fmtFecha(pago.fecha_pago)}` : `vence ${fmtFecha(pago.fecha_esperada)}${vencida ? ' · vencida' : ''}`}
         </span>
       </div>
-
       {pago.pagado ? (
-        <button
-          type="button"
-          onClick={() => marcar(false)}
-          disabled={pending}
-          className="text-sm disabled:opacity-50"
-          style={{ color: 'var(--text-dim)' }}
-        >
-          deshacer
-        </button>
+        <button type="button" onClick={() => marcar(false)} disabled={pending} style={{ fontSize: 13, color: 'var(--dim)', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>deshacer</button>
       ) : (
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={fechaPago}
-            onChange={(e) => setFechaPago(e.target.value)}
-            className="px-2 py-1.5 rounded border text-sm"
-            style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
-          />
-          <button
-            type="button"
-            onClick={() => marcar(true)}
-            disabled={pending}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-            style={{ background: 'var(--accent-green)', color: '#000' }}
-          >
-            Marcar pagada
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <input className="lead-field" type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} style={{ width: 'auto' }} />
+          <button type="button" onClick={() => marcar(true)} disabled={pending} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--good)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>Marcar pagada</button>
         </div>
       )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-components mínimos
-// ─────────────────────────────────────────────────────────────────────────────
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="block text-base mb-1.5" style={{ color: 'var(--text-dim)' }}>
-        {label}
-      </span>
+    <label style={{ display: 'block' }}>
+      <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>{label}</span>
       {children}
-      {hint && (
-        <span className="block text-sm mt-1" style={{ color: 'var(--text-pending)' }}>
-          {hint}
-        </span>
-      )}
+      {hint && <span style={{ display: 'block', fontSize: 12, marginTop: 5, color: 'var(--faint)' }}>{hint}</span>}
     </label>
-  );
-}
-
-function NumInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="number"
-      step="0.01"
-      min="0"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 rounded border text-lg"
-      style={{ background: 'var(--surface-2)', borderColor: 'var(--card-border)', color: 'var(--text)' }}
-    />
   );
 }

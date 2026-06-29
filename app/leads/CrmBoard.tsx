@@ -55,6 +55,12 @@ export type CrmLead = {
   derivedStage: string;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
   telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
+  // Fechas crudas (ISO) para la línea de tiempo del recorrido.
+  createdISO: string;
+  agendaISO: string | null;
+  confirmacionISO: string | null;
+  primerPagoISO: string | null;
+  cierreISO: string | null;
   monto: number;
   totalCobrado: number;
   agenda: string | null;

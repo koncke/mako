@@ -1,11 +1,13 @@
 // =============================================================================
-// /leads/[id] — vista detalle + edición de lead
+// /leads/[id] — vista detalle + edición de lead (rediseño claro)
 // =============================================================================
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { CSSProperties } from 'react';
 import {
   getLead,
+  getPipelineStages,
   estadoMadurezLead,
   labelMadurez,
   textoCohorteJ1,
@@ -13,25 +15,23 @@ import {
   type VslEngagement,
   type Lead,
 } from '@/lib/leads';
+import { deriveStageKey, stageMeta, CHIP, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { buildJourney } from '@/lib/journey';
+import { JourneyTimeline } from '../JourneyTimeline';
 import { EditLeadForm } from './EditLeadForm';
 import { CobranzaPlanCard } from './CobranzaPlanCard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-function fmtFechaLarga(yyyy_mm_dd: string | null): string {
-  // Convención del proyecto: fecha completa en pantalla → dd/mm/aaaa.
-  return fmtDDMMYYYY(yyyy_mm_dd);
-}
+const MONO = "'Geist Mono', monospace";
+const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
+const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-export default async function LeadDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: idStr } = await params;
   const idNum = Number(idStr);
   if (!Number.isFinite(idNum)) notFound();
@@ -39,145 +39,105 @@ export default async function LeadDetailPage({
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  // Los 3 son independientes del lead ya cargado → en paralelo (antes: 3 awaits seriales).
-  //  - vslEng: comportamiento VSL (Fase 7)
-  //  - pagos: plan de pagos / cuotas (Fase 8-bis)
-  //  - campMap: nombre de campaña desde el ID de utm_campaign (v3 Fase B bug 2)
-  const [vslEng, pagos, campMap] = await Promise.all([
+  const [vslEng, pagos, campMap, stages] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
+    getPipelineStages().catch(() => [] as Stage[]),
   ]);
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
 
-  const estado = estadoMadurezLead(lead);
-  const { emoji, label, color } = labelMadurez(estado);
-
-  // Texto informativo de la cohorte. J1 futura → "faltan X días para J1"
-  // (nunca "−X días desde J1"). Fase 8.
+  const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
+  void _e;
   const textoJ1 = textoCohorteJ1(lead.fecha_junta_1);
 
+  const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
+  const sm = stages.length ? stageMeta(stages, stageKey) : null;
+  const chip = sm ? CHIP[sm.tone] || CHIP.neutral : CHIP.neutral;
+
+  const journey = buildJourney({
+    createdISO: lead.created_at,
+    fechaAgenda: lead.fecha_agenda,
+    fechaJ1: lead.fecha_junta_1,
+    asistioJ1: lead.asistio_j1,
+    fechaJ2: lead.fecha_junta_2,
+    asistioJ2: lead.asistio_j2,
+    fechaConfirmacion: lead.fecha_confirmacion,
+    fechaPrimerPago: lead.fecha_primer_pago ?? null,
+    fechaCierre: lead.fecha_cierre,
+    estadoLead: lead.estado_lead,
+    monto: lead.monto_cierre_usd ?? 0,
+  });
+
   return (
-    <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
-      {/* HEADER */}
-      <header className="mb-8">
-        <Link href="/leads" className="text-base" style={{ color: 'var(--text-dim)' }}>
-          ← Leads
-        </Link>
-        <div className="mt-2 flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1
-              className="text-[46px] md:text-[62px] tracking-tight leading-tight"
-              style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}
-            >
-              {lead.nombre}
-            </h1>
-            <p className="mt-1 text-base" style={{ color: 'var(--text-dim)' }}>
-              {lead.empresa ?? 'Sin empresa'} · Lead #{lead.id} · Creado{' '}
-              {fmtFechaLarga(lead.created_at.slice(0, 10))}
+    <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
+      <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        {/* HEADER */}
+        <Link href="/leads" style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>← Volver a Leads</Link>
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd, marginBottom: 9 }}>{sm?.label ?? lead.estado_lead}</span>
+            <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{lead.nombre}</h1>
+            <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>
+              {lead.empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}
             </p>
           </div>
-
-          {/* Badge cohorte */}
-          <div
-            className="rounded-lg px-4 py-3 border"
-            style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-          >
-            <div className="text-sm uppercase tracking-widest" style={{ color: 'var(--text-dim)' }}>
-              Cohorte
-            </div>
-            <div className="text-2xl mt-1 flex items-center gap-2">
-              <span>{emoji}</span>
-              <span style={{ color, fontWeight: 600 }}>{label}</span>
-            </div>
-            {textoJ1 && (
-              <div className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>
-                {textoJ1}
-              </div>
-            )}
+          <div style={{ ...card, padding: '14px 18px', minWidth: 180 }}>
+            <div style={sectLabel}>Cohorte</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: cohorteColor, marginTop: 4 }}>{cohorteLabel}</div>
+            {textoJ1 && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3 }}>{textoJ1}</div>}
           </div>
         </div>
-      </header>
 
-      {/* ORIGEN Y COMPORTAMIENTO (read-only, Fase 7) */}
-      <div className="mb-6">
-        <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
-      </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 22 }}>
+          {/* RECORRIDO */}
+          <section style={card}>
+            <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
+            <JourneyTimeline steps={journey} />
+          </section>
 
-      {/* FORM */}
-      <EditLeadForm lead={lead} />
+          {/* ORIGEN Y COMPORTAMIENTO */}
+          <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
 
-      {/* PLAN DE PAGOS / CUOTAS (Fase 8-bis) */}
-      <div className="mt-6">
-        <CobranzaPlanCard lead={lead} pagos={pagos} />
+          {/* FORM DE EDICIÓN */}
+          <EditLeadForm lead={lead} />
+
+          {/* PLAN DE PAGOS */}
+          <CobranzaPlanCard lead={lead} pagos={pagos} />
+        </div>
       </div>
     </main>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OrigenCard — de dónde vino el lead y si vio el VSL (Fase 7)
+// OrigenCard — de dónde vino el lead y si vio el VSL
 // ─────────────────────────────────────────────────────────────────────────────
-
 function labelOrigen(origen: string | null): { texto: string; color: string } {
   switch (origen) {
-    case 'instant_form':
-      return { texto: '📋 Instant Form (Meta)', color: 'var(--accent-yellow)' };
-    case 'calendly':
-      return { texto: '📅 Calendly', color: 'var(--accent-green)' };
-    default:
-      return { texto: 'Orgánico / manual', color: 'var(--text-dim)' };
+    case 'instant_form': return { texto: 'Instant Form (Meta)', color: 'var(--accent)' };
+    case 'calendly': return { texto: 'Calendly', color: 'var(--good)' };
+    default: return { texto: 'Orgánico / manual', color: 'var(--dim)' };
   }
 }
 
-function OrigenCard({
-  lead,
-  vslEng,
-  campana,
-}: {
-  lead: Lead;
-  vslEng: VslEngagement;
-  campana: { texto: string | null; tooltip: string | null };
-}) {
-  const tieneAtribucion =
-    lead.origen_lead ||
-    lead.meta_campaign_name ||
-    lead.meta_adset_name ||
-    lead.meta_ad_name ||
-    lead.utm_campaign ||
-    lead.utm_source;
+function OrigenCard({ lead, vslEng, campana }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null } }) {
+  const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.utm_campaign || lead.utm_source;
   const tieneComportamiento = lead.visitor_id !== null;
   const vio = vslEng.plays > 0;
-
-  // Señal clave recalibrada (v3 Fase A): agendó Y tiene visitor con 0 plays.
-  // Sin visitor_id no afirmamos nada (mostramos "sin datos de VSL").
-  const agendoSinVerVsl =
-    lead.fecha_agenda !== null && tieneComportamiento && !vio;
+  const agendoSinVerVsl = lead.fecha_agenda !== null && tieneComportamiento && !vio;
 
   if (!tieneAtribucion && !tieneComportamiento) {
     return (
-      <section
-        className="rounded-xl border p-6 md:p-8"
-        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-      >
-        <h2
-          className="text-[28px] mb-2"
-          style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}
-        >
-          Origen del lead
-        </h2>
-        <p className="text-base" style={{ color: 'var(--text-pending)' }}>
-          Sin datos de origen. Lead anterior al tracking, manual, o llegó sin
-          UTMs ni instant form.
-        </p>
+      <section style={card}>
+        <div style={{ ...sectLabel, marginBottom: 8 }}>Origen del lead</div>
+        <p style={{ fontSize: 14, color: 'var(--faint)' }}>Sin datos de origen. Lead anterior al tracking, manual, o llegó sin UTMs ni instant form.</p>
       </section>
     );
   }
 
   const origen = labelOrigen(lead.origen_lead);
-
   const filas: Array<{ label: string; value: string | null }> = [
-    // Campaña: nombre Meta directo, o el utm_campaign resuelto a nombre (v3 Fase B).
     { label: 'Campaña', value: lead.meta_campaign_name ?? campana.texto },
     { label: 'Adset (Meta)', value: lead.meta_adset_name },
     { label: 'Anuncio (Meta)', value: lead.meta_ad_name },
@@ -185,90 +145,43 @@ function OrigenCard({
   ].filter((f) => f.value);
 
   return (
-    <section
-      className="rounded-xl border p-6 md:p-8"
-      style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-    >
-      <h2
-        className="text-[28px] mb-4"
-        style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}
-      >
-        Origen del lead
-      </h2>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* ATRIBUCIÓN */}
+    <section style={card}>
+      <div style={{ ...sectLabel, marginBottom: 16 }}>Origen del lead</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 22 }}>
         <div>
-          <div
-            className="text-sm uppercase tracking-wider mb-2"
-            style={{ color: 'var(--text-dim)' }}
-          >
-            Atribución
-          </div>
-          <div className="text-lg mb-3" style={{ color: origen.color, fontWeight: 600 }}>
-            {origen.texto}
-          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--dim)', marginBottom: 6 }}>Atribución</div>
+          <div style={{ fontSize: 16, color: origen.color, fontWeight: 600, marginBottom: 10 }}>{origen.texto}</div>
           {filas.length > 0 ? (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {filas.map((f) => (
-                <div key={f.label} className="text-base">
-                  <span style={{ color: 'var(--text-dim)' }}>{f.label}: </span>
-                  <span style={{ color: 'var(--text)' }}>{f.value}</span>
+                <div key={f.label} style={{ fontSize: 14 }}>
+                  <span style={{ color: 'var(--dim)' }}>{f.label}: </span>
+                  <span style={{ color: 'var(--ink)' }}>{f.value}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-base" style={{ color: 'var(--text-pending)' }}>
-              Sin campaña ni UTMs registrados.
-            </p>
+            <p style={{ fontSize: 14, color: 'var(--faint)' }}>Sin campaña ni UTMs registrados.</p>
           )}
         </div>
-
-        {/* COMPORTAMIENTO */}
         <div>
-          <div
-            className="text-sm uppercase tracking-wider mb-2"
-            style={{ color: 'var(--text-dim)' }}
-          >
-            Comportamiento
-          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--dim)', marginBottom: 6 }}>Comportamiento</div>
           {tieneComportamiento ? (
             <>
-              <div className="text-lg mb-2">
-                <span style={{ color: 'var(--text-dim)' }}>Vio el VSL: </span>
-                <span
-                  style={{
-                    color: vio ? 'var(--accent-green)' : 'var(--accent-orange)',
-                    fontWeight: 600,
-                  }}
-                >
-                  {vio
-                    ? vslEng.max_pct !== null
-                      ? `Sí — vio hasta el ${vslEng.max_pct}%`
-                      : `Sí — ${vslEng.plays} ${vslEng.plays === 1 ? 'vez' : 'veces'}`
-                    : 'No'}
+              <div style={{ fontSize: 16, marginBottom: 8 }}>
+                <span style={{ color: 'var(--dim)' }}>Vio el VSL: </span>
+                <span style={{ color: vio ? 'var(--good)' : 'var(--bad)', fontWeight: 600 }}>
+                  {vio ? (vslEng.max_pct !== null ? `Sí — hasta el ${vslEng.max_pct}%` : `Sí — ${vslEng.plays} ${vslEng.plays === 1 ? 'vez' : 'veces'}`) : 'No'}
                 </span>
               </div>
               {agendoSinVerVsl && (
-                <div
-                  className="rounded-lg px-4 py-3 text-base mt-3"
-                  style={{
-                    background: '#2a1410',
-                    color: 'var(--accent-orange)',
-                    border: '1px solid var(--accent-orange)',
-                  }}
-                >
-                  ⚠️ Agendó SIN ver el VSL — se saltó el filtro. Probablemente
-                  llegue a R1 con menos contexto: dedica 5 min extra a explicar
-                  el modelo antes de calificar.
+                <div style={{ borderRadius: 11, padding: '12px 14px', marginTop: 8, background: 'var(--warn-bg)', color: 'var(--warn)', border: '1px solid var(--warn-fill)', fontSize: 13.5, lineHeight: 1.5 }}>
+                  Agendó sin ver el VSL — se saltó el filtro. Probablemente llegue a R1 con menos contexto: dedicá 5 min extra a explicar el modelo antes de calificar.
                 </div>
               )}
             </>
           ) : (
-            <p className="text-base" style={{ color: 'var(--text-pending)' }}>
-              Sin tracking de visitante (agendó antes del tracking del VSL, o
-              llegó por instant form sin pasar por la landing).
-            </p>
+            <p style={{ fontSize: 14, color: 'var(--faint)' }}>Sin tracking de visitante (agendó antes del tracking del VSL, o llegó por instant form sin pasar por la landing).</p>
           )}
         </div>
       </div>

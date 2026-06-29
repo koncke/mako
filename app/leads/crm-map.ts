@@ -90,5 +90,11 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMa
     vslMaxPct: vsl && !vsl.sin_datos ? vsl.max_pct : null,
     confirmacion: fmtDay(l.fecha_confirmacion),
     cierre: fmtDay(l.fecha_cierre),
+    // Fechas crudas (ISO) para construir la línea de tiempo del recorrido.
+    createdISO: l.created_at,
+    agendaISO: l.fecha_agenda,
+    confirmacionISO: l.fecha_confirmacion,
+    primerPagoISO: l.fecha_primer_pago ?? null,
+    cierreISO: l.fecha_cierre,
   };
 }
