@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
+import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
   colorDeSemaforo, bgDeSemaforo,
@@ -351,8 +352,10 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
 
       {/* toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => setRecosOpen(true)} style={{ padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>✦ Analizar (Meta)</button>
-        <button type="button" onClick={() => setRenameOpen(true)} style={{ padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} title="MaKo propone una nomenclatura ordenada y la aplica con tu confirmación">✦ MaKo · Ordenar nombres</button>
+        <MakoMenu actions={[
+          { label: 'Analizar con Meta', sub: 'Recomendaciones y oportunity score', onClick: () => setRecosOpen(true) },
+          { label: 'Ordenar nombres', sub: 'Propone una nomenclatura y la aplica', onClick: () => setRenameOpen(true) },
+        ]} />
         <Dropdown value={estado} options={ESTADO_OPCIONES} onChange={(v) => setEstado(v as EstadoFiltro)} ariaLabel="Filtrar por estado" width={220} />
         <ColumnsButton open={colsOpen} setOpen={setColsOpen} configurables={configurables} visibleCols={visibleCols} setVisibleCols={setVisibleCols} />
         {(selCamp.size > 0 || selAdset.size > 0) && (
@@ -666,6 +669,40 @@ function RecosModal({ onClose }: { onClose: () => void }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── botón negro de MaKo con menú de acciones (Analizar / Ordenar nombres) ──
+function MakoMenu({ actions }: { actions: Array<{ label: string; sub?: string; onClick: () => void }> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc); document.addEventListener('keydown', onEsc);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="Acciones con MaKo"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}>
+        <MakoStar size={14} /><MakoWord>MaKo</MakoWord>
+        <span style={{ fontSize: 10, opacity: 0.85, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
+      </button>
+      {open && (
+        <div role="menu" style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 270, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 6 }}>
+          {actions.map((a) => (
+            <button key={a.label} type="button" role="menuitem" onClick={() => { setOpen(false); a.onClick(); }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%', textAlign: 'left', padding: '9px 11px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{a.label}</span>
+              {a.sub && <span style={{ fontSize: 12, color: 'var(--dim)' }}>{a.sub}</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
