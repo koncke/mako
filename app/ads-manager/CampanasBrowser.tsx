@@ -712,6 +712,18 @@ const NIVEL_NOUN: Record<Level, string> = { campaign: 'campañas', adset: 'conju
 const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const anioDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : String(d.getFullYear()); };
 const mesDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : MESES_ES[d.getMonth()]; };
+const mesAnioKey = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }; // "YYYY-MM" para el filtro de rango
+const MES_RE = /\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/i;
+// Mes/año DETERMINÍSTICOS: del nombre si los menciona, si no de la fecha de creación.
+// (Antes los inferia la IA y se equivocaba, ej. "Webinar 9 de julio" → Junio.)
+function fechaDeNombre(name: string, createdTime: string | null): { mes: string; anio: string } {
+  const m = name.match(MES_RE);
+  let mes = m ? m[1].toLowerCase() : '';
+  if (mes === 'setiembre') mes = 'septiembre';
+  mes = mes ? mes.charAt(0).toUpperCase() + mes.slice(1) : mesDe(createdTime);
+  const y = name.match(/\b(20\d{2})\b/);
+  return { mes, anio: y ? y[1] : anioDe(createdTime) };
+}
 // Variables que el usuario puede meter en la plantilla. {n}/{nn}/{nnn} = correlativo
 // (lo pone el código). El resto las completa MaKo extrayéndolas del nombre/jerarquía.
 const RENAME_VARS: Array<{ tok: string; label: string }> = [
@@ -734,7 +746,8 @@ function applyTemplate(tpl: string, vars: Record<string, string>, n: number): st
 const TEMPLATE_DEFAULT = '{nnn}. {objetivo} / {angulo} - {mes} / {anio}';
 function RenameModal({ level, entities, onClose, onApply }: { level: Level; entities: RenameEntity[]; onClose: () => void; onApply: (items: Array<{ id: string; level: Level; name: string }>) => Promise<number> }) {
   const [template, setTemplate] = useState(TEMPLATE_DEFAULT);
-  const [anioDesde, setAnioDesde] = useState('todos');
+  const [desdeMes, setDesdeMes] = useState(''); // "YYYY-MM" (filtro por fecha de creación, opcional)
+  const [hastaMes, setHastaMes] = useState('');
   const [notas, setNotas] = useState('');
   const [phase, setPhase] = useState<'idle' | 'loading' | 'review'>('idle');
   const [prop, setProp] = useState<Record<string, string>>({});
@@ -744,12 +757,17 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   const [confirming, setConfirming] = useState(false);
   const tplRef = useRef<HTMLInputElement>(null);
 
-  // Años presentes (para el filtro "desde el año").
-  const anios = useMemo(() => [...new Set(entities.map((e) => anioDe(e.createdTime)).filter(Boolean))].sort((a, b) => Number(b) - Number(a)), [entities]);
-  // Entidades en alcance: filtradas por año de creación (las de antes NO se tocan).
-  const enAlcance = useMemo(() => entities.filter((e) => anioDesde === 'todos' || (anioDe(e.createdTime) && Number(anioDe(e.createdTime)) >= Number(anioDesde))), [entities, anioDesde]);
-  // Variables semánticas que la plantilla pide (excluye el correlativo y {nombre}, que pone el código).
-  const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && v !== 'nombre'), [template]);
+  // Entidades en alcance: filtradas por RANGO de fecha de creación (las de afuera NO
+  // se tocan). El filtro lo hace el código, NO la IA (antes lo metían en las notas y
+  // la IA "filtraba" dejando objetivo/ángulo vacíos).
+  const enAlcance = useMemo(() => entities.filter((e) => {
+    const k = mesAnioKey(e.createdTime);
+    if (!k) return !desdeMes && !hastaMes; // sin fecha → solo si no hay filtro
+    return (!desdeMes || k >= desdeMes) && (!hastaMes || k <= hastaMes);
+  }), [entities, desdeMes, hastaMes]);
+  // Variables que pide la IA: solo las SEMÁNTICAS. El correlativo, {nombre}, {mes} y
+  // {anio} los pone el código (determinístico) → la IA nunca se equivoca con la fecha.
+  const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && !['nombre', 'mes', 'anio'].includes(v)), [template]);
 
   const insertar = (tok: string) => {
     const el = tplRef.current;
@@ -763,7 +781,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
     if (!template.trim()) { setErr('Escribí una plantilla.'); return; }
     setPhase('loading'); setErr(null);
     try {
-      let valores: Record<string, Record<string, string>> = {};
+      const valores: Record<string, Record<string, string>> = {};
       if (varsNeeded.length > 0) {
         const r = await fetch('/api/ads-manager/rename-suggest', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -773,11 +791,12 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
         if (!j.ok) throw new Error(j.error || 'MaKo no pudo proponer');
         for (const v of (j.valores ?? []) as Array<{ id: string; vars: Record<string, string> }>) valores[v.id] = v.vars ?? {};
       }
-      // Render determinístico de la plantilla → nombre exacto, correlativo por código.
+      // Render determinístico: correlativo + mes/año por código; objetivo/ángulo de la IA.
       const map: Record<string, string> = {};
       const inc = new Set<string>();
       enAlcance.forEach((e, i) => {
-        const v = { ...valores[e.id], nombre: e.name, anio: valores[e.id]?.anio || anioDe(e.createdTime), mes: valores[e.id]?.mes || mesDe(e.createdTime) };
+        const { mes, anio } = fechaDeNombre(e.name, e.createdTime);
+        const v = { ...valores[e.id], nombre: e.name, mes, anio };
         const nuevo = applyTemplate(template, v, i + 1);
         map[e.id] = nuevo || e.name;
         if (nuevo && nuevo !== e.name) inc.add(e.id);
@@ -810,14 +829,19 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
           <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>Definís la <b>plantilla</b> con variables; MaKo completa cada variable mirando el nombre actual y la jerarquía, y el sistema arma el nombre con ese formato EXACTO. Revisás y confirmás antes de escribir en Meta.</p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: 12 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Plantilla del nombre</span>
-                <input ref={tplRef} value={template} onChange={(e) => setTemplate(e.target.value)} placeholder="{nnn}. {objetivo} / {angulo} - {mes} / {anio}" style={{ ...inp, fontFamily: MONO, fontSize: 13.5 }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Desde el año</span>
-                <Dropdown value={anioDesde} onChange={setAnioDesde} ariaLabel="Desde el año" width="100%" options={[{ value: 'todos', label: 'Todas las fechas' }, ...anios.map((y) => ({ value: y, label: `${y} en adelante` }))]} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Plantilla del nombre</span>
+              <input ref={tplRef} value={template} onChange={(e) => setTemplate(e.target.value)} placeholder="{nnn}. {objetivo} / {angulo} - {mes} / {anio}" style={{ ...inp, fontFamily: MONO, fontSize: 13.5 }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Renombrar solo las creadas en este rango (por fecha de creación)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Desde</span>
+                <input type="month" value={desdeMes} onChange={(e) => setDesdeMes(e.target.value)} style={{ ...inp, width: 160 }} />
+                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>hasta</span>
+                <input type="month" value={hastaMes} onChange={(e) => setHastaMes(e.target.value)} style={{ ...inp, width: 160 }} />
+                {(desdeMes || hastaMes) && <button type="button" onClick={() => { setDesdeMes(''); setHastaMes(''); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar fechas</button>}
               </div>
             </div>
 
@@ -829,12 +853,12 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Notas para MaKo (opcional)</span>
-              <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder="Ej: el objetivo en Title Case (Leads, Ventas, Webinar); las de retargeting que el ángulo diga RTG." style={{ ...inp, resize: 'vertical' }} />
+              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Notas de estilo para MaKo (opcional)</span>
+              <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder="Cómo nombrar (estilo), NO para filtrar. Ej: objetivo en 1 palabra; ángulo corto; las de retargeting que el ángulo diga RTG." style={{ ...inp, resize: 'vertical' }} />
             </div>
 
             <div style={{ fontSize: 12.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-              Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{anioDesde !== 'todos' ? ` (creadas en ${anioDesde} o después)` : ''}. Ejemplo: <code style={{ fontFamily: MONO, color: 'var(--ink)' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '—'}</code>
+              Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{(desdeMes || hastaMes) ? ` (creadas${desdeMes ? ` desde ${desdeMes}` : ''}${hastaMes ? ` hasta ${hastaMes}` : ''}; el resto no se toca)` : ''}. Ejemplo: <code style={{ fontFamily: MONO, color: 'var(--ink)' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '—'}</code>
             </div>
 
             {err && <div style={{ fontSize: 13, color: 'var(--bad)' }}>Error: {err}</div>}

@@ -50,8 +50,10 @@ ${varSpec}
 
 Reglas:
 - Devolvé un valor por CADA variable pedida y por CADA id, usando los id TAL CUAL.
-- Valores CORTOS y consistentes entre todos (mismo estilo). Si una variable no se puede deducir, devolvé "" (string vacío).
-${body.notas?.trim() ? `- Indicación del usuario (priorizala): ${body.notas.trim()}` : ''}
+- Procesá TODAS las entidades que te paso. NO filtres, NO omitas, NO dejes valores en blanco "para descartar": qué renombrar ya lo decidió el usuario por fecha, no es tu tarea.
+- "objetivo" y "angulo" SIEMPRE deben tener un valor inferido (todo aviso tiene un objetivo y un ángulo). Devolvé "" solo si de verdad es imposible deducirlo.
+- Valores CORTOS y consistentes entre todos (mismo estilo).
+${body.notas?.trim() ? `- Estilo/preferencias del usuario para CÓMO nombrar (no es un filtro): ${body.notas.trim()}` : ''}
 
 Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
 {"valores":[{"id":"<id>","vars":{${vars.map((v) => `"${v}":"…"`).join(',')}}}]}`;
