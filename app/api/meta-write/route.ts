@@ -1,14 +1,13 @@
 // =============================================================================
-// /api/meta-write — escrituras a Meta Ads (pausar/activar y presupuesto)
+// /api/meta-write — escrituras a Meta Ads (pausar/activar, presupuesto y nombre)
 // =============================================================================
-// Un endpoint para mutar status (ACTIVE/PAUSED) y presupuesto diario (CBO en la
-// campaña / ABO en el conjunto). El budget va en CENTAVOS de MXN.
+// Un endpoint para mutar status (ACTIVE/PAUSED), presupuesto diario (CBO en la
+// campaña / ABO en el conjunto) y NOMBRE (campaña/adset/anuncio). El budget va en
+// CENTAVOS de MXN. Renombrar = POST /{id} con name=... (mismo edge para los 3).
 //
 // CRÍTICO: Meta puede devolver un error (p.ej. subcode 4841013 "Permissions
 // error") con HTTP 200. Por eso SIEMPRE inspeccionamos body.error, nunca el
-// status HTTP. Hoy, con el token de tipo PÁGINA, toda escritura devuelve 4841013;
-// el día que se use un System User token con ads_management, funciona sin tocar
-// este código.
+// status HTTP. Requiere un token con ads_management sobre la cuenta.
 
 import type { NextRequest } from 'next/server';
 
@@ -18,7 +17,8 @@ const GRAPH = 'https://graph.facebook.com';
 
 type Body =
   | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'status'; status: 'ACTIVE' | 'PAUSED' }
-  | { level: 'campaign' | 'adset'; id: string; op: 'budget'; dailyBudgetMxn: number };
+  | { level: 'campaign' | 'adset'; id: string; op: 'budget'; dailyBudgetMxn: number }
+  | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'name'; name: string };
 
 export async function POST(req: NextRequest) {
   const ver = process.env.META_API_VERSION;
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   const params = new URLSearchParams();
-  const applied: { status?: string; dailyBudgetMxn?: number } = {};
+  const applied: { status?: string; dailyBudgetMxn?: number; name?: string } = {};
 
   if (body.op === 'status') {
     if (body.status !== 'ACTIVE' && body.status !== 'PAUSED') {
@@ -52,6 +52,12 @@ export async function POST(req: NextRequest) {
     // daily_budget va en centavos de la moneda de la cuenta (MXN).
     params.set('daily_budget', String(Math.round(mxn * 100)));
     applied.dailyBudgetMxn = mxn;
+  } else if (body.op === 'name') {
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return Response.json({ ok: false, message: 'nombre vacío' }, { status: 400 });
+    if (name.length > 400) return Response.json({ ok: false, message: 'nombre demasiado largo' }, { status: 400 });
+    params.set('name', name);
+    applied.name = name;
   } else {
     return Response.json({ ok: false, message: 'op inválida' }, { status: 400 });
   }

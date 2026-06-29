@@ -124,9 +124,11 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [colsOpen, setColsOpen] = useState(false);
 
   // escrituras
-  const [optimistic, setOptimistic] = useState<Map<string, { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number }>>(new Map());
+  const [optimistic, setOptimistic] = useState<Map<string, { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number; name?: string }>>(new Map());
   const [writing, setWriting] = useState<Set<string>>(new Set());
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   // modales
@@ -171,6 +173,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   // overrides optimistas
   const effStatusOf = (node: NodoEstado) => optimistic.get(node.id)?.status ?? node.effectiveStatus;
   const budgetOf = (node: NodoEstado) => optimistic.get(node.id)?.budgetMxn ?? node.dailyBudgetMxn ?? null;
+  const nameOf = (node: NodoEstado) => optimistic.get(node.id)?.name ?? node.name;
 
   // ── filas por nivel (con scope de selección cruzado) ──
   const matchEstado = (node: NodoEstado) => estado === 'all' || metaStatusSemaforo(effStatusOf(node)) === estado;
@@ -236,9 +239,9 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const toggleAll = () => setSelSet(() => (allSelected ? new Set() : new Set(sorted.map((r) => r.node.id))));
 
   // ── escrituras ──
-  const setOpt = (id: string, patch: { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number }) =>
+  const setOpt = (id: string, patch: { status?: 'ACTIVE' | 'PAUSED'; budgetMxn?: number; name?: string }) =>
     setOptimistic((m) => { const n = new Map(m); n.set(id, { ...(n.get(id) ?? {}), ...patch }); return n; });
-  const clearOpt = (id: string, k: 'status' | 'budgetMxn') =>
+  const clearOpt = (id: string, k: 'status' | 'budgetMxn' | 'name') =>
     setOptimistic((m) => { const n = new Map(m); const cur = { ...(n.get(id) ?? {}) }; delete cur[k]; if (Object.keys(cur).length === 0) n.delete(id); else n.set(id, cur); return n; });
   const permMsg = (j: { error_subcode?: number; message?: string }) =>
     j.error_subcode === 4841013
@@ -270,6 +273,31 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     const ids = [...selSet];
     await Promise.allSettled(ids.map((id) => writeStatus(level, id, next)));
   };
+  // Renombrar (campaña/adset/anuncio) → POST /{id} con name. Optimistic + revert.
+  async function writeName(lvl: Level, id: string, name: string): Promise<{ ok: boolean; error?: string }> {
+    setEditingNameId(null);
+    const clean = name.trim();
+    if (!clean) return { ok: false, error: 'nombre vacío' };
+    setWriting((w) => new Set(w).add(id));
+    setOpt(id, { name: clean });
+    try {
+      const r = await fetch('/api/meta-write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: lvl, id, op: 'name', name: clean }) });
+      const j = await r.json();
+      if (!j.ok) { clearOpt(id, 'name'); const msg = permMsg(j); setToast(msg); return { ok: false, error: msg }; }
+      return { ok: true };
+    } catch (e) { clearOpt(id, 'name'); const msg = `Error de red: ${String(e)}`; setToast(msg); return { ok: false, error: msg }; }
+    finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
+  }
+  // Aplica en lote los renombres propuestos por MaKo (secuencial, para no chocar
+  // con el rate-limit de Meta). Devuelve cuántos salieron OK + refresca el estado.
+  const bulkRename = async (items: Array<{ id: string; level: Level; name: string }>): Promise<number> => {
+    let ok = 0; let lastErr = '';
+    for (const it of items) { const r = await writeName(it.level, it.id, it.name); if (r.ok) ok++; else lastErr = r.error || lastErr; }
+    // Si fallaron, NO tapar el detalle del error con un resumen benigno.
+    setToast(ok === items.length ? `Renombrados ${ok}/${items.length}.` : `Renombrados ${ok}/${items.length}. Meta rechazó el resto: ${lastErr}`);
+    cargar(); // reconciliar los nombres optimistas con el estado real de Meta
+    return ok;
+  };
 
   // ── abrir modales ──
   const abrir = (r: Row) => {
@@ -286,6 +314,14 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     { key: 'conjuntos', label: selCamp.size > 0 ? `Conjuntos · ${selCamp.size} campaña${selCamp.size === 1 ? '' : 's'}` : 'Conjuntos', n: health?.adsets.length ?? 0 },
     { key: 'anuncios', label: selAdset.size > 0 ? `Anuncios · ${selAdset.size} conjunto${selAdset.size === 1 ? '' : 's'}` : selCamp.size > 0 ? `Anuncios · ${selCamp.size} campaña${selCamp.size === 1 ? '' : 's'}` : 'Anuncios', n: health?.ads.length ?? 0 },
   ];
+
+  // Entidades del nivel actual (todas, con su jerarquía) para el renombrado con MaKo.
+  const renameEntities = useMemo<RenameEntity[]>(() => {
+    if (!health) return [];
+    if (level === 'campaign') return health.campaigns.map((n) => ({ id: n.id, name: nameOf(n), campName: null, adsetName: null }));
+    if (level === 'adset') return health.adsets.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(n.parentId), adsetName: null }));
+    return health.ads.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(adsetCampId(n.parentId)), adsetName: n.parentId ? adsetsById.get(n.parentId)?.name ?? null : null }));
+  }, [health, level, optimistic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -316,6 +352,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       {/* toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" onClick={() => setRecosOpen(true)} style={{ padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>✦ Analizar (Meta)</button>
+        <button type="button" onClick={() => setRenameOpen(true)} style={{ padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} title="MaKo propone una nomenclatura ordenada y la aplica con tu confirmación">✦ MaKo · Ordenar nombres</button>
         <Dropdown value={estado} options={ESTADO_OPCIONES} onChange={(v) => setEstado(v as EstadoFiltro)} ariaLabel="Filtrar por estado" width={220} />
         <ColumnsButton open={colsOpen} setOpen={setColsOpen} configurables={configurables} visibleCols={visibleCols} setVisibleCols={setVisibleCols} />
         {(selCamp.size > 0 || selAdset.size > 0) && (
@@ -373,10 +410,11 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
                   <tr><td className="stickyName" style={{ ...td, color: 'var(--faint)' }} colSpan={1}>Sin filas para este filtro.</td>{cols.map((c) => <td key={c.id} style={td} />)}</tr>
                 ) : sorted.map((r) => (
                   <RowView key={r.node.id} r={r} cols={cols} selected={selSet.has(r.node.id)} onSelect={() => toggleOne(r.node.id)} onOpen={() => abrir(r)}
-                    effStatus={effStatusOf(r.node)} budgetMxn={budgetOf(r.node)} accountFrozen={accountFrozen}
-                    writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id}
+                    effStatus={effStatusOf(r.node)} budgetMxn={budgetOf(r.node)} name={nameOf(r.node)} accountFrozen={accountFrozen}
+                    writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
-                    onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)} />
+                    onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
+                    onStartName={() => setEditingNameId(r.node.id)} onCancelName={() => setEditingNameId(null)} onSaveName={(nm) => writeName(r.level, r.node.id, nm)} />
                 ))}
               </tbody>
             </table>
@@ -401,9 +439,12 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
           desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)} />
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
+      {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
     </div>
   );
 }
+
+type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null };
 
 const bulkBtn: CSSProperties = { padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(243,240,231,.25)', background: 'rgba(243,240,231,.10)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 
@@ -418,10 +459,11 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, accountFrozen, writing, editing, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; accountFrozen: boolean; writing: boolean; editing: boolean;
+  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; writing: boolean; editing: boolean; editingName: boolean;
   onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
+  onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
   const active = effStatus === 'ACTIVE';
   const entrega = accountFrozen && active ? { label: 'Error en el pago', semaforo: 'rojo' as Semaforo } : { label: metaStatusLabel(effStatus), semaforo: metaStatusSemaforo(effStatus) };
@@ -454,7 +496,15 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, ac
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={r.senal.ad_thumbnail_url} alt="" style={{ width: 28, height: 38, borderRadius: 5, objectFit: 'cover', flex: 'none', border: '1px solid var(--border)' }} />
             : <span style={{ width: 28, height: 38, borderRadius: 5, flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)' }} />)}
-          <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)' }}>{r.node.name}</span>
+          {editingName ? (
+            <span onClick={stop} style={{ flex: 1, minWidth: 0 }}><NameEditor value={name} onSave={onSaveName} onCancel={onCancelName} /></span>
+          ) : (
+            <>
+              <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)' }}>{name}</span>
+              <button type="button" title="Renombrar" disabled={writing} onClick={(e) => { stop(e); onStartName(); }}
+                style={{ flex: 'none', background: 'transparent', border: 'none', cursor: writing ? 'default' : 'pointer', color: 'var(--faint)', fontSize: 12, padding: '2px 4px', lineHeight: 1 }}>✎</button>
+            </>
+          )}
         </span>
       </td>
       {cols.map((c) => (
@@ -498,6 +548,22 @@ function BudgetEditor({ mxn, onSave, onCancel }: { mxn: number | null; onSave: (
       <span style={{ color: 'var(--faint)', fontSize: 12 }}>MXN/día</span>
       <button type="button" onClick={save} style={{ border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
       <button type="button" onClick={onCancel} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
+    </span>
+  );
+}
+
+function NameEditor({ value, onSave, onCancel }: { value: string; onSave: (name: string) => void; onCancel: () => void }) {
+  const [v, setV] = useState(value);
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  const save = () => { const t = v.trim(); if (t && t !== value) onSave(t); else onCancel(); };
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: '100%' }}>
+      <input ref={ref} value={v} maxLength={400} onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
+        style={{ flex: 1, minWidth: 0, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+      <button type="button" onClick={save} title="Guardar" style={{ flex: 'none', border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 6, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
+      <button type="button" onClick={onCancel} title="Cancelar" style={{ flex: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 6, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
     </span>
   );
 }
@@ -599,6 +665,106 @@ function RecosModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── modal "MaKo · Ordenar nombres" — propone una nomenclatura y la aplica ──
+const NIVEL_NOUN: Record<Level, string> = { campaign: 'campañas', adset: 'conjuntos', ad: 'anuncios' };
+function RenameModal({ level, entities, onClose, onApply }: { level: Level; entities: RenameEntity[]; onClose: () => void; onApply: (items: Array<{ id: string; level: Level; name: string }>) => Promise<number> }) {
+  const [instruccion, setInstruccion] = useState('');
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'review'>('idle');
+  const [prop, setProp] = useState<Record<string, string>>({});
+  const [incl, setIncl] = useState<Set<string>>(new Set());
+  const [err, setErr] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const nameById = useMemo(() => new Map(entities.map((e) => [e.id, e.name])), [entities]);
+
+  const proponer = async () => {
+    setPhase('loading'); setErr(null);
+    try {
+      const r = await fetch('/api/ads-manager/rename-suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level, instruccion, entities: entities.map((e) => ({ id: e.id, name: e.name, campana: e.campName, adset: e.adsetName })) }),
+      });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'MaKo no pudo proponer');
+      const map: Record<string, string> = {};
+      const inc = new Set<string>();
+      for (const p of (j.propuestas ?? []) as Array<{ id: string; nombre: string }>) {
+        const nuevo = String(p.nombre ?? '').trim();
+        const actual = nameById.get(p.id);
+        if (!nuevo || actual === undefined) continue;
+        map[p.id] = nuevo;
+        if (nuevo !== actual) inc.add(p.id);
+      }
+      setProp(map); setIncl(inc); setPhase('review');
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setPhase('idle'); }
+  };
+
+  const cambios = entities.filter((e) => incl.has(e.id) && prop[e.id] && prop[e.id].trim() && prop[e.id].trim() !== e.name);
+  const aplicar = async () => {
+    setApplying(true);
+    try { await onApply(cambios.map((e) => ({ id: e.id, level, name: prop[e.id].trim() }))); onClose(); }
+    finally { setApplying(false); }
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>MaKo · Ordenar nombres</div>
+            <h2 style={{ fontWeight: 600, fontSize: 20, margin: '3px 0 0', color: 'var(--ink)' }}>Renombrar {entities.length} {NIVEL_NOUN[level]}</h2>
+          </div>
+          <button onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
+        </div>
+
+        {phase !== 'review' ? (
+          <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>MaKo mira los nombres actuales (y su jerarquía) y propone una nomenclatura <b>consistente y corta</b>. Vas a poder revisar y editar cada nombre antes de aplicar — nada se escribe en Meta sin tu confirmación.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Convención o pistas (opcional)</span>
+              <textarea value={instruccion} onChange={(e) => setInstruccion(e.target.value)} rows={3} placeholder="Ej: usá el formato [Objetivo] · [Audiencia] · [Ángulo] · vN. Las de retargeting que digan RTG. Respetá el idioma." style={{ width: '100%', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'vertical' }} />
+            </div>
+            {err && <div style={{ fontSize: 13, color: 'var(--bad)' }}>Error: {err}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={proponer} disabled={phase === 'loading' || entities.length === 0} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: phase === 'loading' ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: phase === 'loading' ? 'wait' : 'pointer' }}>{phase === 'loading' ? 'MaKo proponiendo…' : '✦ Proponer con MaKo'}</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{ padding: '16px 24px', maxHeight: '56vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {entities.length} cambian. Destildá los que no quieras o editá el nombre propuesto.</div>
+              {entities.map((e) => {
+                const nuevo = prop[e.id] ?? e.name;
+                const cambia = incl.has(e.id) && nuevo.trim() !== e.name;
+                return (
+                  <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '22px 1fr 1fr', gap: 10, alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+                    <input type="checkbox" checked={incl.has(e.id)} onChange={() => setIncl((s) => { const n = new Set(s); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })} style={{ cursor: 'pointer' }} />
+                    <span style={{ fontSize: 12.5, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: cambia ? 'line-through' : 'none' }} title={e.name}>{e.name}</span>
+                    <input value={nuevo} maxLength={400} onChange={(ev) => setProp((p) => ({ ...p, [e.id]: ev.target.value }))} style={{ width: '100%', padding: '6px 9px', borderRadius: 8, border: `1px solid ${cambia ? 'var(--accent)' : 'var(--border)'}`, background: incl.has(e.id) ? 'var(--surface)' : 'var(--surface-2)', color: incl.has(e.id) ? 'var(--ink)' : 'var(--faint)', fontFamily: SANS, fontSize: 13, outline: 'none' }} />
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 24px', borderTop: '1px solid var(--border)' }}>
+              <button onClick={() => { setPhase('idle'); setConfirming(false); }} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>← Volver</button>
+              {confirming ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink)' }}>¿Renombrar {cambios.length} en Meta?</span>
+                  <button onClick={aplicar} disabled={applying} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--good)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: applying ? 'wait' : 'pointer' }}>{applying ? 'Aplicando…' : 'Confirmar'}</button>
+                  <button onClick={() => setConfirming(false)} disabled={applying} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>No</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirming(true)} disabled={cambios.length === 0} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: cambios.length === 0 ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: cambios.length === 0 ? 'default' : 'pointer' }}>Aplicar {cambios.length} en Meta</button>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
