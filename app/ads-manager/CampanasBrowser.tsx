@@ -320,9 +320,9 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   // Entidades del nivel actual (todas, con su jerarquía) para el renombrado con MaKo.
   const renameEntities = useMemo<RenameEntity[]>(() => {
     if (!health) return [];
-    if (level === 'campaign') return health.campaigns.map((n) => ({ id: n.id, name: nameOf(n), campName: null, adsetName: null, createdTime: n.createdTime ?? null }));
-    if (level === 'adset') return health.adsets.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(n.parentId), adsetName: null, createdTime: n.createdTime ?? null }));
-    return health.ads.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(adsetCampId(n.parentId)), adsetName: n.parentId ? adsetsById.get(n.parentId)?.name ?? null : null, createdTime: n.createdTime ?? null }));
+    if (level === 'campaign') return health.campaigns.map((n) => ({ id: n.id, name: nameOf(n), campName: null, adsetName: null, createdTime: n.createdTime ?? null, parentId: null }));
+    if (level === 'adset') return health.adsets.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(n.parentId), adsetName: null, createdTime: n.createdTime ?? null, parentId: n.parentId ?? null }));
+    return health.ads.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(adsetCampId(n.parentId)), adsetName: n.parentId ? adsetsById.get(n.parentId)?.name ?? null : null, createdTime: n.createdTime ?? null, parentId: n.parentId ?? null }));
   }, [health, level, optimistic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -448,7 +448,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   );
 }
 
-type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null; createdTime: string | null };
+type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null; createdTime: string | null; parentId: string | null };
 
 const bulkBtn: CSSProperties = { padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(243,240,231,.25)', background: 'rgba(243,240,231,.10)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 
@@ -728,21 +728,51 @@ function fechaDeNombre(name: string, createdTime: string | null): { mes: string;
   const y = name.match(/\b(20\d{2})\b/);
   return { mes, anio: y ? y[1] : anioDe(createdTime) };
 }
-// Variables que el usuario puede meter en la plantilla. {n}/{nn}/{nnn} = correlativo
-// (lo pone el código). El resto las completa MaKo extrayéndolas del nombre/jerarquía.
-const RENAME_VARS: Array<{ tok: string; label: string }> = [
-  { tok: '{nnn}', label: 'N° (001)' },
-  { tok: '{objetivo}', label: 'Objetivo' },
-  { tok: '{angulo}', label: 'Ángulo' },
-  { tok: '{audiencia}', label: 'Audiencia' },
-  { tok: '{mes}', label: 'Mes' },
-  { tok: '{anio}', label: 'Año' },
-  { tok: '{nombre}', label: 'Nombre original' },
-];
-// Renderiza la plantilla: el correlativo {n+} con padding, las demás variables por
-// substitución, y limpia los slots que quedaron sin resolver + separadores sueltos.
-function applyTemplate(tpl: string, vars: Record<string, string>, n: number): string {
-  let out = tpl.replace(/\{n+\}/g, (m) => String(n).padStart(Math.max(1, m.length - 2), '0'));
+// Índice → letra (1→a, 26→z, 27→aa…). Para {a} (correlativo del anuncio dentro del conjunto).
+function letra(n: number): string { let s = ''; while (n > 0) { n--; s = String.fromCharCode(97 + (n % 26)) + s; n = Math.floor(n / 26); } return s; }
+// Código del padre = el prefijo numérico de SU nombre actual (ya renombrado).
+// Ej: "001. Leads…" → "001"; "001.02 Ad Set…" → "001.02". Vacío si el padre no
+// fue renombrado todavía (hay que renombrar de arriba hacia abajo).
+function codigoPadre(parentName: string | null): string {
+  if (!parentName) return '';
+  const m = parentName.match(/^\s*([0-9]+(?:\.[0-9]+)*(?:\.[a-zA-Z]+)?)/);
+  return m ? m[1] : '';
+}
+// Variables de plantilla según el nivel. {nnn}/{nombre}/{mes}/{anio}/{padre}/{sub}/{a}
+// los pone el CÓDIGO; objetivo/ángulo/audiencia los completa MaKo.
+function renameVars(level: Level): Array<{ tok: string; label: string }> {
+  const base: Array<{ tok: string; label: string }> = [
+    { tok: '{nnn}', label: 'N° global (001)' },
+    { tok: '{objetivo}', label: 'Objetivo' },
+    { tok: '{angulo}', label: 'Ángulo' },
+    { tok: '{audiencia}', label: 'Audiencia' },
+    { tok: '{mes}', label: 'Mes' },
+    { tok: '{anio}', label: 'Año' },
+    { tok: '{nombre}', label: 'Nombre original' },
+  ];
+  if (level === 'campaign') return base;
+  const padreLabel = level === 'adset' ? 'Código de la campaña (001)' : 'Código del conjunto (001.02)';
+  return [
+    { tok: '{padre}', label: padreLabel },
+    { tok: '{sub}', label: 'N° dentro del padre (02)' },
+    { tok: '{a}', label: 'Letra dentro del padre (b)' },
+    ...base,
+  ];
+}
+// Plantilla por defecto según el nivel: campaña = N° global; conjunto/anuncio =
+// anclados al código del padre (lo que pidió Martín: 001.02 / 001.02.a).
+const TEMPLATE_DEFAULT_BY_LEVEL: Record<Level, string> = {
+  campaign: '{nnn}. {objetivo} / {angulo} - {mes} / {anio}',
+  adset: '{padre}.{sub} {objetivo} / {angulo}',
+  ad: '{padre}.{a} {objetivo} / {angulo}',
+};
+// Renderiza la plantilla: correlativo global {n+}, índice por-padre {sub}/{a}, las
+// demás variables por substitución; limpia slots sin resolver + separadores sueltos.
+function applyTemplate(tpl: string, vars: Record<string, string>, counters: { n: number; sub: number }): string {
+  let out = tpl
+    .replace(/\{n+\}/g, (m) => String(counters.n).padStart(Math.max(1, m.length - 2), '0'))
+    .replace(/\{sub\}/g, counters.sub ? String(counters.sub).padStart(2, '0') : '')
+    .replace(/\{a\}/g, counters.sub ? letra(counters.sub) : '');
   for (const [k, v] of Object.entries(vars)) if (v) out = out.split(`{${k}}`).join(v);
   return out.replace(/\{[a-zA-Z_]+\}/g, '').replace(/\s{2,}/g, ' ').replace(/^[\s/|·.\-]+|[\s/|·.\-]+$/g, '').trim();
 }
@@ -842,14 +872,14 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
 
 // Inserta una variable de plantilla en el cursor — menú flotante (declutter del
 // chip row). El correlativo {nnn} y {nombre} los pone el código; el resto MaKo.
-function InsertarVariable({ onInsert }: { onInsert: (tok: string) => void }) {
+function InsertarVariable({ onInsert, vars }: { onInsert: (tok: string) => void; vars: Array<{ tok: string; label: string }> }) {
   const triggerStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0 14px', height: '100%', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' };
   return (
-    <FloatingPanel ariaLabel="Insertar variable" panelWidth={236} align="right" triggerStyle={triggerStyle}
+    <FloatingPanel ariaLabel="Insertar variable" panelWidth={250} align="right" triggerStyle={triggerStyle}
       trigger={<><span style={{ fontFamily: MONO, color: 'var(--accent)' }}>{'{ }'}</span>Insertar<span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span></>}>
       {(close) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {RENAME_VARS.map((v) => (
+          {vars.map((v) => (
             <button key={v.tok} type="button" onClick={() => { onInsert(v.tok); close(); }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
               style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
@@ -863,9 +893,8 @@ function InsertarVariable({ onInsert }: { onInsert: (tok: string) => void }) {
   );
 }
 
-const TEMPLATE_DEFAULT = '{nnn}. {objetivo} / {angulo} - {mes} / {anio}';
 function RenameModal({ level, entities, onClose, onApply }: { level: Level; entities: RenameEntity[]; onClose: () => void; onApply: (items: Array<{ id: string; level: Level; name: string }>) => Promise<number> }) {
-  const [template, setTemplate] = useState(TEMPLATE_DEFAULT);
+  const [template, setTemplate] = useState(TEMPLATE_DEFAULT_BY_LEVEL[level]);
   const [desde, setDesde] = useState(''); // "YYYY-MM-DD" (filtro por fecha de creación, opcional)
   const [hasta, setHasta] = useState('');
   const [notas, setNotas] = useState('');
@@ -881,16 +910,28 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   // Entidades en alcance: filtradas por RANGO de fecha de creación (las de afuera NO
   // se tocan). El filtro lo hace el código, NO la IA (antes lo metían en las notas y
   // la IA "filtraba" dejando objetivo/ángulo vacíos).
-  // Filtradas por rango Y ORDENADAS del MÁS VIEJO al más nuevo: así el correlativo
-  // {nnn} arranca en 001 para la primera publicada (createdTime asc). Sin fecha → al final.
+  const padreDe = (e: RenameEntity) => codigoPadre(level === 'adset' ? e.campName : level === 'ad' ? e.adsetName : null);
+  // Filtradas por rango y ORDENADAS del MÁS VIEJO al más nuevo (createdTime asc) →
+  // 001 = la primera publicada. En conjuntos/anuncios además se AGRUPAN por código
+  // del padre, así la lista se lee 001.01, 001.02, 002.01… y el {sub} por-padre cuadra.
   const enAlcance = useMemo(() => entities.filter((e) => {
     const k = diaDe(e.createdTime);
     if (!k) return !desde && !hasta; // sin fecha → solo si no hay filtro
     return (!desde || k >= desde) && (!hasta || k <= hasta);
-  }).sort((a, b) => (a.createdTime || '9999') < (b.createdTime || '9999') ? -1 : 1), [entities, desde, hasta]);
-  // Variables que pide la IA: solo las SEMÁNTICAS. El correlativo, {nombre}, {mes} y
-  // {anio} los pone el código (determinístico) → la IA nunca se equivoca con la fecha.
-  const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && !['nombre', 'mes', 'anio'].includes(v)), [template]);
+  }).sort((a, b) => {
+    if (level !== 'campaign') { const pa = padreDe(a), pb = padreDe(b); if (pa !== pb) return pa < pb ? -1 : 1; }
+    return (a.createdTime || '9999') < (b.createdTime || '9999') ? -1 : 1;
+  }), [entities, desde, hasta, level]);
+  // Índice POR PADRE (resetea por campaña en conjuntos, por conjunto en anuncios) →
+  // alimenta {sub} (02) y {a} (b). En campañas no aplica (no tienen padre).
+  const subByEntity = useMemo(() => {
+    const cnt = new Map<string, number>(), out = new Map<string, number>();
+    for (const e of enAlcance) { if (!e.parentId) continue; const n = (cnt.get(e.parentId) ?? 0) + 1; cnt.set(e.parentId, n); out.set(e.id, n); }
+    return out;
+  }, [enAlcance]);
+  // Variables que pide la IA: solo las SEMÁNTICAS. El resto ({nnn}/{nombre}/{mes}/
+  // {anio}/{padre}/{sub}/{a}) los pone el CÓDIGO (determinístico).
+  const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && !['nombre', 'mes', 'anio', 'padre', 'sub', 'a'].includes(v)), [template]);
 
   const insertar = (tok: string) => {
     const el = tplRef.current;
@@ -915,13 +956,14 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
         for (const v of (j.valores ?? []) as Array<{ id: string; vars: Record<string, string> }>) valores[v.id] = v.vars ?? {};
         setUso(j.uso ?? null);
       }
-      // Render determinístico: correlativo + mes/año por código; objetivo/ángulo de la IA.
+      // Render determinístico: correlativo global, índice por-padre y código del
+      // padre por código; objetivo/ángulo de la IA.
       const map: Record<string, string> = {};
       const inc = new Set<string>();
       enAlcance.forEach((e, i) => {
         const { mes, anio } = fechaDeNombre(e.name, e.createdTime);
-        const v = { ...valores[e.id], nombre: e.name, mes, anio };
-        const nuevo = applyTemplate(template, v, i + 1);
+        const v = { ...valores[e.id], nombre: e.name, mes, anio, padre: padreDe(e) };
+        const nuevo = applyTemplate(template, v, { n: i + 1, sub: subByEntity.get(e.id) ?? 0 });
         map[e.id] = nuevo || e.name;
         if (nuevo && nuevo !== e.name) inc.add(e.id);
       });
@@ -959,11 +1001,11 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
               <span style={lbl}>Plantilla del nombre</span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
                 <input ref={tplRef} value={template} onChange={(e) => setTemplate(e.target.value)} placeholder="{nnn}. {objetivo} / {angulo} - {mes} / {anio}" style={{ ...inp, flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13.5 }} />
-                <InsertarVariable onInsert={insertar} />
+                <InsertarVariable onInsert={insertar} vars={renameVars(level)} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 10, background: 'rgba(200,135,12,.07)', border: '1px solid var(--border)' }}>
                 <span style={{ ...lbl, color: 'var(--faint)' }}>Previa</span>
-                <code style={{ fontFamily: MONO, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '— (plantilla vacía)'}</code>
+                <code style={{ fontFamily: MONO, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej', padre: level === 'ad' ? '001.01' : '001' }, { n: 1, sub: 1 }) || '— (plantilla vacía)'}</code>
               </div>
             </div>
 
