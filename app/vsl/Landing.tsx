@@ -219,6 +219,8 @@ body:has(.vsl-root) aside { display: none !important; }
 .vsl-root a { color: inherit; }
 .vsl-root ::selection { background: rgba(47,111,237,.15); }
 .vsl-root .ti { line-height: 1; }
+/* Copia del CTA del hero que solo se muestra en mobile (debajo del video). */
+.vsl-root .mk-hero-cta-mobile { display: none; }
 
 @keyframes mkLive { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
 @keyframes mkText { 0% { background-position: 130% 0 } 55%,100% { background-position: -30% 0 } }
@@ -291,6 +293,12 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root .mk-hero-br { display: none !important; }
   /* Historia (bloque 2): el carrusel de Mauricio va ARRIBA del texto "No existe ningún método…". */
   .vsl-root .mk-story-row[style*="border-top"] { flex-direction: column-reverse !important; }
+  /* Hero: en mobile el CTA va DEBAJO del video. Se oculta el CTA y el "Diagnostico…"
+     del bloque de texto y se muestra una copia (.mk-hero-cta-mobile) tras el video. */
+  .vsl-root #top .mk-hero-text > a,
+  .vsl-root #top .mk-hero-text > p:last-of-type { display: none !important; }
+  .vsl-root #top .mk-hero-cta-mobile { display: block !important; width: 100%; text-align: center; margin-top: 4px; }
+  .vsl-root #top .mk-hero-cta-mobile > a { margin-left: auto !important; margin-right: auto !important; }
 }
 @media (max-width:480px){
   /* Grilla de features: 2 columnas en mobile, con cards más cuadradas y compactas. */
