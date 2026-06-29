@@ -32,7 +32,7 @@ import type { EstadoLead, FathomLink } from '@/lib/leads';
 import {
   setLeadStageAction,
   saveLeadMetaAction,
-  deleteLeadAction,
+  deleteLeadInlineAction,
   markManualNutritionAction,
   markMeetingManualAction,
 } from './actions';
@@ -54,6 +54,7 @@ export type CrmLead = {
   stage: string;
   derivedStage: string;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
+  telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
   monto: number;
   totalCobrado: number;
   agenda: string | null;
@@ -167,6 +168,8 @@ export function CrmBoard({
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<CrmLead | null>(null);
+  const [saveError, setSaveError] = useState(false);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -183,15 +186,21 @@ export function CrmBoard({
     setEditsMap((m) => ({ ...m, [id]: { ...(m[id] ?? seedEdits(leads.find((x) => x.id === id)!)), ...patch } }));
 
   const openDetail = (l: CrmLead) => {
+    // Re-sembrar siempre desde los datos frescos: si quedó un edits viejo en caché
+    // (p.ej. tras un reagende de Calendly o asistencia marcada por Fathom), no debe
+    // pisar lo nuevo. Limpiar al cerrar/guardar garantiza que acá no haya entrada.
     setEditsMap((m) => (m[l.id] ? m : { ...m, [l.id]: seedEdits(l) }));
     setSelectedId(l.id);
     setPendingMove(null);
     setMoveError(false);
+    setSaveError(false);
   };
   const closeDetail = () => {
+    if (selectedId != null) setEditsMap((m) => { const n = { ...m }; delete n[selectedId]; return n; });
     setSelectedId(null);
     setPendingMove(null);
     setMoveError(false);
+    setSaveError(false);
   };
 
   // Transición del grafo que define el movimiento `from → to` (si existe). Lleva
@@ -340,24 +349,32 @@ export function CrmBoard({
 
   const persistDetail = (l: CrmLead) => {
     const e = editsFor(l);
+    const move = pendingMove && pendingMove.id === l.id ? pendingMove : null;
+    setSaveError(false);
     startTransition(async () => {
-      await saveLeadMetaAction(l.id, {
-        closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
-        nombre: e.nombre.trim() || undefined, email: e.email.trim() || null,
-        telefono: e.telefono.trim() || null, empresa: e.empresa.trim() || null,
-      });
-      if (pendingMove && pendingMove.id === l.id) {
-        await setLeadStageAction(l.id, pendingMove.to, {
-          monto: pendingMove.to === 'ganado' ? Number(e.plan.total) || null : null,
-          motivo: e.motivo,
-          asistio_j1: pendingMove.asistioJ1,
-          asistio_j2: pendingMove.asistioJ2,
+      try {
+        await saveLeadMetaAction(l.id, {
+          closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
+          nombre: e.nombre.trim() || undefined, email: e.email.trim() || null,
+          telefono: e.telefono.trim() || null, empresa: e.empresa.trim() || null,
+          fecha_junta_1: e.fechaJ1 || null, fecha_junta_2: e.fechaJ2 || null,
         });
-        setLocalStage((m) => ({ ...m, [l.id]: pendingMove.to }));
+        if (move) {
+          await setLeadStageAction(l.id, move.to, {
+            monto: move.to === 'ganado' ? Number(e.plan.total) || null : null,
+            motivo: e.motivo,
+            asistio_j1: move.asistioJ1,
+            asistio_j2: move.asistioJ2,
+          });
+          setLocalStage((m) => ({ ...m, [l.id]: move.to }));
+        }
+        router.refresh();
+        closeDetail();   // limpia el edits cacheado + cierra solo si TODO salió bien
+      } catch {
+        // No cerramos: el usuario ve el error y sus cambios siguen en el modal.
+        setSaveError(true);
       }
-      router.refresh();
     });
-    closeDetail();
   };
 
   const saveDetail = (l: CrmLead) => {
@@ -370,11 +387,21 @@ export function CrmBoard({
     persistDetail(l);
   };
 
-  const removeLead = (id: number) => {
+  // Borrar es irreversible: lo confirmamos en un diálogo aparte (como el de contacto).
+  const confirmRemove = () => {
+    if (!deleteConfirm) return;
+    const id = deleteConfirm.id;
+    setDeleteConfirm(null);
+    setSaveError(false);
     startTransition(async () => {
-      await deleteLeadAction(id);
+      try {
+        await deleteLeadInlineAction(id);
+        router.refresh();
+        closeDetail();
+      } catch {
+        setSaveError(true);
+      }
     });
-    closeDetail();
   };
 
   // Opciones contextuales del worklist: las transiciones salientes de la etapa
@@ -641,9 +668,24 @@ export function CrmBoard({
           onPickStage={(key) => requestStage(selected, key)}
           onClose={closeDetail}
           onSave={() => saveDetail(selected)}
-          onDelete={() => removeLead(selected.id)}
+          onDelete={() => setDeleteConfirm(selected)}
           onSchedule={(key) => scheduleViaCalendly(selected, key)}
+          saveError={saveError}
         />
+      )}
+
+      {/* Confirmación de borrado (irreversible) */}
+      {deleteConfirm && (
+        <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(23,21,17,.35)', padding: '22px 24px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Borrar lead</div>
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{deleteConfirm.name}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setDeleteConfirm(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+              <button onClick={confirmRemove} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Borrar definitivamente</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirmación al editar datos de contacto */}

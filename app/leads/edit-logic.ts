@@ -22,7 +22,6 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
         ...(passedJ1 ? [{ label: 'Reunión 1', url: '' }] : []),
         ...(passedJ2 ? [{ label: 'Reunión 2', url: '' }] : []),
       ];
-  const isNutri = NUTRI_KEYS.includes(effStage);
   const isGanado = effStage === 'ganado';
   const cuota = isGanado ? String(Math.round(l.monto / 3)) : '';
   return {
@@ -36,14 +35,15 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
     fechaJ1: l.fechaJ1 ?? '',
     fechaJ2: l.fechaJ2 ?? '',
     fathom,
-    nutriciones: isNutri ? [{ name: 'Nutrición 1 — WhatsApp', dt: '' }, { name: 'Nutrición 2 — Email', dt: '' }] : [],
+    // El detalle de nutriciones por lead no se persiste todavía (Lead solo guarda
+    // nutricion_realizada). Arrancamos vacío para no mostrar filas inventadas.
+    nutriciones: [],
     plan: { total: isGanado ? String(l.monto) : '', cierre: '', inicio: '', duracion: '3' },
     cuotas: isGanado ? [{ monto: cuota, fecha: '' }, { monto: cuota, fecha: '' }] : [],
   };
 }
 
 const hasFathomUrl = (e: Edits) => e.fathom.some((f) => f.url.trim());
-const hasNutricion = (e: Edits) => e.nutriciones.some((n) => n.name.trim() && n.dt.trim());
 
 /**
  * Campos OBLIGATORIOS que faltan para mover a una etapa (vacío = se puede mover).
@@ -70,14 +70,9 @@ export function missingFor(stage: string, e: Edits): string[] {
       break;
     case 'manual':
       if (!e.setter.trim()) m.push('Setter');
-      if (!hasNutricion(e)) m.push('Nutrición (al menos una)');
       break;
-    case 'noshow':
-    case 'nutri':
-    case 'nopaga':
-    case 'postagenda':
-      if (!hasNutricion(e)) m.push('Nutrición (al menos una)');
-      break;
+    // noshow / nutri / nopaga / postagenda: el detalle de nutrición no se persiste
+    // todavía, así que no se exige nada para mover a estas etapas.
   }
   return m;
 }

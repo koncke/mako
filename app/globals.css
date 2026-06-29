@@ -165,3 +165,38 @@ textarea.mako-field {
   min-height: 104px;
   resize: vertical;
 }
+
+/* Campo compacto del modal de detalle del lead: misma identidad de foco que
+   .mako-field pero con densidad chica (no rompe el layout de la ficha). */
+.lead-field {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.lead-field::placeholder {
+  color: var(--faint);
+}
+.lead-field:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(200, 135, 12, 0.14);
+}
+textarea.lead-field {
+  resize: vertical;
+}
+
+/* Chevron de los <details> de la ficha: rota al expandir. */
+details > summary .chev {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+details[open] > summary .chev {
+  transform: rotate(180deg);
+}
