@@ -308,13 +308,13 @@ body:has(.vsl-root) aside { display: none !important; }
 
 /* "¿Para quién es esto?": las dos columnas (✓ / ✕) a la misma altura. */
 .vsl-root .mk-pq-grid { align-items: stretch !important; }
-/* Calendly: más ancho que alto. Ensanchamos SOLO el bloque del embed (breakout
-   del contenedor de 900px, sin tocar las cards) para que Calendly use su layout
-   horizontal y baje el alto. Objetivo: sin scroll interno y sin espacio de sobra. */
-.vsl-root #beta [data-reveal]:last-child { width: min(1200px, calc(100vw - 40px)); margin-left: 50%; transform: translateX(-50%); }
+/* Calendly: más ancho que alto. Ensanchamos el contenedor del CTA (no con
+   transform — el reveal-on-scroll pisa el transform y descentra el embed). El
+   texto sigue centrado y angosto por sus propios max-width; solo se ensanchan
+   las cards y el calendario, que así usa su layout horizontal (menos alto). */
+.vsl-root #beta > div { max-width: 1140px !important; }
 .vsl-root #cal-embed { height: 700px !important; }
 @media (max-width: 768px) {
-  .vsl-root #beta [data-reveal]:last-child { width: auto; margin-left: 0; transform: none; }
   .vsl-root #cal-embed { height: 1080px !important; }
 }
 
