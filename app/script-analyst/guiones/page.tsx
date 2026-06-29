@@ -6,6 +6,7 @@
 // =============================================================================
 
 import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/script-analyst';
+import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { GuionesFull } from '../ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -22,11 +23,15 @@ const EMPTY: ScriptAnalystView = {
 export default async function GuionesPage() {
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
+  let angles: Angle[] = DEFAULT_ANGLES;
   try {
     data = await getScriptAnalystView();
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
+  try {
+    angles = await getAngles();
+  } catch { /* si falla, los 5 default */ }
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
@@ -47,7 +52,7 @@ export default async function GuionesPage() {
           Todavía no hay guiones analizados. Sincronizá desde la tab de Scripts Analyst.
         </div>
       ) : (
-        <GuionesFull scripts={data.scripts} />
+        <GuionesFull scripts={data.scripts} angles={angles} />
       )}
     </main>
   );

@@ -10,7 +10,7 @@
 // Meta y los tiempos de cada beat los estima Claude (ambos rotulados).
 // =============================================================================
 
-import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { createElement as h, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/script-analyst';
@@ -19,10 +19,22 @@ const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
 // ── Vocabularios visuales (del diseño) ──
-const ANGLE: Record<string, { label: string; c: string }> = {
+// Vocabulario de ángulos para la UI (labels + colores). Es EDITABLE: la página
+// lo lee con getAngles() y lo pasa por prop; `applyAngles` lo vuelca al mapa de
+// módulo que leen angleInfo/angleChip/el cuadrante/los dropdowns. Si la lista
+// está vacía o no llega, caen los 5 base. (Single-tenant: una sola fuente de
+// ángulos, así que volcar el mapa en el render es seguro.)
+export type AngleDef = { key: string; label: string; color: string; desc?: string };
+const DEFAULT_ANGLE: Record<string, { label: string; c: string }> = {
   visionario: { label: 'Visionario', c: '#2F6DDB' }, capataz: { label: 'Capataz', c: '#C8870C' },
   dolor: { label: 'Dolor', c: '#CF4E29' }, testimonio: { label: 'Testimonio', c: '#3B6D11' }, oferta: { label: 'Oferta', c: '#7C4DD6' },
 };
+let ANGLE: Record<string, { label: string; c: string }> = { ...DEFAULT_ANGLE };
+function applyAngles(list?: AngleDef[]) {
+  ANGLE = list && list.length
+    ? Object.fromEntries(list.map((a) => [a.key, { label: a.label, c: a.color }]))
+    : { ...DEFAULT_ANGLE };
+}
 const KIND: Record<string, { label: string; c: string }> = {
   gancho: { label: 'Gancho', c: '#C8870C' }, contexto: { label: 'Contexto', c: '#B5742A' }, problema: { label: 'Problema', c: '#CF4E29' },
   mecanismo: { label: 'Mecanismo', c: '#2F6DDB' }, prueba: { label: 'Prueba', c: '#3B6D11' }, objecion: { label: 'Objeción', c: '#A8770F' },
@@ -77,7 +89,7 @@ function kindChip(k: string): CSSProperties {
   return { display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 5, fontFamily: MONO, letterSpacing: '.05em', textTransform: 'uppercase', background: rgba(x.c, .12), color: x.c, border: `1px solid ${rgba(x.c, .28)}` };
 }
 function verdictChip(k: string): CSSProperties {
-  const v = VERDICT[k];
+  const v = VERDICT[k] ?? { label: k, c: '#6B675C' };
   return { display: 'inline-block', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap', background: rgba(v.c, .1), color: v.c, border: `1px solid ${rgba(v.c, .32)}` };
 }
 function bar(v: number, max: number, c: string): CSSProperties {
@@ -294,7 +306,8 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAnalystView; errorMsg: string | null; drafts?: ScriptDraft[] }) {
+export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { data: ScriptAnalystView; errorMsg: string | null; drafts?: ScriptDraft[]; angles?: AngleDef[] }) {
+  applyAngles(angles);
   const router = useRouter();
   const ads = data.scripts;
   const { counts, lastSync } = data;
@@ -315,6 +328,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
   const [hideSmall, setHideSmall] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [confirmSync, setConfirmSync] = useState(false);
+  const [anglesOpen, setAnglesOpen] = useState(false);
   const [guionText, setGuionText] = useState('');
   const [valorando, setValorando] = useState(false);
   const [valoracion, setValoracion] = useState<Valoracion | null>(null);
@@ -650,6 +664,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ángulo</span>
                     <Dropdown value={angle} onChange={setAngle} ariaLabel="Ángulo" width="100%" options={[{ value: 'todos', label: 'Todos los ángulos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />
+                    <button onClick={() => { setFiltersOpen(false); setAnglesOpen(true); }} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Gestionar ángulos…</button>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Vista</span>
@@ -734,6 +749,9 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
 
       {/* FUNNEL MODAL */}
       {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />}
+
+      {/* GESTIÓN DE ÁNGULOS */}
+      {anglesOpen && <AnglesManager initial={angles} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
 
       {/* PATTERN DRILL MODAL */}
       {drill && (
@@ -1181,7 +1199,8 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
     </section>
   );
 }
-export function GuionesFull({ scripts }: { scripts: ScriptView[] }) {
+export function GuionesFull({ scripts, angles = [] }: { scripts: ScriptView[]; angles?: AngleDef[] }) {
+  applyAngles(angles);
   const router = useRouter();
   const [openAd, setOpenAd] = useState<string | null>(null);
   const [reMsg, setReMsg] = useState<string | null>(null);
@@ -1209,5 +1228,89 @@ export function GuionesFull({ scripts }: { scripts: ScriptView[] }) {
       <GuionesPanel scripts={scripts} onOpen={setOpenAd} />
       {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />}
     </>
+  );
+}
+
+// ── Gestión del vocabulario de ángulos (crear / editar / borrar) ──
+// CRUD = editar la lista entera y guardarla. La CLAVE (key) de un ángulo existente
+// se mantiene fija aunque cambie el nombre, así los anuncios ya clasificados no
+// pierden su ángulo; los nuevos sacan su key del nombre al guardar (backend).
+const ANGLE_PALETTE = ['#2F6DDB', '#C8870C', '#CF4E29', '#3B6D11', '#7C4DD6', '#0E8E7E', '#A8770F', '#B5742A', '#9A3D6B', '#6B675C'];
+type AngleRow = { uid: number; key: string; label: string; color: string; desc: string };
+// Mismo slug que angleKey() del backend, para detectar a tiempo dos ángulos que
+// colapsarían a la misma clave (ej. "Dolor" y "dolor") y se perdería uno en silencio.
+function angleSlug(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+function AnglesManager({ initial, onClose, onSaved }: { initial: AngleDef[]; onClose: () => void; onSaved: () => void }) {
+  const uidSeq = useRef(0);
+  const [rows, setRows] = useState<AngleRow[]>(() => {
+    const base: AngleDef[] = initial.length ? initial : Object.entries(DEFAULT_ANGLE).map(([key, a]) => ({ key, label: a.label, color: a.c }));
+    return base.map((a) => ({ uid: uidSeq.current++, key: a.key, label: a.label, color: a.color, desc: a.desc ?? '' }));
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const update = (uid: number, patch: Partial<AngleRow>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
+  const remove = (uid: number) => setRows((rs) => rs.filter((r) => r.uid !== uid));
+  const add = () => setRows((rs) => [...rs, { uid: uidSeq.current++, key: '', label: '', color: ANGLE_PALETTE[rs.length % ANGLE_PALETTE.length], desc: '' }]);
+
+  const valid = rows.length > 0 && rows.every((r) => r.label.trim());
+
+  async function save() {
+    if (!valid) { setErr('Cada ángulo necesita un nombre y tiene que quedar al menos uno.'); return; }
+    // Dos nombres que generan el mismo slug colapsarían a uno solo → avisar antes.
+    const slugs = rows.map((r) => angleSlug(r.key || r.label));
+    const dup = slugs.find((s, i) => s && slugs.indexOf(s) !== i);
+    if (dup) { setErr(`Hay dos ángulos que quedarían con la misma clave ("${dup}"). Cambiá uno de los nombres.`); return; }
+    setSaving(true); setErr(null);
+    try {
+      const payload = rows.map((r) => ({ key: r.key || undefined, label: r.label.trim(), color: r.color, desc: r.desc.trim() || undefined }));
+      const res = await fetch('/api/script-analyst/angles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ angles: payload }) });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || 'no se pudo guardar');
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const inp: CSSProperties = { border: '1px solid var(--border-strong)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, padding: '8px 11px', outline: 'none', width: '100%' };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
+          <div>
+            <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Ángulos del mensaje</h2>
+            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>El vocabulario con el que MaKo clasifica los guiones. Renombrá, recoloreá, agregá o borrá. Los cambios se aplican al re-analizar o sincronizar; los anuncios ya clasificados con un ángulo borrado lo siguen mostrando hasta re-analizarse.</div>
+          </div>
+          <button onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+        </div>
+        <div style={{ padding: '20px 26px', maxHeight: '64vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {rows.map((r) => (
+            <div key={r.uid} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <input type="color" aria-label="Color" value={r.color} onChange={(e) => update(r.uid, { color: e.target.value })} style={{ width: 38, height: 38, flex: 'none', border: '1px solid var(--border)', borderRadius: 9, background: 'transparent', cursor: 'pointer', padding: 2, marginTop: 0 }} />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input value={r.label} placeholder="Nombre del ángulo (ej. Autoridad)" onChange={(e) => update(r.uid, { label: e.target.value })} style={inp} />
+                <input value={r.desc} placeholder="Cuándo aplica — guía para la IA (opcional)" onChange={(e) => update(r.uid, { desc: e.target.value })} style={{ ...inp, fontSize: 12.5, color: 'var(--dim)' }} />
+              </div>
+              <button onClick={() => remove(r.uid)} aria-label="Borrar ángulo" style={{ width: 38, height: 38, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 15, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            </div>
+          ))}
+          <button onClick={add} style={{ alignSelf: 'flex-start', marginTop: 2, padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar ángulo</button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 26px', borderTop: '1px solid var(--border)' }}>
+          <span style={{ fontSize: 12.5, color: err ? 'var(--bad)' : 'var(--faint)' }}>{err ?? `${rows.length} ángulo${rows.length === 1 ? '' : 's'}`}</span>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={save} disabled={saving || !valid} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: saving || !valid ? 'var(--border-strong)' : 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: saving || !valid ? 'default' : 'pointer' }}>{saving ? 'Guardando…' : 'Guardar ángulos'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

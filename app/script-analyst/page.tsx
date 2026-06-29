@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { getScriptAnalystView, getDrafts, type ScriptAnalystView, type ScriptDraft } from '@/lib/script-analyst';
+import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { ScriptsBrowser } from './ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,7 @@ export default async function ScriptAnalystPage() {
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let drafts: ScriptDraft[] = [];
+  let angles: Angle[] = DEFAULT_ANGLES;
   try {
     data = await getScriptAnalystView();
   } catch (err) {
@@ -37,6 +39,9 @@ export default async function ScriptAnalystPage() {
   try {
     drafts = await getDrafts();
   } catch { /* el historial no es crítico para la vista */ }
+  try {
+    angles = await getAngles();
+  } catch { /* si falla, los 5 default */ }
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
@@ -52,7 +57,7 @@ export default async function ScriptAnalystPage() {
         </div>
       </header>
 
-      <ScriptsBrowser data={data} errorMsg={errorMsg} drafts={drafts} />
+      <ScriptsBrowser data={data} errorMsg={errorMsg} drafts={drafts} angles={angles} />
     </main>
   );
 }
