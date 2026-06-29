@@ -1141,7 +1141,10 @@ function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void 
             <Bar label="Ret. CTA" val={ho} color={retColor(ho)} />
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}><span>{fmtUSD(s.spend)} · {s.days}d</span><span>{s.agendas} ag · {cp == null ? '—' : `${fmtUSD(cp)}/ag`}</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>
+          <span>{fmtUSD(s.spend)} · {s.days}d{cp == null ? '' : ` · ${fmtUSD(cp)}/ag`}</span>
+          <span style={{ fontWeight: 600, color: s.cierres > 0 ? 'var(--good)' : s.agendas > 0 ? 'var(--accent)' : 'var(--faint)' }}>{s.agendas} agenda{s.agendas === 1 ? '' : 's'}{s.cierres > 0 ? ` · ${s.cierres} cierre${s.cierres === 1 ? '' : 's'}` : ''}</span>
+        </div>
       </div>
     </button>
   );
@@ -1166,12 +1169,15 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
   const [avatarF, setAvatarF] = useState('todos');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [anglesOpen, setAnglesOpen] = useState(false);
-  const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
+  // Por defecto ordena por RESULTADOS (cierres primero, agendas de desempate) →
+  // arriba quedan los guiones que más trajeron. Es lo que se ve en la preview top-8.
+  const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'resultados', dir: -1 });
   // "Período" filtra por ACTIVIDAD reciente (última fecha con datos), sin recalcular
   // las métricas (que siguen siendo del histórico completo). Compara strings YYYY-MM-DD.
   const cutoff = useMemo(() => (periodo === 'todo' ? null : new Date(Date.now() - Number(periodo) * 86400000).toISOString().slice(0, 10)), [periodo]);
   const val = (a: ScriptView, k: string): number | string => {
     if (k === 'angle') return angleInfo(a.angle).label;
+    if (k === 'resultados') return a.cierres * 10000 + a.agendas; // cierres dominan, agendas desempatan
     if (k === 'hold') return hold(a);
     if (k === 'cpa') { const c = cpa(a); return c == null ? Infinity : c; }
     if (k === 'verdict') return verdictOf(a);
@@ -1253,7 +1259,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
                 </FiltroCampo>
                 <div style={{ height: 1, background: 'var(--border)', margin: '1px 0' }} />
                 <FiltroCampo label="Ordenar por">
-                  <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" width="100%" options={[{ value: 'spend', label: 'Gasto' }, { value: 'agendas', label: 'Agendas' }, { value: 'hookRate', label: 'Hook rate' }, { value: 'hold', label: 'Ret. CTA' }, { value: 'cpa', label: '$/agenda' }]} />
+                  <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" width="100%" options={[{ value: 'resultados', label: 'Resultados (cierres · agendas)' }, { value: 'spend', label: 'Gasto' }, { value: 'agendas', label: 'Agendas' }, { value: 'hookRate', label: 'Hook rate' }, { value: 'hold', label: 'Ret. CTA' }, { value: 'cpa', label: '$/agenda' }]} />
                 </FiltroCampo>
               </div>
             </>

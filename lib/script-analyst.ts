@@ -765,7 +765,11 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
     note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
     suggestion: r.suggestion,
     thumbnail: m.thumbnail, permalink: m.permalink, creativeSinEnlace: m.creativeSinEnlace, campana: m.campana, adset: m.adset,
-    esImagen: !!r.es_imagen,
+    // es_imagen (de ad_transcripts.tipo) es poco confiable: transcribe-ads cae a
+    // "imagen" cuando no pudo procesar el video, así que muchos VIDEOS quedan
+    // marcados como imagen. La verdad la dan las métricas: si tuvo plays de video
+    // (v3s>0) es un VIDEO. Solo es imagen real si NO tiene reproducciones.
+    esImagen: !!r.es_imagen && m.v3s === 0,
   };
 }
 
