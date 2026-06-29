@@ -34,6 +34,7 @@ import {
   getPipelineStages,
   getVisitasLandingMap,
   logLeadChanges,
+  logLeadEvent,
   getLeadAudit,
   type LeadUpdateInput,
   type LeadMetaInput,
@@ -188,6 +189,18 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
 /** Historial de cambios de un lead (para la ficha). */
 export async function getLeadAuditAction(id: number): Promise<LeadAuditRow[]> {
   return getLeadAudit(id);
+}
+
+/** Mueve un lead a "Nutrición - Manual" registrando el MOTIVO (desde el worklist). */
+export async function markManualNutritionAction(id: number, motivo: string): Promise<void> {
+  const before = await getLead(id).catch(() => null);
+  await setPipelineStage(id, 'manual');
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, 'CRM');
+  if (motivo.trim()) await logLeadEvent(id, 'Nutrición manual — motivo', motivo.trim(), 'CRM');
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath('/general');
 }
 
 /** Persiste la config del funnel (pipeline de Activo + nutriciones suprimidas) desde la tab "Funnel". */

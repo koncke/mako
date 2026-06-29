@@ -186,6 +186,8 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
 
   pipeline.forEach((p) => place(p, 'pipeline'));
   (['perdido', 'descal', 'noresp'] as const).forEach((k) => { const d = lib(k); if (d) place(d, 'salidas'); });
+  // "Nutrición - Manual": catch-all manual SIEMPRE presente (opción del worklist).
+  const manualDef = lib('manual'); if (manualDef) place(manualDef, 'nutricion');
 
   const meetings = pipeline.filter((p) => p.kind === 'reunion');
   const firstMeeting = meetings[0]?.key;

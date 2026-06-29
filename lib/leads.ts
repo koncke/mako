@@ -673,6 +673,16 @@ export async function logLeadChanges(leadId: number, before: Lead | null, after:
   }
 }
 
+/** Registra un evento suelto en el historial (ej. el motivo de una nutrición manual). */
+export async function logLeadEvent(leadId: number, campo: string, valor: string, autor = 'CRM'): Promise<void> {
+  try {
+    const { error } = await getSupabaseServer().from('lead_audit').insert([{ lead_id: leadId, campo, valor_anterior: null, valor_nuevo: valor, autor }]);
+    if (error) console.error(`[audit] event falló: ${error.message}`);
+  } catch (e) {
+    console.error('[audit] event excepción', e);
+  }
+}
+
 /** Historial de cambios de un lead (más reciente primero). Vacío si la tabla no existe. */
 export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {

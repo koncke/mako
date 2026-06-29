@@ -36,7 +36,18 @@ export function Dropdown({
   ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+
+  // Abre hacia arriba si no hay espacio suficiente abajo (no empuja el layout).
+  const toggle = () => {
+    if (!open && ref.current) {
+      const r = ref.current.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom;
+      setDropUp(below < 300 && r.top > below);
+    }
+    setOpen((v) => !v);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +70,7 @@ export function Dropdown({
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block', width: width ?? 'auto' }}>
-      <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((v) => !v)} style={btn}>
+      <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={toggle} style={btn}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : placeholder}</span>
@@ -67,7 +78,7 @@ export function Dropdown({
         <span style={{ flex: 'none', fontSize: 10, color: 'var(--faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
       </button>
       {open && (
-        <div role="listbox" style={{ position: 'absolute', top: 'calc(100% + 6px)', left: align === 'left' ? 0 : undefined, right: align === 'right' ? 0 : undefined, zIndex: 200, minWidth: '100%', width: 'max-content', maxWidth: 360, maxHeight: 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 6 }}>
+        <div role="listbox" style={{ position: 'absolute', top: dropUp ? undefined : 'calc(100% + 6px)', bottom: dropUp ? 'calc(100% + 6px)' : undefined, left: align === 'left' ? 0 : undefined, right: align === 'right' ? 0 : undefined, zIndex: 200, minWidth: '100%', width: 'max-content', maxWidth: 360, maxHeight: 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 6 }}>
           {options.map((o) => {
             const on = !resetAfterSelect && o.value === value;
             return (

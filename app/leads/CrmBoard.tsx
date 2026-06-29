@@ -33,6 +33,7 @@ import {
   setLeadStageAction,
   saveLeadMetaAction,
   deleteLeadAction,
+  markManualNutritionAction,
 } from './actions';
 import { LeadDetail } from './LeadDetail';
 import { seedEdits as seedEditsBase, missingFor, sectionForStage } from './edit-logic';
@@ -158,6 +159,8 @@ export function CrmBoard({
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string } | null>(null);
   const [contactConfirm, setContactConfirm] = useState<CrmLead | null>(null);
+  const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
+  const [manualMotivo, setManualMotivo] = useState('');
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -286,6 +289,20 @@ export function CrmBoard({
     if (calendlyUrlFor(t.to)) { scheduleViaCalendly(lead, t.to); return; }
     openDetail(lead);
     setPendingMove({ id: leadId, from: effStage(lead), to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
+  };
+
+  // "Nutrición - Manual" desde el worklist: pide MOTIVO antes de guardar.
+  const openManualNutri = (leadId: number) => {
+    const l = leads.find((x) => x.id === leadId);
+    setManualMotivo('');
+    setManualNutri({ leadId, name: l?.name ?? 'lead' });
+  };
+  const confirmManualNutri = () => {
+    if (!manualNutri || !manualMotivo.trim()) return;
+    const { leadId } = manualNutri;
+    setManualNutri(null);
+    setLocalStage((m) => ({ ...m, [leadId]: 'manual' }));
+    startTransition(async () => { await markManualNutritionAction(leadId, manualMotivo.trim()); router.refresh(); });
   };
 
   // ¿Cambió algún dato de contacto respecto del origen? (gatilla confirmación)
@@ -523,7 +540,7 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} stageLabel={(k) => findStage(stages, k).label} />
+        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} onManualNutri={openManualNutri} stageLabel={(k) => findStage(stages, k).label} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
@@ -614,6 +631,21 @@ export function CrmBoard({
         </div>
       )}
 
+      {/* Confirmación: motivo de la nutrición manual */}
+      {manualNutri && (
+        <div onClick={() => setManualNutri(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(23,21,17,.35)', padding: '22px 24px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Nutrición manual — {manualNutri.name}</div>
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>Contá el motivo de la nutrición manual (queda en el historial del lead).</div>
+            <textarea value={manualMotivo} onChange={(e) => setManualMotivo(e.target.value)} autoFocus placeholder="Ej: pidió que lo contactemos en 2 meses; está cerrando presupuesto…" style={{ width: '100%', minHeight: 90, resize: 'vertical', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <button onClick={() => setManualNutri(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+              <button onClick={confirmManualNutri} disabled={!manualMotivo.trim()} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: manualMotivo.trim() ? 'var(--accent-soft)' : 'var(--border)', color: '#171511', fontSize: 14, fontWeight: 700, cursor: manualMotivo.trim() ? 'pointer' : 'default', opacity: manualMotivo.trim() ? 1 : 0.6, fontFamily: SANS }}>Guardar nutrición manual</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast Deshacer (5s) tras mover una card en el tablero */}
       {undoInfo && (
         <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 70, display: 'flex', alignItems: 'center', gap: 14, background: '#171511', color: '#F3F0E7', padding: '12px 16px', borderRadius: 12, boxShadow: '0 12px 32px rgba(23,21,17,.35)', fontFamily: SANS, fontSize: 14 }}>
@@ -628,11 +660,12 @@ export function CrmBoard({
 
 // ── Datos sin marcar (worklist) ──
 function SinMarcar({
-  marcar, optionsFor, onResolve, stageLabel,
+  marcar, optionsFor, onResolve, onManualNutri, stageLabel,
 }: {
   marcar: CrmMarcar[];
   optionsFor: (m: CrmMarcar) => FunnelTransition[];
   onResolve: (leadId: number, t: FunnelTransition) => void;
+  onManualNutri: (leadId: number) => void;
   stageLabel: (key: string) => string;
 }) {
   // Intención del movimiento, para distinguir claramente nutrir vs dar de baja.
@@ -646,6 +679,11 @@ function SinMarcar({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => {
           const options = optionsFor(m);
+          // "Nutrición - Manual" SIEMPRE disponible (pide motivo antes de guardar).
+          const ddOptions = [
+            ...options.map((opt, i) => ({ value: String(i), label: stageLabel(opt.to), sub: intent(opt.category), color: CATEGORY[opt.category].c })),
+            { value: 'MANUAL', label: 'Nutrición - Manual', sub: 'sigue en nutrición · pide motivo', color: CATEGORY.nutricion.c },
+          ];
           return (
             <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -653,20 +691,16 @@ function SinMarcar({
                   <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
                   <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
                 </div>
-                {options.length > 0 ? (
-                  <Dropdown
-                    value=""
-                    resetAfterSelect
-                    align="right"
-                    width={232}
-                    placeholder="Mover a…"
-                    ariaLabel={'Mover a ' + m.name}
-                    onChange={(v) => { const t = options[Number(v)]; if (t) onResolve(m.leadId, t); }}
-                    options={options.map((opt, i) => ({ value: String(i), label: stageLabel(opt.to), sub: intent(opt.category), color: CATEGORY[opt.category].c }))}
-                  />
-                ) : (
-                  <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Sin opciones para esta etapa.</span>
-                )}
+                <Dropdown
+                  value=""
+                  resetAfterSelect
+                  align="right"
+                  width={232}
+                  placeholder="Mover a…"
+                  ariaLabel={'Mover a ' + m.name}
+                  onChange={(v) => { if (v === 'MANUAL') { onManualNutri(m.leadId); return; } const t = options[Number(v)]; if (t) onResolve(m.leadId, t); }}
+                  options={ddOptions}
+                />
               </div>
             </div>
           );
