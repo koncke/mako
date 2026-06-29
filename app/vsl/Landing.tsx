@@ -19,7 +19,6 @@ declare global {
   }
 }
 
-const TABLER_CSS = 'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.30.0/dist/tabler-icons.min.css';
 const CALENDLY_CSS = 'https://assets.calendly.com/assets/external/widget.css';
 const CALENDLY_JS = 'https://assets.calendly.com/assets/external/widget.js';
 const CALENDLY_URL = 'https://calendly.com/koncke/asesoria';
@@ -32,14 +31,13 @@ export default function Landing() {
     if (!root) return;
     const cleanup: Array<() => void> = [];
 
-    // ── CSS externo (íconos Tabler + Calendly) ───────────────────────────────
+    // ── CSS externo (Calendly). Los íconos van como SVG inline en el HTML. ───
     const ensureCss = (id: string, href: string) => {
       if (document.getElementById(id)) return;
       const l = document.createElement('link');
       l.id = id; l.rel = 'stylesheet'; l.href = href;
       document.head.appendChild(l);
     };
-    ensureCss('vsl-tabler', TABLER_CSS);
     ensureCss('vsl-calendly-css', CALENDLY_CSS);
 
     // ── Carruseles (caso de éxito, QS Media, Social Media Lab) ───────────────
