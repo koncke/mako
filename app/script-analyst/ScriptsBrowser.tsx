@@ -1146,9 +1146,20 @@ function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void 
     </button>
   );
 }
+// Campo de filtro (etiqueta + control) del popover de Guiones.
+function FiltroCampo({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+      <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{label}</span>
+      {children}
+    </div>
+  );
+}
 export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], avatares = [] }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string; angles?: AngleDef[]; avatares?: AvatarDef[] }) {
   const router = useRouter();
   const [view, setView] = useState<'preview' | 'tabla'>('preview');
+  const [periodo, setPeriodo] = useState('todo');
+  const [angulo, setAngulo] = useState('todos');
   const [campana, setCampana] = useState('all');
   const [adset, setAdset] = useState('all');
   const [tipo, setTipo] = useState<'todos' | 'video' | 'imagen'>('todos');
@@ -1156,6 +1167,9 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [anglesOpen, setAnglesOpen] = useState(false);
   const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
+  // "Período" filtra por ACTIVIDAD reciente (última fecha con datos), sin recalcular
+  // las métricas (que siguen siendo del histórico completo). Compara strings YYYY-MM-DD.
+  const cutoff = useMemo(() => (periodo === 'todo' ? null : new Date(Date.now() - Number(periodo) * 86400000).toISOString().slice(0, 10)), [periodo]);
   const val = (a: ScriptView, k: string): number | string => {
     if (k === 'angle') return angleInfo(a.angle).label;
     if (k === 'hold') return hold(a);
@@ -1166,7 +1180,14 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
   };
   const campanas = useMemo(() => [...new Set(scripts.map((s) => s.campana ?? 'Sin campaña'))].sort((a, b) => a.localeCompare(b)), [scripts]);
   const adsets = useMemo(() => { const pool = campana === 'all' ? scripts : scripts.filter((s) => (s.campana ?? 'Sin campaña') === campana); return [...new Set(pool.map((s) => s.adset ?? 'Sin adset'))].sort((a, b) => a.localeCompare(b)); }, [scripts, campana]);
-  const filtered = useMemo(() => scripts.filter((s) => (campana === 'all' || (s.campana ?? 'Sin campaña') === campana) && (adset === 'all' || (s.adset ?? 'Sin adset') === adset) && (tipo === 'todos' || (tipo === 'imagen' ? s.esImagen : !s.esImagen)) && (avatarF === 'todos' || s.avatar === avatarF)), [scripts, campana, adset, tipo, avatarF]);
+  const filtered = useMemo(() => scripts.filter((s) =>
+    (campana === 'all' || (s.campana ?? 'Sin campaña') === campana)
+    && (adset === 'all' || (s.adset ?? 'Sin adset') === adset)
+    && (tipo === 'todos' || (tipo === 'imagen' ? s.esImagen : !s.esImagen))
+    && (angulo === 'todos' || s.angle === angulo)
+    && (avatarF === 'todos' || s.avatar === avatarF)
+    && (!cutoff || (!!s.lastFecha && s.lastFecha >= cutoff))
+  ), [scripts, campana, adset, tipo, angulo, avatarF, cutoff]);
   const sorted = useMemo(() => filtered.slice().sort((x, y) => {
     const vx = val(x, sort.key), vy = val(y, sort.key);
     if (typeof vx === 'string' && typeof vy === 'string') return sort.dir * vx.localeCompare(vy);
@@ -1174,8 +1195,9 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
     return sort.dir * (Number.isFinite(d) ? d : nx === ny ? 0 : nx > ny ? 1 : -1);
   }), [filtered, sort]);
   const shown = limit ? sorted.slice(0, limit) : sorted;
-  const nActive = (campana !== 'all' ? 1 : 0) + (adset !== 'all' ? 1 : 0) + (tipo !== 'todos' ? 1 : 0) + (avatarF !== 'todos' ? 1 : 0);
+  const nActive = (periodo !== 'todo' ? 1 : 0) + (angulo !== 'todos' ? 1 : 0) + (campana !== 'all' ? 1 : 0) + (adset !== 'all' ? 1 : 0) + (tipo !== 'todos' ? 1 : 0) + (avatarF !== 'todos' ? 1 : 0);
   const filtrado = nActive > 0;
+  const limpiar = () => { setPeriodo('todo'); setAngulo('todos'); setCampana('all'); setAdset('all'); setTipo('todos'); setAvatarF('todos'); };
   const cols: Array<{ key: string; label: string; al: 'left' | 'right' }> = [
     { key: 'name', label: 'Anuncio', al: 'left' }, { key: 'angle', label: 'Ángulo', al: 'left' },
     { key: 'hookRate', label: 'Hook', al: 'right' }, { key: 'hold', label: 'Ret. CTA', al: 'right' },
@@ -1201,33 +1223,38 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
           {filtersOpen && (
             <>
               <div onClick={() => setFiltersOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
-              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 300, maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 15 }}>
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 360, maxWidth: '92vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 16, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 13 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtros</span>
-                  {filtrado && <button onClick={() => { setCampana('all'); setAdset('all'); setTipo('todos'); setAvatarF('todos'); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtrar</span>
+                  {filtrado && <button onClick={limpiar} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar ({nActive})</button>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Campaña</span>
+                {/* filtros cortos en 2 columnas para no alargar el panel */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
+                  <FiltroCampo label="Período">
+                    <Dropdown value={periodo} onChange={setPeriodo} ariaLabel="Período" width="100%" options={[{ value: 'todo', label: 'Todo el histórico' }, { value: '90', label: 'Activos · 90 días' }, { value: '30', label: 'Activos · 30 días' }, { value: '7', label: 'Activos · 7 días' }]} />
+                  </FiltroCampo>
+                  <FiltroCampo label="Tipo">
+                    <Dropdown value={tipo} onChange={(t) => setTipo(t as 'todos' | 'video' | 'imagen')} ariaLabel="Tipo" width="100%" options={[{ value: 'todos', label: 'Video e imagen' }, { value: 'video', label: 'Solo video' }, { value: 'imagen', label: 'Solo imagen' }]} />
+                  </FiltroCampo>
+                  <FiltroCampo label="Ángulo">
+                    <Dropdown value={angulo} onChange={setAngulo} ariaLabel="Ángulo" width="100%" options={[{ value: 'todos', label: 'Todos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />
+                  </FiltroCampo>
+                  {avatares.length > 0 && (
+                    <FiltroCampo label="Avatar">
+                      <Dropdown value={avatarF} onChange={setAvatarF} ariaLabel="Avatar" width="100%" options={[{ value: 'todos', label: 'Todos' }, ...avatares.map((a) => ({ value: a.key, label: a.label, color: a.color }))]} />
+                    </FiltroCampo>
+                  )}
+                </div>
+                <FiltroCampo label="Campaña">
                   <Dropdown value={campana} onChange={(c) => { setCampana(c); setAdset('all'); }} ariaLabel="Campaña" width="100%" options={[{ value: 'all', label: 'Todas las campañas' }, ...campanas.map((c) => ({ value: c, label: c }))]} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Adset</span>
+                </FiltroCampo>
+                <FiltroCampo label="Adset">
                   <Dropdown value={adset} onChange={setAdset} ariaLabel="Adset" width="100%" options={[{ value: 'all', label: 'Todos los adsets' }, ...adsets.map((a) => ({ value: a, label: a }))]} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Tipo de creativo</span>
-                  <Dropdown value={tipo} onChange={(t) => setTipo(t as 'todos' | 'video' | 'imagen')} ariaLabel="Tipo" width="100%" options={[{ value: 'todos', label: 'Video e imagen' }, { value: 'video', label: 'Solo video' }, { value: 'imagen', label: 'Solo imagen' }]} />
-                </div>
-                {avatares.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Avatar</span>
-                    <Dropdown value={avatarF} onChange={setAvatarF} ariaLabel="Avatar" width="100%" options={[{ value: 'todos', label: 'Todos los avatares' }, ...avatares.map((a) => ({ value: a.key, label: a.label, color: a.color }))]} />
-                  </div>
-                )}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ordenar por</span>
+                </FiltroCampo>
+                <div style={{ height: 1, background: 'var(--border)', margin: '1px 0' }} />
+                <FiltroCampo label="Ordenar por">
                   <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" width="100%" options={[{ value: 'spend', label: 'Gasto' }, { value: 'agendas', label: 'Agendas' }, { value: 'hookRate', label: 'Hook rate' }, { value: 'hold', label: 'Ret. CTA' }, { value: 'cpa', label: '$/agenda' }]} />
-                </div>
+                </FiltroCampo>
               </div>
             </>
           )}

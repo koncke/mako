@@ -114,6 +114,7 @@ export type ScriptView = {
   reach: number;
   freq: number;
   days: number;
+  lastFecha: string | null;   // última fecha con datos (para filtrar por actividad)
   plays3s: number;
   thru: number;          // thruplays
   finalRet: number;      // % que llegó al final (cuartil p100 / 3s)
@@ -759,7 +760,7 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
     tags: r.tags ?? [], dur,
     hookRate: r0(hookRate), ctr: Math.round(ctr * 10) / 10,
     agendas: m.agendas, cierres, spend, impressions,
-    reach: freq > 0 ? r0(impressions / freq) : impressions, freq, days: m.dias.size,
+    reach: freq > 0 ? r0(impressions / freq) : impressions, freq, days: m.dias.size, lastFecha: m.lastFecha,
     plays3s, thru, finalRet: retAt(curve, 1), beats,
     note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
     suggestion: r.suggestion,
