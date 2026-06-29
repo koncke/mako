@@ -70,7 +70,7 @@ export default function Landing() {
       const link = document.createElement('a');
       link.href = '/vsl/' + slug;
       link.setAttribute('data-detalle-link', '');
-      link.textContent = 'Saber más sobre ' + label;
+      link.textContent = 'Saber más sobre ' + label + ' →';
       link.style.cssText =
         'display:block;text-align:center;margin-top:14px;color:#2F6FED;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:.01em';
       cta.insertAdjacentElement('afterend', link);
