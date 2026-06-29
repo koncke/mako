@@ -42,6 +42,7 @@ import {
   type LeadAuditRow,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
 import { mapToCrmLead, type VisitasMap } from './crm-map';
@@ -192,13 +193,17 @@ export async function getLeadAuditAction(id: number): Promise<LeadAuditRow[]> {
   return getLeadAudit(id);
 }
 
-/** Mueve un lead a "Nutrición - Manual" registrando el MOTIVO (desde el worklist). */
-export async function markManualNutritionAction(id: number, motivo: string): Promise<void> {
+/**
+ * Mueve un lead a "Nutrición - Manual" con MOTIVO y DEADLINE (desde el worklist).
+ * Si el deadline vence sin resolverse, el lead vuelve a "datos sin marcar" (rojo).
+ */
+export async function markManualNutritionAction(id: number, motivo: string, deadline: string): Promise<void> {
   const before = await getLead(id).catch(() => null);
-  await setPipelineStage(id, 'manual');
+  await setPipelineStage(id, 'manual', { deadline: deadline || null });
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, 'CRM');
-  if (motivo.trim()) await logLeadEvent(id, 'Nutrición manual — motivo', motivo.trim(), 'CRM');
+  const nota = [motivo.trim() || null, deadline ? `vence ${fmtDDMMYYYY(deadline)}` : null].filter(Boolean).join(' · ');
+  if (nota) await logLeadEvent(id, 'Nutrición manual', nota, 'CRM');
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');

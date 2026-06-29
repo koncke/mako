@@ -102,6 +102,7 @@ export type Lead = {
   closer?: string | null;           // closer asignado (Datos comerciales)
   setter?: string | null;           // setter asignado (Nutrición - Manual)
   fathom_links?: FathomLink[] | null;
+  nutricion_manual_deadline?: string | null;   // deadline de la nutrición manual (migración 0044)
 
   created_at: string;
   updated_at: string;
@@ -185,8 +186,8 @@ export type EstadoMadurez = 'madura' | 'madurando' | 'reciente' | 'sin_j1';
 // origenLegible + calendlyDe). Antes traía select('*') (~50 cols, incl. payloads
 // crudos y campos de cobranza que el board no usa).
 const LISTA_COLS =
-  'id, nombre, email, empresa, telefono, created_at, estado_lead, pipeline_stage, nutricion_realizada, ' +
-  'fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, ' +
+  'id, nombre, email, empresa, telefono, telefono_normalizado, created_at, estado_lead, pipeline_stage, nutricion_realizada, nutricion_manual_deadline, ' +
+  'fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, fecha_cierre, ' +
   'monto_cierre_usd, total_cobrado_usd, closer, setter, fathom_links, motivo_perdida, visitor_id, ' +
   'meta_ad_name, meta_campaign_name, meta_lead_id, meta_ad_id, utm_campaign, ' +
   'respuesta_objetivo, respuesta_facturacion, respuesta_colaboradores, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor';
@@ -1141,15 +1142,21 @@ export async function getFunnelTransitions(): Promise<FunnelTransition[]> {
 export async function setPipelineStage(
   id: number,
   stageKey: string,
-  opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
+  opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null; deadline?: string | null },
 ): Promise<void> {
   const supabase = getSupabaseServer();
   const estado = terminalEstadoFor(stageKey);
 
-  // 1) Guardar el override de la columna del tablero.
+  // 1) Guardar el override de la columna del tablero. El deadline de nutrición
+  //    manual solo vive mientras el lead está en 'manual'; al moverlo a cualquier
+  //    otra etapa se limpia (el lead dejó de estar aparcado).
+  const patch: Record<string, unknown> = {
+    pipeline_stage: stageKey,
+    nutricion_manual_deadline: stageKey === 'manual' ? (opts?.deadline ?? null) : null,
+  };
   const { error } = await supabase
     .from('leads')
-    .update({ pipeline_stage: stageKey })
+    .update(patch)
     .eq('id', id);
   if (error) throw new Error(`Error moviendo lead ${id} a ${stageKey}: ${error.message}`);
 

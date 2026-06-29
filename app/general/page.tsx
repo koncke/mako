@@ -71,7 +71,7 @@ export default async function GeneralPage() {
 
   const objetivo = objR.status === 'fulfilled' ? objR.value : null;
   const comparativo = compR.status === 'fulfilled' ? compR.value : null;
-  const pendientes: Pendientes = pendR.status === 'fulfilled' ? pendR.value : { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0 } };
+  const pendientes: Pendientes = pendR.status === 'fulfilled' ? pendR.value : { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0, M: 0 } };
   const maduras = madR.status === 'fulfilled' ? madR.value : null;
   const fatiga = fatR.status === 'fulfilled' ? fatR.value : [];
   const tramo = tramoR.status === 'fulfilled' ? tramoR.value : { promedio: null, n: 0 };
@@ -475,11 +475,12 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
           <Link href="/pendientes" style={{ flex: 'none', alignSelf: 'center', padding: '12px 20px', borderRadius: 11, background: 'var(--bad)', color: '#fff', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>Marcar pendientes →</Link>
         )}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 22 }}>
         {[
           { n: pendientes.porTipo.A, l: 'sin asistencia a R1' },
           { n: pendientes.porTipo.B, l: 'sin R2 ni resolución' },
           { n: pendientes.porTipo.C, l: 'sin asistencia a R2' },
+          { n: pendientes.porTipo.M, l: 'nutrición manual vencida' },
         ].map((x) => (
           <div key={x.l} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
             <div style={{ fontWeight: 600, fontSize: 24, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{x.n}</div>

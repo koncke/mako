@@ -14,7 +14,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { updateLeadAction } from './actions';
+import { updateLeadAction, setLeadStageAction } from './actions';
 import type { LeadUpdateInput } from '@/lib/leads';
 import type { TipoPendiente } from '@/lib/queries';
 
@@ -46,6 +46,22 @@ export function PendienteActions({
     });
   };
 
+  // Resolver pérdida/descalificación. Para 'M' (nutrición manual vencida) se mueve
+  // por etapa para que el override 'manual' y el deadline se limpien (si no, la
+  // card queda pegada en la columna manual con el semáforo rojo).
+  const resolverPerdida = (estado: 'perdido' | 'descalificado') => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        if (tipo === 'M') await setLeadStageAction(leadId, estado === 'perdido' ? 'perdido' : 'descal', { motivo: motivo.trim() || null });
+        else await updateLeadAction(leadId, { estado_lead: estado, motivo_perdida: motivo.trim() || null });
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    });
+  };
+
   return (
     <div className="flex flex-col items-start md:items-end gap-2">
       {tipo === 'A' && (
@@ -66,7 +82,7 @@ export function PendienteActions({
         />
       )}
 
-      {tipo === 'B' && (
+      {(tipo === 'B' || tipo === 'M') && (
         <div className="flex flex-col items-start md:items-end gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm" style={{ color: 'var(--text-dim)' }}>Resolución:</span>
@@ -106,7 +122,7 @@ export function PendienteActions({
               <button
                 type="button"
                 disabled={pending}
-                onClick={() => guardar({ estado_lead: resol, motivo_perdida: motivo.trim() || null })}
+                onClick={() => resolverPerdida(resol)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
                 style={{ background: 'var(--accent-yellow)', color: '#000' }}
               >

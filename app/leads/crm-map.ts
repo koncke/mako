@@ -96,5 +96,6 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMa
     confirmacionISO: l.fecha_confirmacion,
     primerPagoISO: l.fecha_primer_pago ?? null,
     cierreISO: l.fecha_cierre,
+    nutriManualDeadline: l.nutricion_manual_deadline ?? null,
   };
 }

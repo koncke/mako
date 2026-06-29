@@ -29,7 +29,7 @@ export default async function PendientesPage() {
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
 
-  let pend: Pendientes = { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0 } };
+  let pend: Pendientes = { items: [], total: 0, porTipo: { A: 0, B: 0, C: 0, M: 0 } };
   let juntas: JuntaProxima[] = [];
   let cola: ColaItem[] = [];
   let forms: FormSinAgenda[] = [];

@@ -61,6 +61,7 @@ export type CrmLead = {
   confirmacionISO: string | null;
   primerPagoISO: string | null;
   cierreISO: string | null;
+  nutriManualDeadline: string | null;   // deadline de la nutrición manual (null si no aplica)
   monto: number;
   totalCobrado: number;
   agenda: string | null;
@@ -102,7 +103,7 @@ export type CrmMarcar = {
   name: string;
   company: string;
   message: string;
-  tipo: 'A' | 'B' | 'C';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?
+  tipo: 'A' | 'B' | 'C' | 'M';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?  M=nutrición manual vencida
 };
 
 export type Edits = {
@@ -141,6 +142,7 @@ export function CrmBoard({
   transitions,
   total,
   errorMsg,
+  hoy,
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -149,6 +151,7 @@ export function CrmBoard({
   transitions: FunnelTransition[];
   total: number;
   errorMsg: string | null;
+  hoy: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -170,6 +173,7 @@ export function CrmBoard({
   const [contactConfirm, setContactConfirm] = useState<CrmLead | null>(null);
   const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
   const [manualMotivo, setManualMotivo] = useState('');
+  const [manualDeadline, setManualDeadline] = useState('');
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
@@ -277,6 +281,8 @@ export function CrmBoard({
 
   const requestStage = (l: CrmLead, key: string) => {
     if (key === effStage(l)) { setPendingMove(null); setMoveError(false); return; }
+    // "Nutrición - Manual" SIEMPRE pasa por el modal que exige motivo + deadline.
+    if (key === 'manual') { openManualNutri(l.id); setPendingMove(null); setMoveError(false); return; }
     if (calendlyUrlFor(key)) { scheduleViaCalendly(l, key); setPendingMove(null); setMoveError(false); return; }
     const e = editsFor(l);
     const tr = transitionFor(effStage(l), key);
@@ -296,6 +302,7 @@ export function CrmBoard({
     if (id == null) return;
     const lead = leads.find((l) => l.id === id);
     if (!lead || effStage(lead) === stageKey) return;
+    if (stageKey === 'manual') { openManualNutri(id); return; }
     if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const e = editsFor(lead);
     const from = effStage(lead);
@@ -322,14 +329,16 @@ export function CrmBoard({
   const openManualNutri = (leadId: number) => {
     const l = leads.find((x) => x.id === leadId);
     setManualMotivo('');
+    setManualDeadline('');
     setManualNutri({ leadId, name: l?.name ?? 'lead' });
   };
   const confirmManualNutri = () => {
-    if (!manualNutri || !manualMotivo.trim()) return;
+    if (!manualNutri || !manualMotivo.trim() || !manualDeadline) return;
     const { leadId } = manualNutri;
+    const deadline = manualDeadline;
     setManualNutri(null);
     setLocalStage((m) => ({ ...m, [leadId]: 'manual' }));
-    startTransition(async () => { await markManualNutritionAction(leadId, manualMotivo.trim()); router.refresh(); });
+    startTransition(async () => { await markManualNutritionAction(leadId, manualMotivo.trim(), deadline); router.refresh(); });
   };
 
   // Reunión (R1/R2) ya realizada: marcar a mano (fecha + asistencia), sin Calendly.
@@ -488,6 +497,10 @@ export function CrmBoard({
         <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
           {cards.map((l) => {
             const isGanado = effStage(l) === 'ganado';
+            const isManual = effStage(l) === 'manual';
+            const dl = l.nutriManualDeadline;
+            const dlFmt = dl ? `${dl.slice(8, 10)}/${dl.slice(5, 7)}/${dl.slice(0, 4)}` : null;
+            const overdueManual = isManual && l.estadoLead === 'abierto' && !!dl && dl < hoy;
             const waiting = pendingLeadIds.has(l.id);
             return (
               <div key={l.id}
@@ -495,17 +508,19 @@ export function CrmBoard({
                 draggable
                 onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
                 onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(23,21,17,.20)' : 'none' }}
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(23,21,17,.20)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
-                  {waiting && <span title="Esperando que marques cómo quedó" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>✋ te espera</span>}
+                  {overdueManual
+                    ? <span title="Venció el deadline de la nutrición manual" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>● vencida</span>
+                    : waiting && <span title="Esperando que marques cómo quedó" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>✋ te espera</span>}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : l.agenda ? 'Agenda' : l.created}</span>
-                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : l.agenda || '—'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--dim)' }}>{isGanado ? 'Ganado' : isManual ? (overdueManual ? 'Venció' : 'Vence') : l.agenda ? 'Agenda' : l.created}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isGanado ? 'var(--good)' : overdueManual ? 'var(--bad)' : 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{isGanado ? fmt(l.monto) : isManual ? (dlFmt ?? 'sin fecha') : l.agenda || '—'}</span>
                 </div>
               </div>
             );
@@ -713,11 +728,15 @@ export function CrmBoard({
         <div onClick={() => setManualNutri(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(23,21,17,.35)', padding: '22px 24px' }}>
             <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Nutrición manual — {manualNutri.name}</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>Contá el motivo de la nutrición manual (queda en el historial del lead).</div>
-            <textarea value={manualMotivo} onChange={(e) => setManualMotivo(e.target.value)} autoFocus placeholder="Ej: pidió que lo contactemos en 2 meses; está cerrando presupuesto…" style={{ width: '100%', minHeight: 90, resize: 'vertical', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>Contá el motivo y poné una fecha límite. Si llega esa fecha sin que el lead avance, vuelve a &quot;datos sin marcar&quot; en rojo.</div>
+            <textarea value={manualMotivo} onChange={(e) => setManualMotivo(e.target.value)} autoFocus placeholder="Ej: pidió que lo contactemos en 2 meses; está cerrando presupuesto…" style={{ width: '100%', minHeight: 84, resize: 'vertical', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Fecha límite para concluir</div>
+              <input type="date" value={manualDeadline} min={hoy} onChange={(e) => setManualDeadline(e.target.value)} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
+            </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button onClick={() => setManualNutri(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              <button onClick={confirmManualNutri} disabled={!manualMotivo.trim()} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: manualMotivo.trim() ? 'var(--accent-soft)' : 'var(--border)', color: '#171511', fontSize: 14, fontWeight: 700, cursor: manualMotivo.trim() ? 'pointer' : 'default', opacity: manualMotivo.trim() ? 1 : 0.6, fontFamily: SANS }}>Guardar nutrición manual</button>
+              <button onClick={confirmManualNutri} disabled={!manualMotivo.trim() || !manualDeadline} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: manualMotivo.trim() && manualDeadline ? 'var(--accent-soft)' : 'var(--border)', color: '#171511', fontSize: 14, fontWeight: 700, cursor: manualMotivo.trim() && manualDeadline ? 'pointer' : 'default', opacity: manualMotivo.trim() && manualDeadline ? 1 : 0.6, fontFamily: SANS }}>Guardar nutrición manual</button>
             </div>
           </div>
         </div>

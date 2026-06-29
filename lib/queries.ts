@@ -1923,7 +1923,7 @@ async function _getVslSerie(dias = 56): Promise<VslSerie> {
 // cualquier veredicto.
 // =============================================================================
 
-export type TipoPendiente = 'A' | 'B' | 'C';
+export type TipoPendiente = 'A' | 'B' | 'C' | 'M';
 
 export type PendienteItem = {
   lead_id: number;
@@ -1936,7 +1936,7 @@ export type PendienteItem = {
 export type Pendientes = {
   items: PendienteItem[];
   total: number;
-  porTipo: { A: number; B: number; C: number };
+  porTipo: { A: number; B: number; C: number; M: number };
 };
 
 function fmtFechaPendiente(yyyy_mm_dd: string): string {
@@ -1959,6 +1959,7 @@ function diasEntreISO(desde: string, hasta: string): number {
 /**
  * Leads con un dato manual pendiente de marcar. Un item por lead, con
  * prioridad A → B → C (lo más fundamental primero):
+ *   M) Aparcado en "Nutrición - Manual" y venció el deadline sin resolverse.
  *   A) J1 ya pasó y no se marcó asistencia.
  *   B) Asistió a J1, sigue 'abierto', no hay J2 y pasaron > DIAS_GRACIA_J2.
  *   C) J2 ya pasó y no se marcó asistencia.
@@ -1970,8 +1971,8 @@ async function _getPendientesDeMarcar(
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('leads')
-    .select('id, nombre, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, estado_lead')
-    .or('fecha_junta_1.not.is.null,fecha_junta_2.not.is.null');
+    .select('id, nombre, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, estado_lead, pipeline_stage, nutricion_manual_deadline')
+    .or('fecha_junta_1.not.is.null,fecha_junta_2.not.is.null,pipeline_stage.eq.manual');
   if (error) throw new Error(`Query pendientes de marcar falló: ${error.message}`);
 
   const cutoffB = restarDiasISO(hoy, DIAS_GRACIA_J2);
@@ -1985,7 +1986,24 @@ async function _getPendientesDeMarcar(
     asistio_j1: boolean | null;
     asistio_j2: boolean | null;
     estado_lead: string;
+    pipeline_stage: string | null;
+    nutricion_manual_deadline: string | null;
   }>) {
+    // M) Aparcado en "Nutrición - Manual": si el deadline venció y sigue abierto,
+    //    vuelve a "datos sin marcar". Si todavía no venció, está esperando (no es
+    //    pendiente). En cualquier caso un lead en 'manual' NO cae a A/B/C.
+    if (l.pipeline_stage === 'manual') {
+      if (l.estado_lead === 'abierto' && l.nutricion_manual_deadline && l.nutricion_manual_deadline < hoy) {
+        items.push({
+          lead_id: l.id,
+          lead_nombre: l.nombre,
+          tipo: 'M',
+          mensaje: `Venció la nutrición manual (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse — definí cómo sigue`,
+          fecha: l.nutricion_manual_deadline,
+        });
+      }
+      continue;
+    }
     // A) J1 pasada sin marcar asistencia. Solo leads abiertos y SIN R2 ya
     //    agendada (si ya tienen R2, avanzaron; no tiene sentido preguntar por la
     //    asistencia a R1 — la marca Fathom igual). Si está resuelto, irrelevante.
@@ -2034,6 +2052,7 @@ async function _getPendientesDeMarcar(
     A: items.filter((i) => i.tipo === 'A').length,
     B: items.filter((i) => i.tipo === 'B').length,
     C: items.filter((i) => i.tipo === 'C').length,
+    M: items.filter((i) => i.tipo === 'M').length,
   };
 
   return { items, total: items.length, porTipo };
@@ -2190,8 +2209,10 @@ async function _getColaDeAccion(
   const items: ColaItem[] = [];
 
   // ── 1) pendiente_marcar (tipos A y C) y j1_sin_j2 (tipo B) ──
+  // Los tipo 'M' (nutrición manual vencida) viven solo en el worklist del CRM, no
+  // en esta cola (su copy es de asistencia y no aplica).
   const pend = await getPendientesDeMarcar(hoy);
-  const marcarAC = pend.items.filter((i) => i.tipo !== 'B');
+  const marcarAC = pend.items.filter((i) => i.tipo === 'A' || i.tipo === 'C');
   const tipoB = pend.items.filter((i) => i.tipo === 'B');
   for (const p of marcarAC) {
     items.push({

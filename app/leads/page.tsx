@@ -92,6 +92,7 @@ export default async function LeadsPage() {
       transitions={transitions}
       total={leads.length}
       errorMsg={errorMsg}
+      hoy={hoy}
     />
   );
 }
