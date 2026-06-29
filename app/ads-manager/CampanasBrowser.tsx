@@ -11,7 +11,8 @@
 //   - fila de anuncio  → modal AdDetalle. campaña/conjunto → EntityDetalle.
 //   - botón "Analizar (Meta)" → /api/meta-recommendations (sin MaKo).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
@@ -746,13 +747,51 @@ function applyTemplate(tpl: string, vars: Record<string, string>, n: number): st
   return out.replace(/\{[a-zA-Z_]+\}/g, '').replace(/\s{2,}/g, ' ').replace(/^[\s/|·.\-]+|[\s/|·.\-]+$/g, '').trim();
 }
 
-// Filtro de rango de fecha (mismo look que FechaFiltro: botón + panel con
-// presets + rango exacto), pero CONTROLADO y embebido (no toca la URL). Panel
-// inline para no chocar con el overflow:hidden del modal. Fechas "YYYY-MM-DD".
-function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: string; onChange: (d: string, h: string) => void }) {
+// Panel flotante reutilizable: el menú vive en un PORTAL (position:fixed) anclado
+// al botón → FLOTA sobre el contenido (no empuja el layout) y no lo recorta el
+// overflow:hidden del modal. Cierra por click afuera, Escape, scroll o resize.
+function FloatingPanel({ trigger, triggerStyle, ariaLabel, panelWidth = 320, align = 'left', children }: {
+  trigger: ReactNode; triggerStyle: CSSProperties; ariaLabel?: string; panelWidth?: number; align?: 'left' | 'right'; children: (close: () => void) => ReactNode;
+}) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left?: number; right?: number } | null>(null);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const place = () => {
+    if (!ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    const up = below < 380 && r.top > below;
+    setPos({ ...(up ? { bottom: window.innerHeight - r.top + 6 } : { top: r.bottom + 6 }), ...(align === 'right' ? { right: window.innerWidth - r.right } : { left: r.left }) });
+  };
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { const t = e.target as Node; if (ref.current?.contains(t) || panelRef.current?.contains(t)) return; setOpen(false); };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onSR = () => setOpen(false);
+    document.addEventListener('mousedown', onDoc); document.addEventListener('keydown', onEsc);
+    window.addEventListener('scroll', onSR, true); window.addEventListener('resize', onSR);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); window.removeEventListener('scroll', onSR, true); window.removeEventListener('resize', onSR); };
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button type="button" aria-label={ariaLabel} aria-expanded={open} onClick={() => { if (!open) place(); setOpen((v) => !v); }} style={triggerStyle}>{trigger}</button>
+      {open && pos && createPortal(
+        <div ref={panelRef} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, width: panelWidth, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 18px 44px rgba(23,21,17,.28)', padding: 12 }}>
+          {children(() => setOpen(false))}
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+// Filtro de rango por fecha de creación (look de FechaFiltro), CONTROLADO y en
+// un FloatingPanel (flota, no mueve el layout). Fechas "YYYY-MM-DD".
+function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: string; onChange: (d: string, h: string) => void }) {
   const [cd, setCd] = useState(desde);
   const [ch, setCh] = useState(hasta);
+  useEffect(() => { setCd(desde); setCh(hasta); }, [desde, hasta]); // refleja el rango aplicado
 
   const hoy = useMemo(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }, []);
   const year = Number(hoy.slice(0, 4));
@@ -764,30 +803,23 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
     { key: 'm3', label: 'Últ. 3 meses', d: addMeses(hoy, -3), h: hoy },
     { key: 'm6', label: 'Últ. 6 meses', d: addMeses(hoy, -6), h: hoy },
   ];
-
   const activo = !!(desde || hasta);
   const presetActivo = presets.find((p) => p.key !== 'all' && p.d === desde && p.h === hasta);
   const etiqueta = !activo ? 'Todas las fechas' : presetActivo ? presetActivo.label : `${desde ? diaLegible(desde) : 'inicio'} → ${hasta ? diaLegible(hasta) : 'hoy'}`;
   const customValido = (!!cd || !!ch) && (!cd || !ch || cd <= ch);
-  const aplicar = (d: string, h: string) => { onChange(d, h); setOpen(false); };
   const di: CSSProperties = { flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' };
+  const triggerStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, maxWidth: '100%', padding: '10px 14px', borderRadius: 11, border: '1px solid ' + (activo ? 'var(--accent)' : 'var(--border-strong)'), background: activo ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: activo ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
 
   return (
-    <div>
-      <button type="button" onClick={() => { if (!open) { setCd(desde); setCh(hasta); } setOpen((o) => !o); }} aria-expanded={open}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid ' + (activo ? 'var(--accent)' : 'var(--border-strong)'), background: activo ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: activo ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
-        <span aria-hidden>📅</span>
-        <span>{etiqueta}</span>
-        <span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span>
-      </button>
-
-      {open && (
-        <div style={{ marginTop: 8, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)', padding: 12, maxWidth: 380 }}>
+    <FloatingPanel ariaLabel="Rango de fecha de creación" panelWidth={300} triggerStyle={triggerStyle}
+      trigger={<><span aria-hidden>📅</span><span style={{ whiteSpace: 'nowrap' }}>{etiqueta}</span><span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span></>}>
+      {(close) => (
+        <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {presets.map((p) => {
               const sel = p.key === 'all' ? !activo : (p.d === desde && p.h === hasta);
               return (
-                <button key={p.key} type="button" onClick={() => aplicar(p.d, p.h)}
+                <button key={p.key} type="button" onClick={() => { onChange(p.d, p.h); close(); }}
                   style={{ padding: '8px 10px', borderRadius: 9, textAlign: 'center', cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, whiteSpace: 'nowrap', border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--border)'), background: sel ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: sel ? '#9A6A09' : 'var(--ink)' }}>{p.label}</button>
               );
             })}
@@ -799,12 +831,35 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
               <span style={{ color: 'var(--faint)' }}>→</span>
               <input type="date" value={ch} min={cd || undefined} max={hoy} onChange={(e) => setCh(e.target.value)} style={di} />
             </div>
-            <button type="button" disabled={!customValido} onClick={() => aplicar(cd, ch)}
+            <button type="button" disabled={!customValido} onClick={() => { onChange(cd, ch); close(); }}
               style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: customValido ? 'pointer' : 'not-allowed', opacity: customValido ? 1 : 0.4 }}>Aplicar rango</button>
           </div>
+        </>
+      )}
+    </FloatingPanel>
+  );
+}
+
+// Inserta una variable de plantilla en el cursor — menú flotante (declutter del
+// chip row). El correlativo {nnn} y {nombre} los pone el código; el resto MaKo.
+function InsertarVariable({ onInsert }: { onInsert: (tok: string) => void }) {
+  const triggerStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '0 14px', height: '100%', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' };
+  return (
+    <FloatingPanel ariaLabel="Insertar variable" panelWidth={236} align="right" triggerStyle={triggerStyle}
+      trigger={<><span style={{ fontFamily: MONO, color: 'var(--accent)' }}>{'{ }'}</span>Insertar<span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span></>}>
+      {(close) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {RENAME_VARS.map((v) => (
+            <button key={v.tok} type="button" onClick={() => { onInsert(v.tok); close(); }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+              <code style={{ fontFamily: MONO, fontSize: 12, color: 'var(--accent)', minWidth: 58 }}>{v.tok}</code>
+              <span style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)' }}>{v.label}</span>
+            </button>
+          ))}
         </div>
       )}
-    </div>
+    </FloatingPanel>
   );
 }
 
@@ -826,11 +881,13 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   // Entidades en alcance: filtradas por RANGO de fecha de creación (las de afuera NO
   // se tocan). El filtro lo hace el código, NO la IA (antes lo metían en las notas y
   // la IA "filtraba" dejando objetivo/ángulo vacíos).
+  // Filtradas por rango Y ORDENADAS del MÁS VIEJO al más nuevo: así el correlativo
+  // {nnn} arranca en 001 para la primera publicada (createdTime asc). Sin fecha → al final.
   const enAlcance = useMemo(() => entities.filter((e) => {
     const k = diaDe(e.createdTime);
     if (!k) return !desde && !hasta; // sin fecha → solo si no hay filtro
     return (!desde || k >= desde) && (!hasta || k <= hasta);
-  }), [entities, desde, hasta]);
+  }).sort((a, b) => (a.createdTime || '9999') < (b.createdTime || '9999') ? -1 : 1), [entities, desde, hasta]);
   // Variables que pide la IA: solo las SEMÁNTICAS. El correlativo, {nombre}, {mes} y
   // {anio} los pone el código (determinístico) → la IA nunca se equivoca con la fecha.
   const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && !['nombre', 'mes', 'anio'].includes(v)), [template]);
@@ -880,6 +937,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   };
 
   const inp: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
+  const lbl: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' };
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
@@ -893,39 +951,44 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
         </div>
 
         {phase !== 'review' ? (
-          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>Definís la <b>plantilla</b> con variables; MaKo completa cada variable mirando el nombre actual y la jerarquía, y el sistema arma el nombre con ese formato EXACTO. Revisás y confirmás antes de escribir en Meta.</p>
+          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>Armás una <b>plantilla</b> con variables. MaKo completa cada variable mirando el nombre y la jerarquía; el sistema arma el nombre con ese formato exacto. Revisás antes de escribir en Meta.</p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Plantilla del nombre</span>
-              <input ref={tplRef} value={template} onChange={(e) => setTemplate(e.target.value)} placeholder="{nnn}. {objetivo} / {angulo} - {mes} / {anio}" style={{ ...inp, fontFamily: MONO, fontSize: 13.5 }} />
+            {/* Plantilla + insertar variable + vista previa en vivo */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={lbl}>Plantilla del nombre</span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+                <input ref={tplRef} value={template} onChange={(e) => setTemplate(e.target.value)} placeholder="{nnn}. {objetivo} / {angulo} - {mes} / {anio}" style={{ ...inp, flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13.5 }} />
+                <InsertarVariable onInsert={insertar} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 12px', borderRadius: 10, background: 'rgba(200,135,12,.07)', border: '1px solid var(--border)' }}>
+                <span style={{ ...lbl, color: 'var(--faint)' }}>Previa</span>
+                <code style={{ fontFamily: MONO, fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '— (plantilla vacía)'}</code>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Renombrar solo las creadas en este rango (por fecha de creación)</span>
-              <RangoFechaCreacion desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
+            {/* Fecha de creación */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={lbl}>Renombrar solo las creadas en…</span>
+              <div><RangoFechaCreacion desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} /></div>
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Insertar:</span>
-              {RENAME_VARS.map((v) => (
-                <button key={v.tok} type="button" onClick={() => insertar(v.tok)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12, cursor: 'pointer' }}><code style={{ fontFamily: MONO, fontSize: 11, color: 'var(--accent)' }}>{v.tok}</code> {v.label}</button>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Notas de estilo para MaKo (opcional)</span>
+            {/* Notas de estilo */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span style={lbl}>Notas de estilo para MaKo (opcional)</span>
               <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder="Cómo nombrar (estilo), NO para filtrar. Ej: objetivo en 1 palabra; ángulo corto; las de retargeting que el ángulo diga RTG." style={{ ...inp, resize: 'vertical' }} />
             </div>
 
-            <div style={{ fontSize: 12.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-              Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{(desde || hasta) ? ` (creadas${desde ? ` desde ${diaLegible(desde)}` : ''}${hasta ? ` hasta ${diaLegible(hasta)}` : ''}; el resto no se toca)` : ''}. Ejemplo: <code style={{ fontFamily: MONO, color: 'var(--ink)' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '—'}</code>
+            {/* Resumen del alcance */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px' }}>
+              <span style={{ fontSize: 15 }}>📝</span>
+              <span>Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{(desde || hasta) ? `, creadas${desde ? ` desde ${diaLegible(desde)}` : ''}${hasta ? ` hasta ${diaLegible(hasta)}` : ''}. El resto no se toca.` : '.'} Se numeran de la más vieja a la más nueva.</span>
             </div>
 
             {err && <div style={{ fontSize: 13, color: 'var(--bad)' }}>Error: {err}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={proponer} disabled={phase === 'loading' || enAlcance.length === 0} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: phase === 'loading' || enAlcance.length === 0 ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: phase === 'loading' ? 'wait' : 'pointer' }}>{phase === 'loading' ? 'MaKo completando…' : '✦ Generar con MaKo'}</button>
+              <button onClick={proponer} disabled={phase === 'loading' || enAlcance.length === 0} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: phase === 'loading' || enAlcance.length === 0 ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: phase === 'loading' || enAlcance.length === 0 ? 'default' : 'pointer' }}>{phase === 'loading' ? 'MaKo completando…' : <><MakoStar size={13} color="var(--surface)" /> Generar con MaKo</>}</button>
             </div>
           </div>
         ) : (
