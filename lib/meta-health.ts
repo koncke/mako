@@ -50,6 +50,7 @@ export type NodoEstado = {
   configuredStatus: string | null;
   statusLabel: string;
   semaforo: Semaforo;
+  createdTime?: string | null; // ISO de creación en Meta (para filtrar por año al renombrar)
   // Presupuesto (MXN) si el nodo lo tiene propio (campaña CBO o adset ABO).
   dailyBudgetMxn?: number | null;
   lifetimeBudgetMxn?: number | null;
@@ -396,6 +397,7 @@ function toNodo(
     configuredStatus: raw.configured_status != null ? String(raw.configured_status) : null,
     statusLabel: statusLabel(eff),
     semaforo: statusSemaforo(eff),
+    createdTime: raw.created_time != null ? String(raw.created_time) : null,
   };
   if (level === 'campaign' || level === 'adset') {
     nodo.dailyBudgetMxn = centavosAMxn(raw.daily_budget);
@@ -546,9 +548,9 @@ export async function getMetaHealth(): Promise<MetaHealth> {
   // MaKo "le pregunta a Meta primero": pedimos recommendations en cada nivel +
   // el edge de cuenta, y las combinamos con las sugerencias derivadas.
   const [campR, adsetR, adR, accRecoR] = await Promise.allSettled([
-    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,lifetime_budget,objective,recommendations')),
-    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,lifetime_budget,budget_remaining,learning_stage_info,recommendations')),
-    graphGetAll(edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations')),
+    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,lifetime_budget,objective,recommendations,created_time')),
+    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,lifetime_budget,budget_remaining,learning_stage_info,recommendations,created_time')),
+    graphGetAll(edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations,created_time')),
     fetchAccountRecommendations(),
   ]);
 

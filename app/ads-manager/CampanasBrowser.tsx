@@ -319,9 +319,9 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   // Entidades del nivel actual (todas, con su jerarquía) para el renombrado con MaKo.
   const renameEntities = useMemo<RenameEntity[]>(() => {
     if (!health) return [];
-    if (level === 'campaign') return health.campaigns.map((n) => ({ id: n.id, name: nameOf(n), campName: null, adsetName: null }));
-    if (level === 'adset') return health.adsets.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(n.parentId), adsetName: null }));
-    return health.ads.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(adsetCampId(n.parentId)), adsetName: n.parentId ? adsetsById.get(n.parentId)?.name ?? null : null }));
+    if (level === 'campaign') return health.campaigns.map((n) => ({ id: n.id, name: nameOf(n), campName: null, adsetName: null, createdTime: n.createdTime ?? null }));
+    if (level === 'adset') return health.adsets.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(n.parentId), adsetName: null, createdTime: n.createdTime ?? null }));
+    return health.ads.map((n) => ({ id: n.id, name: nameOf(n), campName: campName(adsetCampId(n.parentId)), adsetName: n.parentId ? adsetsById.get(n.parentId)?.name ?? null : null, createdTime: n.createdTime ?? null }));
   }, [health, level, optimistic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -447,7 +447,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   );
 }
 
-type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null };
+type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null; createdTime: string | null };
 
 const bulkBtn: CSSProperties = { padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(243,240,231,.25)', background: 'rgba(243,240,231,.10)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 
@@ -709,44 +709,91 @@ function MakoMenu({ actions }: { actions: Array<{ label: string; sub?: string; o
 
 // ── modal "MaKo · Ordenar nombres" — propone una nomenclatura y la aplica ──
 const NIVEL_NOUN: Record<Level, string> = { campaign: 'campañas', adset: 'conjuntos', ad: 'anuncios' };
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const anioDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : String(d.getFullYear()); };
+const mesDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : MESES_ES[d.getMonth()]; };
+// Variables que el usuario puede meter en la plantilla. {n}/{nn}/{nnn} = correlativo
+// (lo pone el código). El resto las completa MaKo extrayéndolas del nombre/jerarquía.
+const RENAME_VARS: Array<{ tok: string; label: string }> = [
+  { tok: '{nnn}', label: 'N° (001)' },
+  { tok: '{objetivo}', label: 'Objetivo' },
+  { tok: '{angulo}', label: 'Ángulo' },
+  { tok: '{audiencia}', label: 'Audiencia' },
+  { tok: '{mes}', label: 'Mes' },
+  { tok: '{anio}', label: 'Año' },
+  { tok: '{nombre}', label: 'Nombre original' },
+];
+// Renderiza la plantilla: el correlativo {n+} con padding, las demás variables por
+// substitución, y limpia los slots que quedaron sin resolver + separadores sueltos.
+function applyTemplate(tpl: string, vars: Record<string, string>, n: number): string {
+  let out = tpl.replace(/\{n+\}/g, (m) => String(n).padStart(Math.max(1, m.length - 2), '0'));
+  for (const [k, v] of Object.entries(vars)) if (v) out = out.split(`{${k}}`).join(v);
+  return out.replace(/\{[a-zA-Z_]+\}/g, '').replace(/\s{2,}/g, ' ').replace(/^[\s/|·.\-]+|[\s/|·.\-]+$/g, '').trim();
+}
+
+const TEMPLATE_DEFAULT = '{nnn}. {objetivo} / {angulo} - {mes} / {anio}';
 function RenameModal({ level, entities, onClose, onApply }: { level: Level; entities: RenameEntity[]; onClose: () => void; onApply: (items: Array<{ id: string; level: Level; name: string }>) => Promise<number> }) {
-  const [instruccion, setInstruccion] = useState('');
+  const [template, setTemplate] = useState(TEMPLATE_DEFAULT);
+  const [anioDesde, setAnioDesde] = useState('todos');
+  const [notas, setNotas] = useState('');
   const [phase, setPhase] = useState<'idle' | 'loading' | 'review'>('idle');
   const [prop, setProp] = useState<Record<string, string>>({});
   const [incl, setIncl] = useState<Set<string>>(new Set());
   const [err, setErr] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const nameById = useMemo(() => new Map(entities.map((e) => [e.id, e.name])), [entities]);
+  const tplRef = useRef<HTMLInputElement>(null);
+
+  // Años presentes (para el filtro "desde el año").
+  const anios = useMemo(() => [...new Set(entities.map((e) => anioDe(e.createdTime)).filter(Boolean))].sort((a, b) => Number(b) - Number(a)), [entities]);
+  // Entidades en alcance: filtradas por año de creación (las de antes NO se tocan).
+  const enAlcance = useMemo(() => entities.filter((e) => anioDesde === 'todos' || (anioDe(e.createdTime) && Number(anioDe(e.createdTime)) >= Number(anioDesde))), [entities, anioDesde]);
+  // Variables semánticas que la plantilla pide (excluye el correlativo y {nombre}, que pone el código).
+  const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && v !== 'nombre'), [template]);
+
+  const insertar = (tok: string) => {
+    const el = tplRef.current;
+    if (!el) { setTemplate((t) => t + tok); return; }
+    const s = el.selectionStart ?? template.length, e = el.selectionEnd ?? template.length;
+    setTemplate(template.slice(0, s) + tok + template.slice(e));
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + tok.length, s + tok.length); });
+  };
 
   const proponer = async () => {
+    if (!template.trim()) { setErr('Escribí una plantilla.'); return; }
     setPhase('loading'); setErr(null);
     try {
-      const r = await fetch('/api/ads-manager/rename-suggest', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ level, instruccion, entities: entities.map((e) => ({ id: e.id, name: e.name, campana: e.campName, adset: e.adsetName })) }),
-      });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'MaKo no pudo proponer');
+      let valores: Record<string, Record<string, string>> = {};
+      if (varsNeeded.length > 0) {
+        const r = await fetch('/api/ads-manager/rename-suggest', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ level, notas, vars: varsNeeded, entities: enAlcance.map((e) => ({ id: e.id, name: e.name, campana: e.campName, adset: e.adsetName, anio: anioDe(e.createdTime), mes: mesDe(e.createdTime) })) }),
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || 'MaKo no pudo proponer');
+        for (const v of (j.valores ?? []) as Array<{ id: string; vars: Record<string, string> }>) valores[v.id] = v.vars ?? {};
+      }
+      // Render determinístico de la plantilla → nombre exacto, correlativo por código.
       const map: Record<string, string> = {};
       const inc = new Set<string>();
-      for (const p of (j.propuestas ?? []) as Array<{ id: string; nombre: string }>) {
-        const nuevo = String(p.nombre ?? '').trim();
-        const actual = nameById.get(p.id);
-        if (!nuevo || actual === undefined) continue;
-        map[p.id] = nuevo;
-        if (nuevo !== actual) inc.add(p.id);
-      }
+      enAlcance.forEach((e, i) => {
+        const v = { ...valores[e.id], nombre: e.name, anio: valores[e.id]?.anio || anioDe(e.createdTime), mes: valores[e.id]?.mes || mesDe(e.createdTime) };
+        const nuevo = applyTemplate(template, v, i + 1);
+        map[e.id] = nuevo || e.name;
+        if (nuevo && nuevo !== e.name) inc.add(e.id);
+      });
       setProp(map); setIncl(inc); setPhase('review');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setPhase('idle'); }
   };
 
-  const cambios = entities.filter((e) => incl.has(e.id) && prop[e.id] && prop[e.id].trim() && prop[e.id].trim() !== e.name);
+  const cambios = enAlcance.filter((e) => incl.has(e.id) && prop[e.id] && prop[e.id].trim() && prop[e.id].trim() !== e.name);
   const aplicar = async () => {
     setApplying(true);
     try { await onApply(cambios.map((e) => ({ id: e.id, level, name: prop[e.id].trim() }))); onClose(); }
     finally { setApplying(false); }
   };
+
+  const inp: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
@@ -754,29 +801,53 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>MaKo · Ordenar nombres</div>
-            <h2 style={{ fontWeight: 600, fontSize: 20, margin: '3px 0 0', color: 'var(--ink)' }}>Renombrar {entities.length} {NIVEL_NOUN[level]}</h2>
+            <h2 style={{ fontWeight: 600, fontSize: 20, margin: '3px 0 0', color: 'var(--ink)' }}>Renombrar {NIVEL_NOUN[level]}</h2>
           </div>
           <button onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
         </div>
 
         {phase !== 'review' ? (
-          <div style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>MaKo mira los nombres actuales (y su jerarquía) y propone una nomenclatura <b>consistente y corta</b>. Vas a poder revisar y editar cada nombre antes de aplicar — nada se escribe en Meta sin tu confirmación.</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Convención o pistas (opcional)</span>
-              <textarea value={instruccion} onChange={(e) => setInstruccion(e.target.value)} rows={3} placeholder="Ej: usá el formato [Objetivo] · [Audiencia] · [Ángulo] · vN. Las de retargeting que digan RTG. Respetá el idioma." style={{ width: '100%', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'vertical' }} />
+          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>Definís la <b>plantilla</b> con variables; MaKo completa cada variable mirando el nombre actual y la jerarquía, y el sistema arma el nombre con ese formato EXACTO. Revisás y confirmás antes de escribir en Meta.</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Plantilla del nombre</span>
+                <input ref={tplRef} value={template} onChange={(e) => setTemplate(e.target.value)} placeholder="{nnn}. {objetivo} / {angulo} - {mes} / {anio}" style={{ ...inp, fontFamily: MONO, fontSize: 13.5 }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Desde el año</span>
+                <Dropdown value={anioDesde} onChange={setAnioDesde} ariaLabel="Desde el año" width="100%" options={[{ value: 'todos', label: 'Todas las fechas' }, ...anios.map((y) => ({ value: y, label: `${y} en adelante` }))]} />
+              </div>
             </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Insertar:</span>
+              {RENAME_VARS.map((v) => (
+                <button key={v.tok} type="button" onClick={() => insertar(v.tok)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12, cursor: 'pointer' }}><code style={{ fontFamily: MONO, fontSize: 11, color: 'var(--accent)' }}>{v.tok}</code> {v.label}</button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Notas para MaKo (opcional)</span>
+              <textarea value={notas} onChange={(e) => setNotas(e.target.value)} rows={2} placeholder="Ej: el objetivo en Title Case (Leads, Ventas, Webinar); las de retargeting que el ángulo diga RTG." style={{ ...inp, resize: 'vertical' }} />
+            </div>
+
+            <div style={{ fontSize: 12.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
+              Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{anioDesde !== 'todos' ? ` (creadas en ${anioDesde} o después)` : ''}. Ejemplo: <code style={{ fontFamily: MONO, color: 'var(--ink)' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '—'}</code>
+            </div>
+
             {err && <div style={{ fontSize: 13, color: 'var(--bad)' }}>Error: {err}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
-              <button onClick={proponer} disabled={phase === 'loading' || entities.length === 0} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: phase === 'loading' ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: phase === 'loading' ? 'wait' : 'pointer' }}>{phase === 'loading' ? 'MaKo proponiendo…' : '✦ Proponer con MaKo'}</button>
+              <button onClick={proponer} disabled={phase === 'loading' || enAlcance.length === 0} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: phase === 'loading' || enAlcance.length === 0 ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: phase === 'loading' ? 'wait' : 'pointer' }}>{phase === 'loading' ? 'MaKo completando…' : '✦ Generar con MaKo'}</button>
             </div>
           </div>
         ) : (
           <>
             <div style={{ padding: '16px 24px', maxHeight: '56vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {entities.length} cambian. Destildá los que no quieras o editá el nombre propuesto.</div>
-              {entities.map((e) => {
+              <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {enAlcance.length} cambian. Destildá los que no quieras o editá el nombre generado.</div>
+              {enAlcance.map((e) => {
                 const nuevo = prop[e.id] ?? e.name;
                 const cambia = incl.has(e.id) && nuevo.trim() !== e.name;
                 return (

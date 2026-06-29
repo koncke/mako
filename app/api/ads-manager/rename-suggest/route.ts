@@ -1,10 +1,12 @@
 // =============================================================================
-// POST /api/ads-manager/rename-suggest — MaKo propone una nomenclatura ordenada
+// POST /api/ads-manager/rename-suggest — MaKo COMPLETA las variables de la plantilla
 // =============================================================================
-// Body: { level, instruccion?, entities: [{ id, name, campana?, adset? }] }.
-// Devuelve { ok, propuestas: [{ id, nombre }] } — un nombre nuevo, consistente y
-// corto por cada entidad. NO escribe nada en Meta (eso lo hace /api/meta-write
-// con la confirmación del usuario). Solo sugiere.
+// El usuario define una plantilla (ej. "{nnn}. {objetivo} / {angulo} - {mes} / {anio}").
+// El cliente manda las variables SEMÁNTICAS a llenar (sin el correlativo ni {nombre})
+// y la lista de entidades. MaKo NO arma el nombre final: solo EXTRAE el valor de cada
+// variable mirando el nombre actual + jerarquía + fecha. El cliente arma el nombre con
+// la plantilla (formato exacto garantizado). Body: { level, notas?, vars: string[],
+// entities: [{ id, name, campana?, adset?, anio?, mes? }] }. → { ok, valores: [{ id, vars }] }.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
@@ -13,8 +15,15 @@ import { chatClaude } from '@/lib/anthropic';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-type Ent = { id: string; name: string; campana?: string | null; adset?: string | null };
+type Ent = { id: string; name: string; campana?: string | null; adset?: string | null; anio?: string | null; mes?: string | null };
 const NOUN: Record<string, string> = { campaign: 'campañas', adset: 'conjuntos de anuncios', ad: 'anuncios' };
+const VAR_DESC: Record<string, string> = {
+  objetivo: 'objetivo del aviso en 1-2 palabras Title Case (ej. Leads, Ventas, Webinar, Registro, Retargeting, Tráfico). Inferilo del nombre/jerarquía.',
+  angulo: 'ángulo o tema del mensaje, corto (ej. Dolor, Autoridad, Caso de éxito, Demo, Oferta). Inferilo del nombre.',
+  audiencia: 'público objetivo, corto (ej. Dueños de clínica, Frío, Retargeting, Lookalike). Si no se deduce, dejá "".',
+  mes: 'mes en español Title Case (Enero…Diciembre). Si el nombre menciona un mes/fecha, usá ESE; si no, usá el mes de creación que te paso.',
+  anio: 'año con 4 dígitos. Si el nombre menciona un año, usá ESE; si no, usá el año de creación que te paso.',
+};
 
 function parseJsonObject(text: string): Record<string, unknown> {
   const c = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
@@ -24,43 +33,51 @@ function parseJsonObject(text: string): Record<string, unknown> {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { level?: string; instruccion?: string; entities?: Ent[] };
+  let body: { level?: string; notas?: string; vars?: string[]; entities?: Ent[] };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   const level = body.level === 'campaign' || body.level === 'adset' || body.level === 'ad' ? body.level : null;
+  const vars = Array.isArray(body.vars) ? [...new Set(body.vars.map(String))].filter(Boolean).slice(0, 12) : [];
   const entities = Array.isArray(body.entities) ? body.entities.filter((e) => e && typeof e.id === 'string' && typeof e.name === 'string') : [];
   if (!level) return Response.json({ ok: false, error: 'level inválido' }, { status: 400 });
+  if (!vars.length) return Response.json({ ok: false, error: 'sin variables a completar' }, { status: 400 });
   if (!entities.length) return Response.json({ ok: false, error: 'sin entidades' }, { status: 400 });
 
   const noun = NOUN[level];
-  const system = `Sos MaKo, el copiloto de marketing de Mauricio Bustos. Tu tarea: ordenar la NOMENCLATURA de una cuenta de Meta Ads. Te paso los nombres ACTUALES de los ${noun} (a veces con su campaña/conjunto padre). Hoy no siguen una convención clara y se ven desordenados.
+  const varSpec = vars.map((v) => `  - "${v}": ${VAR_DESC[v] ?? `valor de "${v}", corto, inferido del nombre.`}`).join('\n');
+  const system = `Sos MaKo, el copiloto de marketing de Mauricio Bustos. Te paso los ${noun} de una cuenta de Meta Ads con nombres DESORDENADOS. NO armes el nombre final: tu única tarea es EXTRAER/INFERIR, para cada uno, el valor de estas variables (cortas, fieles a lo que dice el nombre; no inventes datos que no estén):
+${varSpec}
 
-Proponé un nombre NUEVO para cada uno que sea:
-- CONSISTENTE entre todos (inferí UNA convención del conjunto y aplicala parejo).
-- CORTO y escaneable, con separadores claros (ej. " · " o " | ").
-- Fiel: conservá la info real que ya está en el nombre actual o en el padre (objetivo, audiencia, ángulo, versión, fecha…). NO inventes datos que no estén.
-- Coherente con la jerarquía (si te paso la campaña/conjunto padre, alineá el estilo).
-Si el usuario te da una convención abajo, RESPETALA. Si un nombre ya está bien, devolvelo igual.
+Reglas:
+- Devolvé un valor por CADA variable pedida y por CADA id, usando los id TAL CUAL.
+- Valores CORTOS y consistentes entre todos (mismo estilo). Si una variable no se puede deducir, devolvé "" (string vacío).
+${body.notas?.trim() ? `- Indicación del usuario (priorizala): ${body.notas.trim()}` : ''}
 
-Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto extra):
-{"propuestas":[{"id":"<id exacto>","nombre":"<nombre nuevo>"}]}
-con UNA entrada por CADA id que te paso, usando los id TAL CUAL. Español rioplatense.`;
+Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
+{"valores":[{"id":"<id>","vars":{${vars.map((v) => `"${v}":"…"`).join(',')}}}]}`;
 
   const lista = entities.map((e, i) => {
     const padre = level === 'adset' && e.campana ? ` · campaña: ${e.campana}` : level === 'ad' ? ` · campaña: ${e.campana ?? '—'} · conjunto: ${e.adset ?? '—'}` : '';
-    return `${i + 1}. id=${e.id} · nombre actual: "${e.name}"${padre}`;
+    const fecha = e.anio || e.mes ? ` · creado: ${e.mes ?? ''} ${e.anio ?? ''}`.trimEnd() : '';
+    return `${i + 1}. id=${e.id} · "${e.name}"${padre}${fecha}`;
   }).join('\n');
-  const user = `Convención/pistas del usuario: ${body.instruccion?.trim() ? body.instruccion.trim() : '(ninguna — inferí la mejor)'}\n\n${noun.toUpperCase()} (${entities.length}):\n${lista}\n\nDevolvé el JSON con un nombre nuevo por cada id.`;
+  const user = `${noun.toUpperCase()} (${entities.length}):\n${lista}\n\nDevolvé el JSON con las variables completadas por cada id.`;
 
   try {
-    const text = await chatClaude(system, [{ role: 'user', content: user }], { model: 'claude-opus-4-8', thinking: true, effort: 'medium', maxTokens: 14000 });
+    const text = await chatClaude(system, [{ role: 'user', content: user }], { model: 'claude-opus-4-8', thinking: true, effort: 'medium', maxTokens: 16000 });
     const raw = parseJsonObject(text);
-    const arr = Array.isArray(raw.propuestas) ? raw.propuestas : [];
+    const arr = Array.isArray(raw.valores) ? raw.valores : [];
     const valid = new Set(entities.map((e) => e.id));
-    const propuestas = (arr as Array<{ id?: unknown; nombre?: unknown }>)
-      .map((p) => ({ id: String(p.id ?? ''), nombre: String(p.nombre ?? '').trim() }))
-      .filter((p) => valid.has(p.id) && p.nombre);
-    return Response.json({ ok: true, propuestas });
+    const valores = (arr as Array<{ id?: unknown; vars?: unknown }>)
+      .map((p) => {
+        const id = String(p.id ?? '');
+        const v = (p.vars && typeof p.vars === 'object' ? p.vars : {}) as Record<string, unknown>;
+        const out: Record<string, string> = {};
+        for (const k of vars) out[k] = String(v[k] ?? '').trim();
+        return { id, vars: out };
+      })
+      .filter((p) => valid.has(p.id));
+    return Response.json({ ok: true, valores });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[ads-manager:rename-suggest] ${message}`);
