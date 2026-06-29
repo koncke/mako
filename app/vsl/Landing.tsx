@@ -40,6 +40,26 @@ export default function Landing() {
     };
     ensureCss('vsl-calendly-css', CALENDLY_CSS);
 
+    // ── Sub-link "Saber más" debajo del CTA de cada sección de feature ───────
+    // Inyectado en runtime (no en landing-html.ts, que es auto-generado) para
+    // sobrevivir a regeneraciones del diseño. Cada sección #m-<slug> linkea a
+    // su página de detalle /vsl/<slug>.
+    root.querySelectorAll<HTMLElement>('.mk-deep[id^="m-"]').forEach((section) => {
+      const cta = section.querySelector<HTMLAnchorElement>('a[href="#beta"]');
+      if (!cta || section.querySelector('[data-detalle-link]')) return;
+      const slug = section.id.replace(/^m-/, '');
+      const nombre =
+        section.querySelector<HTMLElement>('span[style*="2F6FED"]')?.textContent?.trim() ||
+        'esta función';
+      const link = document.createElement('a');
+      link.href = '/vsl/' + slug;
+      link.setAttribute('data-detalle-link', '');
+      link.textContent = 'Saber más sobre ' + nombre;
+      link.style.cssText =
+        'display:block;text-align:center;margin-top:14px;color:#2F6FED;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:.01em';
+      cta.insertAdjacentElement('afterend', link);
+    });
+
     // ── Carruseles (caso de éxito, QS Media, Social Media Lab) ───────────────
     const lens: Record<string, number> = { case: 3, qs: 2, sml: 4 };
     const idx: Record<string, number> = { case: 0, qs: 0, sml: 0 };
