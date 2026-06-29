@@ -1013,29 +1013,37 @@ function Bar({ label, val, color }: { label: string; val: number; color: string 
 }
 function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void }) {
   const v = verdictOf(s), ho = hold(s), conf = confidence(s), cp = cpa(s);
+  const hasThumb = !!s.thumbnail && /^https?:\/\//i.test(s.thumbnail);
   return (
-    <button onClick={() => onOpen(s.id)} style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 17px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-          <span title={`Confianza ${CONF[conf].label}`} style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: CONF[conf].c, boxShadow: `0 0 0 3px ${rgba(CONF[conf].c, .2)}` }} />
-          <span style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</span>
+    <button onClick={() => onOpen(s.id)} style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', display: 'flex', minHeight: 156 }}>
+      <div style={{ width: 92, flex: 'none', alignSelf: 'stretch', position: 'relative', background: 'var(--surface-2)' }}>
+        {hasThumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={s.thumbnail!} alt={s.name} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', position: 'absolute', inset: 0 }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(45deg,var(--surface-2) 0 11px,var(--border) 11px 12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 10.5, fontFamily: MONO }}>sin preview</div>
+        )}
+        <span title={`Confianza ${CONF[conf].label} · ${s.impressions.toLocaleString('en-US')} impr.`} style={{ position: 'absolute', top: 8, left: 8, width: 10, height: 10, borderRadius: '50%', background: CONF[conf].c, boxShadow: '0 0 0 2px rgba(255,255,255,.75)' }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.name}</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={angleChip(s.angle)}>{angleInfo(s.angle).label}</span>
+          <span style={verdictChip(v)}>{VERDICT[v].label}</span>
         </div>
-        <span style={verdictChip(v)}>{VERDICT[v].label}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
+          <Bar label="Hook" val={s.hookRate} color={hookColor(s.hookRate)} />
+          <Bar label="Ret. CTA" val={ho} color={retColor(ho)} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}><span>{fmtUSD(s.spend)} · {s.days}d</span><span>{s.agendas} ag · {cp == null ? '—' : `${fmtUSD(cp)}/ag`}</span></div>
       </div>
-      <div style={{ display: 'flex', gap: 9, alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={angleChip(s.angle)}>{angleInfo(s.angle).label}</span>
-        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)' }}>{fmtUSD(s.spend)} · {s.days}d · {s.agendas} ag</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 2 }}>
-        <Bar label="Hook" val={s.hookRate} color={hookColor(s.hookRate)} />
-        <Bar label="Ret. CTA" val={ho} color={retColor(ho)} />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}><span>frec {s.freq.toFixed(2)}</span><span>{cp == null ? '— $/ag' : `${fmtUSD(cp)}/ag`}</span></div>
     </button>
   );
 }
 export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string }) {
-  const [view, setView] = useState<'tabla' | 'cards'>('tabla');
+  const [view, setView] = useState<'preview' | 'tabla'>('preview');
+  const [campana, setCampana] = useState('all');
+  const [adset, setAdset] = useState('all');
   const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
   const val = (a: ScriptView, k: string): number | string => {
     if (k === 'angle') return angleInfo(a.angle).label;
@@ -1045,13 +1053,17 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
     if (k === 'name') return a.name;
     return (a as unknown as Record<string, number>)[k];
   };
-  const sorted = useMemo(() => scripts.slice().sort((x, y) => {
+  const campanas = useMemo(() => [...new Set(scripts.map((s) => s.campana ?? 'Sin campaña'))].sort((a, b) => a.localeCompare(b)), [scripts]);
+  const adsets = useMemo(() => { const pool = campana === 'all' ? scripts : scripts.filter((s) => (s.campana ?? 'Sin campaña') === campana); return [...new Set(pool.map((s) => s.adset ?? 'Sin adset'))].sort((a, b) => a.localeCompare(b)); }, [scripts, campana]);
+  const filtered = useMemo(() => scripts.filter((s) => (campana === 'all' || (s.campana ?? 'Sin campaña') === campana) && (adset === 'all' || (s.adset ?? 'Sin adset') === adset)), [scripts, campana, adset]);
+  const sorted = useMemo(() => filtered.slice().sort((x, y) => {
     const vx = val(x, sort.key), vy = val(y, sort.key);
     if (typeof vx === 'string' && typeof vy === 'string') return sort.dir * vx.localeCompare(vy);
     const nx = vx as number, ny = vy as number, d = nx - ny;
     return sort.dir * (Number.isFinite(d) ? d : nx === ny ? 0 : nx > ny ? 1 : -1);
-  }), [scripts, sort]);
+  }), [filtered, sort]);
   const shown = limit ? sorted.slice(0, limit) : sorted;
+  const filtrado = campana !== 'all' || adset !== 'all';
   const cols: Array<{ key: string; label: string; al: 'left' | 'right' }> = [
     { key: 'name', label: 'Anuncio', al: 'left' }, { key: 'angle', label: 'Ángulo', al: 'left' },
     { key: 'hookRate', label: 'Hook', al: 'right' }, { key: 'hold', label: 'Ret. CTA', al: 'right' },
@@ -1061,17 +1073,25 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
   ];
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Guiones</h2>
-          <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>{scripts.length}{limit && scripts.length > limit ? ` · top ${limit}` : ''} · clic para el embudo</span>
+          <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>{sorted.length}{limit && sorted.length > limit ? ` · top ${limit}` : ''} · clic para el embudo</span>
         </div>
         <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
-          {(['tabla', 'cards'] as const).map((m) => (<button key={m} onClick={() => setView(m)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, background: view === m ? 'var(--surface)' : 'transparent', color: view === m ? 'var(--ink)' : 'var(--dim)', boxShadow: view === m ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }}>{m === 'tabla' ? 'Tabla' : 'Tarjetas'}</button>))}
+          {(['preview', 'tabla'] as const).map((m) => (<button key={m} onClick={() => setView(m)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, background: view === m ? 'var(--surface)' : 'transparent', color: view === m ? 'var(--ink)' : 'var(--dim)', boxShadow: view === m ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }}>{m === 'preview' ? 'Preview' : 'Tabla'}</button>))}
         </div>
       </div>
-      {view === 'cards' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>{shown.map((s) => <GuionCard key={s.id} s={s} onOpen={onOpen} />)}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+        <Dropdown value={campana} onChange={(c) => { setCampana(c); setAdset('all'); }} ariaLabel="Campaña" buttonStyle={{ padding: '8px 12px', fontSize: 13, maxWidth: 260 }} options={[{ value: 'all', label: 'Todas las campañas' }, ...campanas.map((c) => ({ value: c, label: c }))]} />
+        <Dropdown value={adset} onChange={setAdset} ariaLabel="Adset" buttonStyle={{ padding: '8px 12px', fontSize: 13, maxWidth: 260 }} options={[{ value: 'all', label: 'Todos los adsets' }, ...adsets.map((a) => ({ value: a, label: a }))]} />
+        <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" buttonStyle={{ padding: '8px 12px', fontSize: 13 }} options={[{ value: 'spend', label: 'Ordenar: Gasto' }, { value: 'agendas', label: 'Ordenar: Agendas' }, { value: 'hookRate', label: 'Ordenar: Hook rate' }, { value: 'hold', label: 'Ordenar: Ret. CTA' }, { value: 'cpa', label: 'Ordenar: $/agenda' }]} />
+        {filtrado && <button onClick={() => { setCampana('all'); setAdset('all'); }} style={{ padding: '8px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>✕ Limpiar</button>}
+      </div>
+      {view === 'preview' ? (
+        sorted.length === 0 ? <p style={{ fontSize: 14, color: 'var(--faint)' }}>Sin guiones para este filtro.</p> : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 12 }}>{shown.map((s) => <GuionCard key={s.id} s={s} onOpen={onOpen} />)}</div>
+        )
       ) : (
         <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 13 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 1000 }}>
@@ -1095,8 +1115,8 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
           </table>
         </div>
       )}
-      {limit && fullHref && scripts.length > limit && (
-        <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Ver los {scripts.length} guiones →</a></div>
+      {limit && fullHref && sorted.length > limit && (
+        <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Ver los {sorted.length} guiones →</a></div>
       )}
     </section>
   );

@@ -111,6 +111,12 @@ export type ScriptView = {
   beats: ViewBeat[];
   note: ScriptNote | null;
   suggestion: string | null;
+  // creativo + agrupadores (para la vista preview/filtros de "Guiones")
+  thumbnail: string | null;
+  permalink: string | null;
+  creativeSinEnlace: boolean;
+  campana: string | null;
+  adset: string | null;
 };
 
 export type ScriptAnalystView = {
@@ -544,6 +550,7 @@ export async function analyzeOne(adId: string): Promise<ScriptStatus> {
 
 type AdMetrics = {
   adName: string | null; lastFecha: string | null;
+  thumbnail: string | null; permalink: string | null; creativeSinEnlace: boolean; campana: string | null; adset: string | null;
   spendUsd: number; impressions: number; leads: number; agendas: number; linkClicks: number;
   v3s: number; thru: number; p25: number; p50: number; p75: number; p100: number;
   freqSum: number; freqN: number; dias: Set<string>;
@@ -561,7 +568,7 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
     for (let from = 0; ; from += PAGE) {
       let q = supabase
         .from('marketing_metrics_daily')
-        .select('ad_id, ad_name, fecha, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency, video_p25, video_p50, video_p75, video_p100')
+        .select('ad_id, ad_name, fecha, spend, leads_count, agendas_meta, impressions, link_clicks, video_3s_views, video_thruplay, frequency, video_p25, video_p50, video_p75, video_p100, campaign_name, adset_name, ad_thumbnail_url, ad_permalink, ad_creative_sin_enlace')
         .eq('plataforma', 'meta')
         .in('ad_id', chunk);
       if (desde) q = q.gte('fecha', desde);
@@ -571,11 +578,11 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
         .order('fecha', { ascending: true })
         .range(from, from + PAGE - 1);
       if (error) throw new Error(`Error leyendo métricas de anuncios: ${error.message}`);
-      const rows = (data ?? []) as Array<Record<string, string | number | null>>;
+      const rows = (data ?? []) as Array<Record<string, string | number | boolean | null>>;
       for (const row of rows) {
         const id = String(row.ad_id ?? '');
         if (!ids.has(id)) continue;
-        const m = map.get(id) ?? { adName: null, lastFecha: null, spendUsd: 0, impressions: 0, leads: 0, agendas: 0, linkClicks: 0, v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0, freqSum: 0, freqN: 0, dias: new Set<string>() };
+        const m = map.get(id) ?? { adName: null, lastFecha: null, thumbnail: null, permalink: null, creativeSinEnlace: false, campana: null, adset: null, spendUsd: 0, impressions: 0, leads: 0, agendas: 0, linkClicks: 0, v3s: 0, thru: 0, p25: 0, p50: 0, p75: 0, p100: 0, freqSum: 0, freqN: 0, dias: new Set<string>() };
         const spendMxn = Number(row.spend ?? 0);
         m.spendUsd += spendMxn / TIPO_DE_CAMBIO_USD_MXN;
         m.impressions += Number(row.impressions ?? 0);
@@ -593,6 +600,12 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
         const fecha = String(row.fecha ?? '');
         if (spendMxn > 0 && fecha) m.dias.add(fecha);
         if (fecha && (!m.lastFecha || fecha > m.lastFecha)) { m.lastFecha = fecha; if (row.ad_name) m.adName = String(row.ad_name); }
+        // Creativo + campaña/adset: el valor no-nulo más reciente (rows ordenadas por fecha asc).
+        if (row.ad_thumbnail_url != null) m.thumbnail = String(row.ad_thumbnail_url);
+        if (row.ad_permalink != null) m.permalink = String(row.ad_permalink);
+        if (row.ad_creative_sin_enlace != null) m.creativeSinEnlace = row.ad_creative_sin_enlace === true;
+        if (row.campaign_name != null) m.campana = String(row.campaign_name);
+        if (row.adset_name != null) m.adset = String(row.adset_name);
         map.set(id, m);
       }
       if (rows.length < PAGE) break;
@@ -723,6 +736,7 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
       plays3s, thru, finalRet: retAt(curve, 1), beats,
       note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
       suggestion: r.suggestion,
+      thumbnail: m.thumbnail, permalink: m.permalink, creativeSinEnlace: m.creativeSinEnlace, campana: m.campana, adset: m.adset,
     });
   }
   counts.enVista = scripts.length;
