@@ -755,6 +755,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   const [err, setErr] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [uso, setUso] = useState<{ tokens: number; costUsd: number } | null>(null);
   const tplRef = useRef<HTMLInputElement>(null);
 
   // Entidades en alcance: filtradas por RANGO de fecha de creación (las de afuera NO
@@ -790,6 +791,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
         const j = await r.json();
         if (!j.ok) throw new Error(j.error || 'MaKo no pudo proponer');
         for (const v of (j.valores ?? []) as Array<{ id: string; vars: Record<string, string> }>) valores[v.id] = v.vars ?? {};
+        setUso(j.uso ?? null);
       }
       // Render determinístico: correlativo + mes/año por código; objetivo/ángulo de la IA.
       const map: Record<string, string> = {};
@@ -870,7 +872,10 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
         ) : (
           <>
             <div style={{ padding: '16px 24px', maxHeight: '56vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {enAlcance.length} cambian. Destildá los que no quieras o editá el nombre generado.</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13, color: 'var(--dim)' }}>{cambios.length} de {enAlcance.length} cambian. Destildá los que no quieras o editá el nombre generado.</span>
+                {uso && <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap' }}>✦ {uso.tokens >= 1000 ? `${(uso.tokens / 1000).toFixed(1)}k` : uso.tokens} tok · ${uso.costUsd >= 1 ? uso.costUsd.toFixed(2) : uso.costUsd.toFixed(3)}</span>}
+              </div>
               {enAlcance.map((e) => {
                 const nuevo = prop[e.id] ?? e.name;
                 const cambia = incl.has(e.id) && nuevo.trim() !== e.name;

@@ -24,6 +24,7 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { chatClaude } from './anthropic';
+import { getPromptText, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
 import {
   fetchAllMeetings,
@@ -211,7 +212,7 @@ function primaryInviteeEmail(m: FathomMeeting, lead: LeadMatch | null): string |
 
 const ANALYSIS_MODEL = 'claude-opus-4-8';
 
-const SYSTEM_ANALISIS = `Sos MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizás grabaciones de reuniones para evaluar el desempeño del closer.
+export const SYSTEM_ANALISIS = `Sos MaKo, analista de cierres de Mauricio Bustos (consultoría/coaching ejecutivo que vende un programa de mentoría a dueños de negocio). Analizás grabaciones de reuniones para evaluar el desempeño del closer.
 
 Tu primera tarea es CLASIFICAR la llamada. Distinguí con cuidado:
 
@@ -325,7 +326,26 @@ function transcriptWithSeconds(items: FathomMeeting['transcript'], maxChars = 60
   return out.join('\n');
 }
 
-function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): string {
+// Esqueleto editable del user prompt. Los datos reales se inyectan en runtime en
+// los slots {{...}}; el armado de cada bloque queda del lado seguro (código).
+export const CLOSING_USER_TEMPLATE = `## Metadatos de la llamada
+{{metadatos}}
+
+## Contexto del lead en el CRM
+{{leadCtx}}
+
+## Resumen de Fathom
+{{summary}}
+
+## Action items
+{{actions}}
+
+## Transcript completo  [segundos · mm:ss] Hablante: texto
+{{transcript}}
+{{feedbackBlock}}
+Analizá la llamada y devolvé el JSON pedido.`;
+
+async function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): Promise<string> {
   const externals = externalInviteeEmails(m);
   const start = meetingStartIso(m);
   const dur = meetingDurationMin(m);
@@ -349,26 +369,26 @@ function buildUserPrompt(m: FathomMeeting, lead: LeadMatch | null, feedback?: st
       ].filter(Boolean).join('\n')
     : 'No hay lead matcheado en el CRM con este email (puede ser un prospecto nuevo o alguien fuera del funnel de venta).';
 
-  return `## Metadatos de la llamada
-Título: ${meetingTitle(m)}
-Fecha de la grabación: ${start ?? 'desconocida'}
-Duración: ${dur ?? '?'} min
-Invitados externos: ${externals.join(', ') || '(ninguno)'}
-Host (closer): ${m.recorded_by?.name ?? '?'}
+  const metadatos = [
+    `Título: ${meetingTitle(m)}`,
+    `Fecha de la grabación: ${start ?? 'desconocida'}`,
+    `Duración: ${dur ?? '?'} min`,
+    `Invitados externos: ${externals.join(', ') || '(ninguno)'}`,
+    `Host (closer): ${m.recorded_by?.name ?? '?'}`,
+  ].join('\n');
 
-## Contexto del lead en el CRM
-${leadCtx}
+  const feedbackBlock = feedback
+    ? `\n## Revisión humana (IMPORTANTE — tenelo en cuenta y ajustá tu análisis)\nQuien escuchó la llamada dice: "${feedback}"\nRe-evaluá la llamada incorporando esta observación; si corresponde, ajustá scores, outcome, notas y momentos.\n`
+    : '';
 
-## Resumen de Fathom
-${summaryMd}
-
-## Action items
-${actions || '(ninguno)'}
-
-## Transcript completo  [segundos · mm:ss] Hablante: texto
-${transcript || '(sin transcript)'}
-${feedback ? `\n## Revisión humana (IMPORTANTE — tenelo en cuenta y ajustá tu análisis)\nQuien escuchó la llamada dice: "${feedback}"\nRe-evaluá la llamada incorporando esta observación; si corresponde, ajustá scores, outcome, notas y momentos.\n` : ''}
-Analizá la llamada y devolvé el JSON pedido.`;
+  return renderPrompt('closing.analyze.user', CLOSING_USER_TEMPLATE, {
+    metadatos,
+    leadCtx,
+    summary: summaryMd,
+    actions: actions || '(ninguno)',
+    transcript: transcript || '(sin transcript)',
+    feedbackBlock,
+  });
 }
 
 export type AnalyzeResult =
@@ -378,11 +398,13 @@ export type AnalyzeResult =
 /** Corre Claude sobre una meeting con contenido. PURA: nunca tira, devuelve {ok}. */
 export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
   try {
-    const text = await chatClaude(SYSTEM_ANALISIS, [{ role: 'user', content: buildUserPrompt(m, lead, feedback) }], {
+    const system = await getPromptText('closing.analyze.system', SYSTEM_ANALISIS);
+    const text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(m, lead, feedback) }], {
       model: ANALYSIS_MODEL,
       thinking: true,
       effort: 'high',
       maxTokens: 8000,
+      feature: 'closing',
     });
     const raw = parseJsonObject(text) as ClaudeAnalysis;
     return { ok: true, analysis: raw };

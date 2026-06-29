@@ -11,6 +11,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MAIN_NAV, TOOLS_NAV, USER_NAV, type NavItem } from './nav';
 import { MakoLogo, MakoWord } from './MakoBrand';
+import { SaldoMaKo } from './SaldoMaKo';
 import { useNotifications } from './NotificationsProvider';
 
 const MONO = "'Geist Mono', monospace";
@@ -173,8 +174,9 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Usuario (abajo) — abre el menú con la config de MaKo */}
+      {/* Saldo / uso de IA + Usuario (abajo) */}
       <div style={{ marginTop: 'auto', paddingTop: 20, position: 'relative' }}>
+        <SaldoMaKo />
         {userOpen && (
           <>
             <div onClick={() => setUserOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />

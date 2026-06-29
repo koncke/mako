@@ -13,6 +13,7 @@ import { chatClaude } from '@/lib/anthropic';
 import { META_RULES_TEXT, VALIDATOR_RUBRIC } from '@/lib/meta-rules';
 import { VARIABLES_LEAD } from '@/lib/template-vars';
 import type { TemplateDraft } from '@/lib/meta-templates';
+import { getPromptText, renderPrompt } from '@/lib/prompt-render';
 
 export type Hallazgo = { regla: string; problema: string; correccion: string };
 export type Propuesta = {
@@ -31,13 +32,16 @@ export type ValidacionResult = {
 
 const VARS_DISPONIBLES = VARIABLES_LEAD.map((v) => `{{${v.key}}} (${v.descripcion})`).join(', ');
 
-const SYSTEM = `Sos un auditor de plantillas de mensaje de WhatsApp que PREDICE si Meta las va a APROBAR o RECHAZAR. No sos copywriter: evaluás contra las políticas antiabuso de Meta. Aplicá la rúbrica al pie de la letra.
+// Esqueleto editable del system. {{metaRules}} = reglas de Meta · {{rubric}} =
+// rúbrica de riesgo · {{vars}} = variables del lead que la app sabe rellenar.
+// (Esos tres bloques son a su vez editables como prompts propios; se inyectan acá.)
+export const TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE = `Sos un auditor de plantillas de mensaje de WhatsApp que PREDICE si Meta las va a APROBAR o RECHAZAR. No sos copywriter: evaluás contra las políticas antiabuso de Meta. Aplicá la rúbrica al pie de la letra.
 
-${META_RULES_TEXT}
+{{metaRules}}
 
-${VALIDATOR_RUBRIC}
+{{rubric}}
 
-Las únicas variables que la app sabe rellenar son: ${VARS_DISPONIBLES}. Si la plantilla usa otra variable, marcalo como problema. Las variables son nombradas ({{nombre}}), nunca posicionales ({{1}}).
+Las únicas variables que la app sabe rellenar son: {{vars}}. Si la plantilla usa otra variable, marcalo como problema. Las variables son nombradas ({{nombre}}), nunca posicionales ({{1}}).
 
 Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto antes ni después, sin markdown) con esta forma EXACTA:
 {
@@ -109,6 +113,9 @@ function parseResult(raw: string): ValidacionResult {
   };
 }
 
+// {{entrada}} = el borrador de plantilla (JSON) a evaluar.
+export const TEMPLATE_VALIDATOR_USER_TEMPLATE = `Evaluá esta plantilla y devolvé el JSON:\n{{entrada}}`;
+
 export async function validarPlantilla(draft: TemplateDraft): Promise<ValidacionResult> {
   const entrada = {
     name: draft.name,
@@ -120,10 +127,20 @@ export async function validarPlantilla(draft: TemplateDraft): Promise<Validacion
     buttons: draft.buttons,
     variables: draft.params.map((p) => ({ nombre: p.name, ejemplo: p.example })),
   };
-  const raw = await chatClaude(
-    SYSTEM,
-    [{ role: 'user', content: `Evaluá esta plantilla y devolvé el JSON:\n${JSON.stringify(entrada, null, 2)}` }],
-    { effort: 'high', maxTokens: 4000 },
-  );
+  // Las reglas y la rúbrica también son prompts editables: se resuelven acá y se
+  // inyectan en el system. La lista de variables válidas la fija el código.
+  const [metaRules, rubric] = await Promise.all([
+    getPromptText('meta.rules.text', META_RULES_TEXT),
+    getPromptText('meta.rules.rubric', VALIDATOR_RUBRIC),
+  ]);
+  const system = await renderPrompt('template_validator.system', TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, {
+    metaRules,
+    rubric,
+    vars: VARS_DISPONIBLES,
+  });
+  const user = await renderPrompt('template_validator.user', TEMPLATE_VALIDATOR_USER_TEMPLATE, {
+    entrada: JSON.stringify(entrada, null, 2),
+  });
+  const raw = await chatClaude(system, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 4000, feature: 'validador' });
   return parseResult(raw);
 }

@@ -66,7 +66,12 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
   const user = `${noun.toUpperCase()} (${entities.length}):\n${lista}\n\nDevolvé el JSON con las variables completadas por cada id.`;
 
   try {
-    const text = await chatClaude(system, [{ role: 'user', content: user }], { model: 'claude-opus-4-8', thinking: true, effort: 'medium', maxTokens: 16000 });
+    let uso: { tokens: number; costUsd: number } | null = null;
+    const text = await chatClaude(system, [{ role: 'user', content: user }], {
+      model: 'claude-opus-4-8', thinking: true, effort: 'medium', maxTokens: 16000,
+      feature: 'ads-rename',
+      onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
+    });
     const raw = parseJsonObject(text);
     const arr = Array.isArray(raw.valores) ? raw.valores : [];
     const valid = new Set(entities.map((e) => e.id));
@@ -79,7 +84,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
         return { id, vars: out };
       })
       .filter((p) => valid.has(p.id));
-    return Response.json({ ok: true, valores });
+    return Response.json({ ok: true, valores, uso });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[ads-manager:rename-suggest] ${message}`);

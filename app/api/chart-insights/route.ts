@@ -13,15 +13,20 @@ import {
   renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
 } from '@/lib/chart-chats';
 import { buildSystemPrompt } from '@/lib/mako-context';
+import { getPromptText } from '@/lib/prompt-render';
+import { CHART_PROMPT_ANALISIS_DEFAULT, CHART_PROMPT_SALUDO_DEFAULT, CHART_TITULO_DEFAULT } from '@/lib/prompt-defaults';
 
 export const dynamic = 'force-dynamic';
 
-const PROMPT_ANALISIS = 'Mirá el gráfico y tirame SOLO lo más importante: el insight que más impacta, en 2-4 líneas, con tu voz. Nada de resumen completo ni listar todo.';
-const PROMPT_SALUDO = 'Presentate en 1-2 líneas como MaKo y decime en qué me podés ayudar con los datos del negocio. Breve, con tu voz.';
-const promptInicial = (c: string) => (c.trim() ? PROMPT_ANALISIS : PROMPT_SALUDO);
+// Primer mensaje del usuario: análisis (si hay gráfico) o saludo (chat general).
+// Ambos son editables desde Configuraciones (default en lib/prompt-defaults).
+const promptInicial = (c: string) =>
+  c.trim()
+    ? getPromptText('chart_insights.prompt_analisis', CHART_PROMPT_ANALISIS_DEFAULT)
+    : getPromptText('chart_insights.prompt_saludo', CHART_PROMPT_SALUDO_DEFAULT);
 
-function buildMsgs(contexto: string, history: ChartMsg[], mensaje?: string): ClaudeMsg[] {
-  const msgs: ClaudeMsg[] = [{ role: 'user', content: promptInicial(contexto) }, ...history.map((m) => ({ role: m.role, content: m.content }))];
+async function buildMsgs(contexto: string, history: ChartMsg[], mensaje?: string): Promise<ClaudeMsg[]> {
+  const msgs: ClaudeMsg[] = [{ role: 'user', content: await promptInicial(contexto) }, ...history.map((m) => ({ role: m.role, content: m.content }))];
   if (mensaje) msgs.push({ role: 'user', content: mensaje });
   return msgs;
 }
@@ -29,22 +34,30 @@ function buildMsgs(contexto: string, history: ChartMsg[], mensaje?: string): Cla
 // Título corto generado por la IA (sin thinking, barato). Diferencia chats del mismo gráfico.
 async function generarTitulo(seed: string): Promise<string | null> {
   try {
+    const sys = await getPromptText('chart_insights.titulo_generation', CHART_TITULO_DEFAULT);
     const t = await chatClaude(
-      'Devolvé SOLO un título corto (3 a 6 palabras, en español, sin comillas ni punto final) que resuma de qué trata esto. Nada más que el título.',
+      sys,
       [{ role: 'user', content: seed.slice(0, 1500) }],
-      { thinking: false, maxTokens: 30 },
+      { thinking: false, maxTokens: 30, feature: 'mako-chat' },
     );
     const clean = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
     return clean ? clean.slice(0, 70) : null;
   } catch { return null; }
 }
 
+/** Seed del título cuando no hay gráfico: usa el saludo vigente + la respuesta. */
+async function seedTitulo(contexto: string, resp: string): Promise<string> {
+  if (contexto.trim()) return resp;
+  const saludo = await getPromptText('chart_insights.prompt_saludo', CHART_PROMPT_SALUDO_DEFAULT);
+  return `${saludo}\n${resp}`;
+}
+
 async function crearYAnalizar(chartKey: string, titulo: string, contexto: string) {
   const s = await createSession(chartKey, null, contexto);
   const query = `${titulo}\n${contexto}`.slice(0, 2000);
-  const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo, contexto, query }), buildMsgs(contexto, []));
+  const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo, contexto, query }), await buildMsgs(contexto, []), { feature: 'mako-chat' });
   await appendMessage(s.id, 'assistant', resp);
-  const t = await generarTitulo(contexto.trim() ? resp : `${PROMPT_SALUDO}\n${resp}`);
+  const t = await generarTitulo(await seedTitulo(contexto, resp));
   if (t) await renameSession(s.id, t);
   return s.id;
 }
@@ -83,10 +96,10 @@ export async function POST(req: NextRequest) {
         // así abrir un gráfico SIEMPRE devuelve su análisis sin tener que crear chat.
         const ctx = s.contexto ?? contexto;
         const query = `${s.titulo ?? titulo}\n${ctx}`.slice(0, 2000);
-        const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo: s.titulo ?? titulo, contexto: ctx, query }), buildMsgs(ctx, []));
+        const resp = await chatClaude(await buildSystemPrompt({ chartKey, titulo: s.titulo ?? titulo, contexto: ctx, query }), await buildMsgs(ctx, []), { feature: 'mako-chat' });
         await appendMessage(s.id, 'assistant', resp);
         if (!s.titulo) {
-          const t = await generarTitulo(ctx.trim() ? resp : `${PROMPT_SALUDO}\n${resp}`);
+          const t = await generarTitulo(await seedTitulo(ctx, resp));
           if (t) await renameSession(s.id, t);
         }
         return Response.json({ session: await getSession(s.id), messages: await getSessionMessages(s.id), sessions: await listSessions(chartKey) });
@@ -111,7 +124,7 @@ export async function POST(req: NextRequest) {
       const ctx = s.contexto ?? '';
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await chatClaude(await buildSystemPrompt({ chartKey: s.chart_key, titulo: s.titulo ?? 'Chat', contexto: ctx, query: mensaje }), buildMsgs(ctx, history, mensaje));
+      const resp = await chatClaude(await buildSystemPrompt({ chartKey: s.chart_key, titulo: s.titulo ?? 'Chat', contexto: ctx, query: mensaje }), await buildMsgs(ctx, history, mensaje), { feature: 'mako-chat' });
       await appendMessage(sessionId, 'assistant', resp);
       // Si todavía no tiene título propio, que la IA le ponga uno a partir de la charla.
       if (!s.titulo) {
