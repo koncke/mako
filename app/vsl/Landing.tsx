@@ -99,17 +99,9 @@ export default function Landing() {
         ) as HTMLElement | undefined;
         if (urgency) {
           urgency.classList.add('mk-beta-oferta');
-          urgency.innerHTML = urgency.innerHTML.replace(
-            /condiciones que no se van a repetir/i,
-            '<strong class="mk-beta-hl">condiciones que no se van a repetir</strong>',
-          );
-          const cupos = document.createElement('div');
-          cupos.className = 'mk-beta-cupos';
-          cupos.innerHTML =
-            '<span class="mk-beta-chips">' +
-            [1, 2, 3, 4, 5].map((n) => '<i>' + n + '</i>').join('') +
-            '</span><span class="mk-beta-cupos-tag">Solo existen 5 lugares · cuando se llenan, cierra</span>';
-          urgency.insertAdjacentElement('afterend', cupos);
+          urgency.innerHTML =
+            'Los primeros 5 no solamente entran antes que nadie: entran en ' +
+            '<strong class="mk-beta-hl">condiciones que no se van a repetir</strong>.';
         }
       }
 
@@ -128,10 +120,10 @@ export default function Landing() {
       if (cal && cal.parentElement) {
         const trust = document.createElement('div');
         trust.className = 'mk-beta-trust';
-        trust.innerHTML = ['Sin costo', 'Sin compromiso', '30 min con Martín']
+        trust.innerHTML = ['Sin costo', '60 min con Martín']
           .map(
             (t) =>
-              '<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E9E57" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9 -10"/></svg>' +
+              '<span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5l9 -10"/></svg>' +
               t +
               '</span>',
           )
@@ -334,32 +326,29 @@ body:has(.vsl-root) aside { display: none !important; }
 /* Calendly: alto suficiente para que el agendamiento no requiera scroll interno. */
 .vsl-root #cal-embed { height: 1100px !important; }
 
-/* ── Realce de la sección CTA (#beta) — escasez, oferta y confianza a la vista ── */
-.vsl-root #beta { background: radial-gradient(120% 80% at 50% 0%, #FFFFFF 0%, #F5F7FA 58%) !important; }
+/* ── Realce de la sección CTA (#beta) — fondo azul de marca + texto claro ── */
+.vsl-root #beta { background: linear-gradient(180deg,#2F6FED 0%,#2A63DE 100%) !important; border-top: 1px solid rgba(255,255,255,.12) !important; }
 .vsl-root #beta p:empty { display: none !important; }
-.vsl-root #beta h2 { margin-top: 0 !important; margin-bottom: 14px !important; }
-.vsl-root #beta p strong { color: #DC2626 !important; font-weight: 700 !important; }
+.vsl-root #beta h2 { margin-top: 0 !important; margin-bottom: 14px !important; color: #FFFFFF !important; }
+.vsl-root #beta [data-reveal]:first-child p { color: rgba(255,255,255,.88) !important; }
+.vsl-root #beta p strong { color: #FFD15C !important; font-weight: 700 !important; }
 
-.vsl-root .mk-beta-badge { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 7px 15px; border-radius: 999px; background: rgba(220,38,38,.07); border: 1px solid rgba(220,38,38,.2); font-family: 'Geist Mono', monospace; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: #DC2626; }
-.vsl-root .mk-beta-dot { width: 7px; height: 7px; border-radius: 50%; background: #DC2626; flex: none; animation: mkLive 1.8s ease-in-out infinite; }
+.vsl-root .mk-beta-badge { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 7px 15px; border-radius: 999px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.32); font-family: 'Geist Mono', monospace; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: #FFFFFF; }
+.vsl-root .mk-beta-dot { width: 7px; height: 7px; border-radius: 50%; background: #FF6B6B; flex: none; animation: mkLive 1.8s ease-in-out infinite; }
 
-.vsl-root .mk-beta-oferta { max-width: 620px; margin: 20px auto 0; padding: 16px 22px; text-align: left; background: #FFFFFF; border: 1px solid #EFE2C2; border-left: 3px solid #F2B01E; border-radius: 0 12px 12px 0; font-size: 17px; line-height: 1.55; font-weight: 500; color: #3A4150; box-shadow: 0 10px 30px -22px rgba(16,19,25,.25); }
-.vsl-root .mk-beta-hl { font-weight: 600; color: #12151B; background: linear-gradient(transparent 62%, rgba(242,176,30,.34) 0); }
+.vsl-root .mk-beta-oferta { max-width: 620px; margin: 20px auto 0; text-align: center; font-size: 18px; line-height: 1.55; font-weight: 500; color: rgba(255,255,255,.92); }
+.vsl-root .mk-beta-hl { font-weight: 700; color: #FFD15C; }
 
-.vsl-root .mk-beta-cupos { display: flex; flex-direction: column; align-items: center; gap: 9px; margin: 22px auto 0; }
-.vsl-root .mk-beta-chips { display: inline-flex; gap: 8px; }
-.vsl-root .mk-beta-chips i { width: 36px; height: 36px; border-radius: 10px; border: 1.5px solid #2F6FED; background: rgba(47,111,237,.06); color: #2F6FED; display: flex; align-items: center; justify-content: center; font-family: 'Geist Mono', monospace; font-size: 14px; font-weight: 700; font-style: normal; }
-.vsl-root .mk-beta-cupos-tag { font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #98A0AC; text-align: center; }
-
-.vsl-root .mk-beta-cards-tag { text-align: center; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #98A0AC; margin: 48px 0 0; }
+.vsl-root .mk-beta-cards-tag { text-align: center; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.72); margin: 48px 0 0; }
 .vsl-root .mk-beta-cards { margin-top: 16px !important; }
-.vsl-root .mk-beta-cards > div { transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 10px 30px -22px rgba(16,19,25,.18) !important; border-top-width: 3px !important; }
-.vsl-root .mk-beta-cards > div:hover { transform: translateY(-3px); box-shadow: 0 20px 44px -22px rgba(16,19,25,.22) !important; }
+.vsl-root .mk-beta-cards > div { transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 16px 40px -24px rgba(8,12,30,.5) !important; border-top-width: 3px !important; }
+.vsl-root .mk-beta-cards > div:hover { transform: translateY(-3px); box-shadow: 0 22px 50px -24px rgba(8,12,30,.55) !important; }
 .vsl-root .mk-beta-cards > div:nth-child(1) { border-top-color: #F2B01E !important; }
 .vsl-root .mk-beta-cards > div:nth-child(2) { border-top-color: #2F6FED !important; }
 .vsl-root .mk-beta-cards > div:nth-child(3) { border-top-color: #1E9E57 !important; }
 
-.vsl-root .mk-beta-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; margin: 0 auto 18px; font-size: 13.5px; color: #5B6472; }
+.vsl-root #beta [data-reveal]:last-child > div:first-child { color: rgba(255,255,255,.8) !important; }
+.vsl-root .mk-beta-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; margin: 0 auto 18px; font-size: 13.5px; color: rgba(255,255,255,.9); }
 .vsl-root .mk-beta-trust span { display: inline-flex; align-items: center; gap: 6px; }
 
 @media (prefers-reduced-motion: reduce) { .vsl-root .mk-beta-dot { animation: none; } }
