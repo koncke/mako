@@ -269,4 +269,27 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root #cal-embed{min-width:0 !important;width:100% !important}
   .vsl-root #testimonios > div{padding:52px 18px 62px !important}
 }
+
+/* ── Refinamientos mobile propios (sobre las media queries del diseño) ── */
+@media (max-width:768px){
+  /* Filas que pasan a columna: el flex-basis estaba pensado para ancho (layout
+     horizontal); en columna se interpreta como ALTO y genera huecos enormes.
+     Lo reseteamos para que cada bloque ocupe su alto natural y todo el ancho. */
+  .vsl-root .mk-deep > div { flex: 0 0 auto !important; width: 100% !important; min-width: 0 !important; max-width: none !important; }
+  .vsl-root .mk-testi-row > div { flex: 0 0 auto !important; width: 100% !important; min-width: 0 !important; max-width: none !important; }
+  .vsl-root .mk-story-row > div { min-width: 0 !important; max-width: none !important; }
+  .vsl-root #que-es > div > div { min-width: 0 !important; }
+  .vsl-root #top > div > div { min-width: 0 !important; }
+  /* Sin sticky en mobile: evita que el video/imagen quede pinneado al hacer scroll. */
+  .vsl-root .mk-story-row div[style*="position:sticky"] { position: static !important; top: auto !important; }
+  /* Paneles decorativos de las secciones, más compactos. */
+  .vsl-root .mk-deep-panel { min-height: 176px !important; }
+  .vsl-root .mk-deep { gap: 22px !important; padding: 40px 0 !important; }
+  /* Las cards de Beta en una sola columna ordenada. */
+  .vsl-root #beta div[style*="repeat(auto-fit"] { grid-template-columns: 1fr !important; }
+}
+@media (max-width:420px){
+  /* Grid de iconos de "¿Qué es MaKo?": apretar un poco el gap. */
+  .vsl-root #que-es div[style*="repeat(4,1fr)"] { gap: 8px !important; }
+}
 `;
