@@ -308,8 +308,15 @@ body:has(.vsl-root) aside { display: none !important; }
 
 /* "¿Para quién es esto?": las dos columnas (✓ / ✕) a la misma altura. */
 .vsl-root .mk-pq-grid { align-items: stretch !important; }
-/* Calendly: alto suficiente para que el agendamiento no requiera scroll interno. */
-.vsl-root #cal-embed { height: 1100px !important; }
+/* Calendly: más ancho que alto. Ensanchamos SOLO el bloque del embed (breakout
+   del contenedor de 900px, sin tocar las cards) para que Calendly use su layout
+   horizontal y baje el alto. Objetivo: sin scroll interno y sin espacio de sobra. */
+.vsl-root #beta [data-reveal]:last-child { width: min(1060px, calc(100vw - 48px)); margin-left: 50%; transform: translateX(-50%); }
+.vsl-root #cal-embed { height: 720px !important; }
+@media (max-width: 768px) {
+  .vsl-root #beta [data-reveal]:last-child { width: auto; margin-left: 0; transform: none; }
+  .vsl-root #cal-embed { height: 1080px !important; }
+}
 
 /* ── Realce de la sección CTA (#beta) — fondo azul de marca + texto claro ── */
 .vsl-root #beta { background: linear-gradient(180deg,#2F6FED 0%,#2A63DE 100%) !important; border-top: 1px solid rgba(255,255,255,.12) !important; }
