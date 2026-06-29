@@ -299,6 +299,10 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root #top .mk-hero-text > p:last-of-type { display: none !important; }
   .vsl-root #top .mk-hero-cta-mobile { display: block !important; width: 100%; text-align: center; margin-top: 4px; }
   .vsl-root #top .mk-hero-cta-mobile > a { margin-left: auto !important; margin-right: auto !important; }
+  /* El gap de 40px del hero es para las 2 columnas del desktop; en mobile (apilado)
+     achica el espacio entre subtítulo y video. */
+  .vsl-root #top > div { gap: 24px !important; }
+  .vsl-root #top .mk-hero-text > p:first-of-type { margin-bottom: 0 !important; }
 }
 @media (max-width:480px){
   /* Grilla de features: 2 columnas en mobile, con cards más cuadradas y compactas. */
