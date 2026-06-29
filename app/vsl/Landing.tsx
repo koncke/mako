@@ -82,17 +82,8 @@ export default function Landing() {
     if (beta && !beta.hasAttribute('data-beta-on')) {
       beta.setAttribute('data-beta-on', '');
       const header = beta.querySelector<HTMLElement>('[data-reveal]');
-      const h2 = beta.querySelector<HTMLElement>('h2');
 
-      // 1) Badge de escasez arriba del h2.
-      if (header && h2) {
-        const badge = document.createElement('div');
-        badge.className = 'mk-beta-badge';
-        badge.innerHTML = '<span class="mk-beta-dot"></span>Beta privada · solo 5 cupos';
-        header.insertBefore(badge, h2);
-      }
-
-      // 2) Rescatar la línea de oferta (div sin estilo) + indicador de cupos.
+      // 1) Rescatar la línea de oferta (div sin estilo) y reescribirla.
       if (header) {
         const urgency = Array.from(header.children).find(
           (el) => el.tagName === 'DIV' && /no se van a repetir/i.test(el.textContent || ''),
@@ -105,15 +96,9 @@ export default function Landing() {
         }
       }
 
-      // 3) Cards: clase para acento/hover + micro-rótulo arriba del grid.
+      // 2) Cards: clase para acento de color + hover.
       const grid = beta.querySelector<HTMLElement>('div[style*="repeat(auto-fit"]');
-      if (grid && grid.parentElement) {
-        grid.classList.add('mk-beta-cards');
-        const tag = document.createElement('div');
-        tag.className = 'mk-beta-cards-tag';
-        tag.textContent = 'Lo que obtenés por entrar entre los primeros';
-        grid.parentElement.insertBefore(tag, grid);
-      }
+      if (grid) grid.classList.add('mk-beta-cards');
 
       // 4) Micro-confianza (reversión de riesgo) justo antes del Calendly.
       const cal = beta.querySelector<HTMLElement>('#cal-embed');
@@ -333,25 +318,19 @@ body:has(.vsl-root) aside { display: none !important; }
 .vsl-root #beta [data-reveal]:first-child p { color: rgba(255,255,255,.88) !important; }
 .vsl-root #beta p strong { color: #FFD15C !important; font-weight: 700 !important; }
 
-.vsl-root .mk-beta-badge { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 7px 15px; border-radius: 999px; background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.32); font-family: 'Geist Mono', monospace; font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: #FFFFFF; }
-.vsl-root .mk-beta-dot { width: 7px; height: 7px; border-radius: 50%; background: #FF6B6B; flex: none; animation: mkLive 1.8s ease-in-out infinite; }
-
 .vsl-root .mk-beta-oferta { max-width: 620px; margin: 20px auto 0; text-align: center; font-size: 18px; line-height: 1.55; font-weight: 500; color: rgba(255,255,255,.92); }
 .vsl-root .mk-beta-hl { font-weight: 700; color: #FFD15C; }
 
-.vsl-root .mk-beta-cards-tag { text-align: center; font-family: 'Geist Mono', monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.72); margin: 48px 0 0; }
-.vsl-root .mk-beta-cards { margin-top: 16px !important; }
+.vsl-root .mk-beta-cards { margin-top: 44px !important; }
 .vsl-root .mk-beta-cards > div { transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 16px 40px -24px rgba(8,12,30,.5) !important; border-top-width: 3px !important; }
 .vsl-root .mk-beta-cards > div:hover { transform: translateY(-3px); box-shadow: 0 22px 50px -24px rgba(8,12,30,.55) !important; }
 .vsl-root .mk-beta-cards > div:nth-child(1) { border-top-color: #F2B01E !important; }
-.vsl-root .mk-beta-cards > div:nth-child(2) { border-top-color: #2F6FED !important; }
+.vsl-root .mk-beta-cards > div:nth-child(2) { border-top-color: #8B7CF6 !important; }
 .vsl-root .mk-beta-cards > div:nth-child(3) { border-top-color: #1E9E57 !important; }
 
-.vsl-root #beta [data-reveal]:last-child > div:first-child { color: rgba(255,255,255,.8) !important; }
+.vsl-root #beta [data-reveal]:last-child > div:first-child { display: none !important; }
 .vsl-root .mk-beta-trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 22px; margin: 0 auto 18px; font-size: 13.5px; color: rgba(255,255,255,.9); }
 .vsl-root .mk-beta-trust span { display: inline-flex; align-items: center; gap: 6px; }
-
-@media (prefers-reduced-motion: reduce) { .vsl-root .mk-beta-dot { animation: none; } }
 
 @media (max-width:600px){ .vsl-root .mk-hdr-cupos{display:none !important} }
 @media (max-width:768px){
