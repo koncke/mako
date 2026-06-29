@@ -9,7 +9,13 @@
 // NO importa nada de ./Landing, ./landing-html ni ./content para no acoplarse a
 // archivos que otra sesión está editando. Es 100% autocontenido.
 
-export type FeatureGroup = { title: string; bullets: string[] };
+export type FeatureGroup = {
+  title: string;
+  bullets: string[];
+  // PLACEHOLDER: ruta de captura para esta capacidad (ej '/vsl-assets/crm-captura.png').
+  // Si queda vacío, se muestra un recuadro placeholder con el título como caption.
+  img?: string;
+};
 
 export type Feature = {
   slug: string;
@@ -21,9 +27,17 @@ export type Feature = {
   conecta?: string[]; // chips de integraciones
   quote?: string; // frase-ejemplo de salida del producto
   nota?: string; // estado honesto (en activación / en construcción)
+  // PLACEHOLDER: demo/captura del hero (ej '/vsl-assets/crm-demo.png' o un .mp4).
+  // Si queda vacío, se muestra un recuadro placeholder 16:9.
+  heroImg?: string;
   metaTitle: string;
   metaDesc: string;
 };
+
+// Testimonios (placeholder): cuando esté vacío, las páginas muestran tarjetas
+// placeholder para que Martín las complete. Reemplazar por testimonios reales.
+export type Testimonio = { quote: string; titular: string; nombre: string; rol: string; foto?: string };
+export const TESTIMONIOS: Testimonio[] = [];
 
 // Íconos Tabler (outline) — set verificado a mano por funcionalidad.
 const ICON: Record<string, string[]> = {
