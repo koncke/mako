@@ -166,6 +166,7 @@ export function CrmBoard({
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
+  const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -243,14 +244,20 @@ export function CrmBoard({
   // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
   const needsFicha = (key: string, e: Edits) => missingFor(key, e).length > 0 || !!sectionForStage(key);
 
-  // Agendar R1/R2 por Calendly: abre el popup (prefill nombre/email); la fecha
-  // la setea el webhook al reservar y el lead avanza solo. NO persistimos acá.
-  const scheduleViaCalendly = (lead: CrmLead, key: string) => {
+  // Abre Calendly (prefill nombre/email); la fecha la setea el webhook al reservar
+  // y el lead avanza solo. NO persistimos acá.
+  const doOpenCalendly = (lead: CrmLead, key: string) => {
     void openCalendlyFor(key, {
       name: lead.name,
       email: lead.email,
       onScheduled: () => { setTimeout(() => router.refresh(), 2500); },
     });
+  };
+
+  // Antes de tocar Calendly preguntamos: ¿la reunión ya ocurrió (marcar a mano) o
+  // se va a agendar? Único punto de intercepción (worklist, ficha, drag y chips).
+  const scheduleViaCalendly = (lead: CrmLead, key: string) => {
+    setMeetingChoice({ leadId: lead.id, name: lead.name, which: key as 'agenda' | 'agendaj2' });
   };
 
   const requestStage = (l: CrmLead, key: string) => {
@@ -562,7 +569,7 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} onManualNutri={openManualNutri} onManualMeeting={openManualMeeting} stageLabel={(k) => findStage(stages, k).label} />
+        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} onManualNutri={openManualNutri} stageLabel={(k) => findStage(stages, k).label} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
@@ -636,7 +643,6 @@ export function CrmBoard({
           onSave={() => saveDetail(selected)}
           onDelete={() => removeLead(selected.id)}
           onSchedule={(key) => scheduleViaCalendly(selected, key)}
-          onManualMeeting={(which) => openManualMeeting(selected.id, which)}
         />
       )}
 
@@ -664,6 +670,35 @@ export function CrmBoard({
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button onClick={() => setManualNutri(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
               <button onClick={confirmManualNutri} disabled={!manualMotivo.trim()} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: manualMotivo.trim() ? 'var(--accent-soft)' : 'var(--border)', color: '#171511', fontSize: 14, fontWeight: 700, cursor: manualMotivo.trim() ? 'pointer' : 'default', opacity: manualMotivo.trim() ? 1 : 0.6, fontFamily: SANS }}>Guardar nutrición manual</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ¿La reunión ya ocurrió o se va a agendar? Paso previo a Calendly */}
+      {meetingChoice && (
+        <div onClick={() => setMeetingChoice(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(23,21,17,.35)', padding: '22px 24px' }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Reunión {meetingChoice.which === 'agenda' ? 'R1' : 'R2'} — {meetingChoice.name}</div>
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 18 }}>¿Ya tuviste esta {meetingChoice.which === 'agenda' ? 'R1' : 'R2'} o la querés agendar?</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => { const c = meetingChoice; setMeetingChoice(null); openManualMeeting(c.leadId, c.which); }}
+                style={{ width: '100%', padding: '13px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}
+              >
+                <div>Ya la tuve</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dim)', marginTop: 2 }}>Marcar fecha y asistencia a mano (sin Calendly)</div>
+              </button>
+              <button
+                onClick={() => { const c = meetingChoice; setMeetingChoice(null); const l = leads.find((x) => x.id === c.leadId); if (l) doOpenCalendly(l, c.which); }}
+                style={{ width: '100%', padding: '13px 16px', borderRadius: 11, border: '1px solid var(--accent)', background: 'rgba(200,135,12,.08)', color: '#9A6A09', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}
+              >
+                <div>📅 Agendarla por Calendly</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: '#9A6A09', opacity: 0.85, marginTop: 2 }}>Abrir Calendly para reservar fecha</div>
+              </button>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setMeetingChoice(null)} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
             </div>
           </div>
         </div>
@@ -705,13 +740,12 @@ export function CrmBoard({
 
 // ── Datos sin marcar (worklist) ──
 function SinMarcar({
-  marcar, optionsFor, onResolve, onManualNutri, onManualMeeting, stageLabel,
+  marcar, optionsFor, onResolve, onManualNutri, stageLabel,
 }: {
   marcar: CrmMarcar[];
   optionsFor: (m: CrmMarcar) => FunnelTransition[];
   onResolve: (leadId: number, t: FunnelTransition) => void;
   onManualNutri: (leadId: number) => void;
-  onManualMeeting: (leadId: number, which: 'agenda' | 'agendaj2') => void;
   stageLabel: (key: string) => string;
 }) {
   // Intención del movimiento, para distinguir claramente nutrir vs dar de baja.
@@ -725,18 +759,13 @@ function SinMarcar({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {marcar.map((m) => {
           const options = optionsFor(m);
-          // Cada opción del funnel; si lleva a una reunión (R1/R2, normalmente vía
-          // Calendly), se agrega una variante "ya la tuve" para marcarla a mano
-          // (casos viejos cuya reunión ya ocurrió, sin agendar de nuevo).
-          const ddOptions: { value: string; label: string; sub?: string; color?: string }[] = [];
-          options.forEach((opt, i) => {
-            ddOptions.push({ value: String(i), label: stageLabel(opt.to), sub: intent(opt.category), color: CATEGORY[opt.category].c });
-            if (calendlyUrlFor(opt.to)) {
-              ddOptions.push({ value: `MM:${opt.to}`, label: `${stageLabel(opt.to)} — ya la tuve`, sub: 'marcar fecha a mano, sin Calendly', color: CATEGORY[opt.category].c });
-            }
-          });
+          // Al elegir una reunión (R1/R2) salta un pop-up que pregunta si ya ocurrió
+          // o se agenda — no hace falta una opción aparte acá.
           // "Nutrición - Manual" SIEMPRE disponible (pide motivo antes de guardar).
-          ddOptions.push({ value: 'MANUAL', label: 'Nutrición - Manual', sub: 'sigue en nutrición · pide motivo', color: CATEGORY.nutricion.c });
+          const ddOptions = [
+            ...options.map((opt, i) => ({ value: String(i), label: stageLabel(opt.to), sub: intent(opt.category), color: CATEGORY[opt.category].c })),
+            { value: 'MANUAL', label: 'Nutrición - Manual', sub: 'sigue en nutrición · pide motivo', color: CATEGORY.nutricion.c },
+          ];
           return (
             <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -753,7 +782,6 @@ function SinMarcar({
                   ariaLabel={'Mover a ' + m.name}
                   onChange={(v) => {
                     if (v === 'MANUAL') { onManualNutri(m.leadId); return; }
-                    if (v.startsWith('MM:')) { onManualMeeting(m.leadId, v.slice(3) as 'agenda' | 'agendaj2'); return; }
                     const t = options[Number(v)]; if (t) onResolve(m.leadId, t);
                   }}
                   options={ddOptions}
