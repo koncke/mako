@@ -44,17 +44,33 @@ export default function Landing() {
     // Inyectado en runtime (no en landing-html.ts, que es auto-generado) para
     // sobrevivir a regeneraciones del diseño. Cada sección #m-<slug> linkea a
     // su página de detalle /vsl/<slug>.
+    const DETALLE_LABELS: Record<string, string> = {
+      funnel: 'tu funnel',
+      crm: 'el CRM automatizado',
+      api: 'la API de Meta',
+      ads: 'el Ads Manager',
+      script: 'Script Analyst',
+      closing: 'Closing Analyst',
+      seguimiento: 'el seguimiento automático',
+      cobranza: 'cobranza y revenue',
+      contrato: 'la lectura de contratos',
+      customer: 'Customer Success',
+      semaforo: 'el Semáforo del negocio',
+      experimentos: 'Experimentos',
+      whatsapp: 'WhatsApp',
+      email: 'Email Marketing',
+      mako: 'MaKo IA',
+    };
     root.querySelectorAll<HTMLElement>('.mk-deep[id^="m-"]').forEach((section) => {
       const cta = section.querySelector<HTMLAnchorElement>('a[href="#beta"]');
       if (!cta || section.querySelector('[data-detalle-link]')) return;
       const slug = section.id.replace(/^m-/, '');
-      const nombre =
-        section.querySelector<HTMLElement>('span[style*="2F6FED"]')?.textContent?.trim() ||
-        'esta función';
+      const label = DETALLE_LABELS[slug];
+      if (!label) return;
       const link = document.createElement('a');
       link.href = '/vsl/' + slug;
       link.setAttribute('data-detalle-link', '');
-      link.textContent = 'Saber más sobre ' + nombre;
+      link.textContent = 'Saber más sobre ' + label;
       link.style.cssText =
         'display:block;text-align:center;margin-top:14px;color:#2F6FED;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:.01em';
       cta.insertAdjacentElement('afterend', link);
