@@ -28,6 +28,7 @@ import {
   updateLead,
   deleteLead,
   setPipelineStage,
+  setMeetingManual,
   saveLeadMeta,
   saveFunnel,
   getLead,
@@ -198,6 +199,25 @@ export async function markManualNutritionAction(id: number, motivo: string): Pro
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, 'CRM');
   if (motivo.trim()) await logLeadEvent(id, 'Nutrición manual — motivo', motivo.trim(), 'CRM');
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath('/general');
+}
+
+/**
+ * Marca una reunión (R1/R2) a mano, sin Calendly — para casos viejos cuya reunión
+ * ya ocurrió. Setea la fecha (+ asistencia si se sabe) y deja que el lead avance.
+ */
+export async function markMeetingManualAction(
+  id: number,
+  which: 'agenda' | 'agendaj2',
+  fecha: string,
+  asistio: boolean | null,
+): Promise<void> {
+  const before = await getLead(id).catch(() => null);
+  await setMeetingManual(id, which, fecha, asistio);
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, 'CRM');
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');

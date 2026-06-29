@@ -36,6 +36,7 @@ const rowInput: CSSProperties = { padding: '9px 12px', borderRadius: 9, border: 
 const miniCard: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' };
 const dashBtn: CSSProperties = { padding: 9, borderRadius: 9, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const calBtn: CSSProperties = { flex: 1, minWidth: 200, padding: '10px 14px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(200,135,12,.08)', color: '#9A6A09', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const calBtnGhost: CSSProperties = { padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' };
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -48,7 +49,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export function LeadDetail({
   lead, stages, effStage, pendingMove, moveError, edits, missing,
-  onPatch, onPickStage, onClose, onSave, onDelete, onSchedule, focus, zIndex = 50, saveError = false,
+  onPatch, onPickStage, onClose, onSave, onDelete, onSchedule, onManualMeeting, focus, zIndex = 50, saveError = false,
 }: {
   lead: CrmLead;
   stages: Stage[];
@@ -63,6 +64,7 @@ export function LeadDetail({
   onSave: () => void;
   onDelete: () => void;
   onSchedule?: (key: string) => void;   // abrir Calendly para R1/R2
+  onManualMeeting?: (which: 'agenda' | 'agendaj2') => void;   // marcar R1/R2 a mano (ya ocurrió)
   focus?: string;       // sección a la que saltar: datos-comerciales | plan-pagos | motivo | etapa | fathom | nutricion
   zIndex?: number;      // por defecto 50; se sube cuando abre sobre otro modal (desglose)
   saveError?: boolean;  // true si la última acción de guardar/borrar falló
@@ -214,8 +216,14 @@ export function LeadDetail({
                 <Stat label="¿Confirmó pago?" value={lead.confirmacion ? 'Sí · ' + lead.confirmacion : '—'} />
                 {onSchedule && (
                   <div style={{ gridColumn: '1/-1', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <button onClick={() => onSchedule('agenda')} style={calBtn}>📅 Agendar / reagendar R1</button>
-                    <button onClick={() => onSchedule('agendaj2')} style={calBtn}>📅 Agendar / reagendar R2</button>
+                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button onClick={() => onSchedule('agenda')} style={calBtn}>📅 Agendar / reagendar R1</button>
+                      {onManualMeeting && <button onClick={() => onManualMeeting('agenda')} style={calBtnGhost}>R1 ya realizada · marcar a mano</button>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button onClick={() => onSchedule('agendaj2')} style={calBtn}>📅 Agendar / reagendar R2</button>
+                      {onManualMeeting && <button onClick={() => onManualMeeting('agendaj2')} style={calBtnGhost}>R2 ya realizada · marcar a mano</button>}
+                    </div>
                   </div>
                 )}
                 <div style={{ gridColumn: '1/-1', ...miniCard }}>

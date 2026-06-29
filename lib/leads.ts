@@ -595,6 +595,20 @@ export async function setFechaJunta2(leadId: number, fechaJ2: string): Promise<v
 }
 
 /**
+ * Marca una reunión (R1/R2) a mano, SIN Calendly — para casos viejos donde la
+ * reunión ya ocurrió. Setea la fecha (+ asistencia si se sabe) y limpia el
+ * override de etapa para que el lead avance por derivación (p.ej. R2 asistida → Facturando).
+ */
+export async function setMeetingManual(leadId: number, which: 'agenda' | 'agendaj2', fecha: string, asistio: boolean | null): Promise<void> {
+  const supabase = getSupabaseServer();
+  const patch: Record<string, unknown> = { pipeline_stage: null };
+  if (which === 'agenda') { patch.fecha_junta_1 = fecha; if (asistio != null) patch.asistio_j1 = asistio; }
+  else { patch.fecha_junta_2 = fecha; if (asistio != null) patch.asistio_j2 = asistio; }
+  const { error } = await supabase.from('leads').update(patch).eq('id', leadId);
+  if (error) throw new Error(`Error marcando reunión manual del lead ${leadId}: ${error.message}`);
+}
+
+/**
  * Aplica una grabación de Fathom a un lead: marca asistencia a R1/R2 (solo si
  * estaba sin marcar — nunca pisa una decisión humana) y agrega el link de la
  * grabación a fathom_links. `attended` puede venir confirmado por el transcript
