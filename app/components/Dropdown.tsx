@@ -4,14 +4,19 @@
 // Dropdown — desplegable estilizado (reemplaza el <select> nativo plano)
 // =============================================================================
 // Botón + menú flotante con ítems de hasta dos líneas (título + subtítulo) y un
-// punto de color opcional. Cierra por click afuera o Escape. Pensado para todos
-// los desplegables del app (filtros, "Mover a…", tipo/banda del funnel, etc.).
+// punto de color opcional. Cierra por click afuera, Escape, scroll o resize.
+// El menú se renderiza en un PORTAL (position: fixed sobre document.body) para
+// que NO lo recorte ningún contenedor con overflow (ej. el scroll del modal de
+// detalle): antes, dentro de un modal scrolleable el menú se cortaba al abrir.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 
 const SANS = "'Geist', sans-serif";
 
 export type DropdownOption = { value: string; label: string; sub?: string; color?: string; disabled?: boolean };
+
+type MenuPos = { top?: number; bottom?: number; left?: number; right?: number; width: number };
 
 export function Dropdown({
   value,
@@ -36,26 +41,49 @@ export function Dropdown({
   ariaLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [dropUp, setDropUp] = useState(false);
+  const [pos, setPos] = useState<MenuPos | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Abre hacia arriba si no hay espacio suficiente abajo (no empuja el layout).
+  // Calcula la posición fija del menú a partir del rect del botón. Abre hacia
+  // arriba si abajo no hay lugar (sin empujar el layout). En coordenadas de
+  // viewport porque el menú vive en un portal con position: fixed.
+  const place = () => {
+    if (!ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    const below = window.innerHeight - r.bottom;
+    const up = below < 300 && r.top > below;
+    setPos({
+      width: r.width,
+      ...(up ? { bottom: window.innerHeight - r.top + 6 } : { top: r.bottom + 6 }),
+      ...(align === 'right' ? { right: window.innerWidth - r.right } : { left: r.left }),
+    });
+  };
   const toggle = () => {
-    if (!open && ref.current) {
-      const r = ref.current.getBoundingClientRect();
-      const below = window.innerHeight - r.bottom;
-      setDropUp(below < 300 && r.top > below);
-    }
+    if (!open) place();
     setOpen((v) => !v);
   };
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (ref.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    };
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    // Al scrollear/redimensionar el menú fijo se despegaría del botón → cerrar.
+    const onScrollResize = () => setOpen(false);
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onEsc);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
+    window.addEventListener('scroll', onScrollResize, true);
+    window.addEventListener('resize', onScrollResize);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onEsc);
+      window.removeEventListener('scroll', onScrollResize, true);
+      window.removeEventListener('resize', onScrollResize);
+    };
   }, [open]);
 
   const selected = resetAfterSelect ? undefined : options.find((o) => o.value === value);
@@ -77,8 +105,8 @@ export function Dropdown({
         </span>
         <span style={{ flex: 'none', fontSize: 10, color: 'var(--faint)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
       </button>
-      {open && (
-        <div role="listbox" style={{ position: 'absolute', top: dropUp ? undefined : 'calc(100% + 6px)', bottom: dropUp ? 'calc(100% + 6px)' : undefined, left: align === 'left' ? 0 : undefined, right: align === 'right' ? 0 : undefined, zIndex: 200, minWidth: '100%', width: 'max-content', maxWidth: 360, maxHeight: 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 6 }}>
+      {open && pos && createPortal(
+        <div ref={menuRef} role="listbox" style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, minWidth: pos.width, width: 'max-content', maxWidth: 360, maxHeight: 340, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 6 }}>
           {options.map((o) => {
             const on = !resetAfterSelect && o.value === value;
             return (
@@ -97,7 +125,8 @@ export function Dropdown({
             );
           })}
           {options.length === 0 && <div style={{ padding: '9px 11px', fontSize: 13, color: 'var(--faint)' }}>Sin opciones</div>}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

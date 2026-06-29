@@ -341,7 +341,6 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
   const [hideSmall, setHideSmall] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [confirmSync, setConfirmSync] = useState(false);
-  const [anglesOpen, setAnglesOpen] = useState(false);
   const [guionText, setGuionText] = useState('');
   const [valorando, setValorando] = useState(false);
   const [valoracion, setValoracion] = useState<Valoracion | null>(null);
@@ -658,7 +657,6 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ángulo</span>
                     <Dropdown value={angle} onChange={setAngle} ariaLabel="Ángulo" width="100%" options={[{ value: 'todos', label: 'Todos los ángulos' }, ...Object.keys(ANGLE).map((k) => ({ value: k, label: ANGLE[k].label, color: ANGLE[k].c }))]} />
-                    <button onClick={() => { setFiltersOpen(false); setAnglesOpen(true); }} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>Gestionar ángulos…</button>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Vista</span>
@@ -735,7 +733,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
       </section>
 
       {/* GUIONES */}
-      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/script-analyst/guiones" />
+      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/script-analyst/guiones" angles={angles} />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6, lineHeight: 1.6 }}>
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.
@@ -744,8 +742,6 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
       {/* DETALLE UNIFICADO (Rendimiento · Audiencia · Guion) — abre en Guion */}
       {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} desde={detalleRange.desde} hasta={detalleRange.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
 
-      {/* GESTIÓN DE ÁNGULOS */}
-      {anglesOpen && <AnglesManager initial={angles} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
 
       {/* PATTERN DRILL MODAL */}
       {drill && (
@@ -1120,10 +1116,14 @@ function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void 
     </button>
   );
 }
-export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string }) {
+export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string; angles?: AngleDef[] }) {
+  const router = useRouter();
   const [view, setView] = useState<'preview' | 'tabla'>('preview');
   const [campana, setCampana] = useState('all');
   const [adset, setAdset] = useState('all');
+  const [tipo, setTipo] = useState<'todos' | 'video' | 'imagen'>('todos');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [anglesOpen, setAnglesOpen] = useState(false);
   const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
   const val = (a: ScriptView, k: string): number | string => {
     if (k === 'angle') return angleInfo(a.angle).label;
@@ -1135,7 +1135,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
   };
   const campanas = useMemo(() => [...new Set(scripts.map((s) => s.campana ?? 'Sin campaña'))].sort((a, b) => a.localeCompare(b)), [scripts]);
   const adsets = useMemo(() => { const pool = campana === 'all' ? scripts : scripts.filter((s) => (s.campana ?? 'Sin campaña') === campana); return [...new Set(pool.map((s) => s.adset ?? 'Sin adset'))].sort((a, b) => a.localeCompare(b)); }, [scripts, campana]);
-  const filtered = useMemo(() => scripts.filter((s) => (campana === 'all' || (s.campana ?? 'Sin campaña') === campana) && (adset === 'all' || (s.adset ?? 'Sin adset') === adset)), [scripts, campana, adset]);
+  const filtered = useMemo(() => scripts.filter((s) => (campana === 'all' || (s.campana ?? 'Sin campaña') === campana) && (adset === 'all' || (s.adset ?? 'Sin adset') === adset) && (tipo === 'todos' || (tipo === 'imagen' ? s.esImagen : !s.esImagen))), [scripts, campana, adset, tipo]);
   const sorted = useMemo(() => filtered.slice().sort((x, y) => {
     const vx = val(x, sort.key), vy = val(y, sort.key);
     if (typeof vx === 'string' && typeof vy === 'string') return sort.dir * vx.localeCompare(vy);
@@ -1143,7 +1143,8 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
     return sort.dir * (Number.isFinite(d) ? d : nx === ny ? 0 : nx > ny ? 1 : -1);
   }), [filtered, sort]);
   const shown = limit ? sorted.slice(0, limit) : sorted;
-  const filtrado = campana !== 'all' || adset !== 'all';
+  const nActive = (campana !== 'all' ? 1 : 0) + (adset !== 'all' ? 1 : 0) + (tipo !== 'todos' ? 1 : 0);
+  const filtrado = nActive > 0;
   const cols: Array<{ key: string; label: string; al: 'left' | 'right' }> = [
     { key: 'name', label: 'Anuncio', al: 'left' }, { key: 'angle', label: 'Ángulo', al: 'left' },
     { key: 'hookRate', label: 'Hook', al: 'right' }, { key: 'hold', label: 'Ret. CTA', al: 'right' },
@@ -1153,20 +1154,47 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
   ];
   return (
     <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        {/* IZQUIERDA: toggle de vista (tabla/preview) + conteo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap' }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Guiones</h2>
+          <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
+            {(['preview', 'tabla'] as const).map((m) => (<button key={m} onClick={() => setView(m)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, background: view === m ? 'var(--surface)' : 'transparent', color: view === m ? 'var(--ink)' : 'var(--dim)', boxShadow: view === m ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }}>{m === 'preview' ? 'Preview' : 'Tabla'}</button>))}
+          </div>
           <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>{sorted.length}{limit && sorted.length > limit ? ` · top ${limit}` : ''} · clic para el embudo</span>
         </div>
-        <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3 }}>
-          {(['preview', 'tabla'] as const).map((m) => (<button key={m} onClick={() => setView(m)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, background: view === m ? 'var(--surface)' : 'transparent', color: view === m ? 'var(--ink)' : 'var(--dim)', boxShadow: view === m ? '0 1px 2px rgba(0,0,0,.08)' : 'none' }}>{m === 'preview' ? 'Preview' : 'Tabla'}</button>))}
+        {/* DERECHA: gestionar taxonomía + UN botón de Filtros (popover, como el Cuadrante) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+          <button onClick={() => setAnglesOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>✎</span> Gestionar ángulos</button>
+          <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: filtrado ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>⚙</span> Filtros{nActive > 0 ? ` · ${nActive}` : ''}</button>
+          {filtersOpen && (
+            <>
+              <div onClick={() => setFiltersOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 300, maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 15 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtros</span>
+                  {filtrado && <button onClick={() => { setCampana('all'); setAdset('all'); setTipo('todos'); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Campaña</span>
+                  <Dropdown value={campana} onChange={(c) => { setCampana(c); setAdset('all'); }} ariaLabel="Campaña" width="100%" options={[{ value: 'all', label: 'Todas las campañas' }, ...campanas.map((c) => ({ value: c, label: c }))]} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Adset</span>
+                  <Dropdown value={adset} onChange={setAdset} ariaLabel="Adset" width="100%" options={[{ value: 'all', label: 'Todos los adsets' }, ...adsets.map((a) => ({ value: a, label: a }))]} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Tipo de creativo</span>
+                  <Dropdown value={tipo} onChange={(t) => setTipo(t as 'todos' | 'video' | 'imagen')} ariaLabel="Tipo" width="100%" options={[{ value: 'todos', label: 'Video e imagen' }, { value: 'video', label: 'Solo video' }, { value: 'imagen', label: 'Solo imagen' }]} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ordenar por</span>
+                  <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" width="100%" options={[{ value: 'spend', label: 'Gasto' }, { value: 'agendas', label: 'Agendas' }, { value: 'hookRate', label: 'Hook rate' }, { value: 'hold', label: 'Ret. CTA' }, { value: 'cpa', label: '$/agenda' }]} />
+                </div>
+              </div>
+            </>
+          )}
         </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-        <Dropdown value={campana} onChange={(c) => { setCampana(c); setAdset('all'); }} ariaLabel="Campaña" buttonStyle={{ padding: '8px 12px', fontSize: 13, maxWidth: 260 }} options={[{ value: 'all', label: 'Todas las campañas' }, ...campanas.map((c) => ({ value: c, label: c }))]} />
-        <Dropdown value={adset} onChange={setAdset} ariaLabel="Adset" buttonStyle={{ padding: '8px 12px', fontSize: 13, maxWidth: 260 }} options={[{ value: 'all', label: 'Todos los adsets' }, ...adsets.map((a) => ({ value: a, label: a }))]} />
-        <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" buttonStyle={{ padding: '8px 12px', fontSize: 13 }} options={[{ value: 'spend', label: 'Ordenar: Gasto' }, { value: 'agendas', label: 'Ordenar: Agendas' }, { value: 'hookRate', label: 'Ordenar: Hook rate' }, { value: 'hold', label: 'Ordenar: Ret. CTA' }, { value: 'cpa', label: 'Ordenar: $/agenda' }]} />
-        {filtrado && <button onClick={() => { setCampana('all'); setAdset('all'); }} style={{ padding: '8px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>✕ Limpiar</button>}
       </div>
       {view === 'preview' ? (
         sorted.length === 0 ? <p style={{ fontSize: 14, color: 'var(--faint)' }}>Sin guiones para este filtro.</p> : (
@@ -1198,6 +1226,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
       {limit && fullHref && sorted.length > limit && (
         <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Ver los {sorted.length} guiones →</a></div>
       )}
+      {anglesOpen && <AnglesManager initial={angles} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
     </section>
   );
 }
@@ -1208,7 +1237,7 @@ export function GuionesFull({ scripts, angles = [] }: { scripts: ScriptView[]; a
   const sel = openAd ? scripts.find((a) => a.id === openAd) ?? null : null;
   return (
     <>
-      <GuionesPanel scripts={scripts} onOpen={setOpenAd} />
+      <GuionesPanel scripts={scripts} onOpen={setOpenAd} angles={angles} />
       {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} desde={range.desde} hasta={range.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
     </>
   );

@@ -193,10 +193,13 @@ export function BreakdownCharts({ demograficos, plataformas, regiones }: Breakdo
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Preview del creativo (9:16) + grilla de stats. `stats` lo arma cada caller.
-export function AdCreative({ adId, adName, thumbnail, permalink, creativeSinEnlace, stats }: { adId: string; adName: string; thumbnail: string | null; permalink: string | null; creativeSinEnlace: boolean; stats: Array<{ label: string; value: string; color?: string }> }) {
+// `compact` = miniatura más chica y sin el botón "Reproducir" aparte (la miniatura
+// ya es el link), para que el detalle con pestañas no quede tan alto.
+export function AdCreative({ adId, adName, thumbnail, permalink, creativeSinEnlace, stats, compact = false }: { adId: string; adName: string; thumbnail: string | null; permalink: string | null; creativeSinEnlace: boolean; stats: Array<{ label: string; value: string; color?: string }>; compact?: boolean }) {
   const hasLink = !!permalink && !creativeSinEnlace;
+  const w = compact ? 84 : 128;
   const thumb = (
-    <div style={{ width: '100%', aspectRatio: '9 / 16', borderRadius: 13, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', position: 'relative', boxShadow: '0 8px 22px rgba(23,21,17,.16)' }}>
+    <div style={{ width: '100%', aspectRatio: '9 / 16', borderRadius: compact ? 10 : 13, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', position: 'relative', boxShadow: '0 8px 22px rgba(23,21,17,.16)' }}>
       {thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={thumbnail} alt={adName} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -205,22 +208,24 @@ export function AdCreative({ adId, adName, thumbnail, permalink, creativeSinEnla
       )}
       {hasLink && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, paddingLeft: 3 }}>▶</div>
+          <div style={{ width: compact ? 34 : 44, height: compact ? 34 : 44, borderRadius: '50%', background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: compact ? 11 : 14, paddingLeft: 3 }}>▶</div>
         </div>
       )}
     </div>
   );
   return (
-    <div style={{ display: 'flex', gap: 20, alignItems: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 }}>
-      <div style={{ flex: 'none', width: 128, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', gap: compact ? 16 : 20, alignItems: 'center', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 16, padding: compact ? 14 : 18 }}>
+      <div style={{ flex: 'none', width: w, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {hasLink ? <a href={permalink!} target="_blank" rel="noopener noreferrer" title="Reproducir en Meta" style={{ display: 'block' }}>{thumb}</a> : thumb}
-        {hasLink ? (
+        {compact ? (
+          !hasLink && <span style={{ fontSize: 10.5, color: 'var(--faint)', textAlign: 'center' }}>Sin enlace</span>
+        ) : hasLink ? (
           <a href={permalink!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', borderRadius: 10, background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>↗ Reproducir</a>
         ) : (
           <span style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center' }}>Sin enlace al post</span>
         )}
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 13 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: compact ? 9 : 13 }}>
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Math.max(stats.length, 1), 4)}, 1fr)`, gap: 10 }}>
           {stats.map((st) => <Stat key={st.label} label={st.label} value={st.value} color={st.color} />)}
         </div>
@@ -716,8 +721,8 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, d
           </div>
         </div>
 
-        <div style={{ padding: '20px 28px 0' }}>
-          <AdCreative adId={head.adId} adName={head.adName} thumbnail={head.thumbnail} permalink={head.permalink} creativeSinEnlace={head.creativeSinEnlace} stats={stats} />
+        <div style={{ padding: '16px 28px 0' }}>
+          <AdCreative compact adId={head.adId} adName={head.adName} thumbnail={head.thumbnail} permalink={head.permalink} creativeSinEnlace={head.creativeSinEnlace} stats={stats} />
         </div>
 
         <div style={{ display: 'flex', gap: 4, padding: '16px 28px 0', borderBottom: '1px solid var(--border)' }}>
