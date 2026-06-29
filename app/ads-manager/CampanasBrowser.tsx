@@ -712,7 +712,10 @@ const NIVEL_NOUN: Record<Level, string> = { campaign: 'campañas', adset: 'conju
 const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 const anioDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : String(d.getFullYear()); };
 const mesDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : MESES_ES[d.getMonth()]; };
-const mesAnioKey = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }; // "YYYY-MM" para el filtro de rango
+const diaDe = (iso: string | null) => { if (!iso) return ''; const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }; // "YYYY-MM-DD" para el filtro de rango
+const MES_ABBR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const diaLegible = (iso: string) => { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${Number(d)} ${MES_ABBR[Number(m) - 1] ?? ''} ${y}`; };
+const addMeses = (iso: string, n: number) => { const [y, m, d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, d)).toISOString().slice(0, 10); };
 const MES_RE = /\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/i;
 // Mes/año DETERMINÍSTICOS: del nombre si los menciona, si no de la fecha de creación.
 // (Antes los inferia la IA y se equivocaba, ej. "Webinar 9 de julio" → Junio.)
@@ -743,11 +746,73 @@ function applyTemplate(tpl: string, vars: Record<string, string>, n: number): st
   return out.replace(/\{[a-zA-Z_]+\}/g, '').replace(/\s{2,}/g, ' ').replace(/^[\s/|·.\-]+|[\s/|·.\-]+$/g, '').trim();
 }
 
+// Filtro de rango de fecha (mismo look que FechaFiltro: botón + panel con
+// presets + rango exacto), pero CONTROLADO y embebido (no toca la URL). Panel
+// inline para no chocar con el overflow:hidden del modal. Fechas "YYYY-MM-DD".
+function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: string; onChange: (d: string, h: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [cd, setCd] = useState(desde);
+  const [ch, setCh] = useState(hasta);
+
+  const hoy = useMemo(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }, []);
+  const year = Number(hoy.slice(0, 4));
+  const presets: Array<{ key: string; label: string; d: string; h: string }> = [
+    { key: 'all', label: 'Todas', d: '', h: '' },
+    { key: 'y', label: `${year}`, d: `${year}-01-01`, h: hoy },
+    { key: 'ya', label: `${year - 1}`, d: `${year - 1}-01-01`, h: `${year - 1}-12-31` },
+    { key: 'from-ya', label: `${year - 1} en adelante`, d: `${year - 1}-01-01`, h: hoy },
+    { key: 'm3', label: 'Últ. 3 meses', d: addMeses(hoy, -3), h: hoy },
+    { key: 'm6', label: 'Últ. 6 meses', d: addMeses(hoy, -6), h: hoy },
+  ];
+
+  const activo = !!(desde || hasta);
+  const presetActivo = presets.find((p) => p.key !== 'all' && p.d === desde && p.h === hasta);
+  const etiqueta = !activo ? 'Todas las fechas' : presetActivo ? presetActivo.label : `${desde ? diaLegible(desde) : 'inicio'} → ${hasta ? diaLegible(hasta) : 'hoy'}`;
+  const customValido = (!!cd || !!ch) && (!cd || !ch || cd <= ch);
+  const aplicar = (d: string, h: string) => { onChange(d, h); setOpen(false); };
+  const di: CSSProperties = { flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' };
+
+  return (
+    <div>
+      <button type="button" onClick={() => { if (!open) { setCd(desde); setCh(hasta); } setOpen((o) => !o); }} aria-expanded={open}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid ' + (activo ? 'var(--accent)' : 'var(--border-strong)'), background: activo ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: activo ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
+        <span aria-hidden>📅</span>
+        <span>{etiqueta}</span>
+        <span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>▾</span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 8, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)', padding: 12, maxWidth: 380 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            {presets.map((p) => {
+              const sel = p.key === 'all' ? !activo : (p.d === desde && p.h === hasta);
+              return (
+                <button key={p.key} type="button" onClick={() => aplicar(p.d, p.h)}
+                  style={{ padding: '8px 10px', borderRadius: 9, textAlign: 'center', cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, whiteSpace: 'nowrap', border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--border)'), background: sel ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: sel ? '#9A6A09' : 'var(--ink)' }}>{p.label}</button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Rango exacto</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="date" value={cd} max={ch || hoy} onChange={(e) => setCd(e.target.value)} style={di} />
+              <span style={{ color: 'var(--faint)' }}>→</span>
+              <input type="date" value={ch} min={cd || undefined} max={hoy} onChange={(e) => setCh(e.target.value)} style={di} />
+            </div>
+            <button type="button" disabled={!customValido} onClick={() => aplicar(cd, ch)}
+              style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: customValido ? 'pointer' : 'not-allowed', opacity: customValido ? 1 : 0.4 }}>Aplicar rango</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TEMPLATE_DEFAULT = '{nnn}. {objetivo} / {angulo} - {mes} / {anio}';
 function RenameModal({ level, entities, onClose, onApply }: { level: Level; entities: RenameEntity[]; onClose: () => void; onApply: (items: Array<{ id: string; level: Level; name: string }>) => Promise<number> }) {
   const [template, setTemplate] = useState(TEMPLATE_DEFAULT);
-  const [desdeMes, setDesdeMes] = useState(''); // "YYYY-MM" (filtro por fecha de creación, opcional)
-  const [hastaMes, setHastaMes] = useState('');
+  const [desde, setDesde] = useState(''); // "YYYY-MM-DD" (filtro por fecha de creación, opcional)
+  const [hasta, setHasta] = useState('');
   const [notas, setNotas] = useState('');
   const [phase, setPhase] = useState<'idle' | 'loading' | 'review'>('idle');
   const [prop, setProp] = useState<Record<string, string>>({});
@@ -762,10 +827,10 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   // se tocan). El filtro lo hace el código, NO la IA (antes lo metían en las notas y
   // la IA "filtraba" dejando objetivo/ángulo vacíos).
   const enAlcance = useMemo(() => entities.filter((e) => {
-    const k = mesAnioKey(e.createdTime);
-    if (!k) return !desdeMes && !hastaMes; // sin fecha → solo si no hay filtro
-    return (!desdeMes || k >= desdeMes) && (!hastaMes || k <= hastaMes);
-  }), [entities, desdeMes, hastaMes]);
+    const k = diaDe(e.createdTime);
+    if (!k) return !desde && !hasta; // sin fecha → solo si no hay filtro
+    return (!desde || k >= desde) && (!hasta || k <= hasta);
+  }), [entities, desde, hasta]);
   // Variables que pide la IA: solo las SEMÁNTICAS. El correlativo, {nombre}, {mes} y
   // {anio} los pone el código (determinístico) → la IA nunca se equivoca con la fecha.
   const varsNeeded = useMemo(() => [...new Set([...template.matchAll(/\{([a-zA-Z_]+)\}/g)].map((m) => m[1]))].filter((v) => !/^n+$/.test(v) && !['nombre', 'mes', 'anio'].includes(v)), [template]);
@@ -838,13 +903,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Renombrar solo las creadas en este rango (por fecha de creación)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>Desde</span>
-                <input type="month" value={desdeMes} onChange={(e) => setDesdeMes(e.target.value)} style={{ ...inp, width: 160 }} />
-                <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>hasta</span>
-                <input type="month" value={hastaMes} onChange={(e) => setHastaMes(e.target.value)} style={{ ...inp, width: 160 }} />
-                {(desdeMes || hastaMes) && <button type="button" onClick={() => { setDesdeMes(''); setHastaMes(''); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar fechas</button>}
-              </div>
+              <RangoFechaCreacion desde={desde} hasta={hasta} onChange={(d, h) => { setDesde(d); setHasta(h); }} />
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -860,7 +919,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
             </div>
 
             <div style={{ fontSize: 12.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-              Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{(desdeMes || hastaMes) ? ` (creadas${desdeMes ? ` desde ${desdeMes}` : ''}${hastaMes ? ` hasta ${hastaMes}` : ''}; el resto no se toca)` : ''}. Ejemplo: <code style={{ fontFamily: MONO, color: 'var(--ink)' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '—'}</code>
+              Se renombrarán <b style={{ color: 'var(--ink)' }}>{enAlcance.length}</b> de {entities.length} {NIVEL_NOUN[level]}{(desde || hasta) ? ` (creadas${desde ? ` desde ${diaLegible(desde)}` : ''}${hasta ? ` hasta ${diaLegible(hasta)}` : ''}; el resto no se toca)` : ''}. Ejemplo: <code style={{ fontFamily: MONO, color: 'var(--ink)' }}>{applyTemplate(template, { objetivo: 'Leads', angulo: 'Dolor', audiencia: 'Dueños', mes: 'Julio', anio: '2025', nombre: 'Ej' }, 1) || '—'}</code>
             </div>
 
             {err && <div style={{ fontSize: 13, color: 'var(--bad)' }}>Error: {err}</div>}
