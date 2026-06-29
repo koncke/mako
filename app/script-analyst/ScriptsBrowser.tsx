@@ -12,8 +12,21 @@
 
 import { createElement as h, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/script-analyst';
+
+// Vista de detalle unificada (pestañas Rendimiento/Audiencia/Guion). Vive en
+// ad-charts (recharts + d3) → se carga on-demand al abrir un guion. El import es
+// dinámico, así que no hay ciclo estático con ad-charts (que sí importa de acá).
+const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
+
+// Script Analyst no tiene selector de fecha: la pestaña Rendimiento usa "todo el
+// histórico" (≈3 años hacia atrás → el endpoint agrega toda la vida del anuncio).
+function allHistoryRange(): { desde: string; hasta: string } {
+  const hoy = new Date();
+  return { desde: new Date(hoy.getTime() - 1095 * 86400000).toISOString().slice(0, 10), hasta: hoy.toISOString().slice(0, 10) };
+}
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -30,7 +43,7 @@ const DEFAULT_ANGLE: Record<string, { label: string; c: string }> = {
   dolor: { label: 'Dolor', c: '#CF4E29' }, testimonio: { label: 'Testimonio', c: '#3B6D11' }, oferta: { label: 'Oferta', c: '#7C4DD6' },
 };
 let ANGLE: Record<string, { label: string; c: string }> = { ...DEFAULT_ANGLE };
-function applyAngles(list?: AngleDef[]) {
+export function applyAngles(list?: AngleDef[]) {
   ANGLE = list && list.length
     ? Object.fromEntries(list.map((a) => [a.key, { label: a.label, c: a.color }]))
     : { ...DEFAULT_ANGLE };
@@ -320,7 +333,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
   const [showCaveat, setShowCaveat] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
-  const [reMsg, setReMsg] = useState<string | null>(null);
+  const detalleRange = useMemo(allHistoryRange, []);
   const [hoverPt, setHoverPt] = useState<string | null>(null);
   const [quadWin, setQuadWin] = useState('todo');
   const [quadPoints, setQuadPoints] = useState<QuadPoint[] | null>(null);
@@ -344,25 +357,6 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
       router.refresh();
     } catch (e) { setSyncMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
     finally { setSyncing(false); }
-  }
-  async function reanalizar(adId: string) {
-    setReMsg('Re-analizando…');
-    try {
-      const r = await fetch('/api/script-analyst/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId }) });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'falló');
-      setReMsg('Listo.'); router.refresh();
-    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
-  }
-  // Corrige a mano el ángulo de un anuncio (o vuelve a la IA con angle=null).
-  async function setAngleOverride(adId: string, angle: string | null) {
-    setReMsg(angle ? 'Cambiando ángulo…' : 'Volviendo a la IA…');
-    try {
-      const r = await fetch('/api/script-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'falló');
-      setReMsg('Listo.'); router.refresh();
-    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
   }
   // Filtro de fecha PROPIO del cuadrante: recalcula los puntos en una ventana sin
   // tocar KPIs/patrones/tabla (que siguen siendo histórico completo).
@@ -747,8 +741,8 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.
       </footer>
 
-      {/* FUNNEL MODAL */}
-      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />}
+      {/* DETALLE UNIFICADO (Rendimiento · Audiencia · Guion) — abre en Guion */}
+      {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} desde={detalleRange.desde} hasta={detalleRange.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
 
       {/* GESTIÓN DE ÁNGULOS */}
       {anglesOpen && <AnglesManager initial={angles} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
@@ -869,7 +863,7 @@ function SyncBar({ syncing, syncMsg, lastSync, counts, onSync }: { syncing: bool
 }
 
 // ── Modal del embudo de un guion ──
-export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null; onSetAngle?: (id: string, angle: string | null) => void }) {
+export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, embedded = false }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null; onSetAngle?: (id: string, angle: string | null) => void; embedded?: boolean }) {
   const v = verdictOf(sel), ho = hold(sel), vc = VERDICT[v].c, conf = confidence(sel), cp = cpa(sel);
   const beats = decorateBeats(sel);
   // Los creativos de imagen no tienen gancho de 3s, retención al CTA ni frecuencia
@@ -897,10 +891,18 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle }: {
     { value: '__auto', label: 'Automático (IA)', sub: 'volver a la clasificación de la IA' },
   ];
   const avgWatch = `0:${String(Math.round(sel.dur * 0.62)).padStart(2, '0')}`;
+  // embedded = se renderiza adentro de la pestaña "Guion" de la vista unificada:
+  // sin overlay, sin shell propio y sin botón de cierre (esos los pone el contenedor).
+  const overlayStyle: CSSProperties = embedded
+    ? { display: 'contents' }
+    : { position: 'fixed', inset: 0, zIndex: 65, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' };
+  const shellStyle: CSSProperties = embedded
+    ? { width: '100%' }
+    : { width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' };
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 65, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
+    <div onClick={embedded ? undefined : onClose} style={overlayStyle}>
+      <div onClick={(e) => e.stopPropagation()} style={shellStyle}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: embedded ? '0 0 16px' : '22px 26px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8, flexWrap: 'wrap' }}>
               {onSetAngle ? (
@@ -912,17 +914,17 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle }: {
               )}
               <span style={verdictChip(v)}>{VERDICT[v].label}</span>
             </div>
-            <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)', lineHeight: 1.2 }}>{sel.name}</h2>
-            <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, fontFamily: MONO }}>{sel.format} · {fmtT(sel.dur)} · {sel.days} días · ad_id {sel.adId}</div>
+            {!embedded && <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)', lineHeight: 1.2 }}>{sel.name}</h2>}
+            <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: embedded ? 0 : 4, fontFamily: MONO }}>{sel.format} · {fmtT(sel.dur)} · {sel.days} días{embedded ? '' : ` · ad_id ${sel.adId}`}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 'none' }}>
             {!sel.esImagen && (
               <div style={{ textAlign: 'right' }}><div style={{ fontSize: 30, fontWeight: 600, lineHeight: 1, color: hookColor(sel.hookRate), fontVariantNumeric: 'tabular-nums' }}>{sel.hookRate}%</div><div style={{ fontSize: 10, color: 'var(--faint)', fontFamily: MONO, marginTop: 3, letterSpacing: '.04em' }}>HOOK · 3s</div></div>
             )}
-            <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            {!embedded && <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>}
           </div>
         </div>
-        <div style={{ padding: '22px 26px', maxHeight: '74vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ padding: embedded ? '16px 0 0' : '22px 26px', maxHeight: embedded ? undefined : '74vh', overflowY: embedded ? undefined : 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
           {conf === 'baja' && (
             <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 12, padding: '13px 15px' }}><span style={{ flex: 'none', color: '#7A5908', fontWeight: 700, fontSize: 15 }}>!</span><div style={{ fontSize: 13.5, lineHeight: 1.5, color: '#5A4408' }}>Muestra chica: {fmtUSD(sel.spend)} y {sel.impressions.toLocaleString('en-US')} impresiones en {sel.days} días. Las métricas pueden moverse mucho todavía — validá con más presupuesto.</div></div>
           )}
@@ -1201,32 +1203,13 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
 }
 export function GuionesFull({ scripts, angles = [] }: { scripts: ScriptView[]; angles?: AngleDef[] }) {
   applyAngles(angles);
-  const router = useRouter();
   const [openAd, setOpenAd] = useState<string | null>(null);
-  const [reMsg, setReMsg] = useState<string | null>(null);
-  async function reanalizar(adId: string) {
-    setReMsg('Re-analizando…');
-    try {
-      const r = await fetch('/api/script-analyst/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId }) });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'falló');
-      setReMsg('Listo.'); router.refresh();
-    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
-  }
-  async function setAngleOverride(adId: string, angle: string | null) {
-    setReMsg(angle ? 'Cambiando ángulo…' : 'Volviendo a la IA…');
-    try {
-      const r = await fetch('/api/script-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
-      const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'falló');
-      setReMsg('Listo.'); router.refresh();
-    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
-  }
+  const range = useMemo(allHistoryRange, []);
   const sel = openAd ? scripts.find((a) => a.id === openAd) ?? null : null;
   return (
     <>
       <GuionesPanel scripts={scripts} onOpen={setOpenAd} />
-      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />}
+      {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} desde={range.desde} hasta={range.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
     </>
   );
 }

@@ -22,7 +22,7 @@ import {
 } from '@/lib/meta-health';
 import type { CrossData } from './EntityDetalle';
 
-const AdDetalle = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetalle), { ssr: false });
+const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
@@ -395,7 +395,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
         </div>
       )}
 
-      {adSel && <AdDetalle s={adSel} desde={desde} hasta={hasta} onClose={() => setAdSel(null)} />}
+      {adSel && <AdDetailTabs key={adSel.ad_id} senal={adSel} desde={desde} hasta={hasta} defaultTab="rendimiento" onClose={() => setAdSel(null)} />}
       {entSel && (
         <EntityDetalle id={entSel.node.id} level={entSel.level} name={entSel.node.name} statusLabel={entSel.node.statusLabel} semaforo={entSel.node.semaforo}
           desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)} />

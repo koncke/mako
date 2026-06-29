@@ -700,6 +700,39 @@ type StoredView = {
   dur: number | null; status: ScriptStatus; updated_at: string;
 };
 
+/** Arma UNA ScriptView desde su fila + métricas vivas. Devuelve null si el
+ *  anuncio no tiene señal (ni leads, ni agendas, ni gasto). Compartido por la
+ *  vista completa y por getScriptView (pestaña Guion de la vista unificada). */
+function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptView | null {
+  const spend = m.spendUsd, impressions = m.impressions;
+  if (!(m.leads > 0 || m.agendas > 0 || spend > 0)) return null;
+  const hookRate = impressions > 0 ? clampPct((m.v3s / impressions) * 100) : 0;
+  const holdRate = m.v3s > 0 ? clampPct((m.thru / m.v3s) * 100) : 0;
+  const ctr = impressions > 0 ? (m.linkClicks / impressions) * 100 : 0;
+  const freq = m.freqN > 0 ? m.freqSum / m.freqN : 0;
+  const ret: RetSums = { v3s: m.v3s, thru: m.thru, p25: m.p25, p50: m.p50, p75: m.p75, p100: m.p100 };
+  const dur = r.dur && r.dur > 0 ? r.dur : Math.max(...(r.beats ?? []).map((b) => b.t0), 30) + 4;
+  const curve = retentionCurve(ret, holdRate);
+  const plays3s = m.v3s || r0((hookRate / 100) * impressions);
+  const thru = m.thru || r0((holdRate / 100) * plays3s);
+  const beats: ViewBeat[] = (r.beats ?? []).map((b) => ({ ...b, ret: retAt(curve, dur > 0 ? b.t0 / dur : 0) }));
+  return {
+    id: r.ad_id, adId: r.ad_id,
+    name: r.ad_name ?? m.adName ?? r.ad_id,
+    short: r.short ?? (r.ad_name ?? r.ad_id).slice(0, 24),
+    angle: r.angle_override || r.angle || 'capataz', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
+    tags: r.tags ?? [], dur,
+    hookRate: r0(hookRate), ctr: Math.round(ctr * 10) / 10,
+    agendas: m.agendas, cierres, spend, impressions,
+    reach: freq > 0 ? r0(impressions / freq) : impressions, freq, days: m.dias.size,
+    plays3s, thru, finalRet: retAt(curve, 1), beats,
+    note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
+    suggestion: r.suggestion,
+    thumbnail: m.thumbnail, permalink: m.permalink, creativeSinEnlace: m.creativeSinEnlace, campana: m.campana, adset: m.adset,
+    esImagen: !!r.es_imagen,
+  };
+}
+
 /** Datos para /script-analyst: TODOS los guiones analizados con sus métricas
  *  vivas de todo el histórico (sin filtro de fecha). */
 export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
@@ -735,36 +768,27 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   for (const r of analizadas) {
     const m = metrics.get(r.ad_id);
     if (!m) continue; // analizado pero sin métricas de Meta → no se muestra
-    const spend = m.spendUsd, impressions = m.impressions;
-    if (!(m.leads > 0 || m.agendas > 0 || spend > 0)) continue; // tieneSenal
-    const hookRate = impressions > 0 ? clampPct((m.v3s / impressions) * 100) : 0;
-    const holdRate = m.v3s > 0 ? clampPct((m.thru / m.v3s) * 100) : 0;
-    const ctr = impressions > 0 ? (m.linkClicks / impressions) * 100 : 0;
-    const freq = m.freqN > 0 ? m.freqSum / m.freqN : 0;
-    const ret: RetSums = { v3s: m.v3s, thru: m.thru, p25: m.p25, p50: m.p50, p75: m.p75, p100: m.p100 };
-    const dur = r.dur && r.dur > 0 ? r.dur : Math.max(...(r.beats ?? []).map((b) => b.t0), 30) + 4;
-    const curve = retentionCurve(ret, holdRate);
-    const plays3s = m.v3s || r0((hookRate / 100) * impressions);
-    const thru = m.thru || r0((holdRate / 100) * plays3s);
-    const beats: ViewBeat[] = (r.beats ?? []).map((b) => ({ ...b, ret: retAt(curve, dur > 0 ? b.t0 / dur : 0) }));
-    scripts.push({
-      id: r.ad_id, adId: r.ad_id,
-      name: r.ad_name ?? m.adName ?? r.ad_id,
-      short: r.short ?? (r.ad_name ?? r.ad_id).slice(0, 24),
-      angle: r.angle_override || r.angle || 'capataz', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
-      tags: r.tags ?? [], dur,
-      hookRate: r0(hookRate), ctr: Math.round(ctr * 10) / 10,
-      agendas: m.agendas, cierres: cierresByAd.get(r.ad_id) ?? 0, spend, impressions,
-      reach: freq > 0 ? r0(impressions / freq) : impressions, freq, days: m.dias.size,
-      plays3s, thru, finalRet: retAt(curve, 1), beats,
-      note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
-      suggestion: r.suggestion,
-      thumbnail: m.thumbnail, permalink: m.permalink, creativeSinEnlace: m.creativeSinEnlace, campana: m.campana, adset: m.adset,
-      esImagen: !!r.es_imagen,
-    });
+    const sv = buildScriptView(r, m, cierresByAd.get(r.ad_id) ?? 0);
+    if (sv) scripts.push(sv);
   }
   counts.enVista = scripts.length;
   return { scripts, counts, lastSync };
+}
+
+/** Una sola ScriptView por ad_id, para la pestaña Guion de la vista de detalle
+ *  unificada cuando se abre desde Ads Manager (que no tiene la ScriptView a mano).
+ *  Devuelve null si el anuncio no está analizado o no tiene señal. */
+export async function getScriptView(adId: string): Promise<ScriptView | null> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase.from('script_analyses').select(VIEW_COLS).eq('ad_id', adId).maybeSingle();
+  if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
+  if (!data) return null;
+  const r = data as unknown as StoredView;
+  if (!(r.status === 'analizada' && (r.es_imagen || (r.beats?.length ?? 0) > 0))) return null;
+  const [metrics, cierresByAd] = await Promise.all([getScriptMetrics([adId]), getCierresByAd([adId])]);
+  const m = metrics.get(adId);
+  if (!m) return null;
+  return buildScriptView(r, m, cierresByAd.get(adId) ?? 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
