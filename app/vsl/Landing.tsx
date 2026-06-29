@@ -287,6 +287,18 @@ body:has(.vsl-root) aside { display: none !important; }
   .vsl-root .mk-deep { gap: 22px !important; padding: 40px 0 !important; }
   /* Las cards de Beta en una sola columna ordenada. */
   .vsl-root #beta div[style*="repeat(auto-fit"] { grid-template-columns: 1fr !important; }
+  /* Subtítulo del hero: sin los saltos de línea manuales (eran para desktop); fluye natural. */
+  .vsl-root .mk-hero-br { display: none !important; }
+  /* Historia (bloque 2): el carrusel de Mauricio va ARRIBA del texto "No existe ningún método…". */
+  .vsl-root .mk-story-row[style*="border-top"] { flex-direction: column-reverse !important; }
+}
+@media (max-width:480px){
+  /* Grilla de features: 2 columnas en mobile, con cards más cuadradas y compactas. */
+  .vsl-root .mk-feature-grid { grid-template-columns: repeat(2,1fr) !important; gap: 12px !important; }
+  .vsl-root .mk-feature-grid > a { min-height: 158px !important; padding: 18px 15px !important; }
+  .vsl-root .mk-feature-grid > a > div:first-child { width: 40px !important; height: 40px !important; margin-bottom: 12px !important; }
+  .vsl-root .mk-feature-grid > a > div:nth-child(2) { font-size: 15px !important; line-height: 1.22 !important; }
+  .vsl-root .mk-feature-grid > a > div:nth-child(3) { font-size: 12.5px !important; line-height: 1.45 !important; }
 }
 @media (max-width:420px){
   /* Grid de iconos de "¿Qué es MaKo?": apretar un poco el gap. */
