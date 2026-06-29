@@ -166,6 +166,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           {cards.map((t, i) => (
             <div key={i} className="mk-testi">
               <Stars />
+              <p className="mk-testi-titular">{t ? t.titular : 'El resultado, en una frase'}</p>
               <p className="mk-testi-quote">
                 {t ? t.quote : 'Acá va un testimonio real de un cliente: el resultado concreto que tuvo usando esta función.'}
               </p>
@@ -311,7 +312,8 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-testi-grid { margin-top: 26px; display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
 .mk-testi { position: relative; background: #fff; border: 1px solid #EAECF1; border-radius: 16px; padding: 22px 20px; display: flex; flex-direction: column; gap: 12px; }
 .mk-stars { display: flex; gap: 2px; color: #F2A516; }
-.mk-testi-quote { margin: 0; font-size: 15px; line-height: 1.55; color: #3A4150; }
+.mk-testi-titular { margin: 0; font-size: 15.5px; font-weight: 600; line-height: 1.4; color: #12151B; }
+.mk-testi-quote { margin: 0; font-size: 14.5px; line-height: 1.55; color: #5B6472; }
 .mk-testi-who { display: flex; align-items: center; gap: 11px; margin-top: auto; }
 .mk-testi-foto { width: 40px; height: 40px; border-radius: 50%; background: #EAF1FE; color: #8AA0C4; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none; }
 .mk-testi-foto .mk-shot { width: 100%; height: 100%; border-radius: 50%; border: none; object-fit: cover; }
