@@ -33,8 +33,11 @@ import { TIPO_DE_CAMBIO_USD_MXN } from './config';
 // Vocabularios controlados (deben coincidir con los del diseño / la vista)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Ángulos base que usa la IA para clasificar. El usuario puede corregir el ángulo
+// de un anuncio a mano (angle_override) a cualquier valor del vocabulario editable
+// (lib/script-angles.ts), por eso ScriptAngle es un string libre, no una unión.
 export const ANGLES = ['visionario', 'capataz', 'dolor', 'testimonio', 'oferta'] as const;
-export type ScriptAngle = (typeof ANGLES)[number];
+export type ScriptAngle = string;
 
 export const HOOK_TYPES = ['promesa', 'testimonio', 'pregunta', 'dolor', 'resultado', 'recordatorio'] as const;
 export type HookType = (typeof HOOK_TYPES)[number];
@@ -75,6 +78,7 @@ export type ScriptAnalysisRow = {
   note_text: string | null;
   suggestion: string | null;
   dur: number | null;
+  es_imagen: boolean;
   transcript_chars: number | null;
   status: ScriptStatus;
   origen_clasif: string | null;
@@ -117,6 +121,7 @@ export type ScriptView = {
   creativeSinEnlace: boolean;
   campana: string | null;
   adset: string | null;
+  esImagen: boolean;     // creativo de imagen (sin video → sin retención/embudo)
 };
 
 export type ScriptAnalystView = {
@@ -351,8 +356,10 @@ function analyzedRow(t: TranscriptRow, a: ClaudeScript): ScriptAnalysisRow {
     note_text: a.note?.text ? String(a.note.text).trim() : null,
     suggestion,
     dur: t.duracion_s != null ? Math.round(t.duracion_s) : null,
+    es_imagen: t.tipo === 'imagen',
     transcript_chars: t.transcript ? t.transcript.length : null,
-    status: beats.length > 0 ? 'analizada' : 'descartada',
+    // Las imágenes (sin video → sin beats de retención) igual cuentan como analizadas.
+    status: (t.tipo === 'imagen' || beats.length > 0) ? 'analizada' : 'descartada',
     origen_clasif: 'claude',
     error: null,
     model: ANALYSIS_MODEL,
@@ -369,6 +376,7 @@ function descartadaRow(t: TranscriptRow, motivo: string): ScriptAnalysisRow {
     angle: null, hook_type: null, format: t.tipo === 'imagen' ? 'Imagen' : null,
     tags: null, beats: null, note_title: null, note_text: null, suggestion: null,
     dur: t.duracion_s != null ? Math.round(t.duracion_s) : null,
+    es_imagen: t.tipo === 'imagen',
     transcript_chars: t.transcript ? t.transcript.length : null,
     status: 'descartada',
     origen_clasif: 'heuristica',
@@ -487,17 +495,24 @@ export async function syncScriptAnalyses(opts: { max?: number; timeBudgetMs?: nu
   if (doneRows.error) throw new Error(`Error leyendo script_analyses: ${doneRows.error.message}`);
 
   const doneData = (doneRows.data ?? []) as Array<{ ad_id: string; status: string }>;
-  const retryable = (s: string) => s === 'error' || s === 'pendiente';
-  const done = new Set(doneData.filter((r) => (opts.force ? false : !retryable(r.status))).map((r) => r.ad_id));
+  // Las imágenes que quedaron 'descartada' de antes (cuando NO se analizaban)
+  // ahora SÍ deben analizarse → se reabren. Se detectan por ad_transcripts.tipo
+  // (no por es_imagen, que en esas filas viejas quedó en false). Si una imagen no
+  // tiene texto útil, se re-descarta gratis en el pre-loop (sin gastar Claude).
+  const imageAds = new Set(transcripts.filter((t) => t.tipo === 'imagen').map((t) => t.ad_id));
+  const retryable = (r: { ad_id: string; status: string }) =>
+    r.status === 'error' || r.status === 'pendiente' || (r.status === 'descartada' && imageAds.has(r.ad_id));
+  const done = new Set(doneData.filter((r) => (opts.force ? false : !retryable(r))).map((r) => r.ad_id));
 
   const result: SyncResult = { candidatos: 0, ya_procesados: 0, analizados: 0, descartados: 0, errores: 0, restantes: 0, ms: 0 };
 
-  // Imágenes (sin guion de video real) → descartadas sin gastar Claude.
+  // Solo se descarta lo que NO tiene transcript. Las imágenes SÍ se analizan
+  // (Claude clasifica del texto/descripción OCR); no tienen retención de video.
   const candidatos: TranscriptRow[] = [];
   for (const t of transcripts) {
     if (done.has(t.ad_id)) { result.ya_procesados++; continue; }
-    if (t.tipo === 'imagen' || !t.transcript || !t.transcript.trim()) {
-      await upsertRow(descartadaRow(t, t.tipo === 'imagen' ? 'creativo de imagen, no guion de video' : 'sin transcript'));
+    if (!t.transcript || !t.transcript.trim()) {
+      await upsertRow(descartadaRow(t, 'sin transcript'));
       result.descartados++;
       continue;
     }
@@ -536,8 +551,8 @@ export async function analyzeOne(adId: string): Promise<ScriptStatus> {
   if (!data) throw new Error(`Anuncio ${adId} sin transcript en ad_transcripts`);
   const names = await getAdNames([adId]);
   const t: TranscriptRow = { ...(data as Omit<TranscriptRow, 'ad_name'>), ad_name: names.get(adId) ?? adId };
-  if (t.tipo === 'imagen' || !t.transcript || !t.transcript.trim()) {
-    await upsertRow(descartadaRow(t, t.tipo === 'imagen' ? 'creativo de imagen, no guion de video' : 'sin transcript'));
+  if (!t.transcript || !t.transcript.trim()) {
+    await upsertRow(descartadaRow(t, 'sin transcript'));
     return 'descartada';
   }
   return processCandidate(t);
@@ -668,11 +683,12 @@ async function getAllMetaAdIds(): Promise<Set<string>> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VIEW_COLS =
-  'ad_id, ad_name, short, angle, hook_type, format, tags, beats, note_title, note_text, suggestion, dur, status, updated_at';
+  'ad_id, ad_name, short, angle, angle_override, es_imagen, hook_type, format, tags, beats, note_title, note_text, suggestion, dur, status, updated_at';
 
 type StoredView = {
   ad_id: string; ad_name: string | null; short: string | null;
-  angle: ScriptAngle | null; hook_type: HookType | null; format: string | null;
+  angle: ScriptAngle | null; angle_override: string | null; es_imagen: boolean | null;
+  hook_type: HookType | null; format: string | null;
   tags: string[] | null; beats: StoredBeat[] | null;
   note_title: string | null; note_text: string | null; suggestion: string | null;
   dur: number | null; status: ScriptStatus; updated_at: string;
@@ -686,7 +702,8 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
 
   const rows = (rowsData ?? []) as unknown as StoredView[];
-  const analizadas = rows.filter((r) => r.status === 'analizada' && (r.beats?.length ?? 0) > 0);
+  // Incluye videos con beats Y anuncios de imagen (sin beats de retención).
+  const analizadas = rows.filter((r) => r.status === 'analizada' && (r.es_imagen || (r.beats?.length ?? 0) > 0));
   const ids = analizadas.map((r) => r.ad_id);
 
   const [metrics, cierresByAd, allAdIds] = await Promise.all([
@@ -728,7 +745,7 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
       id: r.ad_id, adId: r.ad_id,
       name: r.ad_name ?? m.adName ?? r.ad_id,
       short: r.short ?? (r.ad_name ?? r.ad_id).slice(0, 24),
-      angle: r.angle ?? 'capataz', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
+      angle: r.angle_override || r.angle || 'capataz', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
       tags: r.tags ?? [], dur,
       hookRate: r0(hookRate), ctr: Math.round(ctr * 10) / 10,
       agendas: m.agendas, cierres: cierresByAd.get(r.ad_id) ?? 0, spend, impressions,
@@ -737,6 +754,7 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
       note: r.note_title || r.note_text ? { title: r.note_title ?? '', text: r.note_text ?? '' } : null,
       suggestion: r.suggestion,
       thumbnail: m.thumbnail, permalink: m.permalink, creativeSinEnlace: m.creativeSinEnlace, campana: m.campana, adset: m.adset,
+      esImagen: !!r.es_imagen,
     });
   }
   counts.enVista = scripts.length;
@@ -759,11 +777,11 @@ export async function getQuadrantData(desde?: string, hasta?: string): Promise<Q
   const supabase = getSupabaseServer();
   const { data, error } = await supabase
     .from('script_analyses')
-    .select('ad_id, short, angle, beats, dur')
+    .select('ad_id, short, angle, angle_override, beats, dur')
     .eq('status', 'analizada');
   if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
 
-  const rows = (data ?? []) as Array<{ ad_id: string; short: string | null; angle: ScriptAngle | null; beats: StoredBeat[] | null; dur: number | null }>;
+  const rows = (data ?? []) as Array<{ ad_id: string; short: string | null; angle: ScriptAngle | null; angle_override: string | null; beats: StoredBeat[] | null; dur: number | null }>;
   const withBeats = rows.filter((r) => (r.beats?.length ?? 0) > 0);
   const metrics = await getScriptMetrics(withBeats.map((r) => r.ad_id), desde, hasta);
 
@@ -780,7 +798,7 @@ export async function getQuadrantData(desde?: string, hasta?: string): Promise<Q
     const beats = r.beats ?? [];
     const lastT0 = beats.length ? beats[beats.length - 1].t0 : dur;
     out.push({
-      id: r.ad_id, short: r.short ?? r.ad_id.slice(0, 24), angle: r.angle ?? 'capataz',
+      id: r.ad_id, short: r.short ?? r.ad_id.slice(0, 24), angle: r.angle_override || r.angle || 'capataz',
       hookRate: r0(hookRate), hold: retAt(curve, dur > 0 ? lastT0 / dur : 1),
       spend: m.spendUsd, impressions, agendas: m.agendas,
     });
@@ -1013,4 +1031,15 @@ export async function deleteDraft(id: number): Promise<void> {
   const supabase = getSupabaseServer();
   const { error } = await supabase.from('script_drafts').delete().eq('id', id);
   if (error) throw new Error(`Error borrando guion: ${error.message}`);
+}
+
+/** Corrige a mano el ángulo de un anuncio (override que sobrevive al re-análisis).
+ *  angle=null vuelve a la clasificación de la IA. Escribe SOLO angle_override. */
+export async function setAngleOverride(adId: string, angle: string | null): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase
+    .from('script_analyses')
+    .update({ angle_override: angle && angle.trim() ? angle.trim() : null, updated_at: new Date().toISOString() })
+    .eq('ad_id', adId);
+  if (error) throw new Error(`Error guardando ángulo: ${error.message}`);
 }

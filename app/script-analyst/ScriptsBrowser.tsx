@@ -12,7 +12,7 @@
 
 import { createElement as h, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dropdown } from '../components/Dropdown';
+import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/script-analyst';
 
 const MONO = "'Geist Mono', monospace";
@@ -31,6 +31,7 @@ const KIND: Record<string, { label: string; c: string }> = {
 const VERDICT: Record<string, { label: string; c: string }> = {
   escalar: { label: 'Escalar', c: '#1C8A54' }, mejorar: { label: 'Mejorar gancho', c: '#2F6DDB' }, reescribir: { label: 'Reescribir cuerpo', c: '#9A6A09' },
   repensar: { label: 'Repensar', c: '#CF4E29' }, validar: { label: 'Validar (poco spend)', c: '#6B675C' },
+  imagen: { label: 'Imagen', c: '#6B675C' },
 };
 const CONF: Record<string, { label: string; c: string }> = {
   alta: { label: 'Alta', c: '#1C8A54' }, media: { label: 'Media', c: '#A8770F' }, baja: { label: 'Baja', c: '#A39E91' },
@@ -66,7 +67,7 @@ function verdictFromVals(hookRate: number, holdv: number, impressions: number): 
   const hi = hookRate >= HOOK_MID, ho = holdv >= HOLD_MID;
   return hi ? (ho ? 'escalar' : 'reescribir') : (ho ? 'mejorar' : 'repensar');
 }
-function verdictOf(a: ScriptView): string { return verdictFromVals(a.hookRate, hold(a), a.impressions); }
+function verdictOf(a: ScriptView): string { return a.esImagen ? 'imagen' : verdictFromVals(a.hookRate, hold(a), a.impressions); }
 function angleChip(k: string): CSSProperties {
   const a = angleInfo(k);
   return { display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 6, fontFamily: MONO, letterSpacing: '.04em', background: rgba(a.c, .12), color: a.c, border: `1px solid ${rgba(a.c, .3)}` };
@@ -151,6 +152,8 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
   const out: Pattern[] = [];
   if (!total) return out;
   const bySpend = (arr: ScriptView[]) => arr.slice().sort((a, b) => b.spend - a.spend);
+  // Patrones de gancho/retención: SOLO video (las imágenes no tienen métricas de video).
+  const vReliable = reliable.filter((a) => !a.esImagen);
 
   // ── PROCESO ──
   const under = ads.filter((a) => a.spend < 10 || a.days < 3);
@@ -192,7 +195,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
       stmt: `Cortá el ángulo ${angleInfo(w.k).label}: quemó ${fmtUSD(w.sp)} sin agendar nada. Mové esa plata al ángulo que sí rinde.`,
       aLabel: 'gastado', aVal: fmtK(w.sp), a: w.sp, bLabel: 'agendas', bVal: '0', b: 0, max: w.sp, ads: bySpend(w.g) });
   }
-  const leak = reliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) < HOLD_MID);
+  const leak = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) < HOLD_MID);
   if (leak.length >= 2 && sum(leak, (a) => a.spend) >= 50) {
     out.push({ key: 'gancho-sin-cuerpo', polarity: 'malo', chip: 'Gancho sin cuerpo', big: String(leak.length), bigColor: POL.malo.c, tlabel: 'frenan pero no retienen', priority: 8,
       stmt: `${leak.length} guiones frenan el scroll (hook ${r(mean(leak, (a) => a.hookRate))}% promedio) pero pierden a la gente antes del CTA (${r(mean(leak, (a) => hold(a)))}%). El problema no es la entrada, es el cuerpo: reescribí el medio.`,
@@ -204,7 +207,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
       stmt: `${fat.length} guiones ya pasaron frecuencia 2.4 — la misma gente los vio de más y su costo por resultado sube. Mismo guion, creativo nuevo, antes de que se quemen.`,
       aLabel: 'saturados', aVal: `${mean(fat, (a) => a.freq).toFixed(1)}x`, a: mean(fat, (a) => a.freq), bLabel: 'sanos', bVal: healthy.length ? `${mean(healthy, (a) => a.freq).toFixed(1)}x` : '—', b: healthy.length ? mean(healthy, (a) => a.freq) : 0, max: Math.max(mean(fat, (a) => a.freq), 3), ads: bySpend(fat) });
   }
-  const weakHook = reliable.filter((a) => a.hookRate < HOOK_MID && hold(a) >= HOLD_MID);
+  const weakHook = vReliable.filter((a) => a.hookRate < HOOK_MID && hold(a) >= HOLD_MID);
   if (weakHook.length >= 2) {
     out.push({ key: 'gancho-flojo', polarity: 'malo', chip: 'Gancho flojo', big: String(weakHook.length), bigColor: POL.malo.c, tlabel: 'cuerpo retiene, gancho bajo', priority: 6,
       stmt: `${weakHook.length} guiones retienen bien una vez que arrancan (${r(mean(weakHook, (a) => hold(a)))}%) pero el gancho no frena el scroll (${r(mean(weakHook, (a) => a.hookRate))}%). Buen cuerpo desperdiciado: probá los ganchos que sugiere MaKo en cada uno.`,
@@ -219,13 +222,13 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
       stmt: `Mostrá el panel en pantalla: los guiones que muestran un dashboard agendan ${rw}% vs ${rwo}% de los que no. Es tu patrón ganador más claro.`,
       aLabel: 'con panel', aVal: `${rw}%`, a: rw, bLabel: 'sin panel', bVal: `${rwo}%`, b: rwo, max: 100, ads: dash.filter(won) });
   }
-  const escalables = reliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) >= HOLD_MID && a.agendas > 0 && a.freq < 2.4);
+  const escalables = vReliable.filter((a) => a.hookRate >= HOOK_MID && hold(a) >= HOLD_MID && a.agendas > 0 && a.freq < 2.4);
   if (escalables.length >= 2) {
     out.push({ key: 'escalar', polarity: 'bueno', chip: 'Escalá esto', big: String(escalables.length), bigColor: POL.bueno.c, tlabel: 'listos para más presupuesto', priority: 7,
       stmt: `${escalables.length} guiones ya frenan, retienen, agendan y tienen frecuencia sana. Subiles presupuesto — son tus candidatos a escalar ya.`,
       aLabel: 'listos', aVal: String(escalables.length), a: escalables.length, bLabel: 'confiables', bVal: String(reliable.length), b: reliable.length, max: Math.max(reliable.length, 1), ads: bySpend(escalables) });
   }
-  const gH = reliable.filter((a) => a.hookType === 'resultado' || a.hookType === 'pregunta'), gD = reliable.filter((a) => a.hookType === 'dolor');
+  const gH = vReliable.filter((a) => a.hookType === 'resultado' || a.hookType === 'pregunta'), gD = vReliable.filter((a) => a.hookType === 'dolor');
   if (gH.length >= 2 && gD.length >= 2 && mean(gH, (a) => a.hookRate) > mean(gD, (a) => a.hookRate)) {
     out.push({ key: 'hook', polarity: 'bueno', chip: 'Tipo de gancho', big: `${r(mean(gH, (a) => a.hookRate))}%`, bigColor: POL.bueno.c, tlabel: 'hook con cifra o pregunta', priority: 6,
       stmt: `Los ganchos que abren con una cifra o una pregunta promedian ${r(mean(gH, (a) => a.hookRate))}% de hook rate — más que abrir con dolor abstracto (${r(mean(gD, (a) => a.hookRate))}%).`,
@@ -238,7 +241,7 @@ function buildPatterns(ads: ScriptView[], reliable: ScriptView[]): Pattern[] {
       stmt: `El ángulo ${angleInfo(be.k).label} agenda ${be.per1k.toFixed(1)} juntas por cada $1,000 — es tu ángulo más eficiente. Metele más guiones.`,
       aLabel: angleInfo(be.k).label, aVal: be.per1k.toFixed(1), a: be.per1k, bLabel: 'objetivo', bVal: '—', b: 0, max: Math.max(be.per1k, 1), ads: bySpend(be.g) });
   }
-  const gLong = reliable.filter((a) => a.dur >= 44), gShort = reliable.filter((a) => a.dur < 44);
+  const gLong = vReliable.filter((a) => a.dur >= 44), gShort = vReliable.filter((a) => a.dur < 44);
   if (gLong.length >= 2 && gShort.length >= 2) {
     const diff = Math.round(mean(gLong, (a) => hold(a)) - mean(gShort, (a) => hold(a)));
     if (diff > 0) out.push({ key: 'dur', polarity: 'bueno', chip: 'Duración', big: `+${diff} pts`, bigColor: POL.bueno.c, tlabel: 'retención extra en 44s o más', priority: 5,
@@ -337,6 +340,16 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
       setReMsg('Listo.'); router.refresh();
     } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
   }
+  // Corrige a mano el ángulo de un anuncio (o vuelve a la IA con angle=null).
+  async function setAngleOverride(adId: string, angle: string | null) {
+    setReMsg(angle ? 'Cambiando ángulo…' : 'Volviendo a la IA…');
+    try {
+      const r = await fetch('/api/script-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'falló');
+      setReMsg('Listo.'); router.refresh();
+    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
+  }
   // Filtro de fecha PROPIO del cuadrante: recalcula los puntos en una ventana sin
   // tocar KPIs/patrones/tabla (que siguen siendo histórico completo).
   async function onQuadWin(v: string) {
@@ -370,7 +383,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
   const reliable = useMemo(() => ads.filter((a) => confidence(a) !== 'baja'), [ads]);
   const visible = useMemo(() => ads.filter((s) => angle === 'todos' || s.angle === angle), [ads, angle]);
   // Puntos del cuadrante: histórico (de props) o la ventana fetcheada; filtrados por ángulo y muestra.
-  const allTimePoints = useMemo<QuadPoint[]>(() => ads.map((s) => ({ id: s.id, short: s.short, angle: s.angle, hookRate: s.hookRate, hold: hold(s), spend: s.spend, impressions: s.impressions, agendas: s.agendas })), [ads]);
+  const allTimePoints = useMemo<QuadPoint[]>(() => ads.filter((s) => !s.esImagen).map((s) => ({ id: s.id, short: s.short, angle: s.angle, hookRate: s.hookRate, hold: hold(s), spend: s.spend, impressions: s.impressions, agendas: s.agendas })), [ads]);
   const quadItems = useMemo(() => (quadPoints ?? allTimePoints).filter((p) => (angle === 'todos' || p.angle === angle) && (!hideSmall || p.impressions >= 8000)), [quadPoints, allTimePoints, angle, hideSmall]);
   const P = useMemo(() => buildPatterns(ads, reliable), [ads, reliable]);
   const mk = useMemo(() => makoConclusions(reliable, P), [reliable, P]);
@@ -385,7 +398,10 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
   // KPIs (ponderados por spend)
   const totalSpend = ads.reduce((s, a) => s + a.spend, 0);
   const totalAg = ads.reduce((s, a) => s + a.agendas, 0);
-  const wHook = totalSpend > 0 ? Math.round(ads.reduce((s, a) => s + a.hookRate * a.spend, 0) / totalSpend) : 0;
+  // Hook rate ponderado: solo video (las imágenes no tienen hook rate).
+  const vAds = ads.filter((a) => !a.esImagen);
+  const vSpend = vAds.reduce((s, a) => s + a.spend, 0);
+  const wHook = vSpend > 0 ? Math.round(vAds.reduce((s, a) => s + a.hookRate * a.spend, 0) / vSpend) : 0;
   const wasteSpend = ads.filter((a) => a.agendas === 0).reduce((s, a) => s + a.spend, 0);
   const wasteN = ads.filter((a) => a.agendas === 0).length;
 
@@ -710,14 +726,14 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [] }: { data: ScriptAn
       </section>
 
       {/* GUIONES */}
-      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={6} fullHref="/script-analyst/guiones" />
+      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/script-analyst/guiones" />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6, lineHeight: 1.6 }}>
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.
       </footer>
 
       {/* FUNNEL MODAL */}
-      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} />}
+      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />}
 
       {/* PATTERN DRILL MODAL */}
       {drill && (
@@ -835,10 +851,19 @@ function SyncBar({ syncing, syncMsg, lastSync, counts, onSync }: { syncing: bool
 }
 
 // ── Modal del embudo de un guion ──
-export function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null }) {
+export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null; onSetAngle?: (id: string, angle: string | null) => void }) {
   const v = verdictOf(sel), ho = hold(sel), vc = VERDICT[v].c, conf = confidence(sel), cp = cpa(sel);
   const beats = decorateBeats(sel);
-  const chips = [
+  // Los creativos de imagen no tienen gancho de 3s, retención al CTA ni frecuencia
+  // de video útil → se muestran solo las métricas de negocio (plata, agendas, cierres).
+  const chips = sel.esImagen ? [
+    { label: 'Spend', value: fmtUSD(sel.spend), color: 'var(--ink)' },
+    { label: '$/agenda', value: cp == null ? '—' : fmtUSD(cp), color: cp == null ? 'var(--faint)' : 'var(--ink)' },
+    { label: 'Agendas', value: String(sel.agendas), color: sel.agendas > 0 ? 'var(--good)' : 'var(--faint)' },
+    { label: 'Cierres', value: String(sel.cierres), color: sel.cierres > 0 ? 'var(--good)' : 'var(--faint)' },
+    { label: 'Impresiones', value: sel.impressions.toLocaleString('en-US'), color: 'var(--ink)' },
+    { label: 'Confianza', value: CONF[conf].label, color: CONF[conf].c },
+  ] : [
     { label: 'Hook 3s', value: `${sel.hookRate}%`, color: hookColor(sel.hookRate) },
     { label: 'Ret. CTA', value: `${ho}%`, color: retColor(ho) },
     { label: 'Spend', value: fmtUSD(sel.spend), color: 'var(--ink)' },
@@ -848,6 +873,11 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: Script
     { label: 'Cierres', value: String(sel.cierres), color: sel.cierres > 0 ? 'var(--good)' : 'var(--faint)' },
     { label: 'Confianza', value: CONF[conf].label, color: CONF[conf].c },
   ];
+  // Ángulos disponibles para corregir a mano + opción de volver a la IA.
+  const angleOpts: DropdownOption[] = [
+    ...Object.entries(ANGLE).map(([k, a]) => ({ value: k, label: a.label, color: a.c })),
+    { value: '__auto', label: 'Automático (IA)', sub: 'volver a la clasificación de la IA' },
+  ];
   const avgWatch = `0:${String(Math.round(sel.dur * 0.62)).padStart(2, '0')}`;
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 65, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
@@ -855,14 +885,22 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: Script
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8, flexWrap: 'wrap' }}>
-              <span style={angleChip(sel.angle)}>{angleInfo(sel.angle).label}</span>
+              {onSetAngle ? (
+                <Dropdown value={sel.angle} options={angleOpts} ariaLabel="Cambiar ángulo del guion"
+                  onChange={(val) => onSetAngle(sel.adId, val === '__auto' ? null : val)}
+                  buttonStyle={{ padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, borderColor: rgba(angleInfo(sel.angle).c, .4), color: angleInfo(sel.angle).c, background: rgba(angleInfo(sel.angle).c, .1) }} />
+              ) : (
+                <span style={angleChip(sel.angle)}>{angleInfo(sel.angle).label}</span>
+              )}
               <span style={verdictChip(v)}>{VERDICT[v].label}</span>
             </div>
             <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)', lineHeight: 1.2 }}>{sel.name}</h2>
             <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4, fontFamily: MONO }}>{sel.format} · {fmtT(sel.dur)} · {sel.days} días · ad_id {sel.adId}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, flex: 'none' }}>
-            <div style={{ textAlign: 'right' }}><div style={{ fontSize: 30, fontWeight: 600, lineHeight: 1, color: hookColor(sel.hookRate), fontVariantNumeric: 'tabular-nums' }}>{sel.hookRate}%</div><div style={{ fontSize: 10, color: 'var(--faint)', fontFamily: MONO, marginTop: 3, letterSpacing: '.04em' }}>HOOK · 3s</div></div>
+            {!sel.esImagen && (
+              <div style={{ textAlign: 'right' }}><div style={{ fontSize: 30, fontWeight: 600, lineHeight: 1, color: hookColor(sel.hookRate), fontVariantNumeric: 'tabular-nums' }}>{sel.hookRate}%</div><div style={{ fontSize: 10, color: 'var(--faint)', fontFamily: MONO, marginTop: 3, letterSpacing: '.04em' }}>HOOK · 3s</div></div>
+            )}
             <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
           </div>
         </div>
@@ -875,6 +913,23 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: Script
               <div key={c.label} style={{ display: 'flex', alignItems: 'baseline', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '7px 11px' }}><span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--faint)' }}>{c.label}</span><span style={{ fontSize: 14, fontWeight: 600, color: c.color, fontVariantNumeric: 'tabular-nums' }}>{c.value}</span></div>
             ))}
           </div>
+          {sel.esImagen ? (
+          <div>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Creativo de imagen</div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', border: '1px solid var(--border)', borderRadius: 14, padding: 14, background: 'var(--surface-2)' }}>
+              {sel.thumbnail ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={sel.thumbnail} alt={sel.name} style={{ width: 200, flex: 'none', borderRadius: 10, border: '1px solid var(--border)', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: 200, height: 200, flex: 'none', borderRadius: 10, border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 12, fontFamily: MONO }}>sin miniatura</div>
+              )}
+              <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--dim)' }}>
+                Creativo de imagen — no tiene retención de video ni embudo. El ángulo, los tags y el diagnóstico se derivan del texto y la descripción del anuncio. Se lo juzga por plata, agendas y cierres.
+                {sel.permalink && <div style={{ marginTop: 10 }}><a href={sel.permalink} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: 12.5, textDecoration: 'none', fontWeight: 600 }}>Ver en Meta →</a></div>}
+              </div>
+            </div>
+          </div>
+          ) : (
           <div>
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 5 }}>El guión · embudo de retención</div>
             <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 12 }}>El ancho de cada bloque es la audiencia que sigue viendo (estimada por los cuartiles de Meta). Donde se estrecha de golpe, se están yendo.</div>
@@ -896,6 +951,7 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg }: { sel: Script
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}><span style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 600, color: retColor(sel.finalRet) }}>{sel.finalRet}% llegó al final</span><span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{sel.thru.toLocaleString('en-US')} thruplays</span></div>
             </div>
           </div>
+          )}
           {sel.note && (
             <div style={{ background: rgba(vc, .06), border: `1px solid ${rgba(vc, .26)}`, borderRadius: 13, padding: '16px 18px' }}>
               <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10, color: vc }}>{sel.note.title || 'Diagnóstico'}</div>
@@ -1031,10 +1087,14 @@ function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void 
           <span style={angleChip(s.angle)}>{angleInfo(s.angle).label}</span>
           <span style={verdictChip(v)}>{VERDICT[v].label}</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
-          <Bar label="Hook" val={s.hookRate} color={hookColor(s.hookRate)} />
-          <Bar label="Ret. CTA" val={ho} color={retColor(ho)} />
-        </div>
+        {s.esImagen ? (
+          <div style={{ marginTop: 'auto', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>Imagen · sin retención de video</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'auto' }}>
+            <Bar label="Hook" val={s.hookRate} color={hookColor(s.hookRate)} />
+            <Bar label="Ret. CTA" val={ho} color={retColor(ho)} />
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}><span>{fmtUSD(s.spend)} · {s.days}d</span><span>{s.agendas} ag · {cp == null ? '—' : `${fmtUSD(cp)}/ag`}</span></div>
       </div>
     </button>
@@ -1103,8 +1163,8 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref }: { scripts: Sc
                 <tr key={a.id} onClick={() => onOpen(a.id)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
                   <td style={{ padding: '13px 16px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}><span title={`Confianza ${CONF[conf].label} · ${a.impressions.toLocaleString('en-US')} impres.`} style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: CONF[conf].c, boxShadow: `0 0 0 3px ${rgba(CONF[conf].c, .2)}` }} /><span style={{ fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span></div></td>
                   <td style={{ padding: '13px 14px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--dim)' }}><span style={{ width: 8, height: 8, borderRadius: '50%', flex: 'none', background: angleInfo(a.angle).c }} />{angleInfo(a.angle).label}</span></td>
-                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: hookColor(a.hookRate) }}>{a.hookRate}%</td>
-                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: retColor(ho) }}>{ho}%</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: a.esImagen ? 'var(--faint)' : hookColor(a.hookRate) }}>{a.esImagen ? '—' : `${a.hookRate}%`}</td>
+                  <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: a.esImagen ? 'var(--faint)' : retColor(ho) }}>{a.esImagen ? '—' : `${ho}%`}</td>
                   <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)' }}>{fmtUSD(a.spend)}</td>
                   <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: fatColor(a) }}>{a.freq.toFixed(2)}</td>
                   <td style={{ padding: '13px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: a.agendas > 0 ? 'var(--good)' : 'var(--faint)' }}>{a.agendas}</td>
@@ -1134,11 +1194,20 @@ export function GuionesFull({ scripts }: { scripts: ScriptView[] }) {
       setReMsg('Listo.'); router.refresh();
     } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
   }
+  async function setAngleOverride(adId: string, angle: string | null) {
+    setReMsg(angle ? 'Cambiando ángulo…' : 'Volviendo a la IA…');
+    try {
+      const r = await fetch('/api/script-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'falló');
+      setReMsg('Listo.'); router.refresh();
+    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
+  }
   const sel = openAd ? scripts.find((a) => a.id === openAd) ?? null : null;
   return (
     <>
       <GuionesPanel scripts={scripts} onOpen={setOpenAd} />
-      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} />}
+      {sel && <FunnelModal sel={sel} onClose={() => setOpenAd(null)} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />}
     </>
   );
 }
