@@ -13,6 +13,7 @@
 
 import { getScriptAnalystView, getDrafts, type ScriptAnalystView, type ScriptDraft } from '@/lib/script-analyst';
 import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
+import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { ScriptsBrowser } from './ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,7 @@ export default async function ScriptAnalystPage() {
   let errorMsg: string | null = null;
   let drafts: ScriptDraft[] = [];
   let angles: Angle[] = DEFAULT_ANGLES;
+  let avatares: Avatar[] = [];
   try {
     data = await getScriptAnalystView();
   } catch (err) {
@@ -40,8 +42,8 @@ export default async function ScriptAnalystPage() {
     drafts = await getDrafts();
   } catch { /* el historial no es crítico para la vista */ }
   try {
-    angles = await getAngles();
-  } catch { /* si falla, los 5 default */ }
+    [angles, avatares] = await Promise.all([getAngles(), getAvatares()]);
+  } catch { /* si falla, ángulos default y sin avatares */ }
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
@@ -57,7 +59,7 @@ export default async function ScriptAnalystPage() {
         </div>
       </header>
 
-      <ScriptsBrowser data={data} errorMsg={errorMsg} drafts={drafts} angles={angles} />
+      <ScriptsBrowser data={data} errorMsg={errorMsg} drafts={drafts} angles={angles} avatares={avatares} />
     </main>
   );
 }

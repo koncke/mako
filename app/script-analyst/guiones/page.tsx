@@ -7,6 +7,7 @@
 
 import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/script-analyst';
 import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
+import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { GuionesFull } from '../ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -24,14 +25,15 @@ export default async function GuionesPage() {
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let angles: Angle[] = DEFAULT_ANGLES;
+  let avatares: Avatar[] = [];
   try {
     data = await getScriptAnalystView();
   } catch (err) {
     errorMsg = err instanceof Error ? err.message : String(err);
   }
   try {
-    angles = await getAngles();
-  } catch { /* si falla, los 5 default */ }
+    [angles, avatares] = await Promise.all([getAngles(), getAvatares()]);
+  } catch { /* si falla, ángulos default y sin avatares */ }
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
@@ -52,7 +54,7 @@ export default async function GuionesPage() {
           Todavía no hay guiones analizados. Sincronizá desde la tab de Scripts Analyst.
         </div>
       ) : (
-        <GuionesFull scripts={data.scripts} angles={angles} />
+        <GuionesFull scripts={data.scripts} angles={angles} avatares={avatares} />
       )}
     </main>
   );

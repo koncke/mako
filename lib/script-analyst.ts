@@ -29,6 +29,8 @@ import { getSupabaseServer } from './supabase';
 import { chatClaude } from './anthropic';
 import { TIPO_DE_CAMBIO_USD_MXN } from './config';
 import { getAngles, type Angle } from './script-angles';
+import { getAvatares, type Avatar } from './script-avatares';
+import { renderPrompt } from './prompt-render';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Vocabularios controlados (deben coincidir con los del diseño / la vista)
@@ -71,6 +73,7 @@ export type ScriptAnalysisRow = {
   ad_name: string | null;
   short: string | null;
   angle: ScriptAngle | null;
+  avatar: string | null;
   hook_type: HookType | null;
   format: string | null;
   tags: string[] | null;
@@ -96,6 +99,7 @@ export type ScriptView = {
   name: string;
   short: string;
   angle: ScriptAngle;
+  avatar: string;        // clave del avatar (override || IA || ''); '' = sin avatar
   hookType: HookType;
   format: string;
   tags: string[];
@@ -222,17 +226,16 @@ const ANALYSIS_VERSION = 1;
 // El vocabulario de ÁNGULOS es editable (lib/script-angles.ts) → el prompt se
 // arma con la lista vigente. Con los DEFAULT_ANGLES (los 5 base) el texto queda
 // idéntico al original, así no cambia el comportamiento cuando no hay custom.
-function buildSystemAnalisis(angles: Angle[]): string {
-  const angleBullets = angles.map((a) => `  - ${a.key}: ${a.desc ?? a.label}.`).join('\n');
-  const anglePipe = angles.map((a) => a.key).join('|');
-  return `Sos MaKo, analista de guiones publicitarios de Mauricio Bustos (consultoría/coaching ejecutivo que le vende un programa de mentoría a dueños de negocio mediante video ads en Meta). Te paso el TRANSCRIPT de un video ad y tenés que leer el GUION y devolver su anatomía.
+// Esqueleto editable. {{angleBullets}} = lista de ángulos vigentes (clave: desc),
+// {{anglePipe}} = ángulos separados por "|" para el enum del JSON.
+export const SCRIPT_ANALYSIS_SYSTEM_TEMPLATE = `Sos MaKo, analista de guiones publicitarios de Mauricio Bustos (consultoría/coaching ejecutivo que le vende un programa de mentoría a dueños de negocio mediante video ads en Meta). Te paso el TRANSCRIPT de un video ad y tenés que leer el GUION y devolver su anatomía.
 
 NO tenés métricas de performance: no inventes números de spend, hook rate ni retención. Tu trabajo es puramente sobre el guion: clasificarlo, partirlo en bloques y diagnosticar su ESTRUCTURA (qué promete el gancho, si el cuerpo cumple, dónde probablemente se aburre la audiencia, si el CTA cierra). El dashboard le pone los números al lado.
 
 Clasificá con estos vocabularios CERRADOS (elegí exactamente uno donde corresponda):
 
 • angle (el ángulo del mensaje, elegí exactamente uno de esta lista, devolvé la CLAVE en minúsculas):
-${angleBullets}
+{{angleBullets}}
 
 • hook_type (qué hace el PRIMER bloque para frenar el scroll):
   - promesa, testimonio, pregunta, dolor, resultado (abre con una cifra concreta), recordatorio.
@@ -254,7 +257,7 @@ suggestion: si el problema está en la ENTRADA (gancho flojo), proponé un ganch
 
 Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto fuera del JSON, sin markdown), con este esquema:
 {
-  "angle": "${anglePipe}",
+  "angle": "{{anglePipe}}",
   "hook_type": "promesa|testimonio|pregunta|dolor|resultado|recordatorio",
   "format": string,
   "short": string,
@@ -264,29 +267,55 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto fuera del JSON, sin ma
   "suggestion": string | null
 }
 Todo en español rioplatense (voseo), concreto. Si el transcript es muy pobre o no parece un guion de video (ej. solo una imagen con texto), devolvé igual la mejor clasificación posible y beats mínimos.`;
+
+// El AVATAR (público objetivo) es opcional y específico del cliente: si no hay
+// avatares definidos, no se le pide a la IA. Se APENDE al system (no es un slot de
+// la plantilla editable) para no acoplar con el registro de prompts ni romper si
+// la plantilla ya fue editada a mano.
+function avatarInstruction(avatares: Avatar[]): string {
+  if (!avatares.length) return '';
+  const bullets = avatares.map((a) => `  - ${a.key}: ${a.desc ?? a.label}.`).join('\n');
+  return `\n\n• avatar (a QUIÉN le habla el anuncio): agregá AL JSON un campo extra "avatar" con EXACTAMENTE una de estas claves (la que mejor describa al público objetivo del guion), en minúsculas. Si ninguno aplica, devolvé "avatar": "".\n${bullets}`;
+}
+
+async function buildSystemAnalisis(angles: Angle[], avatares: Avatar[]): Promise<string> {
+  const angleBullets = angles.map((a) => `  - ${a.key}: ${a.desc ?? a.label}.`).join('\n');
+  const anglePipe = angles.map((a) => a.key).join('|');
+  const base = await renderPrompt('script_analyst.analysis.system', SCRIPT_ANALYSIS_SYSTEM_TEMPLATE, { angleBullets, anglePipe });
+  return base + avatarInstruction(avatares);
 }
 
 type Seccion = { titulo?: string; texto?: string };
 
-function buildUserPrompt(t: { ad_name: string | null; tipo: string | null; idioma: string | null; duracion_s: number | null; secciones: Seccion[] | null; transcript: string | null }): string {
+// {{ad_name}} {{tipo}} {{idioma}} {{duracion}} = metadatos · {{cuerpo}} = guion.
+export const SCRIPT_ANALYSIS_USER_TEMPLATE = `## Anuncio
+Nombre: {{ad_name}}
+Tipo de creativo: {{tipo}}
+Idioma: {{idioma}}
+Duración del video: {{duracion}}
+
+## Transcript del guion
+{{cuerpo}}
+
+Analizá el guion y devolvé el JSON pedido.`;
+
+function buildUserPrompt(t: { ad_name: string | null; tipo: string | null; idioma: string | null; duracion_s: number | null; secciones: Seccion[] | null; transcript: string | null }): Promise<string> {
   const secciones = Array.isArray(t.secciones) && t.secciones.length
     ? t.secciones.map((s) => `[${s.titulo ?? 'Sección'}] ${s.texto ?? ''}`).join('\n')
     : '';
   const cuerpo = secciones || (t.transcript ?? '(sin transcript)');
-  return `## Anuncio
-Nombre: ${t.ad_name ?? '(sin nombre)'}
-Tipo de creativo: ${t.tipo ?? 'video'}
-Idioma: ${t.idioma ?? 'es'}
-Duración del video: ${t.duracion_s != null ? `${Math.round(t.duracion_s)}s` : 'desconocida'}
-
-## Transcript del guion
-${cuerpo}
-
-Analizá el guion y devolvé el JSON pedido.`;
+  return renderPrompt('script_analyst.analysis.user', SCRIPT_ANALYSIS_USER_TEMPLATE, {
+    ad_name: t.ad_name ?? '(sin nombre)',
+    tipo: t.tipo ?? 'video',
+    idioma: t.idioma ?? 'es',
+    duracion: t.duracion_s != null ? `${Math.round(t.duracion_s)}s` : 'desconocida',
+    cuerpo,
+  });
 }
 
 type ClaudeScript = {
   angle?: string;
+  avatar?: string;
   hook_type?: string;
   format?: string;
   short?: string;
@@ -299,9 +328,10 @@ type ClaudeScript = {
 export type AnalyzeResult = { ok: true; analysis: ClaudeScript } | { ok: false; error: string };
 
 /** Corre Claude sobre un transcript. PURA: nunca tira, devuelve {ok}. */
-async function analyzeTranscript(t: TranscriptRow, angles: Angle[]): Promise<AnalyzeResult> {
+async function analyzeTranscript(t: TranscriptRow, angles: Angle[], avatares: Avatar[]): Promise<AnalyzeResult> {
   try {
-    const text = await chatClaude(buildSystemAnalisis(angles), [{ role: 'user', content: buildUserPrompt(t) }], {
+    const [system, user] = await Promise.all([buildSystemAnalisis(angles, avatares), buildUserPrompt(t)]);
+    const text = await chatClaude(system, [{ role: 'user', content: user }], {
       model: ANALYSIS_MODEL,
       thinking: true,
       effort: 'high',
@@ -341,18 +371,21 @@ function sanitizeBeats(raw: ClaudeScript['beats'], dur: number | null): StoredBe
   return out;
 }
 
-function analyzedRow(t: TranscriptRow, a: ClaudeScript, angleKeys: string[]): ScriptAnalysisRow {
+function analyzedRow(t: TranscriptRow, a: ClaudeScript, angleKeys: string[], avatarKeys: string[]): ScriptAnalysisRow {
   const tags = Array.isArray(a.tags)
     ? [...new Set(a.tags.map(String).filter((x) => (TAG_VOCAB as readonly string[]).includes(x)))]
     : [];
   const beats = sanitizeBeats(a.beats, t.duracion_s);
   const suggestion = typeof a.suggestion === 'string' && a.suggestion.trim() ? a.suggestion.trim() : null;
   const angleAllowed = angleKeys.length ? angleKeys : (ANGLES as readonly string[]);
+  // avatar: solo si el cliente definió avatares y la IA devolvió uno válido; si no, '' (sin avatar).
+  const avatar = avatarKeys.length && typeof a.avatar === 'string' && avatarKeys.includes(a.avatar) ? a.avatar : null;
   return {
     ad_id: t.ad_id,
     ad_name: t.ad_name ?? null,
     short: a.short ? String(a.short).trim().slice(0, 40) : (t.ad_name ?? t.ad_id).slice(0, 24),
     angle: oneOf<ScriptAngle>(a.angle, angleAllowed, angleAllowed[0] ?? 'capataz'),
+    avatar,
     hook_type: oneOf<HookType>(a.hook_type, HOOK_TYPES, 'promesa'),
     format: a.format ? String(a.format).trim().slice(0, 60) : (t.tipo === 'imagen' ? 'Imagen' : 'Video'),
     tags,
@@ -378,7 +411,7 @@ function descartadaRow(t: TranscriptRow, motivo: string): ScriptAnalysisRow {
     ad_id: t.ad_id,
     ad_name: t.ad_name ?? null,
     short: (t.ad_name ?? t.ad_id).slice(0, 24),
-    angle: null, hook_type: null, format: t.tipo === 'imagen' ? 'Imagen' : null,
+    angle: null, avatar: null, hook_type: null, format: t.tipo === 'imagen' ? 'Imagen' : null,
     tags: null, beats: null, note_title: null, note_text: null, suggestion: null,
     dur: t.duracion_s != null ? Math.round(t.duracion_s) : null,
     es_imagen: t.tipo === 'imagen',
@@ -476,13 +509,13 @@ const DEFAULT_MAX = 6;
 const DEFAULT_TIME_BUDGET_MS = 150_000;
 
 /** Procesa UN transcript: corre Claude, persiste. PURA respecto del batch. */
-async function processCandidate(t: TranscriptRow, angles: Angle[]): Promise<ScriptStatus> {
-  const res = await analyzeTranscript(t, angles);
+async function processCandidate(t: TranscriptRow, angles: Angle[], avatares: Avatar[]): Promise<ScriptStatus> {
+  const res = await analyzeTranscript(t, angles, avatares);
   if (!res.ok) {
     await upsertRow({ ...descartadaRow(t, res.error), status: 'error' });
     return 'error';
   }
-  const row = analyzedRow(t, res.analysis, angles.map((a) => a.key));
+  const row = analyzedRow(t, res.analysis, angles.map((a) => a.key), avatares.map((a) => a.key));
   await upsertRow(row);
   return row.status;
 }
@@ -493,10 +526,11 @@ export async function syncScriptAnalyses(opts: { max?: number; timeBudgetMs?: nu
   const timeBudget = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
 
   const supabase = getSupabaseServer();
-  const [transcripts, doneRows, angles] = await Promise.all([
+  const [transcripts, doneRows, angles, avatares] = await Promise.all([
     getVideoTranscripts(),
     supabase.from('script_analyses').select('ad_id, status'),
     getAngles(),
+    getAvatares(),
   ]);
   if (doneRows.error) throw new Error(`Error leyendo script_analyses: ${doneRows.error.message}`);
 
@@ -534,7 +568,7 @@ export async function syncScriptAnalyses(opts: { max?: number; timeBudgetMs?: nu
   for (const t of candidatos) {
     if (enCorrida >= max || Date.now() - tStart > timeBudget) break;
     enCorrida++;
-    const status = await processCandidate(t, angles);
+    const status = await processCandidate(t, angles, avatares);
     if (status === 'error') result.errores++;
     else if (status === 'analizada') result.analizados++;
     else result.descartados++;
@@ -555,13 +589,13 @@ export async function analyzeOne(adId: string): Promise<ScriptStatus> {
     .maybeSingle();
   if (error) throw new Error(`Error leyendo transcript ${adId}: ${error.message}`);
   if (!data) throw new Error(`Anuncio ${adId} sin transcript en ad_transcripts`);
-  const [names, angles] = await Promise.all([getAdNames([adId]), getAngles()]);
+  const [names, angles, avatares] = await Promise.all([getAdNames([adId]), getAngles(), getAvatares()]);
   const t: TranscriptRow = { ...(data as Omit<TranscriptRow, 'ad_name'>), ad_name: names.get(adId) ?? adId };
   if (!t.transcript || !t.transcript.trim()) {
     await upsertRow(descartadaRow(t, 'sin transcript'));
     return 'descartada';
   }
-  return processCandidate(t, angles);
+  return processCandidate(t, angles, avatares);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -689,11 +723,12 @@ async function getAllMetaAdIds(): Promise<Set<string>> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VIEW_COLS =
-  'ad_id, ad_name, short, angle, angle_override, es_imagen, hook_type, format, tags, beats, note_title, note_text, suggestion, dur, status, updated_at';
+  'ad_id, ad_name, short, angle, angle_override, avatar, avatar_override, es_imagen, hook_type, format, tags, beats, note_title, note_text, suggestion, dur, status, updated_at';
 
 type StoredView = {
   ad_id: string; ad_name: string | null; short: string | null;
-  angle: ScriptAngle | null; angle_override: string | null; es_imagen: boolean | null;
+  angle: ScriptAngle | null; angle_override: string | null;
+  avatar: string | null; avatar_override: string | null; es_imagen: boolean | null;
   hook_type: HookType | null; format: string | null;
   tags: string[] | null; beats: StoredBeat[] | null;
   note_title: string | null; note_text: string | null; suggestion: string | null;
@@ -720,7 +755,7 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
     id: r.ad_id, adId: r.ad_id,
     name: r.ad_name ?? m.adName ?? r.ad_id,
     short: r.short ?? (r.ad_name ?? r.ad_id).slice(0, 24),
-    angle: r.angle_override || r.angle || 'capataz', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
+    angle: r.angle_override || r.angle || 'capataz', avatar: r.avatar_override || r.avatar || '', hookType: r.hook_type ?? 'promesa', format: r.format ?? 'Video',
     tags: r.tags ?? [], dur,
     hookRate: r0(hookRate), ctr: Math.round(ctr * 10) / 10,
     agendas: m.agendas, cierres, spend, impressions,
@@ -932,13 +967,12 @@ export type Valoracion = {
   perfil: { n_total: number; n_confiables: number; angulo_saturado: string | null; under_testing_share: number };
 };
 
-function buildSystemValoracion(angles: Angle[]): string {
-  const anglePipe = angles.map((a) => a.key).join('|');
-  return `Sos MaKo, analista de guiones de Mauricio Bustos (video ads en Meta para vender un programa de mentoría a dueños de negocio). Te paso un GUION NUEVO que TODAVÍA NO corrió en Meta (no tiene datos) y el PERFIL REAL de la cuenta (lo que ya sabemos que rinde y lo que no). Tu trabajo es darle una VALORACIÓN comparándolo contra ese perfil — no contra benchmarks de internet, contra LO QUE LE FUNCIONA A ÉL.
+// {{anglePipe}} = ángulos vigentes separados por "|".
+export const SCRIPT_VALORACION_SYSTEM_TEMPLATE = `Sos MaKo, analista de guiones de Mauricio Bustos (video ads en Meta para vender un programa de mentoría a dueños de negocio). Te paso un GUION NUEVO que TODAVÍA NO corrió en Meta (no tiene datos) y el PERFIL REAL de la cuenta (lo que ya sabemos que rinde y lo que no). Tu trabajo es darle una VALORACIÓN comparándolo contra ese perfil — no contra benchmarks de internet, contra LO QUE LE FUNCIONA A ÉL.
 
 Sé honesto sobre la incertidumbre: el guion no tiene datos, así que toda predicción es una hipótesis basada en el parecido con los guiones reales de la cuenta. Nunca afirmes performance como un hecho.
 
-Clasificá con los vocabularios CERRADOS (devolvé la CLAVE del angle en minúsculas): angle (${anglePipe}), hook_type (promesa|testimonio|pregunta|dolor|resultado|recordatorio), tags (subconjunto de: sistema, sin-frio, caso-exito, dashboard, testimonio, pregunta-hook, cifra-hook, dolor, cupos, recordatorio, implementacion). Partí el guion en 3-7 beats {kind (gancho|contexto|problema|mecanismo|prueba|objecion|recordatorio|oferta|cta), t0 (segundo estimado, el primero 0, creciente), text}.
+Clasificá con los vocabularios CERRADOS (devolvé la CLAVE del angle en minúsculas): angle ({{anglePipe}}), hook_type (promesa|testimonio|pregunta|dolor|resultado|recordatorio), tags (subconjunto de: sistema, sin-frio, caso-exito, dashboard, testimonio, pregunta-hook, cifra-hook, dolor, cupos, recordatorio, implementacion). Partí el guion en 3-7 beats {kind (gancho|contexto|problema|mecanismo|prueba|objecion|recordatorio|oferta|cta), t0 (segundo estimado, el primero 0, creciente), text}.
 
 Usá el perfil para:
 - Decir qué PATRONES GANADORES de la cuenta CUMPLE (con el dato real, ej. "muestra dashboard, y los guiones con dashboard agendan X% vs Y%") y cuáles SE PIERDE o qué patrón NEGATIVO REPRODUCE (ej. "es otro guion de dolor, ángulo ya saturado en 84% de tu cuenta" o "se parece al anti-ejemplo que gastó $X sin agendar").
@@ -957,18 +991,29 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown), con este esquema:
   "plan_validacion": { "presupuesto_usd": 0, "dias_minimos": 0, "impresiones_objetivo": 8000, "control": "..", "nota": ".." }
 }
 Todo en español rioplatense (voseo), concreto y sin relleno.`;
+
+function buildSystemValoracion(angles: Angle[]): Promise<string> {
+  const anglePipe = angles.map((a) => a.key).join('|');
+  return renderPrompt('script_analyst.valoracion.system', SCRIPT_VALORACION_SYSTEM_TEMPLATE, { anglePipe });
 }
 
-function buildValorarPrompt(guion: string, dur: number | undefined, p: AccountProfile): string {
-  return `## Guion nuevo (sin datos todavía)
-Duración estimada: ${dur != null ? `${Math.round(dur)}s` : 'no indicada'}
+// {{duracion}} = duración estimada · {{guion}} = guion nuevo · {{perfil}} = perfil JSON.
+export const SCRIPT_VALORACION_USER_TEMPLATE = `## Guion nuevo (sin datos todavía)
+Duración estimada: {{duracion}}
 
-${guion.trim()}
+{{guion}}
 
 ## Perfil real de la cuenta (con qué comparar)
-${JSON.stringify(p)}
+{{perfil}}
 
 Valorá el guion contra ESTE perfil y devolvé el JSON pedido.`;
+
+function buildValorarPrompt(guion: string, dur: number | undefined, p: AccountProfile): Promise<string> {
+  return renderPrompt('script_analyst.valoracion.user', SCRIPT_VALORACION_USER_TEMPLATE, {
+    duracion: dur != null ? `${Math.round(dur)}s` : 'no indicada',
+    guion: guion.trim(),
+    perfil: JSON.stringify(p),
+  });
 }
 
 function sanitizeValoracion(raw: Record<string, unknown>, dur: number | undefined, p: AccountProfile, angleKeys: string[]): Valoracion {
@@ -1015,7 +1060,8 @@ function sanitizeValoracion(raw: Record<string, unknown>, dur: number | undefine
 export async function valorarGuion(guion: string, dur?: number): Promise<{ ok: true; valoracion: Valoracion } | { ok: false; error: string }> {
   try {
     const [profile, angles] = await Promise.all([buildAccountProfile(), getAngles()]);
-    const text = await chatClaude(buildSystemValoracion(angles), [{ role: 'user', content: buildValorarPrompt(guion, dur, profile) }], {
+    const [system, user] = await Promise.all([buildSystemValoracion(angles), buildValorarPrompt(guion, dur, profile)]);
+    const text = await chatClaude(system, [{ role: 'user', content: user }], {
       model: ANALYSIS_MODEL, thinking: true, effort: 'high', maxTokens: 6000,
     });
     const raw = parseJsonObject(text) as Record<string, unknown>;
@@ -1076,4 +1122,15 @@ export async function setAngleOverride(adId: string, angle: string | null): Prom
     .update({ angle_override: angle && angle.trim() ? angle.trim() : null, updated_at: new Date().toISOString() })
     .eq('ad_id', adId);
   if (error) throw new Error(`Error guardando ángulo: ${error.message}`);
+}
+
+/** Corrige a mano el avatar de un anuncio (override que sobrevive al re-análisis).
+ *  avatar=null vuelve a la clasificación de la IA. Escribe SOLO avatar_override. */
+export async function setAvatarOverride(adId: string, avatar: string | null): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { error } = await supabase
+    .from('script_analyses')
+    .update({ avatar_override: avatar && avatar.trim() ? avatar.trim() : null, updated_at: new Date().toISOString() })
+    .eq('ad_id', adId);
+  if (error) throw new Error(`Error guardando avatar: ${error.message}`);
 }

@@ -14,6 +14,7 @@ import { createElement as h, useMemo, useRef, useState, type CSSProperties, type
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import { TaxonomyManager } from '../components/TaxonomyManager';
 import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/script-analyst';
 
 // Vista de detalle unificada (pestañas Rendimiento/Audiencia/Guion). Vive en
@@ -48,6 +49,14 @@ export function applyAngles(list?: AngleDef[]) {
     ? Object.fromEntries(list.map((a) => [a.key, { label: a.label, c: a.color }]))
     : { ...DEFAULT_ANGLE };
 }
+// AVATAR (público objetivo): vocabulario EDITABLE y específico del cliente, por eso
+// arranca VACÍO (sin defaults). Mismo patrón module-mutable que ANGLE.
+export type AvatarDef = { key: string; label: string; color: string; desc?: string };
+let AVATAR: Record<string, { label: string; c: string }> = {};
+export function applyAvatares(list?: AvatarDef[]) {
+  AVATAR = list && list.length ? Object.fromEntries(list.map((a) => [a.key, { label: a.label, c: a.color }])) : {};
+}
+function avatarInfo(k: string) { return AVATAR[k] ?? { label: k, c: '#6B675C' }; }
 const KIND: Record<string, { label: string; c: string }> = {
   gancho: { label: 'Gancho', c: '#C8870C' }, contexto: { label: 'Contexto', c: '#B5742A' }, problema: { label: 'Problema', c: '#CF4E29' },
   mecanismo: { label: 'Mecanismo', c: '#2F6DDB' }, prueba: { label: 'Prueba', c: '#3B6D11' }, objecion: { label: 'Objeción', c: '#A8770F' },
@@ -96,6 +105,11 @@ function verdictOf(a: ScriptView): string { return a.esImagen ? 'imagen' : verdi
 function angleChip(k: string): CSSProperties {
   const a = angleInfo(k);
   return { display: 'inline-block', fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 6, fontFamily: MONO, letterSpacing: '.04em', background: rgba(a.c, .12), color: a.c, border: `1px solid ${rgba(a.c, .3)}` };
+}
+// El avatar se muestra como chip "outline" (punto + label) para distinguirlo del ángulo.
+function avatarChip(k: string): CSSProperties {
+  const a = avatarInfo(k);
+  return { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 6, fontFamily: MONO, letterSpacing: '.04em', background: 'var(--surface-2)', color: a.c, border: `1px solid ${rgba(a.c, .4)}` };
 }
 function kindChip(k: string): CSSProperties {
   const x = KIND[k] ?? { label: k, c: '#6B675C' };
@@ -319,8 +333,9 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { data: ScriptAnalystView; errorMsg: string | null; drafts?: ScriptDraft[]; angles?: AngleDef[] }) {
+export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avatares = [] }: { data: ScriptAnalystView; errorMsg: string | null; drafts?: ScriptDraft[]; angles?: AngleDef[]; avatares?: AvatarDef[] }) {
   applyAngles(angles);
+  applyAvatares(avatares);
   const router = useRouter();
   const ads = data.scripts;
   const { counts, lastSync } = data;
@@ -733,14 +748,14 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [] }: { d
       </section>
 
       {/* GUIONES */}
-      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/script-analyst/guiones" angles={angles} />
+      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/script-analyst/guiones" angles={angles} avatares={avatares} />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6, lineHeight: 1.6 }}>
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.
       </footer>
 
       {/* DETALLE UNIFICADO (Rendimiento · Audiencia · Guion) — abre en Guion */}
-      {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} desde={detalleRange.desde} hasta={detalleRange.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
+      {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} avatares={avatares} desde={detalleRange.desde} hasta={detalleRange.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
 
 
       {/* PATTERN DRILL MODAL */}
@@ -859,7 +874,7 @@ function SyncBar({ syncing, syncMsg, lastSync, counts, onSync }: { syncing: bool
 }
 
 // ── Modal del embudo de un guion ──
-export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, embedded = false }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null; onSetAngle?: (id: string, angle: string | null) => void; embedded?: boolean }) {
+export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onSetAvatar, embedded = false }: { sel: ScriptView; onClose: () => void; onReanalizar: (id: string) => void; reMsg: string | null; onSetAngle?: (id: string, angle: string | null) => void; onSetAvatar?: (id: string, avatar: string | null) => void; embedded?: boolean }) {
   const v = verdictOf(sel), ho = hold(sel), vc = VERDICT[v].c, conf = confidence(sel), cp = cpa(sel);
   const beats = decorateBeats(sel);
   // Los creativos de imagen no tienen gancho de 3s, retención al CTA ni frecuencia
@@ -886,6 +901,13 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, emb
     ...Object.entries(ANGLE).map(([k, a]) => ({ value: k, label: a.label, color: a.c })),
     { value: '__auto', label: 'Automático (IA)', sub: 'volver a la clasificación de la IA' },
   ];
+  // Avatares: solo si el cliente definió alguno. "Sin avatar" = limpiar (null).
+  const avatarKeys = Object.keys(AVATAR);
+  const avatarOpts: DropdownOption[] = [
+    { value: '__none', label: 'Sin avatar' },
+    ...Object.entries(AVATAR).map(([k, a]) => ({ value: k, label: a.label, color: a.c })),
+    { value: '__auto', label: 'Automático (IA)', sub: 'volver a la clasificación de la IA' },
+  ];
   const avgWatch = `0:${String(Math.round(sel.dur * 0.62)).padStart(2, '0')}`;
   // embedded = se renderiza adentro de la pestaña "Guion" de la vista unificada:
   // sin overlay, sin shell propio y sin botón de cierre (esos los pone el contenedor).
@@ -908,6 +930,13 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, emb
               ) : (
                 <span style={angleChip(sel.angle)}>{angleInfo(sel.angle).label}</span>
               )}
+              {avatarKeys.length > 0 && (onSetAvatar ? (
+                <Dropdown value={sel.avatar || '__none'} options={avatarOpts} ariaLabel="Cambiar avatar del guion"
+                  onChange={(val) => onSetAvatar(sel.adId, val === '__auto' || val === '__none' ? null : val)}
+                  buttonStyle={{ padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, borderColor: rgba(avatarInfo(sel.avatar).c, .4), color: sel.avatar ? avatarInfo(sel.avatar).c : 'var(--dim)', background: 'var(--surface-2)' }} />
+              ) : sel.avatar ? (
+                <span style={avatarChip(sel.avatar)}><span style={{ width: 7, height: 7, borderRadius: '50%', background: avatarInfo(sel.avatar).c }} />{avatarInfo(sel.avatar).label}</span>
+              ) : null)}
               <span style={verdictChip(v)}>{VERDICT[v].label}</span>
             </div>
             {!embedded && <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)', lineHeight: 1.2 }}>{sel.name}</h2>}
@@ -1101,6 +1130,7 @@ function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void 
         <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{s.name}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={angleChip(s.angle)}>{angleInfo(s.angle).label}</span>
+          {s.avatar && <span style={avatarChip(s.avatar)}><span style={{ width: 7, height: 7, borderRadius: '50%', background: avatarInfo(s.avatar).c }} />{avatarInfo(s.avatar).label}</span>}
           <span style={verdictChip(v)}>{VERDICT[v].label}</span>
         </div>
         {s.esImagen ? (
@@ -1116,12 +1146,13 @@ function GuionCard({ s, onOpen }: { s: ScriptView; onOpen: (id: string) => void 
     </button>
   );
 }
-export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string; angles?: AngleDef[] }) {
+export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], avatares = [] }: { scripts: ScriptView[]; onOpen: (id: string) => void; limit?: number; fullHref?: string; angles?: AngleDef[]; avatares?: AvatarDef[] }) {
   const router = useRouter();
   const [view, setView] = useState<'preview' | 'tabla'>('preview');
   const [campana, setCampana] = useState('all');
   const [adset, setAdset] = useState('all');
   const [tipo, setTipo] = useState<'todos' | 'video' | 'imagen'>('todos');
+  const [avatarF, setAvatarF] = useState('todos');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [anglesOpen, setAnglesOpen] = useState(false);
   const [sort, setSort] = useState<{ key: string; dir: number }>({ key: 'spend', dir: -1 });
@@ -1135,7 +1166,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: 
   };
   const campanas = useMemo(() => [...new Set(scripts.map((s) => s.campana ?? 'Sin campaña'))].sort((a, b) => a.localeCompare(b)), [scripts]);
   const adsets = useMemo(() => { const pool = campana === 'all' ? scripts : scripts.filter((s) => (s.campana ?? 'Sin campaña') === campana); return [...new Set(pool.map((s) => s.adset ?? 'Sin adset'))].sort((a, b) => a.localeCompare(b)); }, [scripts, campana]);
-  const filtered = useMemo(() => scripts.filter((s) => (campana === 'all' || (s.campana ?? 'Sin campaña') === campana) && (adset === 'all' || (s.adset ?? 'Sin adset') === adset) && (tipo === 'todos' || (tipo === 'imagen' ? s.esImagen : !s.esImagen))), [scripts, campana, adset, tipo]);
+  const filtered = useMemo(() => scripts.filter((s) => (campana === 'all' || (s.campana ?? 'Sin campaña') === campana) && (adset === 'all' || (s.adset ?? 'Sin adset') === adset) && (tipo === 'todos' || (tipo === 'imagen' ? s.esImagen : !s.esImagen)) && (avatarF === 'todos' || s.avatar === avatarF)), [scripts, campana, adset, tipo, avatarF]);
   const sorted = useMemo(() => filtered.slice().sort((x, y) => {
     const vx = val(x, sort.key), vy = val(y, sort.key);
     if (typeof vx === 'string' && typeof vy === 'string') return sort.dir * vx.localeCompare(vy);
@@ -1143,7 +1174,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: 
     return sort.dir * (Number.isFinite(d) ? d : nx === ny ? 0 : nx > ny ? 1 : -1);
   }), [filtered, sort]);
   const shown = limit ? sorted.slice(0, limit) : sorted;
-  const nActive = (campana !== 'all' ? 1 : 0) + (adset !== 'all' ? 1 : 0) + (tipo !== 'todos' ? 1 : 0);
+  const nActive = (campana !== 'all' ? 1 : 0) + (adset !== 'all' ? 1 : 0) + (tipo !== 'todos' ? 1 : 0) + (avatarF !== 'todos' ? 1 : 0);
   const filtrado = nActive > 0;
   const cols: Array<{ key: string; label: string; al: 'left' | 'right' }> = [
     { key: 'name', label: 'Anuncio', al: 'left' }, { key: 'angle', label: 'Ángulo', al: 'left' },
@@ -1165,7 +1196,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: 
         </div>
         {/* DERECHA: gestionar taxonomía + UN botón de Filtros (popover, como el Cuadrante) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-          <button onClick={() => setAnglesOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>✎</span> Gestionar ángulos</button>
+          <button onClick={() => setAnglesOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>✎</span> Ángulos y avatares</button>
           <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: filtrado ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>⚙</span> Filtros{nActive > 0 ? ` · ${nActive}` : ''}</button>
           {filtersOpen && (
             <>
@@ -1173,7 +1204,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: 
               <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 300, maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 15 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtros</span>
-                  {filtrado && <button onClick={() => { setCampana('all'); setAdset('all'); setTipo('todos'); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
+                  {filtrado && <button onClick={() => { setCampana('all'); setAdset('all'); setTipo('todos'); setAvatarF('todos'); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Campaña</span>
@@ -1187,6 +1218,12 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: 
                   <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Tipo de creativo</span>
                   <Dropdown value={tipo} onChange={(t) => setTipo(t as 'todos' | 'video' | 'imagen')} ariaLabel="Tipo" width="100%" options={[{ value: 'todos', label: 'Video e imagen' }, { value: 'video', label: 'Solo video' }, { value: 'imagen', label: 'Solo imagen' }]} />
                 </div>
+                {avatares.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Avatar</span>
+                    <Dropdown value={avatarF} onChange={setAvatarF} ariaLabel="Avatar" width="100%" options={[{ value: 'todos', label: 'Todos los avatares' }, ...avatares.map((a) => ({ value: a.key, label: a.label, color: a.color }))]} />
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Ordenar por</span>
                   <Dropdown value={sort.key} onChange={(k) => setSort({ key: k, dir: k === 'cpa' ? 1 : -1 })} ariaLabel="Ordenar" width="100%" options={[{ value: 'spend', label: 'Gasto' }, { value: 'agendas', label: 'Agendas' }, { value: 'hookRate', label: 'Hook rate' }, { value: 'hold', label: 'Ret. CTA' }, { value: 'cpa', label: '$/agenda' }]} />
@@ -1226,19 +1263,20 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [] }: 
       {limit && fullHref && sorted.length > limit && (
         <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Ver los {sorted.length} guiones →</a></div>
       )}
-      {anglesOpen && <AnglesManager initial={angles} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
+      {anglesOpen && <TaxonomyManager angles={angles} avatares={avatares} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
     </section>
   );
 }
-export function GuionesFull({ scripts, angles = [] }: { scripts: ScriptView[]; angles?: AngleDef[] }) {
+export function GuionesFull({ scripts, angles = [], avatares = [] }: { scripts: ScriptView[]; angles?: AngleDef[]; avatares?: AvatarDef[] }) {
   applyAngles(angles);
+  applyAvatares(avatares);
   const [openAd, setOpenAd] = useState<string | null>(null);
   const range = useMemo(allHistoryRange, []);
   const sel = openAd ? scripts.find((a) => a.id === openAd) ?? null : null;
   return (
     <>
-      <GuionesPanel scripts={scripts} onOpen={setOpenAd} angles={angles} />
-      {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} desde={range.desde} hasta={range.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
+      <GuionesPanel scripts={scripts} onOpen={setOpenAd} angles={angles} avatares={avatares} />
+      {sel && <AdDetailTabs key={sel.id} scriptView={sel} angles={angles} avatares={avatares} desde={range.desde} hasta={range.hasta} defaultTab="guion" onClose={() => setOpenAd(null)} />}
     </>
   );
 }

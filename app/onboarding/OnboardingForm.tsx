@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
+import { TaxonomyManager, type TaxItem } from '../components/TaxonomyManager';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -38,9 +39,18 @@ export function OnboardingForm() {
   const [extrayendo, setExtrayendo] = useState(false);
   const [extractMsg, setExtractMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Vocabulario de ángulos + avatares de los anuncios (mismo dato que Script Analyst).
+  const [taxOpen, setTaxOpen] = useState(false);
+  const [taxAngles, setTaxAngles] = useState<TaxItem[]>([]);
+  const [taxAvatares, setTaxAvatares] = useState<TaxItem[]>([]);
+  const fetchTax = () => {
+    fetch('/api/script-analyst/angles').then((r) => r.json()).then((j) => { if (j.ok) setTaxAngles(j.angles); }).catch(() => {});
+    fetch('/api/script-analyst/avatares').then((r) => r.json()).then((j) => { if (j.ok) setTaxAvatares(j.avatares); }).catch(() => {});
+  };
 
   useEffect(() => {
     fetch('/api/mako/onboarding').then((r) => r.json()).then((j) => { setSchema(j.schema ?? []); setAnswers(j.answers ?? {}); }).finally(() => setCargando(false));
+    fetchTax();
   }, []);
   useEffect(() => { const t = setTimeout(() => setIntro(false), 1700); return () => clearTimeout(t); }, []);
 
@@ -103,6 +113,7 @@ export function OnboardingForm() {
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {saved && <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>Guardado ✓</span>}
+          <button type="button" onClick={() => setTaxOpen(true)} style={{ ...btnGhostSm, display: 'inline-flex', alignItems: 'center', gap: 7 }}>✎ Ángulos y avatares</button>
           <button type="button" title={editando ? 'Volver al formulario' : 'Editar campos'} onClick={() => setEditando((v) => !v)} style={{ width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: editando ? 'var(--surface-2)' : 'var(--surface)', color: 'var(--dim)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             {editando ? <span style={{ fontSize: 15 }}>✕</span> : <PencilIcon />}
           </button>
@@ -191,6 +202,8 @@ export function OnboardingForm() {
           </div>
         </div>
       )}
+
+      {taxOpen && <TaxonomyManager angles={taxAngles} avatares={taxAvatares} onClose={() => setTaxOpen(false)} onSaved={() => { setTaxOpen(false); fetchTax(); flash(); }} />}
     </main>
   );
 }

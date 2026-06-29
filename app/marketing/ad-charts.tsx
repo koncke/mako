@@ -20,7 +20,7 @@ import type { SenalRecon } from '@/lib/queries';
 import type { ScriptView } from '@/lib/script-analyst';
 import { VEREDICTO_BADGE } from './AnuncioCard';
 import { MakoButton } from '../_components/ChartIA';
-import { FunnelModal, applyAngles, type AngleDef } from '../script-analyst/ScriptsBrowser';
+import { FunnelModal, applyAngles, applyAvatares, type AngleDef, type AvatarDef } from '../script-analyst/ScriptsBrowser';
 
 // ── Tipos (shape de /api/ad-insights y /api/account-insights) ──
 export type BD = { label: string; impressions: number; reach: number; agendas: number; spend_usd: number };
@@ -608,8 +608,8 @@ export function scriptViewToHead(sv: ScriptView): AdHead {
 
 type TabKey = 'rendimiento' | 'audiencia' | 'guion';
 
-export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, defaultTab = 'rendimiento', onClose }: {
-  senal?: SenalRecon; scriptView?: ScriptView | null; desde: string; hasta: string; angles?: AngleDef[]; defaultTab?: TabKey; onClose: () => void;
+export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, avatares, defaultTab = 'rendimiento', onClose }: {
+  senal?: SenalRecon; scriptView?: ScriptView | null; desde: string; hasta: string; angles?: AngleDef[]; avatares?: AvatarDef[]; defaultTab?: TabKey; onClose: () => void;
 }) {
   const router = useRouter();
   // Cada origen pasa su objeto nativo; acá se normaliza a un AdHead (así los
@@ -619,13 +619,21 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, d
   // Vocabulario de ángulos para la pestaña Guion: del prop (Script Analyst) o
   // buscado (Ads Manager). Solo se vuelca si hay lista → no pisa con default.
   const [angleList, setAngleList] = useState<AngleDef[]>(angles ?? []);
+  const [avatarList, setAvatarList] = useState<AvatarDef[]>(avatares ?? []);
   useEffect(() => {
     if (angles && angles.length) return;
     let alive = true;
     fetch('/api/script-analyst/angles').then((r) => r.json()).then((j) => { if (alive && j.ok) setAngleList(j.angles); }).catch(() => {});
     return () => { alive = false; };
   }, [angles]);
+  useEffect(() => {
+    if (avatares) return; // ya vino por prop (Script Analyst), incluso si está vacío
+    let alive = true;
+    fetch('/api/script-analyst/avatares').then((r) => r.json()).then((j) => { if (alive && j.ok) setAvatarList(j.avatares); }).catch(() => {});
+    return () => { alive = false; };
+  }, [avatares]);
   if (angleList.length) applyAngles(angleList);
+  applyAvatares(avatarList);
 
   const [tab, setTab] = useState<TabKey>(defaultTab);
   const [data, setData] = useState<AdInsights | null>(null);
@@ -671,6 +679,15 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, d
     setReMsg(angle ? 'Cambiando ángulo…' : 'Volviendo a la IA…');
     try {
       const r = await fetch('/api/script-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'falló');
+      setReMsg('Listo.'); await fetchSv(); router.refresh();
+    } catch (e) { setReMsg(`Error: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  async function setAvatarOverride(adId: string, avatar: string | null) {
+    setReMsg(avatar ? 'Cambiando avatar…' : 'Volviendo a la IA…');
+    try {
+      const r = await fetch('/api/script-analyst/avatar-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, avatar }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló');
       setReMsg('Listo.'); await fetchSv(); router.refresh();
@@ -737,7 +754,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, d
               <div style={{ fontSize: 13.5, color: 'var(--faint)', padding: '8px 0' }}>Cargando el guion…</div>
             ) : sv ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <FunnelModal embedded sel={sv} onClose={onClose} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} />
+                <FunnelModal embedded sel={sv} onClose={onClose} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} onSetAvatar={setAvatarOverride} />
                 {data && <TranscriptSection key={head.adId} adId={head.adId} initialTr={data.transcript} />}
               </div>
             ) : (
