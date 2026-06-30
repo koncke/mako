@@ -215,16 +215,23 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const quitar = (id: string) => setTray((t) => t.filter((x) => x.id !== id));
 
   // ── crear un público personalizado sin salir de la app ──
-  async function crearPublico(tipo: AudTipo, dias: number) {
+  async function crearPublico(tipo: AudTipo, dias: number, evento?: string) {
     setCreandoPublico(true); setErr(null);
     try {
-      const r = await fetch('/api/ads-manager/audience-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, dias }) });
+      const r = await fetch('/api/ads-manager/audience-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, dias, evento }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'No se pudo crear el público');
       const a = j.audience as AudienceRef;
       setAudiencesAll((prev) => [a, ...(prev ?? [])]);
       setAudiencias((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    } catch (e) {
+      let msg = e instanceof Error ? e.message : String(e);
+      if (/terms of service|customaudiences\/app\/tos/i.test(msg)) {
+        const url = (msg.match(/https?:\/\/\S+/) || [''])[0];
+        msg = `Falta aceptar UNA vez los Términos de Públicos Personalizados de Meta (un clic; después funcionan todos): ${url}`;
+      }
+      setErr(msg);
+    }
     finally { setCreandoPublico(false); }
   }
 
@@ -422,7 +429,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                 {resumen.map((c, i) => <span key={i} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{i > 0 ? '·' : ''} {c}</span>)}
               </div>
             )}
-            {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', padding: '8px 20px 0' }}>{err}</div>}
+            {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', textAlign: 'center', padding: '8px 20px 0', lineHeight: 1.5 }}>{linkify(err)}</div>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px' }}>
               <button onClick={retroceder} style={btnGhost}>← {idx <= 0 && enWizard ? 'Cancelar' : 'Atrás'}</button>
               {step === 'revision' ? (
@@ -547,9 +554,22 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
 }
 
 // ── público (retargeting) — elegir uno existente o CREAR uno sin entrar a Meta ──
-function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: AudTipo, dias: number) => void; creando: boolean }) {
+const EVENTOS_PIXEL = [
+  { value: 'PageView', label: 'Visitó la página' },
+  { value: 'ViewContent', label: 'Vio el contenido / VSL' },
+  { value: 'Lead', label: 'Dejó sus datos (Lead)' },
+  { value: 'CompleteRegistration', label: 'Se registró' },
+  { value: 'Schedule', label: 'Agendó' },
+  { value: 'InitiateCheckout', label: 'Inició checkout' },
+  { value: 'Purchase', label: 'Compró' },
+  { value: '__custom__', label: 'Otro evento (escribir)…' },
+];
+
+function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: AudTipo, dias: number, evento?: string) => void; creando: boolean }) {
   const [dias, setDias] = useState(90);
   const [nuevoTipo, setNuevoTipo] = useState('');
+  const [evento, setEvento] = useState('PageView');
+  const [eventoCustom, setEventoCustom] = useState('');
   const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: a.name ?? a.id }));
   const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' });
   const TIPO_OPCIONES = [
@@ -572,10 +592,17 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
       <div style={{ width: '100%', borderTop: '1px dashed var(--border)', paddingTop: 14, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
         <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0 }}>¿No está el que querés? Creá uno acá, sin entrar a Meta. Podés crear varios y se combinan.</p>
         <Dropdown value={nuevoTipo} placeholder="¿Qué público querés crear?" options={TIPO_OPCIONES} onChange={setNuevoTipo} width="100%" />
+        {nuevoTipo === 'pixel' && (
+          <>
+            <Dropdown value={evento} options={EVENTOS_PIXEL} onChange={setEvento} width="100%" />
+            {evento === '__custom__' && <input value={eventoCustom} onChange={(e) => setEventoCustom(e.target.value)} placeholder="Nombre EXACTO del evento del pixel (ej. AgendoLlamada)" style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />}
+          </>
+        )}
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
           {[30, 90, 180].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>últimos {dd} días</button>)}
         </div>
-        <button type="button" disabled={creando || !nuevoTipo} onClick={() => onCrear(nuevoTipo as AudTipo, dias)}
+        <button type="button" disabled={creando || !nuevoTipo || (nuevoTipo === 'pixel' && evento === '__custom__' && !eventoCustom.trim())}
+          onClick={() => onCrear(nuevoTipo as AudTipo, dias, nuevoTipo === 'pixel' ? (evento === '__custom__' ? eventoCustom.trim() : evento) : undefined)}
           style={{ ...btnDark, fontSize: 13.5, padding: '10px 18px', opacity: creando || !nuevoTipo ? 0.4 : 1, cursor: creando || !nuevoTipo ? 'not-allowed' : 'pointer' }}>
           {creando ? 'Creando en Meta…' : '+ Crear público'}
         </button>
@@ -630,6 +657,13 @@ function Revision({ spec, budgetUsd, tray, campaignCount, setSpec, err }: { spec
 }
 
 // ── helpers ──
+// Convierte URLs del texto de error en un link clickable (ej. la ToS de Públicos).
+function linkify(text: string): ReactNode {
+  return text.split(/(https?:\/\/\S+)/g).map((p, i) => /^https?:\/\//.test(p)
+    ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}>abrir en Meta ↗</a>
+    : p);
+}
+
 function analisisResumen(an: Analisis): string | undefined {
   const con = an.filter((x) => x.angulo || x.descripcion);
   if (!con.length) return 'MaKo mira tus creativos para sugerirte mejor.';

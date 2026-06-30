@@ -272,7 +272,7 @@ async function getInstagramActorId(): Promise<string | null> {
  *   - 'pixel' → visitaron tu web (requiere META_PIXEL_ID).
  * `dias` = ventana de retención (1..180). Devuelve {id, name}.
  */
-export async function createCustomAudience(input: { tipo: AudienceTipo; dias: number; name?: string }): Promise<{ id: string; name: string }> {
+export async function createCustomAudience(input: { tipo: AudienceTipo; dias: number; name?: string; evento?: string }): Promise<{ id: string; name: string }> {
   const dias = Math.min(180, Math.max(1, Math.round(input.dias || 90)));
   const retention = dias * 86400;
   const eng = (source: Record<string, unknown>, event?: string): Record<string, unknown> => ({
@@ -283,9 +283,11 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
   if (input.tipo === 'pixel') {
     const pixel = process.env.META_PIXEL_ID;
     if (!pixel) throw new MetaWriteError('Para "visitaron tu web" hace falta META_PIXEL_ID configurado. Elegí otro tipo o configurá el pixel.');
-    name = input.name || `Visitaron tu web · ${dias} días`;
-    // Website audience: el rule EXIGE un filter → visitantes = evento PageView del pixel.
-    rule = eng({ type: 'pixel', id: pixel }, 'PageView');
+    // Website audience por EVENTO del pixel (PageView, ViewContent, Lead, Purchase,
+    // o un evento personalizado). El rule EXIGE un filter (por eso pasa el evento).
+    const evento = (input.evento || 'PageView').replace(/[^A-Za-z0-9_]/g, '').slice(0, 48) || 'PageView';
+    name = input.name || `Web · ${evento} · ${dias}d`;
+    rule = eng({ type: 'pixel', id: pixel }, evento);
   } else if (input.tipo === 'ig') {
     const ig = await getInstagramActorId();
     if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conectala en Meta o elegí otro tipo de público.');

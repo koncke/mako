@@ -14,13 +14,14 @@ export const maxDuration = 30;
 const TIPOS: AudienceTipo[] = ['page', 'ig', 'pixel'];
 
 export async function POST(req: NextRequest) {
-  let body: { tipo?: string; dias?: number; name?: string };
+  let body: { tipo?: string; dias?: number; name?: string; evento?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   const tipo: AudienceTipo = TIPOS.includes(body.tipo as AudienceTipo) ? (body.tipo as AudienceTipo) : 'page';
   const dias = Number(body.dias) > 0 ? Number(body.dias) : 90;
+  const evento = typeof body.evento === 'string' && body.evento.trim() ? body.evento.trim() : undefined;
   try {
-    const audience = await createCustomAudience({ tipo, dias, name: typeof body.name === 'string' ? body.name : undefined });
+    const audience = await createCustomAudience({ tipo, dias, evento, name: typeof body.name === 'string' ? body.name : undefined });
     return Response.json({ ok: true, audience });
   } catch (err) {
     const env = metaErrorEnvelope(err);
