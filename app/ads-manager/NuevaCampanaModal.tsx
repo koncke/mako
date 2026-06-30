@@ -35,7 +35,8 @@ const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: '
 
 type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
-type AudTipo = 'page' | 'ig' | 'pixel';
+type AudTipo = 'page' | 'ig' | 'video' | 'pixel';
+type AudienceItem = AudienceRef & { count?: number | null };
 type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string; conv?: { pixel_event?: string; custom_conversion_id?: string; label?: string; pixel_id?: string } };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
@@ -169,15 +170,18 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const fileRef = useRef<HTMLInputElement>(null);
 
   // públicos personalizados (retargeting) + formularios — carga perezosa.
-  const [audiencesAll, setAudiencesAll] = useState<AudienceRef[] | null>(null);
+  const [audiencesAll, setAudiencesAll] = useState<AudienceItem[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
   const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string }> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   const [creandoPublico, setCreandoPublico] = useState(false);
-  useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences').then((r) => r.json()).then((j) => setAudiencesAll(j.ok ? j.items : [])).catch(() => setAudiencesAll([])); }, []);
-  useEffect(() => { if (objKey === 'lead_form' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms').then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objKey, leadForms]);
-  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions').then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
-  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) fetch('/api/ads-manager/targeting?kind=pixels').then((r) => r.json()).then((j) => setPixels(j.ok ? j.items : [])).catch(() => setPixels([])); }, [objKey, pixels]);
+  // cache:'no-store' clave: sin esto el navegador cachea la 1ra respuesta (vacía) y
+  // los públicos nunca aparecen aunque existan en la cuenta.
+  const cargarPublicos = () => { setAudiencesAll(null); return fetch('/api/ads-manager/targeting?kind=audiences', { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.ok) setAudiencesAll(j.items); else { setAudiencesAll([]); setErr(`No pude traer tus públicos: ${j.error}`); } }).catch((e) => { setAudiencesAll([]); setErr(`No pude traer tus públicos: ${String(e)}`); }); };
+  useEffect(() => { cargarPublicos(); }, []);
+  useEffect(() => { if (objKey === 'lead_form' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objKey, leadForms]);
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions', { cache: 'no-store' }).then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) fetch('/api/ads-manager/targeting?kind=pixels', { cache: 'no-store' }).then((r) => r.json()).then((j) => setPixels(j.ok ? j.items : [])).catch(() => setPixels([])); }, [objKey, pixels]);
 
   // guardar borrador
   useEffect(() => {
@@ -402,7 +406,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 
           {step === 'publico' && (
             <Paso titulo="¿A qué público lo mostramos?" sub="Tus públicos personalizados (video viewers, visitantes, leads abiertos…). MaKo no los inventa.">
-              <PublicoPicker audiencesAll={audiencesAll} audiencias={audiencias} setAudiencias={setAudiencias} onCrear={crearPublico} creando={creandoPublico} />
+              <PublicoPicker audiencesAll={audiencesAll} audiencias={audiencias} setAudiencias={setAudiencias} onCrear={crearPublico} creando={creandoPublico} onRefresh={cargarPublicos} />
             </Paso>
           )}
 
@@ -610,27 +614,38 @@ const EVENTOS_PIXEL = [
   { value: '__custom__', label: 'Otro evento (escribir)…' },
 ];
 
-function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: AudTipo, dias: number, evento?: string) => void; creando: boolean }) {
-  const [dias, setDias] = useState(90);
+function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando, onRefresh }: { audiencesAll: AudienceItem[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: AudTipo, dias: number, evento?: string) => void; creando: boolean; onRefresh: () => void }) {
+  const [dias, setDias] = useState(180);
   const [nuevoTipo, setNuevoTipo] = useState('');
   const [evento, setEvento] = useState('PageView');
   const [eventoCustom, setEventoCustom] = useState('');
-  const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: a.name ?? a.id }));
-  const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' });
+  const countById = new Map((audiencesAll ?? []).map((a) => [a.id, a.count ?? null] as const));
+  const fmtC = (c: number | null | undefined) => (c == null ? '' : ` · ~${c.toLocaleString('es-MX')}`);
+  const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${fmtC(a.count)}` }));
+  const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 11px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12, cursor: 'pointer' });
   const TIPO_OPCIONES = [
     { value: 'page', label: 'Interactuaron con tu Facebook (anuncios, posts, videos)' },
+    { value: 'video', label: 'Vieron tus videos / anuncios en video' },
     { value: 'ig', label: 'Interactuaron con tu Instagram' },
     { value: 'pixel', label: 'Visitaron tu web / landing' },
   ];
+  // Advertencia de tamaño: retargeting con público chico no entrega bien.
+  const counts = audiencias.map((a) => countById.get(a.id)).filter((c): c is number => typeof c === 'number');
+  const maxCount = counts.length ? Math.max(...counts) : null;
+  const chico = audiencias.length > 0 && counts.length === audiencias.length && maxCount != null && maxCount < 1000;
   return (
     <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-      <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elegí un público (podés sumar varios)…' : 'No tenés públicos todavía'} resetAfterSelect
-        options={opts} onChange={(v) => { const a = (audiencesAll ?? []).find((x) => x.id === v); if (a) setAudiencias([...audiencias, { id: a.id, name: a.name }]); }} width="100%" />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', width: '100%' }}>
+        <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elegí un público (podés sumar varios)…' : 'No tenés públicos todavía'} resetAfterSelect
+          options={opts} onChange={(v) => { const a = (audiencesAll ?? []).find((x) => x.id === v); if (a) setAudiencias([...audiencias, { id: a.id, name: a.name }]); }} width="100%" />
+        <button type="button" onClick={onRefresh} title="Recargar públicos" style={{ ...btnGhost, padding: '0 13px', flex: 'none' }}>↻</button>
+      </div>
       {audiencias.length > 0 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-          {audiencias.map((a) => <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13.5, color: 'var(--ink)' }}>{a.name ?? a.id}<button type="button" onClick={() => setAudiencias(audiencias.filter((x) => x.id !== a.id))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 13, padding: 0 }}>✕</button></span>)}
+          {audiencias.map((a) => { const c = countById.get(a.id); return <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13, color: 'var(--ink)' }}>{a.name ?? a.id}{c != null ? <span style={{ color: 'var(--faint)', fontFamily: MONO, fontSize: 11 }}>~{c.toLocaleString('es-MX')}</span> : null}<button type="button" onClick={() => setAudiencias(audiencias.filter((x) => x.id !== a.id))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 13, padding: 0 }}>✕</button></span>; })}
         </div>
       )}
+      {chico && <div style={{ fontSize: 12, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 10, padding: '8px 12px', textAlign: 'center', lineHeight: 1.45 }}>⚠ Público chico (~{maxCount?.toLocaleString('es-MX')} personas). Por debajo de ~1.000 Meta puede no entregar bien: sumá otro público o ampliá la ventana de días.</div>}
       {audiencias.length > 1 && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>Se combinan (cualquiera de los {audiencias.length}).</span>}
 
       {/* crear público sin entrar a Meta — desplegable + ventana + crear */}
@@ -643,8 +658,8 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
             {evento === '__custom__' && <input value={eventoCustom} onChange={(e) => setEventoCustom(e.target.value)} placeholder="Nombre EXACTO del evento del pixel (ej. AgendoLlamada)" style={{ width: '100%', padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />}
           </>
         )}
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-          {[30, 90, 180].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>últimos {dd} días</button>)}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {[30, 90, 180, 365].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>{dd} días</button>)}
         </div>
         <button type="button" disabled={creando || !nuevoTipo || (nuevoTipo === 'pixel' && evento === '__custom__' && !eventoCustom.trim())}
           onClick={() => onCrear(nuevoTipo as AudTipo, dias, nuevoTipo === 'pixel' ? (evento === '__custom__' ? eventoCustom.trim() : evento) : undefined)}

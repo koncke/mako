@@ -244,7 +244,7 @@ export async function listCustomAudiences(): Promise<Array<{ id: string; name: s
   return arr.map((a) => ({ id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count: a.approximate_count != null ? Number(a.approximate_count) : null }));
 }
 
-export type AudienceTipo = 'page' | 'ig' | 'pixel';
+export type AudienceTipo = 'page' | 'ig' | 'video' | 'pixel';
 
 /** id de la cuenta de Instagram conectada (para públicos de IG). null si no hay. */
 async function getInstagramActorId(): Promise<string | null> {
@@ -277,7 +277,7 @@ async function getInstagramActorId(): Promise<string | null> {
  * `dias` = ventana de retención (1..180). Devuelve {id, name}.
  */
 export async function createCustomAudience(input: { tipo: AudienceTipo; dias: number; name?: string; evento?: string }): Promise<{ id: string; name: string }> {
-  const dias = Math.min(180, Math.max(1, Math.round(input.dias || 90)));
+  const dias = Math.min(365, Math.max(1, Math.round(input.dias || 90)));
   const retention = dias * 86400;
   const eng = (source: Record<string, unknown>, event?: string): Record<string, unknown> => ({
     inclusions: { operator: 'or', rules: [{ event_sources: [source], retention_seconds: retention, ...(event ? { filter: { operator: 'or', filters: [{ field: 'event', operator: '=', value: event }] } } : {}) }] },
@@ -297,6 +297,9 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
     if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conectala en Meta o elegí otro tipo de público.');
     name = input.name || `Interacción Instagram · ${dias} días`;
     rule = eng({ type: 'ig_business', id: ig }, 'ig_business_profile_engaged');
+  } else if (input.tipo === 'video') {
+    name = input.name || `Vieron tus videos · ${dias} días`;
+    rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_video_view');
   } else {
     name = input.name || `Interacción Facebook · ${dias} días`;
     rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_engaged');

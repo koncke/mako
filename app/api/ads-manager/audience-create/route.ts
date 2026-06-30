@@ -11,7 +11,7 @@ import { createCustomAudience, type AudienceTipo, metaErrorEnvelope } from '@/li
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-const TIPOS: AudienceTipo[] = ['page', 'ig', 'pixel'];
+const TIPOS: AudienceTipo[] = ['page', 'ig', 'video', 'pixel'];
 
 export async function POST(req: NextRequest) {
   let body: { tipo?: string; dias?: number; name?: string; evento?: string };
