@@ -156,16 +156,18 @@ export function buildTargeting(t: Targeting): Record<string, unknown> {
 }
 
 // promoted_object según el objetivo / meta de optimización / conversión elegida.
-function buildPromotedObject(objective: Objective, optimizationGoal: string, conversion?: { pixel_event?: string; custom_conversion_id?: string }): Record<string, string> | null {
+function buildPromotedObject(objective: Objective, optimizationGoal: string, conversion?: { pixel_event?: string; custom_conversion_id?: string; pixel_id?: string }): Record<string, string> | null {
   if (optimizationGoal === 'LEAD_GENERATION') {
     return { page_id: META_PAGE_ID }; // formulario instantáneo (el form va en el creativo)
   }
   if (optimizationGoal === 'OFFSITE_CONVERSIONS') {
     // Conversión personalizada (ej. agenda/"Programaciones") → su id basta.
     if (conversion?.custom_conversion_id) return { custom_conversion_id: conversion.custom_conversion_id };
-    const pixel = process.env.META_PIXEL_ID;
+    const pixel = conversion?.pixel_id || process.env.META_PIXEL_ID;
     if (!pixel) return null; // sin pixel no podemos optimizar por conversión web
     const def = objetivoDef(objective);
+    // custom_event_type DEBE ser un enum de Meta (LEAD, SCHEDULE, PURCHASE, …), no el
+    // nombre del evento del pixel. El cliente ya manda el enum.
     return { pixel_id: pixel, custom_event_type: conversion?.pixel_event || def.custom_event_type || 'LEAD' };
   }
   return null;
@@ -305,6 +307,17 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
   const data = await graphPost(`${acct()}/customaudiences`, { name: name.slice(0, 48), rule: JSON.stringify(rule) });
   if (!data.id) throw new MetaWriteError('Meta no devolvió el id del público');
   return { id: String(data.id), name };
+}
+
+/** Pixels de la cuenta (para elegir cuál medir en conversiones web). */
+export async function listPixels(): Promise<Array<{ id: string; name: string }>> {
+  const url = new URL(`${GRAPH_BASE}/${ver()}/${acct()}/adspixels`);
+  url.searchParams.set('fields', 'id,name');
+  url.searchParams.set('limit', '50');
+  url.searchParams.set('access_token', token());
+  const data = await graphGet(url.toString());
+  const arr = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
+  return arr.map((p) => ({ id: String(p.id), name: String(p.name ?? p.id) }));
 }
 
 /** Conversiones personalizadas de la cuenta (ej. "Programaciones"/agenda) para optimizar. */

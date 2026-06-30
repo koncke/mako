@@ -147,7 +147,7 @@ export type AdSetSpec = {
   // Para OFFSITE_CONVERSIONS: por qué conversión optimizar. pixel_event = evento
   // estándar del pixel (Lead, Schedule, Purchase…); custom_conversion_id = una
   // conversión personalizada de la cuenta (ej. "Programaciones"/agenda).
-  conversion?: { pixel_event?: string; custom_conversion_id?: string };
+  conversion?: { pixel_event?: string; custom_conversion_id?: string; pixel_id?: string };
 };
 
 export type CampaignSpec = {

@@ -36,7 +36,7 @@ const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: '
 type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
 type AudTipo = 'page' | 'ig' | 'pixel';
-type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string; conv?: { pixel_event?: string; custom_conversion_id?: string; label?: string } };
+type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string; conv?: { pixel_event?: string; custom_conversion_id?: string; label?: string; pixel_id?: string } };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
 
@@ -138,13 +138,15 @@ const OBJETIVO_UI: Array<{ value: ObjKey; icon: string; label: string; desc: str
   { value: 'sales', icon: '🛒', label: 'Ventas / compras', desc: 'Optimiza por compras medidas con el pixel.' },
   { value: 'awareness', icon: '📣', label: 'Reconocimiento / alcance', desc: 'Máximo alcance al menor costo.' },
 ];
-// Conversiones estándar del pixel para "leads/agendas en tu web" + ventas.
+// Conversiones estándar para "leads/agendas en tu web" + ventas.
+// OJO: el valor es el ENUM de Meta (custom_event_type), no el nombre del evento.
 const EVENTOS_CONV: Array<{ value: string; label: string }> = [
-  { value: 'Lead', label: 'Dejó sus datos (Lead)' },
-  { value: 'Schedule', label: 'Agendó (Schedule)' },
-  { value: 'CompleteRegistration', label: 'Se registró' },
-  { value: 'Contact', label: 'Contactó' },
-  { value: 'Purchase', label: 'Compró' },
+  { value: 'LEAD', label: 'Dejó sus datos (Lead)' },
+  { value: 'SCHEDULE', label: 'Agendó (Schedule)' },
+  { value: 'COMPLETE_REGISTRATION', label: 'Se registró' },
+  { value: 'CONTENT_VIEW', label: 'Vio el contenido / VSL' },
+  { value: 'CONTACT', label: 'Contactó' },
+  { value: 'PURCHASE', label: 'Compró' },
 ];
 
 export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
@@ -170,10 +172,12 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const [audiencesAll, setAudiencesAll] = useState<AudienceRef[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
   const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string }> | null>(null);
+  const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   const [creandoPublico, setCreandoPublico] = useState(false);
   useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences').then((r) => r.json()).then((j) => setAudiencesAll(j.ok ? j.items : [])).catch(() => setAudiencesAll([])); }, []);
   useEffect(() => { if (objKey === 'lead_form' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms').then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objKey, leadForms]);
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions').then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) fetch('/api/ads-manager/targeting?kind=pixels').then((r) => r.json()).then((j) => setPixels(j.ok ? j.items : [])).catch(() => setPixels([])); }, [objKey, pixels]);
 
   // guardar borrador
   useEffect(() => {
@@ -208,7 +212,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
     const next = flow[idx + 1];
     if (next) setStep(next);
   };
-  const retroceder = () => { if (idx > 0) setStep(flow[idx - 1]); else onClose(); };
+  const retroceder = () => { if (step === 'revision') { setStep('destino'); return; } if (idx > 0) setStep(flow[idx - 1]); else onClose(); };
 
   // ── subir creativo ──
   async function subir(file: File) {
@@ -323,7 +327,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
     return {
       name: mako?.name || `${estrTag} — ${OBJETIVO_UI.find((o) => o.value === k)?.label ?? ''}`.trim(),
       objective, special_ad_categories: [], budget_level: 'campaign', daily_budget_mxn: usdToMxn(budgetUsd ?? 0),
-      adsets: [{ name: `${estrTag}`, daily_budget_mxn: null, optimization_goal: conf.optimization, billing_event: def.billing_event, bid_strategy: 'LOWEST_COST_WITHOUT_CAP', targeting, ads, conversion: conf.optimization === 'OFFSITE_CONVERSIONS' ? { pixel_event: destino.conv?.pixel_event, custom_conversion_id: destino.conv?.custom_conversion_id } : undefined }],
+      adsets: [{ name: `${estrTag}`, daily_budget_mxn: null, optimization_goal: conf.optimization, billing_event: def.billing_event, bid_strategy: 'LOWEST_COST_WITHOUT_CAP', targeting, ads, conversion: conf.optimization === 'OFFSITE_CONVERSIONS' ? { pixel_event: destino.conv?.pixel_event, custom_conversion_id: destino.conv?.custom_conversion_id, pixel_id: destino.conv?.pixel_id } : undefined }],
       rationale: mako?.rationale ?? '',
     };
   }
@@ -416,9 +420,15 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                   <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
                     style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
                   {obj?.needsConv && (
-                    <Dropdown value={destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '')}
-                      placeholder={convs === null ? 'Cargando conversiones…' : '¿Por qué conversión optimizamos?'}
-                      options={convOpciones(convs)} onChange={(v) => setDestino((d) => ({ ...d, conv: parseConv(v, convs) }))} width="100%" />
+                    <>
+                      <Dropdown value={destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '')}
+                        placeholder={convs === null ? 'Cargando conversiones…' : '¿Por qué conversión optimizamos?'}
+                        options={convOpciones(convs)} onChange={(v) => setDestino((d) => ({ ...d, conv: parseConv(v, convs) }))} width="100%" />
+                      {destino.conv?.pixel_event && (pixels?.length ?? 0) > 0 && (
+                        <Dropdown value={destino.conv?.pixel_id ?? ''} placeholder="Pixel a medir (opcional)…" options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={(v) => setDestino((d) => ({ ...d, conv: { ...d.conv, pixel_id: v } }))} width="100%" />
+                      )}
+                      <p style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Arriba van los eventos estándar de Meta. Tu <b>agenda</b> y tus eventos propios aparecen como <b>“Tu conversión: …”</b> (son las conversiones que tu pixel realmente mide).</p>
+                    </>
                   )}
                 </div>
               )}

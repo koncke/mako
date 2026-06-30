@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   if (!process.env.META_PIXEL_ID) {
     // Conversión por EVENTO estándar necesita el pixel del entorno; por conversión
     // personalizada (custom_conversion_id) NO (la conversión ya referencia su pixel).
-    const needsPixel = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'OFFSITE_CONVERSIONS' && !a.conversion?.custom_conversion_id);
+    const needsPixel = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'OFFSITE_CONVERSIONS' && !a.conversion?.custom_conversion_id && !a.conversion?.pixel_id);
     if (needsPixel) return Response.json({ ok: false, error: 'Optimizar por una conversión web por EVENTO del pixel requiere META_PIXEL_ID configurado. Configuralo, elegí una conversión personalizada, o usá Leads con formulario / Tráfico.' }, { status: 400 });
   }
 
