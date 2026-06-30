@@ -26,6 +26,7 @@ import type { CrossData } from './EntityDetalle';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
+const NuevaCampanaModal = dynamic(() => import('./NuevaCampanaModal').then((m) => m.NuevaCampanaModal), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -137,6 +138,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [adSel, setAdSel] = useState<SenalRecon | null>(null);
   const [entSel, setEntSel] = useState<{ node: NodoEstado; level: 'campaign' | 'adset'; cross: CrossData } | null>(null);
   const [recosOpen, setRecosOpen] = useState(false);
+  const [nuevaOpen, setNuevaOpen] = useState(false);
 
   const cargar = () => {
     setLoading(true); setError(null);
@@ -353,6 +355,10 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
 
       {/* toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => setNuevaOpen(true)} title="Crear una campaña nueva con MaKo"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(200,135,12,.25)' }}>
+          <MakoStar size={13} color="#fff" /> Nueva campaña
+        </button>
         <MakoMenu actions={[
           { label: 'Analizar con Meta', sub: 'Recomendaciones y oportunity score', onClick: () => setRecosOpen(true) },
           { label: 'Ordenar nombres', sub: 'Propone una nomenclatura y la aplica', onClick: () => setRenameOpen(true) },
@@ -444,6 +450,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
       {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
+      {nuevaOpen && <NuevaCampanaModal senales={senales} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
     </div>
   );
 }
