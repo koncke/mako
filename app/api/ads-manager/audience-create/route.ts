@@ -6,16 +6,18 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { createCustomAudience, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { createCustomAudience, type AudienceTipo, metaErrorEnvelope } from '@/lib/meta-ads-create';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
+
+const TIPOS: AudienceTipo[] = ['page', 'ig', 'lead', 'pixel'];
 
 export async function POST(req: NextRequest) {
   let body: { tipo?: string; dias?: number; name?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
-  const tipo = body.tipo === 'pixel' ? 'pixel' : 'page';
+  const tipo: AudienceTipo = TIPOS.includes(body.tipo as AudienceTipo) ? (body.tipo as AudienceTipo) : 'page';
   const dias = Number(body.dias) > 0 ? Number(body.dias) : 90;
   try {
     const audience = await createCustomAudience({ tipo, dias, name: typeof body.name === 'string' ? body.name : undefined });

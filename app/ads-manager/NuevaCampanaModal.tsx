@@ -35,6 +35,7 @@ const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: '
 
 type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
+type AudTipo = 'page' | 'ig' | 'lead' | 'pixel';
 type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
@@ -123,10 +124,10 @@ const ESTRATEGIAS: Array<{ value: Estrategia; icon: string; label: string; desc:
   { value: 'intereses', icon: '🎯', label: 'Por intereses', desc: 'MaKo elige intereses afines a tu avatar.' },
 ];
 const OBJETIVO_UI: Array<{ value: Objective; icon: string; label: string; desc: string }> = [
-  { value: 'OUTCOME_LEADS', icon: '🧲', label: 'Conseguir leads', desc: 'Formularios o registros (tu funnel actual).' },
-  { value: 'OUTCOME_TRAFFIC', icon: '▶️', label: 'Tráfico al VSL / landing', desc: 'Llevar gente a ver tu página.' },
-  { value: 'OUTCOME_SALES', icon: '🛒', label: 'Vender (conversiones)', desc: 'Optimiza por compras con el pixel.' },
-  { value: 'OUTCOME_AWARENESS', icon: '📣', label: 'Reconocimiento', desc: 'Máximo alcance al menor costo.' },
+  { value: 'OUTCOME_LEADS', icon: '🧲', label: 'Leads con formulario de Facebook', desc: 'Formulario instantáneo dentro de Facebook/Instagram.' },
+  { value: 'OUTCOME_TRAFFIC', icon: '▶️', label: 'Tráfico a tu VSL / landing', desc: 'Mandás gente a tu página; ahí captás el lead o la venta.' },
+  { value: 'OUTCOME_SALES', icon: '🛒', label: 'Conversiones / ventas', desc: 'Optimiza por conversiones medidas con el pixel.' },
+  { value: 'OUTCOME_AWARENESS', icon: '📣', label: 'Reconocimiento / alcance', desc: 'Máximo alcance al menor costo.' },
 ];
 
 export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
@@ -214,7 +215,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const quitar = (id: string) => setTray((t) => t.filter((x) => x.id !== id));
 
   // ── crear un público personalizado sin salir de la app ──
-  async function crearPublico(tipo: 'page' | 'pixel', dias: number) {
+  async function crearPublico(tipo: AudTipo, dias: number) {
     setCreandoPublico(true); setErr(null);
     try {
       const r = await fetch('/api/ads-manager/audience-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, dias }) });
@@ -370,9 +371,12 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           {step === 'destino' && (
             <Paso titulo={objetivo === 'OUTCOME_LEADS' ? '¿Qué formulario instantáneo usás?' : '¿A qué página llevamos a la gente?'} sub={objetivo === 'OUTCOME_LEADS' ? 'Elegí un formulario que ya tengas en la página.' : 'La URL de tu VSL o landing.'}>
               {objetivo === 'OUTCOME_LEADS' ? (
-                <div style={{ width: '100%', maxWidth: 420 }}>
-                  <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elegí un formulario…' : 'No hay formularios en la página'}
+                <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+                  <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elegí un formulario…' : 'No tenés formularios instantáneos'}
                     options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino({ lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null })} width="100%" />
+                  {leadForms !== null && leadForms.length === 0 && (
+                    <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Tocá <b>← Atrás</b> y elegí <b>“Tráfico a tu VSL / landing”</b> para captar el lead en tu página, o creá el formulario en Meta y volvé.</p>
+                  )}
                 </div>
               ) : (
                 <input value={destino.url ?? ''} onChange={(e) => setDestino({ url: e.target.value })} placeholder="https://tu-landing/vsl" autoFocus
@@ -543,30 +547,36 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
 }
 
 // ── público (retargeting) — elegir uno existente o CREAR uno sin entrar a Meta ──
-function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: 'page' | 'pixel', dias: number) => void; creando: boolean }) {
+function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: AudTipo, dias: number) => void; creando: boolean }) {
   const [dias, setDias] = useState(90);
   const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: a.name ?? a.id }));
   const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' });
-  const btnCrear: CSSProperties = { ...btnGhost, fontSize: 13, padding: '9px 13px', opacity: creando ? 0.5 : 1 };
+  const btnCrear: CSSProperties = { ...btnGhost, fontSize: 12.5, padding: '8px 12px', opacity: creando ? 0.5 : 1 };
+  const presets: Array<{ tipo: AudTipo; label: string }> = [
+    { tipo: 'page', label: '👍 Facebook' },
+    { tipo: 'ig', label: '📸 Instagram' },
+    { tipo: 'lead', label: '📝 Abrieron tu form' },
+    { tipo: 'pixel', label: '🌐 Tu web' },
+  ];
   return (
-    <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-      <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elegí un público…' : 'No tenés públicos todavía'} resetAfterSelect
+    <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elegí un público (podés sumar varios)…' : 'No tenés públicos todavía'} resetAfterSelect
         options={opts} onChange={(v) => { const a = (audiencesAll ?? []).find((x) => x.id === v); if (a) setAudiencias([...audiencias, { id: a.id, name: a.name }]); }} width="100%" />
       {audiencias.length > 0 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
           {audiencias.map((a) => <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13.5, color: 'var(--ink)' }}>{a.name ?? a.id}<button type="button" onClick={() => setAudiencias(audiencias.filter((x) => x.id !== a.id))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 13, padding: 0 }}>✕</button></span>)}
         </div>
       )}
+      {audiencias.length > 1 && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>Se combinan (cualquiera de los {audiencias.length}).</span>}
 
       {/* crear público sin entrar a Meta */}
       <div style={{ width: '100%', borderTop: '1px dashed var(--border)', paddingTop: 14, marginTop: 4 }}>
-        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: '0 0 10px' }}>¿No está el que querés? Creá uno acá, sin entrar a Meta:</p>
+        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: '0 0 10px' }}>¿No está el que querés? Creá uno acá, sin entrar a Meta. Podés crear varios y se combinan.</p>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 10 }}>
           {[30, 90, 180].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>{dd} días</button>)}
         </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button type="button" disabled={creando} onClick={() => onCrear('page', dias)} style={btnCrear}>👍 Interactuaron con tu Facebook</button>
-          <button type="button" disabled={creando} onClick={() => onCrear('pixel', dias)} style={btnCrear}>🌐 Visitaron tu web</button>
+        <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {presets.map((p) => <button key={p.tipo} type="button" disabled={creando} onClick={() => onCrear(p.tipo, dias)} style={btnCrear}>{p.label}</button>)}
         </div>
         {creando && <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', marginTop: 8 }}>Creando el público en Meta…</p>}
       </div>

@@ -81,10 +81,12 @@ async function graphPost(path: string, params: Record<string, string | number | 
     body: body.toString(),
     cache: 'no-store',
   });
-  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: { code?: number; error_subcode?: number; message?: string } };
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: { code?: number; error_subcode?: number; message?: string; error_user_title?: string; error_user_msg?: string } };
   if (data && data.error) {
     const e = data.error;
-    throw new MetaWriteError(e.message ?? 'Meta rechazó la escritura', e.code, e.error_subcode);
+    // Meta esconde el motivo real en error_user_title/error_user_msg → lo mostramos.
+    const msg = [e.error_user_title, e.error_user_msg].filter(Boolean).join(' — ') || e.message || 'Meta rechazó la escritura';
+    throw new MetaWriteError(msg, e.code, e.error_subcode);
   }
   if (!res.ok) throw new MetaWriteError(`HTTP ${res.status} de Meta sin error body`);
   return data;
@@ -238,28 +240,65 @@ export async function listCustomAudiences(): Promise<Array<{ id: string; name: s
   return arr.map((a) => ({ id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count: a.approximate_count != null ? Number(a.approximate_count) : null }));
 }
 
+export type AudienceTipo = 'page' | 'ig' | 'lead' | 'pixel';
+
+/** id de la cuenta de Instagram conectada (para públicos de IG). null si no hay. */
+async function getInstagramActorId(): Promise<string | null> {
+  try {
+    const url = new URL(`${GRAPH_BASE}/${ver()}/${META_PAGE_ID}`);
+    url.searchParams.set('fields', 'instagram_business_account{id}');
+    url.searchParams.set('access_token', token());
+    const data = await graphGet(url.toString());
+    const iba = data.instagram_business_account as { id?: string } | undefined;
+    if (iba?.id) return String(iba.id);
+  } catch { /* sigue */ }
+  try {
+    const url = new URL(`${GRAPH_BASE}/${ver()}/${acct()}/instagram_accounts`);
+    url.searchParams.set('fields', 'id');
+    url.searchParams.set('access_token', token());
+    const data = await graphGet(url.toString());
+    const arr = Array.isArray(data.data) ? (data.data as Array<{ id?: string }>) : [];
+    if (arr[0]?.id) return String(arr[0].id);
+  } catch { /* sigue */ }
+  return null;
+}
+
 /**
  * Crea un público personalizado (Custom Audience) para retargeting, SIN salir de la
- * app. Tipos soportados con lo que ya tenemos:
- *   - 'page'  → gente que interactuó con la página de Facebook (engagement, META_PAGE_ID).
- *   - 'pixel' → visitantes de la web (requiere META_PIXEL_ID).
+ * app. Se pueden crear varios y combinarlos (se incluyen con OR en el conjunto).
+ *   - 'page'  → interactuaron con tu página de Facebook (engagement, META_PAGE_ID).
+ *   - 'ig'    → interactuaron con tu Instagram (cuenta conectada a la página).
+ *   - 'lead'  → abrieron tu formulario instantáneo en la página.
+ *   - 'pixel' → visitaron tu web (requiere META_PIXEL_ID).
  * `dias` = ventana de retención (1..180). Devuelve {id, name}.
  */
-export async function createCustomAudience(input: { tipo: 'page' | 'pixel'; dias: number; name?: string }): Promise<{ id: string; name: string }> {
+export async function createCustomAudience(input: { tipo: AudienceTipo; dias: number; name?: string }): Promise<{ id: string; name: string }> {
   const dias = Math.min(180, Math.max(1, Math.round(input.dias || 90)));
   const retention = dias * 86400;
-  let name: string; let subtype: string; let rule: Record<string, unknown>;
+  const eng = (source: Record<string, unknown>, event?: string): Record<string, unknown> => ({
+    inclusions: { operator: 'or', rules: [{ event_sources: [source], retention_seconds: retention, ...(event ? { filter: { operator: 'or', filters: [{ field: 'event', operator: '=', value: event }] } } : {}) }] },
+  });
+
+  let name: string; let subtype = 'ENGAGEMENT'; let rule: Record<string, unknown>;
   if (input.tipo === 'pixel') {
     const pixel = process.env.META_PIXEL_ID;
-    if (!pixel) throw new MetaWriteError('Para "visitantes de la web" hace falta META_PIXEL_ID configurado. Usá "interacción con tu Facebook" o configurá el pixel.');
-    name = input.name || `Visitantes web · últimos ${dias} días`;
+    if (!pixel) throw new MetaWriteError('Para "visitaron tu web" hace falta META_PIXEL_ID configurado. Elegí otro tipo o configurá el pixel.');
+    name = input.name || `Visitantes web · ${dias} días`;
     subtype = 'WEBSITE';
     rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'pixel', id: pixel }], retention_seconds: retention }] } };
+  } else if (input.tipo === 'ig') {
+    const ig = await getInstagramActorId();
+    if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conectala en Meta o elegí otro tipo de público.');
+    name = input.name || `Interacción Instagram · ${dias} días`;
+    rule = eng({ type: 'ig_business', id: ig }, 'ig_business_profile_engaged');
+  } else if (input.tipo === 'lead') {
+    name = input.name || `Abrieron tu formulario · ${dias} días`;
+    rule = eng({ type: 'page', id: META_PAGE_ID }, 'lead_generation');
   } else {
-    name = input.name || `Interacción FB · últimos ${dias} días`;
-    subtype = 'ENGAGEMENT';
-    rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'page', id: META_PAGE_ID }], retention_seconds: retention, filter: { operator: 'or', filters: [{ field: 'event', operator: '=', value: 'page_engaged' }] } }] } };
+    name = input.name || `Interacción Facebook · ${dias} días`;
+    rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_engaged');
   }
+
   const data = await graphPost(`${acct()}/customaudiences`, { name, subtype, rule: JSON.stringify(rule) });
   if (!data.id) throw new MetaWriteError('Meta no devolvió el id del público');
   return { id: String(data.id), name };
