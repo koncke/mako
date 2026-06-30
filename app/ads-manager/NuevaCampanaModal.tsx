@@ -143,31 +143,34 @@ const OBJETIVO_UI: Array<{ value: ObjKey; icon: string; label: string; desc: str
 ];
 // Conversiones estándar para "leads/agendas en tu web" + ventas.
 // OJO: el valor es el ENUM de Meta (custom_event_type), no el nombre del evento.
+// Redacción en OBJETIVO ("Que agenden"), NO en pasado: acá elegimos qué queremos
+// que la gente HAGA, no un público de quienes ya lo hicieron (eso es EVENTOS_PIXEL).
 const EVENTOS_CONV: Array<{ value: string; label: string }> = [
-  { value: 'LEAD', label: 'Dejó sus datos (Lead)' },
-  { value: 'SCHEDULE', label: 'Agendó (Schedule)' },
-  { value: 'COMPLETE_REGISTRATION', label: 'Se registró' },
-  { value: 'CONTENT_VIEW', label: 'Vio el contenido / VSL' },
-  { value: 'CONTACT', label: 'Contactó' },
-  { value: 'PURCHASE', label: 'Compró' },
+  { value: 'LEAD', label: 'Que dejen sus datos (Lead)' },
+  { value: 'SCHEDULE', label: 'Que agenden (Schedule)' },
+  { value: 'COMPLETE_REGISTRATION', label: 'Que se registren' },
+  { value: 'CONTENT_VIEW', label: 'Que vean el contenido / VSL' },
+  { value: 'CONTACT', label: 'Que te contacten' },
+  { value: 'PURCHASE', label: 'Que compren' },
 ];
 // Nombre del evento del pixel (como lo reporta Meta en /stats) → ENUM de optimización
-// (custom_event_type) + etiqueta amigable. Solo mapeamos los estándar de conversión.
+// (custom_event_type) + etiqueta amigable (en objetivo, "Que…"). Solo mapeamos los
+// estándar de conversión.
 const STD_EVENTS: Record<string, { enum: string; label: string }> = {
-  Lead: { enum: 'LEAD', label: 'Dejó sus datos (Lead)' },
-  Schedule: { enum: 'SCHEDULE', label: 'Agendó (Schedule)' },
-  CompleteRegistration: { enum: 'COMPLETE_REGISTRATION', label: 'Se registró' },
-  ViewContent: { enum: 'CONTENT_VIEW', label: 'Vio el contenido / VSL' },
-  Contact: { enum: 'CONTACT', label: 'Contactó' },
-  Purchase: { enum: 'PURCHASE', label: 'Compró' },
-  Search: { enum: 'SEARCH', label: 'Buscó' },
-  AddToCart: { enum: 'ADD_TO_CART', label: 'Agregó al carrito' },
-  InitiateCheckout: { enum: 'INITIATED_CHECKOUT', label: 'Inició el checkout' },
-  AddPaymentInfo: { enum: 'ADD_PAYMENT_INFO', label: 'Cargó datos de pago' },
-  Subscribe: { enum: 'SUBSCRIBE', label: 'Se suscribió' },
-  StartTrial: { enum: 'START_TRIAL', label: 'Inició una prueba' },
-  SubmitApplication: { enum: 'SUBMIT_APPLICATION', label: 'Envió una solicitud' },
-  AddToWishlist: { enum: 'ADD_TO_WISHLIST', label: 'Agregó a deseos' },
+  Lead: { enum: 'LEAD', label: 'Que dejen sus datos (Lead)' },
+  Schedule: { enum: 'SCHEDULE', label: 'Que agenden (Schedule)' },
+  CompleteRegistration: { enum: 'COMPLETE_REGISTRATION', label: 'Que se registren' },
+  ViewContent: { enum: 'CONTENT_VIEW', label: 'Que vean el contenido / VSL' },
+  Contact: { enum: 'CONTACT', label: 'Que te contacten' },
+  Purchase: { enum: 'PURCHASE', label: 'Que compren' },
+  Search: { enum: 'SEARCH', label: 'Que busquen' },
+  AddToCart: { enum: 'ADD_TO_CART', label: 'Que agreguen al carrito' },
+  InitiateCheckout: { enum: 'INITIATED_CHECKOUT', label: 'Que inicien el checkout' },
+  AddPaymentInfo: { enum: 'ADD_PAYMENT_INFO', label: 'Que carguen datos de pago' },
+  Subscribe: { enum: 'SUBSCRIBE', label: 'Que se suscriban' },
+  StartTrial: { enum: 'START_TRIAL', label: 'Que inicien una prueba' },
+  SubmitApplication: { enum: 'SUBMIT_APPLICATION', label: 'Que envíen una solicitud' },
+  AddToWishlist: { enum: 'ADD_TO_WISHLIST', label: 'Que agreguen a deseos' },
 };
 
 export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
