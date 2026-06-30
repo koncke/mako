@@ -36,7 +36,7 @@ const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: '
 type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
 type AudTipo = 'page' | 'ig' | 'pixel';
-type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string };
+type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string; conv?: { pixel_event?: string; custom_conversion_id?: string; label?: string } };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
 
@@ -105,9 +105,9 @@ function makeThumb(file: File): Promise<string | null> {
 
 // ── Borrador local ──
 const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
-type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objetivo: Objective | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
+type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
 function loadDraft(): Draft {
-  const vacio: Draft = { step: 'creativos', tray: [], budgetUsd: null, objetivo: null, estrategia: null, audiencias: [], destino: {}, analisis: [], spec: null, uso: null };
+  const vacio: Draft = { step: 'creativos', tray: [], budgetUsd: null, objKey: null, estrategia: null, audiencias: [], destino: {}, analisis: [], spec: null, uso: null };
   if (typeof window === 'undefined') return vacio;
   try {
     const raw = window.localStorage.getItem(DRAFT_KEY);
@@ -123,11 +123,28 @@ const ESTRATEGIAS: Array<{ value: Estrategia; icon: string; label: string; desc:
   { value: 'frio', icon: '❄️', label: 'Llegar a gente nueva', desc: 'Público amplio; Meta optimiza (Advantage+).' },
   { value: 'intereses', icon: '🎯', label: 'Por intereses', desc: 'MaKo elige intereses afines a tu avatar.' },
 ];
-const OBJETIVO_UI: Array<{ value: Objective; icon: string; label: string; desc: string }> = [
-  { value: 'OUTCOME_LEADS', icon: '🧲', label: 'Leads con formulario de Facebook', desc: 'Formulario instantáneo dentro de Facebook/Instagram.' },
-  { value: 'OUTCOME_TRAFFIC', icon: '▶️', label: 'Tráfico a tu VSL / landing', desc: 'Mandás gente a tu página; ahí captás el lead o la venta.' },
-  { value: 'OUTCOME_SALES', icon: '🛒', label: 'Conversiones / ventas', desc: 'Optimiza por conversiones medidas con el pixel.' },
-  { value: 'OUTCOME_AWARENESS', icon: '📣', label: 'Reconocimiento / alcance', desc: 'Máximo alcance al menor costo.' },
+type ObjKey = 'lead_form' | 'lead_web' | 'traffic' | 'sales' | 'awareness';
+const OBJ_KEYS: Record<ObjKey, { objective: Objective; optimization: string; needsForm: boolean; needsConv: boolean }> = {
+  lead_form: { objective: 'OUTCOME_LEADS', optimization: 'LEAD_GENERATION', needsForm: true, needsConv: false },
+  lead_web: { objective: 'OUTCOME_LEADS', optimization: 'OFFSITE_CONVERSIONS', needsForm: false, needsConv: true },
+  traffic: { objective: 'OUTCOME_TRAFFIC', optimization: 'LANDING_PAGE_VIEWS', needsForm: false, needsConv: false },
+  sales: { objective: 'OUTCOME_SALES', optimization: 'OFFSITE_CONVERSIONS', needsForm: false, needsConv: true },
+  awareness: { objective: 'OUTCOME_AWARENESS', optimization: 'REACH', needsForm: false, needsConv: false },
+};
+const OBJETIVO_UI: Array<{ value: ObjKey; icon: string; label: string; desc: string }> = [
+  { value: 'lead_form', icon: '🧲', label: 'Leads con formulario de Facebook', desc: 'Clientes potenciales con el formulario instantáneo DENTRO de Facebook/Instagram.' },
+  { value: 'lead_web', icon: '📅', label: 'Leads / agendas en tu web', desc: 'Optimiza por una conversión en tu landing (agenda, registro, lead) con el pixel. Sin formulario de Facebook.' },
+  { value: 'traffic', icon: '▶️', label: 'Tráfico a tu VSL / landing', desc: 'Llevar gente a tu página, sin optimizar por conversión.' },
+  { value: 'sales', icon: '🛒', label: 'Ventas / compras', desc: 'Optimiza por compras medidas con el pixel.' },
+  { value: 'awareness', icon: '📣', label: 'Reconocimiento / alcance', desc: 'Máximo alcance al menor costo.' },
+];
+// Conversiones estándar del pixel para "leads/agendas en tu web" + ventas.
+const EVENTOS_CONV: Array<{ value: string; label: string }> = [
+  { value: 'Lead', label: 'Dejó sus datos (Lead)' },
+  { value: 'Schedule', label: 'Agendó (Schedule)' },
+  { value: 'CompleteRegistration', label: 'Se registró' },
+  { value: 'Contact', label: 'Contactó' },
+  { value: 'Purchase', label: 'Compró' },
 ];
 
 export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
@@ -135,8 +152,9 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const [step, setStep] = useState<Step>(d0.step);
   const [tray, setTray] = useState<TrayItem[]>(d0.tray);
   const [budgetUsd, setBudgetUsd] = useState<number | null>(d0.budgetUsd);
-  const [objetivo, setObjetivo] = useState<Objective | null>(d0.objetivo);
+  const [objKey, setObjKey] = useState<ObjKey | null>(d0.objKey);
   const [estrategia, setEstrategia] = useState<Estrategia | null>(d0.estrategia);
+  const obj = objKey ? OBJ_KEYS[objKey] : null;
   const [audiencias, setAudiencias] = useState<AudienceRef[]>(d0.audiencias);
   const [destino, setDestino] = useState<Destino>(d0.destino);
   const [analisis, setAnalisis] = useState<Analisis>(d0.analisis);
@@ -151,17 +169,19 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceRef[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string }> | null>(null);
   const [creandoPublico, setCreandoPublico] = useState(false);
   useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences').then((r) => r.json()).then((j) => setAudiencesAll(j.ok ? j.items : [])).catch(() => setAudiencesAll([])); }, []);
-  useEffect(() => { if (objetivo === 'OUTCOME_LEADS' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms').then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objetivo, leadForms]);
+  useEffect(() => { if (objKey === 'lead_form' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms').then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objKey, leadForms]);
+  useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions').then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
 
   // guardar borrador
   useEffect(() => {
     try {
       if (step === 'listo') return;
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objetivo, estrategia, audiencias, destino, analisis, spec, uso }));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, estrategia, audiencias, destino, analisis, spec, uso }));
     } catch { /* quota */ }
-  }, [step, tray, budgetUsd, objetivo, estrategia, audiencias, destino, analisis, spec, uso]);
+  }, [step, tray, budgetUsd, objKey, estrategia, audiencias, destino, analisis, spec, uso]);
 
   const usables = () => tray.filter((t) => !t.processing && (t.image_hash || t.video_id || t.source_ad_id));
 
@@ -172,10 +192,13 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
     switch (step) {
       case 'creativos': return usables().length > 0;
       case 'inversion': return !!budgetUsd && budgetUsd > 0;
-      case 'objetivo': return !!objetivo;
+      case 'objetivo': return !!objKey;
       case 'estrategia': return !!estrategia;
       case 'publico': return audiencias.length > 0;
-      case 'destino': return objetivo === 'OUTCOME_LEADS' ? !!destino.lead_form_id : !!destino.url?.trim();
+      case 'destino':
+        if (obj?.needsForm) return !!destino.lead_form_id;
+        if (obj?.needsConv) return !!destino.url?.trim() && !!(destino.conv?.pixel_event || destino.conv?.custom_conversion_id);
+        return !!destino.url?.trim();
       default: return false;
     }
   };
@@ -257,7 +280,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   }
 
   function promptDeRespuestas(an: Analisis): string {
-    const objLabel = OBJETIVO_UI.find((o) => o.value === objetivo)?.label ?? objetivo;
+    const objLabel = OBJETIVO_UI.find((o) => o.value === objKey)?.label ?? objKey;
     const estrLabel = ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? estrategia;
     const u = usables();
     const desc = u.map((t, i) => `Creativo ${i + 1} (${t.media_type ?? 'archivo'}${t.kind === 'existing' ? ', ganador' : ''}): ${an[i]?.descripcion || '(sin descripción)'}${an[i]?.angulo ? ` [ángulo: ${an[i].angulo}]` : ''}`).join('\n');
@@ -272,8 +295,10 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
   }
 
   function construirSpec(mako: CampaignSpec | null): CampaignSpec {
-    const obj = objetivo ?? 'OUTCOME_LEADS';
-    const def = objetivoDef(obj);
+    const k = objKey ?? 'lead_form';
+    const conf = OBJ_KEYS[k];
+    const objective = conf.objective;
+    const def = objetivoDef(objective);
     const copies = mako ? mako.adsets.flatMap((s) => s.ads).map((a) => a.creative) : [];
     const u = usables();
     const targeting: Targeting = estrategia === 'retargeting'
@@ -288,17 +313,17 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
         source_ad_id: t.kind === 'existing' ? t.source_ad_id ?? null : null,
         media_type: t.media_type, image_hash: t.image_hash ?? null, video_id: t.video_id ?? null, thumbnail_url: t.thumbnail_url ?? null,
         primary_text: cp.primary_text ?? '', headline: cp.headline ?? '', description: cp.description ?? '',
-        cta_type: cp.cta_type ?? (obj === 'OUTCOME_LEADS' ? 'SIGN_UP' : 'LEARN_MORE'),
+        cta_type: cp.cta_type ?? (conf.needsForm ? 'SIGN_UP' : 'LEARN_MORE'),
       };
-      if (def.optimization_goal === 'LEAD_GENERATION') { creative.lead_form_id = destino.lead_form_id ?? null; creative.lead_form_name = destino.lead_form_name ?? null; }
+      if (conf.needsForm) { creative.lead_form_id = destino.lead_form_id ?? null; creative.lead_form_name = destino.lead_form_name ?? null; }
       else creative.destination_url = destino.url ?? '';
       return { name: `Anuncio ${i + 1}`, creative };
     });
     const estrTag = estrategia === 'retargeting' ? 'Retargeting' : estrategia === 'intereses' ? 'Intereses' : 'Adquisición';
     return {
-      name: mako?.name || `${estrTag} — ${OBJETIVO_UI.find((o) => o.value === obj)?.label ?? ''}`.trim(),
-      objective: obj, special_ad_categories: [], budget_level: 'campaign', daily_budget_mxn: usdToMxn(budgetUsd ?? 0),
-      adsets: [{ name: `${estrTag}`, daily_budget_mxn: null, optimization_goal: def.optimization_goal, billing_event: def.billing_event, bid_strategy: 'LOWEST_COST_WITHOUT_CAP', targeting, ads }],
+      name: mako?.name || `${estrTag} — ${OBJETIVO_UI.find((o) => o.value === k)?.label ?? ''}`.trim(),
+      objective, special_ad_categories: [], budget_level: 'campaign', daily_budget_mxn: usdToMxn(budgetUsd ?? 0),
+      adsets: [{ name: `${estrTag}`, daily_budget_mxn: null, optimization_goal: conf.optimization, billing_event: def.billing_event, bid_strategy: 'LOWEST_COST_WITHOUT_CAP', targeting, ads, conversion: conf.optimization === 'OFFSITE_CONVERSIONS' ? { pixel_event: destino.conv?.pixel_event, custom_conversion_id: destino.conv?.custom_conversion_id } : undefined }],
       rationale: mako?.rationale ?? '',
     };
   }
@@ -323,7 +348,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
   const resumen: string[] = [];
   if (usables().length) resumen.push(`${usables().length} creativo${usables().length === 1 ? '' : 's'}`);
   if (budgetUsd) resumen.push(`$${budgetUsd}/día`);
-  if (objetivo) resumen.push(OBJETIVO_UI.find((o) => o.value === objetivo)?.label ?? '');
+  if (objKey) resumen.push(OBJETIVO_UI.find((o) => o.value === objKey)?.label ?? '');
   if (estrategia) resumen.push(ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? '');
 
   const enWizard = step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'estrategia' || step === 'publico' || step === 'destino';
@@ -359,7 +384,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 
           {step === 'objetivo' && (
             <Paso titulo="¿Qué buscás con esta campaña?">
-              <Opciones items={OBJETIVO_UI} value={objetivo} onPick={(v) => { setObjetivo(v as Objective); setStep(flow[flow.indexOf('objetivo') + 1]); }} />
+              <Opciones items={OBJETIVO_UI} value={objKey} onPick={(v) => { setObjKey(v as ObjKey); setDestino({}); setStep(flow[flow.indexOf('objetivo') + 1]); }} />
             </Paso>
           )}
 
@@ -376,18 +401,26 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'destino' && (
-            <Paso titulo={objetivo === 'OUTCOME_LEADS' ? '¿Qué formulario instantáneo usás?' : '¿A qué página llevamos a la gente?'} sub={objetivo === 'OUTCOME_LEADS' ? 'Elegí un formulario que ya tengas en la página.' : 'La URL de tu VSL o landing.'}>
-              {objetivo === 'OUTCOME_LEADS' ? (
+            <Paso titulo={obj?.needsForm ? '¿Qué formulario instantáneo usás?' : obj?.needsConv ? '¿Dónde captás la conversión?' : '¿A qué página llevamos a la gente?'}
+              sub={obj?.needsForm ? 'Elegí un formulario que ya tengas en la página.' : obj?.needsConv ? 'Tu landing/VSL + por qué conversión del pixel optimizamos (tu agenda, lead, registro…).' : 'La URL de tu VSL o landing.'}>
+              {obj?.needsForm ? (
                 <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
                   <Dropdown value={destino.lead_form_id ?? ''} placeholder={leadForms === null ? 'Cargando formularios…' : leadForms.length ? 'Elegí un formulario…' : 'No tenés formularios instantáneos'}
-                    options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino({ lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null })} width="100%" />
+                    options={(leadForms ?? []).map((f) => ({ value: f.id, label: f.name }))} onChange={(v) => setDestino((d) => ({ ...d, lead_form_id: v, lead_form_name: leadForms?.find((f) => f.id === v)?.name ?? null }))} width="100%" />
                   {leadForms !== null && leadForms.length === 0 && (
-                    <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Tocá <b>← Atrás</b> y elegí <b>“Tráfico a tu VSL / landing”</b> para captar el lead en tu página, o creá el formulario en Meta y volvé.</p>
+                    <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>No hay formularios instantáneos en la página. Tocá <b>← Atrás</b> y elegí <b>“Leads / agendas en tu web”</b> para captar el lead en tu landing.</p>
                   )}
                 </div>
               ) : (
-                <input value={destino.url ?? ''} onChange={(e) => setDestino({ url: e.target.value })} placeholder="https://tu-landing/vsl" autoFocus
-                  style={{ width: '100%', maxWidth: 460, padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
+                <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+                  <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
+                    style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
+                  {obj?.needsConv && (
+                    <Dropdown value={destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '')}
+                      placeholder={convs === null ? 'Cargando conversiones…' : '¿Por qué conversión optimizamos?'}
+                      options={convOpciones(convs)} onChange={(v) => setDestino((d) => ({ ...d, conv: parseConv(v, convs) }))} width="100%" />
+                  )}
+                </div>
               )}
             </Paso>
           )}
@@ -613,7 +646,8 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
 
 // ── revisión minimalista ──
 function Revision({ spec, budgetUsd, tray, campaignCount, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; campaignCount: number; setSpec: (s: CampaignSpec) => void; err: string | null }) {
-  const objLabel = OBJETIVO_UI.find((o) => o.value === spec.objective)?.label ?? spec.objective;
+  const opt = spec.adsets[0]?.optimization_goal;
+  const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : spec.objective;
   const ads = spec.adsets.flatMap((s) => s.ads);
   return (
     <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -662,6 +696,16 @@ function linkify(text: string): ReactNode {
   return text.split(/(https?:\/\/\S+)/g).map((p, i) => /^https?:\/\//.test(p)
     ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}>abrir en Meta ↗</a>
     : p);
+}
+
+// Opciones de conversión: eventos estándar del pixel + conversiones personalizadas.
+function convOpciones(convs: Array<{ id: string; name: string }> | null) {
+  const custom = (convs ?? []).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}` }));
+  return [...EVENTOS_CONV, ...custom];
+}
+function parseConv(v: string, convs: Array<{ id: string; name: string }> | null): Destino['conv'] {
+  if (v.startsWith('cc:')) { const id = v.slice(3); const c = (convs ?? []).find((x) => x.id === id); return { custom_conversion_id: id, label: c?.name }; }
+  return { pixel_event: v, label: EVENTOS_CONV.find((e) => e.value === v)?.label };
 }
 
 function analisisResumen(an: Analisis): string | undefined {

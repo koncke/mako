@@ -32,8 +32,10 @@ export async function POST(req: NextRequest) {
   // Guarda: las conversiones web necesitan pixel. Sin él Meta rechaza el conjunto y
   // dejaría la campaña huérfana → cortamos antes de crear nada.
   if (!process.env.META_PIXEL_ID) {
-    const needsPixel = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'OFFSITE_CONVERSIONS');
-    if (needsPixel) return Response.json({ ok: false, error: 'Las conversiones web (objetivo Ventas / OFFSITE_CONVERSIONS) requieren META_PIXEL_ID configurado en el entorno. Configurá el pixel o elegí Leads o Tráfico.' }, { status: 400 });
+    // Conversión por EVENTO estándar necesita el pixel del entorno; por conversión
+    // personalizada (custom_conversion_id) NO (la conversión ya referencia su pixel).
+    const needsPixel = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'OFFSITE_CONVERSIONS' && !a.conversion?.custom_conversion_id);
+    if (needsPixel) return Response.json({ ok: false, error: 'Optimizar por una conversión web por EVENTO del pixel requiere META_PIXEL_ID configurado. Configuralo, elegí una conversión personalizada, o usá Leads con formulario / Tráfico.' }, { status: 400 });
   }
 
   // Registro local (best-effort): si la DB no está, igual creamos en Meta.

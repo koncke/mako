@@ -144,6 +144,10 @@ export type AdSetSpec = {
   bid_strategy?: string; // LOWEST_COST_WITHOUT_CAP por defecto
   targeting: Targeting;
   ads: AdSpec[];
+  // Para OFFSITE_CONVERSIONS: por qué conversión optimizar. pixel_event = evento
+  // estándar del pixel (Lead, Schedule, Purchase…); custom_conversion_id = una
+  // conversión personalizada de la cuenta (ej. "Programaciones"/agenda).
+  conversion?: { pixel_event?: string; custom_conversion_id?: string };
 };
 
 export type CampaignSpec = {

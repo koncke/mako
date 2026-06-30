@@ -155,16 +155,18 @@ export function buildTargeting(t: Targeting): Record<string, unknown> {
   return out;
 }
 
-// promoted_object según el objetivo / meta de optimización.
-function buildPromotedObject(objective: Objective, optimizationGoal: string): Record<string, string> | null {
+// promoted_object según el objetivo / meta de optimización / conversión elegida.
+function buildPromotedObject(objective: Objective, optimizationGoal: string, conversion?: { pixel_event?: string; custom_conversion_id?: string }): Record<string, string> | null {
   if (optimizationGoal === 'LEAD_GENERATION') {
     return { page_id: META_PAGE_ID }; // formulario instantáneo (el form va en el creativo)
   }
   if (optimizationGoal === 'OFFSITE_CONVERSIONS') {
+    // Conversión personalizada (ej. agenda/"Programaciones") → su id basta.
+    if (conversion?.custom_conversion_id) return { custom_conversion_id: conversion.custom_conversion_id };
     const pixel = process.env.META_PIXEL_ID;
     if (!pixel) return null; // sin pixel no podemos optimizar por conversión web
     const def = objetivoDef(objective);
-    return { pixel_id: pixel, custom_event_type: def.custom_event_type ?? 'LEAD' };
+    return { pixel_id: pixel, custom_event_type: conversion?.pixel_event || def.custom_event_type || 'LEAD' };
   }
   return null;
 }
@@ -305,6 +307,17 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
   return { id: String(data.id), name };
 }
 
+/** Conversiones personalizadas de la cuenta (ej. "Programaciones"/agenda) para optimizar. */
+export async function listCustomConversions(): Promise<Array<{ id: string; name: string; event?: string }>> {
+  const url = new URL(`${GRAPH_BASE}/${ver()}/${acct()}/customconversions`);
+  url.searchParams.set('fields', 'id,name,custom_event_type');
+  url.searchParams.set('limit', '100');
+  url.searchParams.set('access_token', token());
+  const data = await graphGet(url.toString());
+  const arr = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
+  return arr.map((c) => ({ id: String(c.id), name: String(c.name ?? c.id), event: c.custom_event_type ? String(c.custom_event_type) : undefined }));
+}
+
 /** Busca intereses por texto → ids reales que Meta acepta en el targeting. */
 export async function searchInterests(q: string): Promise<Array<{ id: string; name: string; audience?: number | null; topic?: string | null }>> {
   if (!q.trim()) return [];
@@ -420,7 +433,7 @@ export async function createAdSet(campaignId: string, spec: CampaignSpec, adset:
     if (adset.daily_budget_mxn) params.daily_budget = mxnACentavos(adset.daily_budget_mxn);
     params.bid_strategy = adset.bid_strategy || 'LOWEST_COST_WITHOUT_CAP';
   }
-  const promoted = buildPromotedObject(spec.objective, optimization);
+  const promoted = buildPromotedObject(spec.objective, optimization, adset.conversion);
   if (promoted) params.promoted_object = JSON.stringify(promoted);
   const data = await graphPost(`${acct()}/adsets`, params);
   return String(data.id);
