@@ -112,16 +112,26 @@ export function NuevaCampanaModal({ senales, onClose, onPublished }: { senales: 
     finally { setAjustando(false); }
   }
 
-  // ── subir creativo ──
+  // ── subir creativo (directo a storage → Meta, esquiva el límite del serverless) ──
   async function subir(file: File) {
+    const esVideo = file.type.startsWith('video');
+    const maxMb = esVideo ? 512 : 30;
+    if (file.size > maxMb * 1024 * 1024) { setErr(`"${file.name}" supera el máximo (${maxMb} MB).`); return; }
     const id = `up-${++trayCounter.current}`;
-    const pend: TrayItem = { id, kind: 'upload', media_type: file.type.startsWith('video') ? 'video' : 'image', label: file.name, processing: true };
+    const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true };
     setTray((t) => [...t, pend]);
     try {
-      const fd = new FormData(); fd.append('file', file);
-      const r = await fetch('/api/ads-manager/creative-upload', { method: 'POST', body: fd });
+      // 1) URL firmada para subir directo a Supabase Storage.
+      const s = await fetch('/api/ads-manager/creative-signurl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, content_type: file.type }) });
+      const sj = await s.json();
+      if (!sj.ok) throw new Error(sj.error || 'No se pudo preparar la subida');
+      // 2) Subida directa del archivo (no pasa por la función → sin tope de body).
+      const put = await fetch(sj.signedUrl, { method: 'PUT', headers: { 'content-type': file.type, 'x-upsert': 'true' }, body: file });
+      if (!put.ok) throw new Error(`No se pudo subir el archivo (HTTP ${put.status})`);
+      // 3) El servidor lo empuja a Meta desde el storage.
+      const r = await fetch('/api/ads-manager/creative-upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: sj.path, content_type: file.type, filename: file.name }) });
       const j = await r.json();
-      if (!j.ok) throw new Error(j.error || 'No se pudo subir');
+      if (!j.ok) throw new Error(j.error || 'No se pudo procesar el creativo');
       setTray((t) => t.map((x) => x.id === id ? { ...x, media_type: j.media_type, image_hash: j.image_hash ?? null, video_id: j.video_id ?? null, thumbnail_url: j.thumbnail_url ?? null, processing: false } : x));
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id)); }
   }
@@ -228,8 +238,8 @@ function CreativeTray({ tray, onSubir, onQuitar, senales, onGanador, compact }: 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: tray.length ? 10 : 0 }}>
         <span style={{ ...lbl, marginBottom: 0 }}>Creativos {compact ? '' : '(subí imagen/video o reusá un ganador)'}</span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,video/mp4,video/quicktime" style={{ display: 'none' }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) onSubir(f); e.target.value = ''; }} />
+          <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,video/mp4,video/quicktime" style={{ display: 'none' }}
+            onChange={(e) => { const files = e.target.files; if (files) Array.from(files).forEach((f) => onSubir(f)); e.target.value = ''; }} />
           <button type="button" onClick={() => fileRef.current?.click()} style={{ ...btnGhost, padding: '6px 11px', fontSize: 12.5 }}>⬆ Subir</button>
           <button type="button" onClick={() => setVerGanadores((v) => !v)} style={{ ...btnGhost, padding: '6px 11px', fontSize: 12.5 }}>★ Ganadores</button>
         </div>

@@ -25,6 +25,9 @@ import {
 
 const GRAPH_BASE = 'https://graph.facebook.com';
 
+// Bucket de Supabase Storage donde el navegador stagea los creativos antes de Meta.
+export const ADS_CREATIVES_BUCKET = 'ads-creatives';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Creds + error tipado
 // ─────────────────────────────────────────────────────────────────────────────
@@ -269,6 +272,17 @@ export async function uploadAdVideo(bytes: ArrayBuffer, filename: string, mime: 
   const res = await fetch(`${GRAPH_BASE}/${ver()}/${acct()}/advideos`, { method: 'POST', body: form, cache: 'no-store' });
   const data = (await res.json().catch(() => ({}))) as { id?: string; error?: { code?: number; error_subcode?: number; message?: string } };
   if (data.error) throw new MetaWriteError(data.error.message ?? 'Error subiendo video', data.error.code, data.error.error_subcode);
+  if (!data.id) throw new MetaWriteError('Meta no devolvió video_id');
+  return { video_id: String(data.id) };
+}
+
+/**
+ * Sube un video a act_<id>/advideos por URL: Meta DESCARGA el archivo del file_url
+ * (así los bytes nunca pasan por nuestra función → esquivamos el límite de body
+ * del serverless). El file_url debe ser accesible por Meta (URL firmada de storage).
+ */
+export async function uploadAdVideoByUrl(fileUrl: string, name: string): Promise<{ video_id: string }> {
+  const data = await graphPost(`${acct()}/advideos`, { file_url: fileUrl, name });
   if (!data.id) throw new MetaWriteError('Meta no devolvió video_id');
   return { video_id: String(data.id) };
 }
