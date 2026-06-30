@@ -43,9 +43,11 @@ export async function GET(request: NextRequest) {
   if (unauth) return unauth;
 
   const url = new URL(request.url);
-  const sendEnabled = process.env.NUTRICION_SEND_ENABLED === 'true';
-  // El cron programado commitea (inscribe + envía) SOLO cuando el envío real está
-  // habilitado. Antes de ir a vivo queda en dry-run para no consumir el backlog.
+  // Envío real habilitado por canal (WhatsApp y/o Email). Cualquiera de los dos
+  // hace que el cron programado commitee (inscribe + procesa). Cada canal decide
+  // adentro si manda de verdad o avanza 'simulado'.
+  const sendEnabled = process.env.NUTRICION_SEND_ENABLED === 'true' || process.env.EMAIL_SEND_ENABLED === 'true';
+  // Antes de ir a vivo queda en dry-run para no consumir el backlog.
   // ?commit=1 fuerza el commit en modo simulado (para probar la máquina a mano).
   const commit = sendEnabled || url.searchParams.get('commit') === '1';
 

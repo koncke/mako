@@ -14,7 +14,8 @@
 import { getSupabaseServer } from '@/lib/supabase';
 import { getVslEngagementMap } from '@/lib/leads';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
-import { valoresVariablesLead } from '@/lib/template-vars';
+import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, EMAIL_SEND_ENABLED, remitenteEsSandbox } from '@/lib/resend';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -23,6 +24,7 @@ export type PasoSecuencia = {
   canal: CanalNutricion;
   delay_horas: number;
   asunto: string | null;
+  preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
   template_wa: string | null;                 // nombre del template aprobado (WhatsApp)
   template_categoria?: 'marketing' | 'utility' | 'authentication';
@@ -150,7 +152,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       orden: i + 1,
       canal: p.canal === 'email' ? 'email' : 'whatsapp',
       delay_horas: Math.max(0, Math.round(Number(p.delay_horas) || 0)),
-      asunto: p.asunto ?? null,
+      asunto: typeof p.asunto === 'string' ? p.asunto : null,
+      preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
       template_wa: p.template_wa ?? null,
       template_categoria: p.template_categoria,
@@ -482,13 +485,16 @@ async function enviosUltimas24h(): Promise<number> {
 
 async function leadTuvoEnvioReciente(leadId: number): Promise<boolean> {
   const supabase = getSupabaseServer();
-  const { count } = await supabase
-    .from('nutricion_envios')
-    .select('id', { count: 'exact', head: true })
-    .eq('lead_id', leadId)
-    .in('estado', ['enviado', 'simulado'])
-    .gte('created_at', haceHorasISO(HS_MIN_ENTRE_MSGS));
-  return (count ?? 0) > 0;
+  const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
+  // Mira los DOS logs (nutrición + broadcasts) para no contactar al mismo lead
+  // dos veces en <20h aunque el otro toque haya sido un broadcast.
+  const [nutri, bcast] = await Promise.all([
+    supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+      .eq('lead_id', leadId).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+    supabase.from('email_broadcast_envios').select('id', { count: 'exact', head: true })
+      .eq('lead_id', leadId).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+  ]);
+  return (nutri.count ?? 0) + (bcast.count ?? 0) > 0;
 }
 
 export type ResultadoProceso = {
@@ -533,10 +539,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
   const leadIds = [...new Set(due.map((d) => d.lead_id))];
   const { data: leadsData } = await supabase
     .from('leads')
-    .select('id, nombre, telefono, empresa')
+    .select('id, nombre, telefono, empresa, email, email_opt_out')
     .in('id', leadIds);
   const leadMap = new Map(
-    ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null }>).map((l) => [l.id, l]),
+    ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null }>).map((l) => [l.id, l]),
   );
 
   for (const insc of due) {
@@ -560,6 +566,10 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
     const lead = leadMap.get(insc.lead_id);
     let estado: 'enviado' | 'simulado' | 'fallo' = 'simulado';
     let nota: string | undefined;
+    let proveedorId: string | null = null;
+    // terminal = la condición no se resuelve reintentando (opt-out, sin email):
+    // se cierra la inscripción en vez de dejarla reintentando para siempre.
+    let terminal = false;
 
     if (SEND_ENABLED && paso.canal === 'whatsapp') {
       if (!lead?.telefono) {
@@ -585,8 +595,42 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
         estado = r.ok ? 'enviado' : 'fallo';
         if (!r.ok) nota = r.error;
       }
+    } else if (EMAIL_SEND_ENABLED && paso.canal === 'email') {
+      if (lead?.email_opt_out) {
+        estado = 'fallo'; terminal = true;
+        nota = 'lead dado de baja del email';
+      } else if (!lead?.email) {
+        estado = 'fallo'; terminal = true;
+        nota = 'lead sin email';
+      } else if (remitenteEsSandbox()) {
+        // Remitente sandbox (resend.dev) NO entrega a terceros: abortamos con un
+        // error claro en vez de quemar el paso. No es terminal (se resuelve al
+        // configurar RESEND_FROM con un dominio verificado).
+        estado = 'fallo';
+        nota = 'remitente sandbox: configurá RESEND_FROM con un dominio verificado';
+      } else {
+        const vars = valoresVariablesLead(lead);
+        const cuerpo = aplicarVariables(paso.cuerpo, vars);
+        const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
+        const unsubUrl = buildUnsubscribeUrl(insc.lead_id);
+        const r = await sendEmail({
+          to: lead.email,
+          subject: asunto,
+          html: renderEmailHtml({
+            subject: asunto,
+            bodyText: cuerpo,
+            preheader: aplicarVariables(paso.preheader ?? '', vars) || undefined,
+            unsubscribeUrl: unsubUrl,
+          }),
+          text: cuerpo,
+          headers: unsubUrl ? { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined,
+          tags: [{ name: 'tipo', value: 'nutricion' }, { name: 'secuencia_id', value: String(insc.secuencia_id) }],
+        });
+        estado = r.ok ? 'enviado' : 'fallo';
+        if (r.ok) proveedorId = r.id; else nota = r.error;
+      }
     }
-    // email → 'simulado' hasta el hito de Resend.
+    // Si el canal no tiene envío real habilitado → 'simulado' (avanza el paso sin mandar).
 
     await supabase.from('nutricion_envios').insert({
       inscripcion_id: insc.id,
@@ -595,14 +639,23 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
       paso: insc.paso_actual + 1,
       canal: paso.canal,
       estado,
-      destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : null,
+      destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
       asunto: paso.asunto,
+      proveedor_id: proveedorId,
     });
 
     if (estado === 'fallo') {
       res.fallos += 1;
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, nota });
-      continue; // no avanzar el paso; se reintenta
+      if (terminal) {
+        // Condición permanente (opt-out / sin email): cerramos la inscripción para
+        // que no se reintente eternamente y no acumule filas 'fallo' por corrida.
+        await supabase
+          .from('nutricion_inscripciones')
+          .update({ estado: 'cancelada', proximo_envio_at: null, updated_at: ahoraISO() })
+          .eq('id', insc.id);
+      }
+      continue; // fallo transitorio → se reintenta; terminal → ya se cerró arriba
     }
 
     const siguiente = sec.pasos[insc.paso_actual + 1];

@@ -18,7 +18,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 // Prefijos públicos (no requieren login).
 // '/vsl' es la landing pública de venta de MaKo (no figura en el sidebar) y
 // '/vsl-assets' sus videos (.mp4 no lo excluye el matcher de abajo).
-const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/login', '/api/auth', '/vsl', '/vsl-assets'];
+// '/api/email/unsubscribe' es la baja del email: la abren destinatarios externos
+// (sin cookie) y el POST One-Click de Gmail/Apple; valida con su propio token HMAC.
+const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/api/email/unsubscribe', '/login', '/api/auth', '/vsl', '/vsl-assets'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

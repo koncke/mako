@@ -1,264 +1,159 @@
 'use client';
 
 // =============================================================================
-// Email Marketing — secuencias por etapa + broadcasts
-// Port fiel de design-reference/Email Marketing.dc.html.
-// El layout (app/layout.tsx) ya aporta el <aside> y el rootStyle, así que
-// esta pantalla devuelve SÓLO el <main>.
+// Email Marketing — secuencias por etapa (motor de nutrición) + broadcasts.
+// Data-driven: lee/escribe vía /api/email/*. Las secuencias de email viven en
+// nutricion_secuencias (pasos canal='email'); el envío real sale por Resend
+// detrás de EMAIL_SEND_ENABLED. Los broadcasts son envíos puntuales a un segmento.
 // =============================================================================
 
-import { useState, type CSSProperties, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Dropdown } from '../components/Dropdown';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tipos
+// Tipos (espejo de lib/email-marketing.ts)
 // ─────────────────────────────────────────────────────────────────────────────
-
-type StageKey = 'nutri' | 'nopaga' | 'noshow' | 'manual' | 'postagenda';
+type Opcion = { value: string; label: string; color?: string };
+type StepStats = { sent: number; abiertos: number; clics: number };
+type Paso = {
+  orden: number; canal: 'email'; delay_horas: number;
+  asunto: string | null; preheader?: string | null; cuerpo: string; template_wa: null;
+};
+type Secuencia = {
+  id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;
+  activa: boolean; pasos: Paso[]; inscriptos: number; statsPorPaso: StepStats[];
+};
+type Kpi = { label: string; value: string; delta: string; deltaColor: string };
+type Broadcast = {
+  id: number; asunto: string; preheader: string | null; cuerpo: string; segmento: string;
+  estado: string; programado_at: string | null; enviado_at: string | null;
+  total_destinatarios: number; created_at: string; enviados: number; abiertos: number; clics: number;
+};
+type Segmento = { value: string; label: string; descripcion: string };
 
 type View = 'sequences' | 'broadcasts';
 
-interface EmailStep {
-  delay: string;
-  subject: string;
-  preview: string;
-  body: string;
-  sent: number;
-  open: string;
-  click: string;
-}
-
-interface Sequence {
-  key: string;
-  name: string;
-  stage: StageKey;
-  active: boolean;
-  steps: EmailStep[];
-}
-
-type BroadcastStatus = 'enviado' | 'programado';
-
-interface Broadcast {
-  id: string;
-  subject: string;
-  date: string;
-  segment: string;
-  sent: string;
-  open: string;
-  click: string;
-  status: BroadcastStatus;
-}
-
-interface Kpi {
-  label: string;
-  value: string;
-  delta: string;
-  deltaColor: string;
-}
-
-interface StageInfo {
-  label: string;
-  dot: string;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Datos estáticos (verbatim del prototipo)
+// Helpers de red
 // ─────────────────────────────────────────────────────────────────────────────
+async function apiGet<T>(url: string): Promise<T> {
+  const r = await fetch(url, { cache: 'no-store' });
+  return r.json() as Promise<T>;
+}
+async function apiSend<T>(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown): Promise<T> {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  return r.json() as Promise<T>;
+}
 
-const STAGE: Record<StageKey, StageInfo> = {
-  nutri: { label: 'No Agenda', dot: '#6A4BD8' },
-  nopaga: { label: 'No Paga', dot: '#C7417B' },
-  noshow: { label: 'No Show', dot: '#B5630A' },
-  manual: { label: 'Manual', dot: '#4F5BD5' },
-  postagenda: { label: 'Post Agenda', dot: '#9D4EDD' },
+function fmtDelay(h: number): string {
+  if (h <= 0) return 'inmediato';
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24), r = h % 24;
+  return r ? `${d}d ${r}h` : `${d} día${d > 1 ? 's' : ''}`;
+}
+const pctTxt = (num: number, den: number) => (den > 0 ? `${Math.round((num / den) * 1000) / 10}%` : '—');
+function fmtFecha(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+const ESTADO_STYLE: Record<string, { bg: string; fg: string; bd: string; label: string }> = {
+  borrador: { bg: 'var(--surface-2)', fg: 'var(--dim)', bd: 'var(--border-strong)', label: 'borrador' },
+  programado: { bg: 'var(--warn-bg)', fg: 'var(--warn)', bd: 'var(--warn-fill)', label: 'programado' },
+  enviando: { bg: 'var(--warn-bg)', fg: 'var(--warn)', bd: 'var(--warn-fill)', label: 'enviando…' },
+  enviado: { bg: 'var(--good-bg)', fg: 'var(--good)', bd: 'var(--good)', label: 'enviado' },
+  cancelado: { bg: 'var(--bad-bg)', fg: 'var(--bad)', bd: 'var(--bad)', label: 'cancelado' },
 };
 
-const KPIS: Kpi[] = [
-  { label: 'Suscriptores activos', value: '214', delta: '▲ 18', deltaColor: 'var(--good)' },
-  { label: 'Tasa de apertura', value: '42%', delta: '▲ 3pp', deltaColor: 'var(--good)' },
-  { label: 'Tasa de clic', value: '9.1%', delta: '▼ 0.4pp', deltaColor: 'var(--bad)' },
-  { label: 'Emails enviados (mes)', value: '1,872', delta: '▲ 12%', deltaColor: 'var(--good)' },
-];
-
-const INITIAL_SEQUENCES: Sequence[] = [
-  {
-    key: 'nutri',
-    name: 'Nutrición — No Agenda',
-    stage: 'nutri',
-    active: true,
-    steps: [
-      { delay: 'Día 0 · inmediato', subject: '{nombre}, te aparté un lugar', preview: 'Tu sesión sigue disponible esta semana', body: 'Hola {nombre},\n\nVi que dejaste tus datos pero todavía no agendaste tu Reunión 1. Te aparté un lugar para esta semana — agendá en 1 clic acá.', sent: 214, open: '48%', click: '11%' },
-      { delay: 'Día 1 · 9:00', subject: 'El video que te va a ahorrar 3 meses', preview: '12 minutos que cambian tu prospección', body: 'En este video te muestro el sistema exacto que usamos para llenar la agenda de reuniones calificadas.', sent: 198, open: '41%', click: '9%' },
-      { delay: 'Día 3 · 9:00', subject: '¿Lo dejamos para más adelante?', preview: 'Cierro tu cupo hoy', body: '{nombre}, no quiero insistir de más. Si este no es el momento, decime y lo pausamos. Si sí, agendá acá.', sent: 171, open: '39%', click: '7%' },
-    ],
-  },
-  {
-    key: 'nopaga',
-    name: 'Nutrición — No Paga',
-    stage: 'nopaga',
-    active: true,
-    steps: [
-      { delay: 'Día 0 · inmediato', subject: '{nombre}, tu lugar de onboarding', preview: 'Activamos tu arranque esta semana', body: 'Quedamos en avanzar. Te dejo la liga de pago para asegurar tu lugar de onboarding de este mes.', sent: 42, open: '55%', click: '21%' },
-      { delay: 'Día 2 · 11:00', subject: '¿Te ayudo con algo para arrancar?', preview: 'Cualquier duda, acá estoy', body: 'A veces lo que frena no es el precio sino una duda concreta. ¿Cuál es la tuya? La resolvemos hoy.', sent: 38, open: '47%', click: '15%' },
-    ],
-  },
-  {
-    key: 'noshow',
-    name: 'Nutrición — No Show',
-    stage: 'noshow',
-    active: true,
-    steps: [
-      { delay: 'Día 0 · inmediato', subject: 'Te perdiste la reunión — reagendemos', preview: 'Tengo lugar esta semana', body: '{nombre}, no te vimos en la Reunión 1. Sé que se complica la agenda — acá tenés dos horarios nuevos.', sent: 57, open: '44%', click: '12%' },
-      { delay: 'Día 1 · 18:00', subject: 'Último intento de reagenda', preview: '¿Seguís interesado?', body: 'Si {empresa} sigue buscando bajar su costo por reunión, dame 1 minuto y te reagendo.', sent: 51, open: '38%', click: '8%' },
-    ],
-  },
-  {
-    key: 'manual',
-    name: 'Nutrición — Manual',
-    stage: 'manual',
-    active: false,
-    steps: [
-      { delay: 'Manual', subject: '(manejado por el setter)', preview: 'Sin disparo automático', body: 'Esta secuencia la maneja el setter asignado desde el CRM.', sent: 0, open: '—', click: '—' },
-    ],
-  },
-  {
-    key: 'postagenda',
-    name: 'Nutrición — Post Agenda',
-    stage: 'postagenda',
-    active: true,
-    steps: [
-      { delay: 'Día 0 · inmediato', subject: 'Resumen de tu reunión + siguientes pasos', preview: 'Todo lo que vimos, en un lugar', body: 'Gracias por tu tiempo, {nombre}. Te dejo el resumen de la reunión y los siguientes pasos para avanzar.', sent: 31, open: '61%', click: '24%' },
-      { delay: 'Día 4 · 10:00', subject: '¿Pudiste revisar la propuesta?', preview: 'Quedo atento a tus dudas', body: 'Cualquier ajuste a la propuesta lo vemos juntos. ¿Te late que hablemos 10 min esta semana?', sent: 28, open: '52%', click: '18%' },
-    ],
-  },
-];
-
-const INITIAL_BROADCASTS: Broadcast[] = [
-  { id: 'b1', subject: 'Nuevo caso: de 4 a 11 cierres en 60 días', date: '14/06/2026', segment: 'Todos los activos', sent: '214', open: '46%', click: '12%', status: 'enviado' },
-  { id: 'b2', subject: 'Webinar en vivo: sistema de prospección', date: '08/06/2026', segment: 'No Agenda + No Show', sent: '118', open: '51%', click: '19%', status: 'enviado' },
-  { id: 'b3', subject: 'Cierre de mes — últimos cupos', date: '02/06/2026', segment: 'No Paga', sent: '42', open: '58%', click: '27%', status: 'enviado' },
-  { id: 'b4', subject: 'Encuesta: ¿qué te frena hoy?', date: 'Programado 22/06/2026', segment: 'Todos los activos', sent: '—', open: '—', click: '—', status: 'programado' },
-];
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+// Estilos compartidos
 // ─────────────────────────────────────────────────────────────────────────────
-
-function dotStyle(k: StageKey): CSSProperties {
-  return {
-    width: '8px',
-    height: '8px',
-    flex: 'none',
-    borderRadius: '50%',
-    background: (STAGE[k] || STAGE.nutri).dot,
-  };
-}
+const btnPrimary: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
+const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
+const btnAccent: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
+const inputBase: CSSProperties = { padding: '7px 11px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', outline: 'none' };
+const monoLabel: CSSProperties = { fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Componente
 // ─────────────────────────────────────────────────────────────────────────────
-
 export default function Page() {
   const [view, setView] = useState<View>('sequences');
-  const [selSeq, setSelSeq] = useState<string>('nutri');
-  const [sequences, setSequences] = useState<Sequence[]>(INITIAL_SEQUENCES);
-  const [broadcasts, setBroadcasts] = useState<Broadcast[]>(INITIAL_BROADCASTS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // ── computeds (renderVals) ──────────────────────────────────────────────────
+  const [kpis, setKpis] = useState<Kpi[]>([]);
+  const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
+  const [etapas, setEtapas] = useState<Opcion[]>([]);
+  const [triggers, setTriggers] = useState<Opcion[]>([]);
+  const [sendEnabled, setSendEnabled] = useState(false);
+  const [resendOk, setResendOk] = useState(false);
+
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [segmentos, setSegmentos] = useState<Segmento[]>([]);
+  const [segCounts, setSegCounts] = useState<Record<string, number>>({});
+
+  // ── carga inicial ──────────────────────────────────────────────────────────
+  const loadSecuencias = useCallback(async () => {
+    const j = await apiGet<{ ok: boolean; error?: string; kpis: Kpi[]; secuencias: Secuencia[]; etapas: Opcion[]; triggers: Opcion[]; sendEnabled: boolean; resendConfigurado: boolean }>('/api/email/secuencias');
+    if (!j.ok) throw new Error(j.error || 'No se pudieron cargar las secuencias');
+    setKpis(j.kpis); setSecuencias(j.secuencias); setEtapas(j.etapas); setTriggers(j.triggers);
+    setSendEnabled(j.sendEnabled); setResendOk(j.resendConfigurado);
+  }, []);
+  const loadBroadcasts = useCallback(async () => {
+    const j = await apiGet<{ ok: boolean; error?: string; broadcasts: Broadcast[]; segmentos: Segmento[]; segmentoCounts: Record<string, number> }>('/api/email/broadcasts');
+    if (!j.ok) throw new Error(j.error || 'No se pudieron cargar los broadcasts');
+    setBroadcasts(j.broadcasts); setSegmentos(j.segmentos); setSegCounts(j.segmentoCounts);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true); setError(null);
+      try { await Promise.all([loadSecuencias(), loadBroadcasts()]); }
+      catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+      finally { setLoading(false); }
+    })();
+  }, [loadSecuencias, loadBroadcasts]);
+
+  const etapaColor = useCallback((k: string) => etapas.find((e) => e.value === k)?.color ?? '#6A4BD8', [etapas]);
+
   const isSeq = view === 'sequences';
-  const showSeq = isSeq;
-  const showBroad = !isSeq;
-
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
-  const tabIdle: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
-  const seqTabStyle = isSeq ? tabActive : tabIdle;
-  const broadTabStyle = !isSeq ? tabActive : tabIdle;
+  const tabIdle: CSSProperties = { ...tabActive, fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
 
-  const selKey = sequences.some((s) => s.key === selSeq) ? selSeq : sequences[0].key;
-  const seqObj = sequences.find((s) => s.key === selKey) as Sequence;
-  const totalSent = seqObj.steps.reduce((a, s) => a + (typeof s.sent === 'number' ? s.sent : 0), 0);
-
-  // ── mutadores (helpers de DCLogic) ──────────────────────────────────────────
-  const updSeq = (key: string, field: 'name', val: string) =>
-    setSequences((s) => s.map((x) => (x.key === key ? { ...x, [field]: val } : x)));
-
-  const toggleSeq = (key: string) =>
-    setSequences((s) => s.map((x) => (x.key === key ? { ...x, active: !x.active } : x)));
-
-  const updStep = (key: string, i: number, field: 'delay' | 'subject' | 'preview' | 'body', val: string) =>
-    setSequences((s) =>
-      s.map((x) =>
-        x.key === key ? { ...x, steps: x.steps.map((st, si) => (si === i ? { ...st, [field]: val } : st)) } : x,
-      ),
-    );
-
-  const addStep = (key: string) =>
-    setSequences((s) =>
-      s.map((x) =>
-        x.key === key
-          ? { ...x, steps: [...x.steps, { delay: 'Día — · —:—', subject: '', preview: '', body: '', sent: 0, open: '—', click: '—' }] }
-          : x,
-      ),
-    );
-
-  const deleteStep = (key: string, i: number) =>
-    setSequences((s) =>
-      s.map((x) => (x.key === key ? { ...x, steps: x.steps.filter((_, si) => si !== i) } : x)),
-    );
-
-  const addSequence = () => {
-    const key = 'seq_' + Date.now();
-    setSequences((s) => [
-      ...s,
-      { key, name: 'Nueva secuencia', stage: 'nutri', active: false, steps: [{ delay: 'Día 0 · inmediato', subject: '', preview: '', body: '', sent: 0, open: '—', click: '—' }] },
-    ]);
-    setSelSeq(key);
-  };
-
-  const addBroadcast = () => {
-    const id = 'b_' + Date.now();
-    setBroadcasts((s) => [
-      { id, subject: 'Nuevo broadcast', date: 'Borrador', segment: 'Todos los activos', sent: '—', open: '—', click: '—', status: 'programado' },
-      ...s,
-    ]);
-  };
-
-  // ── meta del detalle ────────────────────────────────────────────────────────
-  const metaLine = `${seqObj.steps.length} emails · ${totalSent.toLocaleString('en-US')} enviados · se dispara al entrar a la etapa`;
-  const toggleLabel = seqObj.active ? '⏸ Pausar' : '▶ Activar';
-  const toggleStyle: CSSProperties = {
-    flex: 'none',
-    padding: '9px 16px',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontFamily: "'Geist', sans-serif",
-    fontSize: '13.5px',
-    fontWeight: 600,
-    border: '1px solid ' + (seqObj.active ? 'var(--border-strong)' : 'var(--good)'),
-    background: seqObj.active ? 'var(--surface)' : 'var(--good-bg)',
-    color: seqObj.active ? 'var(--dim)' : 'var(--good)',
-  };
-
-  // ───────────────────────────────────────────────────────────────────────────
   return (
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '18px' }}>
         <div>
           <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 7px', color: 'var(--ink)' }}>Email Marketing</h1>
           <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
-            Secuencias y broadcasts a tus leads en <strong style={{ color: 'var(--ink)' }}>Nutrición</strong>.
+            Secuencias y broadcasts por email a tus leads en <strong style={{ color: 'var(--ink)' }}>Nutrición</strong>.
           </div>
         </div>
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-          <button onClick={() => setView('sequences')} style={seqTabStyle}>Secuencias</button>
-          <button onClick={() => setView('broadcasts')} style={broadTabStyle}>Broadcasts</button>
+          <button onClick={() => setView('sequences')} aria-pressed={isSeq} style={isSeq ? tabActive : tabIdle}>Secuencias</button>
+          <button onClick={() => setView('broadcasts')} aria-pressed={!isSeq} style={!isSeq ? tabActive : tabIdle}>Broadcasts</button>
         </div>
       </header>
 
+      {/* Aviso de estado del envío */}
+      {!loading && !error && (!resendOk || !sendEnabled) && (
+        <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px', lineHeight: 1.5 }}>
+          {!resendOk
+            ? 'Resend no está configurado (falta RESEND_API_KEY). Los envíos quedan en modo simulado.'
+            : 'Envío real apagado (EMAIL_SEND_ENABLED=false): podés escribir y probar todo, pero los envíos automáticos se registran como simulado y no salen de verdad. Activá EMAIL_SEND_ENABLED y las secuencias para mandar.'}
+        </div>
+      )}
+      {error && (
+        <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{error}</div>
+      )}
+
       {/* KPIs */}
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '14px', marginBottom: '18px' }}>
-        {KPIS.map((k) => (
-          <div key={k.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 18px' }}>
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '9px' }}>{k.label}</div>
+        {(loading ? Array.from({ length: 4 }).map((_, i) => ({ label: '—', value: '…', delta: '', deltaColor: 'var(--dim)', _k: i } as Kpi & { _k: number })) : kpis).map((k, i) => (
+          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px 18px' }}>
+            <div style={{ ...monoLabel, fontSize: '11px', letterSpacing: '.09em', marginBottom: '9px' }}>{k.label}</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
               <span style={{ fontSize: '27px', fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{k.value}</span>
               <span style={{ fontSize: '12.5px', color: k.deltaColor }}>{k.delta}</span>
@@ -267,171 +162,484 @@ export default function Page() {
         ))}
       </section>
 
-      {/* ============= SECUENCIAS ============= */}
-      {showSeq && (
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px' }}>
-          {/* Lista de secuencias */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)', fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Secuencias por etapa</div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {sequences.map((s) => {
-                const active = s.key === selKey;
-                const rowStyle: CSSProperties = {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '11px 12px',
-                  borderRadius: '11px',
-                  cursor: 'pointer',
-                  background: active ? 'var(--surface-2)' : 'transparent',
-                  border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent'),
-                };
+      {isSeq ? (
+        <SequencesView
+          loading={loading} secuencias={secuencias} etapas={etapas} triggers={triggers}
+          etapaColor={etapaColor} reload={loadSecuencias}
+        />
+      ) : (
+        <BroadcastsView
+          loading={loading} broadcasts={broadcasts} segmentos={segmentos} segCounts={segCounts}
+          sendEnabled={sendEnabled} reload={loadBroadcasts}
+        />
+      )}
+    </main>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SECUENCIAS
+// ═════════════════════════════════════════════════════════════════════════════
+function SequencesView(props: {
+  loading: boolean; secuencias: Secuencia[]; etapas: Opcion[]; triggers: Opcion[];
+  etapaColor: (k: string) => string; reload: () => Promise<void>;
+}) {
+  const { loading, secuencias, etapas, triggers, etapaColor, reload } = props;
+  const [selId, setSelId] = useState<number | null>(null);
+  const [draft, setDraft] = useState<{ nombre: string; etapa: string; trigger: string; pasos: Paso[] } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [genFor, setGenFor] = useState<number | null>(null); // índice de paso en generación
+
+  // selección efectiva
+  const sel = secuencias.find((s) => s.id === selId) ?? secuencias[0] ?? null;
+  useEffect(() => {
+    if (sel && selId == null) setSelId(sel.id);
+  }, [sel, selId]);
+
+  // carga el draft cuando cambia la secuencia seleccionada
+  useEffect(() => {
+    if (!sel) { setDraft(null); return; }
+    setDraft({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, pasos: sel.pasos.map((p) => ({ ...p })) });
+    setMsg(null);
+  }, [sel?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dirty = !!sel && !!draft && JSON.stringify({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, pasos: sel.pasos }) !== JSON.stringify(draft);
+
+  const patchPaso = (i: number, patch: Partial<Paso>) =>
+    setDraft((d) => (d ? { ...d, pasos: d.pasos.map((p, j) => (j === i ? { ...p, ...patch } : p)) } : d));
+  const addPaso = () =>
+    setDraft((d) => (d ? { ...d, pasos: [...d.pasos, { orden: d.pasos.length + 1, canal: 'email', delay_horas: 24, asunto: '', preheader: '', cuerpo: '', template_wa: null }] } : d));
+  const removePaso = (i: number) =>
+    setDraft((d) => (d ? { ...d, pasos: d.pasos.filter((_, j) => j !== i) } : d));
+  const movePaso = (i: number, dir: -1 | 1) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const j = i + dir;
+      if (j < 0 || j >= d.pasos.length) return d;
+      const next = [...d.pasos];
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...d, pasos: next };
+    });
+
+  async function guardar() {
+    if (!sel || !draft) return;
+    setSaving(true); setMsg(null);
+    try {
+      const pasos = draft.pasos.map((p, i) => ({ ...p, orden: i + 1 }));
+      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/secuencias', 'PATCH', { id: sel.id, nombre: draft.nombre, etapa: draft.etapa, trigger: draft.trigger, pasos });
+      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+      await reload();
+      setMsg({ type: 'ok', text: 'Cambios guardados.' });
+    } catch (e) {
+      setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) });
+    } finally { setSaving(false); }
+  }
+
+  async function toggle() {
+    if (!sel) return;
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/secuencias', 'PATCH', { id: sel.id, activa: !sel.activa });
+      if (!j.ok) throw new Error(j.error || 'No se pudo cambiar el estado');
+      await reload();
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
+  }
+
+  async function generar(i: number) {
+    if (!draft) return;
+    const instruccion = window.prompt('¿Qué querés que escriba MaKo para este email? (ej: "reescribilo más corto y con más urgencia")');
+    if (!instruccion) return;
+    setGenFor(i); setMsg(null);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string; asunto: string; preheader: string; cuerpo: string }>('/api/email/generar', 'POST', {
+        instruccion, etapa: draft.etapa, modo: 'paso', asuntoActual: draft.pasos[i].asunto, cuerpoActual: draft.pasos[i].cuerpo,
+      });
+      if (!j.ok) throw new Error(j.error || 'No se pudo generar');
+      patchPaso(i, { asunto: j.asunto, preheader: j.preheader, cuerpo: j.cuerpo });
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    finally { setGenFor(null); }
+  }
+
+  const totalSent = sel ? sel.statsPorPaso.reduce((a, s) => a + s.sent, 0) : 0;
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '300px 1fr', gap: '16px' }}>
+      {/* Lista */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)', ...monoLabel }}>Secuencias por etapa</div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {loading && <div style={{ padding: '14px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
+          {!loading && secuencias.length === 0 && <div style={{ padding: '14px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay secuencias de email todavía.</div>}
+          {secuencias.map((s) => {
+            const active = s.id === (sel?.id ?? -1);
+            return (
+              <div key={s.id} role="button" tabIndex={0} aria-label={`Secuencia ${s.nombre}`} onClick={() => setSelId(s.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelId(s.id); } }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 12px', borderRadius: '11px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
+                <span style={{ width: '8px', height: '8px', flex: 'none', borderRadius: '50%', background: etapaColor(s.etapa) }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.nombre}</div>
+                  <div style={{ fontSize: '11.5px', color: 'var(--faint)', marginTop: '1px' }}>{s.pasos.length} emails · {s.activa ? 'activa' : 'pausada'} · {s.inscriptos} inscriptos</div>
+                </div>
+              </div>
+            );
+          })}
+          <button onClick={() => setCreating(true)} style={{ marginTop: '4px', padding: '11px', borderRadius: '10px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>+ Crear secuencia nueva</button>
+        </div>
+      </div>
+
+      {/* Editor */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+        {!sel || !draft ? (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>{loading ? 'Cargando…' : 'Elegí o creá una secuencia'}</div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                  <span style={{ width: '8px', height: '8px', flex: 'none', borderRadius: '50%', background: etapaColor(draft.etapa) }} />
+                  <input value={draft.nombre} aria-label="Nombre de la secuencia" onChange={(e) => setDraft((d) => (d ? { ...d, nombre: e.target.value } : d))}
+                    style={{ fontWeight: 600, fontSize: '19px', letterSpacing: '-0.01em', color: 'var(--ink)', border: 'none', background: 'transparent', fontFamily: "'Geist', sans-serif", outline: 'none', padding: '2px 0', minWidth: '240px', flex: 1 }} />
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '4px' }}>
+                  {draft.pasos.length} emails · {totalSent.toLocaleString('en-US')} enviados · {sel.activa ? 'activa' : 'pausada'}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <Dropdown value={draft.etapa} onChange={(v) => setDraft((d) => (d ? { ...d, etapa: v } : d))} width={150} ariaLabel="Etapa" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }} options={etapas.map((e) => ({ value: e.value, label: e.label, color: e.color }))} />
+                  <Dropdown value={draft.trigger} onChange={(v) => setDraft((d) => (d ? { ...d, trigger: v } : d))} width={230} ariaLabel="Trigger" buttonStyle={{ padding: '6px 10px', fontSize: 12.5 }} options={triggers.map((t) => ({ value: t.value, label: t.label }))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flex: 'none' }}>
+                {dirty && <button onClick={() => setDraft({ nombre: sel.nombre, etapa: sel.etapa, trigger: sel.trigger_tipo, pasos: sel.pasos.map((p) => ({ ...p })) })} disabled={saving} style={btnGhost}>Descartar</button>}
+                {dirty && <button onClick={() => void guardar()} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Guardando…' : '✓ Guardar'}</button>}
+                {!dirty && (
+                  <button onClick={() => void toggle()} style={{ ...btnGhost, border: '1px solid ' + (sel.activa ? 'var(--border-strong)' : 'var(--good)'), background: sel.activa ? 'var(--surface)' : 'var(--good-bg)', color: sel.activa ? 'var(--dim)' : 'var(--good)' }}>{sel.activa ? '⏸ Pausar' : '▶ Activar'}</button>
+                )}
+              </div>
+            </div>
+
+            {msg && (
+              <div style={{ margin: '14px 22px 0', padding: '9px 12px', borderRadius: '9px', fontSize: '13px', border: '1px solid ' + (msg.type === 'ok' ? 'var(--good)' : 'var(--bad)'), background: msg.type === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: msg.type === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{msg.text}</div>
+            )}
+
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px' }}>
+              {draft.pasos.map((st, i) => {
+                const stat = sel.statsPorPaso[i] ?? { sent: 0, abiertos: 0, clics: 0 };
                 return (
-                  <div key={s.key} onClick={() => setSelSeq(s.key)} style={rowStyle}>
-                    <span style={dotStyle(s.stage)}></span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.name}</div>
-                      <div style={{ fontSize: '11.5px', color: 'var(--faint)', marginTop: '1px' }}>{s.steps.length} emails · {s.active ? 'activa' : 'pausada'}</div>
+                  <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none', width: '34px' }}>
+                      <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(200,135,12,.12)', border: '1px solid rgba(200,135,12,.32)', color: '#9A6A09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: "'Geist Mono', monospace" }}>{i + 1}</span>
+                      {i < draft.pasos.length - 1 && <span style={{ width: '2px', flex: 1, minHeight: '30px', background: 'var(--border)' }} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, paddingBottom: '18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '9px', flexWrap: 'wrap' }}>
+                        <input type="number" min={0} value={st.delay_horas} aria-label={`Horas de espera antes del email ${i + 1}`} onChange={(e) => patchPaso(i, { delay_horas: Math.max(0, Number(e.target.value) || 0) })} style={{ ...inputBase, width: '78px', fontFamily: "'Geist Mono', monospace", fontSize: '12px' }} />
+                        <span style={{ fontSize: '12px', color: 'var(--faint)' }}>horas → {fmtDelay(st.delay_horas)}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--accent)', fontWeight: 600 }}>✉ Email</span>
+                        <button onClick={() => void generar(i)} disabled={genFor === i} style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: '8px', padding: '5px 10px', color: 'var(--ink)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>{genFor === i ? 'Generando…' : '✨ MaKo'}</button>
+                        <button onClick={() => movePaso(i, -1)} disabled={i === 0} title="Subir" style={{ background: 'transparent', border: 'none', color: 'var(--faint)', cursor: 'pointer', opacity: i === 0 ? 0.3 : 1 }}>↑</button>
+                        <button onClick={() => movePaso(i, 1)} disabled={i === draft.pasos.length - 1} title="Bajar" style={{ background: 'transparent', border: 'none', color: 'var(--faint)', cursor: 'pointer', opacity: i === draft.pasos.length - 1 ? 0.3 : 1 }}>↓</button>
+                        <button onClick={() => removePaso(i)} style={{ background: 'transparent', border: 'none', color: 'var(--faint)', fontSize: '13px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", textDecoration: 'underline' }}>eliminar</button>
+                      </div>
+                      <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'var(--surface-2)' }}>
+                        <div style={{ padding: '11px 13px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                          <input value={st.asunto ?? ''} aria-label={`Asunto del email ${i + 1}`} onChange={(e) => patchPaso(i, { asunto: e.target.value })} placeholder="Asunto del email…" style={{ width: '100%', padding: '6px 0', border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '15px', fontWeight: 600, outline: 'none' }} />
+                          <input value={st.preheader ?? ''} aria-label={`Vista previa (preheader) del email ${i + 1}`} onChange={(e) => patchPaso(i, { preheader: e.target.value })} placeholder="Texto de vista previa (preheader)…" style={{ width: '100%', padding: 0, border: 'none', background: 'transparent', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', outline: 'none' }} />
+                        </div>
+                        <textarea value={st.cuerpo} onChange={(e) => patchPaso(i, { cuerpo: e.target.value })} placeholder="Cuerpo del email… (variables: {nombre}, {empresa})" style={{ width: '100%', minHeight: '84px', resize: 'vertical', padding: '12px 13px', border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.55, outline: 'none' }} />
+                        <div style={{ display: 'flex', gap: 0, borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
+                          <Stat label="Enviados" value={stat.sent.toLocaleString('en-US')} color="var(--ink)" border />
+                          <Stat label="Apertura" value={pctTxt(stat.abiertos, stat.sent)} color="var(--good)" border />
+                          <Stat label="Clic" value={pctTxt(stat.clics, stat.sent)} color="var(--accent)" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
               })}
-              <button onClick={addSequence} style={{ marginTop: '4px', padding: '11px', borderRadius: '10px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>+ Crear secuencia nueva</button>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                <div style={{ flex: 'none', width: '34px', display: 'flex', justifyContent: 'center' }}>
+                  <span style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px dashed var(--border-strong)', color: 'var(--faint)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>+</span>
+                </div>
+                <button onClick={addPaso} style={{ flex: 1, textAlign: 'left', padding: '14px', borderRadius: '11px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>+ Agregar email a la secuencia</button>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '14px', paddingLeft: '50px', lineHeight: 1.5 }}>
+                La secuencia se dispara sola cuando un lead entra a la cohorte del trigger. El envío real sale por Resend con <code style={{ fontFamily: "'Geist Mono', monospace" }}>EMAIL_SEND_ENABLED=true</code> y la secuencia <strong>activa</strong>.
+              </div>
             </div>
-          </div>
+          </>
+        )}
+      </div>
 
-          {/* Editor de secuencia */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+      {creating && (
+        <CrearSecuenciaModal etapas={etapas} triggers={triggers} onClose={() => setCreating(false)}
+          onCreated={async (id) => { setCreating(false); await reload(); setSelId(id); }} />
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, color, border }: { label: string; value: string; color: string; border?: boolean }) {
+  return (
+    <div style={{ flex: 1, padding: '9px 13px', borderRight: border ? '1px solid var(--border)' : undefined }}>
+      <div style={{ fontSize: '10.5px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace", textTransform: 'uppercase', letterSpacing: '.06em' }}>{label}</div>
+      <div style={{ fontSize: '15px', fontWeight: 600, color, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
+    </div>
+  );
+}
+
+function CrearSecuenciaModal(props: { etapas: Opcion[]; triggers: Opcion[]; onClose: () => void; onCreated: (id: number) => void | Promise<void> }) {
+  const { etapas, triggers, onClose, onCreated } = props;
+  const [nombre, setNombre] = useState('');
+  const [etapa, setEtapa] = useState(etapas[0]?.value ?? 'nutri');
+  const [trigger, setTrigger] = useState('manual');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function crear() {
+    setBusy(true); setErr(null);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string; id: number }>('/api/email/secuencias', 'PATCH', { action: 'crear', nombre: nombre || 'Nueva secuencia de email', etapa, trigger });
+      if (!j.ok) throw new Error(j.error || 'No se pudo crear');
+      await onCreated(j.id);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '440px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
+        <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)', marginBottom: '16px' }}>Nueva secuencia de email</div>
+        <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Nombre</label>
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Reactivación de leads fríos" autoFocus style={{ ...inputBase, width: '100%', marginBottom: '14px' }} />
+        <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Etapa</label>
+        <div style={{ marginBottom: '14px' }}><Dropdown value={etapa} onChange={setEtapa} width="100%" options={etapas.map((e) => ({ value: e.value, label: e.label, color: e.color }))} /></div>
+        <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', marginBottom: '5px' }}>Trigger (cuándo se dispara)</label>
+        <div style={{ marginBottom: '8px' }}><Dropdown value={trigger} onChange={setTrigger} width="100%" options={triggers.map((t) => ({ value: t.value, label: t.label }))} /></div>
+        {err && <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--bad)' }}>{err}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
+          <button onClick={onClose} disabled={busy} style={btnGhost}>Cancelar</button>
+          <button onClick={() => void crear()} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>{busy ? 'Creando…' : 'Crear secuencia'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// BROADCASTS
+// ═════════════════════════════════════════════════════════════════════════════
+function BroadcastsView(props: {
+  loading: boolean; broadcasts: Broadcast[]; segmentos: Segmento[]; segCounts: Record<string, number>;
+  sendEnabled: boolean; reload: () => Promise<void>;
+}) {
+  const { loading, broadcasts, segmentos, segCounts, sendEnabled, reload } = props;
+  const [editId, setEditId] = useState<number | null>(null);
+
+  async function crear() {
+    const j = await apiSend<{ ok: boolean; error?: string; id: number }>('/api/email/broadcasts', 'POST', {});
+    if (j.ok) { await reload(); setEditId(j.id); }
+  }
+
+  const editing = broadcasts.find((b) => b.id === editId) ?? null;
+
+  return (
+    <div style={{ flex: 1, minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+        <div>
+          <h2 style={{ fontWeight: 600, fontSize: '20px', margin: 0, color: 'var(--ink)' }}>Broadcasts</h2>
+          <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '3px' }}>Envíos puntuales a un segmento.</div>
+        </div>
+        <button onClick={() => void crear()} style={btnAccent}>+ Crear broadcast</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 1.3fr 1fr 1fr 1fr 0.9fr', gap: '12px', padding: '13px 22px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', ...monoLabel, fontSize: '10.5px', letterSpacing: '.07em' }}>
+        <span>Campaña</span><span>Segmento</span><span>Enviados</span><span>Apertura</span><span>Clic</span><span style={{ textAlign: 'right' }}>Estado</span>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {loading && <div style={{ padding: '20px 22px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
+        {!loading && broadcasts.length === 0 && <div style={{ padding: '20px 22px', color: 'var(--faint)', fontSize: '13.5px' }}>No hay broadcasts. Creá el primero.</div>}
+        {broadcasts.map((b) => {
+          const seg = segmentos.find((s) => s.value === b.segmento);
+          const est = ESTADO_STYLE[b.estado] ?? ESTADO_STYLE.borrador;
+          const fecha = b.estado === 'programado' ? `Programado ${fmtFecha(b.programado_at)}` : b.estado === 'enviado' ? fmtFecha(b.enviado_at) : 'Borrador';
+          return (
+            <div key={b.id} role="button" tabIndex={0} aria-label={`Abrir broadcast ${b.asunto || 'sin asunto'}`} onClick={() => setEditId(b.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditId(b.id); } }} style={{ display: 'grid', gridTemplateColumns: '2.4fr 1.3fr 1fr 1fr 1fr 0.9fr', gap: '12px', padding: '16px 22px', borderBottom: '1px solid var(--border)', alignItems: 'center', cursor: 'pointer' }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-                  <span style={dotStyle(seqObj.stage)}></span>
-                  <input
-                    value={seqObj.name}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => updSeq(selKey, 'name', e.target.value)}
-                    style={{ fontWeight: 600, fontSize: '19px', letterSpacing: '-0.01em', color: 'var(--ink)', border: 'none', background: 'transparent', fontFamily: "'Geist', sans-serif", outline: 'none', padding: '2px 0', minWidth: '280px' }}
-                  />
-                </div>
-                <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '4px' }}>{metaLine}</div>
+                <div style={{ fontWeight: 600, fontSize: '14.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.asunto || '(sin asunto)'}</div>
+                <div style={{ fontSize: '12px', color: 'var(--faint)' }}>{fecha}</div>
               </div>
-              <button onClick={() => toggleSeq(selKey)} style={toggleStyle}>{toggleLabel}</button>
+              <div style={{ fontSize: '13px', color: 'var(--dim)' }}>{seg?.label ?? b.segmento}</div>
+              <div style={{ fontSize: '14px', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{b.enviados ? b.enviados.toLocaleString('en-US') : (b.estado === 'enviado' ? b.total_destinatarios.toLocaleString('en-US') : '—')}</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--good)', fontVariantNumeric: 'tabular-nums' }}>{pctTxt(b.abiertos, b.enviados)}</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{pctTxt(b.clics, b.enviados)}</div>
+              <div style={{ textAlign: 'right' }}><span style={{ display: 'inline-block', fontSize: '11.5px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px', background: est.bg, color: est.fg, border: '1px solid ' + est.bd }}>{est.label}</span></div>
             </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '22px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {seqObj.steps.map((st, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 'none', width: '34px' }}>
-                      <span style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'rgba(200,135,12,.12)', border: '1px solid rgba(200,135,12,.32)', color: '#9A6A09', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '13px', fontFamily: "'Geist Mono', monospace" }}>{i + 1}</span>
-                      <span style={{ width: '2px', flex: 1, minHeight: '30px', background: 'var(--border)' }}></span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0, paddingBottom: '18px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '9px' }}>
-                        <input
-                          value={st.delay}
-                          onChange={(e: ChangeEvent<HTMLInputElement>) => updStep(selKey, i, 'delay', e.target.value)}
-                          style={{ flex: 'none', width: '160px', padding: '7px 11px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '12px', outline: 'none' }}
-                        />
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--accent)', fontWeight: 600 }}>✉ Email</span>
-                        <button onClick={() => deleteStep(selKey, i)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--faint)', fontSize: '13px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", textDecoration: 'underline' }}>eliminar</button>
-                      </div>
-                      <div style={{ border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', background: 'var(--surface-2)' }}>
-                        <div style={{ padding: '11px 13px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                          <input
-                            value={st.subject}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => updStep(selKey, i, 'subject', e.target.value)}
-                            placeholder="Asunto del email…"
-                            style={{ width: '100%', padding: '6px 0', border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '15px', fontWeight: 600, outline: 'none' }}
-                          />
-                          <input
-                            value={st.preview}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => updStep(selKey, i, 'preview', e.target.value)}
-                            placeholder="Texto de vista previa (preheader)…"
-                            style={{ width: '100%', padding: 0, border: 'none', background: 'transparent', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', outline: 'none' }}
-                          />
-                        </div>
-                        <textarea
-                          value={st.body}
-                          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updStep(selKey, i, 'body', e.target.value)}
-                          placeholder="Cuerpo del email…"
-                          style={{ width: '100%', minHeight: '84px', resize: 'vertical', padding: '12px 13px', border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.55, outline: 'none' }}
-                        ></textarea>
-                        <div style={{ display: 'flex', gap: 0, borderTop: '1px solid var(--border)', background: 'var(--surface)' }}>
-                          <div style={{ flex: 1, padding: '9px 13px', borderRight: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: '10.5px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace", textTransform: 'uppercase', letterSpacing: '.06em' }}>Enviados</div>
-                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{typeof st.sent === 'number' ? st.sent.toLocaleString('en-US') : st.sent}</div>
-                          </div>
-                          <div style={{ flex: 1, padding: '9px 13px', borderRight: '1px solid var(--border)' }}>
-                            <div style={{ fontSize: '10.5px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace", textTransform: 'uppercase', letterSpacing: '.06em' }}>Apertura</div>
-                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--good)', fontVariantNumeric: 'tabular-nums' }}>{st.open}</div>
-                          </div>
-                          <div style={{ flex: 1, padding: '9px 13px' }}>
-                            <div style={{ fontSize: '10.5px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace", textTransform: 'uppercase', letterSpacing: '.06em' }}>Clic</div>
-                            <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{st.click}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 'none', width: '34px', display: 'flex', justifyContent: 'center' }}>
-                    <span style={{ width: '34px', height: '34px', borderRadius: '50%', border: '1px dashed var(--border-strong)', color: 'var(--faint)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>+</span>
-                  </div>
-                  <button onClick={() => addStep(selKey)} style={{ flex: 1, textAlign: 'left', padding: '14px', borderRadius: '11px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>+ Agregar email a la secuencia</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </div>
 
-      {/* ============= BROADCASTS ============= */}
-      {showBroad && (
-        <div style={{ flex: 1, minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
-            <div>
-              <h2 style={{ fontWeight: 600, fontSize: '20px', margin: 0, color: 'var(--ink)' }}>Broadcasts</h2>
-              <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '3px' }}>Envíos puntuales a un segmento.</div>
-            </div>
-            <button onClick={addBroadcast} style={{ padding: '10px 17px', borderRadius: '11px', border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>+ Crear broadcast</button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 1.3fr 1fr 1fr 1fr 0.9fr', gap: '12px', padding: '13px 22px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)', fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)' }}>
-            <span>Campaña</span>
-            <span>Segmento</span>
-            <span>Enviados</span>
-            <span>Apertura</span>
-            <span>Clic</span>
-            <span style={{ textAlign: 'right' }}>Estado</span>
-          </div>
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-            {broadcasts.map((b) => {
-              const statusStyle: CSSProperties = {
-                display: 'inline-block',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                padding: '3px 10px',
-                borderRadius: '999px',
-                background: b.status === 'enviado' ? 'var(--good-bg)' : 'var(--warn-bg)',
-                color: b.status === 'enviado' ? 'var(--good)' : 'var(--warn)',
-                border: '1px solid ' + (b.status === 'enviado' ? 'var(--good)' : 'var(--warn-fill)'),
-              };
-              return (
-                <div key={b.id} style={{ display: 'grid', gridTemplateColumns: '2.4fr 1.3fr 1fr 1fr 1fr 0.9fr', gap: '12px', padding: '16px 22px', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: '14.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.subject}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--faint)' }}>{b.date}</div>
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--dim)' }}>{b.segment}</div>
-                  <div style={{ fontSize: '14px', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{b.sent}</div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--good)', fontVariantNumeric: 'tabular-nums' }}>{b.open}</div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{b.click}</div>
-                  <div style={{ textAlign: 'right' }}><span style={statusStyle}>{b.status}</span></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      {editing && (
+        <BroadcastEditor broadcast={editing} segmentos={segmentos} segCounts={segCounts} sendEnabled={sendEnabled}
+          onClose={() => setEditId(null)} reload={reload} />
       )}
-    </main>
+    </div>
+  );
+}
+
+function BroadcastEditor(props: {
+  broadcast: Broadcast; segmentos: Segmento[]; segCounts: Record<string, number>; sendEnabled: boolean;
+  onClose: () => void; reload: () => Promise<void>;
+}) {
+  const { broadcast, segmentos, segCounts, sendEnabled, onClose, reload } = props;
+  const yaEnviado = broadcast.estado === 'enviado';
+  const [asunto, setAsunto] = useState(broadcast.asunto);
+  const [preheader, setPreheader] = useState(broadcast.preheader ?? '');
+  const [cuerpo, setCuerpo] = useState(broadcast.cuerpo);
+  const [segmento, setSegmento] = useState(broadcast.segmento);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [schedAt, setSchedAt] = useState('');
+  const [gen, setGen] = useState(false);
+
+  const count = segCounts[segmento] ?? 0;
+
+  async function guardar(): Promise<boolean> {
+    setBusy(true); setMsg(null);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/broadcasts', 'PATCH', { id: broadcast.id, asunto, preheader, cuerpo, segmento });
+      if (!j.ok) throw new Error(j.error || 'No se pudo guardar');
+      await reload();
+      return true;
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); return false; }
+    finally { setBusy(false); }
+  }
+
+  async function generar() {
+    const instruccion = window.prompt('¿Sobre qué querés el broadcast? (ej: "anunciá un webinar en vivo el jueves sobre prospección")');
+    if (!instruccion) return;
+    setGen(true); setMsg(null);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string; asunto: string; preheader: string; cuerpo: string }>('/api/email/generar', 'POST', { instruccion, modo: 'broadcast', asuntoActual: asunto, cuerpoActual: cuerpo });
+      if (!j.ok) throw new Error(j.error || 'No se pudo generar');
+      setAsunto(j.asunto); setPreheader(j.preheader); setCuerpo(j.cuerpo);
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    finally { setGen(false); }
+  }
+
+  async function prueba() {
+    const email = window.prompt('¿A qué email mando la prueba?');
+    if (!email) return;
+    if (!(await guardar())) return;
+    setBusy(true); setMsg(null);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/broadcasts', 'PATCH', { id: broadcast.id, action: 'prueba', email });
+      if (!j.ok) throw new Error(j.error || 'No se pudo enviar la prueba');
+      setMsg({ type: 'ok', text: `Prueba enviada a ${email}.` });
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    finally { setBusy(false); }
+  }
+
+  async function programar() {
+    if (!schedAt) { setMsg({ type: 'err', text: 'Elegí fecha y hora.' }); return; }
+    if (!(await guardar())) return;
+    setBusy(true); setMsg(null);
+    try {
+      const iso = new Date(schedAt).toISOString();
+      const j = await apiSend<{ ok: boolean; error?: string }>('/api/email/broadcasts', 'PATCH', { id: broadcast.id, action: 'programar', programado_at: iso });
+      if (!j.ok) throw new Error(j.error || 'No se pudo programar');
+      await reload(); setMsg({ type: 'ok', text: 'Broadcast programado.' });
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    finally { setBusy(false); }
+  }
+
+  async function enviar() {
+    if (!(await guardar())) return;
+    setBusy(true); setMsg(null); setConfirmSend(false);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string; enviados: number; simulados: number; fallos: number; saltados: number; total: number; truncado?: boolean }>('/api/email/broadcasts', 'PATCH', { id: broadcast.id, action: 'enviar' });
+      if (!j.ok) throw new Error(j.error || 'No se pudo enviar');
+      await reload();
+      const partes = [
+        `${j.enviados} enviados`,
+        j.simulados ? `${j.simulados} simulados` : '',
+        j.saltados ? `${j.saltados} saltados (contacto reciente)` : '',
+        j.fallos ? `${j.fallos} fallos` : '',
+      ].filter(Boolean).join(', ');
+      setMsg({ type: 'ok', text: `Listo: ${partes} (de ${j.total}).${j.truncado ? ' ⚠ El segmento supera el tope de 2000; el resto no se envió.' : ''}` });
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); }
+    finally { setBusy(false); }
+  }
+
+  async function eliminar() {
+    if (!window.confirm('¿Eliminar este broadcast? No se puede deshacer.')) return;
+    setBusy(true);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string }>(`/api/email/broadcasts?id=${broadcast.id}`, 'DELETE');
+      if (!j.ok) throw new Error(j.error || 'No se pudo eliminar');
+      await reload(); onClose();
+    } catch (e) { setMsg({ type: 'err', text: e instanceof Error ? e.message : String(e) }); setBusy(false); }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>{yaEnviado ? 'Broadcast enviado' : 'Editar broadcast'}</div>
+          <button onClick={onClose} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
+        </div>
+
+        {yaEnviado && (
+          <div style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--dim)' }}>
+            {broadcast.total_destinatarios.toLocaleString('en-US')} destinatarios · {pctTxt(broadcast.abiertos, broadcast.enviados)} apertura · {pctTxt(broadcast.clics, broadcast.enviados)} clic
+          </div>
+        )}
+
+        <label style={{ display: 'block', fontSize: '12px', color: 'var(--dim)', margin: '10px 0 5px' }}>Segmento</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+          <Dropdown value={segmento} onChange={setSegmento} width={280} options={segmentos.map((s) => ({ value: s.value, label: s.label, sub: s.descripcion }))} />
+          <span style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: 600 }}>{count.toLocaleString('en-US')} con email</span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 5px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)' }}>Asunto</label>
+          <button onClick={() => void generar()} disabled={gen || yaEnviado} style={{ background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: '8px', padding: '4px 10px', color: 'var(--ink)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif", opacity: yaEnviado ? 0.5 : 1 }}>{gen ? 'Generando…' : '✨ Generar con MaKo'}</button>
+        </div>
+        <input value={asunto} onChange={(e) => setAsunto(e.target.value)} disabled={yaEnviado} placeholder="Asunto…" style={{ ...inputBase, width: '100%', fontSize: '15px', fontWeight: 600, marginBottom: '10px' }} />
+        <input value={preheader} onChange={(e) => setPreheader(e.target.value)} disabled={yaEnviado} placeholder="Texto de vista previa (preheader)…" style={{ ...inputBase, width: '100%', marginBottom: '10px' }} />
+        <textarea value={cuerpo} onChange={(e) => setCuerpo(e.target.value)} disabled={yaEnviado} placeholder="Cuerpo del email… (variables: {nombre}, {empresa})" style={{ ...inputBase, width: '100%', minHeight: '160px', resize: 'vertical', lineHeight: 1.55, fontSize: '14px' }} />
+
+        {msg && <div style={{ marginTop: '12px', padding: '9px 12px', borderRadius: '9px', fontSize: '13px', border: '1px solid ' + (msg.type === 'ok' ? 'var(--good)' : 'var(--bad)'), background: msg.type === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: msg.type === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{msg.text}</div>}
+
+        {!yaEnviado && (
+          <>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '18px' }}>
+              <button onClick={() => void guardar()} disabled={busy} style={{ ...btnGhost, opacity: busy ? 0.6 : 1 }}>Guardar borrador</button>
+              <button onClick={() => void prueba()} disabled={busy} style={{ ...btnGhost, opacity: busy ? 0.6 : 1 }}>Enviar prueba</button>
+              <button onClick={() => setConfirmSend(true)} disabled={busy} style={{ ...btnPrimary, marginLeft: 'auto', opacity: busy ? 0.6 : 1 }}>Enviar ahora →</button>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+              <input type="datetime-local" value={schedAt} onChange={(e) => setSchedAt(e.target.value)} style={{ ...inputBase, flex: 1 }} />
+              <button onClick={() => void programar()} disabled={busy || !schedAt} style={{ ...btnGhost, opacity: busy || !schedAt ? 0.6 : 1 }}>Programar</button>
+              <button onClick={() => void eliminar()} disabled={busy} style={{ ...btnGhost, border: '1px solid var(--bad)', color: 'var(--bad)' }}>Eliminar</button>
+            </div>
+            {broadcast.estado === 'programado' && <div style={{ marginTop: '10px', fontSize: '12.5px', color: 'var(--warn)' }}>⏱ Programado para {fmtFecha(broadcast.programado_at)}. Se enviará solo (si el envío real está activo).</div>}
+          </>
+        )}
+
+        {confirmSend && (
+          <div style={{ marginTop: '14px', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>¿Enviar a {count.toLocaleString('en-US')} leads ahora?</div>
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginTop: '4px', lineHeight: 1.5 }}>
+              {sendEnabled ? 'Esto manda emails reales por Resend. No se puede deshacer.' : 'EMAIL_SEND_ENABLED está apagado: se registrará como simulado (no sale de verdad).'}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+              <button onClick={() => setConfirmSend(false)} disabled={busy} style={btnGhost}>Cancelar</button>
+              <button onClick={() => void enviar()} disabled={busy} style={{ ...btnPrimary, background: sendEnabled ? 'var(--bad)' : 'var(--ink)', opacity: busy ? 0.6 : 1 }}>{busy ? 'Enviando…' : sendEnabled ? 'Sí, enviar de verdad' : 'Enviar (simulado)'}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

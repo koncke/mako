@@ -36,6 +36,17 @@ export function valoresVariablesLead(lead: { nombre?: string | null; empresa?: s
   };
 }
 
+// Reemplaza {{key}} y {key} por su valor. Las variables desconocidas se dejan tal
+// cual. La usan el email (sintaxis {nombre}) y previews. Devuelve string seguro.
+export function aplicarVariables(texto: string, vars: Record<string, string>): string {
+  // Defensa: el valor sale de jsonb (puede no ser string en runtime pese al tipo).
+  if (typeof texto !== 'string' || !texto) return '';
+  return texto.replace(/\{\{?\s*([a-z_]+)\s*\}?\}/gi, (match, rawKey: string) => {
+    const key = rawKey.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match;
+  });
+}
+
 // ── Referencias a la doc de Meta por código de regla (para mostrar al validar) ──
 const VARS_URL = 'https://developers.facebook.com/docs/whatsapp/business-management-api/message-templates';
 const CAT_URL = 'https://developers.facebook.com/docs/whatsapp/updates-to-pricing/new-template-guidelines/';
