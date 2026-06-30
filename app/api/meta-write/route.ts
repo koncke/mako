@@ -18,7 +18,8 @@ const GRAPH = 'https://graph.facebook.com';
 type Body =
   | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'status'; status: 'ACTIVE' | 'PAUSED' }
   | { level: 'campaign' | 'adset'; id: string; op: 'budget'; dailyBudgetMxn: number }
-  | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'name'; name: string };
+  | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'name'; name: string }
+  | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'delete' };
 
 export async function POST(req: NextRequest) {
   const ver = process.env.META_API_VERSION;
@@ -34,6 +35,23 @@ export async function POST(req: NextRequest) {
 
   if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
     return Response.json({ ok: false, message: 'id inválido' }, { status: 400 });
+  }
+
+  // Eliminar (DELETE /{id}). El cliente restringe a entidades PAUSADAS y confirma.
+  // Borrar una campaña cascadea a sus conjuntos y anuncios.
+  if (body.op === 'delete') {
+    try {
+      const res = await fetch(`${GRAPH}/${ver}/${body.id}?access_token=${encodeURIComponent(token)}`, { method: 'DELETE', cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (data && data.error) {
+        const e = data.error as { code?: number; error_subcode?: number; message?: string };
+        const status = e.error_subcode === 4841013 || e.code === 200 ? 403 : 502;
+        return Response.json({ ok: false, code: e.code, error_subcode: e.error_subcode, message: e.message ?? 'Meta rechazó el borrado' }, { status });
+      }
+      return Response.json({ ok: true, id: body.id, applied: { deleted: true } });
+    } catch (err) {
+      return Response.json({ ok: false, message: err instanceof Error ? err.message : String(err) }, { status: 502 });
+    }
   }
 
   const params = new URLSearchParams();

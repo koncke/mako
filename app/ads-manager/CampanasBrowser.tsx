@@ -133,6 +133,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState(false);
 
   // modales
   const [adSel, setAdSel] = useState<SenalRecon | null>(null);
@@ -151,6 +152,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   useEffect(() => { setVisibleCols(loadCols(tab)); setSortKey('gastado'); setSortDir('desc'); setEditingBudgetId(null); }, [tab]);
   useEffect(() => { if (typeof window !== 'undefined') { try { window.localStorage.setItem(COLS_KEY(tab), JSON.stringify(visibleCols)); } catch { /* noop */ } } }, [visibleCols, tab]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 7000); return () => clearTimeout(t); }, [toast]);
+  useEffect(() => { setConfirmDel(false); }, [selCamp, selAdset, selAd, tab]);
 
   // ── merges senales → perf ──
   const { byAd, byCamp, byAdset } = useMemo(() => {
@@ -277,6 +279,26 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     const ids = [...selSet];
     await Promise.allSettled(ids.map((id) => writeStatus(level, id, next)));
   };
+  // Eliminar (solo PAUSADAS, con confirmación). Borrar campaña cascadea conjuntos/anuncios.
+  const bulkDelete = async () => {
+    const ids = [...selSet];
+    const rowsSel = sorted.filter((r) => selSet.has(r.node.id));
+    if (rowsSel.some((r) => effStatusOf(r.node) === 'ACTIVE')) { setToast('Solo se pueden eliminar campañas pausadas. Pausá primero las activas seleccionadas.'); setConfirmDel(false); return; }
+    setConfirmDel(false);
+    let ok = 0; let lastErr = '';
+    for (const id of ids) {
+      setWriting((w) => new Set(w).add(id));
+      try {
+        const r = await fetch('/api/meta-write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level, id, op: 'delete' }) });
+        const j = await r.json();
+        if (j.ok) ok++; else lastErr = permMsg(j);
+      } catch (e) { lastErr = `Error de red: ${String(e)}`; }
+      finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
+    }
+    setSelSet(new Set());
+    setToast(ok === ids.length ? `Eliminada${ok === 1 ? '' : 's'} ${ok}.` : `Eliminadas ${ok}/${ids.length}. Meta rechazó el resto: ${lastErr}`);
+    cargar();
+  };
   // Renombrar (campaña/adset/anuncio) → POST /{id} con name. Optimistic + revert.
   async function writeName(lvl: Level, id: string, name: string): Promise<{ ok: boolean; error?: string }> {
     setEditingNameId(null);
@@ -394,6 +416,15 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
               <span style={{ fontSize: 14, fontWeight: 600 }}>{selSet.size} seleccionado{selSet.size === 1 ? '' : 's'}</span>
               <button type="button" onClick={() => bulkStatus('ACTIVE')} style={bulkBtn}>Activar</button>
               <button type="button" onClick={() => bulkStatus('PAUSED')} style={bulkBtn}>Pausar</button>
+              {confirmDel ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 13 }}>¿Eliminar {selSet.size}?</span>
+                  <button type="button" onClick={bulkDelete} style={{ ...bulkBtn, background: 'var(--bad)', borderColor: 'transparent' }}>Sí, eliminar</button>
+                  <button type="button" onClick={() => setConfirmDel(false)} style={bulkBtn}>No</button>
+                </span>
+              ) : (
+                <button type="button" onClick={() => setConfirmDel(true)} style={bulkBtn} title="Solo campañas pausadas">🗑 Eliminar</button>
+              )}
               <button type="button" onClick={() => setSelSet(new Set())} style={{ ...bulkBtn, marginLeft: 'auto', opacity: 0.8 }}>Limpiar</button>
             </div>
           )}

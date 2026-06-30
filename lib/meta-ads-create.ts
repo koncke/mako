@@ -452,16 +452,20 @@ export async function createAdSet(campaignId: string, spec: CampaignSpec, adset:
   return String(data.id);
 }
 
-/** Crea el creativo (reusando el post de un ganador o armando uno nuevo). */
+// UTMs automáticos en TODOS los anuncios. Meta reemplaza {{campaign.name}} /
+// {{adset.name}} / {{ad.name}} en cada clic → tracking sin tener que cargarlo a mano.
+export const UTM_TAGS = 'utm_source=facebook&utm_medium=paid_social&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}';
+
+/** Crea el creativo (reusando el post de un ganador o armando uno nuevo). UTMs automáticos. */
 export async function createAdCreative(creative: Creative, adName: string): Promise<string> {
   if (creative.source === 'existing' && creative.source_ad_id) {
     const storyId = await getObjectStoryId(creative.source_ad_id);
     if (!storyId) throw new MetaWriteError('El anuncio ganador no tiene un post reutilizable (object_story_id). Probá con otro o subí un creativo.');
-    const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_id: storyId });
+    const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_id: storyId, url_tags: UTM_TAGS });
     return String(data.id);
   }
   const oss = buildObjectStorySpec(creative);
-  const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_spec: JSON.stringify(oss) });
+  const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_spec: JSON.stringify(oss), url_tags: UTM_TAGS });
   return String(data.id);
 }
 

@@ -324,12 +324,14 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
       return { name: `Anuncio ${i + 1}`, creative };
     });
     const estrTag = estrategia === 'retargeting' ? 'Retargeting' : estrategia === 'intereses' ? 'Intereses' : 'Adquisición';
-    return {
+    const base: CampaignSpec = {
       name: mako?.name || `${estrTag} — ${OBJETIVO_UI.find((o) => o.value === k)?.label ?? ''}`.trim(),
       objective, special_ad_categories: [], budget_level: 'campaign', daily_budget_mxn: usdToMxn(budgetUsd ?? 0),
       adsets: [{ name: `${estrTag}`, daily_budget_mxn: null, optimization_goal: conf.optimization, billing_event: def.billing_event, bid_strategy: 'LOWEST_COST_WITHOUT_CAP', targeting, ads, conversion: conf.optimization === 'OFFSITE_CONVERSIONS' ? { pixel_event: destino.conv?.pixel_event, custom_conversion_id: destino.conv?.custom_conversion_id, pixel_id: destino.conv?.pixel_id } : undefined }],
       rationale: mako?.rationale ?? '',
     };
+    // Nomenclatura SIEMPRE (001 / 001.01 / 001.01.a), sin botón.
+    return aplicarNomenclatura(base, campaignCount + 1);
   }
 
   // ── publicar ──
@@ -444,7 +446,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'revision' && spec && (
-            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} campaignCount={campaignCount} setSpec={setSpec} err={err} />
+            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} err={err} />
           )}
 
           {step === 'publicando' && (
@@ -655,7 +657,7 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
 }
 
 // ── revisión minimalista ──
-function Revision({ spec, budgetUsd, tray, campaignCount, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; campaignCount: number; setSpec: (s: CampaignSpec) => void; err: string | null }) {
+function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void; err: string | null }) {
   const opt = spec.adsets[0]?.optimization_goal;
   const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : spec.objective;
   const ads = spec.adsets.flatMap((s) => s.ads);
@@ -692,10 +694,7 @@ function Revision({ spec, budgetUsd, tray, campaignCount, setSpec, err }: { spec
           );
         })}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <button type="button" onClick={() => setSpec(aplicarNomenclatura(spec, campaignCount + 1))} style={{ ...btnGhost, fontSize: 12.5, padding: '7px 13px' }}># Aplicar nomenclatura</button>
-      </div>
-      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Se crea en <b>pausa</b>. ¿Querés cambios? Tocá <b>Atrás</b> para ajustar tus respuestas, o <b>Regenerar</b> el copy.{err ? ` — ${err}` : ''}</p>
+      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Se crea en <b>pausa</b>, con <b>nomenclatura</b> (001 / 001.01 / 001.01.a) y <b>UTMs</b> de tracking automáticos. ¿Cambios? Tocá <b>Atrás</b> o <b>Regenerar</b>.{err ? ` — ${err}` : ''}</p>
     </div>
   );
 }
