@@ -59,10 +59,17 @@ function putWithProgress(url: string, file: File, apikey: string | null, onProgr
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', url);
     xhr.setRequestHeader('x-upsert', 'true');
-    if (apikey) xhr.setRequestHeader('apikey', apikey);
+    // El gateway de Supabase exige apikey + Authorization, igual que su SDK.
+    if (apikey) { xhr.setRequestHeader('apikey', apikey); xhr.setRequestHeader('authorization', `Bearer ${apikey}`); }
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100))); };
-    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})`)); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      // Mostramos el motivo real de Supabase (no solo el código) para diagnosticar.
+      const detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 180);
+      reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})${detalle ? ` — ${detalle}` : ''}`));
+    };
     xhr.onerror = () => reject(new Error('Error de red al subir el archivo.'));
+    // Supabase espera multipart: el archivo bajo el campo '' + cacheControl.
     const fd = new FormData();
     fd.append('cacheControl', '3600');
     fd.append('', file);
@@ -70,7 +77,7 @@ function putWithProgress(url: string, file: File, apikey: string | null, onProgr
   });
 }
 
-export function NuevaCampanaModal({ senales, onClose, onPublished }: { senales: SenalRecon[]; onClose: () => void; onPublished: () => void }) {
+export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
   const [phase, setPhase] = useState<Phase>('brief');
   const [prompt, setPrompt] = useState('');
   const [tray, setTray] = useState<TrayItem[]>([]);
@@ -214,7 +221,7 @@ export function NuevaCampanaModal({ senales, onClose, onPublished }: { senales: 
           <ReviewStep
             spec={spec} update={update} setAdset={setAdset} patchTargeting={patchTargeting} setAd={setAd} patchCreative={patchCreative}
             tray={tray} onSubir={subir} senales={senales} onGanador={agregarGanador} onQuitarTray={quitarTray}
-            audiences={audiences} uso={uso} err={err}
+            audiences={audiences} uso={uso} err={err} nextNumber={campaignCount + 1}
             ajuste={ajuste} setAjuste={setAjuste} ajustando={ajustando} onAjustar={ajustar}
             publishing={phase === 'publishing'} onPublicar={publicar} onVolver={() => setPhase('brief')}
           />
@@ -319,12 +326,13 @@ function ReviewStep(p: {
   spec: CampaignSpec; update: (fn: (s: CampaignSpec) => CampaignSpec) => void; setAdset: (i: number, fn: (a: AdSetSpec) => AdSetSpec) => void;
   patchTargeting: (i: number, patch: Partial<Targeting>) => void; setAd: (ai: number, di: number, fn: (ad: AdSpec) => AdSpec) => void; patchCreative: (ai: number, di: number, patch: Partial<Creative>) => void;
   tray: TrayItem[]; onSubir: (f: File) => void; senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; onQuitarTray: (id: string) => void;
-  audiences: AudienceRef[] | null; uso: Uso; err: string | null;
+  audiences: AudienceRef[] | null; uso: Uso; err: string | null; nextNumber: number;
   ajuste: string; setAjuste: (v: string) => void; ajustando: boolean; onAjustar: () => void;
   publishing: boolean; onPublicar: () => void; onVolver: () => void;
 }) {
   const { spec } = p;
   const objDef = objetivoDef(spec.objective);
+  const nnn = pad(p.nextNumber, 3);
   return (
     <>
       <div style={{ padding: '16px 24px', maxHeight: '64vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -334,6 +342,14 @@ function ReviewStep(p: {
             <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, margin: 0 }}>{spec.rationale}</p>
           </div>
         )}
+
+        {/* Nomenclatura: numera campaña/conjuntos/anuncios con el sistema jerárquico. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => p.update((s) => aplicarNomenclatura(s, p.nextNumber))} style={{ ...btnGhost, fontSize: 12.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontFamily: MONO, color: 'var(--accent)' }}>#</span> Aplicar nomenclatura
+          </button>
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>Numera con tu sistema: <code style={{ fontFamily: MONO }}>{nnn}</code> · <code style={{ fontFamily: MONO }}>{nnn}.01</code> · <code style={{ fontFamily: MONO }}>{nnn}.01.a</code></span>
+        </div>
 
         {/* Campaña */}
         <div style={card}>
@@ -690,6 +706,27 @@ const OPT_GOALS: Array<{ value: string; label: string }> = [
   { value: 'REACH', label: 'Alcance' },
   { value: 'THRUPLAY', label: 'Reproducciones de video' },
 ];
+
+// ── Nomenclatura jerárquica (mismo sistema que "Ordenar nombres": 001 / 001.02 / 001.02.a) ──
+function pad(n: number, w: number): string { return String(Math.max(0, Math.floor(n))).padStart(w, '0'); }
+function letra(n: number): string { let s = ''; while (n > 0) { n--; s = String.fromCharCode(97 + (n % 26)) + s; n = Math.floor(n / 26); } return s; }
+// Saca un código numérico ya existente al principio del nombre (evita duplicarlo).
+const stripNomenCode = (name: string): string => name.replace(/^\s*[0-9]+(?:\.[0-9]+)*(?:\.[a-zA-Z]+)?\s*[.\-)·]?\s*/, '').trim();
+function aplicarNomenclatura(spec: CampaignSpec, nextNumber: number): CampaignSpec {
+  const nnn = pad(nextNumber, 3);
+  return {
+    ...spec,
+    name: `${nnn}. ${stripNomenCode(spec.name)}`.trim(),
+    adsets: spec.adsets.map((a, i) => {
+      const code = `${nnn}.${pad(i + 1, 2)}`;
+      return {
+        ...a,
+        name: `${code} ${stripNomenCode(a.name)}`.trim(),
+        ads: a.ads.map((ad, j) => ({ ...ad, name: `${code}.${letra(j + 1)} ${stripNomenCode(ad.name)}`.trim() })),
+      };
+    }),
+  };
+}
 
 function traySummary(tray: TrayItem[]): string {
   if (!tray.length) return 'Ninguno especificado todavía.';

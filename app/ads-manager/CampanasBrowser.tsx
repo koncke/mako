@@ -450,7 +450,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       )}
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
       {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
-      {nuevaOpen && <NuevaCampanaModal senales={senales} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
+      {nuevaOpen && <NuevaCampanaModal senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
     </div>
   );
 }
