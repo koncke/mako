@@ -235,13 +235,20 @@ export async function listLeadForms(): Promise<Array<{ id: string; name: string;
 
 /** Públicos personalizados de la cuenta (para retargeting: incluir / excluir). */
 export async function listCustomAudiences(): Promise<Array<{ id: string; name: string; subtype?: string; count?: number | null }>> {
-  const url = new URL(`${GRAPH_BASE}/${ver()}/${acct()}/customaudiences`);
-  url.searchParams.set('fields', 'id,name,subtype,approximate_count');
-  url.searchParams.set('limit', '200');
-  url.searchParams.set('access_token', token());
-  const data = await graphGet(url.toString());
+  const base = `${GRAPH_BASE}/${ver()}/${acct()}/customaudiences`;
+  const tk = token();
+  const fetchWith = (fields: string) => { const url = new URL(base); url.searchParams.set('fields', fields); url.searchParams.set('limit', '200'); url.searchParams.set('access_token', tk); return graphGet(url.toString()); };
+  // approximate_count fue REMOVIDO de la API → usamos los bounds. Si esos también
+  // fallaran, caemos a id,name para que los públicos SIEMPRE carguen (el tamaño es 2do).
+  let data: Record<string, unknown>;
+  try { data = await fetchWith('id,name,subtype,approximate_count_lower_bound,approximate_count_upper_bound'); }
+  catch { data = await fetchWith('id,name'); }
   const arr = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
-  return arr.map((a) => ({ id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count: a.approximate_count != null ? Number(a.approximate_count) : null }));
+  return arr.map((a) => {
+    const lo = a.approximate_count_lower_bound; const hi = a.approximate_count_upper_bound;
+    const count = lo != null ? Number(lo) : (hi != null ? Number(hi) : null);
+    return { id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count };
+  });
 }
 
 export type AudienceTipo = 'page' | 'ig' | 'video' | 'pixel';
