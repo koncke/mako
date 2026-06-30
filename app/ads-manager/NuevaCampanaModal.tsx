@@ -150,6 +150,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceRef[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [creandoPublico, setCreandoPublico] = useState(false);
   useEffect(() => { fetch('/api/ads-manager/targeting?kind=audiences').then((r) => r.json()).then((j) => setAudiencesAll(j.ok ? j.items : [])).catch(() => setAudiencesAll([])); }, []);
   useEffect(() => { if (objetivo === 'OUTCOME_LEADS' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms').then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objetivo, leadForms]);
 
@@ -211,6 +212,20 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
     setTray((t) => [...t, { id: `win-${s.ad_id}`, kind: 'existing', source_ad_id: s.ad_id, thumbnail_url: s.ad_thumbnail_url, label: s.ad_name }]);
   }
   const quitar = (id: string) => setTray((t) => t.filter((x) => x.id !== id));
+
+  // ── crear un público personalizado sin salir de la app ──
+  async function crearPublico(tipo: 'page' | 'pixel', dias: number) {
+    setCreandoPublico(true); setErr(null);
+    try {
+      const r = await fetch('/api/ads-manager/audience-create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, dias }) });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'No se pudo crear el público');
+      const a = j.audience as AudienceRef;
+      setAudiencesAll((prev) => [a, ...(prev ?? [])]);
+      setAudiencias((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setCreandoPublico(false); }
+  }
 
   // ── MaKo arma la campaña a partir de las respuestas ──
   async function armar() {
@@ -348,7 +363,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 
           {step === 'publico' && (
             <Paso titulo="¿A qué público lo mostramos?" sub="Tus públicos personalizados (video viewers, visitantes, leads abiertos…). MaKo no los inventa.">
-              <PublicoPicker audiencesAll={audiencesAll} audiencias={audiencias} setAudiencias={setAudiencias} />
+              <PublicoPicker audiencesAll={audiencesAll} audiencias={audiencias} setAudiencias={setAudiencias} onCrear={crearPublico} creando={creandoPublico} />
             </Paso>
           )}
 
@@ -495,7 +510,7 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
               {t.processing && (
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(23,21,17,.62)', padding: '4px 5px 5px' }}>
                   <div style={{ height: 3, borderRadius: 2, background: 'rgba(243,240,231,.25)', overflow: 'hidden' }}><div style={{ height: '100%', width: `${t.progress ?? 0}%`, background: 'var(--accent-soft)', transition: 'width .2s' }} /></div>
-                  <div style={{ fontSize: 8.5, color: '#F3F0E7', fontFamily: MONO, textAlign: 'center', marginTop: 2 }}>{(t.progress ?? 0) < 100 ? `${t.progress ?? 0}%` : 'Meta…'}</div>
+                  <div style={{ fontSize: 8.5, color: '#F3F0E7', fontFamily: MONO, textAlign: 'center', marginTop: 2 }}>{(t.progress ?? 0) < 100 ? `${t.progress ?? 0}%` : 'Procesando'}</div>
                 </div>
               )}
               {t.kind === 'existing' && <span style={{ position: 'absolute', bottom: 3, left: 3, fontSize: 10, background: 'var(--accent)', color: '#fff', borderRadius: 4, padding: '0 4px' }}>★</span>}
@@ -527,18 +542,34 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
   );
 }
 
-// ── público (retargeting) ──
-function PublicoPicker({ audiencesAll, audiencias, setAudiencias }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void }) {
+// ── público (retargeting) — elegir uno existente o CREAR uno sin entrar a Meta ──
+function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: 'page' | 'pixel', dias: number) => void; creando: boolean }) {
+  const [dias, setDias] = useState(90);
   const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: a.name ?? a.id }));
+  const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' });
+  const btnCrear: CSSProperties = { ...btnGhost, fontSize: 13, padding: '9px 13px', opacity: creando ? 0.5 : 1 };
   return (
     <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
-      <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Agregar público…' : 'No hay públicos personalizados'} resetAfterSelect
+      <Dropdown value="" placeholder={audiencesAll === null ? 'Cargando públicos…' : audiencesAll.length ? 'Elegí un público…' : 'No tenés públicos todavía'} resetAfterSelect
         options={opts} onChange={(v) => { const a = (audiencesAll ?? []).find((x) => x.id === v); if (a) setAudiencias([...audiencias, { id: a.id, name: a.name }]); }} width="100%" />
       {audiencias.length > 0 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
           {audiencias.map((a) => <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', fontSize: 13.5, color: 'var(--ink)' }}>{a.name ?? a.id}<button type="button" onClick={() => setAudiencias(audiencias.filter((x) => x.id !== a.id))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--faint)', fontSize: 13, padding: 0 }}>✕</button></span>)}
         </div>
       )}
+
+      {/* crear público sin entrar a Meta */}
+      <div style={{ width: '100%', borderTop: '1px dashed var(--border)', paddingTop: 14, marginTop: 4 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: '0 0 10px' }}>¿No está el que querés? Creá uno acá, sin entrar a Meta:</p>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 10 }}>
+          {[30, 90, 180].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>{dd} días</button>)}
+        </div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button type="button" disabled={creando} onClick={() => onCrear('page', dias)} style={btnCrear}>👍 Interactuaron con tu Facebook</button>
+          <button type="button" disabled={creando} onClick={() => onCrear('pixel', dias)} style={btnCrear}>🌐 Visitaron tu web</button>
+        </div>
+        {creando && <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', marginTop: 8 }}>Creando el público en Meta…</p>}
+      </div>
     </div>
   );
 }

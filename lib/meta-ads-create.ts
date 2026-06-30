@@ -238,6 +238,33 @@ export async function listCustomAudiences(): Promise<Array<{ id: string; name: s
   return arr.map((a) => ({ id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count: a.approximate_count != null ? Number(a.approximate_count) : null }));
 }
 
+/**
+ * Crea un público personalizado (Custom Audience) para retargeting, SIN salir de la
+ * app. Tipos soportados con lo que ya tenemos:
+ *   - 'page'  → gente que interactuó con la página de Facebook (engagement, META_PAGE_ID).
+ *   - 'pixel' → visitantes de la web (requiere META_PIXEL_ID).
+ * `dias` = ventana de retención (1..180). Devuelve {id, name}.
+ */
+export async function createCustomAudience(input: { tipo: 'page' | 'pixel'; dias: number; name?: string }): Promise<{ id: string; name: string }> {
+  const dias = Math.min(180, Math.max(1, Math.round(input.dias || 90)));
+  const retention = dias * 86400;
+  let name: string; let subtype: string; let rule: Record<string, unknown>;
+  if (input.tipo === 'pixel') {
+    const pixel = process.env.META_PIXEL_ID;
+    if (!pixel) throw new MetaWriteError('Para "visitantes de la web" hace falta META_PIXEL_ID configurado. Usá "interacción con tu Facebook" o configurá el pixel.');
+    name = input.name || `Visitantes web · últimos ${dias} días`;
+    subtype = 'WEBSITE';
+    rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'pixel', id: pixel }], retention_seconds: retention }] } };
+  } else {
+    name = input.name || `Interacción FB · últimos ${dias} días`;
+    subtype = 'ENGAGEMENT';
+    rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'page', id: META_PAGE_ID }], retention_seconds: retention, filter: { operator: 'or', filters: [{ field: 'event', operator: '=', value: 'page_engaged' }] } }] } };
+  }
+  const data = await graphPost(`${acct()}/customaudiences`, { name, subtype, rule: JSON.stringify(rule) });
+  if (!data.id) throw new MetaWriteError('Meta no devolvió el id del público');
+  return { id: String(data.id), name };
+}
+
 /** Busca intereses por texto → ids reales que Meta acepta en el targeting. */
 export async function searchInterests(q: string): Promise<Array<{ id: string; name: string; audience?: number | null; topic?: string | null }>> {
   if (!q.trim()) return [];
