@@ -64,8 +64,12 @@ function putWithProgress(url: string, file: File, apikey: string | null, onProgr
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100))); };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) return resolve();
-      // Mostramos el motivo real de Supabase (no solo el código) para diagnosticar.
-      const detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 180);
+      let detalle = (xhr.responseText || '').replace(/\s+/g, ' ').slice(0, 200);
+      try { const j = JSON.parse(xhr.responseText); detalle = String(j.message || j.error || detalle); } catch { /* texto plano */ }
+      // Límite de tamaño de Supabase Storage → mensaje accionable (no JSON crudo).
+      if (xhr.status === 413 || /too large|maximum allowed size|exceeded/i.test(detalle)) {
+        return reject(new Error('El archivo supera el límite de tamaño de Supabase Storage. Subilo en Supabase → Storage → Settings → "Upload file size limit" (p. ej. 500 MB para videos), o usá un archivo más chico.'));
+      }
       reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})${detalle ? ` — ${detalle}` : ''}`));
     };
     xhr.onerror = () => reject(new Error('Error de red al subir el archivo.'));
