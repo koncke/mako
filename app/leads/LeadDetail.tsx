@@ -196,8 +196,8 @@ export function LeadDetail({
   const needSetter = to === 'manual';
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)', overflowY: 'auto' }}>
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="lead-title" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden', outline: 'none' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)' }}>
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="lead-title" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden', outline: 'none' }}>
 
         <div style={{ height: 3, background: headerMeta?.dot ?? 'var(--accent)' }} />
 
@@ -222,7 +222,7 @@ export function LeadDetail({
           {hasWa ? <a href={`https://wa.me/${lead.telefonoNorm}`} target="_blank" rel="noopener noreferrer" style={qa(true)}>WhatsApp</a> : <span style={qa(false)}>WhatsApp</span>}
         </div>
 
-        <div style={{ padding: 'clamp(16px,4vw,22px) clamp(16px,4vw,28px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'clamp(16px,4vw,22px) clamp(16px,4vw,28px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* tarjeta de completar movimiento (solo cuando el Kanban mueve a una etapa con datos) */}
           {completing && (

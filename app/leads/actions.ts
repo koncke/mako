@@ -29,6 +29,7 @@ import {
   deleteLead,
   setPipelineStage,
   setMeetingManual,
+  setBoardStageOverride,
   saveLeadMeta,
   saveFunnel,
   getLead,
@@ -40,8 +41,9 @@ import {
   type LeadUpdateInput,
   type LeadMetaInput,
   type LeadAuditRow,
+  type FathomLink,
 } from '@/lib/leads';
-import { DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
@@ -225,6 +227,63 @@ export async function markMeetingManualAction(
   await logLeadChanges(id, before, after, 'CRM');
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
+  revalidatePath('/general');
+}
+
+/** Input del editor completo del lead (ruta /leads/[id]). */
+export type LeadEditorInput = {
+  stage: string;
+  deadline: string | null;        // deadline de nutrición manual (solo si stage='manual')
+  nombre: string | null;
+  email: string | null;
+  telefono: string | null;
+  empresa: string | null;
+  fecha_agenda: string | null;
+  fecha_junta_1: string | null;
+  fecha_junta_2: string | null;
+  asistio_j1: boolean | null;
+  asistio_j2: boolean | null;
+  calificado: boolean | null;
+  motivo_perdida: string | null;
+  monto_cierre_usd: number | null;
+  fecha_cierre: string | null;
+  fecha_confirmacion: string | null;
+  fecha_inicio_servicio: string | null;
+  closer: string | null;
+  setter: string | null;
+  fathom_links: FathomLink[];
+};
+
+/**
+ * Guarda TODO el editor del lead (ruta /leads/[id]) en una sola acción:
+ *  1) updateLead: datos + estado_lead derivado de la etapa (invariantes + Meta CAPI),
+ *  2) saveLeadMeta: closer/setter/fathom,
+ *  3) setBoardStageOverride: columna del tablero (pipeline_stage) + deadline manual.
+ * Registra el diff en el historial.
+ */
+export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Promise<void> {
+  const before = await getLead(id).catch(() => null);
+  const estado = terminalEstadoFor(p.stage);
+  const esGanado = estado === 'ganado';
+  const esLost = estado === 'perdido' || estado === 'descalificado';
+  await updateLead(id, {
+    nombre: p.nombre ?? undefined, email: p.email, telefono: p.telefono, empresa: p.empresa,
+    fecha_agenda: p.fecha_agenda, fecha_junta_1: p.fecha_junta_1, fecha_junta_2: p.fecha_junta_2,
+    asistio_j1: p.asistio_j1, asistio_j2: p.asistio_j2, calificado: p.calificado,
+    estado_lead: estado,
+    motivo_perdida: esLost ? p.motivo_perdida : null,
+    monto_cierre_usd: esGanado ? p.monto_cierre_usd : null,
+    fecha_cierre: esGanado ? p.fecha_cierre : null,
+    fecha_confirmacion: p.fecha_confirmacion,
+    fecha_inicio_servicio: esGanado ? p.fecha_inicio_servicio : null,
+  });
+  await saveLeadMeta(id, { closer: p.closer, setter: p.setter, fathom_links: p.fathom_links });
+  await setBoardStageOverride(id, p.stage, p.deadline);
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, 'CRM');
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath(`/leads/${id}`);
   revalidatePath('/general');
 }
 

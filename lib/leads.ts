@@ -9,7 +9,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS } from './pipeline';
 import { cachedRead, TAG, TTL } from './cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1171,7 +1171,7 @@ export async function setPipelineStage(
   if (opts?.asistio_j1 !== undefined) sync.asistio_j1 = opts.asistio_j1;
   if (opts?.asistio_j2 !== undefined) sync.asistio_j2 = opts.asistio_j2;
   // En etapas de nutrición marcamos la bandera para los pendientes/tab Nutrición.
-  if (['noshow', 'nutri', 'nopaga', 'manual', 'postagenda', 'postreunion'].includes(stageKey)) {
+  if (NUTRI_KEYS.includes(stageKey)) {
     sync.nutricion_realizada = true;
   }
   try {
@@ -1197,6 +1197,21 @@ export type LeadMetaInput = {
   telefono?: string | null;
   empresa?: string | null;
 };
+
+/**
+ * Persiste SOLO el override de la columna del tablero (pipeline_stage) y el
+ * deadline de nutrición manual, sin tocar estado_lead (el editor ya lo sincroniza
+ * vía updateLead). El deadline solo vive en 'manual'; en otra etapa se limpia.
+ */
+export async function setBoardStageOverride(id: number, stageKey: string, deadline: string | null): Promise<void> {
+  const patch: Record<string, unknown> = {
+    pipeline_stage: stageKey,
+    nutricion_manual_deadline: stageKey === 'manual' ? (deadline ?? null) : null,
+  };
+  if (NUTRI_KEYS.includes(stageKey)) patch.nutricion_realizada = true;
+  const { error } = await getSupabaseServer().from('leads').update(patch).eq('id', id);
+  if (error) throw new Error(`Error guardando etapa del lead ${id}: ${error.message}`);
+}
 
 export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {
   const supabase = getSupabaseServer();

@@ -15,14 +15,13 @@ import {
   type VslEngagement,
   type Lead,
 } from '@/lib/leads';
-import { deriveStageKey, stageMeta, CHIP, type Stage } from '@/lib/pipeline';
+import { deriveStageKey, stageMeta, CHIP, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
 import { EditLeadForm } from './EditLeadForm';
-import { CobranzaPlanCard } from './CobranzaPlanCard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,12 +38,13 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, stages] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
     getPipelineStages().catch(() => [] as Stage[]),
   ]);
+  const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
 
   const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
@@ -99,11 +99,8 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           {/* ORIGEN Y COMPORTAMIENTO */}
           <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
 
-          {/* FORM DE EDICIÓN */}
-          <EditLeadForm lead={lead} />
-
-          {/* PLAN DE PAGOS */}
-          <CobranzaPlanCard lead={lead} pagos={pagos} />
+          {/* EDITOR COMPLETO (etapa + secciones por status + plan de pagos + barra fija) */}
+          <EditLeadForm lead={lead} stages={stages} pagos={pagos} />
         </div>
       </div>
     </main>
