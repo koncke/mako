@@ -31,6 +31,7 @@ export const TOOLS_NAV: NavItem[] = [
   { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', match: starts('/ads-manager') },
   { key: 'closing', label: 'Closing Analysis', href: '/closing', match: starts('/closing') },
   { key: 'script-analyst', label: 'Script Analyst', href: '/script-analyst', match: starts('/script-analyst') },
+  { key: 'experimentos', label: 'Experimentos', href: '/experimentos', glyph: '⚗', match: starts('/experimentos') },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', badge: true, match: starts('/whatsapp') },
   { key: 'email', label: 'Email Marketing', href: '/email', match: starts('/email') },
   {

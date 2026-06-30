@@ -11,7 +11,14 @@ import { MAKO_NUCLEO, getActivePersona } from './mako-prompts';
 import { getFaseInstruccion } from './mako-fases';
 import { perfilNegocioTexto } from './onboarding';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
+import { resumenExperimentos } from './experimentos';
 import { META_RULES_TEXT } from './meta-rules';
+import { getPromptText, renderPrompt } from './prompt-render';
+import {
+  MAKO_CTX_GENERAL_DEFAULT,
+  MAKO_CTX_CHART_DEFAULT,
+  MAKO_CTX_WHATSAPP_DEFAULT,
+} from './prompt-defaults';
 
 // Resumen fresco de las secuencias de nutrición + borradores de plantillas, para
 // que MaKo opine con el funnel real a la vista en el chat de secuencias.
@@ -45,22 +52,33 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
     searchKnowledge(query, 4).catch(() => [] as Array<{ titulo: string; cuerpo: string }>),
   ]);
 
-  let base = `${persona}\n\n${MAKO_NUCLEO}`.trim();
+  // Núcleo de formato/tono: editable desde Configuraciones (default en código).
+  const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
+  let base = `${persona}\n\n${nucleo}`.trim();
   if (perfil) base += `\n\nNEGOCIO DE MARTÍN (perfil del cliente):\n${perfil}`;
   if (fase) base += `\n\nQUÉ TENÉS QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);
   if (know) base += `\n\nTU METODOLOGÍA (lo más relevante a esta consulta):\n${know}`;
 
+  // Experimentos: las verdades validadas (que MaKo SÍ puede afirmar) y lo que
+  // sigue en prueba. Para todo lo no probado, MaKo sugiere abrir un experimento.
+  const exps = await resumenExperimentos().catch(() => '');
+  if (exps) base += `\n\nESTADO DE EXPERIMENTOS DEL NEGOCIO:\n${exps}`;
+
   // Chat de secuencias de WhatsApp: sos consultor de deliverability. Cargás las
   // reglas de aprobación de Meta + las secuencias/plantillas reales del negocio.
   if (chartKey === 'whatsapp-secuencias') {
-    base += `\n\nSOS CONSULTOR DE SECUENCIAS Y PLANTILLAS DE WHATSAPP. Cuando Martín te proponga una secuencia o un mensaje, evaluá si Meta lo aprobaría (citá la regla), sugerí mejoras concretas y pensá el timing/copy en función del funnel. Sé directo y accionable.\n\n${META_RULES_TEXT}`;
+    const instruccion = await getPromptText('mako.context.whatsapp_consultor', MAKO_CTX_WHATSAPP_DEFAULT);
+    const metaRules = await getPromptText('meta.rules.text', META_RULES_TEXT);
+    base += `\n\n${instruccion}\n\n${metaRules}`;
     const resumen = await resumenSecuencias().catch(() => '');
     if (resumen) base += `\n\nESTADO ACTUAL DE LAS SECUENCIAS Y PLANTILLAS DEL NEGOCIO:\n${resumen}`;
   }
 
   if (!contexto.trim()) {
-    return `${base}\n\nCONTEXTO: chat general del dashboard del negocio de Martín. Ayudá con lo que pregunte; si te pega datos, analizalos.`;
+    const general = await getPromptText('mako.context.general_fallback', MAKO_CTX_GENERAL_DEFAULT);
+    return `${base}\n\n${general}`;
   }
-  return `${base}\n\nCONTEXTO: estás mirando el gráfico "${titulo}" del PROPIO negocio de Martín. Ya tenés los datos abajo, analizá directo.\n\nDATOS DEL GRÁFICO:\n${contexto}`;
+  const chartCtx = await renderPrompt('mako.context.chart_standard', MAKO_CTX_CHART_DEFAULT, { titulo, contexto });
+  return `${base}\n\n${chartCtx}`;
 }

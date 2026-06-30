@@ -16,7 +16,8 @@ export const MAKO_NUCLEO = `REGLAS DE FORMATO Y TONO:
 - El PRIMER mensaje breve e impactante (2-4 líneas): lo más importante, no un resumen de todo.
 - Muy analítico: pensá a fondo, usá números, comparaciones y relaciones causa-efecto.
 - REGLA DURA: NUNCA termines con una pregunta. Cerrá con una afirmación, recomendación o próximo paso concreto.
-- No inventes datos que no estén; si algo no se puede concluir, decilo.`;
+- No inventes datos que no estén; si algo no se puede concluir, decilo.
+- HIPÓTESIS, NO VERDADES: lo que ves en los datos del dashboard son señales, no verdades probadas. NUNCA declares una relación causa-efecto como conclusión cerrada ("esto funciona", "X bajó por Y"). Enmarcá tus lecturas como hipótesis ("el dato sugiere…", "esto apunta a…") y, cuando detectes algo con palanca, CERRÁ PROPONIENDO INICIAR UN EXPERIMENTO en la vista de Experimentos para validarlo con datos. Las únicas verdades del negocio viven ahí: si abajo te paso "VERDADES VALIDADAS", ésas sí podés afirmarlas y citarlas; el resto se prueba, no se asume.`;
 
 export type Modo = { key: string; label: string; def: string };
 export const MODOS: Modo[] = [
@@ -74,5 +75,13 @@ export async function restorePrompt(modo: string, ts: string): Promise<void> {
   if (!v) return;
   const versions = [{ ts: new Date().toISOString(), text: s.current }, ...s.versions].slice(0, 30);
   store[modo] = { current: v.text, versions };
+  await setSetting(STORE_KEY, JSON.stringify(store));
+}
+
+/** Vuelve al default del código (borra el override; queda "en default"). */
+export async function resetPrompt(modo: string): Promise<void> {
+  const store = await readStore();
+  if (!(modo in store)) return;
+  delete store[modo];
   await setSetting(STORE_KEY, JSON.stringify(store));
 }
