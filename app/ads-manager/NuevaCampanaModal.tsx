@@ -409,7 +409,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
               {step === 'revision' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {uso && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{fmtUso(uso)}</span>}
-                  <button onClick={() => setStep('destino')} style={btnGhost}>↻ Regenerar</button>
+                  <button onClick={armar} style={btnGhost}>↻ Regenerar</button>
                   <button onClick={publicar} style={{ ...btnDark, background: 'var(--good)' }}>Publicar en pausa</button>
                 </div>
               ) : (
