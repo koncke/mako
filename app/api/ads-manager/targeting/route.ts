@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, metaErrorEnvelope } from '@/lib/meta-ads-create';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -21,7 +21,8 @@ export async function GET(req: NextRequest) {
     if (kind === 'leadforms') return Response.json({ ok: true, items: await listLeadForms() });
     if (kind === 'conversions') return Response.json({ ok: true, items: await listCustomConversions() });
     if (kind === 'pixels') return Response.json({ ok: true, items: await listPixels() });
-    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels)' }, { status: 400 });
+    if (kind === 'pixelevents') return Response.json({ ok: true, items: await listPixelEvents(req.nextUrl.searchParams.get('pixel') ?? '') });
+    return Response.json({ ok: false, error: 'kind inválido (audiences | interests | leadforms | conversions | pixels | pixelevents)' }, { status: 400 });
   } catch (err) {
     const env = metaErrorEnvelope(err);
     console.error(`[ads-manager:targeting] ${env.message}`);

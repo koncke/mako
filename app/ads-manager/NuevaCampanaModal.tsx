@@ -11,7 +11,7 @@
 // conserva al cerrar.
 // =============================================================================
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon } from '@/lib/queries';
@@ -22,6 +22,8 @@ import {
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
+// Chispa de MaKo (misma que MakoBrand) para el loader animado de "armando"/"publicando".
+const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
 
 // Inversión SIEMPRE en USD; Meta cobra en la moneda de la cuenta (MXN) → convertimos.
 const USD_MXN = 17.3; // espeja TIPO_DE_CAMBIO_USD_MXN
@@ -149,6 +151,24 @@ const EVENTOS_CONV: Array<{ value: string; label: string }> = [
   { value: 'CONTACT', label: 'Contactó' },
   { value: 'PURCHASE', label: 'Compró' },
 ];
+// Nombre del evento del pixel (como lo reporta Meta en /stats) → ENUM de optimización
+// (custom_event_type) + etiqueta amigable. Solo mapeamos los estándar de conversión.
+const STD_EVENTS: Record<string, { enum: string; label: string }> = {
+  Lead: { enum: 'LEAD', label: 'Dejó sus datos (Lead)' },
+  Schedule: { enum: 'SCHEDULE', label: 'Agendó (Schedule)' },
+  CompleteRegistration: { enum: 'COMPLETE_REGISTRATION', label: 'Se registró' },
+  ViewContent: { enum: 'CONTENT_VIEW', label: 'Vio el contenido / VSL' },
+  Contact: { enum: 'CONTACT', label: 'Contactó' },
+  Purchase: { enum: 'PURCHASE', label: 'Compró' },
+  Search: { enum: 'SEARCH', label: 'Buscó' },
+  AddToCart: { enum: 'ADD_TO_CART', label: 'Agregó al carrito' },
+  InitiateCheckout: { enum: 'INITIATED_CHECKOUT', label: 'Inició el checkout' },
+  AddPaymentInfo: { enum: 'ADD_PAYMENT_INFO', label: 'Cargó datos de pago' },
+  Subscribe: { enum: 'SUBSCRIBE', label: 'Se suscribió' },
+  StartTrial: { enum: 'START_TRIAL', label: 'Inició una prueba' },
+  SubmitApplication: { enum: 'SUBMIT_APPLICATION', label: 'Envió una solicitud' },
+  AddToWishlist: { enum: 'ADD_TO_WISHLIST', label: 'Agregó a deseos' },
+};
 
 export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
   const [d0] = useState(loadDraft);
@@ -174,6 +194,8 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
   const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string }> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
+  // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
+  const [pixelEvents, setPixelEvents] = useState<string[] | null>(null);
   const [creandoPublico, setCreandoPublico] = useState(false);
   // cache:'no-store' clave: sin esto el navegador cachea la 1ra respuesta (vacía) y
   // los públicos nunca aparecen aunque existan en la cuenta.
@@ -182,6 +204,19 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   useEffect(() => { if (objKey === 'lead_form' && leadForms === null) fetch('/api/ads-manager/targeting?kind=leadforms', { cache: 'no-store' }).then((r) => r.json()).then((j) => setLeadForms(j.ok ? j.items : [])).catch(() => setLeadForms([])); }, [objKey, leadForms]);
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && convs === null) fetch('/api/ads-manager/targeting?kind=conversions', { cache: 'no-store' }).then((r) => r.json()).then((j) => setConvs(j.ok ? j.items : [])).catch(() => setConvs([])); }, [objKey, convs]);
   useEffect(() => { if ((objKey === 'lead_web' || objKey === 'sales') && pixels === null) fetch('/api/ads-manager/targeting?kind=pixels', { cache: 'no-store' }).then((r) => r.json()).then((j) => setPixels(j.ok ? j.items : [])).catch(() => setPixels([])); }, [objKey, pixels]);
+  // Si hay UN solo pixel, lo elegimos solos (el usuario igual lo ve, pero no tiene que tocar).
+  useEffect(() => { if (obj?.needsConv && pixels && pixels.length === 1 && !destino.conv?.pixel_id) setDestino((d) => ({ ...d, conv: { ...d.conv, pixel_id: pixels[0].id } })); }, [obj?.needsConv, pixels, destino.conv?.pixel_id]);
+  // Al elegir un pixel, traemos SUS eventos activos (los que Meta recibe de verdad).
+  const pixelSel = destino.conv?.pixel_id ?? '';
+  useEffect(() => {
+    if (!obj?.needsConv || !pixelSel) { setPixelEvents(null); return; }
+    setPixelEvents(null);
+    let cancel = false;
+    fetch(`/api/ads-manager/targeting?kind=pixelevents&pixel=${encodeURIComponent(pixelSel)}`, { cache: 'no-store' })
+      .then((r) => r.json()).then((j) => { if (!cancel) setPixelEvents(j.ok && Array.isArray(j.items) ? j.items : []); })
+      .catch(() => { if (!cancel) setPixelEvents([]); });
+    return () => { cancel = true; };
+  }, [obj?.needsConv, pixelSel]);
 
   // guardar borrador
   useEffect(() => {
@@ -205,7 +240,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       case 'publico': return audiencias.length > 0;
       case 'destino':
         if (obj?.needsForm) return !!destino.lead_form_id;
-        if (obj?.needsConv) return !!destino.url?.trim() && !!(destino.conv?.pixel_event || destino.conv?.custom_conversion_id);
+        if (obj?.needsConv) return !!destino.url?.trim() && !!destino.conv?.pixel_id && !!(destino.conv?.pixel_event || destino.conv?.custom_conversion_id);
         return !!destino.url?.trim();
       default: return false;
     }
@@ -426,15 +461,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
                   <input value={destino.url ?? ''} onChange={(e) => setDestino((d) => ({ ...d, url: e.target.value }))} placeholder="https://tu-landing/vsl" autoFocus
                     style={{ width: '100%', padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 16, outline: 'none', textAlign: 'center' }} />
                   {obj?.needsConv && (
-                    <>
-                      <Dropdown value={destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '')}
-                        placeholder={convs === null ? 'Cargando conversiones…' : '¿Por qué conversión optimizamos?'}
-                        options={convOpciones(convs)} onChange={(v) => setDestino((d) => ({ ...d, conv: parseConv(v, convs) }))} width="100%" />
-                      {destino.conv?.pixel_event && (pixels?.length ?? 0) > 0 && (
-                        <Dropdown value={destino.conv?.pixel_id ?? ''} placeholder="Pixel a medir (opcional)…" options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={(v) => setDestino((d) => ({ ...d, conv: { ...d.conv, pixel_id: v } }))} width="100%" />
-                      )}
-                      <p style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Arriba van los eventos estándar de Meta. Tu <b>agenda</b> y tus eventos propios aparecen como <b>“Tu conversión: …”</b> (son las conversiones que tu pixel realmente mide).</p>
-                    </>
+                    <ConversionPicker pixels={pixels} convs={convs} pixelEvents={pixelEvents} destino={destino} setDestino={setDestino} />
                   )}
                 </div>
               )}
@@ -442,11 +469,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'armando' && (
-            <div style={{ padding: '64px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
-              <MakoStar size={30} />
-              <h3 style={pregunta}>MaKo está mirando tus creativos y armando la campaña…</h3>
-              <p style={ayuda}>Escribe el copy de cada anuncio según tu objetivo y estrategia.</p>
-            </div>
+            <MakoLoading pasos={['Mirando tus creativos…', 'Entendiendo tu objetivo y estrategia…', 'Escribiendo el copy de cada anuncio…', 'Armando la estructura de la campaña…']} />
           )}
 
           {step === 'revision' && spec && (
@@ -454,10 +477,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'publicando' && (
-            <div style={{ padding: '64px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
-              <MakoStar size={30} />
-              <h3 style={pregunta}>Publicando en Meta (en pausa)…</h3>
-            </div>
+            <MakoLoading pasos={['Creando la campaña…', 'Configurando el conjunto de anuncios…', obj?.needsConv ? 'Conectando el pixel y la conversión…' : estrategia === 'retargeting' ? 'Cargando tu público…' : 'Configurando el público…', 'Subiendo los anuncios y aplicando UTMs…', 'Publicando en Meta, en pausa…']} />
           )}
 
           {step === 'listo' && result && (
@@ -671,13 +691,11 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
   );
 }
 
-// ── revisión minimalista ──
+// ── revisión minimalista — los textos se editan EN LÍNEA (tocás y escribís) ──
 function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void; err: string | null }) {
   const opt = spec.adsets[0]?.optimization_goal;
   const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : spec.objective;
-  const [editKey, setEditKey] = useState<string | null>(null);
   const patchCreative = (ai: number, di: number, patch: Partial<Creative>) => setSpec({ ...spec, adsets: spec.adsets.map((a, i) => (i === ai ? { ...a, ads: a.ads.map((ad, j) => (j === di ? { ...ad, creative: { ...ad.creative, ...patch } } : ad)) } : a)) });
-  const editInput: CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' };
   return (
     <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ textAlign: 'center' }}>
@@ -693,41 +711,42 @@ function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec;
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {spec.adsets.map((adset, ai) => adset.ads.map((ad, di) => {
           const key = `${ai}-${di}`;
-          const editing = editKey === key;
           const t = ad.creative.source === 'existing' ? tray.find((x) => x.source_ad_id === ad.creative.source_ad_id) : tray.find((x) => (ad.creative.image_hash && x.image_hash === ad.creative.image_hash) || (ad.creative.video_id && x.video_id === ad.creative.video_id));
           const thumb = t?.thumbnail_url ?? ad.creative.thumbnail_url ?? null;
           return (
-            <div key={key} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14, border: `1px solid ${editing ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--surface-2)' }}>
+            <div key={key} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
               <div style={{ width: 64, flex: 'none', aspectRatio: '9 / 16', maxHeight: 110, borderRadius: 9, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {thumb
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={{ fontSize: 18 }}>{ad.creative.media_type === 'video' ? '🎬' : '🖼️'}</span>}
               </div>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {editing ? (
-                  <>
-                    <textarea value={ad.creative.primary_text ?? ''} onChange={(e) => patchCreative(ai, di, { primary_text: e.target.value })} rows={3} placeholder="Texto principal del anuncio" autoFocus style={{ ...editInput, resize: 'vertical', lineHeight: 1.45 }} />
-                    <input value={ad.creative.headline ?? ''} onChange={(e) => patchCreative(ai, di, { headline: e.target.value })} placeholder="Título" style={editInput} />
-                    <input value={ad.creative.description ?? ''} onChange={(e) => patchCreative(ai, di, { description: e.target.value })} placeholder="Descripción (opcional)" style={editInput} />
-                    <button type="button" onClick={() => setEditKey(null)} style={{ ...btnGhost, alignSelf: 'flex-start', fontSize: 12, padding: '5px 12px' }}>✓ Listo</button>
-                  </>
-                ) : (
-                  <>
-                    {ad.creative.primary_text ? <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.45 }}>{ad.creative.primary_text}</div> : <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>Sin copy — tocá el lápiz para escribirlo.</div>}
-                    {ad.creative.headline && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginTop: 4 }}>{ad.creative.headline}</div>}
-                    <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 5 }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
-                  </>
-                )}
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <InlineCopy value={ad.creative.primary_text ?? ''} onChange={(v) => patchCreative(ai, di, { primary_text: v })} placeholder="Escribí el texto del anuncio…" multiline fontSize={13.5} />
+                <InlineCopy value={ad.creative.headline ?? ''} onChange={(v) => patchCreative(ai, di, { headline: v })} placeholder="Título (opcional)" fontSize={12.5} bold />
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 4, padding: '0 7px' }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
               </div>
-              <button type="button" onClick={() => setEditKey(editing ? null : key)} title="Editar textos" style={{ flex: 'none', alignSelf: 'flex-start', background: 'transparent', border: 'none', cursor: 'pointer', color: editing ? 'var(--accent)' : 'var(--faint)', fontSize: 15, padding: 4, lineHeight: 1 }}>✎</button>
             </div>
           );
         }))}
       </div>
-      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Se crea en <b>pausa</b>, con <b>nomenclatura</b> (001 / 001.01 / 001.01.a) y <b>UTMs</b> de tracking automáticos. ¿Cambios? Tocá <b>Atrás</b> o <b>Regenerar</b>.{err ? ` — ${err}` : ''}</p>
+      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Tocá cualquier texto para editarlo. Se crea en <b>pausa</b>, con <b>nomenclatura</b> y <b>UTMs</b> automáticos.{err ? ` — ${err}` : ''}</p>
     </div>
   );
+}
+
+// Texto editable en línea: parece texto, al tocarlo se vuelve editable (sin "modo edición").
+function InlineCopy({ value, onChange, placeholder, multiline, fontSize, bold }: { value: string; onChange: (v: string) => void; placeholder: string; multiline?: boolean; fontSize: number; bold?: boolean }) {
+  const base: CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid transparent', borderRadius: 8, background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize, fontWeight: bold ? 600 : 400, lineHeight: 1.45, padding: '5px 7px', outline: 'none', transition: 'border-color .12s, background .12s' };
+  const onFocus = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--surface)'; };
+  const onBlur = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; };
+  if (multiline) {
+    return <textarea value={value} placeholder={placeholder} rows={1} onFocus={onFocus} onBlur={onBlur}
+      ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; } }}
+      onChange={(e) => { onChange(e.target.value); const el = e.target; el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; }}
+      style={{ ...base, resize: 'none', overflow: 'hidden' }} />;
+  }
+  return <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} onFocus={onFocus} onBlur={onBlur} style={base} />;
 }
 
 // ── helpers ──
@@ -738,14 +757,88 @@ function linkify(text: string): ReactNode {
     : p);
 }
 
-// Opciones de conversión: eventos estándar del pixel + conversiones personalizadas.
-function convOpciones(convs: Array<{ id: string; name: string }> | null) {
-  const custom = (convs ?? []).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}` }));
-  return [...EVENTOS_CONV, ...custom];
+// Etiqueta amigable a partir del ENUM de optimización (custom_event_type).
+function labelDeEnum(enumValue: string): string | undefined {
+  const std = Object.values(STD_EVENTS).find((s) => s.enum === enumValue);
+  return std?.label ?? EVENTOS_CONV.find((e) => e.value === enumValue)?.label;
 }
-function parseConv(v: string, convs: Array<{ id: string; name: string }> | null): Destino['conv'] {
-  if (v.startsWith('cc:')) { const id = v.slice(3); const c = (convs ?? []).find((x) => x.id === id); return { custom_conversion_id: id, label: c?.name }; }
-  return { pixel_event: v, label: EVENTOS_CONV.find((e) => e.value === v)?.label };
+
+// ── conversión: PRIMERO el pixel, DESPUÉS el evento (solo los ACTIVOS de ese pixel) ──
+// Optimizar por un evento inactivo arruina la entrega → solo ofrecemos los que el
+// pixel recibe de verdad (+ tus conversiones personalizadas, que ya son activas).
+function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
+  pixels: Array<{ id: string; name: string }> | null;
+  convs: Array<{ id: string; name: string; event?: string }> | null;
+  pixelEvents: string[] | null;
+  destino: Destino;
+  setDestino: Dispatch<SetStateAction<Destino>>;
+}) {
+  const pixelId = destino.conv?.pixel_id ?? '';
+  const setPixel = (v: string) => setDestino((d) => ({ ...d, conv: { pixel_id: v } })); // cambiar de pixel resetea el evento
+  const setEvento = (v: string) => setDestino((d) => {
+    if (v.startsWith('cc:')) { const id = v.slice(3); const c = (convs ?? []).find((x) => x.id === id); return { ...d, conv: { pixel_id: d.conv?.pixel_id, custom_conversion_id: id, label: c?.name } }; }
+    return { ...d, conv: { pixel_id: d.conv?.pixel_id, pixel_event: v, label: labelDeEnum(v) } };
+  });
+  const detectados = !!pixelEvents && pixelEvents.length > 0;
+  const activos = (pixelEvents ?? []).map((n) => STD_EVENTS[n]).filter((s): s is { enum: string; label: string } => !!s).map((s) => ({ value: s.enum, label: s.label, sub: '✓ Activo en tu pixel' }));
+  const custom = (convs ?? []).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya medís' }));
+  const eventOpts = detectados ? [...activos, ...custom] : [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verificá que esté activo' })), ...custom];
+  const eventValue = destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '');
+  const sinPixeles = pixels !== null && pixels.length === 0;
+  const nota = !pixelId
+    ? <>Primero elegí el <b>pixel</b>; después te muestro <b>sus</b> eventos.</>
+    : pixelEvents === null
+      ? <>Buscando los eventos <b>activos</b> de tu pixel…</>
+      : detectados
+        ? <>Estos son los eventos <b>activos</b> de tu pixel (los que recibe de verdad) + tus conversiones. <b>No elijas eventos inactivos</b>: Meta no podría optimizar.</>
+        : <>No pudimos detectar los eventos activos. Elegí tu <b>conversión</b> (las que ya medís) o un evento estándar que sepas <b>activo</b> en tu pixel.</>;
+  return (
+    <>
+      <Dropdown value={pixelId}
+        placeholder={pixels === null ? 'Cargando tu pixel…' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elegí tu pixel (dataset)…'}
+        options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={setPixel} width="100%" />
+      {pixelId && (
+        <Dropdown value={eventValue}
+          placeholder={pixelEvents === null ? 'Buscando eventos activos…' : 'Elegí la conversión a optimizar…'}
+          options={eventOpts} onChange={setEvento} width="100%" />
+      )}
+      <p style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>{nota}</p>
+    </>
+  );
+}
+
+// ── loader de MaKo con pasos que cambian (armando / publicando) ──
+function MakoLoading({ pasos }: { pasos: string[] }) {
+  const [i, setI] = useState(0);
+  useEffect(() => { if (pasos.length <= 1) return; const id = setInterval(() => setI((p) => (p + 1 < pasos.length ? p + 1 : p)), 1700); return () => clearInterval(id); }, [pasos.length]);
+  const uid = `mkld${useId().replace(/[:]/g, '')}`;
+  const cur = Math.min(i, pasos.length - 1);
+  const css = `
+    .${uid}-spark { transform-box: fill-box; transform-origin: center; animation: ${uid}-pulse 1.5s ease-in-out infinite; }
+    @keyframes ${uid}-pulse { 0%,100% { transform: scale(.9); opacity: .85; } 50% { transform: scale(1.12); opacity: 1; } }
+    .${uid}-ring { transform-box: fill-box; transform-origin: center; opacity: 0; animation: ${uid}-sonar 1.8s ease-out infinite; }
+    .${uid}-ring2 { animation-delay: .9s; }
+    @keyframes ${uid}-sonar { 0% { transform: scale(.5); opacity: .5; } 100% { transform: scale(2.3); opacity: 0; } }
+    .${uid}-txt { animation: ${uid}-tin .4s ease; }
+    @keyframes ${uid}-tin { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  `;
+  return (
+    <div style={{ padding: '60px 30px 66px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, textAlign: 'center' }}>
+      <style dangerouslySetInnerHTML={{ __html: css }} />
+      <svg width={66} height={66} viewBox="-33 -33 66 66" role="img" aria-label="MaKo trabajando">
+        <defs>
+          <linearGradient id={`${uid}-g`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#F6D365" /><stop offset="100%" stopColor="#EF9F27" /></linearGradient>
+        </defs>
+        <circle className={`${uid}-ring`} r="13" fill="none" stroke="#EF9F27" strokeWidth="1.5" strokeOpacity=".5" />
+        <circle className={`${uid}-ring ${uid}-ring2`} r="13" fill="none" stroke="#F6D365" strokeWidth="1.5" strokeOpacity=".45" />
+        <g transform="scale(1.5)"><path className={`${uid}-spark`} d={SPARK} fill={`url(#${uid}-g)`} /></g>
+      </svg>
+      <h3 key={cur} className={`${uid}-txt`} style={{ ...pregunta, fontSize: 21, minHeight: 26 }}>{pasos[cur]}</h3>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {pasos.map((_, k) => <span key={k} style={{ width: 6, height: 6, borderRadius: 999, background: k <= cur ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .3s' }} />)}
+      </div>
+    </div>
+  );
 }
 
 function analisisResumen(an: Analisis): string | undefined {

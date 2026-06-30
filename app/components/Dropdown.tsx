@@ -73,7 +73,11 @@ export function Dropdown({
     };
     const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     // Al scrollear/redimensionar el menú fijo se despegaría del botón → cerrar.
-    const onScrollResize = () => setOpen(false);
+    // PERO si el scroll ocurre DENTRO del propio menú (lista larga), NO cerrar.
+    const onScrollResize = (e?: Event) => {
+      if (e && e.type === 'scroll' && e.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onEsc);
     window.addEventListener('scroll', onScrollResize, true);

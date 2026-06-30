@@ -341,6 +341,43 @@ export async function listCustomConversions(): Promise<Array<{ id: string; name:
   return arr.map((c) => ({ id: String(c.id), name: String(c.name ?? c.id), event: c.custom_event_type ? String(c.custom_event_type) : undefined }));
 }
 
+/**
+ * Eventos ACTIVOS de un pixel = los que recibió recientemente (Meta los muestra
+ * como "Active events"). CRÍTICO: optimizar por un evento INACTIVO arruina la
+ * entrega. Lee {pixel_id}/stats?aggregation=event y junta los nombres de evento
+ * con datos. Best-effort: si el endpoint no responde, devuelve [] y la UI cae al
+ * listado estándar con una advertencia.
+ */
+export async function listPixelEvents(pixelId: string): Promise<string[]> {
+  if (!pixelId) return [];
+  const url = new URL(`${GRAPH_BASE}/${ver()}/${pixelId}/stats`);
+  url.searchParams.set('aggregation', 'event');
+  url.searchParams.set('access_token', token());
+  let data: Record<string, unknown>;
+  try { data = await graphGet(url.toString()); } catch { return []; }
+  const out = new Set<string>();
+  const add = (name: unknown, count?: unknown) => {
+    const n = String(name ?? '').trim();
+    if (!n) return;
+    if (count !== undefined && count !== null && Number(count) <= 0) return;
+    out.add(n);
+  };
+  const rows = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
+  for (const row of rows) {
+    const v = row.value;
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      // forma { "Lead": 123, "PageView": 999 }
+      for (const [k, c] of Object.entries(v as Record<string, unknown>)) add(k, c);
+    } else if (Array.isArray(v)) {
+      // forma [{ value: "Lead", count: 123 }, ...]
+      for (const e of v) { if (e && typeof e === 'object') add((e as Record<string, unknown>).value, (e as Record<string, unknown>).count); }
+    } else if (typeof v === 'string') {
+      add(v, row.count);
+    }
+  }
+  return [...out];
+}
+
 /** Busca intereses por texto → ids reales que Meta acepta en el targeting. */
 export async function searchInterests(q: string): Promise<Array<{ id: string; name: string; audience?: number | null; topic?: string | null }>> {
   if (!q.trim()) return [];
