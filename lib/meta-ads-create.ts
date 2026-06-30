@@ -240,7 +240,7 @@ export async function listCustomAudiences(): Promise<Array<{ id: string; name: s
   return arr.map((a) => ({ id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count: a.approximate_count != null ? Number(a.approximate_count) : null }));
 }
 
-export type AudienceTipo = 'page' | 'ig' | 'video' | 'pixel';
+export type AudienceTipo = 'page' | 'ig' | 'pixel';
 
 /** id de la cuenta de Instagram conectada (para públicos de IG). null si no hay. */
 async function getInstagramActorId(): Promise<string | null> {
@@ -284,15 +284,13 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
     const pixel = process.env.META_PIXEL_ID;
     if (!pixel) throw new MetaWriteError('Para "visitaron tu web" hace falta META_PIXEL_ID configurado. Elegí otro tipo o configurá el pixel.');
     name = input.name || `Visitaron tu web · ${dias} días`;
-    rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'pixel', id: pixel }], retention_seconds: retention }] } };
+    // Website audience: el rule EXIGE un filter → visitantes = evento PageView del pixel.
+    rule = eng({ type: 'pixel', id: pixel }, 'PageView');
   } else if (input.tipo === 'ig') {
     const ig = await getInstagramActorId();
     if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conectala en Meta o elegí otro tipo de público.');
     name = input.name || `Interacción Instagram · ${dias} días`;
     rule = eng({ type: 'ig_business', id: ig }, 'ig_business_profile_engaged');
-  } else if (input.tipo === 'video') {
-    name = input.name || `Vieron tus videos · ${dias} días`;
-    rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_video_view');
   } else {
     name = input.name || `Interacción Facebook · ${dias} días`;
     rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_engaged');

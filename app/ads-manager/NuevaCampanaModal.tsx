@@ -35,7 +35,7 @@ const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: '
 
 type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
-type AudTipo = 'page' | 'ig' | 'video' | 'pixel';
+type AudTipo = 'page' | 'ig' | 'pixel';
 type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
@@ -553,9 +553,8 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
   const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: a.name ?? a.id }));
   const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' });
   const TIPO_OPCIONES = [
-    { value: 'page', label: 'Interactuaron con tu Facebook' },
+    { value: 'page', label: 'Interactuaron con tu Facebook (anuncios, posts, videos)' },
     { value: 'ig', label: 'Interactuaron con tu Instagram' },
-    { value: 'video', label: 'Vieron tus videos' },
     { value: 'pixel', label: 'Visitaron tu web / landing' },
   ];
   return (
