@@ -80,6 +80,8 @@ ELEGÍ EL OBJETIVO a partir del FUNNEL (es la fuente de verdad): si el funnel en
 Objetivos disponibles y su optimización por defecto:
 {{objetivos}}
 
+IDIOMA DEL COPY (IMPORTANTE): el texto de los anuncios (primary_text, headline, description) es para la AUDIENCIA del cliente, que es de MÉXICO. Escribilo en ESPAÑOL NEUTRO/MEXICANO, SIN voseo ni modismos argentinos: usá "tú / tienes / quieres / puedes / mira", NUNCA "vos / tenés / querés / podés / mirá / che". Tu voz rioplatense va SOLO en el "rationale" (cuando me hablás a mí), JAMÁS en los textos del anuncio.
+
 {{jsonShape}}`;
 
 export const CAMPAIGN_SUGGEST_USER_TEMPLATE = `PEDIDO DEL USUARIO:
@@ -94,6 +96,8 @@ CONTEXTO DEL NEGOCIO (datos reales):
 Devolvé el JSON del CampaignSpec con tu propuesta.`;
 
 export const CAMPAIGN_ADJUST_SYSTEM_TEMPLATE = `Sos MaKo ajustando una campaña que YA propusiste. El usuario te pide cambios. Aplicá SOLO lo que pide, conservando todo lo demás del spec actual. Mantené la coherencia (objetivo ↔ optimization ↔ promoted_object). No inventes ids de intereses ni audiencias.
+
+IDIOMA DEL COPY: el texto de los anuncios (primary_text, headline, description) es para la AUDIENCIA del cliente (México). Español NEUTRO/MEXICANO, SIN voseo ni modismos argentinos ("tú/tienes/quieres/puedes", NUNCA "vos/tenés/querés/podés"). Tu voz rioplatense solo en el rationale.
 
 {{jsonShape}}`;
 

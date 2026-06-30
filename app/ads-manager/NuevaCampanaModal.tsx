@@ -675,7 +675,9 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
 function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void; err: string | null }) {
   const opt = spec.adsets[0]?.optimization_goal;
   const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : spec.objective;
-  const ads = spec.adsets.flatMap((s) => s.ads);
+  const [editKey, setEditKey] = useState<string | null>(null);
+  const patchCreative = (ai: number, di: number, patch: Partial<Creative>) => setSpec({ ...spec, adsets: spec.adsets.map((a, i) => (i === ai ? { ...a, ads: a.ads.map((ad, j) => (j === di ? { ...ad, creative: { ...ad.creative, ...patch } } : ad)) } : a)) });
+  const editInput: CSSProperties = { width: '100%', padding: '8px 10px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' };
   return (
     <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ textAlign: 'center' }}>
@@ -689,25 +691,39 @@ function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec;
       </div>
       {spec.rationale && <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, margin: 0, textAlign: 'center' }}>{spec.rationale}</p>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {ads.map((ad, i) => {
+        {spec.adsets.map((adset, ai) => adset.ads.map((ad, di) => {
+          const key = `${ai}-${di}`;
+          const editing = editKey === key;
           const t = ad.creative.source === 'existing' ? tray.find((x) => x.source_ad_id === ad.creative.source_ad_id) : tray.find((x) => (ad.creative.image_hash && x.image_hash === ad.creative.image_hash) || (ad.creative.video_id && x.video_id === ad.creative.video_id));
           const thumb = t?.thumbnail_url ?? ad.creative.thumbnail_url ?? null;
           return (
-            <div key={i} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <div key={key} style={{ display: 'flex', gap: 12, padding: 12, borderRadius: 14, border: `1px solid ${editing ? 'var(--accent)' : 'var(--border)'}`, background: 'var(--surface-2)' }}>
               <div style={{ width: 64, flex: 'none', aspectRatio: '9 / 16', maxHeight: 110, borderRadius: 9, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {thumb
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={{ fontSize: 18 }}>{ad.creative.media_type === 'video' ? '🎬' : '🖼️'}</span>}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {ad.creative.primary_text ? <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.45 }}>{ad.creative.primary_text}</div> : <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>Sin copy.</div>}
-                {ad.creative.headline && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginTop: 4 }}>{ad.creative.headline}</div>}
-                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 5 }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {editing ? (
+                  <>
+                    <textarea value={ad.creative.primary_text ?? ''} onChange={(e) => patchCreative(ai, di, { primary_text: e.target.value })} rows={3} placeholder="Texto principal del anuncio" autoFocus style={{ ...editInput, resize: 'vertical', lineHeight: 1.45 }} />
+                    <input value={ad.creative.headline ?? ''} onChange={(e) => patchCreative(ai, di, { headline: e.target.value })} placeholder="Título" style={editInput} />
+                    <input value={ad.creative.description ?? ''} onChange={(e) => patchCreative(ai, di, { description: e.target.value })} placeholder="Descripción (opcional)" style={editInput} />
+                    <button type="button" onClick={() => setEditKey(null)} style={{ ...btnGhost, alignSelf: 'flex-start', fontSize: 12, padding: '5px 12px' }}>✓ Listo</button>
+                  </>
+                ) : (
+                  <>
+                    {ad.creative.primary_text ? <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.45 }}>{ad.creative.primary_text}</div> : <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>Sin copy — tocá el lápiz para escribirlo.</div>}
+                    {ad.creative.headline && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginTop: 4 }}>{ad.creative.headline}</div>}
+                    <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 5 }}>▸ {CTA_OPCIONES.find((o) => o.value === (ad.creative.cta_type ?? 'LEARN_MORE'))?.label}{ad.creative.destination_url ? ` · ${ad.creative.destination_url}` : ad.creative.lead_form_name ? ` · ${ad.creative.lead_form_name}` : ''}</div>
+                  </>
+                )}
               </div>
+              <button type="button" onClick={() => setEditKey(editing ? null : key)} title="Editar textos" style={{ flex: 'none', alignSelf: 'flex-start', background: 'transparent', border: 'none', cursor: 'pointer', color: editing ? 'var(--accent)' : 'var(--faint)', fontSize: 15, padding: 4, lineHeight: 1 }}>✎</button>
             </div>
           );
-        })}
+        }))}
       </div>
       <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Se crea en <b>pausa</b>, con <b>nomenclatura</b> (001 / 001.01 / 001.01.a) y <b>UTMs</b> de tracking automáticos. ¿Cambios? Tocá <b>Atrás</b> o <b>Regenerar</b>.{err ? ` — ${err}` : ''}</p>
     </div>
