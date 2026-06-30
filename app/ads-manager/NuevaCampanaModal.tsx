@@ -46,9 +46,29 @@ type TrayItem = {
   source_ad_id?: string | null;
   label: string;
   processing?: boolean;
+  progress?: number; // 0..100 mientras sube al storage; 100 = procesando en Meta
 };
 
 const fmtUso = (u: Uso) => (!u ? '' : `✦ ${u.tokens >= 1000 ? `${(u.tokens / 1000).toFixed(1)}k` : u.tokens} tok · $${u.costUsd >= 1 ? u.costUsd.toFixed(2) : u.costUsd.toFixed(3)}`);
+
+// PUT del archivo a la URL firmada de Supabase, con progreso (fetch no expone
+// progreso de subida → XHR). Supabase espera multipart: el archivo bajo el
+// campo '' + un campo cacheControl (así lo arma su propio SDK).
+function putWithProgress(url: string, file: File, apikey: string | null, onProgress: (pct: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('x-upsert', 'true');
+    if (apikey) xhr.setRequestHeader('apikey', apikey);
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100))); };
+    xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else reject(new Error(`No se pudo subir el archivo (HTTP ${xhr.status})`)); };
+    xhr.onerror = () => reject(new Error('Error de red al subir el archivo.'));
+    const fd = new FormData();
+    fd.append('cacheControl', '3600');
+    fd.append('', file);
+    xhr.send(fd);
+  });
+}
 
 export function NuevaCampanaModal({ senales, onClose, onPublished }: { senales: SenalRecon[]; onClose: () => void; onPublished: () => void }) {
   const [phase, setPhase] = useState<Phase>('brief');
@@ -118,22 +138,28 @@ export function NuevaCampanaModal({ senales, onClose, onPublished }: { senales: 
     const maxMb = esVideo ? 512 : 30;
     if (file.size > maxMb * 1024 * 1024) { setErr(`"${file.name}" supera el máximo (${maxMb} MB).`); return; }
     const id = `up-${++trayCounter.current}`;
-    const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true };
+    // Previa local inmediata para imágenes (el video queda con ícono).
+    const localUrl = esVideo ? null : URL.createObjectURL(file);
+    const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true, progress: 0, thumbnail_url: localUrl };
     setTray((t) => [...t, pend]);
     try {
       // 1) URL firmada para subir directo a Supabase Storage.
       const s = await fetch('/api/ads-manager/creative-signurl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, content_type: file.type }) });
       const sj = await s.json();
       if (!sj.ok) throw new Error(sj.error || 'No se pudo preparar la subida');
-      // 2) Subida directa del archivo (no pasa por la función → sin tope de body).
-      const put = await fetch(sj.signedUrl, { method: 'PUT', headers: { 'content-type': file.type, 'x-upsert': 'true' }, body: file });
-      if (!put.ok) throw new Error(`No se pudo subir el archivo (HTTP ${put.status})`);
+      // 2) Subida directa del archivo con progreso (no pasa por la función → sin tope de body).
+      await putWithProgress(sj.signedUrl, file, sj.apikey ?? null, (pct) => setTray((t) => t.map((x) => x.id === id ? { ...x, progress: pct } : x)));
+      setTray((t) => t.map((x) => x.id === id ? { ...x, progress: 100 } : x)); // ahora procesa Meta
       // 3) El servidor lo empuja a Meta desde el storage.
       const r = await fetch('/api/ads-manager/creative-upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: sj.path, content_type: file.type, filename: file.name }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'No se pudo procesar el creativo');
-      setTray((t) => t.map((x) => x.id === id ? { ...x, media_type: j.media_type, image_hash: j.image_hash ?? null, video_id: j.video_id ?? null, thumbnail_url: j.thumbnail_url ?? null, processing: false } : x));
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setTray((t) => t.filter((x) => x.id !== id)); }
+      setTray((t) => t.map((x) => x.id === id ? { ...x, media_type: j.media_type, image_hash: j.image_hash ?? null, video_id: j.video_id ?? null, thumbnail_url: x.thumbnail_url ?? j.thumbnail_url ?? null, processing: false, progress: undefined } : x));
+    } catch (e) {
+      if (localUrl) URL.revokeObjectURL(localUrl);
+      setErr(e instanceof Error ? e.message : String(e));
+      setTray((t) => t.filter((x) => x.id !== id));
+    }
   }
 
   function agregarGanador(s: SenalRecon) {
@@ -251,9 +277,16 @@ function CreativeTray({ tray, onSubir, onQuitar, senales, onGanador, compact }: 
             <div key={t.id} style={{ position: 'relative', width: 56, height: 76, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', flex: 'none' }} title={t.label}>
               {t.thumbnail_url
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={t.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: t.processing ? 0.5 : 1 }} />
+                ? <img src={t.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: t.processing ? 0.7 : 1 }} />
                 : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 18 }}>{t.media_type === 'video' ? '🎬' : '🖼️'}</div>}
-              {t.processing && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'var(--surface)', background: 'rgba(23,21,17,.5)', fontFamily: MONO }}>…</div>}
+              {t.processing && (
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(23,21,17,.62)', padding: '3px 4px 4px' }}>
+                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(243,240,231,.25)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${t.progress ?? 0}%`, background: 'var(--accent-soft)', transition: 'width .2s' }} />
+                  </div>
+                  <div style={{ fontSize: 8, lineHeight: 1.2, color: '#F3F0E7', fontFamily: MONO, textAlign: 'center', marginTop: 2 }}>{(t.progress ?? 0) < 100 ? `${t.progress ?? 0}%` : 'Meta…'}</div>
+                </div>
+              )}
               {t.kind === 'existing' && <span style={{ position: 'absolute', bottom: 2, left: 2, fontSize: 9, background: 'var(--accent)', color: '#fff', borderRadius: 4, padding: '0 3px' }}>★</span>}
               <button type="button" onClick={() => onQuitar(t.id)} style={{ position: 'absolute', top: 1, right: 1, width: 16, height: 16, borderRadius: 5, border: 'none', background: 'rgba(23,21,17,.7)', color: '#fff', fontSize: 10, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>

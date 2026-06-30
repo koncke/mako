@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
     try { await supabase.storage.createBucket(BUCKET, { public: false }); } catch { /* ya existe */ }
     const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(path);
     if (error || !data) return Response.json({ ok: false, error: error?.message ?? 'no se pudo firmar la subida' }, { status: 500 });
-    return Response.json({ ok: true, path: data.path, signedUrl: data.signedUrl });
+    // apikey pública (NEXT_PUBLIC) por si el storage la exige además del token firmado.
+    const apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? null;
+    return Response.json({ ok: true, path: data.path, signedUrl: data.signedUrl, apikey });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[ads-manager:creative-signurl] ${message}`);
