@@ -221,8 +221,13 @@ function coerceTargeting(raw: unknown): Targeting {
   const amin = num(t.age_min); if (amin) out.age_min = Math.min(65, Math.max(13, Math.round(amin)));
   const amax = num(t.age_max); if (amax) out.age_max = Math.min(65, Math.max(13, Math.round(amax)));
   if (Array.isArray(t.genders)) { const g = t.genders.map(Number).filter((x) => x === 1 || x === 2); if (g.length) out.genders = g; }
-  // intereses: MaKo solo manda nombres (sin id). Se guardan para que el usuario los resuelva.
-  const interests = Array.isArray(t.interests) ? t.interests : [];
+  // intereses: MaKo manda nombres (sin id). Aceptamos tanto la forma plana `interests`
+  // (lo que pide el JSON_SHAPE) como `flexible_spec[].interests` (lo que el spec ya
+  // guarda) para que el round-trip de ajuste no los pierda.
+  const flexI = Array.isArray(t.flexible_spec)
+    ? (t.flexible_spec as unknown[]).flatMap((g) => { const arr = g && typeof g === 'object' ? (g as Record<string, unknown>).interests : null; return Array.isArray(arr) ? arr : []; })
+    : [];
+  const interests = Array.isArray(t.interests) ? t.interests : flexI;
   const named = interests.map((i) => { const o = (i && typeof i === 'object' ? i : {}) as Record<string, unknown>; return { id: str(o.id), name: str(o.name) }; }).filter((i) => i.name);
   if (named.length) out.flexible_spec = [{ interests: named }];
   const adv = num(t.advantage_audience); if (adv === 0 || adv === 1) out.advantage_audience = adv as 0 | 1;

@@ -11,8 +11,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { createCampaign, createAdSet, createAdCreative, createAd, metaErrorEnvelope } from '@/lib/meta-ads-create';
-import type { CampaignSpec } from '@/lib/campaign-types';
+import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +28,12 @@ export async function POST(req: NextRequest) {
   }
   if (spec.adsets.some((a) => !Array.isArray(a.ads) || a.ads.length === 0)) {
     return Response.json({ ok: false, error: 'cada conjunto necesita al menos un anuncio' }, { status: 400 });
+  }
+  // Guarda: las conversiones web necesitan pixel. Sin él Meta rechaza el conjunto y
+  // dejaría la campaña huérfana → cortamos antes de crear nada.
+  if (!process.env.META_PIXEL_ID) {
+    const needsPixel = spec.adsets.some((a) => (a.optimization_goal || objetivoDef(spec.objective).optimization_goal) === 'OFFSITE_CONVERSIONS');
+    if (needsPixel) return Response.json({ ok: false, error: 'Las conversiones web (objetivo Ventas / OFFSITE_CONVERSIONS) requieren META_PIXEL_ID configurado en el entorno. Configurá el pixel o elegí Leads o Tráfico.' }, { status: 400 });
   }
 
   // Registro local (best-effort): si la DB no está, igual creamos en Meta.
@@ -73,10 +79,18 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true, campaign_id: campaignId, adset_ids: meta_adset_ids, ad_ids: meta_ad_ids, creative_ids: meta_creative_ids });
   } catch (err) {
     const env = metaErrorEnvelope(err);
-    await persist({ status: 'error', error: env.message, meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids });
+    // Rollback best-effort: borrar lo creado (todo en PAUSA, no gastó) para no dejar
+    // una campaña huérfana. Borrar la campaña cascadea a conjuntos/anuncios; los
+    // creativos son a nivel cuenta, se borran aparte.
+    let rolledBack = false;
+    if (campaignId) {
+      try { await deleteEntity(campaignId); for (const cid of meta_creative_ids) { await deleteEntity(cid).catch(() => { /* */ }); } rolledBack = true; }
+      catch (e) { console.error('[ads-manager:campaign-create] rollback falló', e); }
+    }
+    await persist({ status: 'error', error: env.message + (rolledBack ? ' (revertido)' : ''), meta_campaign_id: campaignId, meta_adset_ids, meta_ad_ids, meta_creative_ids });
     console.error(`[ads-manager:campaign-create] ${env.message}`);
     return Response.json(
-      { ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode, partial: { campaign_id: campaignId, adset_ids: meta_adset_ids, ad_ids: meta_ad_ids } },
+      { ok: false, error: env.message, code: env.code, error_subcode: env.error_subcode, rolledBack },
       { status: env.status },
     );
   }

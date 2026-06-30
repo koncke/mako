@@ -79,18 +79,76 @@ function putWithProgress(url: string, file: File, apikey: string | null, onProgr
   });
 }
 
+// ── Borrador local: conservar al cerrar el pop-up (no perder todo) ──
+const DRAFT_KEY = 'mako.nuevaCampana.draft.v1';
+type Draft = { prompt: string; tray: TrayItem[]; spec: CampaignSpec | null; messages: ChatMsg[]; uso: Uso };
+function loadDraft(): Draft {
+  const vacio: Draft = { prompt: '', tray: [], spec: null, messages: [], uso: null };
+  if (typeof window === 'undefined') return vacio;
+  try {
+    const raw = window.localStorage.getItem(DRAFT_KEY);
+    if (!raw) return vacio;
+    const d = JSON.parse(raw);
+    return { prompt: String(d.prompt ?? ''), tray: Array.isArray(d.tray) ? d.tray : [], spec: d.spec ?? null, messages: Array.isArray(d.messages) ? d.messages : [], uso: d.uso ?? null };
+  } catch { return vacio; }
+}
+
+// Miniatura local (dataURL) de una imagen o de un frame del video — para la previa
+// y para que sobreviva al cierre/reapertura del pop-up (objectURL no persiste).
+function fitCanvas(w: number, h: number) {
+  const max = 240; const scale = Math.min(1, max / Math.max(w || max, h || max));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round((w || max) * scale));
+  canvas.height = Math.max(1, Math.round((h || max) * scale));
+  return { canvas, ctx: canvas.getContext('2d') };
+}
+function makeThumb(file: File): Promise<string | null> {
+  return new Promise((resolve) => {
+    try {
+      if (file.type.startsWith('image')) {
+        const url = URL.createObjectURL(file);
+        const img = new window.Image();
+        img.onload = () => { const { canvas, ctx } = fitCanvas(img.width, img.height); if (!ctx) { URL.revokeObjectURL(url); return resolve(null); } ctx.drawImage(img, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); try { resolve(canvas.toDataURL('image/jpeg', 0.72)); } catch { resolve(null); } };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        img.src = url;
+      } else if (file.type.startsWith('video')) {
+        const url = URL.createObjectURL(file);
+        const v = document.createElement('video');
+        v.muted = true; v.preload = 'metadata'; v.playsInline = true;
+        v.onloadeddata = () => { try { v.currentTime = Math.min(1, (v.duration || 2) / 2); } catch { /* */ } };
+        v.onseeked = () => { const { canvas, ctx } = fitCanvas(v.videoWidth, v.videoHeight); if (!ctx) { URL.revokeObjectURL(url); return resolve(null); } ctx.drawImage(v, 0, 0, canvas.width, canvas.height); URL.revokeObjectURL(url); try { resolve(canvas.toDataURL('image/jpeg', 0.72)); } catch { resolve(null); } };
+        v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+        v.src = url;
+      } else resolve(null);
+    } catch { resolve(null); }
+  });
+}
+
 export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished }: { senales: SenalRecon[]; campaignCount: number; onClose: () => void; onPublished: () => void }) {
-  const [phase, setPhase] = useState<Phase>('brief');
-  const [prompt, setPrompt] = useState('');
-  const [tray, setTray] = useState<TrayItem[]>([]);
-  const [spec, setSpec] = useState<CampaignSpec | null>(null);
-  const [uso, setUso] = useState<Uso>(null);
+  const [draft0] = useState(loadDraft);
+  const [phase, setPhase] = useState<Phase>(draft0.spec ? 'review' : 'brief');
+  const [prompt, setPrompt] = useState(draft0.prompt);
+  const [tray, setTray] = useState<TrayItem[]>(draft0.tray);
+  const [spec, setSpec] = useState<CampaignSpec | null>(draft0.spec);
+  const [uso, setUso] = useState<Uso>(draft0.uso);
   const [err, setErr] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [messages, setMessages] = useState<ChatMsg[]>(draft0.messages);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ campaign_id: string; ads: number } | null>(null);
-  const trayCounter = useRef(0);
+  const trayCounter = useRef(draft0.tray.reduce((mx, t) => { const m = /^up-(\d+)$/.exec(t.id); return m ? Math.max(mx, Number(m[1])) : mx; }, 0));
+  const lastGuia = useRef<string | null>(null);
+  const publishingRef = useRef(false); // evita doble-submit (campañas duplicadas)
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Guardar el borrador en cada cambio (se conserva al cerrar el pop-up).
+  useEffect(() => {
+    try {
+      if (phase === 'done') return;
+      const algo = prompt.trim() || tray.length > 0 || spec;
+      if (!algo) { window.localStorage.removeItem(DRAFT_KEY); return; }
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ prompt, tray, spec, messages, uso }));
+    } catch { /* quota / no-op */ }
+  }, [prompt, tray, spec, messages, uso, phase]);
 
   // Públicos personalizados de la cuenta (para retargeting). Carga perezosa 1 vez.
   const [audiences, setAudiences] = useState<AudienceRef[] | null>(null);
@@ -120,7 +178,9 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       const s = autobind(j.spec as CampaignSpec, tray);
       setSpec(s);
       setUso(j.uso ?? null);
-      setMessages([{ role: 'mako', text: s.rationale || 'Te armé una primera versión. Pedime los cambios que quieras o tocá un botón.' }]);
+      const guia = guiaPendientes(s);
+      lastGuia.current = guia;
+      setMessages([{ role: 'mako', text: s.rationale || 'Te armé una primera versión. Pedime los cambios que quieras o tocá un botón.' }, ...(guia ? [{ role: 'mako' as const, text: guia }] : [])]);
       setPhase('review');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setPhase('brief'); }
   }
@@ -138,9 +198,13 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'MaKo no pudo ajustar');
-      setSpec((prev) => (prev ? mergeCreatives(prev, j.spec as CampaignSpec, tray) : autobind(j.spec as CampaignSpec, tray)));
+      const merged = spec ? mergeCreatives(spec, j.spec as CampaignSpec, tray) : autobind(j.spec as CampaignSpec, tray);
+      setSpec(merged);
       setUso(j.uso ?? null);
-      setMessages((m) => [...m, { role: 'mako', text: (j.spec as CampaignSpec).rationale || 'Listo, lo ajusté. Mirá la previa a la derecha.' }]);
+      const guia = guiaPendientes(merged);
+      const addGuia = guia && guia !== lastGuia.current;
+      lastGuia.current = guia;
+      setMessages((m) => [...m, { role: 'mako', text: (j.spec as CampaignSpec).rationale || 'Listo, lo ajusté. Mirá la previa a la derecha.' }, ...(addGuia ? [{ role: 'mako' as const, text: guia as string }] : [])]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setMessages((m) => [...m, { role: 'mako', text: `No pude aplicar el cambio: ${msg}` }]);
@@ -153,9 +217,9 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
     const maxMb = esVideo ? 512 : 30;
     if (file.size > maxMb * 1024 * 1024) { setErr(`"${file.name}" supera el máximo (${maxMb} MB).`); return; }
     const id = `up-${++trayCounter.current}`;
-    const localUrl = esVideo ? null : URL.createObjectURL(file);
-    const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true, progress: 0, thumbnail_url: localUrl };
+    const pend: TrayItem = { id, kind: 'upload', media_type: esVideo ? 'video' : 'image', label: file.name, processing: true, progress: 0, thumbnail_url: null };
     setTray((t) => [...t, pend]);
+    makeThumb(file).then((d) => { if (d) setTray((t) => t.map((x) => x.id === id ? { ...x, thumbnail_url: x.thumbnail_url ?? d } : x)); });
     try {
       const s = await fetch('/api/ads-manager/creative-signurl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, content_type: file.type }) });
       const sj = await s.json();
@@ -169,7 +233,6 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       // Auto-asigna el creativo nuevo a algún anuncio sin media.
       setSpec((prev) => (prev ? autobind(prev, [...tray, { ...pend, image_hash: j.image_hash ?? null, video_id: j.video_id ?? null, media_type: j.media_type, processing: false }]) : prev));
     } catch (e) {
-      if (localUrl) URL.revokeObjectURL(localUrl);
       setErr(e instanceof Error ? e.message : String(e));
       setTray((t) => t.filter((x) => x.id !== id));
     }
@@ -185,9 +248,10 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
 
   // ── publicar ──
   async function publicar() {
-    if (!spec) return;
+    if (!spec || publishingRef.current) return;
     const v = validar(spec);
     if (v) { setErr(v); return; }
+    publishingRef.current = true;
     setErr(null); setPhase('publishing');
     try {
       const r = await fetch('/api/ads-manager/campaign-create', {
@@ -196,18 +260,20 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'No se pudo publicar');
+      try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* */ }
       setResult({ campaign_id: j.campaign_id, ads: (j.ad_ids ?? []).length });
       setPhase('done');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setPhase('review'); }
+    finally { publishingRef.current = false; }
   }
 
   const wide = phase === 'review' || phase === 'publishing';
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '34px 18px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: wide ? 1120 : 880, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.4)', overflow: 'hidden' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: wide ? 1200 : 880, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.4)', overflow: 'hidden' }}>
         {/* header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>
               <MakoStar size={12} /> <MakoWord base="var(--accent)">MaKo</MakoWord> · Nueva campaña
@@ -231,7 +297,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
           <>
             <input ref={fileRef} type="file" multiple accept="image/jpeg,image/png,video/mp4,video/quicktime" style={{ display: 'none' }}
               onChange={(e) => { const files = e.target.files; if (files) Array.from(files).forEach((f) => subir(f)); e.target.value = ''; }} />
-            <div style={{ display: 'flex', minHeight: 0, height: 'min(72vh, 680px)' }}>
+            <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
               {/* IZQUIERDA — chat MaKo */}
               <ChatPane
                 messages={messages} sending={sending}
@@ -249,7 +315,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
             </div>
 
             {/* footer */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 24px', borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 24px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                 <button onClick={() => setPhase('brief')} style={btnGhost}>← Volver</button>
                 {uso && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtUso(uso)}</span>}
@@ -272,7 +338,7 @@ function BriefStep({ prompt, setPrompt, tray, onSubir, onQuitar, senales, onGana
   senales: SenalRecon[]; onGanador: (s: SenalRecon) => void; loading: boolean; err: string | null; onGenerar: () => void; onClose: () => void;
 }) {
   return (
-    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18, overflowY: 'auto', minHeight: 0 }}>
       <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: 0 }}>
         Describí qué querés lograr (objetivo, oferta, a quién apuntás, presupuesto). MaKo mira tu <b>funnel</b>, tus <b>KPIs</b> y tus <b>anuncios ganadores</b> y propone una estructura completa que después ajustás charlando. Se crea en <b>pausa</b>.
       </p>
@@ -375,38 +441,38 @@ function ChatPane({ messages, sending, onSend, onNomen, onSubir, nnn }: {
   const enviar = (t?: string) => { const v = (t ?? input).trim(); if (!v || sending) return; onSend(v); if (!t) setInput(''); };
 
   return (
-    <div style={{ width: '42%', minWidth: 340, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0, borderRight: '1px solid var(--border)', background: 'linear-gradient(180deg, rgba(200,135,12,.06), rgba(200,135,12,.02))' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 16px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
-        <MakoStar size={14} /> <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>Charlá con <MakoWord base="var(--accent)">MaKo</MakoWord></span>
+    <div style={{ width: '46%', minWidth: 360, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0, background: '#171511', color: '#F3F0E7' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 18px', borderBottom: '1px solid rgba(243,240,231,.12)', flex: 'none' }}>
+        <MakoStar size={16} /> <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 15.5, color: '#F3F0E7' }}>Charlá con <MakoWord base="#F3F0E7">MaKo</MakoWord></span>
       </div>
 
-      <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%', display: 'flex', gap: 8, alignItems: 'flex-start', flexDirection: m.role === 'user' ? 'row-reverse' : 'row' }}>
-            {m.role === 'mako' && <span style={{ flex: 'none', marginTop: 2 }}><MakoStar size={13} /></span>}
-            <div style={{ background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface)', color: m.role === 'user' ? '#171511' : 'var(--ink)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: 13, padding: '10px 13px', fontSize: 13.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{m.text}</div>
+            {m.role === 'mako' && <span style={{ flex: 'none', marginTop: 3 }}><MakoStar size={14} /></span>}
+            <div style={{ background: m.role === 'user' ? 'var(--accent-soft)' : 'rgba(243,240,231,.08)', color: m.role === 'user' ? '#171511' : '#F3F0E7', border: m.role === 'user' ? 'none' : '1px solid rgba(243,240,231,.14)', borderRadius: 14, padding: '11px 14px', fontSize: 14.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{m.text}</div>
           </div>
         ))}
-        {sending && <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}><MakoStar size={12} /> MaKo está ajustando…</div>}
+        {sending && <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, fontFamily: MONO, fontSize: 12.5, color: 'rgba(243,240,231,.6)' }}><MakoStar size={13} /> MaKo está ajustando…</div>}
       </div>
 
-      <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface)', flex: 'none' }}>
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'nowrap', overflowX: 'auto', padding: '10px 14px 0' }}>
-          <button type="button" onClick={onSubir} style={quickChip}>⬆ Subir creativo</button>
-          <button type="button" onClick={onNomen} style={quickChip} title={`Numera con tu sistema: ${nnn} · ${nnn}.01 · ${nnn}.01.a`}># Nomenclatura</button>
-          {QUICK.map((q) => <button key={q.label} type="button" onClick={() => enviar(q.send)} disabled={sending} style={{ ...quickChip, opacity: sending ? 0.5 : 1 }}>{q.label}</button>)}
+      <div style={{ borderTop: '1px solid rgba(243,240,231,.12)', background: '#1E1B16', flex: 'none' }}>
+        <div style={{ display: 'flex', gap: 7, flexWrap: 'nowrap', overflowX: 'auto', padding: '12px 14px 0' }}>
+          <button type="button" onClick={onSubir} style={darkChip}>⬆ Subir creativo</button>
+          <button type="button" onClick={onNomen} style={darkChip} title={`Numera con tu sistema: ${nnn} · ${nnn}.01 · ${nnn}.01.a`}># Nomenclatura</button>
+          {QUICK.map((q) => <button key={q.label} type="button" onClick={() => enviar(q.send)} disabled={sending} style={{ ...darkChip, opacity: sending ? 0.5 : 1 }}>{q.label}</button>)}
         </div>
-        <div style={{ display: 'flex', gap: 9, padding: '10px 14px 12px' }}>
+        <div style={{ display: 'flex', gap: 9, padding: '12px 14px 14px' }}>
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }} rows={1}
             placeholder="Pedile un cambio a MaKo…  (ej: la landing es https://… · apuntá 30-50 · sumá un anuncio)" disabled={sending}
-            style={{ flex: 1, padding: '10px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none', resize: 'none', minHeight: 42, maxHeight: 150, lineHeight: 1.4 }} />
-          <button type="button" onClick={() => enviar()} disabled={sending || !input.trim()} style={{ padding: '10px 16px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: sending || !input.trim() ? 'default' : 'pointer', opacity: sending || !input.trim() ? 0.55 : 1 }}>Enviar</button>
+            style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(243,240,231,.18)', background: 'rgba(243,240,231,.06)', color: '#F3F0E7', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'none', minHeight: 44, maxHeight: 150, lineHeight: 1.4 }} />
+          <button type="button" onClick={() => enviar()} disabled={sending || !input.trim()} style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 700, cursor: sending || !input.trim() ? 'default' : 'pointer', opacity: sending || !input.trim() ? 0.5 : 1 }}>Enviar</button>
         </div>
       </div>
     </div>
   );
 }
-const quickChip: CSSProperties = { flex: 'none', whiteSpace: 'nowrap', padding: '6px 11px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, cursor: 'pointer' };
+const darkChip: CSSProperties = { flex: 'none', whiteSpace: 'nowrap', padding: '7px 12px', borderRadius: 999, border: '1px solid rgba(243,240,231,.18)', background: 'rgba(243,240,231,.06)', color: '#F3F0E7', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' };
 
 // ── DERECHA: previa en vivo de la campaña ──────────────────────────────────────
 function PreviewPane({ spec, tray, audiences, patchTargeting, patchCreative, senales, onGanador, onSubir, onQuitarTray }: {
@@ -416,7 +482,7 @@ function PreviewPane({ spec, tray, audiences, patchTargeting, patchCreative, sen
 }) {
   const objLabel = OBJETIVOS.find((o) => o.value === spec.objective)?.label ?? spec.objective;
   return (
-    <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)' }}>
+    <div style={{ flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)' }}>
       <CreativeTray tray={tray} onSubir={onSubir} onQuitar={onQuitarTray} senales={senales} onGanador={onGanador} compact />
 
       {/* Campaña */}
@@ -541,7 +607,7 @@ function AdPreview({ ai, di, ad, adset, tray, patchCreative }: {
           {thumb
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <span style={{ fontSize: 10, color: 'var(--faint)', textAlign: 'center', padding: 5 }}>{c.media_type === 'video' ? '🎬' : '🖼️'} sin asignar</span>}
+            : <span style={{ fontSize: 10, color: 'var(--faint)', textAlign: 'center', padding: 5 }}>{c.media_type === 'video' ? '🎬' : '🖼️'} {asignado ? 'asignado' : 'sin asignar'}</span>}
         </div>
         <Dropdown value={asignado} options={trayOpts} onChange={asignar} width="100%" buttonStyle={{ fontSize: 11.5, padding: '5px 8px' }} />
       </div>
@@ -654,21 +720,66 @@ function autobind(spec: CampaignSpec, tray: TrayItem[]): CampaignSpec {
   };
 }
 
-// Conserva los creativos ya asignados (por posición) al traer un spec ajustado de MaKo.
+// Al traer un spec AJUSTADO de MaKo, conserva (por posición) todo lo que el usuario
+// puso y MaKo no puede reproducir: creativos asignados, formulario instantáneo, URL
+// de destino, y los campos de segmentación con id (públicos, placements, locales,
+// exclusiones geo). MaKo nunca inventa esos ids → si el spec nuevo los perdió, los
+// recuperamos del anterior.
 function mergeCreatives(prev: CampaignSpec, next: CampaignSpec, tray: TrayItem[]): CampaignSpec {
   const merged: CampaignSpec = {
     ...next,
-    adsets: next.adsets.map((a, i) => ({
-      ...a,
-      ads: a.ads.map((ad, j) => {
-        const pc = prev.adsets[i]?.ads[j]?.creative;
-        const tieneMedia = pc && (pc.image_hash || pc.video_id || (pc.source === 'existing' && pc.source_ad_id));
-        if (!tieneMedia) return ad;
-        return { ...ad, creative: { ...ad.creative, source: pc!.source, media_type: pc!.media_type, image_hash: pc!.image_hash ?? null, video_id: pc!.video_id ?? null, source_ad_id: pc!.source_ad_id ?? null, thumbnail_url: pc!.thumbnail_url ?? ad.creative.thumbnail_url } };
-      }),
-    })),
+    adsets: next.adsets.map((a, i) => {
+      const pt = prev.adsets[i]?.targeting;
+      const targeting: Targeting = {
+        ...a.targeting,
+        custom_audiences: a.targeting.custom_audiences?.length ? a.targeting.custom_audiences : pt?.custom_audiences,
+        excluded_custom_audiences: a.targeting.excluded_custom_audiences?.length ? a.targeting.excluded_custom_audiences : pt?.excluded_custom_audiences,
+        excluded_geo_locations: a.targeting.excluded_geo_locations ?? pt?.excluded_geo_locations,
+        facebook_positions: a.targeting.facebook_positions?.length ? a.targeting.facebook_positions : pt?.facebook_positions,
+        instagram_positions: a.targeting.instagram_positions?.length ? a.targeting.instagram_positions : pt?.instagram_positions,
+        locales: a.targeting.locales?.length ? a.targeting.locales : pt?.locales,
+      };
+      return {
+        ...a,
+        targeting,
+        ads: a.ads.map((ad, j) => {
+          const pc = prev.adsets[i]?.ads[j]?.creative;
+          let creative: Creative = ad.creative;
+          // Formulario instantáneo y URL: los pone el usuario, MaKo no los reproduce.
+          if (pc?.lead_form_id) creative = { ...creative, lead_form_id: pc.lead_form_id, lead_form_name: pc.lead_form_name ?? null };
+          if (!creative.destination_url?.trim() && pc?.destination_url) creative = { ...creative, destination_url: pc.destination_url };
+          // Media (image_hash/video_id/ganador): MaKo no conoce los hashes.
+          const tieneMedia = pc && (pc.image_hash || pc.video_id || (pc.source === 'existing' && pc.source_ad_id));
+          if (tieneMedia) creative = { ...creative, source: pc!.source, media_type: pc!.media_type, image_hash: pc!.image_hash ?? null, video_id: pc!.video_id ?? null, source_ad_id: pc!.source_ad_id ?? null, thumbnail_url: pc!.thumbnail_url ?? creative.thumbnail_url };
+          return creative === ad.creative ? ad : { ...ad, creative };
+        }),
+      };
+    }),
   };
   return autobind(merged, tray);
+}
+
+// MaKo guía: qué falta para poder publicar (se muestra como mensaje suyo en el chat).
+function guiaPendientes(spec: CampaignSpec): string | null {
+  const sinCreativo: string[] = []; const sinForm: string[] = []; const sinUrl: string[] = [];
+  for (const a of spec.adsets) {
+    for (const ad of a.ads) {
+      const c = ad.creative;
+      const media = c.source === 'existing' ? !!c.source_ad_id : !!(c.image_hash || c.video_id);
+      if (!media) sinCreativo.push(ad.name);
+      else if (a.optimization_goal === 'LEAD_GENERATION' && !c.lead_form_id) sinForm.push(ad.name);
+      else if (a.optimization_goal !== 'LEAD_GENERATION' && c.source !== 'existing' && !c.destination_url?.trim()) sinUrl.push(ad.name);
+    }
+  }
+  const rtgSinAud = spec.adsets.filter((a) => /retarget|rtg|remarket/i.test(a.name) && !(a.targeting.custom_audiences?.length));
+  const lista = (arr: string[]) => (arr.length === 1 ? `"${arr[0]}"` : `${arr.length} anuncios`);
+  const faltas: string[] = [];
+  if (sinCreativo.length) faltas.push(`asigná un creativo a ${lista(sinCreativo)} (subí arriba o elegí un ganador)`);
+  if (sinForm.length) faltas.push(`elegí el formulario instantáneo en ${lista(sinForm)}`);
+  if (sinUrl.length) faltas.push(`pasame la URL de la landing/VSL para ${lista(sinUrl)}`);
+  if (rtgSinAud.length) faltas.push(`cargá tu público personalizado en ${rtgSinAud.length === 1 ? `"${rtgSinAud[0].name}"` : `${rtgSinAud.length} conjuntos`} (es retargeting y sin eso queda como público frío)`);
+  if (!faltas.length) return null;
+  return `Para poder publicar todavía falta: ${faltas.join('; ')}. Decime y lo cargo, o pedime cualquier ajuste.`;
 }
 
 function validar(spec: CampaignSpec): string | null {

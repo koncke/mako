@@ -143,7 +143,13 @@ export function buildTargeting(t: Targeting): Record<string, unknown> {
   if (t.facebook_positions?.length) out.facebook_positions = t.facebook_positions;
   if (t.instagram_positions?.length) out.instagram_positions = t.instagram_positions;
   if (t.locales?.length) out.locales = t.locales;
-  if (t.advantage_audience !== undefined) out.targeting_automation = { advantage_audience: t.advantage_audience };
+  // v23+: al CREAR un conjunto con segmentación NO-default (intereses/edad/género/
+  // públicos), Meta EXIGE targeting_automation.advantage_audience explícito (0 o 1).
+  // Si el usuario afinó la segmentación y no definió advantage → 0 (respetar lo fino);
+  // si no hay nada fino → 1 (Advantage+ amplio). Nunca lo dejamos sin setear.
+  const hasFine = Boolean(t.age_min || t.age_max || t.genders?.length || t.flexible_spec?.some((g) => g.interests?.length) || t.custom_audiences?.length);
+  const adv = t.advantage_audience !== undefined ? t.advantage_audience : (hasFine ? 0 : 1);
+  out.targeting_automation = { advantage_audience: adv };
   return out;
 }
 
@@ -375,6 +381,16 @@ export async function createAd(adsetId: string, ad: AdSpec, creativeId: string):
     status: 'PAUSED',
   });
   return String(data.id);
+}
+
+/**
+ * Borra una entidad (campaña/conjunto/anuncio/creativo) en Meta. Best-effort, para
+ * el rollback de un árbol a medio crear. Borrar la campaña cascadea a sus conjuntos
+ * y anuncios; los creativos son a nivel cuenta y se borran aparte.
+ */
+export async function deleteEntity(id: string): Promise<void> {
+  const url = `${GRAPH_BASE}/${ver()}/${id}?access_token=${encodeURIComponent(token())}`;
+  await fetch(url, { method: 'DELETE', cache: 'no-store' });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
