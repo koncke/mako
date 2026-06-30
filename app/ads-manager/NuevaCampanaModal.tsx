@@ -35,7 +35,7 @@ const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: '
 
 type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
-type AudTipo = 'page' | 'ig' | 'lead' | 'pixel';
+type AudTipo = 'page' | 'ig' | 'video' | 'pixel';
 type Destino = { lead_form_id?: string | null; lead_form_name?: string | null; url?: string };
 type Analisis = Array<{ descripcion: string; angulo: string }>;
 type Uso = { tokens: number; costUsd: number } | null;
@@ -549,14 +549,14 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
 // ── público (retargeting) — elegir uno existente o CREAR uno sin entrar a Meta ──
 function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, creando }: { audiencesAll: AudienceRef[] | null; audiencias: AudienceRef[]; setAudiencias: (a: AudienceRef[]) => void; onCrear: (tipo: AudTipo, dias: number) => void; creando: boolean }) {
   const [dias, setDias] = useState(90);
+  const [nuevoTipo, setNuevoTipo] = useState('');
   const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: a.name ?? a.id }));
   const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' });
-  const btnCrear: CSSProperties = { ...btnGhost, fontSize: 12.5, padding: '8px 12px', opacity: creando ? 0.5 : 1 };
-  const presets: Array<{ tipo: AudTipo; label: string }> = [
-    { tipo: 'page', label: '👍 Facebook' },
-    { tipo: 'ig', label: '📸 Instagram' },
-    { tipo: 'lead', label: '📝 Abrieron tu form' },
-    { tipo: 'pixel', label: '🌐 Tu web' },
+  const TIPO_OPCIONES = [
+    { value: 'page', label: 'Interactuaron con tu Facebook' },
+    { value: 'ig', label: 'Interactuaron con tu Instagram' },
+    { value: 'video', label: 'Vieron tus videos' },
+    { value: 'pixel', label: 'Visitaron tu web / landing' },
   ];
   return (
     <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
@@ -569,16 +569,17 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
       )}
       {audiencias.length > 1 && <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>Se combinan (cualquiera de los {audiencias.length}).</span>}
 
-      {/* crear público sin entrar a Meta */}
-      <div style={{ width: '100%', borderTop: '1px dashed var(--border)', paddingTop: 14, marginTop: 4 }}>
-        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: '0 0 10px' }}>¿No está el que querés? Creá uno acá, sin entrar a Meta. Podés crear varios y se combinan.</p>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 10 }}>
-          {[30, 90, 180].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>{dd} días</button>)}
+      {/* crear público sin entrar a Meta — desplegable + ventana + crear */}
+      <div style={{ width: '100%', borderTop: '1px dashed var(--border)', paddingTop: 14, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+        <p style={{ fontSize: 12.5, color: 'var(--dim)', textAlign: 'center', margin: 0 }}>¿No está el que querés? Creá uno acá, sin entrar a Meta. Podés crear varios y se combinan.</p>
+        <Dropdown value={nuevoTipo} placeholder="¿Qué público querés crear?" options={TIPO_OPCIONES} onChange={setNuevoTipo} width="100%" />
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+          {[30, 90, 180].map((dd) => <button key={dd} type="button" onClick={() => setDias(dd)} style={chipDia(dias === dd)}>últimos {dd} días</button>)}
         </div>
-        <div style={{ display: 'flex', gap: 7, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {presets.map((p) => <button key={p.tipo} type="button" disabled={creando} onClick={() => onCrear(p.tipo, dias)} style={btnCrear}>{p.label}</button>)}
-        </div>
-        {creando && <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', marginTop: 8 }}>Creando el público en Meta…</p>}
+        <button type="button" disabled={creando || !nuevoTipo} onClick={() => onCrear(nuevoTipo as AudTipo, dias)}
+          style={{ ...btnDark, fontSize: 13.5, padding: '10px 18px', opacity: creando || !nuevoTipo ? 0.4 : 1, cursor: creando || !nuevoTipo ? 'not-allowed' : 'pointer' }}>
+          {creando ? 'Creando en Meta…' : '+ Crear público'}
+        </button>
       </div>
     </div>
   );

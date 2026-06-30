@@ -240,7 +240,7 @@ export async function listCustomAudiences(): Promise<Array<{ id: string; name: s
   return arr.map((a) => ({ id: String(a.id), name: String(a.name ?? a.id), subtype: a.subtype ? String(a.subtype) : undefined, count: a.approximate_count != null ? Number(a.approximate_count) : null }));
 }
 
-export type AudienceTipo = 'page' | 'ig' | 'lead' | 'pixel';
+export type AudienceTipo = 'page' | 'ig' | 'video' | 'pixel';
 
 /** id de la cuenta de Instagram conectada (para públicos de IG). null si no hay. */
 async function getInstagramActorId(): Promise<string | null> {
@@ -279,27 +279,28 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
     inclusions: { operator: 'or', rules: [{ event_sources: [source], retention_seconds: retention, ...(event ? { filter: { operator: 'or', filters: [{ field: 'event', operator: '=', value: event }] } } : {}) }] },
   });
 
-  let name: string; let subtype = 'ENGAGEMENT'; let rule: Record<string, unknown>;
+  let name: string; let rule: Record<string, unknown>;
   if (input.tipo === 'pixel') {
     const pixel = process.env.META_PIXEL_ID;
     if (!pixel) throw new MetaWriteError('Para "visitaron tu web" hace falta META_PIXEL_ID configurado. Elegí otro tipo o configurá el pixel.');
-    name = input.name || `Visitantes web · ${dias} días`;
-    subtype = 'WEBSITE';
+    name = input.name || `Visitaron tu web · ${dias} días`;
     rule = { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'pixel', id: pixel }], retention_seconds: retention }] } };
   } else if (input.tipo === 'ig') {
     const ig = await getInstagramActorId();
     if (!ig) throw new MetaWriteError('No encontré una cuenta de Instagram conectada a tu página. Conectala en Meta o elegí otro tipo de público.');
     name = input.name || `Interacción Instagram · ${dias} días`;
     rule = eng({ type: 'ig_business', id: ig }, 'ig_business_profile_engaged');
-  } else if (input.tipo === 'lead') {
-    name = input.name || `Abrieron tu formulario · ${dias} días`;
-    rule = eng({ type: 'page', id: META_PAGE_ID }, 'lead_generation');
+  } else if (input.tipo === 'video') {
+    name = input.name || `Vieron tus videos · ${dias} días`;
+    rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_video_view');
   } else {
     name = input.name || `Interacción Facebook · ${dias} días`;
     rule = eng({ type: 'page', id: META_PAGE_ID }, 'page_engaged');
   }
 
-  const data = await graphPost(`${acct()}/customaudiences`, { name, subtype, rule: JSON.stringify(rule) });
+  // En v25 `subtype` ya NO se manda (Meta lo infiere de la regla). El nombre debe
+  // ser corto y simple (Meta rechaza nombres largos o con caracteres raros).
+  const data = await graphPost(`${acct()}/customaudiences`, { name: name.slice(0, 48), rule: JSON.stringify(rule) });
   if (!data.id) throw new MetaWriteError('Meta no devolvió el id del público');
   return { id: String(data.id), name };
 }
