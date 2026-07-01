@@ -45,7 +45,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
       { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', comingSoon: true, match: starts('/landing-analyst') },
       { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
-      { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'spy', comingSoon: true, match: starts('/market-analyst') },
+      { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'search', comingSoon: true, match: starts('/market-analyst') },
     ],
   },
   {
