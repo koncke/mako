@@ -41,7 +41,8 @@ export default async function ExperimentosPage() {
   }
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '30px 44px 70px' }}>
+    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
+      <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 22px', color: 'var(--ink)' }}>Experiments</h1>
       <ExperimentosApp exp={view} retros={retros} errorMsg={errorMsg} demo={demo} />
     </main>
   );
