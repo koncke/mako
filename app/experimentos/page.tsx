@@ -1,61 +1,62 @@
 // =============================================================================
 // /experimentos — la única vista con verdades, y con datos
 // =============================================================================
-// Convierte hipótesis (lenguaje natural) en experimentos medibles contra el
-// funnel real, los mide en vivo y, al cerrar, deja un aprendizaje respaldado por
-// el dato. Es el único lugar del dashboard donde el sistema declara verdades; en
-// el resto, MaKo sugiere abrir un experimento en vez de concluir.
+// Cuatro tabs: Retro · Experiments · To-do · Conclusions.
+//   Retro        → MaKo lee el funnel + experimentos + conclusiones + tareas del
+//                  período y deja un reporte + un plan (probá esto / hacé esto).
+//   Experiments  → hipótesis → prueba medible contra el dato real → cierre.
+//   To-do        → tablero kanban de las tareas a ejecutar.
+//   Conclusions  → las verdades validadas (aprendizajes cerrados con dato).
 //
-// La data vive en `experimentos` (migración 0047). Esta página solo lee la vista
-// inicial (resiliente: si Supabase no está, arranca vacía); el componente cliente
-// dispara sugerencias, arranques y cierres.
+// En el resto del dashboard MaKo sugiere abrir un experimento; solo acá se
+// declaran verdades. La página solo lee (resiliente: en local sin Supabase cae a
+// datos DEMO en desarrollo para poder ver el diseño; en producción, dato real).
 // =============================================================================
 
 import { getExperimentosView, type ExperimentosView } from '@/lib/experimentos';
-import { ExperimentosBrowser } from './ExperimentosBrowser';
+import { listRetros, type Retro } from '@/lib/retro';
+import { listTareas, type Tarea } from '@/lib/todo';
+import { ExperimentosApp } from './ExperimentosApp';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
 
-const EMPTY: ExperimentosView = {
-  activos: [],
-  propuestos: [],
-  aprendizajes: [],
-  descartados: [],
+const EMPTY_VIEW: ExperimentosView = {
+  activos: [], propuestos: [], aprendizajes: [], descartados: [],
   counts: { activos: 0, propuestos: 0, cerrados: 0, validadas: 0 },
 };
 
 export default async function ExperimentosPage() {
-  let data: ExperimentosView = EMPTY;
+  let view: ExperimentosView = EMPTY_VIEW;
+  let retros: Retro[] = [];
+  let tareas: Tarea[] = [];
   let errorMsg: string | null = null;
-  try {
-    data = await getExperimentosView();
-  } catch (err) {
-    errorMsg = err instanceof Error ? err.message : String(err);
+  let dbDown = false;
+
+  try { view = await getExperimentosView(); } catch (err) { errorMsg = err instanceof Error ? err.message : String(err); dbDown = true; }
+  try { retros = await listRetros(); } catch { /* tab Retro arranca vacía */ }
+  try { tareas = await listTareas(); } catch { /* tab To-do arranca vacía */ }
+
+  // En local (sin Supabase) mostramos datos DEMO para poder ver e iterar el
+  // diseño. En producción esto nunca corre (NODE_ENV === 'production').
+  let demo = false;
+  if (dbDown && process.env.NODE_ENV !== 'production') {
+    const d = await import('./_demo');
+    view = d.demoView; retros = d.demoRetros; tareas = d.demoTareas; demo = true; errorMsg = null;
   }
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
-      <header style={{ marginBottom: 18 }}>
+      <header style={{ marginBottom: 20 }}>
         <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
           Experimentos · la única verdad, con datos
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13, flexWrap: 'wrap' }}>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Experimentos</h1>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: 12.5, fontWeight: 600 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Funnel real
-          </span>
-        </div>
-        <p style={{ marginTop: 10, fontSize: 15, color: 'var(--dim)', maxWidth: 720, lineHeight: 1.55 }}>
-          En todo el dashboard MaKo te <strong>sugiere</strong> qué probar — nunca te da una conclusión.
-          Acá una hipótesis se vuelve una prueba medible, se sigue contra el dato real y, al cerrar,
-          queda una <strong>verdad de tu negocio</strong>.
-        </p>
+        <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Experimentos</h1>
       </header>
 
-      <ExperimentosBrowser data={data} errorMsg={errorMsg} />
+      <ExperimentosApp exp={view} retros={retros} tareas={tareas} errorMsg={errorMsg} demo={demo} />
     </main>
   );
 }
