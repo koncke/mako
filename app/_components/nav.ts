@@ -41,7 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'analytics', label: 'Analytics', icon: 'analytics', items: [
       { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', match: starts('/closing') },
-      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'tvad', match: starts('/script-analyst') },
+      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'notepencil', match: starts('/script-analyst') },
       { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
       { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', comingSoon: true, match: starts('/landing-analyst') },
       { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
@@ -49,7 +49,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: 'tools', label: 'Tools', icon: 'hammer', items: [
+    key: 'tools', label: 'Tools', icon: 'tools', items: [
       { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', comingSoon: true, match: starts('/ads-writer') },
       { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'pen', comingSoon: true, match: starts('/vsl-writer') },
       { key: 'landing-writer', label: 'Landing Writer', href: '/landing-writer', icon: 'pen', comingSoon: true, match: starts('/landing-writer') },
