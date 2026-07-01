@@ -69,11 +69,11 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 // Menú del usuario (dropdown de la foto de perfil, abajo del sidebar).
+// Funnel y Onboarding viven DENTRO de Configuraciones (sub-tabs), por eso el
+// item Configuraciones también matchea esas rutas.
 export const USER_NAV: NavItem[] = [
   { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', icon: 'contexto', match: starts('/contexto') },
-  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: starts('/configuraciones') },
-  { key: 'funnel', label: 'Funnel', href: '/funnel', icon: 'funnel', match: starts('/funnel') },
-  { key: 'onboarding', label: 'Onboarding', href: '/onboarding', icon: 'onboarding', match: starts('/onboarding') },
+  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/funnel')(p) || starts('/onboarding')(p) },
 ];

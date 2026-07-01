@@ -18,6 +18,9 @@ export type Perfil = {
   email: string;      // destino de los reportes por email
   telefono: string;   // WhatsApp destino de los reportes (E.164, ej. +5216861234567)
   cargo: string;
+  empresa: string;
+  web: string;
+  bio: string;
   timezone: string;
   avatarUrl: string;
 };
@@ -27,6 +30,9 @@ export const DEFAULT_PERFIL: Perfil = {
   email: '',
   telefono: '',
   cargo: 'Fundador',
+  empresa: '',
+  web: '',
+  bio: '',
   timezone: 'America/Tijuana',
   avatarUrl: '',
 };
@@ -37,6 +43,9 @@ const PERFIL_KEYS: Record<keyof Perfil, string> = {
   email: 'user_email',
   telefono: 'user_telefono',
   cargo: 'user_cargo',
+  empresa: 'user_empresa',
+  web: 'user_web',
+  bio: 'user_bio',
   timezone: 'user_timezone',
   avatarUrl: 'user_avatar_url',
 };

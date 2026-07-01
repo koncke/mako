@@ -167,7 +167,7 @@ function PromptCard({ p, onSaved }: { p: Prompt; onSaved: () => void }) {
   );
 }
 
-export function Configuraciones() {
+export function Configuraciones({ embedded = false }: { embedded?: boolean }) {
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [q, setQ] = useState('');
@@ -196,14 +196,18 @@ export function Configuraciones() {
   const isOpen = (g: string) => abierto[g] ?? true;
 
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <MakoLogo size={36} />
-        <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
-      </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 20px', maxWidth: 760 }}>
-        Configurá a MaKo: cada prompt que hoy vive en el código se puede editar acá. Cada uno trae su contexto (qué hace y qué cuidar) y, si es dinámico, las variables {'{{slot}}'} que se reemplazan con datos reales. Lo que dejes sin tocar se comporta exactamente como hoy. Siempre podés volver al default.
-      </p>
+    <div style={embedded ? { minWidth: 0 } : { flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+      {!embedded && (
+        <>
+          <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <MakoLogo size={36} />
+            <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
+          </header>
+          <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 20px', maxWidth: 760 }}>
+            Configurá a MaKo: cada prompt que hoy vive en el código se puede editar acá. Cada uno trae su contexto (qué hace y qué cuidar) y, si es dinámico, las variables {'{{slot}}'} que se reemplazan con datos reales. Lo que dejes sin tocar se comporta exactamente como hoy. Siempre podés volver al default.
+          </p>
+        </>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
         <input style={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar prompt (closing, validador, hook…)" />
@@ -241,6 +245,6 @@ export function Configuraciones() {
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }

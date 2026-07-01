@@ -7,6 +7,7 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { MakoLogo } from '../_components/MakoBrand';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
+import { Configuraciones } from '../configuraciones/Configuraciones';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -227,6 +228,7 @@ const TABS = [
   { key: 'conocimiento', label: 'Conocimiento' },
   { key: 'fases', label: 'Fases' },
   { key: 'prompts', label: 'Prompts' },
+  { key: 'config', label: 'Configuración' },
 ] as const;
 
 export function ContextoTabs() {
@@ -249,6 +251,7 @@ export function ContextoTabs() {
         {tab === 'conocimiento' && <KnowledgeTab />}
         {tab === 'fases' && <FasesTab />}
         {tab === 'prompts' && <PromptsTab />}
+        {tab === 'config' && <Configuraciones embedded />}
       </div>
     </main>
   );
