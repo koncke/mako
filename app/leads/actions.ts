@@ -108,7 +108,7 @@ export async function savePlanPagosAction(
   await savePlanPagos(leadId, plan);
   bust(TAG.pagos, TAG.leads);
   revalidatePath(`/leads/${leadId}`);
-  revalidatePath('/revenue');
+  revalidatePath('/comercial');
   revalidatePath('/general');
 }
 
@@ -120,7 +120,7 @@ export async function savePlanManualAction(leadId: number, plan: PlanManual): Pr
   bust(TAG.pagos, TAG.leads);
   revalidatePath('/leads');
   revalidatePath(`/leads/${leadId}`);
-  revalidatePath('/revenue');
+  revalidatePath('/comercial');
   revalidatePath('/general');
 }
 
@@ -136,7 +136,7 @@ export async function marcarPagoAction(
   await marcarPago(pagoId, pagado, fechaPago);
   bust(TAG.pagos, TAG.leads);
   revalidatePath(`/leads/${leadId}`);
-  revalidatePath('/revenue');
+  revalidatePath('/comercial');
   revalidatePath('/general');
 }
 

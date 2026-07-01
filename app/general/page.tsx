@@ -472,7 +472,7 @@ function PendientesCard({ pendientes }: { pendientes: Pendientes }) {
           </div>
         </div>
         {pendientes.total > 0 && (
-          <Link href="/pendientes" style={{ flex: 'none', alignSelf: 'center', padding: '12px 20px', borderRadius: 11, background: 'var(--bad)', color: '#fff', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>Marcar pendientes →</Link>
+          <Link href="/leads" style={{ flex: 'none', alignSelf: 'center', padding: '12px 20px', borderRadius: 11, background: 'var(--bad)', color: '#fff', fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>Marcar pendientes →</Link>
         )}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginTop: 22 }}>

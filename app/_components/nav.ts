@@ -22,14 +22,16 @@ export type NavGroup = { key: string; label: string; icon: string; items: NavIte
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
 
-// Items sueltos (arriba de los grupos).
+// Items sueltos (arriba del divider).
 export const TOP_NAV: NavItem[] = [
   { key: 'general', label: 'General', href: '/general', icon: 'general', match: starts('/general') },
   { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, match: starts('/leads') },
   { key: 'graphics', label: 'Graphics', href: '/graphics', icon: 'graphics', match: (p) => starts('/graphics')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
 ];
+
+// Ads Manager va DEBAJO del divider, arriba de los grupos.
+export const ADS_MANAGER_ITEM: NavItem = { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') };
 
 // MaKo va aparte, abajo del todo (arriba del perfil), siempre con su estrella dorada.
 export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', match: starts('/mako') };
@@ -39,7 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'analytics', label: 'Analytics', icon: 'analytics', items: [
       { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', match: starts('/closing') },
-      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'ads', match: starts('/script-analyst') },
+      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'tvad', match: starts('/script-analyst') },
       { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
       { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', comingSoon: true, match: starts('/landing-analyst') },
       { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },

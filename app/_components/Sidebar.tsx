@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, type NavItem } from './nav';
+import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, ADS_MANAGER_ITEM, type NavItem } from './nav';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
@@ -67,6 +67,7 @@ export function Sidebar() {
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { unreadTotal } = useNotifications();
 
   const iniciales = perfilNombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
@@ -101,15 +102,19 @@ export function Sidebar() {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     collapseTimer.current = setTimeout(() => setExpanded(false), 340);
   };
-  useEffect(() => () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }, []);
+  useEffect(() => () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); if (flyoutTimer.current) clearTimeout(flyoutTimer.current); if (userTimer.current) clearTimeout(userTimer.current); }, []);
 
-  const toggleUser = () => {
-    if (!userOpen) {
-      const r = userBtnRef.current?.getBoundingClientRect();
-      if (r) setMenuPos({ left: r.right + 12, bottom: Math.max(12, window.innerHeight - r.bottom) });
-      setFlyout(null);
-    }
-    setUserOpen((v) => !v);
+  // El menú de la foto de perfil también abre AL PASAR EL CURSOR (además del clic).
+  const openUserMenu = () => {
+    if (userTimer.current) clearTimeout(userTimer.current);
+    const r = userBtnRef.current?.getBoundingClientRect();
+    if (r) setMenuPos({ left: r.right + 12, bottom: Math.max(12, window.innerHeight - r.bottom) });
+    setFlyout(null);
+    setUserOpen(true);
+  };
+  const scheduleCloseUser = () => {
+    if (userTimer.current) clearTimeout(userTimer.current);
+    userTimer.current = setTimeout(() => setUserOpen(false), 220);
   };
 
   // Los grupos abren su flyout AL PASAR EL CURSOR (hover). El menú de perfil, no
@@ -137,6 +142,18 @@ export function Sidebar() {
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [flyout]);
+
+  // Cerrar el menú de perfil al hacer clic afuera.
+  useEffect(() => {
+    if (!userOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (document.getElementById('user-menu')?.contains(e.target as Node)) return;
+      if (userBtnRef.current?.contains(e.target as Node)) return;
+      setUserOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [userOpen]);
 
   const GroupHeader = ({ gKey, label, icon }: { gKey: string; label: string; icon: string }) => {
     const g = NAV_GROUPS.find((x) => x.key === gKey)!;
@@ -188,7 +205,8 @@ export function Sidebar() {
           {TOP_NAV.map((item) => (
             <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} expanded={open} />
           ))}
-          {open && <div style={{ height: 1, background: 'var(--sidebar-2)', margin: '10px 8px' }} />}
+          <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '10px 8px' : '10px 12px' }} />
+          <NavLink item={ADS_MANAGER_ITEM} active={ADS_MANAGER_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
           {NAV_GROUPS.map((g) => (
             <GroupHeader key={g.key} gKey={g.key} label={g.label} icon={g.icon} />
           ))}
@@ -198,7 +216,7 @@ export function Sidebar() {
         <div style={{ marginTop: 'auto', paddingTop: 14 }}>
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
           <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
-          <button ref={userBtnRef} type="button" onClick={toggleUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
+          <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511' }}>{iniciales}</div>
             {open && (
               <>
@@ -231,9 +249,10 @@ export function Sidebar() {
 
       {/* Menú de la foto de perfil: al costado, desde la base (portal). */}
       {userOpen && menuPos && createPortal(
-        <>
-          <div onClick={() => setUserOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1999 }} aria-hidden />
-          <div style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
+        <div id="user-menu"
+          onMouseEnter={() => { if (userTimer.current) clearTimeout(userTimer.current); }}
+          onMouseLeave={scheduleCloseUser}
+          style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
             {USER_NAV.map((it) => {
               const on = it.match(pathname);
               return (
@@ -250,8 +269,7 @@ export function Sidebar() {
               <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="logout" size={18} /></span>
               Cerrar sesión
             </button>
-          </div>
-        </>,
+        </div>,
         document.body,
       )}
     </aside>
