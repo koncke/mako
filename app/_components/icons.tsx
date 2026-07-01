@@ -8,7 +8,8 @@
 import type { ReactNode } from 'react';
 
 const PATHS: Record<string, ReactNode> = {
-  general: (<><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" /></>),
+  general: (<><path d="M4 15a8 8 0 0 1 16 0" /><path d="M12 15l4.2-3.4" /><circle cx="12" cy="15" r="1.1" /><path d="M4.2 15H5.6M18.4 15h1.4M12 7.2V5.6" /></>),
+  grid: (<><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M9.5 9.5v10" /></>),
   crm: (<><circle cx="9" cy="8" r="3.2" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 5.2a3 3 0 0 1 0 5.6" /><path d="M17.5 14.2A5.5 5.5 0 0 1 21.5 20" /></>),
   graphics: (<><rect x="3" y="12" width="4" height="8" rx="1" /><rect x="10" y="5" width="4" height="15" rx="1" /><rect x="17" y="9" width="4" height="11" rx="1" /></>),
   ads: (<><path d="M4 10v4h3l7 4V6l-7 4H4Z" /><path d="M17 9a3.5 3.5 0 0 1 0 6" /></>),
@@ -29,7 +30,7 @@ const PATHS: Record<string, ReactNode> = {
   analytics: (<><path d="M4 5v14h16" /><path d="m7 14 3-3 2.5 2 4.5-5.5" /></>),
   tools: (<><path d="M14.6 6.3a3.6 3.6 0 0 0 4.1 4.1l-8 8a1.6 1.6 0 0 1-2.3 0l-1.8-1.8a1.6 1.6 0 0 1 0-2.3l8-8Z" /><path d="M14.6 6.3 17 4l3 3-2.3 2.4" /></>),
   chats: (<><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h10A1.5 1.5 0 0 1 16 5.5v5A1.5 1.5 0 0 1 14.5 12H8l-4 3v-3h-.5A1.5 1.5 0 0 1 3 10.5v-5Z" /></>),
-  cs: (<><path d="M4 13v-1a8 8 0 0 1 16 0v1" /><path d="M4 13.5a2 2 0 0 1 2 2v1.5a2 2 0 0 1-4 0V15a2 2 0 0 1 2-1.5Z" /><path d="M20 13.5a2 2 0 0 1 2 2v1.5a2 2 0 0 1-4 0V15a2 2 0 0 1 2-1.5Z" /><path d="M18 18.5V19a3 3 0 0 1-3 3h-2.5" /></>),
+  cs: (<><path d="M12 2.4l.75 1.55 1.7.2-1.25 1.17.32 1.68L12 6.4l-1.54.8.32-1.68L9.53 4.35l1.7-.2Z" /><path d="M5.2 4.9l.55 1.1 1.2.16-.9.82.24 1.2-1.09-.58-1.09.58.24-1.2-.9-.82 1.2-.16Z" /><path d="M18.8 4.9l.55 1.1 1.2.16-.9.82.24 1.2-1.09-.58-1.09.58.24-1.2-.9-.82 1.2-.16Z" /><circle cx="12" cy="12.4" r="2.4" /><path d="M8 20a4 4 0 0 1 8 0" /><circle cx="5" cy="14" r="1.8" /><path d="M2.4 20a3 3 0 0 1 4.4-2.5" /><circle cx="19" cy="14" r="1.8" /><path d="M21.6 20a3 3 0 0 0-4.4-2.5" /></>),
   instagram: (<><rect x="4" y="4" width="16" height="16" rx="4.5" /><circle cx="12" cy="12" r="3.4" /><circle cx="16.9" cy="7.1" r="1" /></>),
   pen: (<><path d="M4 20l3.6-.9L18.2 8.5 15.5 5.8 4.9 16.4 4 20Z" /><path d="M14 7.3 16.7 10" /></>),
   dot: (<circle cx="12" cy="12" r="3" />),

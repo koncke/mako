@@ -28,8 +28,11 @@ export const TOP_NAV: NavItem[] = [
   { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, match: starts('/leads') },
   { key: 'graphics', label: 'Graphics', href: '/graphics', icon: 'graphics', match: (p) => starts('/graphics')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', match: starts('/mako') },
+  { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
 ];
+
+// MaKo va aparte, abajo del todo (arriba del perfil), siempre con su estrella dorada.
+export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', match: starts('/mako') };
 
 // Grupos colapsables.
 export const NAV_GROUPS: NavGroup[] = [

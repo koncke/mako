@@ -4,16 +4,16 @@
 // Sidebar plegable (rediseño Marketing OS) — rail de íconos + hover para expandir
 // =============================================================================
 // Plegado a íconos por defecto; se despliega al pasar el cursor (overlay, sin
-// correr el contenido) y se pliega con un pequeño delay al salir. NUNCA hace
-// scroll. Grupos colapsables (Analytics/Tools/Chats/Customer Success) en
-// acordeón de apertura única. El menú de la foto de perfil sale AL COSTADO desde
-// la base (portal).
+// correr el contenido) y se pliega con delay al salir. NUNCA hace scroll. Los
+// grupos (Analytics/Tools/Chats/Customer Success) y el menú de la foto abren en
+// FLYOUT hacia la DERECHA (portal), no hacia abajo. MaKo va aparte, abajo del
+// todo, con su estrella dorada.
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { TOP_NAV, NAV_GROUPS, USER_NAV, type NavItem, type NavGroup } from './nav';
+import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, type NavItem } from './nav';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
@@ -23,23 +23,23 @@ const RAIL = 74;
 const FULL = 252;
 
 function ItemIcon({ item, active }: { item: NavItem; active: boolean }) {
+  if (item.icon === 'mako') return <MakoStar size={21} color="var(--accent-soft)" />;
   const color = active ? 'var(--accent-soft)' : 'var(--sidebar-text)';
-  if (item.icon === 'mako') return <MakoStar size={21} color={color} />;
   return <span style={{ color, display: 'flex' }}><Icon name={item.icon} size={21} /></span>;
 }
 
-function NavLink({ item, active, badge, query, expanded, nested }: { item: NavItem; active: boolean; badge: number; query: string; expanded: boolean; nested?: boolean }) {
+function NavLink({ item, active, badge, query, expanded, nested, onClick }: { item: NavItem; active: boolean; badge: number; query: string; expanded: boolean; nested?: boolean; onClick?: () => void }) {
   const base: CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 13,
     justifyContent: expanded ? 'flex-start' : 'center',
-    padding: expanded ? (nested ? '9px 12px 9px 16px' : '11px 12px') : '10px 0', borderRadius: 10,
-    textDecoration: 'none', fontSize: nested ? 14 : 15,
+    padding: expanded ? (nested ? '10px 12px' : '11px 12px') : '10px 0', borderRadius: 10,
+    textDecoration: 'none', fontSize: nested ? 14.5 : 15,
     color: active ? 'var(--on-sidebar)' : 'var(--sidebar-text)',
     fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden',
     ...(active ? { background: 'var(--sidebar-2)', boxShadow: expanded ? 'inset 3px 0 0 var(--accent-soft)' : 'none' } : {}),
   };
   return (
-    <Link href={item.href + query} style={base} title={expanded ? undefined : item.label}>
+    <Link href={item.href + query} style={base} title={expanded ? undefined : item.label} onClick={onClick}>
       <span style={{ position: 'relative', display: 'flex' }}>
         <ItemIcon item={item} active={active} />
         {!expanded && item.badge && badge > 0 && (
@@ -55,44 +55,15 @@ function NavLink({ item, active, badge, query, expanded, nested }: { item: NavIt
   );
 }
 
-function Group({ g, expanded, isOpen, onToggle, pathname, query, badgeFor }: { g: NavGroup; expanded: boolean; isOpen: boolean; onToggle: () => void; pathname: string; query: string; badgeFor: (i: NavItem) => number }) {
-  const someActive = g.items.some((i) => i.match(pathname));
-  const header: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 13, width: '100%',
-    justifyContent: expanded ? 'flex-start' : 'center',
-    padding: expanded ? '11px 12px' : '10px 0', borderRadius: 10, border: 'none',
-    background: (!expanded && someActive) ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer',
-    color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)', fontWeight: someActive ? 600 : 500,
-    fontSize: 15, fontFamily: 'inherit',
-  };
-  return (
-    <div>
-      <button type="button" onClick={onToggle} style={header} title={expanded ? undefined : g.label}>
-        <span style={{ position: 'relative', display: 'flex', color: someActive ? 'var(--accent-soft)' : 'var(--sidebar-text)' }}>
-          <Icon name={g.icon} size={21} />
-          {!expanded && someActive && <span style={{ position: 'absolute', top: -4, right: -6, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-soft)' }} />}
-        </span>
-        {expanded && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.label}</span>}
-        {expanded && <span style={{ flex: 'none', fontSize: 10, color: 'var(--sidebar-text)', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▸</span>}
-      </button>
-      {expanded && isOpen && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, margin: '2px 0 4px' }}>
-          {g.items.map((it) => <NavLink key={it.key} item={it} active={it.match(pathname)} badge={badgeFor(it)} query={query} expanded nested />)}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function Sidebar() {
   const pathname = usePathname() || '';
   const searchParams = useSearchParams();
   const [badge, setBadge] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
+  const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { unreadTotal } = useNotifications();
@@ -104,13 +75,8 @@ export function Sidebar() {
   const hasta = searchParams.get('hasta');
   const dateQuery = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
-  const open = expanded || userOpen;
-
-  // Grupo abierto (acordeón de apertura única). openGroup: null = seguir el grupo
-  // de la ruta activa; '' = todos cerrados; 'key' = ese grupo. Se deriva sin
-  // effect para no forzar renders en cascada.
-  const activeGroupKey = NAV_GROUPS.find((g) => g.items.some((i) => i.match(pathname)))?.key ?? null;
-  const shownGroup = openGroup ?? activeGroupKey;
+  const open = expanded || userOpen || !!flyout;
+  const flyoutGroup = flyout ? NAV_GROUPS.find((g) => g.key === flyout.key) ?? null : null;
 
   useEffect(() => {
     let alive = true;
@@ -130,8 +96,7 @@ export function Sidebar() {
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
-    // Delay al plegar (#13). NO cerramos el menú de perfil acá (bug #14): eso lo
-    // maneja su propio overlay; si no, mover el cursor hacia el menú lo cerraba.
+    // Delay al plegar (#13). No cerramos flyout/menú de perfil acá (sus overlays lo hacen).
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     collapseTimer.current = setTimeout(() => setExpanded(false), 340);
   };
@@ -141,10 +106,36 @@ export function Sidebar() {
     if (!userOpen) {
       const r = userBtnRef.current?.getBoundingClientRect();
       if (r) setMenuPos({ left: r.right + 12, bottom: Math.max(12, window.innerHeight - r.bottom) });
+      setFlyout(null);
     }
     setUserOpen((v) => !v);
   };
-  const toggleGroup = (key: string) => setOpenGroup(shownGroup === key ? '' : key);
+
+  const toggleGroup = (key: string, el: HTMLElement) => {
+    if (flyout?.key === key) { setFlyout(null); return; }
+    const r = el.getBoundingClientRect();
+    const estimado = 60 + (NAV_GROUPS.find((g) => g.key === key)?.items.length ?? 3) * 46;
+    const top = Math.min(r.top, Math.max(12, window.innerHeight - estimado - 12));
+    setUserOpen(false);
+    setFlyout({ key, top, left: r.right + 10 });
+  };
+
+  const GroupHeader = ({ gKey, label, icon }: { gKey: string; label: string; icon: string }) => {
+    const g = NAV_GROUPS.find((x) => x.key === gKey)!;
+    const someActive = g.items.some((i) => i.match(pathname));
+    const isOpen = flyout?.key === gKey;
+    return (
+      <button type="button" onClick={(e) => toggleGroup(gKey, e.currentTarget)} title={open ? undefined : label}
+        style={{ display: 'flex', alignItems: 'center', gap: 13, width: '100%', justifyContent: open ? 'flex-start' : 'center', padding: open ? '11px 12px' : '10px 0', borderRadius: 10, border: 'none', background: (isOpen || (!open && someActive)) ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer', color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)', fontWeight: someActive ? 600 : 500, fontSize: 15, fontFamily: 'inherit' }}>
+        <span style={{ position: 'relative', display: 'flex', color: someActive ? 'var(--accent-soft)' : 'var(--sidebar-text)' }}>
+          <Icon name={icon} size={21} />
+          {!open && someActive && <span style={{ position: 'absolute', top: -4, right: -6, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-soft)' }} />}
+        </span>
+        {open && <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>}
+        {open && <span style={{ flex: 'none', fontSize: 11, color: 'var(--sidebar-text)' }}>›</span>}
+      </button>
+    );
+  };
 
   return (
     <aside style={{ width: RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
@@ -177,13 +168,15 @@ export function Sidebar() {
           ))}
           {open && <div style={{ height: 1, background: 'var(--sidebar-2)', margin: '10px 8px' }} />}
           {NAV_GROUPS.map((g) => (
-            <Group key={g.key} g={g} expanded={open} isOpen={shownGroup === g.key} onToggle={() => toggleGroup(g.key)} pathname={pathname} query={dateQuery} badgeFor={badgeFor} />
+            <GroupHeader key={g.key} gKey={g.key} label={g.label} icon={g.icon} />
           ))}
         </nav>
 
-        {/* Usuario (abajo) */}
+        {/* MaKo (aparte) + Usuario (abajo) */}
         <div style={{ marginTop: 'auto', paddingTop: 14 }}>
-          <button ref={userBtnRef} type="button" onClick={toggleUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
+          <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
+          <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
+          <button ref={userBtnRef} type="button" onClick={toggleUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511' }}>{iniciales}</div>
             {open && (
               <>
@@ -191,12 +184,28 @@ export function Sidebar() {
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{perfilNombre}</div>
                   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 3 }}>Cuenta</div>
                 </div>
-                <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>▸</span>
+                <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>›</span>
               </>
             )}
           </button>
         </div>
       </div>
+
+      {/* Flyout de un grupo (a la derecha). */}
+      {flyout && flyoutGroup && createPortal(
+        <>
+          <div onClick={() => setFlyout(null)} style={{ position: 'fixed', inset: 0, zIndex: 1999 }} aria-hidden />
+          <div style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.4)', overflow: 'hidden', padding: 8 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: '4px 10px 8px' }}>{flyoutGroup.label}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {flyoutGroup.items.map((it) => (
+                <NavLink key={it.key} item={it} active={it.match(pathname)} badge={badgeFor(it)} query={dateQuery} expanded nested onClick={() => setFlyout(null)} />
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
 
       {/* Menú de la foto de perfil: al costado, desde la base (portal). */}
       {userOpen && menuPos && createPortal(

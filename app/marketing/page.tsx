@@ -140,7 +140,7 @@ export default async function Page({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30, borderBottom: '1px solid var(--border)' }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 20, background: 'var(--bg)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', margin: '-34px -44px 30px', padding: '34px 44px 0', borderBottom: '1px solid var(--border)' }}>
         <GraphicsTabs />
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, paddingBottom: 12 }}>
           <Link href="/ads-manager" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}>◫ Ads Manager →</Link>
