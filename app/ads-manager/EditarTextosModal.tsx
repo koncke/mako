@@ -14,6 +14,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import { CTA_OPCIONES } from '@/lib/campaign-types';
+import { explicarIssueEs } from '@/lib/meta-health';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -92,7 +93,7 @@ export function EditarTextosModal({ adId, adName, onClose, onSaved }: { adId: st
             <>
               {data.issues.length > 0 && (
                 <div style={{ fontSize: 12.5, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 10, padding: '10px 12px', lineHeight: 1.45 }}>
-                  <b>Problema de Meta:</b> {data.issues.map((i) => i.mensaje || i.resumen).join(' · ')}. Ajustá el texto y guardá para volver a enviarlo a revisión.
+                  <b>{explicarIssueEs(data.issues[0]).titulo}.</b> {explicarIssueEs(data.issues[0]).detalle}
                 </div>
               )}
               <label><span style={lbl}>Texto principal</span>

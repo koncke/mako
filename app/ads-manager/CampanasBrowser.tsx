@@ -18,10 +18,12 @@ import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
-  colorDeSemaforo, bgDeSemaforo,
+  colorDeSemaforo, bgDeSemaforo, explicarIssueEs,
   statusLabel as metaStatusLabel, statusSemaforo as metaStatusSemaforo,
-  type MetaHealth, type NodoEstado, type Semaforo,
+  type MetaHealth, type NodoEstado, type Semaforo, type Issue,
 } from '@/lib/meta-health';
+
+type ProblemAd = { id: string; name: string; issues: Issue[]; statusLabel: string };
 import type { CrossData } from './EntityDetalle';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
@@ -142,6 +144,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [recosOpen, setRecosOpen] = useState(false);
   const [nuevaOpen, setNuevaOpen] = useState(false);
   const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
+  const [problemaSel, setProblemaSel] = useState<{ titulo: string; ads: ProblemAd[] } | null>(null);
 
   const cargar = (silent = false) => {
     if (!silent) setLoading(true);
@@ -180,19 +183,17 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   // Rollup de problemas: los anuncios "con problemas" (semáforo rojo) tienen que
   // marcar también su conjunto y su campaña como URGENTE, con el motivo real de Meta.
   const rollup = useMemo(() => {
-    const countAdset = new Map<string, number>(), countCamp = new Map<string, number>();
-    const reasons = new Map<string, string[]>();
-    const bump = (m: Map<string, number>, id: string) => m.set(id, (m.get(id) ?? 0) + 1);
-    const addReason = (id: string, v: string) => { const a = reasons.get(id); if (a) a.push(v); else reasons.set(id, [v]); };
+    const adsByAdset = new Map<string, ProblemAd[]>(), adsByCamp = new Map<string, ProblemAd[]>();
+    const push = (m: Map<string, ProblemAd[]>, k: string, v: ProblemAd) => { const a = m.get(k); if (a) a.push(v); else m.set(k, [v]); };
     for (const ad of health?.ads ?? []) {
       if (ad.semaforo !== 'rojo') continue;
-      const motivo = `${ad.name}: ${ad.issues?.[0]?.resumen ?? ad.statusLabel}`;
+      const item: ProblemAd = { id: ad.id, name: ad.name, issues: ad.issues ?? [], statusLabel: ad.statusLabel };
       const adsetId = ad.parentId;
-      if (adsetId) { bump(countAdset, adsetId); addReason(adsetId, motivo); }
+      if (adsetId) push(adsByAdset, adsetId, item);
       const campId = adsetId ? adsetsById.get(adsetId)?.parentId ?? null : null;
-      if (campId) { bump(countCamp, campId); addReason(campId, motivo); }
+      if (campId) push(adsByCamp, campId, item);
     }
-    return { countAdset, countCamp, reasons };
+    return { adsByAdset, adsByCamp };
   }, [health, adsetsById]);
   const campName = (id: string | null) => (id ? campaignsById.get(id)?.name ?? null : null);
   const adsetCampId = (adsetId: string | null) => (adsetId ? adsetsById.get(adsetId)?.parentId ?? null : null);
@@ -515,17 +516,22 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
               <tbody>
                 {sorted.length === 0 ? (
                   <tr><td className="stickyName" style={{ ...td, color: 'var(--faint)' }} colSpan={1}>Sin filas para este filtro.</td>{cols.map((c) => <td key={c.id} style={td} />)}</tr>
-                ) : sorted.map((r) => (
+                ) : sorted.map((r) => {
+                  const problemaAds: ProblemAd[] = r.level === 'ad'
+                    ? (r.node.semaforo === 'rojo' ? [{ id: r.node.id, name: nameOf(r.node), issues: r.node.issues ?? [], statusLabel: r.node.statusLabel }] : [])
+                    : ((r.level === 'campaign' ? rollup.adsByCamp.get(r.node.id) : rollup.adsByAdset.get(r.node.id)) ?? []);
+                  return (
                   <RowView key={r.node.id} r={r} cols={cols} selected={selSet.has(r.node.id)} onSelect={() => toggleOne(r.node.id)} onOpen={() => abrir(r)}
                     effStatus={effStatusOf(r.node)} budgetMxn={budgetOf(r.node)} name={nameOf(r.node)} accountFrozen={accountFrozen}
-                    childIssues={r.level === 'campaign' ? (rollup.countCamp.get(r.node.id) ?? 0) : r.level === 'adset' ? (rollup.countAdset.get(r.node.id) ?? 0) : 0}
-                    issueHint={r.level === 'ad' ? ((r.node.issues ?? []).map((x) => x.mensaje || x.resumen).join(' · ') || undefined) : (rollup.reasons.get(r.node.id)?.join(' · ') || undefined)}
+                    childIssues={r.level === 'ad' ? 0 : problemaAds.length}
+                    onShowProblema={problemaAds.length > 0 ? () => setProblemaSel({ titulo: nameOf(r.node), ads: problemaAds }) : undefined}
                     writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
                     onEditCopy={r.level === 'ad' ? () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) : undefined}
                     onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
                     onStartName={() => setEditingNameId(r.node.id)} onCancelName={() => setEditingNameId(null)} onSaveName={(nm) => writeName(r.level, r.node.id, nm)} />
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -552,6 +558,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
       {nuevaOpen && <NuevaCampanaModal senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
+      {problemaSel && <ProblemaModal titulo={problemaSel.titulo} ads={problemaSel.ads} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
     </div>
   );
 }
@@ -571,9 +578,9 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, issueHint, writing, editing, editingName, onToggleStatus, onEditCopy, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, writing, editing, editingName, onToggleStatus, onEditCopy, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; issueHint?: string; writing: boolean; editing: boolean; editingName: boolean;
+  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; writing: boolean; editing: boolean; editingName: boolean;
   onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onEditCopy?: () => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
@@ -587,7 +594,7 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
 
   const cell = (c: ColDef) => {
     switch (c.id) {
-      case 'entrega': return <Pill semaforo={entrega.semaforo} label={entrega.label} hint={issueHint} />;
+      case 'entrega': return <Pill semaforo={entrega.semaforo} label={entrega.label} onClick={onShowProblema} />;
       case 'resultados': return r.perf.agendas > 0 ? fmtNum(r.perf.agendas) : '—';
       case 'costoRes': return fmtUSD(costo);
       case 'gastado': return r.level === 'ad' && !r.senal ? '—' : fmtUSD(r.perf.spend_usd, 0);
@@ -696,11 +703,48 @@ function Toggle({ on, disabled, onChange }: { on: boolean; disabled: boolean; on
   );
 }
 
-function Pill({ semaforo, label, hint }: { semaforo: Semaforo; label: string; hint?: string }) {
+function Pill({ semaforo, label, onClick }: { semaforo: Semaforo; label: string; onClick?: () => void }) {
+  const base: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 999, color: colorDeSemaforo(semaforo), background: bgDeSemaforo(semaforo), whiteSpace: 'nowrap' };
+  const dot = <span style={{ width: 6, height: 6, borderRadius: '50%', background: colorDeSemaforo(semaforo) }} />;
+  if (onClick) {
+    return (
+      <button type="button" title="Ver por qué y cómo resolverlo" onClick={(e) => { e.stopPropagation(); onClick(); }}
+        style={{ ...base, border: `1px solid ${colorDeSemaforo(semaforo)}`, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+        {dot}{label}<span style={{ fontSize: 11, textDecoration: 'none' }}>ⓘ</span>
+      </button>
+    );
+  }
+  return <span style={base}>{dot}{label}</span>;
+}
+
+// ── modal: por qué "Con problemas" (en español) + arreglar desde ahí ──
+function ProblemaModal({ titulo, ads, onClose, onEditAd }: { titulo: string; ads: ProblemAd[]; onClose: () => void; onEditAd: (id: string, name: string) => void }) {
   return (
-    <span title={hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 999, color: colorDeSemaforo(semaforo), background: bgDeSemaforo(semaforo), whiteSpace: 'nowrap', cursor: hint ? 'help' : 'default' }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: colorDeSemaforo(semaforo) }} />{label}
-    </span>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 84, background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(23,21,17,.4)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+          <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: 'var(--ink)', margin: '0 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Por qué no está entregando</span>
+          <button onClick={onClose} style={{ width: 30, height: 30, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer' }}>✕</button>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {ads.length === 0 ? <p style={{ color: 'var(--dim)', fontSize: 13.5, textAlign: 'center' }}>Sin detalle disponible.</p> : ads.map((ad) => {
+            const exps = (ad.issues.length ? ad.issues : [{ resumen: ad.statusLabel, mensaje: '' }]).map(explicarIssueEs);
+            return (
+              <div key={ad.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--surface-2)' }}>
+                <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)', marginBottom: 8 }}>{ad.name}</div>
+                {exps.map((e, i) => (
+                  <div key={i} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{e.titulo}</div>
+                    <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, marginTop: 2 }}>{e.detalle}</div>
+                  </div>
+                ))}
+                <button type="button" onClick={() => onEditAd(ad.id, ad.name)} style={{ marginTop: 4, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✎ Editar textos</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 

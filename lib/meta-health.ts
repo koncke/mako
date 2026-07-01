@@ -258,6 +258,21 @@ export function statusSemaforo(s: string): Semaforo {
   }
 }
 
+// Traduce un problema de Meta (issues_info suele venir en inglés) a una explicación
+// clara en español, por keywords. Devuelve título corto + detalle accionable.
+export function explicarIssueEs(it: Issue): { titulo: string; detalle: string } {
+  const t = `${it.resumen} ${it.mensaje}`.toLowerCase();
+  if (/approv|trusted|owning business admin|really you|not running yet|legitimate|notified them/.test(t))
+    return { titulo: 'Esperando aprobación del administrador', detalle: 'El anuncio se publicó y tus cambios se aplicaron, pero todavía no corre: por seguridad, Meta necesita que un administrador de la cuenta apruebe estos anuncios. Ya le avisó por email y en el Administrador de Anuncios. No tenés que hacer nada más, solo esperar la aprobación.' };
+  if (/reject|disapprov|doesn.?t comply|not comply|polic|violat|prohibited/.test(t))
+    return { titulo: 'Rechazado por las políticas de Meta', detalle: 'Meta rechazó el anuncio por sus políticas de publicidad. Revisá el texto y el creativo, editá los textos y guardá para volver a enviarlo a revisión.' };
+  if (/in review|pending review|being reviewed|under review|in_review/.test(t))
+    return { titulo: 'En revisión de Meta', detalle: 'Meta todavía está revisando el anuncio. Empieza a entregar cuando lo apruebe (normalmente en unas horas).' };
+  if (/payment|billing|unsettled|funding|pay method|declined/.test(t))
+    return { titulo: 'Problema de pago', detalle: 'Hay un problema de pago o facturación en la cuenta que frena la entrega. Regularizalo en el Administrador de Anuncios.' };
+  return { titulo: it.resumen || 'Problema del anuncio', detalle: it.mensaje || 'Meta marcó un problema con este anuncio. Revisalo en el Administrador de Anuncios.' };
+}
+
 const LEARNING_LABEL: Record<string, string> = {
   LEARNING: 'En aprendizaje',
   LEARNING_LIMITED: 'Aprendizaje limitado',
