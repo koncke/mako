@@ -197,7 +197,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   // públicos personalizados (retargeting) + formularios — carga perezosa.
   const [audiencesAll, setAudiencesAll] = useState<AudienceItem[] | null>(null);
   const [leadForms, setLeadForms] = useState<Array<{ id: string; name: string }> | null>(null);
-  const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string }> | null>(null);
+  const [convs, setConvs] = useState<Array<{ id: string; name: string; event?: string; pixel_id?: string }> | null>(null);
   const [pixels, setPixels] = useState<Array<{ id: string; name: string }> | null>(null);
   // Eventos ACTIVOS del pixel elegido (null = sin cargar). Elegir uno inactivo arruina la entrega.
   const [pixelEvents, setPixelEvents] = useState<string[] | null>(null);
@@ -830,7 +830,7 @@ function labelDeEnum(enumValue: string): string | undefined {
 // pixel recibe de verdad (+ tus conversiones personalizadas, que ya son activas).
 function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
   pixels: Array<{ id: string; name: string }> | null;
-  convs: Array<{ id: string; name: string; event?: string }> | null;
+  convs: Array<{ id: string; name: string; event?: string; pixel_id?: string }> | null;
   pixelEvents: string[] | null;
   destino: Destino;
   setDestino: Dispatch<SetStateAction<Destino>>;
@@ -844,7 +844,9 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
   const detectados = !!pixelEvents && pixelEvents.length > 0;
   // ENUMs de Meta que el pixel recibió de verdad (mapeados desde el nombre del evento).
   const activosSet = new Set((pixelEvents ?? []).map((n) => STD_EVENTS[n]?.enum).filter((e): e is string => !!e));
-  const custom = (convs ?? []).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya medís' }));
+  // Solo las conversiones del pixel elegido (si no, se mezclan las de todos). Fail-open:
+  // si a alguna no le pudimos resolver el pixel, la dejamos para no perder una válida.
+  const custom = (convs ?? []).filter((c) => !c.pixel_id || c.pixel_id === pixelId).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya medís' }));
   // Con detección: mostramos TODOS los eventos estándar como Meta (Active vs Inactive).
   // Activos arriba y habilitados; inactivos abajo, en gris y DESHABILITADOS (Dropdown
   // ya soporta `disabled`), para que el usuario VEA por qué no son opción y no elija

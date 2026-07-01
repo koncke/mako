@@ -353,15 +353,25 @@ export async function listPixels(): Promise<Array<{ id: string; name: string }>>
   return arr.map((p) => ({ id: String(p.id), name: String(p.name ?? p.id) }));
 }
 
-/** Conversiones personalizadas de la cuenta (ej. "Programaciones"/agenda) para optimizar. */
-export async function listCustomConversions(): Promise<Array<{ id: string; name: string; event?: string }>> {
-  const url = new URL(`${GRAPH_BASE}/${ver()}/${acct()}/customconversions`);
-  url.searchParams.set('fields', 'id,name,custom_event_type');
-  url.searchParams.set('limit', '100');
-  url.searchParams.set('access_token', token());
-  const data = await graphGet(url.toString());
+/** Conversiones personalizadas de la cuenta (ej. "Programaciones"/agenda) para optimizar.
+ * Incluye pixel_id (el pixel al que pertenece cada una) para poder filtrar por el pixel
+ * elegido — si no, se mezclan las conversiones de TODOS los pixels. */
+export async function listCustomConversions(): Promise<Array<{ id: string; name: string; event?: string; pixel_id?: string }>> {
+  const base = `${GRAPH_BASE}/${ver()}/${acct()}/customconversions`;
+  const tk = token();
+  const fetchWith = (fields: string) => { const u = new URL(base); u.searchParams.set('fields', fields); u.searchParams.set('limit', '200'); u.searchParams.set('access_token', tk); return graphGet(u.toString()); };
+  // Si la versión de API no aceptara pixel/data_sources, caemos a lo básico (sin filtrar).
+  let data: Record<string, unknown>;
+  try { data = await fetchWith('id,name,custom_event_type,pixel,data_sources'); }
+  catch { data = await fetchWith('id,name,custom_event_type'); }
   const arr = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
-  return arr.map((c) => ({ id: String(c.id), name: String(c.name ?? c.id), event: c.custom_event_type ? String(c.custom_event_type) : undefined }));
+  return arr.map((c) => {
+    const pixel = c.pixel as { id?: string } | undefined;
+    // El id de la data source de tipo pixel ES el id del pixel; el campo `pixel` es lo directo.
+    const ds = Array.isArray(c.data_sources) ? (c.data_sources as Array<Record<string, unknown>>) : [];
+    const pixel_id = pixel?.id ? String(pixel.id) : (ds[0]?.id ? String(ds[0].id) : undefined);
+    return { id: String(c.id), name: String(c.name ?? c.id), event: c.custom_event_type ? String(c.custom_event_type) : undefined, pixel_id };
+  });
 }
 
 /**
