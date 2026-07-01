@@ -444,6 +444,37 @@ function parseIssues(raw: unknown): Issue[] {
     .filter((x) => x.resumen || x.mensaje);
 }
 
+// Las recomendaciones NATIVAS de Meta vienen en inglés. Traducimos las frases más
+// comunes al español (lo que no reconocemos queda como vino; en esta cuenta estas
+// recos casi siempre están vacías, las útiles son las derivadas por MaKo).
+const RECO_TRAD: Array<[RegExp, string]> = [
+  [/increase your (daily )?budget/gi, 'Aumentá tu presupuesto'],
+  [/reduce your (daily )?budget/gi, 'Reducí tu presupuesto'],
+  [/add more creatives?/gi, 'Agregá más creativos'],
+  [/add more ads?/gi, 'Agregá más anuncios'],
+  [/consolidate your ad sets/gi, 'Consolidá tus conjuntos de anuncios'],
+  [/combine (your )?campaigns/gi, 'Combiná tus campañas'],
+  [/update your bid strategy/gi, 'Actualizá tu estrategia de puja'],
+  [/fix your (meta )?pixel/gi, 'Arreglá tu Pixel de Meta'],
+  [/add a payment method/gi, 'Agregá un medio de pago'],
+  [/expand your audience/gi, 'Ampliá tu audiencia'],
+  [/advantage\+? campaign budget/gi, 'presupuesto de campaña Advantage+'],
+  [/advantage\+? placements/gi, 'ubicaciones Advantage+'],
+  [/get more results/gi, 'Conseguí más resultados'],
+  [/turn on/gi, 'Activá'],
+  [/your ad set/gi, 'tu conjunto de anuncios'],
+  [/your campaign/gi, 'tu campaña'],
+  [/your budget/gi, 'tu presupuesto'],
+  [/budget/gi, 'presupuesto'],
+  [/audience/gi, 'audiencia'],
+  [/creatives?/gi, 'creativos'],
+];
+function traducirReco(s: string): string {
+  let out = s;
+  for (const [re, es] of RECO_TRAD) out = out.replace(re, es);
+  return out;
+}
+
 function parseRecosMeta(raw: unknown): Reco[] {
   if (!Array.isArray(raw)) return [];
   const impMap: Record<string, { p: Reco['prioridad']; s: Semaforo }> = {
@@ -457,8 +488,8 @@ function parseRecosMeta(raw: unknown): Reco[] {
     const m = impMap[imp] ?? impMap.MEDIUM;
     return {
       fuente: 'meta' as const,
-      titulo: String(o.title ?? 'Recomendación de Meta'),
-      detalle: String(o.message ?? ''),
+      titulo: traducirReco(String(o.title ?? 'Recomendación de Meta')),
+      detalle: traducirReco(String(o.message ?? '')),
       prioridad: m.p,
       semaforo: m.s,
     };

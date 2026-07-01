@@ -13,6 +13,8 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { getPerfil, getNotifPrefs } from '@/lib/perfil';
 import { buildReporteHorario } from '@/lib/reportes';
 import { despacharReporte, flushPendientesWhatsapp } from '@/lib/notify';
+import { getMetaAccountHealth } from '@/lib/meta-health';
+import { registrarEstadoMeta } from '@/lib/meta-health-history';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -24,6 +26,8 @@ export async function GET(req: NextRequest) {
   const t0 = Date.now();
   try {
     const [perfil, prefs] = await Promise.all([getPerfil(), getNotifPrefs()]);
+    // Historial de estados de Meta (registra si está negativo y cambió).
+    try { await registrarEstadoMeta(await getMetaAccountHealth()); } catch { /* no-op */ }
     if (!prefs.horario.activo) {
       return Response.json({ ok: true, skip: 'horario desactivado', ms: Date.now() - t0 });
     }

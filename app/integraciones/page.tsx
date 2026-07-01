@@ -1,11 +1,12 @@
 // =============================================================================
 // /integraciones — estado de todas las integraciones (antes "Estado de Meta")
 // =============================================================================
-// Overview de conexión de cada servicio + el detalle en vivo de Meta + el Saldo
-// de IA. El detalle por campaña/conjunto/anuncio vive en Ads Manager.
+// Overview de conexión de cada servicio + el detalle en vivo de Meta + el
+// historial de estados negativos + el Saldo de IA.
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
+import { getHistorialMeta, registrarEstadoMeta, type MetaEstadoHist } from '@/lib/meta-health-history';
 import { IntegracionesBoard } from './IntegracionesBoard';
 
 export const dynamic = 'force-dynamic';
@@ -17,8 +18,10 @@ export default async function IntegracionesPage() {
   let metaError: string | null = null;
   try {
     health = await getMetaHealth();
+    if (health) await registrarEstadoMeta(health.account); // registra si está negativo
   } catch (err) {
     metaError = err instanceof Error ? err.message : String(err);
   }
-  return <IntegracionesBoard integraciones={integraciones} health={health} metaError={metaError} />;
+  const historial: MetaEstadoHist[] = await getHistorialMeta(20);
+  return <IntegracionesBoard integraciones={integraciones} health={health} metaError={metaError} historial={historial} />;
 }

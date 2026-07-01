@@ -101,7 +101,13 @@ function SaldoIA() {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError }: { integraciones: Integracion[]; health: MetaHealth | null; metaError: string | null }) {
+type MetaEstadoHist = { id: number; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; balanceMxn: number; detalle: string | null; createdAt: string };
+
+const fmtFecha = (iso: string) => {
+  try { return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return ''; }
+};
+
+export function IntegracionesBoard({ integraciones, health, metaError, historial }: { integraciones: Integracion[]; health: MetaHealth | null; metaError: string | null; historial: MetaEstadoHist[] }) {
   const metaSev = health?.account.severidad ?? null;
   const conectadas = integraciones.filter((i) => i.estado === 'conectada').length;
 
@@ -131,6 +137,27 @@ export function IntegracionesBoard({ integraciones, health, metaError }: { integ
         </div>
       ) : (
         <SaludBoard health={health} />
+      )}
+
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', margin: '34px 0 14px' }}>Historial de estados de Meta</div>
+      {historial.length === 0 ? (
+        <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5 }}>Sin incidentes registrados. Acá van a quedar los momentos en que la cuenta estuvo en ámbar/rojo o con la entrega frenada.</div>
+      ) : (
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          {historial.map((h, i) => {
+            const color = h.severidad === 'rojo' ? 'var(--bad)' : 'var(--warn)';
+            return (
+              <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: color }} />
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{h.entregaFrenada ? 'Entrega frenada' : h.statusLabel}{h.disableReason ? ` · ${h.disableReason}` : ''}</span>
+                  {h.detalle && h.detalle !== h.statusLabel && <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 1 }}>{h.detalle}</span>}
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', flex: 'none' }}>{fmtFecha(h.createdAt)}</span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </main>
   );
