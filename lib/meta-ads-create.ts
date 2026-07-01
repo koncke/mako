@@ -186,12 +186,12 @@ export function buildObjectStorySpec(c: Creative): Record<string, unknown> {
     const video_data: Record<string, unknown> = { video_id: c.video_id, message: c.primary_text ?? '' };
     if (c.headline) video_data.title = c.headline;
     if (c.description) video_data.link_description = c.description;
-    // image_url SOLO si es una URL http(s) descargable por Meta. Las miniaturas
-    // locales (data:image/… que genera makeThumb por canvas en el cliente) NO se
-    // pueden descargar → causan #3858258 ("No se descargó la imagen"), que Threads
-    // valida más estricto. Si no hay URL válida, la omitimos y Meta genera la
-    // miniatura del video automáticamente (válida en TODAS las ubicaciones).
-    if (c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url)) video_data.image_url = c.thumbnail_url;
+    // Miniatura del video: preferimos la CUSTOM (image_hash) para conservarla al
+    // editar textos. Si no, image_url SOLO si es http(s) descargable por Meta (una
+    // data:image/… local causa #3858258 y Threads la valida estricto). Sin ninguna,
+    // la omitimos y Meta genera la miniatura automática del video (válida en todas).
+    if (c.image_hash) video_data.image_hash = c.image_hash;
+    else if (c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url)) video_data.image_url = c.thumbnail_url;
     if (hasLeadForm) {
       video_data.call_to_action = { type: ctaType ?? 'SIGN_UP', value: { lead_gen_form_id: c.lead_form_id, link: c.destination_url || undefined } };
     } else if (c.destination_url) {
@@ -535,7 +535,8 @@ async function getVideoThumbnailUrl(videoId: string): Promise<string | null> {
  * object_story_spec. Si ya trae una http la respeta; si trae una data:/blob: local o
  * nada, usa la que generó Meta del propio video. */
 async function withVideoThumb(c: Creative): Promise<Creative> {
-  if (c.media_type === 'video' && c.video_id && !(c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url))) {
+  // Si ya hay miniatura custom (image_hash) o una URL http válida, no la pisamos.
+  if (c.media_type === 'video' && c.video_id && !c.image_hash && !(c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url))) {
     const uri = await getVideoThumbnailUrl(c.video_id);
     if (uri) return { ...c, thumbnail_url: uri };
   }
@@ -616,6 +617,125 @@ export async function createAd(adsetId: string, ad: AdSpec, creativeId: string):
     status: 'PAUSED',
   });
   return String(data.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Editar los TEXTOS de un anuncio ya publicado (y así arreglar rechazos por copy)
+// ─────────────────────────────────────────────────────────────────────────────
+// En Meta un creativo es INMUTABLE: para cambiar el copy se crea un creativo NUEVO
+// (reusando el MISMO video/imagen) y se apunta el anuncio a ese creativo. Cambiar
+// el texto re-dispara la revisión de Meta (por eso sirve para reparar un rechazo).
+
+export type AdEditData = {
+  ad_id: string;
+  name: string;
+  status: string;
+  issues: Array<{ resumen: string; mensaje: string }>;
+  editable: boolean; // false si el anuncio reutiliza un post existente (object_story_id)
+  reason?: string;
+  creative: {
+    media_type: 'image' | 'video' | null;
+    image_hash: string | null;
+    video_id: string | null;
+    thumbnail_url: string | null;
+    primary_text: string;
+    headline: string;
+    description: string;
+    cta_type: string | null;
+    destination_url: string;
+    lead_form_id: string | null;
+  } | null;
+};
+
+function parseIssuesInfo(raw: unknown): Array<{ resumen: string; mensaje: string }> {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((it) => { const o = (it ?? {}) as Record<string, unknown>; return { resumen: String(o.error_summary ?? o.error_type ?? 'Problema'), mensaje: String(o.error_message ?? '') }; })
+    .filter((x) => x.resumen || x.mensaje);
+}
+
+// Creativo dinámico (Advantage+ Creative / varios textos o imágenes): NO lo editamos
+// acá porque aplanarlo a un object_story_spec plano apagaría esa optimización.
+function esCreativoDinamico(afs: Record<string, unknown>): boolean {
+  const len = (k: string) => (Array.isArray(afs[k]) ? (afs[k] as unknown[]).length : 0);
+  return len('bodies') > 1 || len('titles') > 1 || len('descriptions') > 1 || len('images') > 1 || len('videos') > 1;
+}
+
+/** Lee el anuncio + su creativo para prellenar el editor de textos.
+ * OJO Meta: al LEER, el object_story_spec de una imagen trae `picture` (URL) pero
+ * NO el image_hash; el hash vive en creative.image_hash (top-level) o en
+ * asset_feed_spec.images[].hash. Sin el hash el creativo nuevo saldría SIN imagen. */
+export async function getAdForEdit(adId: string): Promise<AdEditData> {
+  const url = new URL(`${GRAPH_BASE}/${ver()}/${adId}`);
+  url.searchParams.set('fields', 'name,effective_status,issues_info,creative{id,image_hash,object_story_spec,asset_feed_spec,effective_object_story_id,object_story_id}');
+  url.searchParams.set('access_token', token());
+  const data = await graphGet(url.toString());
+  const name = String(data.name ?? '');
+  const status = String(data.effective_status ?? '');
+  const issues = parseIssuesInfo(data.issues_info);
+  const creative = data.creative as Record<string, unknown> | undefined;
+  const oss = creative?.object_story_spec as Record<string, unknown> | undefined;
+  const afs = creative?.asset_feed_spec as Record<string, unknown> | undefined;
+  const vd = oss?.video_data as Record<string, unknown> | undefined;
+  const ld = oss?.link_data as Record<string, unknown> | undefined;
+  const noEditable = (reason: string): AdEditData => ({ ad_id: adId, name, status, issues, editable: false, reason, creative: null });
+
+  if (afs && esCreativoDinamico(afs)) return noEditable('Este anuncio usa creativo dinámico (varios textos/imágenes que Meta rota); editalo desde Meta para no perder esa optimización.');
+  if (!oss || (!vd && !ld)) return noEditable('Este anuncio reutiliza una publicación existente; sus textos se editan desde esa publicación, no acá.');
+
+  // CTA de mensajería (WhatsApp/Messenger): el destino NO vive en value.link → no lo tocamos.
+  const cta = (vd?.call_to_action ?? ld?.call_to_action) as { type?: string; value?: Record<string, unknown> } | undefined;
+  const cv = cta?.value ?? {};
+  const esMensajeria = ['WHATSAPP_MESSAGE', 'MESSAGE_PAGE'].includes(cta?.type ?? '') || cv.app_destination != null || cv.whatsapp_number != null || (cv.page != null && cv.link == null);
+  if (esMensajeria) return noEditable('Este anuncio abre un chat de WhatsApp/Messenger; sus textos se editan desde Meta para no perder el destino del mensaje.');
+
+  const link = typeof cv.link === 'string' ? cv.link : '';
+  const lead = typeof cv.lead_gen_form_id === 'string' ? cv.lead_gen_form_id : null;
+  let c: NonNullable<AdEditData['creative']>;
+  if (vd) {
+    c = {
+      media_type: 'video', image_hash: vd.image_hash ? String(vd.image_hash) : null, video_id: vd.video_id ? String(vd.video_id) : null,
+      thumbnail_url: vd.image_url ? String(vd.image_url) : null,
+      primary_text: String(vd.message ?? ''), headline: String(vd.title ?? ''), description: String(vd.link_description ?? ''),
+      cta_type: cta?.type ?? null, destination_url: link, lead_form_id: lead,
+    };
+  } else {
+    // Imagen: el hash real sale del top-level o del asset_feed_spec (no de link_data).
+    const afsImgs = Array.isArray(afs?.images) ? (afs!.images as Array<Record<string, unknown>>) : [];
+    const hash = (creative?.image_hash ? String(creative.image_hash) : null)
+      ?? (afsImgs[0]?.hash ? String(afsImgs[0].hash) : null)
+      ?? (ld?.image_hash ? String(ld.image_hash) : null);
+    c = {
+      media_type: 'image', image_hash: hash, video_id: null, thumbnail_url: null,
+      primary_text: String(ld?.message ?? ''), headline: String(ld?.name ?? ''), description: String(ld?.description ?? ''),
+      cta_type: cta?.type ?? null, destination_url: link || (ld?.link ? String(ld.link) : ''), lead_form_id: lead,
+    };
+    if (!hash) return noEditable('No pudimos recuperar la imagen de este anuncio para conservarla; editalo desde Meta.');
+  }
+  return { ad_id: adId, name, status, issues, editable: true, creative: c };
+}
+
+/** Aplica los textos editados: crea un creativo NUEVO (mismo media) y apunta el anuncio a él. */
+export async function updateAdCopy(adId: string, edited: { primary_text?: string; headline?: string; description?: string; cta_type?: string; destination_url?: string }): Promise<{ creative_id: string }> {
+  const current = await getAdForEdit(adId);
+  if (!current.editable || !current.creative) throw new MetaWriteError(current.reason ?? 'Este anuncio no permite editar textos acá.');
+  const cc = current.creative;
+  const creative: Creative = {
+    source: 'upload',
+    media_type: cc.media_type ?? undefined,
+    image_hash: cc.image_hash, video_id: cc.video_id, thumbnail_url: cc.thumbnail_url,
+    primary_text: edited.primary_text ?? cc.primary_text,
+    headline: edited.headline ?? cc.headline,
+    description: edited.description ?? cc.description,
+    cta_type: (edited.cta_type ?? cc.cta_type ?? undefined) as Creative['cta_type'],
+    destination_url: edited.destination_url ?? cc.destination_url,
+    lead_form_id: cc.lead_form_id,
+    lead_form_name: cc.lead_form_id ? '' : null,
+  };
+  const creativeId = await createAdCreative(creative, current.name);
+  // Apuntar el anuncio al creativo nuevo (re-dispara revisión de Meta).
+  await graphPost(adId, { creative: JSON.stringify({ creative_id: creativeId }) });
+  return { creative_id: creativeId };
 }
 
 /**

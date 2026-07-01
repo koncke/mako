@@ -27,6 +27,7 @@ import type { CrossData } from './EntityDetalle';
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
 const NuevaCampanaModal = dynamic(() => import('./NuevaCampanaModal').then((m) => m.NuevaCampanaModal), { ssr: false });
+const EditarTextosModal = dynamic(() => import('./EditarTextosModal').then((m) => m.EditarTextosModal), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -140,6 +141,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [entSel, setEntSel] = useState<{ node: NodoEstado; level: 'campaign' | 'adset'; cross: CrossData } | null>(null);
   const [recosOpen, setRecosOpen] = useState(false);
   const [nuevaOpen, setNuevaOpen] = useState(false);
+  const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
 
   const cargar = (silent = false) => {
     if (!silent) setLoading(true);
@@ -520,6 +522,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
                     issueHint={r.level === 'ad' ? ((r.node.issues ?? []).map((x) => x.mensaje || x.resumen).join(' · ') || undefined) : (rollup.reasons.get(r.node.id)?.join(' · ') || undefined)}
                     writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
+                    onEditCopy={r.level === 'ad' ? () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) : undefined}
                     onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
                     onStartName={() => setEditingNameId(r.node.id)} onCancelName={() => setEditingNameId(null)} onSaveName={(nm) => writeName(r.level, r.node.id, nm)} />
                 ))}
@@ -548,6 +551,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       {recosOpen && <RecosModal onClose={() => setRecosOpen(false)} />}
       {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
       {nuevaOpen && <NuevaCampanaModal senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
+      {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
     </div>
   );
 }
@@ -567,10 +571,10 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, issueHint, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, issueHint, writing, editing, editingName, onToggleStatus, onEditCopy, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
   effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; issueHint?: string; writing: boolean; editing: boolean; editingName: boolean;
-  onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
+  onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onEditCopy?: () => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
   const active = effStatus === 'ACTIVE';
@@ -614,6 +618,10 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
               <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)' }}>{name}</span>
               <button type="button" title="Renombrar" disabled={writing} onClick={(e) => { stop(e); onStartName(); }}
                 style={{ flex: 'none', background: 'transparent', border: 'none', cursor: writing ? 'default' : 'pointer', color: 'var(--faint)', fontSize: 12, padding: '2px 4px', lineHeight: 1 }}>✎</button>
+              {onEditCopy && (
+                <button type="button" title="Editar textos del anuncio" onClick={(e) => { stop(e); onEditCopy(); }}
+                  style={{ flex: 'none', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', color: 'var(--dim)', fontFamily: MONO, fontSize: 10, fontWeight: 600, padding: '2px 6px', lineHeight: 1.3, whiteSpace: 'nowrap' }}>Aa textos</button>
+              )}
             </>
           )}
         </span>
