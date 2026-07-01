@@ -30,6 +30,11 @@ const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => 
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
 const NuevaCampanaModal = dynamic(() => import('./NuevaCampanaModal').then((m) => m.NuevaCampanaModal), { ssr: false });
 const EditarTextosModal = dynamic(() => import('./EditarTextosModal').then((m) => m.EditarTextosModal), { ssr: false });
+const EditarPublicoModal = dynamic(() => import('./EditarPublicoModal').then((m) => m.EditarPublicoModal), { ssr: false });
+const AgregarAnuncioModal = dynamic(() => import('./AgregarAnuncioModal').then((m) => m.AgregarAnuncioModal), { ssr: false });
+const AgregarConjuntoModal = dynamic(() => import('./AgregarConjuntoModal').then((m) => m.AgregarConjuntoModal), { ssr: false });
+
+const pad = (n: number, w: number): string => String(Math.max(0, Math.floor(n))).padStart(w, '0');
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -145,6 +150,9 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [nuevaOpen, setNuevaOpen] = useState(false);
   const [editCopyAd, setEditCopyAd] = useState<{ id: string; name: string } | null>(null);
   const [problemaSel, setProblemaSel] = useState<{ titulo: string; ads: ProblemAd[] } | null>(null);
+  const [editPublicoAdset, setEditPublicoAdset] = useState<{ id: string; name: string } | null>(null);
+  const [addAnuncioAdset, setAddAnuncioAdset] = useState<{ id: string; name: string } | null>(null);
+  const [addConjuntoCamp, setAddConjuntoCamp] = useState<{ id: string; name: string } | null>(null);
 
   const cargar = (silent = false) => {
     if (!silent) setLoading(true);
@@ -398,6 +406,23 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     setEntSel({ node: r.node, level: r.level as 'campaign' | 'adset', cross: { cierres: r.perf.cierres, cash_usd: r.perf.cash_usd, agendasCrm: r.perf.agendas } });
   };
 
+  // Acciones de edición por fila (textos en anuncios; +anuncio/público en conjuntos;
+  // +conjunto en campañas). Los nombres nuevos salen con nomenclatura (001.01.a…).
+  const rowActionsFor = (r: Row): Array<{ label: string; title: string; onClick: () => void }> => {
+    if (r.level === 'ad') return [{ label: 'Aa textos', title: 'Editar textos del anuncio', onClick: () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) }];
+    if (r.level === 'adset') {
+      const adsetCode = nameOf(r.node).split(/\s+/)[0];
+      const n = (health?.ads ?? []).filter((a) => a.parentId === r.node.id).length;
+      return [
+        { label: '+ anuncio', title: 'Agregar un anuncio a este conjunto', onClick: () => setAddAnuncioAdset({ id: r.node.id, name: `${adsetCode}.${letra(n + 1)} Anuncio` }) },
+        { label: '👥 público', title: 'Editar el público de este conjunto', onClick: () => setEditPublicoAdset({ id: r.node.id, name: nameOf(r.node) }) },
+      ];
+    }
+    const campCode = nameOf(r.node).match(/^\d+/)?.[0] ?? '000';
+    const m = (health?.adsets ?? []).filter((a) => a.parentId === r.node.id).length;
+    return [{ label: '+ conjunto', title: 'Agregar un conjunto a esta campaña', onClick: () => setAddConjuntoCamp({ id: r.node.id, name: `${campCode}.${pad(m + 1, 2)} Conjunto` }) }];
+  };
+
   // columnas visibles para la tab actual
   const cols = ALL_COLS.filter((c) => (!c.levels || c.levels.includes(level)) && (ALWAYS_ON.includes(c.id) || visibleCols[c.id]));
   const configurables = ALL_COLS.filter((c) => !c.levels || c.levels.includes(level));
@@ -525,9 +550,9 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
                     effStatus={effStatusOf(r.node)} budgetMxn={budgetOf(r.node)} name={nameOf(r.node)} accountFrozen={accountFrozen}
                     childIssues={r.level === 'ad' ? 0 : problemaAds.length}
                     onShowProblema={problemaAds.length > 0 ? () => setProblemaSel({ titulo: nameOf(r.node), ads: problemaAds }) : undefined}
+                    rowActions={rowActionsFor(r)}
                     writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
-                    onEditCopy={r.level === 'ad' ? () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) : undefined}
                     onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
                     onStartName={() => setEditingNameId(r.node.id)} onCancelName={() => setEditingNameId(null)} onSaveName={(nm) => writeName(r.level, r.node.id, nm)} />
                   );
@@ -559,6 +584,9 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       {nuevaOpen && <NuevaCampanaModal senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
       {problemaSel && <ProblemaModal titulo={problemaSel.titulo} ads={problemaSel.ads} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
+      {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
+      {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
+      {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
     </div>
   );
 }
@@ -578,10 +606,10 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, writing, editing, editingName, onToggleStatus, onEditCopy, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, onShowProblema, rowActions, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; writing: boolean; editing: boolean; editingName: boolean;
-  onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onEditCopy?: () => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
+  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; onShowProblema?: () => void; rowActions?: Array<{ label: string; title: string; onClick: () => void }>; writing: boolean; editing: boolean; editingName: boolean;
+  onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
   const active = effStatus === 'ACTIVE';
@@ -625,10 +653,10 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
               <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)' }}>{name}</span>
               <button type="button" title="Renombrar" disabled={writing} onClick={(e) => { stop(e); onStartName(); }}
                 style={{ flex: 'none', background: 'transparent', border: 'none', cursor: writing ? 'default' : 'pointer', color: 'var(--faint)', fontSize: 12, padding: '2px 4px', lineHeight: 1 }}>✎</button>
-              {onEditCopy && (
-                <button type="button" title="Editar textos del anuncio" onClick={(e) => { stop(e); onEditCopy(); }}
-                  style={{ flex: 'none', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', color: 'var(--dim)', fontFamily: MONO, fontSize: 10, fontWeight: 600, padding: '2px 6px', lineHeight: 1.3, whiteSpace: 'nowrap' }}>Aa textos</button>
-              )}
+              {(rowActions ?? []).map((a) => (
+                <button key={a.label} type="button" title={a.title} onClick={(e) => { stop(e); a.onClick(); }}
+                  style={{ flex: 'none', background: 'transparent', border: '1px solid var(--border-strong)', borderRadius: 7, cursor: 'pointer', color: 'var(--dim)', fontFamily: MONO, fontSize: 10, fontWeight: 600, padding: '2px 6px', lineHeight: 1.3, whiteSpace: 'nowrap' }}>{a.label}</button>
+              ))}
             </>
           )}
         </span>
