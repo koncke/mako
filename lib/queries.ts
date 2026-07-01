@@ -405,12 +405,16 @@ export type ResumenComercialMaduras = {
  * las filas verdes de la tabla semanal → KPI y tabla cuentan lo mismo.
  */
 export const getResumenComercialMaduras = cachedRead('getResumenComercialMaduras', _getResumenComercialMaduras, { tags: [TAG.leads], revalidate: TTL.user });
-async function _getResumenComercialMaduras(): Promise<ResumenComercialMaduras> {
+async function _getResumenComercialMaduras(start?: string | null, end?: string | null): Promise<ResumenComercialMaduras> {
   const supabase = getSupabaseServer();
-  const { data, error } = await supabase
+  let q = supabase
     .from('v_cohortes_semanales')
     .select('*')
     .eq('estado_madurez', 'madura');
+  // Respeta el filtro de fecha global: acota las cohortes maduras por su semana.
+  if (start) q = q.gte('semana_inicio', start);
+  if (end) q = q.lte('semana_inicio', end);
+  const { data, error } = await q;
   if (error) throw new Error(`Query maduras falló: ${error.message}`);
   const cohortes = (data ?? []) as CohorteSemana[];
 
@@ -508,14 +512,17 @@ export type FunnelMadurasLeads = {
  * Replica DATE_TRUNC('week') con lunesDeFecha (lunes) y filtra por las semanas
  * que la vista marca 'madura' (misma CURRENT_DATE → mismo set).
  */
-export async function getFunnelMadurasLeads(): Promise<FunnelMadurasLeads> {
+export async function getFunnelMadurasLeads(start?: string | null, end?: string | null): Promise<FunnelMadurasLeads> {
   const supabase = getSupabaseServer();
   const vacio: FunnelMadurasLeads = { agenda: [], asistio: [], noShow: [], calificado: [], cierre: [] };
 
-  const { data: semanas, error: semErr } = await supabase
+  let sq = supabase
     .from('v_cohortes_semanales')
     .select('semana_inicio')
     .eq('estado_madurez', 'madura');
+  if (start) sq = sq.gte('semana_inicio', start);
+  if (end) sq = sq.lte('semana_inicio', end);
+  const { data: semanas, error: semErr } = await sq;
   if (semErr) throw new Error(`getFunnelMadurasLeads (semanas) falló: ${semErr.message}`);
   const weeks = new Set<string>((semanas ?? []).map((r) => String(r.semana_inicio)));
   if (weeks.size === 0) return vacio;

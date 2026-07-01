@@ -174,13 +174,13 @@ export default async function ComercialPage({
       listCohortesSemanales(8),
       listCohortesMensuales(6),
       getSCL(),
-      getResumenComercialMaduras(),
+      getResumenComercialMaduras(rangoDesde, rangoHasta),
       getTramosSCL(),
       getRevenuePeriod(revDesde, revHasta),
       getOutstandingDetalle(hoyReal),
       getCACAcumulado(),
       getRevenueBreakdowns(revDesde, revHasta),
-      getFunnelMadurasLeads(),
+      getFunnelMadurasLeads(rangoDesde, rangoHasta),
       // Acotado a ~1 año: cubre con margen las 8 semanas / 6 meses que se renderizan
       // (evita escanear todo el histórico de leads en cada carga).
       getJ1Leads(diasAntes(hoyReal, 370)),

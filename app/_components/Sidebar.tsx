@@ -66,6 +66,7 @@ export function Sidebar() {
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
   const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { unreadTotal } = useNotifications();
 
   const iniciales = perfilNombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
@@ -100,7 +101,7 @@ export function Sidebar() {
     if (collapseTimer.current) clearTimeout(collapseTimer.current);
     collapseTimer.current = setTimeout(() => setExpanded(false), 340);
   };
-  useEffect(() => () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); }, []);
+  useEffect(() => () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }, []);
 
   const toggleUser = () => {
     if (!userOpen) {
@@ -111,21 +112,42 @@ export function Sidebar() {
     setUserOpen((v) => !v);
   };
 
-  const toggleGroup = (key: string, el: HTMLElement) => {
-    if (flyout?.key === key) { setFlyout(null); return; }
+  // Los grupos abren su flyout AL PASAR EL CURSOR (hover). El menú de perfil, no
+  // (ese sigue con clic).
+  const openFlyout = (key: string, el: HTMLElement) => {
+    if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
     const r = el.getBoundingClientRect();
     const estimado = 60 + (NAV_GROUPS.find((g) => g.key === key)?.items.length ?? 3) * 46;
     const top = Math.min(r.top, Math.max(12, window.innerHeight - estimado - 12));
     setUserOpen(false);
-    setFlyout({ key, top, left: r.right + 10 });
+    setFlyout({ key, top, left: r.right + 8 });
   };
+  const scheduleCloseFlyout = () => {
+    if (flyoutTimer.current) clearTimeout(flyoutTimer.current);
+    flyoutTimer.current = setTimeout(() => setFlyout(null), 220);
+  };
+
+  // Cerrar el flyout si se hace clic afuera (para touch; en desktop cierra al salir).
+  useEffect(() => {
+    if (!flyout) return;
+    const onDown = (e: MouseEvent) => {
+      if (document.getElementById('grp-flyout')?.contains(e.target as Node)) return;
+      setFlyout(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [flyout]);
 
   const GroupHeader = ({ gKey, label, icon }: { gKey: string; label: string; icon: string }) => {
     const g = NAV_GROUPS.find((x) => x.key === gKey)!;
     const someActive = g.items.some((i) => i.match(pathname));
     const isOpen = flyout?.key === gKey;
     return (
-      <button type="button" onClick={(e) => toggleGroup(gKey, e.currentTarget)} title={open ? undefined : label}
+      <button type="button"
+        onClick={(e) => openFlyout(gKey, e.currentTarget)}
+        onMouseEnter={(e) => openFlyout(gKey, e.currentTarget)}
+        onMouseLeave={scheduleCloseFlyout}
+        title={open ? undefined : label}
         style={{ display: 'flex', alignItems: 'center', gap: 13, width: '100%', justifyContent: open ? 'flex-start' : 'center', padding: open ? '11px 12px' : '10px 0', borderRadius: 10, border: 'none', background: (isOpen || (!open && someActive)) ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer', color: someActive ? 'var(--on-sidebar)' : 'var(--sidebar-text)', fontWeight: someActive ? 600 : 500, fontSize: 15, fontFamily: 'inherit' }}>
         <span style={{ position: 'relative', display: 'flex', color: someActive ? 'var(--accent-soft)' : 'var(--sidebar-text)' }}>
           <Icon name={icon} size={21} />
@@ -193,17 +215,17 @@ export function Sidebar() {
 
       {/* Flyout de un grupo (a la derecha). */}
       {flyout && flyoutGroup && createPortal(
-        <>
-          <div onClick={() => setFlyout(null)} style={{ position: 'fixed', inset: 0, zIndex: 1999 }} aria-hidden />
-          <div style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.4)', overflow: 'hidden', padding: 8 }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: '4px 10px 8px' }}>{flyoutGroup.label}</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {flyoutGroup.items.map((it) => (
-                <NavLink key={it.key} item={it} active={it.match(pathname)} badge={badgeFor(it)} query={dateQuery} expanded nested onClick={() => setFlyout(null)} />
-              ))}
-            </div>
+        <div id="grp-flyout"
+          onMouseEnter={() => { if (flyoutTimer.current) clearTimeout(flyoutTimer.current); }}
+          onMouseLeave={scheduleCloseFlyout}
+          style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.4)', overflow: 'hidden', padding: 8 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: '4px 10px 8px' }}>{flyoutGroup.label}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {flyoutGroup.items.map((it) => (
+              <NavLink key={it.key} item={it} active={it.match(pathname)} badge={badgeFor(it)} query={dateQuery} expanded nested onClick={() => setFlyout(null)} />
+            ))}
           </div>
-        </>,
+        </div>,
         document.body,
       )}
 

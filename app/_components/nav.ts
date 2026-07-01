@@ -39,15 +39,15 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'analytics', label: 'Analytics', icon: 'analytics', items: [
       { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', match: starts('/closing') },
-      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'script', match: starts('/script-analyst') },
-      { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'ads', comingSoon: true, match: starts('/offer-analyst') },
-      { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'funnel', comingSoon: true, match: starts('/landing-analyst') },
-      { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'script', comingSoon: true, match: starts('/vsl-analyst') },
-      { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'analytics', comingSoon: true, match: starts('/market-analyst') },
+      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'ads', match: starts('/script-analyst') },
+      { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
+      { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', comingSoon: true, match: starts('/landing-analyst') },
+      { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'video', comingSoon: true, match: starts('/vsl-analyst') },
+      { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'spy', comingSoon: true, match: starts('/market-analyst') },
     ],
   },
   {
-    key: 'tools', label: 'Tools', icon: 'tools', items: [
+    key: 'tools', label: 'Tools', icon: 'hammer', items: [
       { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', comingSoon: true, match: starts('/ads-writer') },
       { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'pen', comingSoon: true, match: starts('/vsl-writer') },
       { key: 'landing-writer', label: 'Landing Writer', href: '/landing-writer', icon: 'pen', comingSoon: true, match: starts('/landing-writer') },
