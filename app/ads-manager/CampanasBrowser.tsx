@@ -175,6 +175,23 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
 
   const campaignsById = useMemo(() => new Map((health?.campaigns ?? []).map((c) => [c.id, c])), [health]);
   const adsetsById = useMemo(() => new Map((health?.adsets ?? []).map((a) => [a.id, a])), [health]);
+  // Rollup de problemas: los anuncios "con problemas" (semáforo rojo) tienen que
+  // marcar también su conjunto y su campaña como URGENTE, con el motivo real de Meta.
+  const rollup = useMemo(() => {
+    const countAdset = new Map<string, number>(), countCamp = new Map<string, number>();
+    const reasons = new Map<string, string[]>();
+    const bump = (m: Map<string, number>, id: string) => m.set(id, (m.get(id) ?? 0) + 1);
+    const addReason = (id: string, v: string) => { const a = reasons.get(id); if (a) a.push(v); else reasons.set(id, [v]); };
+    for (const ad of health?.ads ?? []) {
+      if (ad.semaforo !== 'rojo') continue;
+      const motivo = `${ad.name}: ${ad.issues?.[0]?.resumen ?? ad.statusLabel}`;
+      const adsetId = ad.parentId;
+      if (adsetId) { bump(countAdset, adsetId); addReason(adsetId, motivo); }
+      const campId = adsetId ? adsetsById.get(adsetId)?.parentId ?? null : null;
+      if (campId) { bump(countCamp, campId); addReason(campId, motivo); }
+    }
+    return { countAdset, countCamp, reasons };
+  }, [health, adsetsById]);
   const campName = (id: string | null) => (id ? campaignsById.get(id)?.name ?? null : null);
   const adsetCampId = (adsetId: string | null) => (adsetId ? adsetsById.get(adsetId)?.parentId ?? null : null);
 
@@ -499,6 +516,8 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
                 ) : sorted.map((r) => (
                   <RowView key={r.node.id} r={r} cols={cols} selected={selSet.has(r.node.id)} onSelect={() => toggleOne(r.node.id)} onOpen={() => abrir(r)}
                     effStatus={effStatusOf(r.node)} budgetMxn={budgetOf(r.node)} name={nameOf(r.node)} accountFrozen={accountFrozen}
+                    childIssues={r.level === 'campaign' ? (rollup.countCamp.get(r.node.id) ?? 0) : r.level === 'adset' ? (rollup.countAdset.get(r.node.id) ?? 0) : 0}
+                    issueHint={r.level === 'ad' ? ((r.node.issues ?? []).map((x) => x.mensaje || x.resumen).join(' · ') || undefined) : (rollup.reasons.get(r.node.id)?.join(' · ') || undefined)}
                     writing={writing.has(r.node.id)} editing={editingBudgetId === r.node.id} editingName={editingNameId === r.node.id}
                     onToggleStatus={(next) => writeStatus(r.level, r.node.id, next)}
                     onStartBudget={() => setEditingBudgetId(r.node.id)} onCancelBudget={() => setEditingBudgetId(null)} onSaveBudget={(mxn) => writeBudget(r.level as Level, r.node.id, mxn)}
@@ -548,20 +567,23 @@ function SortLabel({ label, active, dir, onClick, align }: { label: string; acti
 }
 
 // ── fila ──
-function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
+function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, name, accountFrozen, childIssues, issueHint, writing, editing, editingName, onToggleStatus, onStartBudget, onCancelBudget, onSaveBudget, onStartName, onCancelName, onSaveName }: {
   r: Row; cols: ColDef[]; selected: boolean; onSelect: () => void; onOpen: () => void;
-  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; writing: boolean; editing: boolean; editingName: boolean;
+  effStatus: string; budgetMxn: number | null; name: string; accountFrozen: boolean; childIssues: number; issueHint?: string; writing: boolean; editing: boolean; editingName: boolean;
   onToggleStatus: (next: 'ACTIVE' | 'PAUSED') => void; onStartBudget: () => void; onCancelBudget: () => void; onSaveBudget: (mxn: number) => void;
   onStartName: () => void; onCancelName: () => void; onSaveName: (name: string) => void;
 }) {
   const active = effStatus === 'ACTIVE';
-  const entrega = accountFrozen && active ? { label: 'Error en el pago', semaforo: 'rojo' as Semaforo } : { label: metaStatusLabel(effStatus), semaforo: metaStatusSemaforo(effStatus) };
+  // Padre (campaña/conjunto) con anuncios problemáticos → hereda "Con problemas" URGENTE.
+  const entrega = accountFrozen && active ? { label: 'Error en el pago', semaforo: 'rojo' as Semaforo }
+    : childIssues > 0 ? { label: `Con problemas · ${childIssues}`, semaforo: 'rojo' as Semaforo }
+    : { label: metaStatusLabel(effStatus), semaforo: metaStatusSemaforo(effStatus) };
   const costo = r.perf.agendas > 0 ? r.perf.spend_usd / r.perf.agendas : null;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   const cell = (c: ColDef) => {
     switch (c.id) {
-      case 'entrega': return <Pill semaforo={entrega.semaforo} label={entrega.label} />;
+      case 'entrega': return <Pill semaforo={entrega.semaforo} label={entrega.label} hint={issueHint} />;
       case 'resultados': return r.perf.agendas > 0 ? fmtNum(r.perf.agendas) : '—';
       case 'costoRes': return fmtUSD(costo);
       case 'gastado': return r.level === 'ad' && !r.senal ? '—' : fmtUSD(r.perf.spend_usd, 0);
@@ -666,9 +688,9 @@ function Toggle({ on, disabled, onChange }: { on: boolean; disabled: boolean; on
   );
 }
 
-function Pill({ semaforo, label }: { semaforo: Semaforo; label: string }) {
+function Pill({ semaforo, label, hint }: { semaforo: Semaforo; label: string; hint?: string }) {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 999, color: colorDeSemaforo(semaforo), background: bgDeSemaforo(semaforo), whiteSpace: 'nowrap' }}>
+    <span title={hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 999, color: colorDeSemaforo(semaforo), background: bgDeSemaforo(semaforo), whiteSpace: 'nowrap', cursor: hint ? 'help' : 'default' }}>
       <span style={{ width: 6, height: 6, borderRadius: '50%', background: colorDeSemaforo(semaforo) }} />{label}
     </span>
   );
