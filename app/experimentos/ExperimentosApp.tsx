@@ -1,36 +1,33 @@
 'use client';
 
 // =============================================================================
-// ExperimentosApp — shell de 4 tabs de /experimentos
+// ExperimentosApp — shell de tabs de /experimentos
 // =============================================================================
-// Retro · Experiments · To-do · Conclusions. El shell tiene el estado de datos
-// (se refresca tras cada mutación contra las APIs) y un toast simple. Cada tab
-// es un componente propio; comparten los átomos de ./ui.
+// Retro · Experiments · Conclusions. (El tablero To-do vive en su propia ruta
+// /todo.) El shell tiene el estado de datos (se refresca tras cada mutación) y
+// un toast simple. Cada tab es un componente propio; comparten los átomos de ./ui.
 // =============================================================================
 
 import { useCallback, useState, type ReactNode } from 'react';
 import type { ExperimentosView } from '@/lib/experimentos';
 import type { Retro } from '@/lib/retro';
-import type { Tarea } from '@/lib/todo';
 import { MONO, SANS } from './ui';
 import { RetroTab } from './RetroTab';
 import { ExperimentsTab } from './ExperimentsTab';
-import { TodoTab } from './TodoTab';
 import { ConclusionsTab } from './ConclusionsTab';
 
-type TabKey = 'retro' | 'experiments' | 'todo' | 'conclusions';
+type TabKey = 'retro' | 'experiments' | 'conclusions';
 
 export type Toast = (msg: string, tone?: 'ok' | 'bad') => void;
 
 export function ExperimentosApp({
-  exp, retros: retros0, tareas: tareas0, errorMsg, demo,
+  exp, retros: retros0, errorMsg, demo,
 }: {
-  exp: ExperimentosView; retros: Retro[]; tareas: Tarea[]; errorMsg: string | null; demo: boolean;
+  exp: ExperimentosView; retros: Retro[]; errorMsg: string | null; demo: boolean;
 }) {
   const [tab, setTab] = useState<TabKey>('retro');
   const [expView, setExpView] = useState<ExperimentosView>(exp);
   const [retros, setRetros] = useState<Retro[]>(retros0);
-  const [tareas, setTareas] = useState<Tarea[]>(tareas0);
   const [toast, setToast] = useState<{ msg: string; tone: 'ok' | 'bad' } | null>(null);
 
   const notify: Toast = useCallback((msg, tone = 'ok') => {
@@ -41,9 +38,6 @@ export function ExperimentosApp({
   const refreshExp = useCallback(async () => {
     try { const j = await fetch('/api/experimentos').then((r) => r.json()); if (j.ok) setExpView(j.view); } catch { /* local sin DB */ }
   }, []);
-  const refreshTareas = useCallback(async () => {
-    try { const j = await fetch('/api/todo').then((r) => r.json()); if (j.ok) setTareas(j.tareas); } catch { /* local sin DB */ }
-  }, []);
   const refreshRetros = useCallback(async () => {
     try { const j = await fetch('/api/retro').then((r) => r.json()); if (j.ok) setRetros(j.retros); } catch { /* local sin DB */ }
   }, []);
@@ -51,7 +45,6 @@ export function ExperimentosApp({
   const tabs: Array<{ key: TabKey; label: string; count?: number }> = [
     { key: 'retro', label: 'Retro', count: retros.length || undefined },
     { key: 'experiments', label: 'Experiments', count: expView.counts.activos || undefined },
-    { key: 'todo', label: 'To-do', count: tareas.filter((t) => t.estado !== 'hecho').length || undefined },
     { key: 'conclusions', label: 'Conclusions', count: expView.counts.cerrados || undefined },
   ];
 
@@ -67,12 +60,12 @@ export function ExperimentosApp({
       )}
 
       {/* Tab bar */}
-      <nav style={{ display: 'flex', gap: 4, marginBottom: 26, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
+      <nav style={{ display: 'flex', gap: 4, marginBottom: 26, borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         {tabs.map((t) => {
           const on = t.key === tab;
           return (
             <button key={t.key} type="button" onClick={() => setTab(t.key)}
-              style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 16px', marginBottom: -1, background: 'transparent', border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, color: on ? 'var(--primary)' : 'var(--dim)', fontFamily: SANS, fontSize: 16.5, fontWeight: on ? 600 : 500, cursor: 'pointer', transition: 'color .15s' }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 16px', marginBottom: -1, background: 'transparent', border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, color: on ? 'var(--primary)' : 'var(--dim)', fontFamily: SANS, fontSize: 16.5, fontWeight: on ? 600 : 500, cursor: 'pointer', transition: 'color .15s' }}>
               {t.label}
               {t.count != null && (
                 <span style={{ minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 11.5, fontWeight: 600, fontFamily: MONO, background: on ? 'var(--primary-bg)' : 'var(--surface-2)', color: on ? 'var(--primary-strong)' : 'var(--faint)', border: `1px solid ${on ? 'var(--primary-weak)' : 'var(--border)'}` }}>{t.count}</span>
@@ -84,14 +77,11 @@ export function ExperimentosApp({
 
       {tab === 'retro' && (
         <RetroTab retros={retros} setRetros={setRetros} refreshRetros={refreshRetros}
-          refreshExp={refreshExp} refreshTareas={refreshTareas} notify={notify} demo={demo}
-          onGoExperiments={() => setTab('experiments')} onGoTodo={() => setTab('todo')} />
+          refreshExp={refreshExp} notify={notify} demo={demo}
+          onGoExperiments={() => setTab('experiments')} />
       )}
       {tab === 'experiments' && (
         <ExperimentsTab view={expView} refreshExp={refreshExp} notify={notify} demo={demo} />
-      )}
-      {tab === 'todo' && (
-        <TodoTab tareas={tareas} setTareas={setTareas} refreshTareas={refreshTareas} notify={notify} demo={demo} />
       )}
       {tab === 'conclusions' && (
         <ConclusionsTab aprendizajes={expView.aprendizajes} />

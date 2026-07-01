@@ -1,16 +1,17 @@
 // =============================================================================
-// todo — tablero kanban de tareas de /experimentos (tab To-do)
+// todo — tablero kanban de tareas (ruta /todo)
 // =============================================================================
 // Tareas que nacen de una Retro ("hacé esto"), de un experimento, o a mano.
-// Tres columnas: por_hacer | en_curso | hecho. `orden` (float) ordena dentro de
-// la columna y permite insertar entre dos tarjetas sin renumerar todo.
+// AMBOS EJES: columnas de estado (por_hacer|en_curso|hecho) para el drag, y por
+// tarjeta: prioridad, avance % (progreso), deadline, categorías (multi) y nota.
+// `orden` (float) ordena dentro de la columna e inserta entre dos sin renumerar.
 // =============================================================================
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 
 export type EstadoTarea = 'por_hacer' | 'en_curso' | 'hecho';
-export type Prioridad = 'alta' | 'media' | 'baja';
+export type Prioridad = 'alta' | 'media' | 'baja' | 'futuro';
 export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
 
 export const COLUMNAS: Array<{ key: EstadoTarea; label: string }> = [
@@ -22,9 +23,12 @@ export const COLUMNAS: Array<{ key: EstadoTarea; label: string }> = [
 export type Tarea = {
   id: number;
   titulo: string;
-  detalle: string | null;
+  detalle: string | null;        // nota
   estado: EstadoTarea;
   prioridad: Prioridad;
+  progreso: number;              // 0-100
+  deadline: string | null;       // YYYY-MM-DD
+  categorias: number[];          // ids de tarea_categorias
   origen: OrigenTarea;
   experimento_id: number | null;
   retro_id: number | null;
@@ -34,15 +38,34 @@ export type Tarea = {
   updated_at: string;
 };
 
+export type Categoria = { id: number; nombre: string; color: string; created_at: string };
+
 const COLS = '*';
-const rowTo = (r: Record<string, unknown>): Tarea => r as unknown as Tarea;
+const rowTo = (r: Record<string, unknown>): Tarea => {
+  const t = r as unknown as Tarea;
+  // categorias viene como jsonb → array; blindamos a number[].
+  const cats = (r.categorias as unknown);
+  t.categorias = Array.isArray(cats) ? cats.map(Number).filter((n) => Number.isFinite(n)) : [];
+  t.progreso = clampPct((r.progreso as number) ?? 0);
+  return t;
+};
+
+function clampPct(v: unknown): number {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
 
 const estadoOk = (e: unknown): EstadoTarea =>
   e === 'en_curso' || e === 'hecho' ? e : 'por_hacer';
 const prioridadOk = (p: unknown): Prioridad =>
-  p === 'alta' || p === 'baja' ? p : 'media';
+  p === 'alta' || p === 'baja' || p === 'futuro' ? p : 'media';
 const origenOk = (o: unknown): OrigenTarea =>
   o === 'mako' || o === 'retro' || o === 'experimento' ? o : 'manual';
+const dateOk = (d: unknown): string | null =>
+  typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+const catsOk = (c: unknown): number[] =>
+  Array.isArray(c) ? c.map(Number).filter((n) => Number.isFinite(n)) : [];
 
 export async function listTareas(): Promise<Tarea[]> {
   const supabase = getSupabaseServer();
@@ -60,6 +83,9 @@ export type NuevaTarea = {
   detalle?: string | null;
   estado?: EstadoTarea;
   prioridad?: Prioridad;
+  progreso?: number;
+  deadline?: string | null;
+  categorias?: number[];
   origen?: OrigenTarea;
   experimento_id?: number | null;
   retro_id?: number | null;
@@ -85,6 +111,9 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     detalle: input.detalle ?? null,
     estado,
     prioridad: prioridadOk(input.prioridad),
+    progreso: input.progreso != null ? clampPct(input.progreso) : 0,
+    deadline: dateOk(input.deadline),
+    categorias: catsOk(input.categorias),
     origen: origenOk(input.origen),
     experimento_id: input.experimento_id ?? null,
     retro_id: input.retro_id ?? null,
@@ -112,6 +141,9 @@ export async function crearTareasDesde(
     detalle: it.detalle ?? null,
     estado: 'por_hacer' as EstadoTarea,
     prioridad: prioridadOk(it.prioridad),
+    progreso: 0,
+    deadline: null,
+    categorias: [] as number[],
     origen: origenOk(meta.origen),
     retro_id: meta.retro_id ?? null,
     experimento_id: meta.experimento_id ?? null,
@@ -125,7 +157,7 @@ export async function crearTareasDesde(
   return filas.length;
 }
 
-/** Mueve una tarea de columna y/o la reordena. `orden` opcional (default: tope). */
+/** Mueve una tarea de columna y/o la reordena. Al pasar a 'hecho' completa el avance. */
 export async function moverTarea(id: number, estado: EstadoTarea, orden?: number): Promise<Tarea> {
   const est = estadoOk(estado);
   const patch: Record<string, unknown> = {
@@ -134,6 +166,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
     hecho_at: est === 'hecho' ? new Date().toISOString() : null,
     updated_at: new Date().toISOString(),
   };
+  if (est === 'hecho') patch.progreso = 100;
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single();
   if (error) throw new Error(`moverTarea: ${error.message}`);
@@ -142,12 +175,17 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[] },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.prioridad != null) upd.prioridad = prioridadOk(patch.prioridad);
+  // El avance es una MÉTRICA independiente del estado (columna): editar el
+  // progreso NO mueve de columna. "Hecho" se marca moviendo la tarjeta (moverTarea).
+  if (patch.progreso != null) upd.progreso = clampPct(patch.progreso);
+  if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
+  if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);
@@ -158,4 +196,38 @@ export async function borrarTarea(id: number): Promise<void> {
   const supabase = getSupabaseServer();
   const { error } = await supabase.from('experimento_tareas').delete().eq('id', id);
   if (error) throw new Error(`borrarTarea: ${error.message}`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Categorías (etiquetas con color)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const catRow = (r: Record<string, unknown>): Categoria => r as unknown as Categoria;
+
+export async function listCategorias(): Promise<Categoria[]> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase.from('tarea_categorias').select('*').order('created_at', { ascending: true });
+  if (error) throw new Error(`listCategorias: ${error.message}`);
+  return (data ?? []).map(catRow);
+}
+
+export async function crearCategoria(nombre: string, color: string): Promise<Categoria> {
+  const supabase = getSupabaseServer();
+  const { data, error } = await supabase.from('tarea_categorias')
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2' })
+    .select('*').single();
+  if (error) throw new Error(`crearCategoria: ${error.message}`);
+  return catRow(data);
+}
+
+/** Borra la categoría y la quita de todas las tareas que la tenían. */
+export async function borrarCategoria(id: number): Promise<void> {
+  const supabase = getSupabaseServer();
+  const { data: conCat } = await supabase.from('experimento_tareas').select('id, categorias').contains('categorias', [id]);
+  await Promise.all((conCat ?? []).map((t) => {
+    const cats = catsOk((t as { categorias: unknown }).categorias).filter((c) => c !== id);
+    return supabase.from('experimento_tareas').update({ categorias: cats, updated_at: new Date().toISOString() }).eq('id', (t as { id: number }).id);
+  }));
+  const { error } = await supabase.from('tarea_categorias').delete().eq('id', id);
+  if (error) throw new Error(`borrarCategoria: ${error.message}`);
 }

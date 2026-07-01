@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { action?: string; desde?: string; hasta?: string; id?: number };
+  let body: { action?: string; desde?: string; hasta?: string; id?: number; perspectiva?: string; profundidad?: 'rapida' | 'estandar' | 'profunda'; foco?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
 
   try {
@@ -32,7 +32,9 @@ export async function POST(req: NextRequest) {
       const desde = body.desde && esFechaValida(body.desde) ? body.desde : def.desde;
       const hasta = body.hasta && esFechaValida(body.hasta) ? body.hasta : def.hasta;
       if (desde > hasta) return Response.json({ ok: false, error: 'rango de fechas inválido' }, { status: 400 });
-      return Response.json({ ok: true, retro: await generarRetro(desde, hasta) });
+      return Response.json({ ok: true, retro: await generarRetro(desde, hasta, {
+        perspectiva: body.perspectiva, profundidad: body.profundidad, foco: body.foco,
+      }) });
     }
     if (body.action === 'borrar') {
       const id = Number(body.id);

@@ -1,15 +1,19 @@
 'use client';
 
 // =============================================================================
-// RetroTab — la retrospectiva de MaKo (reporte + plan probá/hacé)
+// RetroTab — lista de retrospectivas + detalle + wizard "Nueva Retro"
 // =============================================================================
+// Por defecto se ve la LISTA (título, período, algunos detalles). Clic abre el
+// reporte completo. "+ Nueva Retro" abre un wizard SIMPLE (período → tu
+// perspectiva → profundidad/foco) al estilo "Nueva campaña".
 
 import { useState } from 'react';
 import type { Retro, RetroRecoExperimento, RetroRecoTarea } from '@/lib/retro';
 import { ayerEnTijuana, diasAntes, primerDiaDelMesEnTijuana } from '@/lib/date-utils';
+import { MakoStar, MakoWord } from '@/app/_components/MakoBrand';
 import type { Toast } from './ExperimentosApp';
 import {
-  MONO, SANS, card, btnPrimary, btnGhost, btnDark, sectionLabel,
+  MONO, SANS, card, btnPrimary, btnGhost, btnDark, pregunta, ayuda, sectionLabel,
   Pill, Markdown, MakoLoading, Empty, fmtFechaLarga, fmtDelta, dirLabel,
 } from './ui';
 
@@ -22,36 +26,23 @@ const PRESETS: Preset[] = [
 ];
 
 export function RetroTab({
-  retros, setRetros, refreshRetros, refreshExp, refreshTareas, notify, demo, onGoExperiments, onGoTodo,
+  retros, setRetros, refreshRetros, refreshExp, notify, demo, onGoExperiments,
 }: {
   retros: Retro[]; setRetros: (r: Retro[]) => void; refreshRetros: () => Promise<void>;
-  refreshExp: () => Promise<void>; refreshTareas: () => Promise<void>; notify: Toast; demo: boolean;
-  onGoExperiments: () => void; onGoTodo: () => void;
+  refreshExp: () => Promise<void>; notify: Toast; demo: boolean; onGoExperiments: () => void;
 }) {
-  const [preset, setPreset] = useState('30');
-  const [generando, setGenerando] = useState(false);
-  const [selId, setSelId] = useState<number | null>(retros[0]?.id ?? null);
+  const [selId, setSelId] = useState<number | null>(null);
+  const [wizard, setWizard] = useState(false);
   const [applied, setApplied] = useState<Record<string, 'exp' | 'todo'>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
-  const sel = retros.find((r) => r.id === selId) ?? retros[0] ?? null;
+  const sel = selId != null ? retros.find((r) => r.id === selId) ?? null : null;
 
-  const generar = async () => {
-    if (generando) return;
-    if (demo) { notify('En demo no se genera una Retro nueva (local sin Supabase). En producción MaKo la arma con tu dato real.'); return; }
-    setGenerando(true);
-    try {
-      const { desde, hasta } = (PRESETS.find((p) => p.key === preset) ?? PRESETS[1]).rango();
-      const j = await fetch('/api/retro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar', desde, hasta }) }).then((r) => r.json());
-      if (j.ok && j.retro) {
-        setRetros([j.retro, ...retros]);
-        setSelId(j.retro.id);
-        notify('Retro generada');
-      } else {
-        notify(j.error || 'No se pudo generar la retro', 'bad');
-        if (!demo) refreshRetros();
-      }
-    } catch (e) { notify(String(e), 'bad'); } finally { setGenerando(false); }
+  const onGenerada = (retro: Retro) => {
+    setRetros([retro, ...retros]);
+    setSelId(retro.id);
+    setWizard(false);
+    notify('Retro generada');
   };
 
   const aplicarExperimento = async (r: RetroRecoExperimento, key: string) => {
@@ -77,87 +68,93 @@ export function RetroTab({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'crear', tarea: { titulo: r.titulo, detalle: r.detalle, prioridad: r.prioridad, origen: 'retro', retro_id: sel?.id } }),
       }).then((x) => x.json());
-      if (j.ok) { setApplied((a) => ({ ...a, [key]: 'todo' })); await refreshTareas(); notify('Tarea agregada a To-do'); }
+      if (j.ok) { setApplied((a) => ({ ...a, [key]: 'todo' })); notify('Tarea agregada a To-do'); }
       else notify(j.error || 'No se pudo agregar', 'bad');
     } catch (e) { notify(String(e), 'bad'); } finally { setBusy(null); }
   };
 
-  // ── barra de generación ──
-  const control = (
-    <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', background: 'linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%)' }}>
-      <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>Retrospectiva de MaKo</div>
-        <p style={{ margin: '3px 0 0', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-          MaKo lee tu funnel real, tus experimentos y tus conclusiones del período, y arma una lectura con un plan de qué <b>probar</b> y qué <b>hacer</b>.
-        </p>
+  // ── Detalle de una retro ──
+  if (sel) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <button type="button" onClick={() => setSelId(null)} style={{ ...btnGhost, alignSelf: 'flex-start', border: 'none', paddingLeft: 0 }}>← Volver a las retros</button>
+        <RetroReport retro={sel} applied={applied} busy={busy} onExperimento={aplicarExperimento} onTarea={aplicarTarea} onGoExperiments={onGoExperiments} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 4, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: 3 }}>
-          {PRESETS.map((p) => (
-            <button key={p.key} type="button" onClick={() => setPreset(p.key)}
-              style={{ padding: '7px 11px', borderRadius: 8, border: 'none', background: preset === p.key ? 'var(--surface)' : 'transparent', color: preset === p.key ? 'var(--ink)' : 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: preset === p.key ? 600 : 500, cursor: 'pointer', boxShadow: preset === p.key ? '0 1px 3px rgba(18,21,27,.1)' : 'none' }}>{p.label}</button>
-          ))}
-        </div>
-        <button type="button" onClick={generar} disabled={generando} style={{ ...btnPrimary, opacity: generando ? 0.6 : 1 }}>
-          {generando ? 'Analizando…' : retros.length ? 'Generar nueva' : 'Generar Retro'}
+    );
+  }
+
+  // ── Lista ──
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <p style={{ margin: 0, fontSize: 14.5, color: 'var(--dim)', maxWidth: 560, lineHeight: 1.55 }}>
+          MaKo lee tu funnel real, tus experimentos y tus conclusiones de un período, y te deja una <b>lectura con un plan</b> de qué probar y qué hacer.
+        </p>
+        <button type="button" onClick={() => setWizard(true)} style={{ ...btnPrimary, padding: '13px 22px', fontSize: 15, boxShadow: '0 8px 22px rgba(47,111,237,.28)' }}>
+          <MakoStar size={15} color="#fff" /> Nueva Retro
         </button>
       </div>
-    </div>
-  );
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {control}
-
-      {generando && (
-        <div style={card}>
-          <MakoLoading pasos={['Leyendo tu funnel del período…', 'Cruzando con tus experimentos y conclusiones…', 'Buscando dónde está la palanca…', 'Escribiendo la retro y el plan…']} />
+      {retros.length === 0 ? (
+        <Empty titulo="Todavía no hay retrospectivas"
+          sub="MaKo lee tu funnel, tus experimentos y tus conclusiones, y te deja una lectura del período con un plan de qué probar y qué hacer.">
+          <button type="button" onClick={() => setWizard(true)} style={{ ...btnDark, marginTop: 6 }}>Generar mi primera Retro</button>
+        </Empty>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {retros.map((r) => <RetroListItem key={r.id} retro={r} onOpen={() => setSelId(r.id)} />)}
         </div>
       )}
 
-      {!generando && !sel && (
-        <Empty titulo="Todavía no hay retrospectivas"
-          sub="MaKo lee tu funnel, tus experimentos en curso y tus conclusiones, y te deja una lectura del período con un plan de qué probar y qué hacer. Elegí un período arriba y generá la primera.">
-          <button type="button" onClick={generar} style={{ ...btnDark, marginTop: 6 }}>Generar mi primera Retro</button>
-        </Empty>
-      )}
-
-      {!generando && sel && (
-        <>
-          {/* selector de retros previas */}
-          {retros.length > 1 && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ ...sectionLabel, marginRight: 2 }}>Retros</span>
-              {retros.map((r) => {
-                const on = r.id === sel.id;
-                return (
-                  <button key={r.id} type="button" onClick={() => setSelId(r.id)}
-                    style={{ padding: '6px 12px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: MONO, fontSize: 11.5, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    {fmtFechaLarga(r.periodo_desde)} – {fmtFechaLarga(r.periodo_hasta)}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <RetroReport
-            retro={sel} applied={applied} busy={busy}
-            onExperimento={aplicarExperimento} onTarea={aplicarTarea}
-            onGoExperiments={onGoExperiments} onGoTodo={onGoTodo}
-          />
-        </>
-      )}
+      {wizard && <NuevaRetroModal onClose={() => setWizard(false)} onGenerada={onGenerada} notify={notify} refreshRetros={refreshRetros} demo={demo} />}
     </div>
   );
 }
 
+// ── Fila de la lista ──
+function RetroListItem({ retro, onOpen }: { retro: Retro; onOpen: () => void }) {
+  const recos = retro.recomendaciones ?? [];
+  const nExp = recos.filter((r) => r.tipo === 'experimento').length;
+  const nTar = recos.filter((r) => r.tipo === 'tarea').length;
+  const top = (retro.destacados ?? []).filter((d) => d.tono !== 'neutral').slice(0, 3);
+  return (
+    <button type="button" onClick={onOpen}
+      style={{ ...card, textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', transition: 'border-color .15s, box-shadow .15s' }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(18,21,27,.06)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ ...sectionLabel, marginBottom: 5 }}>{fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)}</div>
+        <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{retro.titulo}</div>
+        <div style={{ marginTop: 8, display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+          {nExp > 0 && <Pill tone="primary">🧪 {nExp} experimento{nExp === 1 ? '' : 's'}</Pill>}
+          {nTar > 0 && <Pill>✅ {nTar} tarea{nTar === 1 ? '' : 's'}</Pill>}
+        </div>
+      </div>
+      {top.length > 0 && (
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          {top.map((d) => (
+            <div key={d.metrica} style={{ minWidth: 90 }}>
+              <div style={{ fontSize: 10.5, color: 'var(--faint)', fontFamily: MONO, whiteSpace: 'nowrap' }}>{d.label}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{d.valor}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: d.tono === 'good' ? 'var(--good)' : 'var(--bad)' }}>{fmtDelta(d.delta)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <span style={{ color: 'var(--faint)', fontSize: 20 }}>›</span>
+    </button>
+  );
+}
+
+// ── Reporte completo (detalle) ──
 function RetroReport({
-  retro, applied, busy, onExperimento, onTarea, onGoExperiments, onGoTodo,
+  retro, applied, busy, onExperimento, onTarea, onGoExperiments,
 }: {
   retro: Retro; applied: Record<string, 'exp' | 'todo'>; busy: string | null;
   onExperimento: (r: RetroRecoExperimento, key: string) => void;
-  onTarea: (r: RetroRecoTarea, key: string) => void;
-  onGoExperiments: () => void; onGoTodo: () => void;
+  onTarea: (r: RetroRecoTarea, key: string) => void; onGoExperiments: () => void;
 }) {
   const recos = retro.recomendaciones ?? [];
   const exps = recos.map((r, i) => ({ r, i })).filter((x) => x.r.tipo === 'experimento') as Array<{ r: RetroRecoExperimento; i: number }>;
@@ -165,13 +162,11 @@ function RetroReport({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* encabezado */}
       <div>
         <div style={sectionLabel}>Retro · {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)}</div>
         <h2 style={{ margin: '6px 0 0', fontSize: 27, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.15, color: 'var(--ink)' }}>{retro.titulo}</h2>
       </div>
 
-      {/* destacados: DATO duro del funnel */}
       {retro.destacados && retro.destacados.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
           {retro.destacados.map((d) => (
@@ -179,9 +174,7 @@ function RetroReport({
               <div style={{ fontSize: 12, color: 'var(--dim)', minHeight: 30, lineHeight: 1.3 }}>{d.label}</div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
                 <span style={{ fontFamily: MONO, fontSize: 21, fontWeight: 600, color: 'var(--ink)' }}>{d.valor}</span>
-                {d.delta != null && (
-                  <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: d.tono === 'good' ? 'var(--good)' : d.tono === 'bad' ? 'var(--bad)' : 'var(--faint)' }}>{fmtDelta(d.delta)}</span>
-                )}
+                {d.delta != null && <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: d.tono === 'good' ? 'var(--good)' : d.tono === 'bad' ? 'var(--bad)' : 'var(--faint)' }}>{fmtDelta(d.delta)}</span>}
               </div>
               <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 3 }}>antes {d.valor_prev}</div>
             </div>
@@ -189,21 +182,19 @@ function RetroReport({
         </div>
       )}
 
-      {/* resumen narrativo */}
       {retro.resumen && (
         <div style={{ ...card, padding: '22px 26px', maxWidth: 760 }}>
           <div style={{ fontSize: 14.5, color: 'var(--ink)' }}><Markdown text={retro.resumen} /></div>
         </div>
       )}
 
-      {/* plan: probá / hacé */}
       {(exps.length > 0 || tareas.length > 0) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18 }}>
           {exps.length > 0 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>🧪 Probá esto</h3>
-                <span style={{ ...sectionLabel }}>experimentos</span>
+                <span style={sectionLabel}>experimentos</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {exps.map(({ r, i }) => {
@@ -236,7 +227,7 @@ function RetroReport({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>✅ Hacé esto</h3>
-                <span style={{ ...sectionLabel }}>tareas</span>
+                <span style={sectionLabel}>tareas → To-do</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {tareas.map(({ r, i }) => {
@@ -251,7 +242,7 @@ function RetroReport({
                         {r.detalle && <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{r.detalle}</p>}
                       </div>
                       {done ? (
-                        <button type="button" onClick={onGoTodo} style={{ ...btnGhost, color: 'var(--good)', borderColor: 'var(--good)', flexShrink: 0 }}>✓ En To-do →</button>
+                        <span style={{ ...btnGhost, color: 'var(--good)', borderColor: 'var(--good)', flexShrink: 0 }}>✓ En To-do</span>
                       ) : (
                         <button type="button" disabled={busy === key} onClick={() => onTarea(r, key)} style={{ ...btnDark, flexShrink: 0, opacity: busy === key ? 0.6 : 1 }}>{busy === key ? '…' : '+ To-do'}</button>
                       )}
@@ -263,6 +254,135 @@ function RetroReport({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Wizard "Nueva Retro" ──
+type WStep = 'periodo' | 'perspectiva' | 'enfoque' | 'generando';
+const FOCOS = [
+  { key: '', label: 'Todo el funnel' },
+  { key: 'la adquisición (Meta, CPL, CTR, landing)', label: 'Adquisición' },
+  { key: 'la conversión (landing → VSL → agenda)', label: 'Conversión' },
+  { key: 'el cierre (agendas → cierres, CAC)', label: 'Cierre' },
+];
+
+function NuevaRetroModal({ onClose, onGenerada, notify, refreshRetros, demo }: {
+  onClose: () => void; onGenerada: (r: Retro) => void; notify: Toast; refreshRetros: () => Promise<void>; demo: boolean;
+}) {
+  const [step, setStep] = useState<WStep>('periodo');
+  const [preset, setPreset] = useState('30');
+  const [perspectiva, setPerspectiva] = useState('');
+  const [profundidad, setProfundidad] = useState<'rapida' | 'estandar' | 'profunda'>('estandar');
+  const [foco, setFoco] = useState('');
+
+  const generar = async () => {
+    if (demo) { notify('En local no se genera una Retro (sin Supabase). En producción MaKo la arma con tu dato real.'); onClose(); return; }
+    setStep('generando');
+    try {
+      const { desde, hasta } = (PRESETS.find((p) => p.key === preset) ?? PRESETS[1]).rango();
+      const j = await fetch('/api/retro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generar', desde, hasta, perspectiva, profundidad, foco }),
+      }).then((r) => r.json());
+      if (j.ok && j.retro) onGenerada(j.retro);
+      else { notify('No se pudo generar la retro. Probá de nuevo.', 'bad'); onClose(); refreshRetros(); }
+    } catch { notify('No se pudo generar la retro. Probá de nuevo.', 'bad'); onClose(); }
+  };
+
+  const steps: WStep[] = ['periodo', 'perspectiva', 'enfoque'];
+  const idx = steps.indexOf(step);
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 600, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden', fontFamily: SANS }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', flexShrink: 0 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+            <MakoStar size={12} /> <MakoWord base="var(--accent)">MaKo</MakoWord> · nueva retro
+          </div>
+          {step !== 'generando' && (
+            <div style={{ display: 'flex', gap: 6, margin: '0 auto' }}>
+              {steps.map((s, i) => <span key={s} style={{ width: i === idx ? 22 : 7, height: 7, borderRadius: 999, background: i <= idx ? 'var(--primary)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
+            </div>
+          )}
+          <button onClick={onClose} style={{ marginLeft: step === 'generando' ? 'auto' : 0, width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          {step === 'periodo' && (
+            <div style={{ padding: '30px 30px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+              <div><h2 style={pregunta}>¿Qué período querés analizar?</h2><p style={ayuda}>MaKo compara este período contra el anterior de igual largo.</p></div>
+              <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {PRESETS.map((p) => {
+                  const on = preset === p.key;
+                  return (
+                    <button key={p.key} type="button" onClick={() => setPreset(p.key)}
+                      style={{ padding: '15px 18px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15.5, fontWeight: on ? 600 : 500, cursor: 'pointer', textAlign: 'left' }}>
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {step === 'perspectiva' && (
+            <div style={{ padding: '30px 30px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+              <div><h2 style={pregunta}>¿Querés darle tu lectura del período?</h2><p style={ayuda}>Opcional. Contale a MaKo qué venís observando o qué te preocupa.</p></div>
+              <textarea value={perspectiva} autoFocus onChange={(e) => setPerspectiva(e.target.value)} rows={4} placeholder="Ej.: siento que los leads vienen menos calificados desde que subimos el presupuesto…"
+                style={{ width: '100%', maxWidth: 500, padding: '14px 16px', borderRadius: 14, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
+              <div style={{ maxWidth: 500, fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5, textAlign: 'center', display: 'flex', gap: 7, alignItems: 'flex-start', justifyContent: 'center' }}>
+                <span>⚖️</span><span>MaKo la toma como <b>tu hipótesis</b>, no como un hecho: la contrasta con el dato y puede darte la contraria.</span>
+              </div>
+            </div>
+          )}
+
+          {step === 'enfoque' && (
+            <div style={{ padding: '28px 30px 12px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+              <div style={{ textAlign: 'center' }}><h2 style={{ ...pregunta, fontSize: 22 }}>¿Qué tan a fondo, y con qué foco?</h2></div>
+              <div>
+                <div style={{ ...sectionLabel, marginBottom: 8 }}>Profundidad</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {([['rapida', 'Rápida', 'lo esencial'], ['estandar', 'Estándar', 'análisis completo'], ['profunda', 'Profunda', 'causas de 2º orden']] as const).map(([v, l, d]) => {
+                    const on = profundidad === v;
+                    return (
+                      <button key={v} type="button" onClick={() => setProfundidad(v)}
+                        style={{ padding: '13px 12px', borderRadius: 13, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{l}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--dim)', marginTop: 2 }}>{d}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div style={{ ...sectionLabel, marginBottom: 8 }}>Foco (opcional)</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {FOCOS.map((f) => {
+                    const on = foco === f.key;
+                    return (
+                      <button key={f.label} type="button" onClick={() => setFoco(f.key)}
+                        style={{ padding: '8px 14px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: on ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: on ? 600 : 500, cursor: 'pointer' }}>{f.label}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 'generando' && <MakoLoading pasos={['Leyendo tu funnel del período…', 'Cruzando con tus experimentos y conclusiones…', 'Contrastando tu perspectiva con el dato…', 'Buscando la palanca y escribiendo el plan…']} />}
+        </div>
+
+        {step !== 'generando' && (
+          <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px' }}>
+            <button type="button" onClick={() => (idx > 0 ? setStep(steps[idx - 1]) : onClose())} style={btnGhost}>← {idx > 0 ? 'Atrás' : 'Cancelar'}</button>
+            {step === 'enfoque'
+              ? <button type="button" onClick={generar} style={{ ...btnPrimary, padding: '11px 20px' }}>Generar Retro</button>
+              : <button type="button" onClick={() => setStep(steps[idx + 1])} style={btnPrimary}>{step === 'perspectiva' && !perspectiva.trim() ? 'Saltar →' : 'Siguiente →'}</button>}
+          </div>
+        )}
+        {demo && step !== 'generando' && <div style={{ padding: '0 20px 12px', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', textAlign: 'center' }}>en local no se genera (sin Supabase); en prod MaKo la arma de verdad</div>}
+      </div>
     </div>
   );
 }

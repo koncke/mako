@@ -517,7 +517,7 @@ CATÁLOGO DE MÉTRICAS:
 
 export const EXP_SUGGEST_USER_DEFAULT = `HIPÓTESIS DE MARTÍN:
 {{hipotesis}}
-
+{{contexto}}
 {{snapshot}}
 
 Diseñá el experimento y devolvé el JSON.`;
@@ -584,10 +584,13 @@ DATO MEDIDO:
 Dictá el veredicto y el aprendizaje en JSON.`;
 
 /** Convierte una hipótesis en lenguaje natural en una propuesta de experimento. */
-export async function sugerirExperimento(hipotesis: string): Promise<Propuesta> {
+export async function sugerirExperimento(hipotesis: string, contexto?: string): Promise<Propuesta> {
   const system = await renderPrompt('experimentos.suggest.system', EXP_SUGGEST_SYSTEM_DEFAULT, { catalogo: catalogoTexto() });
   const snapshot = await snapshotFunnelTexto();
-  const user = await renderPrompt('experimentos.suggest.user', EXP_SUGGEST_USER_DEFAULT, { hipotesis: hipotesis.trim(), snapshot });
+  const ctxTxt = contexto && contexto.trim()
+    ? `\nCONTEXTO DE MARTÍN (lo que vio o por qué lo cree — usalo para elegir mejor la métrica y el cambio, sin darlo por hecho):\n"${contexto.trim()}"\n`
+    : '';
+  const user = await renderPrompt('experimentos.suggest.user', EXP_SUGGEST_USER_DEFAULT, { hipotesis: hipotesis.trim(), contexto: ctxTxt, snapshot });
   const raw = await chatClaude(system, [{ role: 'user', content: user }], { feature: 'experimentos', effort: 'high' });
   const j = parseJson<Record<string, unknown>>(raw);
   return normalizarPropuesta(j, hipotesis);

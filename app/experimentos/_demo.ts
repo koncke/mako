@@ -9,7 +9,7 @@
 
 import type { ExperimentosView, ExperimentoConMedicion, Experimento, Medicion } from '@/lib/experimentos';
 import type { Retro } from '@/lib/retro';
-import type { Tarea } from '@/lib/todo';
+import type { Tarea, Categoria } from '@/lib/todo';
 
 const serie = (base: number, pts: number[], _desde?: string): { fecha: string; valor: number }[] =>
   pts.map((d, i) => ({ fecha: `2026-06-${String(10 + i).padStart(2, '0')}`, valor: +(base * d).toFixed(2) }));
@@ -95,16 +95,23 @@ export const demoRetros: Retro[] = [
 ];
 
 const tarea = (p: Partial<Tarea>): Tarea => ({
-  id: 0, titulo: '', detalle: null, estado: 'por_hacer', prioridad: 'media', origen: 'manual',
+  id: 0, titulo: '', detalle: null, estado: 'por_hacer', prioridad: 'media', progreso: 0,
+  deadline: null, categorias: [], origen: 'manual',
   experimento_id: null, retro_id: null, orden: 0, hecho_at: null,
   created_at: '2026-06-20T12:00:00Z', updated_at: '2026-06-20T12:00:00Z', ...p,
 });
 
+export const demoCategorias: Categoria[] = [
+  { id: 1, nombre: 'Marketing', color: '#3b82f6', created_at: '2026-06-01T12:00:00Z' },
+  { id: 2, nombre: 'Producto', color: '#46a758', created_at: '2026-06-01T12:00:00Z' },
+  { id: 3, nombre: 'Ventas', color: '#f0a818', created_at: '2026-06-01T12:00:00Z' },
+];
+
 export const demoTareas: Tarea[] = [
-  tarea({ id: 1, titulo: 'Revisar por qué cayó la agenda semana 3', detalle: 'Cruzar Calendly con los adsets nuevos.', prioridad: 'alta', origen: 'retro', retro_id: 1, orden: -3 }),
-  tarea({ id: 2, titulo: 'Reeditar apertura del VSL', detalle: 'Promesa numérica en los primeros 15s.', prioridad: 'alta', origen: 'experimento', experimento_id: 2, orden: -2 }),
-  tarea({ id: 3, titulo: 'Documentar retargeting como estándar', prioridad: 'media', origen: 'retro', retro_id: 1, orden: -1 }),
-  tarea({ id: 4, titulo: 'Pedir a diseño 3 variantes del creativo ganador', prioridad: 'media', origen: 'manual', estado: 'en_curso', orden: 0 }),
-  tarea({ id: 5, titulo: 'Configurar umbral de facturación en el form', detalle: 'Instant form de Meta.', prioridad: 'alta', origen: 'experimento', experimento_id: 1, estado: 'en_curso', orden: 1 }),
-  tarea({ id: 6, titulo: 'Subir presupuesto del ganador 20%', prioridad: 'baja', origen: 'experimento', experimento_id: 3, estado: 'hecho', hecho_at: '2026-06-15T12:00:00Z', orden: 0 }),
+  tarea({ id: 1, titulo: 'Revisar por qué cayó la agenda semana 3', detalle: 'Cruzar Calendly con los adsets nuevos.', prioridad: 'alta', progreso: 20, deadline: '2026-07-05', categorias: [1], origen: 'retro', retro_id: 1, orden: -3 }),
+  tarea({ id: 2, titulo: 'Reeditar apertura del VSL', detalle: 'Promesa numérica en los primeros 15s.', prioridad: 'alta', progreso: 0, categorias: [1, 2], origen: 'experimento', experimento_id: 2, orden: -2 }),
+  tarea({ id: 3, titulo: 'Documentar retargeting como estándar', prioridad: 'media', progreso: 0, categorias: [2], origen: 'retro', retro_id: 1, orden: -1 }),
+  tarea({ id: 4, titulo: 'Pedir a diseño 3 variantes del creativo ganador', prioridad: 'media', progreso: 45, deadline: '2026-07-02', categorias: [1], origen: 'manual', estado: 'en_curso', orden: 0 }),
+  tarea({ id: 5, titulo: 'Configurar umbral de facturación en el form', detalle: 'Instant form de Meta.', prioridad: 'alta', progreso: 70, categorias: [3], origen: 'experimento', experimento_id: 1, estado: 'en_curso', orden: 1 }),
+  tarea({ id: 6, titulo: 'Subir presupuesto del ganador 20%', prioridad: 'baja', progreso: 100, categorias: [1], origen: 'experimento', experimento_id: 3, estado: 'hecho', hecho_at: '2026-06-15T12:00:00Z', orden: 0 }),
 ];

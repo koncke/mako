@@ -137,6 +137,8 @@ type Step = 'hipotesis' | 'armando' | 'revision' | 'listo';
 function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => void; refreshExp: () => Promise<void>; demo: boolean }) {
   const [step, setStep] = useState<Step>('hipotesis');
   const [hip, setHip] = useState('');
+  const [ctx, setCtx] = useState('');
+  const [showCtx, setShowCtx] = useState(false);
   const [p, setP] = useState<Propuesta | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -145,7 +147,7 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
     const h = hip.trim(); if (!h) return;
     setStep('armando'); setErr(null);
     try {
-      const j = await fetch('/api/experimentos/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hipotesis: h }) }).then((r) => r.json());
+      const j = await fetch('/api/experimentos/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hipotesis: h, contexto: ctx }) }).then((r) => r.json());
       if (j.ok && j.propuesta) { setP(j.propuesta); setStep('revision'); }
       else { setErr(j.error || 'No se pudo diseñar'); setStep('hipotesis'); }
     } catch (e) { setErr(String(e)); setStep('hipotesis'); }
@@ -205,6 +207,15 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
                   <button key={s} type="button" onClick={() => setHip(s)} style={{ padding: '7px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer' }}>{s}</button>
                 ))}
               </div>
+              {showCtx ? (
+                <div style={{ width: '100%', maxWidth: 500 }}>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 }}>Contexto (opcional)</div>
+                  <textarea value={ctx} onChange={(e) => setCtx(e.target.value)} rows={2} placeholder="¿Qué viste o por qué lo creés? Ayuda a MaKo a elegir mejor la métrica."
+                    style={{ width: '100%', padding: '11px 13px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none', resize: 'vertical', lineHeight: 1.5 }} />
+                </div>
+              ) : (
+                <button type="button" onClick={() => setShowCtx(true)} style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>+ Agregar contexto (opcional)</button>
+              )}
             </div>
           )}
 

@@ -13,13 +13,13 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
-  let body: { hipotesis?: string };
+  let body: { hipotesis?: string; contexto?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const hipotesis = (body.hipotesis ?? '').trim();
   if (!hipotesis) return Response.json({ ok: false, error: 'contá tu hipótesis' }, { status: 400 });
 
   try {
-    const propuesta = await sugerirExperimento(hipotesis);
+    const propuesta = await sugerirExperimento(hipotesis, body.contexto);
     return Response.json({ ok: true, propuesta });
   } catch (err) {
     return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });

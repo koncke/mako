@@ -28,6 +28,7 @@ export const TOP_NAV: NavItem[] = [
   { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, match: starts('/leads') },
   { key: 'graphics', label: 'Graphics', href: '/graphics', icon: 'graphics', match: (p) => starts('/graphics')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
+  { key: 'todo', label: 'To-do', href: '/todo', icon: 'todo', match: starts('/todo') },
 ];
 
 // Ads Manager va DEBAJO del divider, arriba de los grupos.

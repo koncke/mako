@@ -144,6 +144,8 @@ Tu trabajo:
 1) RESUMEN (markdown, 4-8 líneas + viñetas): qué pasó en el período, leído sobre el DATO. Sé concreto y usá los números. Enmarcá cualquier causa-efecto como HIPÓTESIS ("el dato sugiere…"), NUNCA como verdad cerrada. Las conclusiones ya validadas SÍ podés afirmarlas y citarlas. No inventes datos que no te pasé.
 2) RECOMENDACIONES: una lista corta y priorizada, cada una es "probá esto" (un EXPERIMENTO para validar una hipótesis con datos) o "hacé esto" (una TAREA concreta a ejecutar ya, sin necesidad de experimentar). Preferí pocas y potentes. No repitas experimentos ya en curso.
 
+Si Martín te deja una PERSPECTIVA, tratala como una HIPÓTESIS suya, no como un hecho: puede estar equivocado. Contrastala contra el dato — si el dato la respalda, decilo; si la contradice, decilo con respeto y con el número. Nunca ajustes el análisis para darle la razón.
+
 Para cada experimento elegí UNA métrica del CATÁLOGO (key exacta) como termómetro. Para las tareas, poné prioridad alta/media/baja.
 
 Devolvé SOLO este JSON, sin texto alrededor:
@@ -160,7 +162,7 @@ CATÁLOGO DE MÉTRICAS:
 {{catalogo}}`;
 
 export const RETRO_USER_DEFAULT = `PERÍODO: {{desde}} a {{hasta}}
-
+{{profundidad}}{{foco}}{{perspectiva}}
 DATO DURO DEL FUNNEL (con delta vs período anterior):
 {{destacados}}
 
@@ -220,8 +222,18 @@ function normalizarReco(j: Record<string, unknown>): RetroReco | null {
 // Generación + persistencia
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type OpcionesRetro = { perspectiva?: string; profundidad?: 'rapida' | 'estandar' | 'profunda'; foco?: string };
+
+// La profundidad regula cuánto piensa MaKo (esfuerzo) y el encuadre.
+const EFFORT_POR_PROF: Record<string, 'medium' | 'high' | 'xhigh'> = { rapida: 'medium', estandar: 'high', profunda: 'xhigh' };
+const PROF_TXT: Record<string, string> = {
+  rapida: 'PROFUNDIDAD: lectura rápida — lo esencial y 1-2 recomendaciones.',
+  estandar: 'PROFUNDIDAD: estándar — análisis completo y plan priorizado.',
+  profunda: 'PROFUNDIDAD: profunda — cruzá todas las señales, buscá causas de segundo orden y sé exhaustivo con el plan.',
+};
+
 /** Genera una retrospectiva del período y la guarda como snapshot. */
-export async function generarRetro(desde: string, hasta: string): Promise<Retro> {
+export async function generarRetro(desde: string, hasta: string, opts: OpcionesRetro = {}): Promise<Retro> {
   const [{ destacados, snapshot }, exps, tareas] = await Promise.all([
     calcularDestacados(desde, hasta),
     listExperimentos().catch(() => [] as Experimento[]),
@@ -232,18 +244,30 @@ export async function generarRetro(desde: string, hasta: string): Promise<Retro>
     ? tareas.filter((t) => t.estado !== 'hecho').map((t) => `- [${t.estado}] ${t.titulo}`).join('\n')
     : '(ninguna)';
 
+  const prof = opts.profundidad && EFFORT_POR_PROF[opts.profundidad] ? opts.profundidad : 'estandar';
+  const perspectivaTxt = opts.perspectiva && opts.perspectiva.trim()
+    ? `\nPERSPECTIVA DE MARTÍN (su hipótesis, puede estar equivocada — verificala contra el dato, NO la asumas): "${opts.perspectiva.trim()}"\n`
+    : '';
+  const focoTxt = opts.foco && opts.foco.trim() ? `\nFOCO: mirá con lupa ${opts.foco.trim()}.\n` : '';
+
   const system = await renderPrompt('experimentos.retro.system', RETRO_SYSTEM_DEFAULT, { catalogo: catalogoTexto() });
   const user = await renderPrompt('experimentos.retro.user', RETRO_USER_DEFAULT, {
     desde, hasta,
+    profundidad: `\n${PROF_TXT[prof]}\n`,
+    foco: focoTxt,
+    perspectiva: perspectivaTxt,
     destacados: destacadosTexto(destacados),
     activos, conclusiones, tareas: tareasTxt,
   });
+  snapshot.perspectiva = opts.perspectiva?.trim() || null;
+  snapshot.profundidad = prof;
+  snapshot.foco = opts.foco?.trim() || null;
 
   let titulo = `Retro ${desde} a ${hasta}`;
   let resumen = '';
   let recomendaciones: RetroReco[] = [];
   try {
-    const raw = await chatClaude(system, [{ role: 'user', content: user }], { feature: 'experimentos', effort: 'high' });
+    const raw = await chatClaude(system, [{ role: 'user', content: user }], { feature: 'experimentos', effort: EFFORT_POR_PROF[prof] });
     const j = parseJson<Record<string, unknown>>(raw);
     if (typeof j.titulo === 'string' && j.titulo.trim()) titulo = j.titulo.trim().slice(0, 160);
     resumen = String(j.resumen ?? '').trim();
