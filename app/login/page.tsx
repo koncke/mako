@@ -26,8 +26,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const n = sp.get('next');
-    if (n && n.startsWith('/')) setNext(n);
+    const raw = sp.get('next') || '';
+    // Solo rutas internas: '/' pero no '//evil.com' (protocol-relative → open
+    // redirect). Rechazar chars de control (tab/LF/CR): el navegador los
+    // strippea y '/\t//evil.com' escaparía a un host externo.
+    const n = raw.replace(/\\/g, '/');
+    if (!/[\x00-\x1f\x7f]/.test(raw) && n.startsWith('/') && !n.startsWith('//')) setNext(n);
     const e = sp.get('error');
     if (e) setOauthError(ERRORES[e] ?? 'No se pudo entrar.');
   }, []);

@@ -14,6 +14,8 @@ export type NavItem = {
   icon: string;
   badge?: boolean;
   comingSoon?: boolean;
+  /** Solo visible para rol admin (el Sidebar filtra con /api/auth/me). */
+  adminOnly?: boolean;
   match: (pathname: string) => boolean;
 };
 
@@ -72,11 +74,13 @@ export const NAV_GROUPS: NavGroup[] = [
 ];
 
 // Menú del usuario (dropdown de la foto de perfil, abajo del sidebar).
-// Funnel y Onboarding viven DENTRO de Configuraciones (sub-tabs), por eso el
-// item Configuraciones también matchea esas rutas.
+// Funnel, Onboarding y Método viven DENTRO de Configuraciones (sub-tabs), por
+// eso el item Configuraciones también matchea esas rutas. Admin solo lo ven
+// los usuarios con rol admin.
 export const USER_NAV: NavItem[] = [
   { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', icon: 'contexto', match: starts('/contexto') },
-  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/funnel')(p) || starts('/onboarding')(p) },
+  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/funnel')(p) || starts('/onboarding')(p) || starts('/metodo')(p) },
+  { key: 'admin', label: 'Admin', href: '/admin', icon: 'admin', adminOnly: true, match: starts('/admin') },
 ];

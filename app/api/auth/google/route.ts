@@ -7,6 +7,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
+import { destinoSeguro } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +20,7 @@ export async function GET(req: NextRequest) {
   const origin = new URL(req.url).origin;
   const redirectUri = `${origin}/api/auth/callback/google`;
   const state = crypto.randomBytes(16).toString('hex');
-  const nextRaw = req.nextUrl.searchParams.get('next') || '/';
-  const next = nextRaw.startsWith('/') ? nextRaw : '/';
+  const next = destinoSeguro(req.nextUrl.searchParams.get('next'));
 
   const auth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   auth.searchParams.set('client_id', clientId);

@@ -1,15 +1,17 @@
 // =============================================================================
-// Login: verifica la contraseña compartida y setea la cookie de sesión
+// Login con contraseña: la contraseña maestra abre una sesión ADMIN firmada
 // =============================================================================
+// Es el fallback de emergencia (Google caído, DB caída, primer arranque): no
+// depende de la tabla usuarios. Quien tenga DASHBOARD_PASSWORD es admin.
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { SESSION_COOKIE, SESSION_DIAS, crearToken } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   const esperado = process.env.DASHBOARD_PASSWORD;
-  const cookieVal = process.env.AUTH_COOKIE_VALUE;
-  if (!esperado || !cookieVal) {
+  if (!esperado || !process.env.AUTH_COOKIE_VALUE) {
     return NextResponse.json({ ok: false, error: 'auth no configurada' }, { status: 500 });
   }
 
@@ -25,15 +27,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Contraseña incorrecta' }, { status: 401 });
   }
 
+  const token = crearToken({ sub: 'password', email: '', nombre: 'Admin', rol: 'admin' });
+  if (!token) {
+    return NextResponse.json({ ok: false, error: 'auth no configurada' }, { status: 500 });
+  }
+
   const res = NextResponse.json({ ok: true });
   res.cookies.set({
-    name: 'mako_auth',
-    value: cookieVal,
+    name: SESSION_COOKIE,
+    value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 días
+    maxAge: 60 * 60 * 24 * SESSION_DIAS,
   });
   return res;
 }

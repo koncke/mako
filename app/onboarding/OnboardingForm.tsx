@@ -5,6 +5,7 @@
 // MaKo lo lee y completa) + wizard minimalista. El lápiz abre el editor de campos.
 // =============================================================================
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 import { TaxonomyManager, type TaxItem } from '../components/TaxonomyManager';
@@ -200,6 +201,13 @@ export function OnboardingForm() {
               ? <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={() => { guardar(answers); setExtractMsg(null); setStep((s) => s + 1); }}>Siguiente →</button>
               : <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={() => guardar(answers)}>Guardar</button>}
           </div>
+
+          {/* Paso final: seguir con el Método (conectar las integraciones). */}
+          {stepSafe === total - 1 && (
+            <div style={{ textAlign: 'center', marginTop: 18 }}>
+              <Link href="/metodo" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conectá tus integraciones (Método) →</Link>
+            </div>
+          )}
         </div>
       )}
 

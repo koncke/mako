@@ -63,6 +63,7 @@ export function Sidebar() {
   const [expanded, setExpanded] = useState(false);
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [perfilAvatar, setPerfilAvatar] = useState('');
+  const [rol, setRol] = useState<string>('');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -100,6 +101,15 @@ export function Sidebar() {
       .catch(() => {});
     return () => { alive = false; };
   }, [pathname]);
+
+  // Rol de la sesión: decide si se muestra la entrada Admin del menú.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/auth/me').then((r) => r.json())
+      .then((j) => { if (alive && j?.ok && j.autenticado) setRol((j.rol as string) || ''); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
@@ -263,7 +273,7 @@ export function Sidebar() {
           onMouseEnter={() => { if (userTimer.current) clearTimeout(userTimer.current); }}
           onMouseLeave={scheduleCloseUser}
           style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
-            {USER_NAV.map((it) => {
+            {USER_NAV.filter((it) => !it.adminOnly || rol === 'admin').map((it) => {
               const on = it.match(pathname);
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}

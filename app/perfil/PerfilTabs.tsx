@@ -142,7 +142,7 @@ export function PerfilTabs() {
         <div style={{ ...card, background: 'var(--surface-2)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <span style={{ fontSize: 18 }}>🔒</span>
           <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-            El acceso al dashboard usa una <b>contraseña compartida</b> (no hay usuarios individuales), por eso no se cambia desde acá.
+            Cada cuenta entra con su <b>Google</b> (los admins gestionan los accesos en Admin). La contraseña maestra queda como respaldo y se cambia en el server, no desde acá.
           </div>
         </div>
       </div>
