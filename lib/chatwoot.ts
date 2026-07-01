@@ -422,6 +422,21 @@ export async function sendToContact(contactId: number, content: string): Promise
   }
 }
 
+// Envía texto LIBRE a un teléfono (crea/reusa contacto + conversación). Solo llega
+// dentro de la ventana de 24h; fuera de ella Chatwoot/Meta lo rechaza y devuelve
+// { ok: false } (el caller lo trata como "ventana cerrada"). Se usa para mandarle
+// los reportes a Mauricio una vez que abrió la ventana respondiendo el template.
+export async function sendTextToPhone(phone: string, name: string, content: string): Promise<SendResult> {
+  try {
+    const c = cfg();
+    const contactId = await buscarOCrearContacto(c, phone, name);
+    const conversationId = await crearOReusarConversacion(c, contactId);
+    return await sendText(conversationId, content);
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 const EXT_POR_MIME: Record<string, string> = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp',
   'video/mp4': '.mp4', 'video/3gpp': '.3gp',

@@ -45,7 +45,9 @@ export const TOOLS_NAV: NavItem[] = [
 
 // Opciones del menú del usuario (abajo del sidebar): config de MaKo.
 export const USER_NAV: NavItem[] = [
+  { key: 'perfil', label: 'Perfil', href: '/perfil', match: starts('/perfil') },
   { key: 'estado-meta', label: 'Estado de Meta', href: '/marketing/salud', match: starts('/marketing/salud') },
   { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', match: starts('/contexto') },
+  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', match: starts('/configuraciones') },
   { key: 'onboarding', label: 'Onboarding', href: '/onboarding', match: starts('/onboarding') },
 ];

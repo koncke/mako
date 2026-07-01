@@ -13,6 +13,7 @@ import { MAIN_NAV, TOOLS_NAV, USER_NAV, type NavItem } from './nav';
 import { MakoLogo, MakoWord } from './MakoBrand';
 import { SaldoMaKo } from './SaldoMaKo';
 import { useNotifications } from './NotificationsProvider';
+import { NotificationBell } from './NotificationBell';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -114,7 +115,9 @@ export function Sidebar() {
   const searchParams = useSearchParams();
   const [badge, setBadge] = useState(0);
   const [userOpen, setUserOpen] = useState(false);
+  const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const { unreadTotal } = useNotifications();
+  const iniciales = perfilNombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || 'MB';
   // Cuenta a mostrar por item: CRM = datos sin marcar, WhatsApp = mensajes sin leer.
   const badgeFor = (item: NavItem) => (item.key === 'whatsapp' ? unreadTotal : item.key === 'crm' ? badge : 0);
 
@@ -135,6 +138,16 @@ export function Sidebar() {
       alive = false;
     };
   }, [pathname]);
+
+  // Nombre del perfil para el pie del sidebar (editable en /perfil).
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/perfil')
+      .then((r) => r.json())
+      .then((j) => { if (alive && j?.ok && j.perfil?.nombre) setPerfilNombre(j.perfil.nombre as string); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   return (
     <aside style={asideStyle}>
@@ -176,6 +189,7 @@ export function Sidebar() {
 
       {/* Saldo / uso de IA + Usuario (abajo) */}
       <div style={{ marginTop: 'auto', paddingTop: 20, position: 'relative' }}>
+        <NotificationBell />
         <SaldoMaKo />
         {userOpen && (
           <>
@@ -195,9 +209,9 @@ export function Sidebar() {
           </>
         )}
         <button type="button" onClick={() => setUserOpen((v) => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: 9, borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
-          <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511' }}>MB</div>
+          <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511' }}>{iniciales}</div>
           <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-            <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Mauricio Bustos</div>
+            <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--on-sidebar)', lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{perfilNombre}</div>
             <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)', marginTop: 3 }}>Cuenta</div>
           </div>
           <span style={{ color: 'var(--sidebar-text)', fontSize: 11, flex: 'none' }}>▴</span>

@@ -36,6 +36,18 @@
     {
       "path": "/api/cron/email-broadcasts",
       "schedule": "*/30 13-23 * * *"
+    },
+    {
+      "path": "/api/cron/reporte-diario",
+      "schedule": "10 14 * * *"
+    },
+    {
+      "path": "/api/cron/reporte-horario",
+      "schedule": "0 15-23,0-4 * * *"
+    },
+    {
+      "path": "/api/cron/reporte-semanal",
+      "schedule": "20 14 * * 1"
     }
   ]
 }
