@@ -491,7 +491,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           )}
 
           {step === 'revision' && spec && (
-            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} err={err} />
+            <Revision spec={spec} budgetUsd={budgetUsd} tray={tray} setSpec={setSpec} />
           )}
 
           {step === 'publicando' && (
@@ -754,10 +754,11 @@ function UbicacionesPicker({ placements, setPlacements }: { placements: string[]
 }
 
 // ── revisión minimalista — los textos se editan EN LÍNEA (tocás y escribís) ──
-function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void; err: string | null }) {
+function Revision({ spec, budgetUsd, tray, setSpec }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void }) {
   const opt = spec.adsets[0]?.optimization_goal;
   const objLabel = opt === 'LEAD_GENERATION' ? 'Leads (formulario FB)' : opt === 'OFFSITE_CONVERSIONS' ? 'Leads / ventas en tu web' : opt === 'LANDING_PAGE_VIEWS' ? 'Tráfico a la landing' : opt === 'REACH' ? 'Reconocimiento' : spec.objective;
   const patchCreative = (ai: number, di: number, patch: Partial<Creative>) => setSpec({ ...spec, adsets: spec.adsets.map((a, i) => (i === ai ? { ...a, ads: a.ads.map((ad, j) => (j === di ? { ...ad, creative: { ...ad.creative, ...patch } } : ad)) } : a)) });
+  const [verPorque, setVerPorque] = useState(false);
   return (
     <div style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ textAlign: 'center' }}>
@@ -769,7 +770,14 @@ function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec;
           ))}
         </div>
       </div>
-      {spec.rationale && <p style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, margin: 0, textAlign: 'center' }}>{spec.rationale}</p>}
+      {spec.rationale && (
+        <div style={{ textAlign: 'center' }}>
+          <button type="button" onClick={() => setVerPorque((v) => !v)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--faint)', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.05em', padding: 2 }}>
+            {verPorque ? '▴ Ocultar' : '▾ ¿Por qué MaKo lo armó así?'}
+          </button>
+          {verPorque && <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, margin: '6px 0 0', textAlign: 'center' }}>{spec.rationale}</p>}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {spec.adsets.map((adset, ai) => adset.ads.map((ad, di) => {
           const key = `${ai}-${di}`;
@@ -792,7 +800,7 @@ function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec;
           );
         }))}
       </div>
-      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Tocá cualquier texto para editarlo. Se crea en <b>pausa</b>, con <b>nomenclatura</b> y <b>UTMs</b> automáticos.{err ? ` — ${err}` : ''}</p>
+      <p style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>Tocá cualquier texto para editarlo. Se crea en <b>pausa</b>: la activás cuando quieras.</p>
     </div>
   );
 }

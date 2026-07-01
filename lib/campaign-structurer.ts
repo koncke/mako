@@ -37,7 +37,7 @@ export const CAMPAIGN_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON váli
   "objective": "OUTCOME_LEADS | OUTCOME_SALES | OUTCOME_TRAFFIC | OUTCOME_ENGAGEMENT | OUTCOME_AWARENESS",
   "budget_level": "campaign | adset",
   "daily_budget_mxn": <número en MXN si budget_level=campaign, si no null>,
-  "rationale": "2-4 líneas en tu voz: por qué este objetivo y esta estructura, contra los datos que te pasé",
+  "rationale": "UNA frase corta y clara para el DUEÑO del negocio (no técnico), lenguaje humano: en qué nos enfocamos y por qué. PROHIBIDO nombrar jerga de Meta (OUTCOME_*, LEAD_GENERATION, OFFSITE_CONVERSIONS, advantage_audience, promoted_object, pixel_event). Máx ~180 caracteres",
   "adsets": [
     {
       "name": "nombre del conjunto",

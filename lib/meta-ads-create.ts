@@ -509,6 +509,39 @@ export async function waitForVideoReady(videoId: string, opts: { timeoutMs?: num
   return 'processing';
 }
 
+/**
+ * Miniatura que Meta GENERA sola del video (URL http descargable, sirve en TODAS las
+ * ubicaciones incl. Threads). Meta EXIGE image_hash o image_url en video_data; sin esto
+ * la publicación falla con "Your ad needs a video thumbnail". Reintenta por si las
+ * miniaturas todavía no están listas justo tras el procesado.
+ */
+async function getVideoThumbnailUrl(videoId: string): Promise<string | null> {
+  for (let i = 0; i < 3; i++) {
+    try {
+      const url = new URL(`${GRAPH_BASE}/${ver()}/${videoId}/thumbnails`);
+      url.searchParams.set('fields', 'uri,is_preferred');
+      url.searchParams.set('access_token', token());
+      const data = await graphGet(url.toString());
+      const arr = Array.isArray(data.data) ? (data.data as Array<{ uri?: string; is_preferred?: boolean }>) : [];
+      const pref = arr.find((t) => t.is_preferred) ?? arr[0];
+      if (pref?.uri) return String(pref.uri);
+    } catch { /* reintenta */ }
+    if (i < 2) await sleep(2000);
+  }
+  return null;
+}
+
+/** Devuelve el creativo con una miniatura de video VÁLIDA (URL http de Meta) para el
+ * object_story_spec. Si ya trae una http la respeta; si trae una data:/blob: local o
+ * nada, usa la que generó Meta del propio video. */
+async function withVideoThumb(c: Creative): Promise<Creative> {
+  if (c.media_type === 'video' && c.video_id && !(c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url))) {
+    const uri = await getVideoThumbnailUrl(c.video_id);
+    if (uri) return { ...c, thumbnail_url: uri };
+  }
+  return c;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Creación del árbol (todo en PAUSA)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -565,7 +598,7 @@ export async function createAdCreative(creative: Creative, adName: string): Prom
     const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_id: storyId, url_tags: UTM_TAGS });
     return String(data.id);
   }
-  const oss = buildObjectStorySpec(creative);
+  const oss = buildObjectStorySpec(await withVideoThumb(creative));
   // Adjuntamos la cuenta de Instagram conectada → el anuncio corre en IG/Threads.
   // Sin esto Meta solo entrega en Facebook y bloquea la publicación pidiendo IG.
   // graphPost ignora los valores undefined, así que si no hay IG no rompe nada.
@@ -617,7 +650,7 @@ export async function generatePreviews(creative: Creative, adFormats: string[]):
   } else {
     // Mismo IG actor que al crear → la previa de Instagram/Threads se renderiza.
     const igId = await getInstagramActorId();
-    creativeParam = JSON.stringify({ object_story_spec: buildObjectStorySpec(creative), ...(igId ? { instagram_user_id: igId } : {}) });
+    creativeParam = JSON.stringify({ object_story_spec: buildObjectStorySpec(await withVideoThumb(creative)), ...(igId ? { instagram_user_id: igId } : {}) });
   }
   const out: Array<{ ad_format: string; body: string }> = [];
   for (const f of adFormats) {
