@@ -276,7 +276,7 @@ function OutstandingDrill({ detalle }: { detalle: { items: OutstandingLead[]; to
       <div className="mt-3 rounded-xl border overflow-x-auto" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
         <table className="w-full text-base">
           <thead>
-            <tr className="text-sm uppercase tracking-wider text-left" style={{ background: '#0f0f0f', color: 'var(--text-dim)' }}>
+            <tr className="text-sm uppercase tracking-wider text-left" style={{ background: 'var(--surface-2)', color: 'var(--text-dim)' }}>
               <th className="px-4 py-3">Lead</th>
               <th className="px-4 py-3 text-right">Sold Revenue</th>
               <th className="px-4 py-3 text-right">Cash Collected</th>
@@ -289,7 +289,7 @@ function OutstandingDrill({ detalle }: { detalle: { items: OutstandingLead[]; to
             {detalle.items.map((it) => (
               <tr key={it.lead_id} className="border-t" style={{ borderColor: 'var(--card-border)' }}>
                 <td className="px-4 py-3">
-                  <Link href={`/leads/${it.lead_id}`} style={{ color: 'var(--accent-yellow)' }}>{it.lead_nombre}</Link>
+                  <Link href={`/leads/${it.lead_id}`} style={{ color: 'var(--primary)' }}>{it.lead_nombre}</Link>
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">{fmtUSD(it.vendido_usd)}</td>
                 <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--accent-green)' }}>{fmtUSD(it.cobrado_usd)}</td>
@@ -374,7 +374,7 @@ function KPI({
   return (
     <div
       className="rounded-lg border p-4"
-      style={{ borderColor: 'var(--card-border)', background: '#0f0f0f' }}
+      style={{ borderColor: 'var(--card-border)', background: 'var(--surface)' }}
     >
       <div className="text-sm uppercase tracking-wider mb-2" style={{ color: 'var(--text-dim)' }}>
         {label}

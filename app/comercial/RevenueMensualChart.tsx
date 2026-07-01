@@ -19,7 +19,7 @@ const SERIES: Array<{ key: SerieKey; label: string; color: string; eje: Eje }> =
   { key: 'cash_usd', label: 'Cash Collected', color: '#0E8E7E', eje: 'usd' },
   { key: 'spend_usd', label: 'Ad Spend', color: '#3B6FB0', eje: 'usd' },
   { key: 'cierres', label: 'Cierres', color: '#6A4BD8', eje: 'count' },
-  { key: 'agendas', label: 'Agendas', color: '#CF4E29', eje: 'count' },
+  { key: 'agendas', label: 'Agendas', color: '#D0504A', eje: 'count' },
 ];
 
 const fmtUSD0 = (n: number | null | undefined) =>

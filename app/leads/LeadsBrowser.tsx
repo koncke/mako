@@ -173,7 +173,7 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
         )}
         {noshow === '1' && <span className="ml-2">· no-shows de R1</span>}
         {filtroActivo && (
-          <button onClick={() => { setQ(''); router.replace('/leads', { scroll: false }); }} className="ml-3" style={{ color: 'var(--accent-yellow)' }}>
+          <button onClick={() => { setQ(''); router.replace('/leads', { scroll: false }); }} className="ml-3" style={{ color: 'var(--primary)' }}>
             limpiar filtros
           </button>
         )}
@@ -183,7 +183,7 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
       <div className="rounded-xl border overflow-x-auto" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
         <table className="w-full text-base">
           <thead>
-            <tr className="text-sm uppercase tracking-wider text-left" style={{ background: '#0f0f0f', color: 'var(--text-dim)' }}>
+            <tr className="text-sm uppercase tracking-wider text-left" style={{ background: 'var(--surface-2)', color: 'var(--text-dim)' }}>
               <Th label="Nombre" k="nombre" sort={sort} dir={dir} onSort={toggleSort} />
               <th className="px-4 py-3 hidden md:table-cell">Empresa</th>
               <th className="px-4 py-3 hidden md:table-cell">Origen</th>
@@ -198,9 +198,9 @@ export function LeadsBrowser({ leads, initial }: { leads: EnrichedLead[]; initia
             {visibles.map((lead) => {
               const mad = labelMadurez(lead._madurez);
               return (
-                <tr key={lead.id} className="border-t hover:bg-[#181818] transition-colors" style={{ borderColor: 'var(--card-border)' }}>
+                <tr key={lead.id} className="border-t hover:bg-[#F5F7FA] transition-colors" style={{ borderColor: 'var(--card-border)' }}>
                   <td className="px-4 py-3">
-                    <Link href={`/leads/${lead.id}`} className="font-medium" style={{ color: 'var(--accent-yellow)' }}>{lead.nombre}</Link>
+                    <Link href={`/leads/${lead.id}`} className="font-medium" style={{ color: 'var(--primary)' }}>{lead.nombre}</Link>
                     {lead.email && <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{lead.email}</div>}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell" style={{ color: 'var(--text-dim)' }}>{lead.empresa ?? '—'}</td>
@@ -250,7 +250,7 @@ function Th({ label, k, sort, dir, onSort, align = 'left', className = '' }: {
   const activo = sort === k;
   return (
     <th className={`px-4 py-3 ${align === 'right' ? 'text-right' : ''} ${className}`}>
-      <button onClick={() => onSort(k)} className="inline-flex items-center gap-1 uppercase tracking-wider" style={{ color: activo ? 'var(--accent-yellow)' : 'inherit' }}>
+      <button onClick={() => onSort(k)} className="inline-flex items-center gap-1 uppercase tracking-wider" style={{ color: activo ? 'var(--primary)' : 'inherit' }}>
         {label}
         <span style={{ opacity: activo ? 1 : 0.3 }}>{activo ? (dir === 'asc' ? '↑' : '↓') : '↕'}</span>
       </button>
@@ -266,7 +266,7 @@ function Select({ value, onChange, placeholder, options }: {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="px-3 py-2.5 rounded-lg border text-base"
-      style={{ background: 'var(--surface-2)', borderColor: value ? 'var(--accent-yellow)' : 'var(--card-border)', color: value ? 'var(--text)' : 'var(--text-dim)' }}
+      style={{ background: 'var(--surface-2)', borderColor: value ? 'var(--primary)' : 'var(--card-border)', color: value ? 'var(--text)' : 'var(--text-dim)' }}
     >
       <option value="">{placeholder}: todos</option>
       {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -282,9 +282,9 @@ function EstadoChip({ lead }: { lead: EnrichedLead }) {
     case 'perdido':
       return <span className={base} style={{ background: 'rgba(255,107,53,0.10)', color: 'var(--accent-orange)' }} title={lead.motivo_perdida ?? undefined}>Perdido</span>;
     case 'descalificado':
-      return <span className={base} style={{ background: '#1a1a1a', color: 'var(--text-dim)' }} title={lead.motivo_perdida ?? undefined}>Descalificado</span>;
+      return <span className={base} style={{ background: 'var(--surface-2)', color: 'var(--text-dim)' }} title={lead.motivo_perdida ?? undefined}>Descalificado</span>;
     case 'no_responde':
-      return <span className={base} style={{ background: '#1a1a1a', color: 'var(--text-pending)' }}>No responde</span>;
+      return <span className={base} style={{ background: 'var(--surface-2)', color: 'var(--text-pending)' }}>No responde</span>;
     default:
       return <span style={{ color: 'var(--text-pending)' }}>—</span>;
   }

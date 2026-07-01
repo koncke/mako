@@ -39,7 +39,7 @@ function InlineMd({ text }: { text: string }): ReactNode {
   );
 }
 
-const btnDark: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '6px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, fontWeight: 600, cursor: 'pointer' };
 const chip = (bg: string, fg: string): CSSProperties => ({ fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: bg, color: fg });
 
@@ -176,7 +176,7 @@ export function WhatsAppAdvisor({
               {rec.sugerencias.map((s, i) => (
                 <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '11px 12px', background: 'var(--surface)' }}>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 7, flexWrap: 'wrap' }}>
-                    <span style={chip('var(--accent-soft)', '#171511')}>{ANGULO_LABEL[s.angulo] ?? s.angulo}</span>
+                    <span style={chip('var(--accent-soft)', '#14161B')}>{ANGULO_LABEL[s.angulo] ?? s.angulo}</span>
                     <span style={chip('var(--surface-2)', 'var(--dim)')}>{TONO_LABEL[s.tono] ?? s.tono}</span>
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{s.texto}</div>
@@ -186,7 +186,7 @@ export function WhatsAppAdvisor({
                   </div>
                   {s.guion_voz && (
                     <details style={{ marginTop: 8 }}>
-                      <summary style={{ fontSize: 11.5, color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>🎙️ Guion de nota de voz</summary>
+                      <summary style={{ fontSize: 11.5, color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>🎙️ Guion de nota de voz</summary>
                       <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginTop: 6 }}>{s.guion_voz}</div>
                       <button onClick={() => copiar(s.guion_voz!, `v${i}`)} style={{ ...btnGhost, marginTop: 6 }}>{copiado === `v${i}` ? '✓ Copiado' : 'Copiar guion'}</button>
                     </details>
@@ -229,7 +229,7 @@ export function WhatsAppAdvisor({
               <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Preguntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pedile una versión distinta de un mensaje.</div>
             )}
             {chat.map((m, i) => (
-              <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%', background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface-2)', color: m.role === 'user' ? '#171511' : 'var(--ink)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: 12, padding: '9px 11px', fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+              <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '92%', background: m.role === 'user' ? 'var(--accent-soft)' : 'var(--surface-2)', color: m.role === 'user' ? '#14161B' : 'var(--ink)', border: m.role === 'user' ? 'none' : '1px solid var(--border)', borderRadius: 12, padding: '9px 11px', fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                 <InlineMd text={m.content} />
                 {m.role === 'assistant' && (
                   <div style={{ display: 'flex', gap: 6, marginTop: 7 }}>

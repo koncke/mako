@@ -49,8 +49,8 @@ export async function DashboardHeader({
             className="px-5 py-3 rounded-lg font-medium text-lg border"
             style={{
               background: 'transparent',
-              borderColor: 'var(--accent-yellow)',
-              color: 'var(--accent-yellow)',
+              borderColor: 'var(--primary)',
+              color: 'var(--primary)',
             }}
           >
             Leads →

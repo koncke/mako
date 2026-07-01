@@ -93,8 +93,8 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
   ].filter(Boolean).join('\n') : '';
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>
@@ -131,7 +131,7 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                     {METRICAS.map((m) => {
                       const on = m.key === met;
-                      return <button key={m.key} type="button" onClick={() => setMet(m.key)} style={{ padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: on ? 600 : 500, border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'), background: on ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)' }}>{m.label}</button>;
+                      return <button key={m.key} type="button" onClick={() => setMet(m.key)} style={{ padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: on ? 600 : 500, border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border)'), background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)' }}>{m.label}</button>;
                     })}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
@@ -141,12 +141,12 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
                   <div style={{ width: '100%', height: 220 }}>
                     <ResponsiveContainer>
                       <AreaChart data={data.daily} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
-                        <defs><linearGradient id="entMet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#C8870C" stopOpacity={0.32} /><stop offset="100%" stopColor="#C8870C" stopOpacity={0} /></linearGradient></defs>
+                        <defs><linearGradient id="entMet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2F6FED" stopOpacity={0.32} /><stop offset="100%" stopColor="#2F6FED" stopOpacity={0} /></linearGradient></defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" vertical={false} />
                         <XAxis dataKey="fecha" tick={{ fill: 'var(--text-dim)', fontSize: 11 }} tickFormatter={fmtFecha} interval="preserveStartEnd" minTickGap={28} />
                         <YAxis tick={{ fill: 'var(--text-dim)', fontSize: 11 }} width={50} tickFormatter={(n: number) => metricaActiva.fmt(n)} />
                         <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, fontSize: 13 }} labelFormatter={(l) => fmtFecha(String(l))} formatter={(val) => [metricaActiva.fmt(typeof val === 'number' ? val : null), metricaActiva.label] as [string, string]} />
-                        <Area type="monotone" dataKey={met} stroke="#C8870C" strokeWidth={2.2} fill="url(#entMet)" dot={false} isAnimationActive={false} />
+                        <Area type="monotone" dataKey={met} stroke="#2F6FED" strokeWidth={2.2} fill="url(#entMet)" dot={false} isAnimationActive={false} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>

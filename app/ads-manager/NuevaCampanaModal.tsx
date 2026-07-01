@@ -411,8 +411,8 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
   const enWizard = step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'estrategia' || step === 'publico' || step === 'ubicaciones' || step === 'destino';
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: step === 'revision' ? 640 : 600, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 30px 80px rgba(23,21,17,.4)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: step === 'revision' ? 640 : 600, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden' }}>
         {/* barra superior minimalista: marca + progreso + cerrar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', flexShrink: 0 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}>
@@ -420,7 +420,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
           </div>
           {enWizard && (
             <div style={{ display: 'flex', gap: 6, margin: '0 auto' }}>
-              {flow.map((s, i) => <span key={s} style={{ width: i === idx ? 22 : 7, height: 7, borderRadius: 999, background: i <= idx ? 'var(--accent)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
+              {flow.map((s, i) => <span key={s} style={{ width: i === idx ? 22 : 7, height: 7, borderRadius: 999, background: i <= idx ? 'var(--primary)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
             </div>
           )}
           <button onClick={onClose} style={{ marginLeft: enWizard ? 0 : 'auto', width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
@@ -559,7 +559,7 @@ function Opciones<T extends string>({ items, value, onPick }: { items: Array<{ v
         const on = value === it.value;
         return (
           <button key={it.value} type="button" onClick={() => onPick(it.value)}
-            style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'rgba(200,135,12,.06)' : 'var(--surface)', cursor: 'pointer', transition: 'border-color .15s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', cursor: 'pointer', transition: 'border-color .15s' }}
             onMouseEnter={(e) => { if (!on) e.currentTarget.style.borderColor = 'var(--border-strong)'; }} onMouseLeave={(e) => { if (!on) e.currentTarget.style.borderColor = 'var(--border)'; }}>
             <span style={{ fontSize: 24, flex: 'none' }}>{it.icon}</span>
             <span style={{ minWidth: 0 }}>
@@ -584,7 +584,7 @@ function Inversion({ value, onChange }: { value: number | null; onChange: (v: nu
         <span style={{ fontSize: 16, color: 'var(--dim)', fontWeight: 500 }}>USD/día</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        {[20, 50, 100, 200].map((v) => <button key={v} type="button" onClick={() => onChange(v)} style={{ padding: '8px 16px', borderRadius: 999, border: `1px solid ${value === v ? 'var(--accent)' : 'var(--border-strong)'}`, background: value === v ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: value === v ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>${v}</button>)}
+        {[20, 50, 100, 200].map((v) => <button key={v} type="button" onClick={() => onChange(v)} style={{ padding: '8px 16px', borderRadius: 999, border: `1px solid ${value === v ? 'var(--primary)' : 'var(--border-strong)'}`, background: value === v ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: value === v ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>${v}</button>)}
       </div>
       {value ? <span style={{ fontFamily: MONO, fontSize: 12.5, color: 'var(--faint)' }}>≈ ${usdToMxn(value).toLocaleString('es-MX')} MXN/día en tu cuenta</span> : null}
     </div>
@@ -606,13 +606,13 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
                 ? <img src={t.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: t.processing ? 0.7 : 1 }} />
                 : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 24 }}>{t.media_type === 'video' ? '🎬' : '🖼️'}</div>}
               {t.processing && (
-                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(23,21,17,.62)', padding: '4px 5px 5px' }}>
-                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(243,240,231,.25)', overflow: 'hidden' }}><div style={{ height: '100%', width: `${t.progress ?? 0}%`, background: 'var(--accent-soft)', transition: 'width .2s' }} /></div>
-                  <div style={{ fontSize: 8.5, color: '#F3F0E7', fontFamily: MONO, textAlign: 'center', marginTop: 2 }}>{(t.progress ?? 0) < 100 ? `${t.progress ?? 0}%` : 'Procesando'}</div>
+                <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: 'rgba(18,21,27,.62)', padding: '4px 5px 5px' }}>
+                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(243,245,248,.25)', overflow: 'hidden' }}><div style={{ height: '100%', width: `${t.progress ?? 0}%`, background: 'var(--primary)', transition: 'width .2s' }} /></div>
+                  <div style={{ fontSize: 8.5, color: '#F3F5F8', fontFamily: MONO, textAlign: 'center', marginTop: 2 }}>{(t.progress ?? 0) < 100 ? `${t.progress ?? 0}%` : 'Procesando'}</div>
                 </div>
               )}
               {t.kind === 'existing' && <span style={{ position: 'absolute', bottom: 3, left: 3, fontSize: 10, background: 'var(--accent)', color: '#fff', borderRadius: 4, padding: '0 4px' }}>★</span>}
-              <button type="button" onClick={() => onQuitar(t.id)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 6, border: 'none', background: 'rgba(23,21,17,.7)', color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              <button type="button" onClick={() => onQuitar(t.id)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 6, border: 'none', background: 'rgba(18,21,27,.7)', color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
           ))}
         </div>
@@ -629,7 +629,7 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
                 <button key={s.ad_id} type="button" onClick={() => onGanador(s)} title={`${s.ad_name} · ${s.leads} leads`} style={{ position: 'relative', width: 56, height: 74, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', cursor: 'pointer', padding: 0, flex: 'none' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={s.ad_thumbnail_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 9, fontFamily: MONO, background: 'rgba(23,21,17,.7)', color: '#fff', padding: '1px 2px' }}>{s.leads}L</span>
+                  <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 9, fontFamily: MONO, background: 'rgba(18,21,27,.7)', color: '#fff', padding: '1px 2px' }}>{s.leads}L</span>
                 </button>
               ))}
             </div>
@@ -660,7 +660,7 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
   const countById = new Map((audiencesAll ?? []).map((a) => [a.id, a.count ?? null] as const));
   const fmtC = (c: number | null | undefined) => (c == null ? '' : ` · ~${c.toLocaleString('es-MX')}`);
   const opts = (audiencesAll ?? []).filter((a) => !audiencias.some((x) => x.id === a.id)).map((a) => ({ value: a.id, label: `${a.name ?? a.id}${fmtC(a.count)}` }));
-  const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 11px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 12, cursor: 'pointer' });
+  const chipDia = (on: boolean): CSSProperties => ({ padding: '5px 11px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: on ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 12, cursor: 'pointer' });
   const TIPO_OPCIONES = [
     { value: 'page', label: 'Interactuaron con tu Facebook (anuncios, posts, videos)' },
     { value: 'video', label: 'Vieron tus videos / anuncios en video' },
@@ -720,8 +720,8 @@ function UbicacionesPicker({ placements, setPlacements }: { placements: string[]
   const auto = placements === null;
   const sel = placements ?? [];
   const toggle = (v: string) => setPlacements(sel.includes(v) ? sel.filter((x) => x !== v) : [...sel, v]);
-  const card = (on: boolean): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'rgba(200,135,12,.06)' : 'var(--surface)', cursor: 'pointer', transition: 'border-color .15s' });
-  const chip = (on: boolean): CSSProperties => ({ padding: '7px 14px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' });
+  const card = (on: boolean): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', cursor: 'pointer', transition: 'border-color .15s' });
+  const chip = (on: boolean): CSSProperties => ({ padding: '7px 14px', borderRadius: 999, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: on ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' });
   return (
     <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -808,7 +808,7 @@ function Revision({ spec, budgetUsd, tray, setSpec }: { spec: CampaignSpec; budg
 // Texto editable en línea: parece texto, al tocarlo se vuelve editable (sin "modo edición").
 function InlineCopy({ value, onChange, placeholder, multiline, fontSize, bold }: { value: string; onChange: (v: string) => void; placeholder: string; multiline?: boolean; fontSize: number; bold?: boolean }) {
   const base: CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid transparent', borderRadius: 8, background: 'transparent', color: 'var(--ink)', fontFamily: SANS, fontSize, fontWeight: bold ? 600 : 400, lineHeight: 1.45, padding: '5px 7px', outline: 'none', transition: 'border-color .12s, background .12s' };
-  const onFocus = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--surface)'; };
+  const onFocus = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface)'; };
   const onBlur = (e: { currentTarget: HTMLElement }) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; };
   if (multiline) {
     return <textarea value={value} placeholder={placeholder} rows={1} onFocus={onFocus} onBlur={onBlur}
@@ -823,7 +823,7 @@ function InlineCopy({ value, onChange, placeholder, multiline, fontSize, bold }:
 // Convierte URLs del texto de error en un link clickable (ej. la ToS de Públicos).
 function linkify(text: string): ReactNode {
   return text.split(/(https?:\/\/\S+)/g).map((p, i) => /^https?:\/\//.test(p)
-    ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}>abrir en Meta ↗</a>
+    ? <a key={i} href={p} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}>abrir en Meta ↗</a>
     : p);
 }
 
@@ -919,7 +919,7 @@ function MakoLoading({ pasos }: { pasos: string[] }) {
       </svg>
       <h3 key={cur} className={`${uid}-txt`} style={{ ...pregunta, fontSize: 21, minHeight: 26 }}>{pasos[cur]}</h3>
       <div style={{ display: 'flex', gap: 6 }}>
-        {pasos.map((_, k) => <span key={k} style={{ width: 6, height: 6, borderRadius: 999, background: k <= cur ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .3s' }} />)}
+        {pasos.map((_, k) => <span key={k} style={{ width: 6, height: 6, borderRadius: 999, background: k <= cur ? 'var(--primary)' : 'var(--border-strong)', transition: 'background .3s' }} />)}
       </div>
     </div>
   );

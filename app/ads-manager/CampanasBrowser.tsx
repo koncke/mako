@@ -471,7 +471,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
           const on = tab === t.key;
           return (
             <button key={t.key} type="button" onClick={() => setTab(t.key)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: 'none', borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`, background: 'transparent', cursor: 'pointer', fontSize: 15, fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)' }}>
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, background: 'transparent', cursor: 'pointer', fontSize: 15, fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)' }}>
               {t.label}
               <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{t.n}</span>
             </button>
@@ -482,7 +482,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       {/* toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" onClick={() => setNuevaOpen(true)} title="Crear una campaña nueva con MaKo"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(200,135,12,.25)' }}>
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(47,111,237,.25)' }}>
           <MakoStar size={13} color="#fff" /> Nueva campaña
         </button>
         <MakoMenu actions={[
@@ -580,7 +580,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       </footer>
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 90, maxWidth: 560, background: 'var(--ink)', color: 'var(--surface)', borderRadius: 12, padding: '14px 18px', boxShadow: '0 16px 40px rgba(23,21,17,.4)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 90, maxWidth: 560, background: 'var(--ink)', color: 'var(--surface)', borderRadius: 12, padding: '14px 18px', boxShadow: '0 16px 40px rgba(18,21,27,.4)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <span style={{ fontSize: 13.5, lineHeight: 1.4 }}>{toast}</span>
           <button type="button" onClick={() => setToast(null)} style={{ flex: 'none', background: 'transparent', border: 'none', color: 'var(--surface)', cursor: 'pointer', fontSize: 16 }}>✕</button>
         </div>
@@ -605,14 +605,14 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
 
 type RenameEntity = { id: string; name: string; campName: string | null; adsetName: string | null; createdTime: string | null; parentId: string | null };
 
-const bulkBtn: CSSProperties = { padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(243,240,231,.25)', background: 'rgba(243,240,231,.10)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const bulkBtn: CSSProperties = { padding: '7px 14px', borderRadius: 9, border: '1px solid rgba(243,245,248,.25)', background: 'rgba(243,245,248,.10)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 
 // ── header ordenable ──
 function SortLabel({ label, active, dir, onClick, align }: { label: string; active: boolean; dir: 'asc' | 'desc'; onClick: () => void; align: 'left' | 'right' }) {
   return (
     <button type="button" onClick={onClick} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexDirection: align === 'right' ? 'row-reverse' : 'row', background: 'transparent', border: 'none', cursor: 'pointer', font: 'inherit', color: active ? 'var(--ink)' : 'inherit', letterSpacing: 'inherit', textTransform: 'inherit', padding: 0 }}>
       {label}
-      <span style={{ fontSize: 9, color: active ? 'var(--accent)' : 'var(--faint)' }}>{active ? (dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+      <span style={{ fontSize: 9, color: active ? 'var(--primary)' : 'var(--faint)' }}>{active ? (dir === 'asc' ? '▲' : '▼') : '⇅'}</span>
     </button>
   );
 }
@@ -662,7 +662,7 @@ function RowView({ r, cols, selected, onSelect, onOpen, effStatus, budgetMxn, na
             <span onClick={stop} style={{ flex: 1, minWidth: 0 }}><NameEditor value={name} onSave={onSaveName} onCancel={onCancelName} /></span>
           ) : (
             <>
-              <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--accent)' }}>{name}</span>
+              <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--primary)' }}>{name}</span>
               <button type="button" title="Renombrar" disabled={writing} onClick={(e) => { stop(e); onStartName(); }}
                 style={{ flex: 'none', background: 'transparent', border: 'none', cursor: writing ? 'default' : 'pointer', color: 'var(--faint)', fontSize: 12, padding: '2px 4px', lineHeight: 1 }}>✎</button>
               {(rowActions ?? []).map((a) => (
@@ -710,7 +710,7 @@ function BudgetEditor({ mxn, onSave, onCancel }: { mxn: number | null; onSave: (
       <span style={{ color: 'var(--faint)', fontSize: 13 }}>$</span>
       <input ref={ref} value={v} onChange={(e) => setV(e.target.value.replace(/[^\d]/g, ''))}
         onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-        inputMode="numeric" style={{ width: 78, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', textAlign: 'right' }} />
+        inputMode="numeric" style={{ width: 78, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', textAlign: 'right' }} />
       <span style={{ color: 'var(--faint)', fontSize: 12 }}>MXN/día</span>
       <button type="button" onClick={save} style={{ border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
       <button type="button" onClick={onCancel} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
@@ -727,7 +727,7 @@ function NameEditor({ value, onSave, onCancel }: { value: string; onSave: (name:
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: '100%' }}>
       <input ref={ref} value={v} maxLength={400} onChange={(e) => setV(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
-        style={{ flex: 1, minWidth: 0, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
+        style={{ flex: 1, minWidth: 0, padding: '5px 8px', borderRadius: 7, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' }} />
       <button type="button" onClick={save} title="Guardar" style={{ flex: 'none', border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 6, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
       <button type="button" onClick={onCancel} title="Cancelar" style={{ flex: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 6, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
     </span>
@@ -760,8 +760,8 @@ function Pill({ semaforo, label, onClick }: { semaforo: Semaforo; label: string;
 // ── modal: por qué "Con problemas" (en español) + arreglar desde ahí ──
 function ProblemaModal({ ads, onClose, onEditAd }: { ads: ProblemAd[]; onClose: () => void; onEditAd: (id: string, name: string) => void }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 84, background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(23,21,17,.4)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 84, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: 'var(--ink)', margin: '0 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Por qué no está entregando</span>
           <button onClick={onClose} style={{ width: 30, height: 30, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer' }}>✕</button>
@@ -800,7 +800,7 @@ function ColumnsButton({ open, setOpen, configurables, visibleCols, setVisibleCo
     <div ref={ref} style={{ position: 'relative' }}>
       <button type="button" onClick={() => setOpen(!open)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>▦ Columnas</button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 220, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 8 }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 220, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 8 }}>
           <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', padding: '4px 8px 8px' }}>Mostrar columnas</div>
           {configurables.map((c) => {
             const forced = ALWAYS_ON.includes(c.id);
@@ -828,8 +828,8 @@ function RecosModal({ onClose }: { onClose: () => void }) {
     fetch('/api/meta-recommendations').then((r) => r.json()).then((j) => { if (alive) setData(j); }).catch((e) => { if (alive) setData({ ok: false, message: String(e) }); }).finally(() => { if (alive) setLoading(false); });
   }, []);
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Recomendaciones de Meta · API</div>
@@ -887,12 +887,12 @@ function MakoMenu({ actions }: { actions: Array<{ label: string; sub?: string; o
   return (
     <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open} title="Acciones con MaKo"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}>
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(18,21,27,.18)' }}>
         <MakoStar size={14} /><MakoWord>MaKo</MakoWord>
         <span style={{ fontSize: 10, opacity: 0.85, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
       </button>
       {open && (
-        <div role="menu" style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 270, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(23,21,17,.22)', padding: 6 }}>
+        <div role="menu" style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 50, minWidth: 270, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.22)', padding: 6 }}>
           {actions.map((a) => (
             <button key={a.label} type="button" role="menuitem" onClick={() => { setOpen(false); a.onClick(); }}
               onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
@@ -1006,7 +1006,7 @@ function FloatingPanel({ trigger, triggerStyle, ariaLabel, panelWidth = 320, ali
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       <button type="button" aria-label={ariaLabel} aria-expanded={open} onClick={() => { if (!open) place(); setOpen((v) => !v); }} style={triggerStyle}>{trigger}</button>
       {open && pos && createPortal(
-        <div ref={panelRef} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, width: panelWidth, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 18px 44px rgba(23,21,17,.28)', padding: 12 }}>
+        <div ref={panelRef} style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right, zIndex: 1000, width: panelWidth, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 18px 44px rgba(18,21,27,.28)', padding: 12 }}>
           {children(() => setOpen(false))}
         </div>,
         document.body,
@@ -1037,7 +1037,7 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
   const etiqueta = !activo ? 'Todas las fechas' : presetActivo ? presetActivo.label : `${desde ? diaLegible(desde) : 'inicio'} → ${hasta ? diaLegible(hasta) : 'hoy'}`;
   const customValido = (!!cd || !!ch) && (!cd || !ch || cd <= ch);
   const di: CSSProperties = { flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' };
-  const triggerStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, maxWidth: '100%', padding: '10px 14px', borderRadius: 11, border: '1px solid ' + (activo ? 'var(--accent)' : 'var(--border-strong)'), background: activo ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: activo ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
+  const triggerStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, maxWidth: '100%', padding: '10px 14px', borderRadius: 11, border: '1px solid ' + (activo ? 'var(--primary)' : 'var(--border-strong)'), background: activo ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: activo ? 'var(--primary)' : 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
 
   return (
     <FloatingPanel ariaLabel="Rango de fecha de creación" panelWidth={300} triggerStyle={triggerStyle}
@@ -1049,7 +1049,7 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
               const sel = p.key === 'all' ? !activo : (p.d === desde && p.h === hasta);
               return (
                 <button key={p.key} type="button" onClick={() => { onChange(p.d, p.h); close(); }}
-                  style={{ padding: '8px 10px', borderRadius: 9, textAlign: 'center', cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, whiteSpace: 'nowrap', border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--border)'), background: sel ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: sel ? '#9A6A09' : 'var(--ink)' }}>{p.label}</button>
+                  style={{ padding: '8px 10px', borderRadius: 9, textAlign: 'center', cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, whiteSpace: 'nowrap', border: '1px solid ' + (sel ? 'var(--primary)' : 'var(--border)'), background: sel ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: sel ? 'var(--primary)' : 'var(--ink)' }}>{p.label}</button>
               );
             })}
           </div>
@@ -1061,7 +1061,7 @@ function RangoFechaCreacion({ desde, hasta, onChange }: { desde: string; hasta: 
               <input type="date" value={ch} min={cd || undefined} max={hoy} onChange={(e) => setCh(e.target.value)} style={di} />
             </div>
             <button type="button" disabled={!customValido} onClick={() => { onChange(cd, ch); close(); }}
-              style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: customValido ? 'pointer' : 'not-allowed', opacity: customValido ? 1 : 0.4 }}>Aplicar rango</button>
+              style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: customValido ? 'pointer' : 'not-allowed', opacity: customValido ? 1 : 0.4 }}>Aplicar rango</button>
           </div>
         </>
       )}
@@ -1181,8 +1181,8 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
   const lbl: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>MaKo · Ordenar nombres</div>
@@ -1246,7 +1246,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
                   <div key={e.id} style={{ display: 'grid', gridTemplateColumns: '22px 1fr 1fr', gap: 10, alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                     <input type="checkbox" checked={incl.has(e.id)} onChange={() => setIncl((s) => { const n = new Set(s); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })} style={{ cursor: 'pointer' }} />
                     <span style={{ fontSize: 12.5, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: cambia ? 'line-through' : 'none' }} title={e.name}>{e.name}</span>
-                    <input value={nuevo} maxLength={400} onChange={(ev) => setProp((p) => ({ ...p, [e.id]: ev.target.value }))} style={{ width: '100%', padding: '6px 9px', borderRadius: 8, border: `1px solid ${cambia ? 'var(--accent)' : 'var(--border)'}`, background: incl.has(e.id) ? 'var(--surface)' : 'var(--surface-2)', color: incl.has(e.id) ? 'var(--ink)' : 'var(--faint)', fontFamily: SANS, fontSize: 13, outline: 'none' }} />
+                    <input value={nuevo} maxLength={400} onChange={(ev) => setProp((p) => ({ ...p, [e.id]: ev.target.value }))} style={{ width: '100%', padding: '6px 9px', borderRadius: 8, border: `1px solid ${cambia ? 'var(--primary)' : 'var(--border)'}`, background: incl.has(e.id) ? 'var(--surface)' : 'var(--surface-2)', color: incl.has(e.id) ? 'var(--ink)' : 'var(--faint)', fontFamily: SANS, fontSize: 13, outline: 'none' }} />
                   </div>
                 );
               })}

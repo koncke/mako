@@ -89,14 +89,14 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved }: { angles
             <button onClick={() => ops.remove(r.uid)} aria-label="Borrar" style={{ width: 38, height: 38, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 15, cursor: 'pointer', fontFamily: SANS }}>✕</button>
           </div>
         ))}
-        <button onClick={ops.add} style={{ alignSelf: 'flex-start', padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar</button>
+        <button onClick={ops.add} style={{ alignSelf: 'flex-start', padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar</button>
       </div>
     );
   };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Ángulos y avatares</h2>
@@ -113,7 +113,7 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved }: { angles
           <span style={{ fontSize: 12.5, color: err ? 'var(--bad)' : 'var(--faint)' }}>{err ?? `${aRows.length} ángulo${aRows.length === 1 ? '' : 's'} · ${vRows.length} avatar${vRows.length === 1 ? '' : 'es'}`}</span>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
-            <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: saving ? 'var(--border-strong)' : 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'Guardando…' : 'Guardar'}</button>
+            <button onClick={save} disabled={saving} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: saving ? 'var(--border-strong)' : 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'Guardando…' : 'Guardar'}</button>
           </div>
         </div>
       </div>

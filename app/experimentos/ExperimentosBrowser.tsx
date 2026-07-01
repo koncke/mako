@@ -57,7 +57,7 @@ function Pill({ tone, children }: { tone: 'good' | 'bad' | 'warn' | 'faint'; chi
   );
 }
 
-function Spark({ serie, color = 'var(--accent)' }: { serie: Punto[]; color?: string }) {
+function Spark({ serie, color = 'var(--primary)' }: { serie: Punto[]; color?: string }) {
   const data = serie.filter((p) => p.valor != null).map((p) => ({ x: fmtFechaCorta(p.fecha), y: p.valor }));
   if (data.length < 2) {
     return <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--faint)', fontFamily: MONO }}>aún sin serie</div>;
@@ -93,7 +93,7 @@ const sectionTitle: React.CSSProperties = {
   fontFamily: MONO, fontSize: 12, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 0 12px',
 };
 const btnPrimary: React.CSSProperties = {
-  padding: '10px 16px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7',
+  padding: '10px 16px', borderRadius: 11, border: 'none', background: '#14161B', color: '#F3F5F8',
   fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer',
 };
 const btnGhost: React.CSSProperties = {
@@ -424,7 +424,7 @@ function ActivoCard({ e, onCerrar, onDescartar, busy }: { e: ExperimentoConMedic
   const listoParaCerrar = m != null && m.dias_corridos >= m.dias_total;
   const progreso = m ? Math.min(100, Math.round((m.dias_corridos / Math.max(1, m.dias_total)) * 100)) : 0;
   const deltaTxt = m?.delta_pct != null ? `${m.delta_pct > 0 ? '+' : ''}${m.delta_pct.toFixed(1)}%` : '—';
-  const sparkColor = vaBien === true ? 'var(--good)' : vaBien === false ? 'var(--bad)' : 'var(--accent)';
+  const sparkColor = vaBien === true ? 'var(--good)' : vaBien === false ? 'var(--bad)' : 'var(--primary)';
 
   return (
     <div style={card}>
@@ -452,7 +452,7 @@ function ActivoCard({ e, onCerrar, onDescartar, busy }: { e: ExperimentoConMedic
       {/* progreso de la ventana */}
       <div style={{ marginTop: 8 }}>
         <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 999, overflow: 'hidden', border: '1px solid var(--border)' }}>
-          <div style={{ width: `${progreso}%`, height: '100%', background: listoParaCerrar ? 'var(--good)' : 'var(--accent-soft)' }} />
+          <div style={{ width: `${progreso}%`, height: '100%', background: listoParaCerrar ? 'var(--good)' : 'var(--primary)' }} />
         </div>
         <div style={{ marginTop: 5, fontFamily: MONO, fontSize: 11, color: 'var(--faint)', display: 'flex', justifyContent: 'space-between' }}>
           <span>día {m?.dias_corridos ?? 0} de {m?.dias_total ?? e.ventana_dias}</span>
@@ -461,7 +461,7 @@ function ActivoCard({ e, onCerrar, onDescartar, busy }: { e: ExperimentoConMedic
       </div>
 
       <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'center' }}>
-        <button type="button" onClick={onCerrar} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1, background: listoParaCerrar ? 'var(--good)' : '#171511' }}>
+        <button type="button" onClick={onCerrar} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1, background: listoParaCerrar ? 'var(--good)' : '#14161B' }}>
           {busy ? 'Cerrando…' : 'Cerrar y guardar aprendizaje'}
         </button>
         <button type="button" onClick={onDescartar} disabled={busy} style={{ ...btnGhost, border: 'none', color: 'var(--faint)' }}>Descartar</button>

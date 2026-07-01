@@ -37,7 +37,7 @@ type Grupo = { group: string; icon: string; blurb: string; prompts: Prompt[] };
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const area: CSSProperties = { width: '100%', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, lineHeight: 1.55, outline: 'none', resize: 'vertical' };
 const input: CSSProperties = { width: '100%', maxWidth: 420, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
-const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' };
 const chip = (extra?: CSSProperties): CSSProperties => ({ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, fontFamily: MONO, ...extra });
 
@@ -95,7 +95,7 @@ function PromptCard({ p, onSaved }: { p: Prompt; onSaved: () => void }) {
             <span style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>{p.label}</span>
             {p.isDefault
               ? <Badge text="en default" bg="var(--surface-2)" fg="var(--faint)" title="Sin cambios respecto al código" />
-              : <Badge text="editado" bg="var(--accent-soft)" fg="#171511" title="Tiene un override guardado" />}
+              : <Badge text="editado" bg="var(--accent-soft)" fg="#14161B" title="Tiene un override guardado" />}
             {p.sensitive && <Badge text="⚠ delicado" bg="var(--warn-bg)" fg="var(--warn)" title="Define un esquema JSON o es una baranda: editar con cuidado" />}
             {p.dynamic && <Badge text="dinámico" bg="var(--surface-2)" fg="var(--dim)" title="Inyecta datos en runtime en los slots {{...}}" />}
           </div>
@@ -120,7 +120,7 @@ function PromptCard({ p, onSaved }: { p: Prompt; onSaved: () => void }) {
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Variables disponibles (clic para insertar) — no las borres</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {p.variables.map((vr) => (
-              <button key={vr.name} title={vr.desc} onClick={() => insertVar(vr.name)} style={{ ...chip({ background: 'var(--surface-2)', color: 'var(--accent)', border: '1px solid var(--border)', cursor: 'pointer' }) }}>
+              <button key={vr.name} title={vr.desc} onClick={() => insertVar(vr.name)} style={{ ...chip({ background: 'var(--surface-2)', color: 'var(--primary)', border: '1px solid var(--border)', cursor: 'pointer' }) }}>
                 {`{{${vr.name}}}`}
               </button>
             ))}

@@ -83,7 +83,7 @@ export function TendenciasSection({ tendencias, accion }: { tendencias: Tendenci
           {open && (
             <>
               <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
-              <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 320, maxWidth: '88vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 20px 50px rgba(23,21,17,.18)', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 320, maxWidth: '88vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 20px 50px rgba(18,21,27,.18)', overflow: 'hidden' }}>
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--dim)' }}>
                   Clic en el nombre = ver solo esa · check = comparar (hasta {MAX_SEL})
                 </div>
@@ -133,7 +133,7 @@ function Grupo({
                 checked={activo}
                 disabled={bloqueado}
                 onChange={() => onToggle(s.key)}
-                style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: bloqueado ? 'not-allowed' : 'pointer' }}
+                style={{ width: 16, height: 16, accentColor: 'var(--primary)', cursor: bloqueado ? 'not-allowed' : 'pointer' }}
               />
             </label>
           </div>

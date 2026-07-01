@@ -20,7 +20,7 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 const area: CSSProperties = { ...input, minHeight: 92, resize: 'vertical', lineHeight: 1.5 };
 const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
-const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' };
 
 function EstadoBadge({ estado, error }: { estado: Estado; error: string | null }) {
@@ -196,7 +196,7 @@ function PromptsTab() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>{m.label}</span>
-              {m.key === 'persona' && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--accent-soft)', color: '#171511' }}>en uso</span>}
+              {m.key === 'persona' && <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--accent-soft)', color: '#14161B' }}>en uso</span>}
               {!m.isDefault && <span style={{ fontSize: 11, color: 'var(--faint)' }}>editado</span>}
             </div>
             {m.versions.length > 0 && <button style={btnGhost} onClick={() => setVerVers((v) => (v === m.key ? null : m.key))}>Historial ({m.versions.length})</button>}
@@ -241,7 +241,7 @@ export function ContextoTabs() {
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 22, borderBottom: '1px solid var(--border)' }}>
         {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, fontWeight: tab === t.key ? 600 : 500, color: tab === t.key ? 'var(--ink)' : 'var(--dim)', borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1 }}>{t.label}</button>
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '10px 16px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, fontWeight: tab === t.key ? 600 : 500, color: tab === t.key ? 'var(--ink)' : 'var(--dim)', borderBottom: tab === t.key ? '2px solid var(--primary)' : '2px solid transparent', marginBottom: -1 }}>{t.label}</button>
         ))}
       </div>
 

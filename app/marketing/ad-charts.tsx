@@ -106,7 +106,7 @@ function Pills<T extends string>({ opts, val, onPick }: { opts: Array<{ key: T; 
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {opts.map((o) => {
         const on = o.key === val;
-        return <button key={o.key} type="button" onClick={() => onPick(o.key)} style={{ padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: on ? 600 : 500, border: '1px solid ' + (on ? 'var(--accent)' : 'var(--border)'), background: on ? 'rgba(200,135,12,.10)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)' }}>{o.label}</button>;
+        return <button key={o.key} type="button" onClick={() => onPick(o.key)} style={{ padding: '6px 11px', borderRadius: 999, cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: on ? 600 : 500, border: '1px solid ' + (on ? 'var(--primary)' : 'var(--border)'), background: on ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: on ? 'var(--primary)' : 'var(--dim)' }}>{o.label}</button>;
       })}
     </div>
   );
@@ -199,7 +199,7 @@ export function AdCreative({ adId, adName, thumbnail, permalink, creativeSinEnla
   const hasLink = !!permalink && !creativeSinEnlace;
   const w = compact ? 84 : 128;
   const thumb = (
-    <div style={{ width: '100%', aspectRatio: '9 / 16', borderRadius: compact ? 10 : 13, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', position: 'relative', boxShadow: '0 8px 22px rgba(23,21,17,.16)' }}>
+    <div style={{ width: '100%', aspectRatio: '9 / 16', borderRadius: compact ? 10 : 13, overflow: 'hidden', background: 'var(--surface)', border: '1px solid var(--border)', position: 'relative', boxShadow: '0 8px 22px rgba(18,21,27,.16)' }}>
       {thumbnail ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={thumbnail} alt={adName} loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -208,7 +208,7 @@ export function AdCreative({ adId, adName, thumbnail, permalink, creativeSinEnla
       )}
       {hasLink && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: compact ? 34 : 44, height: compact ? 34 : 44, borderRadius: '50%', background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: compact ? 11 : 14, paddingLeft: 3 }}>▶</div>
+          <div style={{ width: compact ? 34 : 44, height: compact ? 34 : 44, borderRadius: '50%', background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: compact ? 11 : 14, paddingLeft: 3 }}>▶</div>
         </div>
       )}
     </div>
@@ -220,7 +220,7 @@ export function AdCreative({ adId, adName, thumbnail, permalink, creativeSinEnla
         {compact ? (
           !hasLink && <span style={{ fontSize: 10.5, color: 'var(--faint)', textAlign: 'center' }}>Sin enlace</span>
         ) : hasLink ? (
-          <a href={permalink!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', borderRadius: 10, background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>↗ Reproducir</a>
+          <a href={permalink!} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px 12px', borderRadius: 10, background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>↗ Reproducir</a>
         ) : (
           <span style={{ fontSize: 11.5, color: 'var(--faint)', textAlign: 'center' }}>Sin enlace al post</span>
         )}
@@ -381,7 +381,7 @@ export function TranscriptSection({ adId, initialTr }: { adId: string; initialTr
             placeholder="Instrucción para OpenAI (opcional): ej. 'el producto se llama X', 'corrige los nombres', 'enfócate en la oferta'…"
             style={{ flex: 1, minWidth: 220, padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' }}
           />
-          <button type="button" onClick={regenerar} disabled={regenLoading} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: regenLoading ? 'wait' : 'pointer', opacity: regenLoading ? 0.6 : 1, whiteSpace: 'nowrap' }}>{regenLoading ? 'Regenerando…' : '↻ Re-generar'}</button>
+          <button type="button" onClick={regenerar} disabled={regenLoading} style={{ padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: regenLoading ? 'wait' : 'pointer', opacity: regenLoading ? 0.6 : 1, whiteSpace: 'nowrap' }}>{regenLoading ? 'Regenerando…' : '↻ Re-generar'}</button>
         </div>
         <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6 }}>Vuelve a transcribir/estructurar este anuncio (video o imagen) aplicando tu instrucción. Guarda el resultado.</div>
         {regenErr && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 6 }}>Error: {regenErr}</div>}
@@ -429,8 +429,8 @@ export function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: 
   const ctxAd = data && p ? buildAdContext({ adName: s.ad_name, campana: s.campana, adset: s.adset_name, verdictLabel: v.label, dias: s.dias_corriendo, ritmoTxt, cierres: s.cierres, cashUsd: s.cash_usd }, data, desde, hasta, data.transcript) : '';
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         {/* header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
@@ -560,7 +560,7 @@ function MexicoMap({ regiones, metric, fmt }: { regiones: BD[]; metric: BdKey; f
         })}
       </svg>
       {hover && (
-        <div style={{ position: 'absolute', left: Math.min(hover.x + 12, W - 140), top: hover.y + 12, pointerEvents: 'none', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, color: 'var(--ink)', boxShadow: '0 6px 20px rgba(23,21,17,.18)', whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'absolute', left: Math.min(hover.x + 12, W - 140), top: hover.y + 12, pointerEvents: 'none', background: 'var(--surface)', border: '1px solid var(--card-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, color: 'var(--ink)', boxShadow: '0 6px 20px rgba(18,21,27,.18)', whiteSpace: 'nowrap' }}>
           <b>{hover.name}</b>: {fmt(hover.val)}
         </div>
       )}
@@ -717,12 +717,12 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
     { key: 'audiencia', label: 'Audiencia' },
     { key: 'guion', label: 'Guion' },
   ];
-  const tabBtn = (on: boolean): CSSProperties => ({ padding: '9px 16px', borderRadius: '10px 10px 0 0', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, fontWeight: on ? 600 : 500, border: 'none', borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`, background: 'transparent', color: on ? 'var(--ink)' : 'var(--dim)' });
+  const tabBtn = (on: boolean): CSSProperties => ({ padding: '9px 16px', borderRadius: '10px 10px 0 0', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, fontWeight: on ? 600 : 500, border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, background: 'transparent', color: on ? 'var(--ink)' : 'var(--dim)' });
   const loadingBox = <div style={{ fontSize: 13.5, color: 'var(--faint)', padding: '8px 0' }}>Cargando datos de Meta…</div>;
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>

@@ -237,7 +237,7 @@ function norm(s: string): string {
 const panelStyle: CSSProperties = {
   width: '340px', height: '320px', display: 'flex', flexDirection: 'column',
   background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '14px',
-  boxShadow: '0 12px 34px rgba(23,21,17,.18)', overflow: 'hidden',
+  boxShadow: '0 12px 34px rgba(18,21,27,.18)', overflow: 'hidden',
   fontFamily: "'Geist', sans-serif",
 };
 
@@ -356,7 +356,7 @@ export function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => vo
                   background: active ? 'var(--surface-2)' : 'transparent',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '17px', padding: 0,
-                  borderBottom: active ? '2px solid var(--accent)' : '1px solid transparent',
+                  borderBottom: active ? '2px solid var(--primary)' : '1px solid transparent',
                 }}
               >
                 {t.icon}

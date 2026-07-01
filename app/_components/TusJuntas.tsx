@@ -67,7 +67,7 @@ function JuntaCard({ junta }: { junta: JuntaProxima }) {
             </span>
           )}
         </div>
-        <Link href={`/leads/${junta.lead_id}`} className="text-sm" style={{ color: 'var(--accent-yellow)' }}>
+        <Link href={`/leads/${junta.lead_id}`} className="text-sm" style={{ color: 'var(--primary)' }}>
           Abrir ficha →
         </Link>
       </div>

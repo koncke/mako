@@ -52,7 +52,7 @@ export function SaludBoard({ health }: { health: MetaHealth }) {
       <Recomendaciones recos={health.recomendaciones} recosMetaDisponibles={health.recosMetaDisponibles} />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
-        Estado en vivo de Meta Ads · v25.0. El detalle por campaña/conjunto/anuncio vive en <Link href="/ads-manager" style={{ color: 'var(--accent)' }}>Ads Manager</Link>.
+        Estado en vivo de Meta Ads · v25.0. El detalle por campaña/conjunto/anuncio vive en <Link href="/ads-manager" style={{ color: 'var(--primary)' }}>Ads Manager</Link>.
       </footer>
     </div>
   );

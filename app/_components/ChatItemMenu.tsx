@@ -17,13 +17,13 @@ export function ConfirmDialog({
   titulo: string; detalle?: string; confirmLabel?: string; danger?: boolean; onCancel: () => void; onConfirm: () => void;
 }) {
   return (
-    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(23,21,17,.32)', padding: '20px 22px' }}>
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
         {detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>{detalle}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
           <button type="button" onClick={onCancel} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>Cancelar</button>
-          <button type="button" onClick={onConfirm} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: danger ? 'var(--bad)' : '#171511', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{confirmLabel}</button>
+          <button type="button" onClick={onConfirm} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: danger ? 'var(--bad)' : 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -57,7 +57,7 @@ export function ChatItemMenu({
       {open && (
         <>
           <div onClick={(e) => { e.stopPropagation(); setOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 80 }} aria-hidden />
-          <div style={{ position: 'absolute', top: 32, right: 0, zIndex: 81, width: 172, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(23,21,17,.22)', overflow: 'hidden', padding: '4px 0' }}>
+          <div style={{ position: 'absolute', top: 32, right: 0, zIndex: 81, width: 172, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.22)', overflow: 'hidden', padding: '4px 0' }}>
             <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); onRename(); }}>Cambiar nombre</button>
             <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); onPin(); }}>{pinned ? 'Despinear' : 'Pinear'}</button>
             <button type="button" style={item()} onClick={(e) => { e.stopPropagation(); setOpen(false); setAsk('archive'); }}>Archivar</button>

@@ -63,9 +63,9 @@ export function FechaFiltro({ hoyReal }: { hoyReal: string }) {
         aria-expanded={open}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 9, padding: '11px 17px', borderRadius: 11,
-          border: '1px solid ' + (activo ? 'var(--accent)' : 'var(--border-strong)'),
-          background: activo ? 'rgba(200,135,12,.10)' : 'var(--surface)',
-          color: activo ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 14.5, fontWeight: 500, cursor: 'pointer',
+          border: '1px solid ' + (activo ? 'var(--primary)' : 'var(--border-strong)'),
+          background: activo ? 'var(--primary-bg)' : 'var(--surface)',
+          color: activo ? 'var(--primary-strong)' : 'var(--dim)', fontFamily: SANS, fontSize: 14.5, fontWeight: 500, cursor: 'pointer',
         }}
       >
         <span aria-hidden>📅</span>
@@ -76,12 +76,12 @@ export function FechaFiltro({ hoyReal }: { hoyReal: string }) {
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
-          <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 320, maxWidth: '88vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 12, boxShadow: '0 20px 50px rgba(23,21,17,.18)' }}>
+          <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 320, maxWidth: '88vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 12, boxShadow: '0 20px 50px rgba(18,21,27,.18)' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
               {presets.map((p) => {
                 const sel = presetActivo?.key === p.key;
                 return (
-                  <button key={p.key} type="button" onClick={() => navegar(p.desde, p.hasta)} style={{ padding: '8px 11px', borderRadius: 9, textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 13, border: '1px solid ' + (sel ? 'var(--accent)' : 'var(--border)'), background: sel ? 'rgba(200,135,12,.10)' : 'var(--surface-2)', color: sel ? '#9A6A09' : 'var(--ink)' }}>{p.label}</button>
+                  <button key={p.key} type="button" onClick={() => navegar(p.desde, p.hasta)} style={{ padding: '8px 11px', borderRadius: 9, textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 13, border: '1px solid ' + (sel ? 'var(--primary)' : 'var(--border)'), background: sel ? 'var(--primary-bg)' : 'var(--surface-2)', color: sel ? 'var(--primary-strong)' : 'var(--ink)' }}>{p.label}</button>
                 );
               })}
             </div>
@@ -92,7 +92,7 @@ export function FechaFiltro({ hoyReal }: { hoyReal: string }) {
                 <span style={{ color: 'var(--faint)' }}>→</span>
                 <input type="date" value={customHasta} min={customDesde || undefined} max={hoyReal} onChange={(e) => setCustomHasta(e.target.value)} style={dateInput} />
               </div>
-              <button type="button" disabled={!customValido} onClick={() => navegar(customDesde, customHasta)} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: customValido ? 'pointer' : 'not-allowed', opacity: customValido ? 1 : 0.4 }}>Aplicar rango</button>
+              <button type="button" disabled={!customValido} onClick={() => navegar(customDesde, customHasta)} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: customValido ? 'pointer' : 'not-allowed', opacity: customValido ? 1 : 0.4 }}>Aplicar rango</button>
             </div>
             {activo && (
               <button type="button" onClick={() => navegar('', '')} style={{ marginTop: 8, width: '100%', padding: '9px', borderRadius: 9, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>✕ Quitar filtro</button>

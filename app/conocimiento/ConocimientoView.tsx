@@ -34,7 +34,7 @@ const AREAS = [
 const areaLabel = (a: string) => AREAS.find((x) => x.value === a)?.label ?? a;
 const AREA_COLOR: Record<string, { bg: string; fg: string }> = {
   mensajes: { bg: 'var(--good-bg)', fg: 'var(--good)' },
-  ads: { bg: 'var(--accent-soft)', fg: '#171511' },
+  ads: { bg: 'var(--accent-soft)', fg: '#14161B' },
   general: { bg: 'var(--surface-2)', fg: 'var(--dim)' },
 };
 
@@ -42,7 +42,7 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
 const area: CSSProperties = { ...input, minHeight: 120, resize: 'vertical', lineHeight: 1.5 };
 const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
-const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' };
 
 function EstadoBadge({ estado, error }: { estado: Estado; error: string | null }) {

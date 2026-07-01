@@ -312,7 +312,7 @@ function MetricasView({ ag, kpis, counts, onVerLlamadas }: { ag: Ag; kpis: Closi
               En las ganadas promedia {fmtScore(round1(top.won))} y en las perdidas {fmtScore(round1(top.lost))} (promedio del equipo {fmtScore(round1(top.team))}). Es la dimensión con mayor brecha entre cerrar y perder — subila y las R2 se ganan.
             </div>
           </div>
-          <button onClick={() => onVerLlamadas({ sort: 'score' })} style={{ padding: '8px 14px', borderRadius: 999, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif", whiteSpace: 'nowrap' }}>Ver las llamadas →</button>
+          <button onClick={() => onVerLlamadas({ sort: 'score' })} style={{ padding: '8px 14px', borderRadius: 999, border: '1px solid var(--primary)', background: 'transparent', color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif", whiteSpace: 'nowrap' }}>Ver las llamadas →</button>
         </div>
       )}
 
@@ -359,13 +359,13 @@ function TrendCard({ serie }: { serie: Ag['serie'] }) {
         <div style={{ position: 'relative', marginTop: 14 }}>
           <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
             <defs><linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="rgba(200,135,12,.26)" /><stop offset="100%" stopColor="rgba(200,135,12,0)" /></linearGradient></defs>
-            {[0, 2.5, 5, 7.5, 10].map((v) => (<g key={v}><line x1={L} y1={yAt(v)} x2={W - R} y2={yAt(v)} stroke="#E7E3D9" strokeWidth={1} /><text x={2} y={yAt(v) + 3} fontSize={8.5} fill="#A39E91" fontFamily="monospace">{v}</text></g>))}
-            <line x1={L} y1={yAt(7.5)} x2={W - R} y2={yAt(7.5)} stroke="#1C8A54" strokeWidth={1} strokeDasharray="4 4" opacity={0.55} />
+            {[0, 2.5, 5, 7.5, 10].map((v) => (<g key={v}><line x1={L} y1={yAt(v)} x2={W - R} y2={yAt(v)} stroke="#EAECF1" strokeWidth={1} /><text x={2} y={yAt(v) + 3} fontSize={8.5} fill="#98A0AC" fontFamily="monospace">{v}</text></g>))}
+            <line x1={L} y1={yAt(7.5)} x2={W - R} y2={yAt(7.5)} stroke="#1E9E57" strokeWidth={1} strokeDasharray="4 4" opacity={0.55} />
             <path d={area} fill="url(#trendFill)" />
             <path d={line} fill="none" stroke="#C8870C" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
             {hover != null && <line x1={pts[hover][0]} y1={T} x2={pts[hover][0]} y2={H - B} stroke="#C8870C" strokeWidth={1} opacity={0.35} />}
             {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r={hover === i ? 6 : 4} fill={hover === i ? '#C8870C' : '#fff'} stroke="#C8870C" strokeWidth={2.5} />)}
-            {serie.map((s, i) => (i % everyN === 0 || i === n - 1) && <text key={i} x={xAt(i)} y={H - 8} fontSize={8.5} fill="#A39E91" fontFamily="monospace" textAnchor="middle">{s.label}</text>)}
+            {serie.map((s, i) => (i % everyN === 0 || i === n - 1) && <text key={i} x={xAt(i)} y={H - 8} fontSize={8.5} fill="#98A0AC" fontFamily="monospace" textAnchor="middle">{s.label}</text>)}
             {/* zonas de hover invisibles */}
             {pts.map((p, i) => <rect key={'h' + i} x={p[0] - (W - L - R) / (2 * Math.max(1, n - 1))} y={0} width={(W - L - R) / Math.max(1, n - 1)} height={H} fill="transparent" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} style={{ cursor: 'pointer' }} />)}
           </svg>
@@ -385,7 +385,7 @@ function TrendCard({ serie }: { serie: Ag['serie'] }) {
 function FunnelCard({ f }: { f: { e1: number; e2: number; e3: number } }) {
   const max = Math.max(f.e1, 1);
   const rows = [
-    { n: f.e1, label: 'Diagnóstico · R1', bg: 'linear-gradient(90deg,#3A352B,#23201A)', drop: null as number | null },
+    { n: f.e1, label: 'Diagnóstico · R1', bg: 'linear-gradient(90deg,#3A3D47,#1E212A)', drop: null as number | null },
     { n: f.e2, label: 'Avanza a propuesta · R2', bg: 'linear-gradient(90deg,var(--accent-soft),var(--accent))', drop: f.e1 ? 1 - f.e2 / f.e1 : null },
     { n: f.e3, label: 'Cierre ganado', bg: 'linear-gradient(90deg,#2BAE6A,var(--good))', drop: f.e2 ? 1 - f.e3 / f.e2 : null },
   ];
@@ -579,7 +579,7 @@ function LlamadasView(p: {
             const noTr = c.has_transcript === false;
             return (
               <div key={c.recording_id} onClick={() => p.setSelId(c.recording_id)}
-                style={{ display: 'flex', gap: 10, padding: '11px 14px', cursor: 'pointer', borderLeft: '2px solid ' + (active ? 'var(--accent)' : 'transparent'), background: active ? 'var(--surface-2)' : 'transparent', opacity: noTr ? 0.55 : 1 }}>
+                style={{ display: 'flex', gap: 10, padding: '11px 14px', cursor: 'pointer', borderLeft: '2px solid ' + (active ? 'var(--primary)' : 'transparent'), background: active ? 'var(--surface-2)' : 'transparent', opacity: noTr ? 0.55 : 1 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', marginTop: 6, background: MO_TONE[c.outcome_tone ?? 'neutral'] }} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
@@ -654,7 +654,7 @@ function Detail({ sel, onRefresh }: { sel: ClosingAnalysisRow; onRefresh: () => 
         </div>
         <div style={{ flex: 'none', display: 'flex', gap: 12, alignItems: 'center', paddingTop: 4 }}>
           {sel.lead_id != null && <a href={`/leads/${sel.lead_id}`} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', textDecoration: 'none' }}>Lead →</a>}
-          <button onClick={() => setEditing((e) => !e)} title="Editar / revisar la valoración" style={{ fontSize: 11.5, fontWeight: 600, color: editing ? 'var(--accent)' : 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>{editing ? 'Cerrar' : 'Revisar'}</button>
+          <button onClick={() => setEditing((e) => !e)} title="Editar / revisar la valoración" style={{ fontSize: 11.5, fontWeight: 600, color: editing ? 'var(--primary)' : 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>{editing ? 'Cerrar' : 'Revisar'}</button>
           <button onClick={reanalizar} disabled={reanalyzing} title="Re-analizar desde cero" style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: reanalyzing ? 'default' : 'pointer', padding: 0 }}>{reanalyzing ? '…' : '↻'}</button>
         </div>
       </div>
@@ -687,7 +687,7 @@ function Detail({ sel, onRefresh }: { sel: ClosingAnalysisRow; onRefresh: () => 
           <>
             <div style={{ display: 'flex', gap: 2, marginTop: 22, borderBottom: '1px solid var(--border)' }}>
               {([['resumen', 'Análisis'], ['momentos', `Momentos${sel.moments?.length ? ' · ' + sel.moments.length : ''}`], ['transcript', 'Transcript']] as [DetailTab, string][]).map(([k, l]) => (
-                <button key={k} onClick={() => setTab(k)} style={{ padding: '9px 13px', fontSize: 13, fontWeight: 600, fontFamily: "'Geist', sans-serif", cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '2px solid ' + (tab === k ? 'var(--accent)' : 'transparent'), color: tab === k ? 'var(--ink)' : 'var(--faint)', marginBottom: -1 }}>{l}</button>
+                <button key={k} onClick={() => setTab(k)} style={{ padding: '9px 13px', fontSize: 13, fontWeight: 600, fontFamily: "'Geist', sans-serif", cursor: 'pointer', background: 'transparent', border: 'none', borderBottom: '2px solid ' + (tab === k ? 'var(--primary)' : 'transparent'), color: tab === k ? 'var(--ink)' : 'var(--faint)', marginBottom: -1 }}>{l}</button>
               ))}
             </div>
             <div style={{ paddingTop: 24 }}>
@@ -747,7 +747,7 @@ function ReviseForm({ sel, onDone, onCancel }: { sel: ClosingAnalysisRow; onDone
           {dims.map((d) => (
             <div key={d.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ width: 200, flex: 'none', fontSize: 13, color: 'var(--ink)' }}>{d.label}</span>
-              <input type="range" min={0} max={10} step={0.5} value={scores[d.label] ?? 0} onChange={(e) => setScores((s) => ({ ...s, [d.label]: Number(e.target.value) }))} style={{ flex: 1, accentColor: 'var(--accent)' }} />
+              <input type="range" min={0} max={10} step={0.5} value={scores[d.label] ?? 0} onChange={(e) => setScores((s) => ({ ...s, [d.label]: Number(e.target.value) }))} style={{ flex: 1, accentColor: 'var(--primary)' }} />
               <span style={{ width: 32, flex: 'none', textAlign: 'right', fontSize: 13, fontWeight: 600, fontFamily: MONO, color: scoreColor(scores[d.label] ?? 0) }}>{fmtScore(scores[d.label] ?? 0)}</span>
             </div>
           ))}
@@ -763,7 +763,7 @@ function ReviseForm({ sel, onDone, onCancel }: { sel: ClosingAnalysisRow; onDone
       <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="¿Qué viste distinto a lo que dijo la IA? (queda en el historial; obligatorio para re-evaluar con MaKo)" rows={3} style={{ width: '100%', boxSizing: 'border-box', padding: '9px 11px', border: '1px solid var(--border)', borderRadius: 9, background: 'var(--surface)', fontSize: 13, color: 'var(--ink)', fontFamily: "'Geist', sans-serif", resize: 'vertical', outline: 'none' }} />
       {err && <div style={{ fontSize: 12, color: 'var(--bad)', marginTop: 8 }}>{err}</div>}
       <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'center' }}>
-        <button onClick={() => send('manual')} disabled={!!busy} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--accent)', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif" }}>{busy === 'manual' ? 'Guardando…' : 'Guardar cambios'}</button>
+        <button onClick={() => send('manual')} disabled={!!busy} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif" }}>{busy === 'manual' ? 'Guardando…' : 'Guardar cambios'}</button>
         <button onClick={() => send('mako')} disabled={!!busy} title="MaKo re-analiza la llamada teniendo en cuenta tu comentario" style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: busy ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif" }}>{busy === 'mako' ? 'MaKo re-evaluando…' : '✦ Re-evaluar con MaKo'}</button>
         <button onClick={onCancel} disabled={!!busy} style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--faint)', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>Cancelar</button>
       </div>
@@ -801,7 +801,7 @@ function Player({ token, shareUrl, dur }: { token: string | null; shareUrl: stri
   const box: CSSProperties = { position: 'relative', width: 420, maxWidth: '100%', aspectRatio: '16 / 9', borderRadius: 13, overflow: 'hidden', border: '1px solid var(--border)', flex: 'none' };
   if (!token) {
     return isSafeHttpUrl(shareUrl)
-      ? <a href={shareUrl} target="_blank" rel="noreferrer" style={{ ...box, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', color: 'var(--accent)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>▶ Ver en Fathom</a>
+      ? <a href={shareUrl} target="_blank" rel="noreferrer" style={{ ...box, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', color: 'var(--primary)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>▶ Ver en Fathom</a>
       : <div style={{ ...box, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-2)', color: 'var(--faint)', fontSize: 13 }}>Sin grabación</div>;
   }
   if (playing) {
@@ -809,15 +809,15 @@ function Player({ token, shareUrl, dur }: { token: string | null; shareUrl: stri
   }
   const thumb = `https://fathom.video/share/${token}/thumbnail`;
   return (
-    <div onClick={() => setPlaying(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setPlaying(true); }} style={{ ...box, cursor: 'pointer', background: 'linear-gradient(135deg,#23201A,#171511)' }}>
+    <div onClick={() => setPlaying(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setPlaying(true); }} style={{ ...box, cursor: 'pointer', background: 'linear-gradient(135deg,#1E212A,#14161B)' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={thumb} alt="Grabación" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(23,21,17,.18)' }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(18,21,27,.18)' }}>
         <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,.94)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(0,0,0,.35)' }}>
           <span style={{ marginLeft: 5, borderStyle: 'solid', borderWidth: '10px 0 10px 16px', borderColor: 'transparent transparent transparent var(--ink)' }} />
         </div>
       </div>
-      <div style={{ position: 'absolute', top: 10, left: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, background: 'rgba(23,21,17,.6)', fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)' }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#EF5B53' }} />Fathom</div>
+      <div style={{ position: 'absolute', top: 10, left: 12, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 9px', borderRadius: 999, background: 'rgba(18,21,27,.6)', fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,.85)' }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: '#EF5B53' }} />Fathom</div>
       <div style={{ position: 'absolute', right: 12, bottom: 10, fontFamily: MONO, fontSize: 10.5, color: 'rgba(255,255,255,.85)' }}>{dur}</div>
     </div>
   );
@@ -827,7 +827,7 @@ function TimeBtn({ sec, onPlay, color }: { sec: number | null | undefined; onPla
   if (sec == null) return null;
   return (
     <button onClick={(e) => { e.stopPropagation(); onPlay(sec); }} title="Abrir en Fathom desde este minuto"
-      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: color ?? 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, flex: 'none', whiteSpace: 'nowrap' }}>▶ {mmss(sec)}</button>
+      style={{ fontFamily: MONO, fontSize: 11, fontWeight: 600, color: color ?? 'var(--primary)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, flex: 'none', whiteSpace: 'nowrap' }}>▶ {mmss(sec)}</button>
   );
 }
 
@@ -1046,7 +1046,7 @@ function EmptyState({ counts, hasError, syncing, onSync }: { counts: ClosingView
           {hasError ? 'No se pudo conectar a la base de datos (en local faltan las claves de Supabase). En producción, sincronizá para traer y analizar las llamadas de Fathom.' : 'Sincronizá para traer las llamadas históricas de Fathom, matchearlas con los leads y analizar las de venta. Las de entrega de servicio se excluyen.'}
         </div>
         {counts.total > 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 20, fontFamily: MONO }}>{counts.total} procesadas · {counts.servicio} servicio · {counts.internas} internas · {counts.test} test</div>}
-        <button onClick={onSync} disabled={syncing} style={{ padding: '10px 18px', borderRadius: 11, cursor: syncing ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 14, fontWeight: 600, border: '1px solid var(--accent)', background: syncing ? 'var(--surface-2)' : 'var(--accent)', color: syncing ? 'var(--dim)' : '#fff' }}>{syncing ? 'Sincronizando…' : '↻ Sincronizar llamadas'}</button>
+        <button onClick={onSync} disabled={syncing} style={{ padding: '10px 18px', borderRadius: 11, cursor: syncing ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 14, fontWeight: 600, border: '1px solid var(--primary)', background: syncing ? 'var(--surface-2)' : 'var(--primary)', color: syncing ? 'var(--dim)' : '#fff' }}>{syncing ? 'Sincronizando…' : '↻ Sincronizar llamadas'}</button>
       </div>
     </div>
   );

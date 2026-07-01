@@ -126,7 +126,7 @@ export default function NewLeadPage() {
           <button
             type="submit"
             className="px-5 py-3 rounded-lg font-medium text-base"
-            style={{ background: 'var(--accent-yellow)', color: '#000' }}
+            style={{ background: 'var(--primary)', color: '#fff' }}
           >
             Crear lead
           </button>

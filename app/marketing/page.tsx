@@ -310,10 +310,10 @@ function deltaChip(pct: number | null, bueno: boolean): { text: string; fg: stri
 function SaludDelFunnel({ mkt, funnel, senales }: { mkt: MarketingWindow; funnel: FunnelMes; senales: SenalRecon[] }) {
   // Cuatro etapas verticales: Impresión → Click → Landing → VSL.
   const stages: Array<{ label: string; value: number | null; outer: string; inner: string }> = [
-    { label: 'Impresión', value: mkt.impressions, outer: '#D8C58C', inner: '#FBF4DC' },
-    { label: 'Click', value: mkt.link_clicks, outer: '#D8C58C', inner: '#F6EAC6' },
-    { label: 'Landing', value: mkt.landing_page_views, outer: '#D8C58C', inner: '#EFDDAB' },
-    { label: 'VSL', value: mkt.vsl_views, outer: '#D8C58C', inner: '#E7CF8E' },
+    { label: 'Impresión', value: mkt.impressions, outer: '#9DBBF5', inner: '#EAF1FE' },
+    { label: 'Click', value: mkt.link_clicks, outer: '#9DBBF5', inner: '#D8E4FB' },
+    { label: 'Landing', value: mkt.landing_page_views, outer: '#9DBBF5', inner: '#BFD2F8' },
+    { label: 'VSL', value: mkt.vsl_views, outer: '#9DBBF5', inner: '#9DBBF5' },
   ];
 
   // clip-paths para cada nivel del embudo (más angosto hacia abajo).

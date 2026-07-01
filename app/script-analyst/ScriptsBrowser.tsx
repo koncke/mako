@@ -41,7 +41,7 @@ const SANS = "'Geist', sans-serif";
 export type AngleDef = { key: string; label: string; color: string; desc?: string };
 const DEFAULT_ANGLE: Record<string, { label: string; c: string }> = {
   visionario: { label: 'Visionario', c: '#2F6DDB' }, capataz: { label: 'Capataz', c: '#C8870C' },
-  dolor: { label: 'Dolor', c: '#CF4E29' }, testimonio: { label: 'Testimonio', c: '#3B6D11' }, oferta: { label: 'Oferta', c: '#7C4DD6' },
+  dolor: { label: 'Dolor', c: '#D0504A' }, testimonio: { label: 'Testimonio', c: '#3B6D11' }, oferta: { label: 'Oferta', c: '#7C4DD6' },
 };
 let ANGLE: Record<string, { label: string; c: string }> = { ...DEFAULT_ANGLE };
 export function applyAngles(list?: AngleDef[]) {
@@ -58,17 +58,17 @@ export function applyAvatares(list?: AvatarDef[]) {
 }
 function avatarInfo(k: string) { return AVATAR[k] ?? { label: k, c: '#6B675C' }; }
 const KIND: Record<string, { label: string; c: string }> = {
-  gancho: { label: 'Gancho', c: '#C8870C' }, contexto: { label: 'Contexto', c: '#B5742A' }, problema: { label: 'Problema', c: '#CF4E29' },
+  gancho: { label: 'Gancho', c: '#C8870C' }, contexto: { label: 'Contexto', c: '#B5742A' }, problema: { label: 'Problema', c: '#D0504A' },
   mecanismo: { label: 'Mecanismo', c: '#2F6DDB' }, prueba: { label: 'Prueba', c: '#3B6D11' }, objecion: { label: 'Objeción', c: '#A8770F' },
   recordatorio: { label: 'Recordatorio', c: '#7C4DD6' }, oferta: { label: 'Oferta + CTA', c: '#7C4DD6' }, cta: { label: 'CTA', c: '#0E8E7E' },
 };
 const VERDICT: Record<string, { label: string; c: string }> = {
-  escalar: { label: 'Escalar', c: '#1C8A54' }, mejorar: { label: 'Mejorar gancho', c: '#2F6DDB' }, reescribir: { label: 'Reescribir cuerpo', c: '#9A6A09' },
-  repensar: { label: 'Repensar', c: '#CF4E29' }, validar: { label: 'Validar (poco spend)', c: '#6B675C' },
+  escalar: { label: 'Escalar', c: '#1E9E57' }, mejorar: { label: 'Mejorar gancho', c: '#2F6DDB' }, reescribir: { label: 'Reescribir cuerpo', c: '#9A6A09' },
+  repensar: { label: 'Repensar', c: '#D0504A' }, validar: { label: 'Validar (poco spend)', c: '#6B675C' },
   imagen: { label: 'Imagen', c: '#6B675C' },
 };
 const CONF: Record<string, { label: string; c: string }> = {
-  alta: { label: 'Alta', c: '#1C8A54' }, media: { label: 'Media', c: '#A8770F' }, baja: { label: 'Baja', c: '#A39E91' },
+  alta: { label: 'Alta', c: '#1E9E57' }, media: { label: 'Media', c: '#A8770F' }, baja: { label: 'Baja', c: '#98A0AC' },
 };
 // Umbrales ABSOLUTOS recalibrados a los datos reales (el mock usaba 20/22, pero
 // la retención al CTA real ronda 8% de mediana → 22 dejaba todo abajo). Benchmarks
@@ -132,7 +132,7 @@ function funnelSeg(retIn: number, retOut: number, severe: boolean): ReactNode {
   const wi = Math.max(retIn, 5), wo = Math.max(retOut, 5);
   const pts = `${(50 - wi / 2).toFixed(1)},0 ${(50 + wi / 2).toFixed(1)},0 ${(50 + wo / 2).toFixed(1)},100 ${(50 - wo / 2).toFixed(1)},100`;
   return h('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', style: { width: '100%', height: '100%', display: 'block' } },
-    h('polygon', { points: pts, fill: severe ? '#CF4E29' : '#D9A23C' }));
+    h('polygon', { points: pts, fill: severe ? '#D0504A' : '#D9A23C' }));
 }
 
 type DecoratedBeat = {
@@ -170,7 +170,7 @@ function decorateBeats(sc: ScriptView): DecoratedBeat[] {
 // ── Patrones ganadores (determinístico sobre los guiones confiables) ──
 type Polarity = 'bueno' | 'malo' | 'proceso';
 const POL: Record<Polarity, { c: string; label: string }> = {
-  bueno: { c: '#1C8A54', label: 'Seguí' }, malo: { c: '#CF4E29', label: 'Cortá' }, proceso: { c: '#9A6A09', label: 'Proceso' },
+  bueno: { c: '#1E9E57', label: 'Seguí' }, malo: { c: '#D0504A', label: 'Cortá' }, proceso: { c: '#9A6A09', label: 'Proceso' },
 };
 type Pattern = {
   key: string; polarity: Polarity; chip: string; big: string; bigColor: string; tlabel: string; stmt: string;
@@ -441,21 +441,21 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
     const cxOf = (v: number, r: number) => Math.min(R - r - 2, Math.max(L + r + 2, xOf(v)));
     const cyOf = (v: number, r: number) => Math.min(B - r - 2, Math.max(T + r + 2, yOf(v)));
     const els: ReactNode[] = [];
-    els.push(h('rect', { key: 'tr', x: xMid, y: T, width: R - xMid, height: yMid - T, fill: 'rgba(28,138,84,.09)' }));
+    els.push(h('rect', { key: 'tr', x: xMid, y: T, width: R - xMid, height: yMid - T, fill: 'rgba(30,158,87,.09)' }));
     els.push(h('rect', { key: 'tl', x: L, y: T, width: xMid - L, height: yMid - T, fill: 'rgba(47,109,219,.06)' }));
     els.push(h('rect', { key: 'br', x: xMid, y: yMid, width: R - xMid, height: B - yMid, fill: 'rgba(200,135,12,.10)' }));
-    els.push(h('rect', { key: 'bl', x: L, y: yMid, width: xMid - L, height: B - yMid, fill: 'rgba(207,78,41,.07)' }));
-    els.push(h('line', { key: 'ax', x1: L, y1: B, x2: R, y2: B, stroke: '#E7E3D9' }));
-    els.push(h('line', { key: 'ay', x1: L, y1: T, x2: L, y2: B, stroke: '#E7E3D9' }));
+    els.push(h('rect', { key: 'bl', x: L, y: yMid, width: xMid - L, height: B - yMid, fill: 'rgba(208,80,74,.07)' }));
+    els.push(h('line', { key: 'ax', x1: L, y1: B, x2: R, y2: B, stroke: '#EAECF1' }));
+    els.push(h('line', { key: 'ay', x1: L, y1: T, x2: L, y2: B, stroke: '#EAECF1' }));
     els.push(h('line', { key: 'cx', x1: xMid, y1: T, x2: xMid, y2: B, stroke: 'var(--border-strong)' }));
     els.push(h('line', { key: 'cy', x1: L, y1: yMid, x2: R, y2: yMid, stroke: 'var(--border-strong)' }));
-    els.push(h('text', { key: 'bx', x: xMid + 4, y: T + 12, fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `gancho ${HOOK_MID}%`));
-    els.push(h('text', { key: 'by', x: R - 4, y: yMid - 4, textAnchor: 'end', fontSize: 9, fill: '#A39E91', fontFamily: 'Geist Mono, monospace' }, `retiene ${HOLD_MID}%`));
+    els.push(h('text', { key: 'bx', x: xMid + 4, y: T + 12, fontSize: 9, fill: '#98A0AC', fontFamily: 'Geist Mono, monospace' }, `gancho ${HOOK_MID}%`));
+    els.push(h('text', { key: 'by', x: R - 4, y: yMid - 4, textAnchor: 'end', fontSize: 9, fill: '#98A0AC', fontFamily: 'Geist Mono, monospace' }, `retiene ${HOLD_MID}%`));
     // RÓTULOS DE CUADRANTE — FUERA del área de datos (en los gutters)
     const gl = (x: number, y: number, c: string, t: string) => els.push(h('text', { key: `g${t}`, x, y, textAnchor: 'middle', fontSize: 11, fontWeight: 700, fill: c, fontFamily: 'Geist Mono, monospace', letterSpacing: '.05em' }, t));
     gl((L + xMid) / 2, T - 14, '#2F6DDB', 'MEJORAR GANCHO');
-    gl((xMid + R) / 2, T - 14, '#1C8A54', 'ESCALAR');
-    gl((L + xMid) / 2, B + 22, '#CF4E29', 'REPENSAR');
+    gl((xMid + R) / 2, T - 14, '#1E9E57', 'ESCALAR');
+    gl((L + xMid) / 2, B + 22, '#D0504A', 'REPENSAR');
     gl((xMid + R) / 2, B + 22, '#9A6A09', 'REESCRIBIR CUERPO');
     els.push(h('text', { key: 'xt', x: (L + R) / 2, y: H - 8, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#6B675C', fontFamily: 'Geist Mono, monospace' }, 'HOOK RATE → ¿frena el scroll?'));
     els.push(h('text', { key: 'yt', x: 14, y: (T + B) / 2, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#6B675C', fontFamily: 'Geist Mono, monospace', transform: `rotate(-90 14 ${(T + B) / 2})` }, 'RETENCIÓN AL CTA →'));
@@ -470,7 +470,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
         const cx = cxOf(mh, r), cy = cyOf(mo, r);
         els.push(h('circle', { key: `c${k}`, cx, cy, r, fill: rgba(c, .74), stroke: '#fff', strokeWidth: 2, style: { cursor: 'pointer' }, onClick: () => { setAngle(k); setMapMode('ads'); } }));
         els.push(h('text', { key: `n${k}`, x: cx, y: cy + 4, textAnchor: 'middle', fontSize: 12, fontWeight: 700, fill: '#fff', fontFamily: 'Geist, sans-serif', style: { pointerEvents: 'none' } }, g.length));
-        els.push(h('text', { key: `l${k}`, x: cx, y: cy - r - 5, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#1A1813', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F2F0EA', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, angleInfo(k).label));
+        els.push(h('text', { key: `l${k}`, x: cx, y: cy - r - 5, textAnchor: 'middle', fontSize: 10.5, fontWeight: 600, fill: '#12151B', fontFamily: 'Geist, sans-serif', style: { paintOrder: 'stroke', stroke: '#F4F6F9', strokeWidth: 3, strokeLinejoin: 'round', pointerEvents: 'none' } }, angleInfo(k).label));
       });
     } else {
       // Chicas arriba (al final) para que queden clickeables sobre las grandes.
@@ -481,8 +481,8 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
         const conf = confFromImpr(p.impressions); const low = conf === 'baja';
         const op = hov ? .95 : conf === 'alta' ? .8 : conf === 'media' ? .5 : .28;
         const c = angleInfo(p.angle).c;
-        if (on || hov) els.push(h('circle', { key: `o${p.id}`, cx, cy, r: r + 4, fill: 'none', stroke: '#1A1813', strokeWidth: 1.5 }));
-        els.push(h('circle', { key: `c${p.id}`, cx, cy, r, fill: rgba(c, op), stroke: low ? '#A39E91' : '#fff', strokeWidth: 1.5, strokeDasharray: low ? '3 2' : undefined, style: { cursor: 'pointer' }, onClick: () => setOpenAd(p.id), onMouseEnter: () => onHover(p.id), onMouseLeave: () => onHover(null) }));
+        if (on || hov) els.push(h('circle', { key: `o${p.id}`, cx, cy, r: r + 4, fill: 'none', stroke: '#12151B', strokeWidth: 1.5 }));
+        els.push(h('circle', { key: `c${p.id}`, cx, cy, r, fill: rgba(c, op), stroke: low ? '#98A0AC' : '#fff', strokeWidth: 1.5, strokeDasharray: low ? '3 2' : undefined, style: { cursor: 'pointer' }, onClick: () => setOpenAd(p.id), onMouseEnter: () => onHover(p.id), onMouseLeave: () => onHover(null) }));
       }
       // Tooltip del hover (al final → encima de todo); título del guion SOLO acá.
       const hp = items.find((p) => p.id === hoverId);
@@ -512,10 +512,10 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
 
   const lowConf = ads.filter((a) => confidence(a) === 'baja' || (a.hookRate >= 24 && a.agendas === 0 && a.spend < 800));
   const quadLegend = [
-    { c: '#1C8A54', title: 'Escalar', sub: 'Paran y se quedan. Más presupuesto.' },
+    { c: '#1E9E57', title: 'Escalar', sub: 'Paran y se quedan. Más presupuesto.' },
     { c: '#2F6DDB', title: 'Mejorar el gancho', sub: 'Retienen, pero entran pocos.' },
     { c: '#9A6A09', title: 'Reescribir el cuerpo', sub: 'Frenan, pero se aburren y se van.' },
-    { c: '#CF4E29', title: 'Repensar', sub: 'Ni frenan ni retienen. Pausar.' },
+    { c: '#D0504A', title: 'Repensar', sub: 'Ni frenan ni retienen. Pausar.' },
   ];
 
   const sel = openAd ? ads.find((a) => a.id === openAd) ?? null : null;
@@ -573,7 +573,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Patrones</h2>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button onClick={() => setConfirmSync(true)} disabled={syncing} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 999, border: '1px solid var(--border-strong)', background: syncing ? 'var(--surface-2)' : 'var(--surface)', color: syncing ? 'var(--dim)' : 'var(--ink)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: syncing ? 'default' : 'pointer' }}>{syncing ? 'Actualizando…' : '↻ Actualizar'}</button>
-            <button onClick={() => setMako(true)} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(23,21,17,.18)' }}>
+            <button onClick={() => setMako(true)} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 999, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 8px rgba(18,21,27,.18)' }}>
               {spark(14, 'sap')}<span>Conclusiones con <span style={{ fontFamily: 'Georgia,serif', fontWeight: 700 }}><span style={{ color: '#EF9F27' }}>M</span>a<span style={{ color: '#EF9F27' }}>K</span>o</span></span>
             </button>
           </div>
@@ -604,7 +604,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
                   <button key={p.key} onClick={() => openPattern(p)} style={{ textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: `3px solid ${POL[p.polarity].c}`, borderRadius: 14, padding: '16px 17px', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 152 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ display: 'inline-block', fontSize: 10, fontWeight: 600, padding: '2px 9px', borderRadius: 999, fontFamily: MONO, letterSpacing: '.04em', background: rgba(POL[p.polarity].c, .12), color: POL[p.polarity].c, border: `1px solid ${rgba(POL[p.polarity].c, .3)}` }}>{p.chip}</span>
-                      <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>ver →</span>
+                      <span style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>ver →</span>
                     </div>
                     <div style={{ marginTop: 'auto' }}>
                       <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '-0.02em', color: p.bigColor, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{p.big}</div>
@@ -627,7 +627,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
             <button onClick={() => setShowCaveat((v) => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '13px 17px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
               <span style={{ flex: 'none', width: 24, height: 24, borderRadius: 7, background: 'var(--bad)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14 }}>!</span>
               <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--bad)' }}>Cuidado con la muestra chica</span>
-              <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--bad)', background: 'rgba(207,78,41,.13)', padding: '2px 9px', borderRadius: 999 }}>{lowConf.length}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--bad)', background: 'rgba(208,80,74,.13)', padding: '2px 9px', borderRadius: 999 }}>{lowConf.length}</span>
               <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--bad)' }}>{showCaveat ? '▴' : '▾'}</span>
             </button>
             {showCaveat && (
@@ -652,18 +652,18 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', marginBottom: 18 }}>
           <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Cuadrante de Retención</h2>
           <div style={{ position: 'relative' }}>
-            <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: activeFilters > 0 ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: activeFilters > 0 ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               <span aria-hidden>⚙</span> Filtros
-              {activeFilters > 0 && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--accent)', borderRadius: 999, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{activeFilters}</span>}
+              {activeFilters > 0 && <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: '#fff', background: 'var(--primary)', borderRadius: 999, minWidth: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px' }}>{activeFilters}</span>}
               <span aria-hidden style={{ fontSize: 10, color: 'var(--faint)' }}>▾</span>
             </button>
             {filtersOpen && (
               <>
                 <div onClick={() => setFiltersOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
-                <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 300, maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 15 }}>
+                <div style={{ position: 'absolute', right: 0, marginTop: 8, zIndex: 50, width: 300, maxWidth: '90vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 16px 40px rgba(18,21,27,.22)', display: 'flex', flexDirection: 'column', gap: 15 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtros</span>
-                    {activeFilters > 0 && <button onClick={() => { onQuadWin('todo'); setAngle('todos'); setMapMode('ads'); setHideSmall(false); }} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
+                    {activeFilters > 0 && <button onClick={() => { onQuadWin('todo'); setAngle('todos'); setMapMode('ads'); setHideSmall(false); }} style={{ border: 'none', background: 'transparent', color: 'var(--primary)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar</button>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--dim)' }}>Período</span>
@@ -720,7 +720,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
         <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5 }}>Pegá un guion que todavía no subiste a Meta. MaKo lo compara con lo que ya te funciona y te dice qué esperar y cómo probarlo.</div>
         <textarea value={guionText} onChange={(e) => setGuionText(e.target.value)} placeholder="Pegá acá el guion completo del video…" rows={6} style={{ width: '100%', marginTop: 14, padding: '14px 16px', borderRadius: 13, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, lineHeight: 1.5, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
-          <button onClick={valorar} disabled={valorando} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 11, border: 'none', background: valorando ? 'var(--surface-2)' : '#171511', color: valorando ? 'var(--dim)' : '#F3F0E7', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: valorando ? 'default' : 'pointer' }}>{valorando ? 'Valorando…' : <>{spark(14, 'sva')} Valorar guion</>}</button>
+          <button onClick={valorar} disabled={valorando} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 11, border: 'none', background: valorando ? 'var(--surface-2)' : '#14161B', color: valorando ? 'var(--dim)' : '#F3F5F8', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: valorando ? 'default' : 'pointer' }}>{valorando ? 'Valorando…' : <>{spark(14, 'sva')} Valorar guion</>}</button>
           {valError && <span style={{ fontSize: 12.5, color: 'var(--bad)' }}>{valError}</span>}
           {guionText.length > 0 && !valorando && <button onClick={() => { setGuionText(''); setValoracion(null); setValError(null); }} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>limpiar</button>}
         </div>
@@ -760,8 +760,8 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
 
       {/* PATTERN DRILL MODAL */}
       {drill && (
-        <div onClick={() => setDrill(null)} style={{ position: 'fixed', inset: 0, zIndex: 66, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 580, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+        <div onClick={() => setDrill(null)} style={{ position: 'fixed', inset: 0, zIndex: 66, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 580, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ minWidth: 0 }}><div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>Patrón</div><div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginTop: 4, lineHeight: 1.4 }}>{drill.title}</div></div>
               <button onClick={() => setDrill(null)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
@@ -786,11 +786,11 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
 
       {/* MAKO MODAL */}
       {mako && (
-        <div onClick={() => setMako(false)} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+        <div onClick={() => setMako(false)} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '16px 24px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
-                <div style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'linear-gradient(150deg,#2A251C,#171511)', border: '1px solid rgba(239,159,39,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{spark(15, 'samb')}</div>
+                <div style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'linear-gradient(150deg,#23272F,#14161B)', border: '1px solid rgba(239,159,39,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{spark(15, 'samb')}</div>
                 <div style={{ minWidth: 0 }}><div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Conclusiones con MaKo</div><div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)' }}>Qué escribir esta semana</div></div>
               </div>
               <button onClick={() => setMako(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
@@ -811,8 +811,8 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
 
       {/* CONFIRMACIÓN DE ACTUALIZAR */}
       {confirmSync && (
-        <div onClick={() => setConfirmSync(false)} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '56px 20px', overflowY: 'auto' }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+        <div onClick={() => setConfirmSync(false)} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '56px 20px', overflowY: 'auto' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 22px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Actualizar patrones</div>
@@ -838,12 +838,12 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
                 {syncGate.level === 'nada' ? (
                   <>
                     <button onClick={() => { setConfirmSync(false); sincronizar(true); }} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Actualizar igual</button>
-                    <button onClick={() => setConfirmSync(false)} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+                    <button onClick={() => setConfirmSync(false)} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
                   </>
                 ) : (
                   <>
                     <button onClick={() => setConfirmSync(false)} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
-                    <button onClick={() => { setConfirmSync(false); sincronizar(syncGate.level === 'reciente'); }} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{syncGate.level === 'reciente' ? 'Actualizar igual' : 'Sí, actualizar'}</button>
+                    <button onClick={() => { setConfirmSync(false); sincronizar(syncGate.level === 'reciente'); }} style={{ padding: '10px 18px', borderRadius: 11, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>{syncGate.level === 'reciente' ? 'Actualizar igual' : 'Sí, actualizar'}</button>
                   </>
                 )}
               </div>
@@ -913,10 +913,10 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onS
   // sin overlay, sin shell propio y sin botón de cierre (esos los pone el contenedor).
   const overlayStyle: CSSProperties = embedded
     ? { display: 'contents' }
-    : { position: 'fixed', inset: 0, zIndex: 65, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' };
+    : { position: 'fixed', inset: 0, zIndex: 65, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' };
   const shellStyle: CSSProperties = embedded
     ? { width: '100%' }
-    : { width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' };
+    : { width: '100%', maxWidth: 760, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' };
   return (
     <div onClick={embedded ? undefined : onClose} style={overlayStyle}>
       <div onClick={(e) => e.stopPropagation()} style={shellStyle}>
@@ -970,7 +970,7 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onS
               )}
               <div style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--dim)' }}>
                 Creativo de imagen — no tiene retención de video ni embudo. El ángulo, los tags y el diagnóstico se derivan del texto y la descripción del anuncio. Se lo juzga por plata, agendas y cierres.
-                {sel.permalink && <div style={{ marginTop: 10 }}><a href={sel.permalink} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: 12.5, textDecoration: 'none', fontWeight: 600 }}>Ver en Meta →</a></div>}
+                {sel.permalink && <div style={{ marginTop: 10 }}><a href={sel.permalink} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontSize: 12.5, textDecoration: 'none', fontWeight: 600 }}>Ver en Meta →</a></div>}
               </div>
             </div>
           </div>
@@ -1018,10 +1018,10 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onS
 
 // ── Valoración de un guion nuevo ──
 const VV: Record<string, { label: string; c: string }> = {
-  'escalar-candidato': { label: 'Candidato a escalar', c: '#1C8A54' },
+  'escalar-candidato': { label: 'Candidato a escalar', c: '#1E9E57' },
   'mejorar-gancho': { label: 'Mejorar gancho', c: '#2F6DDB' },
   'reescribir-cuerpo': { label: 'Reescribir cuerpo', c: '#9A6A09' },
-  'repensar-angulo': { label: 'Repensar ángulo', c: '#CF4E29' },
+  'repensar-angulo': { label: 'Repensar ángulo', c: '#D0504A' },
   'promesa-pero-validar': { label: 'Promesa — validar', c: '#6B675C' },
 };
 function Chip({ label, value }: { label: string; value: string }) {
@@ -1080,8 +1080,8 @@ function ValoracionView({ v }: { v: Valoracion }) {
       )}
       {(v.patrones_match.length > 0 || v.patrones_miss.length > 0) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
-          <PatList title="Cumple" color="#1C8A54" items={v.patrones_match} />
-          <PatList title="Se pierde / reproduce" color="#CF4E29" items={v.patrones_miss} />
+          <PatList title="Cumple" color="#1E9E57" items={v.patrones_match} />
+          <PatList title="Se pierde / reproduce" color="#D0504A" items={v.patrones_miss} />
         </div>
       )}
       {v.reescrituras.length > 0 && (
@@ -1090,8 +1090,8 @@ function ValoracionView({ v }: { v: Valoracion }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{v.reescrituras.map((r, i) => (<div key={i}><div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{r.que_cambiar}</div><div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5 }}>{r.propuesta}</div></div>))}</div>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(28,138,84,.06)', border: '1px solid rgba(28,138,84,.26)', borderRadius: 13, padding: '14px 16px' }}>
-        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: '#1C8A54' }}>Plan de validación</span>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(30,158,87,.06)', border: '1px solid rgba(30,158,87,.26)', borderRadius: 13, padding: '14px 16px' }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: '#1E9E57' }}>Plan de validación</span>
         <Chip label="Presupuesto" value={fmtUSD(v.plan_validacion.presupuesto_usd)} />
         <Chip label="Días" value={String(v.plan_validacion.dias_minimos)} />
         <Chip label="Impresiones" value={v.plan_validacion.impresiones_objetivo.toLocaleString('en-US')} />
@@ -1225,14 +1225,14 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
         {/* DERECHA: gestionar taxonomía + UN botón de Filtros (popover, como el Cuadrante) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
           <button onClick={() => setAnglesOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>✎</span> Ángulos y avatares</button>
-          <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: filtrado ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>⚙</span> Filtros{nActive > 0 ? ` · ${nActive}` : ''}</button>
+          <button onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen} style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: filtrado ? 'rgba(47,111,237,.10)' : 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}><span aria-hidden>⚙</span> Filtros{nActive > 0 ? ` · ${nActive}` : ''}</button>
           {filtersOpen && (
             <>
               <div onClick={() => setFiltersOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} aria-hidden />
-              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 360, maxWidth: '92vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 16, boxShadow: '0 16px 40px rgba(23,21,17,.22)', display: 'flex', flexDirection: 'column', gap: 13 }}>
+              <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 360, maxWidth: '92vw', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 16, boxShadow: '0 16px 40px rgba(18,21,27,.22)', display: 'flex', flexDirection: 'column', gap: 13 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Filtrar</span>
-                  {filtrado && <button onClick={limpiar} style={{ border: 'none', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar ({nActive})</button>}
+                  {filtrado && <button onClick={limpiar} style={{ border: 'none', background: 'transparent', color: 'var(--primary)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>Limpiar ({nActive})</button>}
                 </div>
                 {/* filtros cortos en 2 columnas para no alargar el panel */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 11 }}>
@@ -1294,7 +1294,7 @@ export function GuionesPanel({ scripts, onOpen, limit, fullHref, angles = [], av
         </div>
       )}
       {limit && fullHref && sorted.length > limit && (
-        <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none' }}>Ver los {sorted.length} guiones →</a></div>
+        <div style={{ marginTop: 14, textAlign: 'center' }}><a href={fullHref} style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Ver los {sorted.length} guiones →</a></div>
       )}
       {anglesOpen && <TaxonomyManager angles={angles} avatares={avatares} onClose={() => setAnglesOpen(false)} onSaved={() => { setAnglesOpen(false); router.refresh(); }} />}
     </section>
@@ -1318,7 +1318,7 @@ export function GuionesFull({ scripts, angles = [], avatares = [] }: { scripts: 
 // CRUD = editar la lista entera y guardarla. La CLAVE (key) de un ángulo existente
 // se mantiene fija aunque cambie el nombre, así los anuncios ya clasificados no
 // pierden su ángulo; los nuevos sacan su key del nombre al guardar (backend).
-const ANGLE_PALETTE = ['#2F6DDB', '#C8870C', '#CF4E29', '#3B6D11', '#7C4DD6', '#0E8E7E', '#A8770F', '#B5742A', '#9A3D6B', '#6B675C'];
+const ANGLE_PALETTE = ['#2F6DDB', '#C8870C', '#D0504A', '#3B6D11', '#7C4DD6', '#0E8E7E', '#A8770F', '#B5742A', '#9A3D6B', '#6B675C'];
 type AngleRow = { uid: number; key: string; label: string; color: string; desc: string };
 // Mismo slug que angleKey() del backend, para detectar a tiempo dos ángulos que
 // colapsarían a la misma clave (ej. "Dolor" y "dolor") y se perdería uno en silencio.
@@ -1364,8 +1364,8 @@ function AnglesManager({ initial, onClose, onSaved }: { initial: AngleDef[]; onC
   const inp: CSSProperties = { border: '1px solid var(--border-strong)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, padding: '8px 11px', outline: 'none', width: '100%' };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Ángulos del mensaje</h2>
@@ -1384,13 +1384,13 @@ function AnglesManager({ initial, onClose, onSaved }: { initial: AngleDef[]; onC
               <button onClick={() => remove(r.uid)} aria-label="Borrar ángulo" style={{ width: 38, height: 38, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--bad)', fontSize: 15, cursor: 'pointer', fontFamily: SANS }}>✕</button>
             </div>
           ))}
-          <button onClick={add} style={{ alignSelf: 'flex-start', marginTop: 2, padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--accent)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar ángulo</button>
+          <button onClick={add} style={{ alignSelf: 'flex-start', marginTop: 2, padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--primary)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>+ Agregar ángulo</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 26px', borderTop: '1px solid var(--border)' }}>
           <span style={{ fontSize: 12.5, color: err ? 'var(--bad)' : 'var(--faint)' }}>{err ?? `${rows.length} ángulo${rows.length === 1 ? '' : 's'}`}</span>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onClose} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
-            <button onClick={save} disabled={saving || !valid} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: saving || !valid ? 'var(--border-strong)' : 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: saving || !valid ? 'default' : 'pointer' }}>{saving ? 'Guardando…' : 'Guardar ángulos'}</button>
+            <button onClick={save} disabled={saving || !valid} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: saving || !valid ? 'var(--border-strong)' : 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: saving || !valid ? 'default' : 'pointer' }}>{saving ? 'Guardando…' : 'Guardar ángulos'}</button>
           </div>
         </div>
       </div>

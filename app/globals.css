@@ -7,34 +7,46 @@
 */
 
 :root {
-  /* ── Tokens del diseño (claro) ── */
-  --bg: #F2F0EA;
+  /* ── Tokens del diseño (claro, alineado a la landing /vsl) ──
+     Regla de color: AZUL = acción (botones, activo, links, foco). DORADO = marca
+     (logo, chispa, MaKo, Saldo IA). Los neutros son fríos (blanco/gris azulado),
+     no cálidos, para el mismo look limpio de /vsl. */
+  --bg: #F4F6F9;
   --surface: #FFFFFF;
-  --surface-2: #FAF8F2;
-  --border: #E7E3D9;
-  --border-strong: #D8D3C6;
-  --ink: #1A1813;
-  --dim: #6B675C;
-  --faint: #A39E91;
-  --sidebar: #171511;
-  --sidebar-2: #23201A;
-  --sidebar-text: #A8A296;
-  --on-sidebar: #F3F0E7;
+  --surface-2: #F5F7FA;
+  --border: #EAECF1;
+  --border-strong: #DCE0E7;
+  --ink: #12151B;
+  --dim: #5B6472;
+  --faint: #98A0AC;
+  --sidebar: #14161B;
+  --sidebar-2: #1E212A;
+  --sidebar-text: #949CAA;
+  --on-sidebar: #F3F5F8;
+
+  /* ── Acción · azul /vsl (#2F6FED) ── */
+  --primary: #2F6FED;
+  --primary-strong: #245FD6;
+  --primary-bg: #EAF1FE;
+  --primary-weak: #9DBBF5;
+
+  /* ── Marca · dorado MaKo (se mantiene; ya NO es el color de acción) ── */
   --line: #C8870C;
   --accent: #C8870C;
   --accent-soft: #F0C60A;
-  --good: #1C8A54;
-  --good-bg: #E5F2EA;
+
+  --good: #1E9E57;
+  --good-bg: #E7F5EC;
   --warn: #A8770F;
-  --warn-bg: #FAF0D4;
+  --warn-bg: #FBF0DA;
   --warn-fill: #E8B30B;
-  --bad: #CF4E29;
-  --bad-bg: #FAE6DD;
+  --bad: #D0504A;
+  --bad-bg: #FBEAEA;
   --card-pad: 28px;
   --sect-gap: 22px;
 
   /* Acentos por etapa de WhatsApp/Email (burbujas) */
-  --wa: #1C8A54;
+  --wa: #1E9E57;
   --wa-bubble: #DDF3E4;
   --auto-bubble: #FBEFCF;
 
@@ -65,6 +77,8 @@
   --color-faint: var(--faint);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-primary: var(--primary);
+  --color-primary-bg: var(--primary-bg);
   --color-good: var(--good);
   --color-warn: var(--warn);
   --color-bad: var(--bad);
@@ -91,7 +105,7 @@ body {
 }
 
 ::selection {
-  background: rgba(200, 135, 12, 0.18);
+  background: rgba(47, 111, 237, 0.16);
 }
 
 select {
@@ -157,9 +171,9 @@ body {
   background: #F5F2EA;
 }
 .mako-field:focus {
-  border-color: var(--accent);
+  border-color: var(--primary);
   background: var(--surface);
-  box-shadow: 0 0 0 3px rgba(200, 135, 12, 0.14);
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.16);
 }
 textarea.mako-field {
   min-height: 104px;
@@ -184,12 +198,23 @@ textarea.mako-field {
   color: var(--faint);
 }
 .lead-field:focus {
-  border-color: var(--accent);
+  border-color: var(--primary);
   background: var(--surface);
-  box-shadow: 0 0 0 3px rgba(200, 135, 12, 0.14);
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.16);
 }
 textarea.lead-field {
   resize: vertical;
+}
+
+/* Sidebar — filas densas estilo Meta. El fondo/color base viven acá para que
+   el :hover pueda ganarles (los inline styles solo se usan en el item activo). */
+.mako-navlink {
+  color: var(--sidebar-text);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.mako-navlink:hover {
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--on-sidebar);
 }
 
 /* Chevron de los <details> de la ficha: rota al expandir. */

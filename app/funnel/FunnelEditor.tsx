@@ -172,7 +172,7 @@ export function FunnelEditor({
     const prev = snap();
     let key = '';
     do { key = 'st' + (uidRef.current++); } while (pipeline.some((s) => s.key === key));
-    const ns: Stage = { key, label: 'Nueva etapa', dot: '#6B675C', tone: 'neutral', kind: 'reunion' };
+    const ns: Stage = { key, label: 'Nueva etapa', dot: '#5B6472', tone: 'neutral', kind: 'reunion' };
     setPipeline((ps) => { const cierreIdx = ps.findIndex((s) => s.kind === 'cierre'); const at = cierreIdx >= 0 ? cierreIdx : ps.length; return [...ps.slice(0, at), ns, ...ps.slice(at)]; });
     persist('Etapa creada', () => undoTo(prev));
   };
@@ -217,14 +217,14 @@ export function FunnelEditor({
       {/* MAPA (solo lectura) */}
       <div
         ref={(el) => { canvasRef.current = el; if (el) requestAnimationFrame(updateScale); }}
-        style={{ position: 'relative', width: '100%', maxWidth: BASEW, margin: '18px auto 0', height: BASEH * scale, background: '#FFFFFF', border: '1px solid #E7E3D9', borderRadius: 18, overflow: 'hidden' }}
+        style={{ position: 'relative', width: '100%', maxWidth: BASEW, margin: '18px auto 0', height: BASEH * scale, background: '#FFFFFF', border: '1px solid #EAECF1', borderRadius: 18, overflow: 'hidden' }}
       >
         <div style={{ position: 'absolute', top: 0, left: 0, width: BASEW, height: BASEH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
           <svg width={BASEW} height={BASEH} viewBox={`0 0 ${BASEW} ${BASEH}`} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', overflow: 'visible' }}>
             {BAND_ORDER.map((band, i) => { const y = ROWY[band]; return (
               <g key={'ln' + i}>
                 <rect x={16} y={y - 15} width={BASEW - 32} height={CH + 30} rx={13} fill={BAND_TINT[band]} />
-                <text x={28} y={y + CH / 2 + 1} dominantBaseline="central" fontFamily={MONO} fontSize={10.5} letterSpacing=".1em" fontWeight={600} fill="#A39E91">{BAND_LABEL[band].toUpperCase()}</text>
+                <text x={28} y={y + CH / 2 + 1} dominantBaseline="central" fontFamily={MONO} fontSize={10.5} letterSpacing=".1em" fontWeight={600} fill="#98A0AC">{BAND_LABEL[band].toUpperCase()}</text>
               </g>
             ); })}
             {transitions.map((t, i) => {
@@ -244,7 +244,7 @@ export function FunnelEditor({
               return (
                 <g key={'l' + i}>
                   <rect x={g.mid.x - lw / 2} y={g.mid.y - 11} width={lw} height={22} rx={6} fill="#FFFFFF" stroke={c} strokeOpacity={0.5} />
-                  <text x={g.mid.x} y={g.mid.y + 4} textAnchor="middle" fontSize={11.5} fontWeight={600} fill="#1A1813" fontFamily={SANS}>{t.label}</text>
+                  <text x={g.mid.x} y={g.mid.y + 4} textAnchor="middle" fontSize={11.5} fontWeight={600} fill="#12151B" fontFamily={SANS}>{t.label}</text>
                 </g>
               );
             })}
@@ -252,15 +252,15 @@ export function FunnelEditor({
 
           {stages.map((s) => {
             const b = P[s.key]; const isFocus = focus === s.key; const editable = s.band === 'pipeline';
-            const bColor = isFocus ? '#C8870C' : (s.border || 'rgba(31,30,29,.2)');
+            const bColor = isFocus ? 'var(--primary)' : (s.border || 'rgba(31,30,29,.2)');
             return (
               <div key={s.key}
                 onMouseEnter={() => setHoverStage(s.key)}
                 onMouseLeave={() => setHoverStage(null)}
                 onClick={() => editable && goToRow(s.key)}
                 title={editable ? 'Clic para editar esta etapa abajo' : undefined}
-                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${isFocus ? 2 : 1.5}px solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: editable ? 'pointer' : 'default', boxShadow: isFocus ? '0 0 0 2px rgba(200,135,12,.18)' : '0 1px 2px rgba(26,24,19,.05)', userSelect: 'none', opacity: related && !related.has(s.key) ? 0.14 : 1, transition: 'box-shadow .12s, border-color .12s, opacity .12s' }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: s.fg || '#1A1813', lineHeight: 1.15 }}>{s.label}</span>
+                style={{ position: 'absolute', left: b.x, top: b.y, width: CW, height: CH, background: s.bg || '#fff', border: `${isFocus ? 2 : 1.5}px solid ${bColor}`, borderRadius: 10, padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', cursor: editable ? 'pointer' : 'default', boxShadow: isFocus ? '0 0 0 2px rgba(47,111,237,.18)' : '0 1px 2px rgba(18,21,27,.05)', userSelect: 'none', opacity: related && !related.has(s.key) ? 0.14 : 1, transition: 'box-shadow .12s, border-color .12s, opacity .12s' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: s.fg || '#12151B', lineHeight: 1.15 }}>{s.label}</span>
               </div>
             );
           })}
@@ -362,7 +362,7 @@ export function FunnelEditor({
                   <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3, lineHeight: 1.45 }}>{tpl.description}</div>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 5 }}>{tpl.pipeline.map((s) => s.label).join(' → ')}</div>
                 </div>
-                <button onClick={() => applyTemplate(tpl.id)} style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Usar</button>
+                <button onClick={() => applyTemplate(tpl.id)} style={{ flex: 'none', padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#FFFFFF', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Usar</button>
               </div>
             ))}
           </div>
@@ -371,13 +371,13 @@ export function FunnelEditor({
 
       {/* Confirmación (cambios destructivos) */}
       {confirm && (
-        <div onClick={() => setConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(23,21,17,.35)', padding: '22px 24px' }}>
+        <div onClick={() => setConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
             <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Confirmar cambio</div>
             <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{confirm.msg}.</div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               <button onClick={() => setConfirm(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              <button onClick={() => { const a = confirm.apply; setConfirm(null); a(); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Confirmar</button>
+              <button onClick={() => { const a = confirm.apply; setConfirm(null); a(); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#FFFFFF', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Confirmar</button>
             </div>
           </div>
         </div>
@@ -385,10 +385,10 @@ export function FunnelEditor({
 
       {/* Toast (autoguardado + Deshacer · 5s) */}
       {toast && (
-        <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 80, display: 'flex', alignItems: 'center', gap: 14, background: toast.bad ? '#5C2B2E' : '#171511', color: '#F3F0E7', padding: '12px 18px', borderRadius: 12, boxShadow: '0 12px 32px rgba(23,21,17,.35)', fontFamily: SANS, fontSize: 14 }}>
+        <div style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 80, display: 'flex', alignItems: 'center', gap: 14, background: toast.bad ? '#5C2B2E' : '#14161B', color: '#F3F5F8', padding: '12px 18px', borderRadius: 12, boxShadow: '0 12px 32px rgba(18,21,27,.35)', fontFamily: SANS, fontSize: 14 }}>
           <span>{toast.msg}{!toast.bad && ' ✓'}</span>
-          {toast.undo && <button type="button" onClick={() => { toast.undo!(); }} style={{ background: 'transparent', border: '1px solid rgba(243,240,231,.35)', color: 'var(--accent-soft)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>}
-          <button type="button" onClick={() => setToast(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,240,231,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+          {toast.undo && <button type="button" onClick={() => { toast.undo!(); }} style={{ background: 'transparent', border: '1px solid rgba(243,245,248,.35)', color: 'var(--primary-weak)', fontWeight: 600, fontSize: 13.5, padding: '6px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS }}>↶ Deshacer</button>}
+          <button type="button" onClick={() => setToast(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
       )}
     </main>
@@ -398,8 +398,8 @@ export function FunnelEditor({
 // ── Modal genérico ──
 function ModalShell({ title, subtitle, onClose, width = 560, children }: { title: string; subtitle?: string; onClose: () => void; width?: number; children: ReactNode }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(23,21,17,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '56px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '56px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: width, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <h2 style={{ fontWeight: 600, fontSize: 21, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h2>

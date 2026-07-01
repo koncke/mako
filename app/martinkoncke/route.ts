@@ -223,6 +223,12 @@ const HTML = `<!doctype html>
   <div class="bar">
     <div class="add">
       <input id="addInput" type="text" placeholder="Agregar tarea nueva…" maxlength="180" aria-label="Nueva tarea">
+      <select id="addPrio" class="prio-select prio-media" aria-label="Prioridad de la nueva tarea">
+        <option value="alta">Alta</option>
+        <option value="media" selected>Media</option>
+        <option value="baja">Baja</option>
+        <option value="futuro">A futuro</option>
+      </select>
       <button class="btn" id="addBtn">Agregar</button>
     </div>
   </div>
@@ -535,12 +541,16 @@ const HTML = `<!doctype html>
 
   // Agregar
   var addInput=document.getElementById("addInput");
+  var addPrio=document.getElementById("addPrio");
   function addTask(){
     var v=addInput.value.trim(); if(!v) return;
+    var prio=(addPrio&&PRIOS.indexOf(addPrio.value)>=0)?addPrio.value:"media";
     var maxN=tasks.reduce(function(m,t){return Math.max(m,t.n);},0);
-    tasks.push({id:"t"+Date.now(),n:maxN+1,text:v,priority:"media",prog:0,note:"",deadline:"",cat:null});
+    tasks.push({id:"t"+Date.now(),n:maxN+1,text:v,priority:prio,prog:0,note:"",deadline:"",cat:null});
     addInput.value=""; render(); save(); addInput.focus();
   }
+  // Mantener la prioridad elegida entre altas y pintar el color del selector.
+  if(addPrio){ addPrio.addEventListener("change",function(){ addPrio.className="prio-select prio-"+addPrio.value; }); }
   document.getElementById("addBtn").addEventListener("click",addTask);
   addInput.addEventListener("keydown",function(e){ if(e.key==="Enter") addTask(); });
 

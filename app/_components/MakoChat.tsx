@@ -208,7 +208,7 @@ export function MakoChat({
       )}
       <div style={{ display: 'flex', gap: 10, padding: '12px 20px 14px' }}>
         <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }} rows={1} placeholder="Preguntale a MaKo…  (Enter envía · Shift+Enter salto de línea)" disabled={pensando} style={{ flex: 1, padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none', resize: 'none', minHeight: 44, maxHeight: 160, lineHeight: 1.4 }} />
-        <button type="button" onClick={() => enviar()} disabled={pensando || !input.trim()} style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pensando || !input.trim() ? 'default' : 'pointer', opacity: pensando || !input.trim() ? 0.55 : 1 }}>Enviar</button>
+        <button type="button" onClick={() => enviar()} disabled={pensando || !input.trim()} style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pensando || !input.trim() ? 'default' : 'pointer', opacity: pensando || !input.trim() ? 0.55 : 1 }}>Enviar</button>
       </div>
     </div>
   );
@@ -219,7 +219,7 @@ export function MakoChat({
       <div style={{ display: 'flex', height: '100%', minHeight: 0, fontFamily: SANS }}>
         <aside style={{ width: 212, flex: 'none', background: 'var(--sidebar)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ padding: 12, flex: 'none' }}>
-            <button type="button" onClick={nuevoChat} disabled={pensando} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.6 : 1 }}>+ Nuevo chat</button>
+            <button type="button" onClick={nuevoChat} disabled={pensando} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.6 : 1 }}>+ Nuevo chat</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 8px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
             {sessions.length === 0 ? <div style={{ padding: '10px 12px', fontSize: 12.5, color: 'var(--sidebar-text)' }}>Sin chats previos.</div> : sessions.map((s) => sessionItem(s, true))}
@@ -240,12 +240,12 @@ export function MakoChat({
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, fontFamily: SANS }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderBottom: '1px solid var(--border)', flex: 'none', position: 'relative' }}>
         <button type="button" onClick={() => setVerChats((v) => !v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' }}>Chats <span style={{ color: 'var(--faint)' }}>({sessions.length})</span> <span style={{ fontSize: 10 }}>▾</span></button>
-        <button type="button" onClick={nuevoChat} disabled={pensando} style={{ padding: '6px 11px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.6 : 1 }}>+ Nuevo chat</button>
+        <button type="button" onClick={nuevoChat} disabled={pensando} style={{ padding: '6px 11px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.6 : 1 }}>+ Nuevo chat</button>
         {chartToggleBtn && <div style={{ marginLeft: 'auto' }}>{chartToggleBtn}</div>}
         {verChats && (
           <>
             <div onClick={() => setVerChats(false)} style={{ position: 'fixed', inset: 0, zIndex: 1 }} aria-hidden />
-            <div style={{ position: 'absolute', top: 46, left: 16, zIndex: 2, width: 330, maxWidth: '88vw', maxHeight: '54vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.2)' }}>
+            <div style={{ position: 'absolute', top: 46, left: 16, zIndex: 2, width: 330, maxWidth: '88vw', maxHeight: '54vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(18,21,27,.2)' }}>
               {sessions.length === 0 ? <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--faint)' }}>Sin chats previos.</div> : sessions.map((s) => sessionItem(s, false))}
             </div>
           </>

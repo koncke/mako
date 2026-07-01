@@ -61,8 +61,8 @@ export function DashboardTabs({ active }: { active: TabKey }) {
             href={`${tab.href}${sufijo}`}
             className={`shrink-0 px-4 py-3 text-lg font-medium transition-colors inline-flex items-center gap-2 ${isActive ? '-mb-px border-b-2' : ''}`}
             style={{
-              borderColor: isActive ? 'var(--accent-yellow)' : 'transparent',
-              color: isActive ? 'var(--accent-yellow)' : 'var(--text-dim)',
+              borderColor: isActive ? 'var(--primary)' : 'transparent',
+              color: isActive ? 'var(--primary)' : 'var(--text-dim)',
             }}
           >
             {tab.label}

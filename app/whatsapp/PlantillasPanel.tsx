@@ -544,7 +544,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
                   : (edit?.status === 'borrador' || edit?.status === 'rejected')
   );
 
-  const btnPrimary: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+  const btnPrimary: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
   const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
   const acSugs = autocomplete ? VARIABLES_LEAD.filter((v) => v.key.startsWith(autocomplete.partial)) : [];
 
@@ -674,7 +674,7 @@ export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: 
               </div>
               <textarea ref={bodyRef} value={edit.body} onChange={onBodyChange} onBlur={() => setTimeout(() => setAutocomplete(null), 150)} rows={5} maxLength={1024} placeholder="Hola {{nombre}}, te recordamos que tu reunión es mañana a las {{...}}…" style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, fontFamily: SANS }} />
               {acSugs.length > 0 && (
-                <div style={{ position: 'absolute', left: 0, right: 0, top: 'calc(100% - 2px)', zIndex: 30, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 10, boxShadow: '0 14px 36px rgba(23,21,17,.18)', padding: 6, maxHeight: 220, overflowY: 'auto' }}>
+                <div style={{ position: 'absolute', left: 0, right: 0, top: 'calc(100% - 2px)', zIndex: 30, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 10, boxShadow: '0 14px 36px rgba(18,21,27,.18)', padding: 6, maxHeight: 220, overflowY: 'auto' }}>
                   {acSugs.map((v) => (
                     <button key={v.key} onMouseDown={(e) => { e.preventDefault(); aplicarAutocomplete(v.key); }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%', textAlign: 'left', padding: '7px 10px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: SANS }}>
                       <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 600 }}><code style={{ fontFamily: MONO }}>{`{{${v.key}}}`}</code> · {v.label}</span>
@@ -802,14 +802,14 @@ function ValidacionCard({ v, validando, stale, onAplicar, onClose }: { v: Valida
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}><strong>{h.problema}</strong></div>
               {h.correccion && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45 }}>→ {h.correccion}</div>}
             </div>
-            <a href={ref.url} target="_blank" rel="noreferrer" title={`Ver en la doc de Meta: ${ref.titulo}`} style={{ flex: 'none', alignSelf: 'flex-start', fontSize: 11, fontWeight: 600, color: 'var(--accent)', textDecoration: 'none', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 7, padding: '3px 8px' }}>
+            <a href={ref.url} target="_blank" rel="noreferrer" title={`Ver en la doc de Meta: ${ref.titulo}`} style={{ flex: 'none', alignSelf: 'flex-start', fontSize: 11, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap', border: '1px solid var(--border)', borderRadius: 7, padding: '3px 8px' }}>
               {h.regla ? `${h.regla} · ` : ''}regla ↗
             </a>
           </div>
         );
       })}
       {v?.propuesta && (
-        <button onClick={onAplicar} style={{ marginTop: 10, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar, #F3F0E7)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>✨ Aplicar correcciones de MaKo</button>
+        <button onClick={onAplicar} style={{ marginTop: 10, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar, #F3F5F8)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>✨ Aplicar correcciones de MaKo</button>
       )}
     </div>
   );
@@ -841,7 +841,7 @@ function TemplatePreview({ item, onEditar, onEliminar }: { item: Item; onEditar:
         <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{name}</span>
         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, color: chip.color, background: chip.bg }}>{chip.label}</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button onClick={onEditar} style={{ ...btnGhost, background: 'var(--ink)', color: 'var(--on-sidebar, #F3F0E7)', border: 'none' }}>✎ Editar</button>
+          <button onClick={onEditar} style={{ ...btnGhost, background: 'var(--ink)', color: 'var(--on-sidebar, #F3F5F8)', border: 'none' }}>✎ Editar</button>
           <button onClick={onEliminar} style={{ ...btnGhost, color: 'var(--bad)', borderColor: 'var(--bad)' }}>Eliminar</button>
         </div>
       </div>
@@ -858,7 +858,7 @@ function TemplatePreview({ item, onEditar, onEliminar }: { item: Item; onEditar:
         {footer && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 8 }}>{footer}</div>}
         {buttons.length > 0 && (
           <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {buttons.map((b, i) => <div key={i} style={{ textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{b.type === 'URL' ? '🔗 ' : b.type === 'PHONE_NUMBER' ? '📞 ' : '↩ '}{b.text}</div>)}
+            {buttons.map((b, i) => <div key={i} style={{ textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>{b.type === 'URL' ? '🔗 ' : b.type === 'PHONE_NUMBER' ? '📞 ' : '↩ '}{b.text}</div>)}
           </div>
         )}
       </div>

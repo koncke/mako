@@ -197,7 +197,7 @@ export function PlanPagosCard({ leadId, onChanged }: { leadId: number; onChanged
           : `⚠ El total (${fmtUSD(totalNum)}) no coincide con la suma de cuotas (${fmtUSD(sumCuotas)}). Ajustá para guardar.`}
       </div>
       <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-        <button type="button" disabled={pending || !cuadra} title={!cuadra ? 'El total debe coincidir con la suma de cuotas' : undefined} onClick={guardar} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pending || !cuadra ? 'not-allowed' : 'pointer', opacity: pending || !cuadra ? 0.5 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
+        <button type="button" disabled={pending || !cuadra} title={!cuadra ? 'El total debe coincidir con la suma de cuotas' : undefined} onClick={guardar} style={{ padding: '10px 18px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: pending || !cuadra ? 'not-allowed' : 'pointer', opacity: pending || !cuadra ? 0.5 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
         <button type="button" disabled={pending} onClick={() => setMode('view')} style={{ padding: '10px 18px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
       </div>
     </div>

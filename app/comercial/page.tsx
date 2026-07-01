@@ -544,7 +544,7 @@ function FunnelKPI({ label, value, valueColor, sub, topColor, desglose }: { labe
     <>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 11 }}>
         <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>{label}</span>
-        {desglose && <span style={{ fontSize: 10.5, color: 'var(--accent)', fontWeight: 600 }}>ver →</span>}
+        {desglose && <span style={{ fontSize: 10.5, color: 'var(--primary)', fontWeight: 600 }}>ver →</span>}
       </div>
       <div style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.02em', color: valueColor, fontVariantNumeric: 'tabular-nums' }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8 }}>{sub}</div>
@@ -801,7 +801,7 @@ function CohorteRow({
       </td>
       <td style={{ padding: showCiclo ? '14px 20px' : '12px 18px' }}>
         {desglose ? (
-          <DesgloseTrigger data={desglose} style={{ width: 'auto', display: 'inline-block', color: 'var(--accent)', fontSize: 12.5, fontWeight: 600 }}>ver leads →</DesgloseTrigger>
+          <DesgloseTrigger data={desglose} style={{ width: 'auto', display: 'inline-block', color: 'var(--primary)', fontSize: 12.5, fontWeight: 600 }}>ver leads →</DesgloseTrigger>
         ) : (
           <span style={{ color: 'var(--faint)', fontSize: 12.5 }}>—</span>
         )}

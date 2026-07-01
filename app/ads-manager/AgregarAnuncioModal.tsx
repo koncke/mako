@@ -78,8 +78,8 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
   };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 85, background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(23,21,17,.4)', overflow: 'hidden' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 85, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}><MakoStar size={12} /> <MakoWord base="var(--accent)">MaKo</MakoWord></div>
           <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: 'var(--ink)', margin: '0 auto' }}>Agregar anuncio</span>
@@ -98,7 +98,7 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={tray.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: tray.processing ? 0.6 : 1 }} />
                     : <span style={{ fontSize: 22, color: 'var(--faint)' }}>{tray?.media_type === 'video' ? '🎬' : '🖼️'}</span>}
-                  {tray?.processing && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 9, textAlign: 'center', background: 'rgba(23,21,17,.7)', color: '#fff', fontFamily: MONO, padding: '2px 0' }}>{(tray.progress ?? 0) < 100 ? `${tray.progress ?? 0}%` : 'Procesando'}</div>}
+                  {tray?.processing && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, fontSize: 9, textAlign: 'center', background: 'rgba(18,21,27,.7)', color: '#fff', fontFamily: MONO, padding: '2px 0' }}>{(tray.progress ?? 0) < 100 ? `${tray.progress ?? 0}%` : 'Procesando'}</div>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button type="button" onClick={() => fileRef.current?.click()} style={btnDark}>⬆ Subir creativo</button>

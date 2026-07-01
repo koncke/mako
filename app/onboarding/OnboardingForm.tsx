@@ -18,7 +18,7 @@ type Group = { key: string; label: string; fields: Field[] };
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const input: CSSProperties = { width: '100%', padding: '11px 13px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
-const btnDark: CSSProperties = { padding: '12px 22px', borderRadius: 12, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
+const btnDark: CSSProperties = { padding: '12px 22px', borderRadius: 12, border: 'none', background: '#14161B', color: '#F3F5F8', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
 const btnGhost: CSSProperties = { padding: '12px 18px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' };
 const btnGhostSm: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' };
 
@@ -160,7 +160,7 @@ export function OnboardingForm() {
           <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.docx" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && group) subirTemplate(f, group); e.target.value = ''; }} />
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 10 }}>
-            {schema.map((_, i) => <span key={i} style={{ width: i === stepSafe ? 22 : 7, height: 7, borderRadius: 999, background: i === stepSafe ? 'var(--accent)' : i < stepSafe ? 'var(--accent-soft)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
+            {schema.map((_, i) => <span key={i} style={{ width: i === stepSafe ? 22 : 7, height: 7, borderRadius: 999, background: i === stepSafe ? 'var(--primary)' : i < stepSafe ? 'var(--primary-weak)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
           </div>
           <div style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 20 }}>Paso {stepSafe + 1} de {total}</div>
 
@@ -170,7 +170,7 @@ export function OnboardingForm() {
           {/* template: descargar / subir */}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
             <button type="button" style={btnGhost} onClick={() => group && descargarTemplate(group)}>↓ Descargar template</button>
-            <button type="button" style={{ ...btnDark, background: '#171511' }} disabled={extrayendo} onClick={() => fileRef.current?.click()}>{extrayendo ? 'Leyendo…' : '↑ Subir respuestas'}</button>
+            <button type="button" style={{ ...btnDark, background: '#14161B' }} disabled={extrayendo} onClick={() => fileRef.current?.click()}>{extrayendo ? 'Leyendo…' : '↑ Subir respuestas'}</button>
           </div>
           {extractMsg && (
             <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 500, color: extractMsg.ok ? 'var(--good)' : 'var(--bad)', marginBottom: 6 }}>{extractMsg.text}</div>

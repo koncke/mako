@@ -263,7 +263,7 @@ export default function KonckePage() {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '8px 8px 8px 16px', boxShadow: '0 4px 16px rgba(23,21,17,.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '8px 8px 8px 16px', boxShadow: '0 4px 16px rgba(18,21,27,.06)' }}>
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -278,7 +278,7 @@ export default function KonckePage() {
           />
           <button
             onClick={() => send()}
-            style={{ flex: 'none', height: 42, width: 42, borderRadius: 11, border: 'none', background: 'var(--accent-soft)', color: '#171511', fontSize: 18, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}
+            style={{ flex: 'none', height: 42, width: 42, borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#FFFFFF', fontSize: 18, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}
           >
             ↑
           </button>

@@ -71,7 +71,7 @@ export function MakoTab() {
         {/* lista de chats */}
         <aside style={{ minHeight: 0, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ padding: 12, borderBottom: '1px solid var(--border)', flex: 'none' }}>
-            <button type="button" onClick={() => setSel({ kind: 'general' })} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--accent)', background: sel.kind === 'general' ? 'var(--accent-soft)' : 'rgba(200,135,12,.08)', color: sel.kind === 'general' ? '#171511' : '#9A6A09', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>+ Nuevo chat general</button>
+            <button type="button" onClick={() => setSel({ kind: 'general' })} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--primary)', background: sel.kind === 'general' ? 'var(--primary)' : 'var(--primary-bg)', color: sel.kind === 'general' ? '#fff' : 'var(--primary)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>+ Nuevo chat general</button>
           </div>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {cargando ? (

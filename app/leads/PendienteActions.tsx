@@ -124,7 +124,7 @@ export function PendienteActions({
                 disabled={pending}
                 onClick={() => resolverPerdida(resol)}
                 className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-                style={{ background: 'var(--accent-yellow)', color: '#000' }}
+                style={{ background: 'var(--primary)', color: '#fff' }}
               >
                 {pending ? 'Guardando…' : 'Guardar'}
               </button>
@@ -198,7 +198,7 @@ function ChipBtn({
       style={{
         borderColor: active ? color : 'var(--card-border)',
         color: active ? color : 'var(--text-dim)',
-        background: active ? '#1a1a1a' : 'transparent',
+        background: active ? 'var(--surface-2)' : 'transparent',
       }}
     >
       {label}

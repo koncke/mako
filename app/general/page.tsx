@@ -297,7 +297,7 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
           >
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
               <span style={{ fontWeight: 700, fontSize: 108, lineHeight: 0.78, letterSpacing: '-0.05em', color: 'var(--accent-soft)', fontVariantNumeric: 'tabular-nums', textShadow: '0 0 40px rgba(240,198,10,.35)' }}>{actual}</span>
-              <span style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.03em', color: 'rgba(243,240,231,.45)' }}>/{meta}</span>
+              <span style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.03em', color: 'rgba(243,245,248,.45)' }}>/{meta}</span>
             </div>
             <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--accent-soft)', marginTop: 8 }}>ver los {actual} cierres →</span>
           </DesgloseTrigger>
@@ -316,7 +316,7 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
                 flex: 1, height: 46, borderRadius: 6,
                 ...(filled
                   ? { background: 'linear-gradient(180deg,var(--accent-soft),var(--accent))', boxShadow: '0 0 14px rgba(240,198,10,.30)' }
-                  : { background: 'rgba(243,240,231,.07)', border: '1px solid rgba(243,240,231,.08)' }),
+                  : { background: 'rgba(243,245,248,.07)', border: '1px solid rgba(243,245,248,.08)' }),
                 ...(isFlag && !filled ? { display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 } : {}),
               }}>{isFlag && !filled ? '🏁' : ''}</div>
             );
@@ -330,18 +330,18 @@ function HeroGoal({ meta, actual, faltan, cierres30, semanas, cashActual, cashMe
           <DesgloseTrigger
             data={{ label: 'Cash Collected hacia la meta', value: fmtUSD(cashActual), color: 'var(--good)', items: cashItems, emptyText: 'Aún no hay cash cobrado en este objetivo.' }}
           >
-            <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px' }}>
+            <div style={{ background: 'rgba(243,245,248,.05)', border: '1px solid rgba(243,245,248,.10)', borderRadius: 16, padding: '20px 22px' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
                 <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--on-sidebar)' }}>Cash Collected hacia la meta</span>
                 <span style={{ fontSize: 13.5, color: 'var(--sidebar-text)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(cashActual)} / {fmtUSD(cashMeta)}{cashMeta > 0 ? ` · faltan ${fmtUSD(Math.max(cashMeta - cashActual, 0))}` : ''}</span>
               </div>
-              <div style={{ width: '100%', height: 12, borderRadius: 999, background: 'rgba(243,240,231,.08)', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: 12, borderRadius: 999, background: 'rgba(243,245,248,.08)', overflow: 'hidden' }}>
                 <div style={{ width: `${cashPct}%`, height: '100%', borderRadius: 999, background: 'var(--good)', boxShadow: '0 0 12px rgba(28,138,84,.45)' }} />
               </div>
               <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, letterSpacing: '.06em', color: 'var(--accent-soft)', marginTop: 12 }}>ver desglose por lead →</span>
             </div>
           </DesgloseTrigger>
-          <div style={{ background: 'rgba(243,240,231,.05)', border: '1px solid rgba(243,240,231,.10)', borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ background: 'rgba(243,245,248,.05)', border: '1px solid rgba(243,245,248,.10)', borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
               <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--sidebar-text)' }}>Sold Revenue (firmado)</span>
               <span style={{ fontWeight: 700, fontSize: 26, color: 'var(--on-sidebar)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(sold)}</span>
@@ -420,7 +420,7 @@ function Semaforo({ alertas, urgentes, vigilar, enOrden }: { alertas: Alerta[]; 
       </div>
 
       <div style={{ display: 'flex', gap: 24, alignItems: 'stretch', flexWrap: 'wrap' }}>
-        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: '#171511', borderRadius: 20, padding: '18px 16px', width: 88, alignSelf: 'stretch', justifyContent: 'center' }}>
+        <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: '#14161B', borderRadius: 20, padding: '18px 16px', width: 88, alignSelf: 'stretch', justifyContent: 'center' }}>
           <div style={{ ...lampOn, background: 'var(--bad)', ...(urgentes > 0 ? { boxShadow: '0 0 24px 4px rgba(207,78,41,.6)' } : { opacity: 0.18 }) }} />
           <div style={{ ...lampOn, background: 'var(--warn-fill)', ...(urgentes === 0 && vigilar > 0 ? { boxShadow: '0 0 24px 4px rgba(232,179,11,.6)' } : { opacity: 0.18 }) }} />
           <div style={{ ...lampOn, background: 'var(--good)', ...(urgentes === 0 && vigilar === 0 ? { boxShadow: '0 0 24px 4px rgba(28,138,84,.6)' } : { opacity: 0.2 }) }} />

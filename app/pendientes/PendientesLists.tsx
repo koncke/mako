@@ -33,7 +33,7 @@ function CargarMas({ restantes, onClick }: { restantes: number; onClick: () => v
       type="button"
       onClick={onClick}
       className="mt-3 px-4 py-2 rounded-lg border text-base"
-      style={{ borderColor: 'var(--card-border)', color: 'var(--accent-yellow)' }}
+      style={{ borderColor: 'var(--card-border)', color: 'var(--primary)' }}
     >
       Cargar más ({restantes} más)
     </button>
@@ -58,7 +58,7 @@ export function SinMarcarList({ items }: { items: PendienteItem[] }) {
             style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
           >
             <div className="min-w-0">
-              <Link href={`/leads/${p.lead_id}`} className="text-base font-medium" style={{ color: 'var(--accent-yellow)' }}>
+              <Link href={`/leads/${p.lead_id}`} className="text-base font-medium" style={{ color: 'var(--primary)' }}>
                 {p.lead_nombre}
               </Link>
               <div className="text-sm" style={{ color: 'var(--text-dim)' }}>{p.mensaje}</div>
@@ -112,7 +112,7 @@ export function ColaList({ items }: { items: ColaItem[] }) {
                     <Link
                       href={item.link}
                       className="shrink-0 px-4 py-2 rounded-lg border text-base text-center"
-                      style={{ borderColor: 'var(--accent-yellow)', color: 'var(--accent-yellow)' }}
+                      style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
                     >
                       {item.accion} →
                     </Link>
@@ -172,7 +172,7 @@ function FormularioCard({ f }: { f: FormSinAgenda }) {
     <div className="rounded-lg border p-4" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="min-w-0">
-          <Link href={`/leads/${f.lead_id}`} className="text-base font-medium" style={{ color: 'var(--accent-yellow)' }}>
+          <Link href={`/leads/${f.lead_id}`} className="text-base font-medium" style={{ color: 'var(--primary)' }}>
             {f.nombre}
           </Link>
           <div className="text-sm" style={{ color: 'var(--text-dim)' }}>
@@ -183,7 +183,7 @@ function FormularioCard({ f }: { f: FormSinAgenda }) {
         <Link
           href={`/leads/${f.lead_id}`}
           className="shrink-0 px-4 py-2 rounded-lg text-base text-center font-medium"
-          style={{ background: 'var(--accent-yellow)', color: '#000' }}
+          style={{ background: 'var(--primary)', color: '#fff' }}
         >
           Agendar / abrir ficha →
         </Link>
@@ -254,7 +254,7 @@ function FormularioCard({ f }: { f: FormSinAgenda }) {
               disabled={pending}
               onClick={() => guardar({ estado_lead: resol, motivo_perdida: motivo.trim() || null })}
               className="px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50"
-              style={{ background: 'var(--accent-yellow)', color: '#000' }}
+              style={{ background: 'var(--primary)', color: '#fff' }}
             >
               {pending ? 'Guardando…' : 'Guardar'}
             </button>

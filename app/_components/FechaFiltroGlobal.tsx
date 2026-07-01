@@ -100,9 +100,9 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 px-4 py-3 rounded-lg border text-base font-medium whitespace-nowrap"
         style={{
-          background: activo ? '#1a1a1a' : 'transparent',
-          borderColor: activo ? 'var(--accent-yellow)' : 'var(--card-border)',
-          color: activo ? 'var(--accent-yellow)' : 'var(--text-dim)',
+          background: activo ? 'var(--primary-bg)' : 'transparent',
+          borderColor: activo ? 'var(--primary)' : 'var(--card-border)',
+          color: activo ? 'var(--primary)' : 'var(--text-dim)',
         }}
         aria-expanded={open}
       >
@@ -136,9 +136,9 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
                     onClick={() => navegar(p.desde, p.hasta)}
                     className="px-3 py-2 rounded-lg border text-sm text-left"
                     style={{
-                      borderColor: sel ? 'var(--accent-yellow)' : 'var(--card-border)',
-                      color: sel ? 'var(--accent-yellow)' : 'var(--text)',
-                      background: sel ? '#1a1a1a' : 'transparent',
+                      borderColor: sel ? 'var(--primary)' : 'var(--card-border)',
+                      color: sel ? 'var(--primary)' : 'var(--text)',
+                      background: sel ? 'var(--primary-bg)' : 'transparent',
                     }}
                   >
                     {p.label}
@@ -169,7 +169,7 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
                     background: 'var(--surface-2)',
                     borderColor: 'var(--card-border)',
                     color: 'var(--text)',
-                    colorScheme: 'dark',
+                    colorScheme: 'light',
                   }}
                 />
                 <span style={{ color: 'var(--text-dim)' }}>→</span>
@@ -184,7 +184,7 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
                     background: 'var(--surface-2)',
                     borderColor: 'var(--card-border)',
                     color: 'var(--text)',
-                    colorScheme: 'dark',
+                    colorScheme: 'light',
                   }}
                 />
               </div>
@@ -194,8 +194,8 @@ export function FechaFiltroGlobal({ hoyReal }: { hoyReal: string }) {
                 onClick={() => navegar(customDesde, customHasta)}
                 className="mt-2 w-full px-3 py-2 rounded-lg text-sm font-medium"
                 style={{
-                  background: 'var(--accent-yellow)',
-                  color: '#000',
+                  background: 'var(--primary)',
+                  color: '#fff',
                   opacity: customValido ? 1 : 0.4,
                   cursor: customValido ? 'pointer' : 'not-allowed',
                 }}

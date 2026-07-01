@@ -95,7 +95,7 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
           Total del plan: <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmtUSD(totalPlan)}</span>
           {nCuotas > 0 && <span style={{ fontSize: 13, marginLeft: 8 }}>({fmtUSD(inicialNum)} inicial + {nCuotas} × {fmtUSD(cuotaNum)})</span>}
         </div>
-        <button type="button" onClick={guardarPlan} disabled={pending} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
+        <button type="button" onClick={guardarPlan} disabled={pending} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
       </div>
 
       {feedback && (

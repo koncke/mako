@@ -126,7 +126,7 @@ export function SaldoMaKo() {
               </div>
             )}
 
-            <a href={CONSOLA_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>Ver saldo real en Anthropic ↗</a>
+            <a href={CONSOLA_URL} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Ver saldo real en Anthropic ↗</a>
           </div>
         </>
       )}

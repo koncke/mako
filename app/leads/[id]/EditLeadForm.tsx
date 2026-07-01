@@ -21,10 +21,10 @@ type TriState = boolean | null;
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
-const cardAccion: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '22px 24px', boxShadow: '0 1px 3px rgba(23,21,17,.05)' };
+const cardAccion: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '22px 24px', boxShadow: '0 1px 3px rgba(18,21,27,.05)' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
-const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
+const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
 export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stage[]; pagos: Pago[] }) {
   const router = useRouter();
@@ -131,7 +131,7 @@ export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stag
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Barra de acción FIJA */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 4px 16px rgba(23,21,17,.07)' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 4px 16px rgba(18,21,27,.07)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <span style={{ ...chipStyleFor(sm), }}>{sm?.label ?? stage}</span>
           {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
@@ -310,7 +310,7 @@ function MotivoSugerencias({ value, onChange }: { value: string; onChange: (v: s
         {sugerencias.map((s) => {
           const active = value.trim().toLowerCase() === s.toLowerCase();
           return (
-            <button key={s} type="button" onClick={() => onChange(s)} style={{ padding: '6px 13px', borderRadius: 999, fontSize: 13, fontWeight: 600, fontFamily: SANS, cursor: 'pointer', background: active ? 'rgba(200,135,12,.10)' : 'var(--surface)', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--border-strong)'), color: active ? '#9A6A09' : 'var(--dim)' }}>{s}</button>
+            <button key={s} type="button" onClick={() => onChange(s)} style={{ padding: '6px 13px', borderRadius: 999, fontSize: 13, fontWeight: 600, fontFamily: SANS, cursor: 'pointer', background: active ? 'rgba(47,111,237,.10)' : 'var(--surface)', border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border-strong)'), color: active ? 'var(--primary)' : 'var(--dim)' }}>{s}</button>
           );
         })}
       </div>

@@ -26,7 +26,7 @@ const fmtAuditDate = (iso: string) => {
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }).format(d);
 };
-const autorColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : a === 'CRM' ? '#8A6D3B' : '#6B675C');
+const autorColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : a === 'CRM' ? '#8A6D3B' : '#5B6472');
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
 function chipStyle(tone: Stage['tone'], big = false): CSSProperties {
@@ -35,7 +35,7 @@ function chipStyle(tone: Stage['tone'], big = false): CSSProperties {
 }
 
 const card: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '17px 19px' };
-const heroCard: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 3px rgba(23,21,17,.05)' };
+const heroCard: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, padding: '18px 20px', boxShadow: '0 1px 3px rgba(18,21,27,.05)' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 const miniCard: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: '13px 15px' };
 const fieldLabel: CSSProperties = { fontSize: 11.5, color: 'var(--dim)' };
@@ -196,8 +196,8 @@ export function LeadDetail({
   const needSetter = to === 'manual';
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)' }}>
-      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="lead-title" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden', outline: 'none' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(16px,4vw,48px) clamp(10px,3vw,20px)' }}>
+      <div ref={panelRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="lead-title" onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: 'calc(100dvh - clamp(32px,8vw,96px))', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden', outline: 'none' }}>
 
         <div style={{ height: 3, background: headerMeta?.dot ?? 'var(--accent)' }} />
 
@@ -365,12 +365,12 @@ export function LeadDetail({
                   </a>
                 ))}
                 {lead.fathom.filter((f) => f.url).length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>Sin links de Fathom cargados.</div>}
-                <Link href="/closing" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--accent)', background: 'rgba(200,135,12,.08)' }}>
+                <Link href="/closing" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--primary-bg)' }}>
                   <span style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: '#9A6A09' }}>Ver análisis de closing</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary-strong)' }}>Ver análisis de closing</span>
                     <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Review del desempeño del closer (SPIN, objeciones, CTA)</span>
                   </span>
-                  <span style={{ fontSize: 15, color: 'var(--accent)' }}>→</span>
+                  <span style={{ fontSize: 15, color: 'var(--primary)' }}>→</span>
                 </Link>
               </div>
             </Section>
@@ -428,7 +428,7 @@ export function LeadDetail({
               <span />
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-                <button onClick={onSave} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Guardar cambios</button>
+                <button onClick={onSave} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Guardar cambios</button>
               </div>
             </>
           ) : (
@@ -436,7 +436,7 @@ export function LeadDetail({
               <button onClick={onDelete} style={{ padding: '8px 6px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Borrar lead</button>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>Cerrar</button>
-                <Link href={`/leads/${lead.id}`} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'none' }}>Editar lead →</Link>
+                <Link href={`/leads/${lead.id}`} style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textDecoration: 'none' }}>Editar lead →</Link>
               </div>
             </>
           )}

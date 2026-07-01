@@ -51,9 +51,9 @@ export function DesgloseModal({ data, onClose }: { data: DesgloseData; onClose: 
     <>
     <div
       onClick={onClose}
-      style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(23,21,17,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', fontFamily: SANS }}
+      style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', fontFamily: SANS }}
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(23,21,17,.35)', overflow: 'hidden' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
           <div>
             <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>{data.label}</div>
@@ -75,7 +75,7 @@ export function DesgloseModal({ data, onClose }: { data: DesgloseData; onClose: 
                     <button
                       type="button"
                       onClick={() => setEdit({ leadId: it.leadId!, focus: it.focus })}
-                      style={{ marginTop: 4, padding: 0, background: 'none', border: 'none', color: 'var(--accent)', fontFamily: SANS, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+                      style={{ marginTop: 4, padding: 0, background: 'none', border: 'none', color: 'var(--primary)', fontFamily: SANS, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
                     >✎ Editar lead</button>
                   )}
                 </div>
@@ -123,7 +123,7 @@ export function DesgloseCard({ data, sub }: { data: DesgloseData; sub: string })
         type="button"
         onClick={() => setOpen(true)}
         style={{ textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', cursor: 'pointer', fontFamily: SANS, transition: 'border-color .15s, box-shadow .15s' }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = data.color; e.currentTarget.style.boxShadow = '0 4px 16px rgba(23,21,17,.08)'; }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = data.color; e.currentTarget.style.boxShadow = '0 4px 16px rgba(18,21,27,.08)'; }}
         onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
