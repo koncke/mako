@@ -62,6 +62,7 @@ export function Sidebar() {
   const [userOpen, setUserOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
+  const [perfilAvatar, setPerfilAvatar] = useState('');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -91,10 +92,14 @@ export function Sidebar() {
   useEffect(() => {
     let alive = true;
     fetch('/api/perfil').then((r) => r.json())
-      .then((j) => { if (alive && j?.ok && j.perfil?.nombre) setPerfilNombre(j.perfil.nombre as string); })
+      .then((j) => {
+        if (!alive || !j?.ok || !j.perfil) return;
+        if (j.perfil.nombre) setPerfilNombre(j.perfil.nombre as string);
+        setPerfilAvatar((j.perfil.avatarUrl as string) || '');
+      })
       .catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [pathname]);
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
@@ -217,7 +222,12 @@ export function Sidebar() {
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
           <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
-            <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511' }}>{iniciales}</div>
+            <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511', overflow: 'hidden' }}>
+              {perfilAvatar
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={perfilAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : iniciales}
+            </div>
             {open && (
               <>
                 <div style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
