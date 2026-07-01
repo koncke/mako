@@ -28,6 +28,7 @@ export function Dropdown({
   buttonStyle,
   resetAfterSelect = false,
   ariaLabel,
+  disabled = false,
 }: {
   value: string;
   options: DropdownOption[];
@@ -39,6 +40,8 @@ export function Dropdown({
   /** Para selects-acción (ej. "Mover a…"): no refleja la selección, vuelve al placeholder. */
   resetAfterSelect?: boolean;
   ariaLabel?: string;
+  /** Deshabilita TODO el desplegable (no se puede abrir): p.ej. mientras cargan las opciones. */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<MenuPos | null>(null);
@@ -60,6 +63,7 @@ export function Dropdown({
     });
   };
   const toggle = () => {
+    if (disabled) return;
     if (!open) place();
     setOpen((v) => !v);
   };
@@ -96,13 +100,13 @@ export function Dropdown({
     display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
     padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border-strong)',
     background: 'var(--surface)', color: selected ? 'var(--ink)' : 'var(--dim)',
-    fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer', outline: 'none',
-    width: width ?? 'auto', ...buttonStyle,
+    fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', outline: 'none',
+    width: width ?? 'auto', opacity: disabled ? 0.6 : 1, ...buttonStyle,
   };
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block', width: width ?? 'auto' }}>
-      <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={toggle} style={btn}>
+      <button type="button" aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} aria-disabled={disabled} disabled={disabled} onClick={toggle} style={btn}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
           {selected?.color && <span style={{ width: 8, height: 8, borderRadius: '50%', background: selected.color, flex: 'none' }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selected ? selected.label : placeholder}</span>

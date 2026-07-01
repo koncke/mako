@@ -874,7 +874,7 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
         placeholder={pixels === null ? 'Cargando tu pixel…' : sinPixeles ? 'No hay pixel en la cuenta' : 'Elegí tu pixel (dataset)…'}
         options={(pixels ?? []).map((p) => ({ value: p.id, label: p.name }))} onChange={setPixel} width="100%" />
       {pixelId && (
-        <Dropdown value={eventValue}
+        <Dropdown value={eventValue} disabled={pixelEvents === null}
           placeholder={pixelEvents === null ? 'Buscando eventos activos…' : 'Elegí la conversión a optimizar…'}
           options={eventOpts} onChange={setEvento} width="100%" />
       )}
