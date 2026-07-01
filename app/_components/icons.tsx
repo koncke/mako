@@ -29,7 +29,7 @@ const PATHS: Record<string, ReactNode> = {
   funnel: (<path d="M3 5h18l-6.5 8v5.5l-5-2.5V13L3 5Z" />),
   onboarding: (<><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9.5 4V3h5v1" /><path d="M9 11.5l2 2 4-4" /></>),
   analytics: (<><path d="M4 5v14h16" /><path d="m7 14 3-3 2.5 2 4.5-5.5" /></>),
-  tools: (<g fill="currentColor" stroke="none"><g transform="rotate(-45 12 12)"><path d="M20.2 8.8A5.4 5.4 0 1 0 20.2 15.2L17 12Z" /><path fillRule="evenodd" clipRule="evenodd" d="M12.5 10.1H4.7a1.8 1.8 0 1 0 0 3.8H12.5v-3.8ZM5.2 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" /></g></g>),
+  tools: (<g fill="currentColor" stroke="none"><g transform="rotate(-45 12 12)"><path d="M20 8.5A6 6 0 1 0 20 15.5L20 13.6 15 13.6 15 10.4 20 10.4Z" /><path fillRule="evenodd" clipRule="evenodd" d="M12.5 10.1H4.7a1.8 1.8 0 1 0 0 3.8H12.5v-3.8ZM5.2 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" /></g></g>),
   search: (<g fill="currentColor" stroke="none"><path fillRule="evenodd" clipRule="evenodd" d="M14.8 3.6a5.7 5.7 0 1 0 0 11.4 5.7 5.7 0 0 0 0-11.4Zm0 2.5a3.2 3.2 0 1 1 0 6.4 3.2 3.2 0 0 1 0-6.4Z" /><path d="M10.8 13.2 5.4 18.6" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" fill="none" /></g>),
   chats: (<><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h10A1.5 1.5 0 0 1 16 5.5v5A1.5 1.5 0 0 1 14.5 12H8l-4 3v-3h-.5A1.5 1.5 0 0 1 3 10.5v-5Z" /></>),
   cs: (<><circle cx="12" cy="12" r="8.5" /><path d="M8 14a5 5 0 0 0 8 0" /><path d="M9 9.7h.01" /><path d="M15 9.7h.01" /></>),
