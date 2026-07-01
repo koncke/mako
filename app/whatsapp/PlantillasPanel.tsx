@@ -29,6 +29,14 @@ const CATEGORIAS = [
   { value: 'utility', label: 'Utility' },
   { value: 'authentication', label: 'Authentication' },
 ];
+// Etapas del lead para el redactor "Levanta Muertos" de MaKo.
+const ETAPAS_LM = [
+  { value: 'pidio_info', label: 'Pidió info y se enfrió' },
+  { value: 'vio_propuesta', label: 'Vio la propuesta / precio' },
+  { value: 'objecion', label: 'Ghosting tras una objeción' },
+  { value: 'frio', label: 'Frío / muy frío' },
+  { value: 'depuracion', label: 'Depuración (último intento)' },
+];
 
 type Button = { type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER'; text: string; url?: string; phone_number?: string };
 type Param = { name: string; example: string };
@@ -89,7 +97,7 @@ const MEDIA_LABEL: Record<string, string> = { IMAGE: '🖼️ Imagen', VIDEO: '�
 const inputBase: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, outline: 'none' };
 const labelBase: CSSProperties = { display: 'block', fontSize: 12, color: 'var(--dim)', marginBottom: 5, fontWeight: 600 };
 
-export function PlantillasPanel({ initialSelect }: { initialSelect?: string | null }) {
+export function PlantillasPanel({ initialSelect, makoSeed, onMakoSeedApplied }: { initialSelect?: string | null; makoSeed?: { objetivo: string; etapa: string } | null; onMakoSeedApplied?: () => void }) {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [metas, setMetas] = useState<MetaTpl[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +119,12 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [restaurado, setRestaurado] = useState(false);
+  // Redactor "Levanta Muertos" de MaKo.
+  const [makoOpen, setMakoOpen] = useState(false);
+  const [makoObjetivo, setMakoObjetivo] = useState('');
+  const [makoEtapa, setMakoEtapa] = useState('frio');
+  const [makoBusy, setMakoBusy] = useState(false);
+  const [makoError, setMakoError] = useState<string | null>(null);
 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const [autocomplete, setAutocomplete] = useState<{ partial: string } | null>(null);
@@ -237,6 +251,18 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     const it = items.find((i) => (i.kind === 'draft' ? i.draft.name : i.meta.name).toLowerCase() === target);
     if (it) { appliedSelectRef.current = initialSelect; abrirItem(it); }
   }, [initialSelect, items]);
+
+  // Pre-carga del redactor "Levanta Muertos" cuando llegás desde el asesor de WhatsApp:
+  // abre una plantilla nueva con el objetivo/etapa ya cargados y el panel de MaKo abierto.
+  useEffect(() => {
+    if (!makoSeed) return;
+    abrirNueva();
+    setMakoOpen(true);
+    setMakoObjetivo(makoSeed.objetivo);
+    setMakoEtapa(makoSeed.etapa);
+    onMakoSeedApplied?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [makoSeed]);
 
   // Cuando se recarga la lista, sincronizar al editor abierto los campos que maneja
   // el server (status + motivo de rechazo), sin tocar el contenido que estás editando.
@@ -385,6 +411,39 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
     });
     setValidacionStale(true); // se revalida sola
     setAviso('Apliqué las correcciones de MaKo. Revisá el resultado.');
+  };
+
+  // MaKo redacta una plantilla con la metodología Levanta Muertos (y Meta-safe).
+  const generarConMako = async () => {
+    if (!makoObjetivo.trim() || makoBusy) return;
+    setMakoBusy(true); setMakoError(null);
+    try {
+      const j = await fetch('/api/whatsapp/advisor', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'draft_template', objetivo: makoObjetivo, etapa: makoEtapa }),
+      }).then((r) => r.json());
+      if (!j.ok) { setMakoError(j.error || 'No se pudo generar.'); return; }
+      const d = j.draft as { name?: string; category?: Draft['category']; body?: string; footer?: string; variables?: Array<{ nombre: string; ejemplo: string }> };
+      setEdit((cur) => {
+        const base = cur ?? emptyDraft();
+        const next: Draft = {
+          ...base,
+          name: d.name && /^[a-z0-9_]{1,512}$/.test(d.name) ? d.name : base.name,
+          category: d.category ?? base.category,
+          body: d.body ?? base.body,
+          footer: d.footer ?? base.footer,
+        };
+        next.params = detectarVars(next.body).map((v) => {
+          const found = (d.variables ?? []).find((x) => x.nombre === v);
+          return { name: v, example: found?.ejemplo || ejemploDe(v) };
+        });
+        return next;
+      });
+      setValidacionStale(true); // se revalida sola
+      setMakoOpen(false); setMakoObjetivo('');
+      setAviso('MaKo redactó la plantilla con Levanta Muertos. Revisala y validá antes de enviar a Meta.');
+    } catch (e) { setMakoError(e instanceof Error ? e.message : String(e)); }
+    finally { setMakoBusy(false); }
   };
 
   const guardar = async (): Promise<number | null> => {
@@ -537,6 +596,33 @@ export function PlantillasPanel({ initialSelect }: { initialSelect?: string | nu
               <button onClick={cancelarEdicion} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}>← Volver{sel ? ' (descartar cambios)' : ''}</button>
               <span style={{ fontSize: 11.5, color: 'var(--faint)', fontFamily: MONO }}>{edit.id || edit.meta_template_id ? 'Editando' : 'Nueva plantilla'}</span>
             </div>
+
+            {!esEdicionMeta && (
+              <div style={{ border: '1px solid var(--accent)', borderRadius: 12, background: 'rgba(200,135,12,.06)', overflow: 'hidden' }}>
+                <button onClick={() => setMakoOpen((v) => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 13px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: SANS }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#9A6A09' }}>✨ Redactar con MaKo · metodología Levanta Muertos</span>
+                  <span style={{ color: 'var(--faint)', fontSize: 11 }}>{makoOpen ? '▾' : '▸'}</span>
+                </button>
+                {makoOpen && (
+                  <div style={{ padding: '0 13px 13px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div>
+                      <label style={labelBase}>¿Qué querés lograr con esta plantilla?</label>
+                      <input value={makoObjetivo} onChange={(e) => setMakoObjetivo(e.target.value)} placeholder="Ej: reactivar leads que pidieron info y no agendaron" style={inputBase} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div style={{ flex: '1 1 200px' }}>
+                        <label style={labelBase}>Etapa del lead</label>
+                        <Dropdown value={makoEtapa} onChange={setMakoEtapa} width="100%" ariaLabel="Etapa del lead" options={ETAPAS_LM} />
+                      </div>
+                      <button onClick={() => void generarConMako()} disabled={makoBusy || !makoObjetivo.trim()} style={{ ...btnPrimary, opacity: makoBusy || !makoObjetivo.trim() ? 0.55 : 1 }}>{makoBusy ? 'MaKo redactando…' : 'Redactar plantilla →'}</button>
+                    </div>
+                    {makoError && <div style={{ fontSize: 12, color: 'var(--bad)' }}>{makoError}</div>}
+                    <div style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.5 }}>MaKo redacta el cuerpo, la categoría y las variables siguiendo Levanta Muertos y las reglas de Meta. Después lo validás y lo mandás a aprobar.</div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 200px' }}>
                 <label style={labelBase}>Nombre (minúsculas, guiones bajos)</label>

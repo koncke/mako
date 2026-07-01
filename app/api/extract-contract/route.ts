@@ -7,6 +7,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { getPromptText } from '@/lib/prompt-render';
+import { CONTRACT_EXTRACT_DEFAULT } from '@/lib/prompt-defaults';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
     } catch (e) { console.warn('[extract-contract] storage falló:', e instanceof Error ? e.message : String(e)); }
   }
 
-  const prompt = 'Eres un asistente que extrae el PLAN DE PAGOS de un contrato de servicios profesionales. Lee el documento y devuelve SOLO JSON con esta forma exacta: {"total_usd": number|null, "duracion_meses": number|null, "fecha_cierre": "dd/mm/aaaa"|null, "fecha_inicio": "dd/mm/aaaa"|null, "cuotas": [{"monto": number, "fecha": "dd/mm/aaaa"}]}. Definiciones: total_usd = monto total del plan/contrato en USD (solo el número); duracion_meses = duración del servicio en meses; fecha_cierre = fecha de firma o cierre del contrato; fecha_inicio = fecha de inicio del servicio; cuotas = cada pago previsto (incluye el pago inicial si lo hay) con su monto en USD y su fecha. Convierte fechas a dd/mm/aaaa. Si un dato no aparece, usa null (o [] para cuotas). No inventes datos que no estén en el documento.';
+  const prompt = await getPromptText('contracts.extract_payment_plan.user', CONTRACT_EXTRACT_DEFAULT);
 
   // PDF → documento; imagen → visión.
   const isPdf = mime.includes('pdf') || (file.name || '').toLowerCase().endsWith('.pdf');

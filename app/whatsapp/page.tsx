@@ -19,6 +19,7 @@ import { Dropdown } from '../components/Dropdown';
 import { EmojiPicker } from './EmojiPicker';
 import { MakoChat } from '../_components/MakoChat';
 import { PlantillasPanel } from './PlantillasPanel';
+import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
@@ -298,6 +299,7 @@ function WhatsAppInner() {
   const [seqTab, setSeqTab] = useState<'secuencias' | 'plantillas' | 'mako'>('secuencias');
   const [seqEtapaFiltro, setSeqEtapaFiltro] = useState('todas');
   const [plantillaTarget, setPlantillaTarget] = useState<string | null>(null); // deep-link desde el pop-up de aprobación
+  const [plantillaSeed, setPlantillaSeed] = useState<{ objetivo: string; etapa: string } | null>(null); // pre-carga el redactor de MaKo desde el asesor
   const [now, setNow] = useState(0); // reloj para el contador de la ventana de 24h (tick cada 30s)
 
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null);
@@ -872,7 +874,7 @@ function WhatsAppInner() {
 
       {/* ============= CONVERSACIONES ============= */}
       {isChats && (
-        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '330px 1fr 290px', gap: '16px' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '330px 1fr 344px', gap: '16px' }}>
           {/* LISTA */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
@@ -1078,7 +1080,7 @@ function WhatsAppInner() {
           </div>
 
           {/* CONTEXTO */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', padding: '18px' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden', padding: '18px' }}>
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '12px' }}>Lead</div>
             {sel?.leadId ? (
               <button onClick={() => setDetalleLeadId(sel.leadId!)} style={{ textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{sel?.contacto ?? '—'}</button>
@@ -1098,14 +1100,19 @@ function WhatsAppInner() {
             {sel && (
               <button onClick={() => void toggleBloqueo()} disabled={blocking} style={{ marginTop: '12px', width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (sel.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: sel.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : sel.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
             )}
-            <div style={{ height: '1px', background: 'var(--border)', margin: '18px 0' }}></div>
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '11px' }}>Plantillas rápidas</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {QUICK.map((t) => (
-                <button key={t} onClick={() => setDraft(t)} style={{ textAlign: 'left', padding: '10px 12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', cursor: 'pointer' }}>{t}</button>
-              ))}
-            </div>
-            <div style={{ fontSize: '11.5px', color: 'var(--faint)', marginTop: '12px', lineHeight: 1.5 }}>El texto libre solo llega si el lead escribió en las últimas 24h. Para reactivar en frío, lo hace el motor de nutrición con plantillas aprobadas.</div>
+            <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
+            {sel ? (
+              <WhatsAppAdvisor
+                grupo={{ id: sel.id, contacto: sel.contacto, empresa: sel.empresa, etapaLabel: sel.etapaLabel }}
+                mensajes={mensajes}
+                ventanaAbierta={ventanaAbierta}
+                onUsar={(t) => setDraft(draft.trim() ? `${draft.replace(/\s+$/, '')}\n\n${t}` : t)}
+                onRedactarPlantilla={(seed) => { if (seed) setPlantillaSeed(seed); setView('sequences'); setSeqTab('plantillas'); }}
+                quickTemplates={QUICK}
+              />
+            ) : (
+              <div style={{ fontSize: '12.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Elegí una conversación para que MaKo te sugiera qué escribir.</div>
+            )}
           </div>
         </div>
       )}
@@ -1119,7 +1126,7 @@ function WhatsAppInner() {
             <button onClick={() => setSeqTab('mako')} style={seqTab === 'mako' ? tabActive : tabIdle}>✨ Preguntá a MaKo</button>
           </div>
 
-          {seqTab === 'plantillas' && <PlantillasPanel initialSelect={plantillaTarget} />}
+          {seqTab === 'plantillas' && <PlantillasPanel initialSelect={plantillaTarget} makoSeed={plantillaSeed} onMakoSeedApplied={() => setPlantillaSeed(null)} />}
 
           {seqTab === 'mako' && (
             <div style={{ flex: 1, minHeight: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>

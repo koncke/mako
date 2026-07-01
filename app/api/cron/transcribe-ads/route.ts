@@ -9,7 +9,8 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { transcribeAd } from '@/lib/transcribe';
+import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
+import { getPromptText } from '@/lib/prompt-render';
 import { diasAntes, ayerEnTijuana } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
@@ -63,11 +64,19 @@ export async function GET(request: NextRequest) {
     for (const r of thData ?? []) if (!thumbs.has(r.ad_id as string)) thumbs.set(r.ad_id as string, r.ad_thumbnail_url as string);
   }
 
+  // Prompts editables de transcripción (override o default), una sola vez por corrida.
+  const [structureSystem, imagePrompt, whisperGlossary] = await Promise.all([
+    getPromptText('transcribe.structure.system', STRUCTURE_SYSTEM_BASE),
+    getPromptText('transcribe.analyze_image.user', IMAGE_PROMPT_BASE),
+    getPromptText('transcribe.whisper.prompt', ''),
+  ]);
+  const prompts = { structureSystem, imagePrompt, whisperGlossary };
+
   let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0;
   for (const adId of pendientes) {
     if (procesados >= MAX_POR_CORRIDA || Date.now() - tStart > TIME_BUDGET_MS) break;
     procesados++;
-    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId) });
+    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts });
     const { error: upErr } = await supabase.from('ad_transcripts').upsert({
       ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
       secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),

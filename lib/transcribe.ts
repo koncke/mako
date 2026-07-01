@@ -86,11 +86,16 @@ export async function getAdImage(adId: string): Promise<string | null> {
 
 // ── OpenAI: estructurar guion / analizar imagen ──────────────────────────────
 
+// Texto base (default) del system de estructuración. Editable desde Configuraciones:
+// el caller (ruta server) resuelve el override y lo pasa como `systemBase`. Los
+// scripts no pasan nada → usan este default. transcribe.ts queda sin server-only.
+export const STRUCTURE_SYSTEM_BASE = 'Eres un analista de anuncios. Divide el guion en secciones consecutivas con títulos cortos en español según su función (ej: Hook, Problema, Agitación, Solución, Oferta, Prueba/Autoridad, CTA — usa solo los que apliquen). No inventes ni resumas: reparte el TEXTO LITERAL entre las secciones. Devuelve SOLO JSON: {"secciones":[{"titulo":"...","texto":"..."}]}.';
+
 /** Divide un guion en secciones con títulos (Hook, Problema, Oferta, CTA…). */
-export async function structureTranscript(text: string, instruccion?: string): Promise<Seccion[] | null> {
+export async function structureTranscript(text: string, instruccion?: string, systemBase: string = STRUCTURE_SYSTEM_BASE): Promise<Seccion[] | null> {
   if (!text || text.trim().length < 20) return null;
   const oai = env('OPENAI_API_KEY');
-  let sys = 'Eres un analista de anuncios. Divide el guion en secciones consecutivas con títulos cortos en español según su función (ej: Hook, Problema, Agitación, Solución, Oferta, Prueba/Autoridad, CTA — usa solo los que apliquen). No inventes ni resumas: reparte el TEXTO LITERAL entre las secciones. Devuelve SOLO JSON: {"secciones":[{"titulo":"...","texto":"..."}]}.';
+  let sys = systemBase;
   if (instruccion) sys += `\nInstrucción adicional del usuario (priorízala): ${instruccion}`;
   const r = await fetch(`${OAI}/chat/completions`, {
     method: 'POST',
@@ -105,6 +110,42 @@ export async function structureTranscript(text: string, instruccion?: string): P
   } catch { return null; }
 }
 
+// ── Transcripción de un archivo SUBIDO (clase, video de curso, audio) ─────────
+// Genérica: la usa el Conocimiento de MaKo para "bajar a tierra" cursos a partir
+// de un video/audio. OpenAI whisper-1 acepta audio y video hasta 25 MB.
+export type UploadTranscribeResult = {
+  status: 'ok' | 'muy_grande' | 'error';
+  transcript: string | null;
+  idioma: string | null;
+  duracion_s: number | null;
+  error: string | null;
+};
+
+export async function transcribeMediaBuffer(
+  bytes: ArrayBuffer,
+  mime: string,
+  filename: string,
+  hint?: string,
+): Promise<UploadTranscribeResult> {
+  const buf = Buffer.from(bytes);
+  if (buf.length > MAX_BYTES) {
+    return { status: 'muy_grande', transcript: null, idioma: null, duracion_s: null, error: `${(buf.length / 1048576).toFixed(1)} MB > 25 MB (límite de OpenAI). Subí solo el audio o recortá el video.` };
+  }
+  try {
+    const oai = env('OPENAI_API_KEY');
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(buf)], { type: mime || 'application/octet-stream' }), filename || 'clase');
+    form.append('model', 'whisper-1');
+    form.append('response_format', 'verbose_json');
+    if (hint?.trim()) form.append('prompt', hint.trim()); // sesga ortografía/términos
+    const tr = await (await fetch(`${OAI}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${oai}` }, body: form })).json();
+    if (tr.error) return { status: 'error', transcript: null, idioma: null, duracion_s: null, error: `whisper: ${tr.error.message}` };
+    return { status: 'ok', transcript: tr.text ?? '', idioma: tr.language ?? null, duracion_s: tr.duration ?? null, error: null };
+  } catch (e) {
+    return { status: 'error', transcript: null, idioma: null, duracion_s: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** Descarga la imagen y la devuelve como data URL base64 (OpenAI no puede bajar
  *  las URLs del CDN de Meta, así que se las mandamos embebidas). */
 async function toDataUrl(imageUrl: string): Promise<string> {
@@ -115,11 +156,15 @@ async function toDataUrl(imageUrl: string): Promise<string> {
   return `data:${ct};base64,${buf.toString('base64')}`;
 }
 
+// Texto base (default) del prompt de visión. Editable desde Configuraciones (ver
+// STRUCTURE_SYSTEM_BASE para el patrón override-por-parámetro).
+export const IMAGE_PROMPT_BASE = 'Analiza este creativo de anuncio (imagen). Transcribe TODO el texto visible de forma LITERAL y exacta (respeta saltos y mayúsculas). Devuelve SOLO JSON: {"texto":"todo el texto visible, literal","descripcion":"qué se ve: escena, personas, estilo, colores, elementos","secciones":[{"titulo":"...","texto":"..."}]}. Las secciones estructuran SOLO el MENSAJE del anuncio (ej: Hook, Mensaje, Oferta, CTA); NO pongas la descripción visual como sección. Todo en español.';
+
 /** Analiza la imagen de un anuncio: texto visible + descripción + secciones. */
-async function analyzeImage(imageUrl: string, instruccion?: string): Promise<{ transcript: string; secciones: Seccion[] }> {
+async function analyzeImage(imageUrl: string, instruccion?: string, promptBase: string = IMAGE_PROMPT_BASE): Promise<{ transcript: string; secciones: Seccion[] }> {
   const oai = env('OPENAI_API_KEY');
   const dataUrl = await toDataUrl(imageUrl);
-  let prompt = 'Analiza este creativo de anuncio (imagen). Transcribe TODO el texto visible de forma LITERAL y exacta (respeta saltos y mayúsculas). Devuelve SOLO JSON: {"texto":"todo el texto visible, literal","descripcion":"qué se ve: escena, personas, estilo, colores, elementos","secciones":[{"titulo":"...","texto":"..."}]}. Las secciones estructuran SOLO el MENSAJE del anuncio (ej: Hook, Mensaje, Oferta, CTA); NO pongas la descripción visual como sección. Todo en español.';
+  let prompt = promptBase;
   if (instruccion) prompt += `\nInstrucción adicional del usuario (priorízala): ${instruccion}`;
   const r = await fetch(`${OAI}/chat/completions`, {
     method: 'POST',
@@ -143,8 +188,20 @@ async function analyzeImage(imageUrl: string, instruccion?: string): Promise<{ t
  * Procesa un anuncio completo (video o imagen). Nunca lanza: devuelve un
  * TranscribeResult con status, incluido 'error', para que el caller persista.
  */
-export async function transcribeAd(adId: string, opts?: { imageUrl?: string; instruccion?: string }): Promise<TranscribeResult> {
+export async function transcribeAd(
+  adId: string,
+  opts?: {
+    imageUrl?: string;
+    instruccion?: string;
+    /** Prompts editables resueltos por el caller (ruta server). Los scripts los omiten. */
+    prompts?: { structureSystem?: string; imagePrompt?: string; whisperGlossary?: string };
+  },
+): Promise<TranscribeResult> {
   const instruccion = opts?.instruccion?.trim() || undefined;
+  const pr = opts?.prompts;
+  // Glosario global para whisper: si no hay instrucción puntual del anuncio, sesga
+  // la ortografía con el glosario configurado (vacío → no se manda nada).
+  const whisperHint = instruccion || (pr?.whisperGlossary?.trim() || undefined);
   const base: TranscribeResult = { ad_id: adId, video_id: null, tipo: null, status: 'ok', transcript: null, secciones: null, idioma: null, duracion_s: null, model: null, error: null };
   try {
     const ver = env('META_API_VERSION'), token = env('META_ACCESS_TOKEN'), oai = env('OPENAI_API_KEY');
@@ -161,12 +218,12 @@ export async function transcribeAd(adId: string, opts?: { imageUrl?: string; ins
       form.append('file', new Blob([new Uint8Array(buf)], { type: 'video/mp4' }), 'ad.mp4');
       form.append('model', 'whisper-1');
       form.append('response_format', 'verbose_json');
-      if (instruccion) form.append('prompt', instruccion); // sesga ortografía/términos
+      if (whisperHint) form.append('prompt', whisperHint); // sesga ortografía/términos
       const tr = await (await fetch(`${OAI}/audio/transcriptions`, { method: 'POST', headers: { Authorization: `Bearer ${oai}` }, body: form })).json();
       if (tr.error) return { ...base, tipo: 'video', status: 'error', error: `whisper: ${tr.error.message}` };
       const text: string = tr.text ?? '';
       let secciones: Seccion[] | null = null;
-      try { secciones = await structureTranscript(text, instruccion); } catch { /* no fatal */ }
+      try { secciones = await structureTranscript(text, instruccion, pr?.structureSystem); } catch { /* no fatal */ }
       return { ...base, tipo: 'video', status: 'ok', transcript: text, secciones, idioma: tr.language ?? null, duracion_s: tr.duration ?? null, model: 'whisper-1+gpt-4o-mini' };
     }
 
@@ -176,7 +233,7 @@ export async function transcribeAd(adId: string, opts?: { imageUrl?: string; ins
     try { img = await getAdImage(adId); } catch { /* no fatal */ }
     img = img ?? opts?.imageUrl ?? null;
     if (!img) return { ...base, status: 'sin_video' };
-    const { transcript, secciones } = await analyzeImage(img, instruccion);
+    const { transcript, secciones } = await analyzeImage(img, instruccion, pr?.imagePrompt);
     return { ...base, tipo: 'imagen', status: 'ok', transcript, secciones, model: 'gpt-4o' };
   } catch (err) {
     return { ...base, status: 'error', error: err instanceof Error ? err.message : String(err) };

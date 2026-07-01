@@ -7,6 +7,7 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
+import { renderPrompt } from './prompt-render';
 
 export type FieldType = 'text' | 'number' | 'textarea';
 export type Field = { key: string; label: string; type: FieldType; placeholder?: string };
@@ -59,12 +60,17 @@ export async function saveAnswers(answers: Record<string, string>): Promise<void
 // Extrae respuestas de un texto (template completado o doc del cliente) y las
 // mapea a los campos pedidos, con la API de OpenAI ya usada en el repo.
 const OAI = 'https://api.openai.com/v1';
+
+// {{lista}} = los campos pedidos (clave: qué pide). El esquema JSON de salida es
+// fijo: si lo cambiás, ajustá también el parseo de abajo.
+export const ONBOARDING_EXTRACT_TEMPLATE = `Sos un extractor de datos. Recibís un TEXTO (un template completado o un documento del negocio del cliente) y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). Claves válidas (clave: qué pide):\n{{lista}}`;
+
 export async function extractAnswersFromText(texto: string, fields: Array<{ key: string; label: string }>): Promise<Record<string, string>> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error('OPENAI_API_KEY no definida');
   if (!texto.trim() || fields.length === 0) return {};
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
-  const sys = `Sos un extractor de datos. Recibís un TEXTO (un template completado o un documento del negocio del cliente) y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). Claves válidas (clave: qué pide):\n${lista}`;
+  const sys = await renderPrompt('onboarding.extract.system', ONBOARDING_EXTRACT_TEMPLATE, { lista });
   const r = await fetch(`${OAI}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },

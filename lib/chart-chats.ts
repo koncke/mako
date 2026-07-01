@@ -51,10 +51,12 @@ export async function listSessions(chartKey: string, incluirArchivadas = false):
   return (data ?? []) as ChartSession[];
 }
 
-/** Todas las sesiones (para la tab "Preguntale a MaKo"). */
+/** Todas las sesiones (para la tab "Preguntale a MaKo"). Excluye las sesiones de
+ *  asesoría por lead de WhatsApp (chart_key 'wa-advisor:*'), que son privadas de
+ *  cada chat y no deben ensuciar la lista global de MaKo. */
 export async function listAllSessions(incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
   const supabase = getSupabaseServer();
-  let q = supabase.from('chart_sessions').select(SESSION_COLS);
+  let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%');
   if (!incluirArchivadas) q = q.eq('archived', false);
   const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
   if (error) throw new Error(`listAllSessions falló: ${error.message}`);

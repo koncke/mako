@@ -8,7 +8,18 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { transcribeAd } from '@/lib/transcribe';
+import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
+import { getPromptText } from '@/lib/prompt-render';
+
+/** Resuelve los prompts editables de transcripción (override o default). */
+async function resolveTranscribePrompts() {
+  const [structureSystem, imagePrompt, whisperGlossary] = await Promise.all([
+    getPromptText('transcribe.structure.system', STRUCTURE_SYSTEM_BASE),
+    getPromptText('transcribe.analyze_image.user', IMAGE_PROMPT_BASE),
+    getPromptText('transcribe.whisper.prompt', ''),
+  ]);
+  return { structureSystem, imagePrompt, whisperGlossary };
+}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -33,7 +44,8 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle();
 
-  const res = await transcribeAd(adId, { imageUrl: th?.ad_thumbnail_url ?? undefined, instruccion });
+  const prompts = await resolveTranscribePrompts();
+  const res = await transcribeAd(adId, { imageUrl: th?.ad_thumbnail_url ?? undefined, instruccion, prompts });
 
   const { error: upErr } = await supabase.from('ad_transcripts').upsert({
     ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
