@@ -159,12 +159,15 @@ const HTML = `<!doctype html>
   input[type=date].dl-soon{color:var(--media);border-color:rgba(240,168,24,.5)}
   input[type=date]:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   input[type=date]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer}
-  .cat-wrap{display:inline-flex;align-items:center;gap:6px;min-width:0;flex:1}
+  .cat-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;flex:1}
   .cat-dot{width:8px;height:8px;border-radius:99px;display:inline-block;flex:0 0 auto}
   .cat-dot.empty{border:1px solid var(--muted-2);background:transparent!important}
-  .cat-select{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-color:var(--panel-2);border:1px solid var(--line);border-radius:8px;font:inherit;font-size:11px;font-weight:600;padding:4px 22px 4px 8px;cursor:pointer;background-repeat:no-repeat;background-position:right 7px center;background-size:9px;background-image:var(--chev);max-width:100%}
-  .cat-select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-  .cat-select option{background:#242427;color:var(--txt)}
+  .cat-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 4px 3px 8px;border-radius:99px;border:1px solid;line-height:1.3;max-width:100%}
+  .cat-chip-x{border:none;background:transparent;color:inherit;opacity:.55;font-size:14px;line-height:1;cursor:pointer;padding:0;width:15px;height:15px;display:grid;place-items:center;border-radius:5px}
+  .cat-chip-x:hover{opacity:1;background:rgba(0,0,0,.28)}
+  .cat-add{appearance:none;-webkit-appearance:none;-moz-appearance:none;background-color:var(--panel-2);border:1px solid var(--line-strong);border-radius:8px;color:var(--muted);font:inherit;font-size:11px;font-weight:600;padding:4px 20px 4px 8px;cursor:pointer;background-repeat:no-repeat;background-position:right 6px center;background-size:9px;background-image:var(--chev);max-width:100%}
+  .cat-add:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .cat-add option{background:#242427;color:var(--txt)}
 
   /* Progreso */
   .prog{display:flex;align-items:center;gap:10px;margin-bottom:10px}
@@ -320,7 +323,7 @@ const HTML = `<!doctype html>
 
   function seed(){
     return DEFAULTS.map(function(d){
-      return {id:"t"+d[0],n:d[0],text:d[1],priority:d[2],prog:d[3]||0,note:d[4]||"",deadline:"",cat:null};
+      return {id:"t"+d[0],n:d[0],text:d[1],priority:d[2],prog:d[3]||0,note:d[4]||"",deadline:"",cats:[]};
     });
   }
   function seedCats(){
@@ -339,7 +342,7 @@ const HTML = `<!doctype html>
         n:t.n,text:t.text,priority:p,prog:prog,
         note:(typeof t.note==="string")?t.note:"",
         deadline:(typeof t.deadline==="string")?t.deadline:"",
-        cat:(typeof t.cat==="string")?t.cat:null
+        cats:Array.isArray(t.cats)?t.cats.filter(function(c){return typeof c==="string";}):((typeof t.cat==="string"&&t.cat)?[t.cat]:[])
       };
     });
   }
@@ -393,8 +396,8 @@ const HTML = `<!doctype html>
   function anyFilter(){ return q!==""||catFilterVal!=="all"||hideDone; }
   function passFilter(t){
     if(hideDone&&t.prog===100) return false;
-    if(catFilterVal==="none"){ if(t.cat) return false; }
-    else if(catFilterVal!=="all"){ if(t.cat!==catFilterVal) return false; }
+    if(catFilterVal==="none"){ if((t.cats||[]).length) return false; }
+    else if(catFilterVal!=="all"){ if((t.cats||[]).indexOf(catFilterVal)<0) return false; }
     if(q){ if(((t.text||"")+" "+(t.note||"")).toLowerCase().indexOf(q)<0) return false; }
     return true;
   }
@@ -415,14 +418,19 @@ const HTML = `<!doctype html>
     return '<select class="prio-select prio-'+t.priority+'" data-act="prio" aria-label="Prioridad">'+o+'</select>';
   }
   function catControl(t){
-    var current=t.cat?findCat(t.cat):null;
-    var color=current?current.color:"transparent";
-    var txtColor=current?current.color:"var(--muted-2)";
-    var opts='<option value="">Sin categoría</option>'+cats.map(function(c){
-      return '<option value="'+c.id+'"'+(t.cat===c.id?" selected":"")+'>'+escapeHtml(c.name)+'</option>';
+    var ids=t.cats||[];
+    var chips=ids.map(findCat).filter(Boolean).map(function(c){
+      return '<span class="cat-chip" style="color:'+c.color+';border-color:'+c.color+'59;background:'+c.color+'1f">'+
+        '<span class="cat-dot" style="background:'+c.color+'"></span>'+escapeHtml(c.name)+
+        '<button class="cat-chip-x" data-act="catdel-one" data-cat="'+c.id+'" title="Quitar" aria-label="Quitar categoría">&times;</button></span>';
     }).join("");
-    return '<span class="cat-wrap"><span class="cat-dot'+(current?"":" empty")+'" style="background:'+color+'"></span>'+
-      '<select class="cat-select" data-act="cat" aria-label="Categoría" style="color:'+txtColor+'">'+opts+'</select></span>';
+    var avail=cats.filter(function(c){return ids.indexOf(c.id)<0;});
+    var add="";
+    if(avail.length){
+      add='<select class="cat-add" data-act="catadd" aria-label="Agregar categoría"><option value="">＋ categoría</option>'+
+        avail.map(function(c){return '<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>';}).join("")+'</select>';
+    }
+    return '<span class="cat-wrap">'+chips+add+'</span>';
   }
   function noteRegion(t){
     if(t.note) return '<div class="note has" data-act="note" title="Editar nota">'+escapeHtml(t.note)+'</div>';
@@ -518,22 +526,23 @@ const HTML = `<!doctype html>
   });
   board.addEventListener("change",function(e){
     var el=e.target, act=el.getAttribute("data-act");
-    if(["prio","prog","cat","dl"].indexOf(act)<0) return;
+    if(["prio","prog","catadd","dl"].indexOf(act)<0) return;
     var cardEl=el.closest(".card"); if(!cardEl) return;
     var t=find(cardEl.dataset.id); if(!t) return;
     if(act==="prio") t.priority=el.value;
     else if(act==="prog") t.prog=clamp(el.value);
-    else if(act==="cat") t.cat=el.value?el.value:null;
+    else if(act==="catadd"){ if(el.value&&(t.cats||[]).indexOf(el.value)<0) t.cats=(t.cats||[]).concat([el.value]); }
     else if(act==="dl") t.deadline=el.value||"";
     render(); save();
   });
   board.addEventListener("click",function(e){
     var btn=e.target.closest("[data-act]"); if(!btn) return;
     var a=btn.getAttribute("data-act");
-    if(["prog","prio","cat","dl"].indexOf(a)>=0) return;
+    if(["prog","prio","catadd","dl"].indexOf(a)>=0) return;
     var cardEl=btn.closest(".card"); if(!cardEl) return;
     var t=find(cardEl.dataset.id); if(!t) return;
     if(a==="done"){ t.prog=(t.prog===100?0:100); render(); save(); }
+    else if(a==="catdel-one"){ var cid=btn.getAttribute("data-cat"); t.cats=(t.cats||[]).filter(function(x){return x!==cid;}); render(); save(); }
     else if(a==="del"){ if(confirm('¿Eliminar "'+t.text.slice(0,48)+(t.text.length>48?"…":"")+'"?')){ tasks=tasks.filter(function(x){return x.id!==t.id;}); render(); save(); } }
     else if(a==="title"){ editBox(cardEl,t,"title","title-edit-box"); }
     else if(a==="note"){ editBox(cardEl,t,"note","note-edit-box"); }
@@ -546,7 +555,7 @@ const HTML = `<!doctype html>
     var v=addInput.value.trim(); if(!v) return;
     var prio=(addPrio&&PRIOS.indexOf(addPrio.value)>=0)?addPrio.value:"media";
     var maxN=tasks.reduce(function(m,t){return Math.max(m,t.n);},0);
-    tasks.push({id:"t"+Date.now(),n:maxN+1,text:v,priority:prio,prog:0,note:"",deadline:"",cat:null});
+    tasks.push({id:"t"+Date.now(),n:maxN+1,text:v,priority:prio,prog:0,note:"",deadline:"",cats:[]});
     addInput.value=""; render(); save(); addInput.focus();
   }
   // Mantener la prioridad elegida entre altas y pintar el color del selector.
@@ -596,7 +605,7 @@ const HTML = `<!doctype html>
     var id=b.getAttribute("data-catdel"), c=findCat(id); if(!c) return;
     if(confirm('¿Eliminar la categoría "'+c.name+'"? Las tareas con esta categoría quedarán sin categoría.')){
       cats=cats.filter(function(x){return x.id!==id;});
-      tasks.forEach(function(t){ if(t.cat===id) t.cat=null; });
+      tasks.forEach(function(t){ if(t.cats) t.cats=t.cats.filter(function(x){return x!==id;}); });
       saveCats(); save(); renderCatList(); refreshCatFilter(); render();
     }
   });
