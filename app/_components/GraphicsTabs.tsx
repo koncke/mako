@@ -24,13 +24,16 @@ export function GraphicsTabs() {
   const hasta = sp.get('hasta');
   const q = desde && hasta ? `?desde=${desde}&hasta=${hasta}` : '';
 
+  // Solo las tabs (sin borde/margen propios): cada página las mete en su header,
+  // que aporta el borde inferior y comparte fila con los botones (Ads Manager,
+  // filtro de fecha).
   return (
-    <div style={{ display: 'flex', gap: 6, borderBottom: '1px solid var(--border)', marginBottom: 28 }}>
+    <div style={{ display: 'flex', gap: 26, alignItems: 'flex-end' }}>
       {TABS.map((t) => {
         const on = pathname === t.href || pathname.startsWith(t.href + '/');
         return (
           <Link key={t.href} href={t.href + q}
-            style={{ padding: '10px 18px', fontFamily: SANS, fontSize: 16, fontWeight: on ? 600 : 500, color: on ? 'var(--accent)' : 'var(--dim)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1, textDecoration: 'none' }}>
+            style={{ padding: '6px 2px', fontFamily: SANS, fontSize: 30, fontWeight: on ? 600 : 500, letterSpacing: '-0.02em', color: on ? 'var(--ink)' : 'var(--faint)', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: -1, textDecoration: 'none' }}>
             {t.label}
           </Link>
         );

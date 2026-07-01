@@ -43,7 +43,6 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Format helpers
@@ -141,15 +140,9 @@ export default async function Page({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <GraphicsTabs />
-      <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
-            Performance · {periodoLabel}
-          </div>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Marketing</h1>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+      <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30, borderBottom: '1px solid var(--border)' }}>
+        <GraphicsTabs />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, paddingBottom: 12 }}>
           <Link href="/ads-manager" style={{ padding: '9px 16px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'transparent', color: 'var(--dim)', fontSize: 14, fontWeight: 500, textDecoration: 'none', whiteSpace: 'nowrap' }}>◫ Ads Manager →</Link>
           <FechaFiltro hoyReal={hoyReal} />
         </div>
@@ -169,8 +162,6 @@ export default async function Page({
           {tendencias && <TendenciasSection tendencias={tendencias} accion={<MakoButton chartKey="marketing-tendencias" titulo="Tendencias" contexto={ctxTendencias} sugerencias={['¿Qué tendencia ves?', '¿Esto es bueno o malo?', '¿Qué cambió y por qué?', '¿Qué hago al respecto?']} chart={<TendenciasSection tendencias={tendencias} />} />} />}
 
           <ResumenCreativos desde={rangoDesde} hasta={rangoHasta} />
-
-          <CampanasEntry senales={senales} filtroActivo={filtroActivo} desde={rangoDesde} hasta={rangoHasta} />
 
           <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6 }}>
             Datos automáticos · Meta · YouTube · Calendly · Meta Lead Ads. Montos en USD.
@@ -432,17 +423,4 @@ function SaludDelFunnel({ mkt, funnel, senales }: { mkt: MarketingWindow; funnel
 // ─────────────────────────────────────────────────────────────────────────────
 
 
-function CampanasEntry({ senales, filtroActivo, desde, hasta }: { senales: SenalRecon[]; filtroActivo: boolean; desde: string; hasta: string }) {
-  const conGasto = senales.filter((s) => s.spend_usd > 0).length;
-  const href = filtroActivo ? `/ads-manager?desde=${desde}&hasta=${hasta}` : '/ads-manager';
-  return (
-    <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
-      <div style={{ minWidth: 0 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 25, letterSpacing: '-0.015em', margin: '0 0 6px', color: 'var(--ink)' }}>Ads Manager</h2>
-        <p style={{ fontSize: 14, color: 'var(--dim)', margin: 0, maxWidth: 580 }}>Estado de entrega en vivo (activo · aprendizaje · pausado · rechazado) cruzado con el rendimiento del rango y los cierres del CRM. {conGasto} anuncio{conGasto === 1 ? '' : 's'} con gasto en el período.</p>
-      </div>
-      <Link href={href} style={{ flex: 'none', padding: '12px 20px', borderRadius: 11, background: 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 15, fontWeight: 600, textDecoration: 'none' }}>Abrir Ads Manager →</Link>
-    </section>
-  );
-}
 

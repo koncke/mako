@@ -247,21 +247,11 @@ export default async function ComercialPage({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <GraphicsTabs />
-      <header
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 20,
-          flexWrap: 'wrap',
-          marginBottom: 30,
-        }}
-      >
-        <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
-          Comercial
-        </h1>
-        <FechaFiltro hoyReal={hoyReal} />
+      <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30, borderBottom: '1px solid var(--border)' }}>
+        <GraphicsTabs />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, paddingBottom: 12 }}>
+          <FechaFiltro hoyReal={hoyReal} />
+        </div>
       </header>
 
       {errorMsg ? (

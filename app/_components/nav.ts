@@ -1,45 +1,71 @@
 // =============================================================================
 // Definición de la navegación del sidebar (rediseño Marketing OS)
 // =============================================================================
-// Una sola fuente de verdad para el sidebar plegable. `match` decide el estado
-// activo a partir del pathname; `icon` es la clave para <Icon /> (icons.tsx).
+// Estructura: items sueltos arriba (General, CRM, Graphics, Experiments, MaKo) +
+// grupos colapsables (Analytics, Tools, Chats, Customer Success). `match` decide
+// el estado activo; `icon` es la clave para <Icon /> (icons.tsx). Las features
+// que todavía no existen apuntan a su ruta con comingSoon=true (view "coming
+// soon").
 
 export type NavItem = {
   key: string;
   label: string;
   href: string;
-  /** clave del ícono en icons.tsx (rail plegado + item) */
   icon: string;
-  /** muestra el badge de contador (CRM = datos sin marcar, WhatsApp = sin leer) */
   badge?: boolean;
-  /** prefijos de ruta que marcan este item como activo */
+  comingSoon?: boolean;
   match: (pathname: string) => boolean;
 };
+
+export type NavGroup = { key: string; label: string; icon: string; items: NavItem[] };
 
 const starts = (p: string) => (pathname: string) =>
   pathname === p || pathname.startsWith(p + '/');
 
-// PRINCIPAL — lo que se mira todos los días.
-export const MAIN_NAV: NavItem[] = [
+// Items sueltos (arriba de los grupos).
+export const TOP_NAV: NavItem[] = [
   { key: 'general', label: 'General', href: '/general', icon: 'general', match: starts('/general') },
   { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, match: starts('/leads') },
   { key: 'graphics', label: 'Graphics', href: '/graphics', icon: 'graphics', match: (p) => starts('/graphics')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
-];
-
-// HERRAMIENTAS — features puntuales.
-export const TOOLS_NAV: NavItem[] = [
-  { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'ads', match: starts('/ads-manager') },
-  { key: 'closing', label: 'Closing Analysis', href: '/closing', icon: 'closing', match: starts('/closing') },
-  { key: 'script-analyst', label: 'Script Analyst', href: '/script-analyst', icon: 'script', match: starts('/script-analyst') },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', badge: true, match: starts('/whatsapp') },
-  { key: 'email', label: 'Email Marketing', href: '/email', icon: 'email', match: starts('/email') },
   { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', match: starts('/mako') },
 ];
 
+// Grupos colapsables.
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    key: 'analytics', label: 'Analytics', icon: 'analytics', items: [
+      { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', match: starts('/closing') },
+      { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'script', match: starts('/script-analyst') },
+      { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'ads', comingSoon: true, match: starts('/offer-analyst') },
+      { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'funnel', comingSoon: true, match: starts('/landing-analyst') },
+      { key: 'vsl-an', label: 'VSL Analyst', href: '/vsl-analyst', icon: 'script', comingSoon: true, match: starts('/vsl-analyst') },
+      { key: 'market-an', label: 'Market Analyst', href: '/market-analyst', icon: 'analytics', comingSoon: true, match: starts('/market-analyst') },
+    ],
+  },
+  {
+    key: 'tools', label: 'Tools', icon: 'tools', items: [
+      { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', comingSoon: true, match: starts('/ads-writer') },
+      { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'pen', comingSoon: true, match: starts('/vsl-writer') },
+      { key: 'landing-writer', label: 'Landing Writer', href: '/landing-writer', icon: 'pen', comingSoon: true, match: starts('/landing-writer') },
+      { key: 'dm-writer', label: 'DM Writer', href: '/dm-writer', icon: 'pen', comingSoon: true, match: starts('/dm-writer') },
+    ],
+  },
+  {
+    key: 'chats', label: 'Chats', icon: 'chats', items: [
+      { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', badge: true, match: starts('/whatsapp') },
+      { key: 'email', label: 'Email', href: '/email', icon: 'email', match: starts('/email') },
+      { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
+    ],
+  },
+  {
+    key: 'cs', label: 'Customer Success', icon: 'cs', items: [
+      { key: 'cs-analyst', label: 'CS Analyst', href: '/cs-analyst', icon: 'cs', comingSoon: true, match: starts('/cs-analyst') },
+    ],
+  },
+];
+
 // Menú del usuario (dropdown de la foto de perfil, abajo del sidebar).
-// (Funnel y Onboarding se van a anidar dentro de Configuraciones en el próximo
-// paso; por ahora viven acá para que sigan siendo alcanzables.)
 export const USER_NAV: NavItem[] = [
   { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
