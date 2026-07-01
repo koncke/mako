@@ -29,7 +29,7 @@ const PATHS: Record<string, ReactNode> = {
   funnel: (<path d="M3 5h18l-6.5 8v5.5l-5-2.5V13L3 5Z" />),
   onboarding: (<><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9.5 4V3h5v1" /><path d="M9 11.5l2 2 4-4" /></>),
   analytics: (<><path d="M4 5v14h16" /><path d="m7 14 3-3 2.5 2 4.5-5.5" /></>),
-  tools: (<><path d="M6.4 4.2a3.2 3.2 0 0 0 4.2 4.2l6.9 6.9a1.7 1.7 0 0 1-2.4 2.4l-6.9-6.9A3.2 3.2 0 0 1 4 6.6Z" /><path d="M4.2 19.8l.5-2.2 9-9 1.7 1.7-9 9-2.2.5Z" /><path d="M14.4 7.6l1.7 1.7 1.8-1.8a1.2 1.2 0 0 0-1.7-1.7Z" /></>),
+  tools: (<g fill="currentColor" stroke="none"><g transform="rotate(45 12 12)"><rect x="8" y="10.6" width="10" height="2.9" rx="1" /><path d="M8.4 8.2H5v1.7h1.7v4H5v1.7h3.4z" /></g><g transform="rotate(-45 12 12)"><rect x="3" y="10.1" width="5" height="3.8" rx="1.5" /><rect x="7.7" y="11.2" width="7.3" height="1.6" rx="0.3" /><path d="M15 10.8h2.2v2.4h-2.2z" /></g></g>),
   chats: (<><path d="M3 5.5A1.5 1.5 0 0 1 4.5 4h10A1.5 1.5 0 0 1 16 5.5v5A1.5 1.5 0 0 1 14.5 12H8l-4 3v-3h-.5A1.5 1.5 0 0 1 3 10.5v-5Z" /></>),
   cs: (<><circle cx="12" cy="12" r="8.5" /><path d="M8 14a5 5 0 0 0 8 0" /><path d="M9 9.7h.01" /><path d="M15 9.7h.01" /></>),
   instagram: (<><rect x="4" y="4" width="16" height="16" rx="4.5" /><circle cx="12" cy="12" r="3.4" /><circle cx="16.9" cy="7.1" r="1" /></>),
