@@ -15,14 +15,12 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { chatClaude } from './anthropic';
-import { renderPrompt } from './prompt-render';
+import { getPromptText, renderPrompt } from './prompt-render';
 import { getMarketingWindow, type MarketingWindow } from './queries';
 import { diasAntes, ayerEnTijuana } from './date-utils';
-import {
-  METRICAS, fmtMetrica, listExperimentos, metricaDef,
-  type Direccion, type Experimento,
-} from './experimentos';
-import { listTareas, type Prioridad } from './todo';
+import { METRICAS, fmtMetrica, metricaDef, type Direccion } from './experimentos';
+import { type Prioridad } from './todo';
+import { recolectarFuentes, AREAS, type AreaKey, type Fuente } from './retro-fuentes';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -119,18 +117,6 @@ function destacadosTexto(d: RetroDestacado[]): string {
   }).join('\n');
 }
 
-function experimentosTexto(exps: Experimento[]): { activos: string; conclusiones: string } {
-  const activos = exps.filter((e) => e.estado === 'activo');
-  const cerrados = exps.filter((e) => e.estado === 'cerrado');
-  const activosTxt = activos.length
-    ? activos.map((e) => `- "${e.titulo}" mide ${e.metrica_label ?? e.metrica} (${e.direccion}); sin conclusión todavía`).join('\n')
-    : '(ninguno)';
-  const conclTxt = cerrados.length
-    ? cerrados.map((e) => `- [${e.veredicto ?? '?'}] ${e.aprendizaje || e.titulo}`).join('\n')
-    : '(ninguna todavía)';
-  return { activos: activosTxt, conclusiones: conclTxt };
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompts (editables vía getPromptText; listos para el registro)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,10 +124,10 @@ function experimentosTexto(exps: Experimento[]): { activos: string; conclusiones
 const catalogoTexto = (): string =>
   METRICAS.map((m) => `- ${m.key} — ${m.label} (${m.desc}; mejora natural: ${m.mejor})`).join('\n');
 
-export const RETRO_SYSTEM_DEFAULT = `Sos MaKo haciendo la RETROSPECTIVA del negocio de Martín. Te paso el dato duro del funnel del período (ya calculado, con su delta vs el período anterior), los experimentos en curso, las conclusiones ya validadas y las tareas abiertas.
+export const RETRO_SYSTEM_DEFAULT = `Sos MaKo haciendo la RETROSPECTIVA del negocio de Martín. Te paso el DATO DURO del funnel del período (ya calculado, con su delta vs el período anterior) y RESÚMENES POR ÁREA (adquisición, nutrición, conversión, creativos, revenue/cobranza, experimentos) con sus números.
 
 Tu trabajo:
-1) RESUMEN (markdown, 4-8 líneas + viñetas): qué pasó en el período, leído sobre el DATO. Sé concreto y usá los números. Enmarcá cualquier causa-efecto como HIPÓTESIS ("el dato sugiere…"), NUNCA como verdad cerrada. Las conclusiones ya validadas SÍ podés afirmarlas y citarlas. No inventes datos que no te pasé.
+1) RESUMEN (markdown): qué pasó en el período, leído sobre el DATO, cruzando las áreas. Contá una historia clara y accionable — dónde está la palanca. Sé concreto y usá los números. Enmarcá cualquier causa-efecto como HIPÓTESIS ("el dato sugiere…"), NUNCA como verdad cerrada. Las conclusiones ya validadas SÍ podés afirmarlas y citarlas. No inventes datos que no te pasé.
 2) RECOMENDACIONES: una lista corta y priorizada, cada una es "probá esto" (un EXPERIMENTO para validar una hipótesis con datos) o "hacé esto" (una TAREA concreta a ejecutar ya, sin necesidad de experimentar). Preferí pocas y potentes. No repitas experimentos ya en curso.
 
 Si Martín te deja una PERSPECTIVA, tratala como una HIPÓTESIS suya, no como un hecho: puede estar equivocado. Contrastala contra el dato — si el dato la respalda, decilo; si la contradice, decilo con respeto y con el número. Nunca ajustes el análisis para darle la razón.
@@ -150,7 +136,7 @@ Para cada experimento elegí UNA métrica del CATÁLOGO (key exacta) como termó
 
 Devolvé SOLO este JSON, sin texto alrededor:
 {
-  "titulo": "string corto que titule la retro (ej. 'Semana del 1 al 7: el CPL bajó pero cayó la agenda')",
+  "titulo": "string corto que titule la retro (ej. 'Junio: el CPL bajó pero cayó la agenda')",
   "resumen": "markdown",
   "recomendaciones": [
     { "tipo": "experimento", "titulo": "...", "hipotesis": "...", "cambio": "la intervención concreta", "metrica": "key del catálogo", "direccion": "subir"|"bajar", "objetivo_valor": number|null, "criterio_exito": "...", "ventana_dias": number, "racional": "..." },
@@ -161,21 +147,17 @@ Devolvé SOLO este JSON, sin texto alrededor:
 CATÁLOGO DE MÉTRICAS:
 {{catalogo}}`;
 
-export const RETRO_USER_DEFAULT = `PERÍODO: {{desde}} a {{hasta}}
-{{profundidad}}{{foco}}{{perspectiva}}
+export const RETRO_USER_DEFAULT = `{{profundidad}}{{perspectiva}}
 DATO DURO DEL FUNNEL (con delta vs período anterior):
 {{destacados}}
 
-EXPERIMENTOS EN CURSO (no los repitas):
-{{activos}}
+RESÚMENES POR ÁREA:
+{{fuentes}}
 
-CONCLUSIONES YA VALIDADAS (podés afirmarlas):
-{{conclusiones}}
+Escribí la retrospectiva cruzando las áreas y las recomendaciones. Devolvé el JSON.`;
 
-TAREAS ABIERTAS EN EL TABLERO:
-{{tareas}}
-
-Escribí la retrospectiva y las recomendaciones. Devolvé el JSON.`;
+// Sistema para la pasada "área por área" (solo en profundidad profunda).
+export const RETRO_AREA_SYSTEM_DEFAULT = `Sos MaKo analizando UNA área del negocio de Martín dentro de una retrospectiva. Te paso el resumen con los números de esa área. Devolvé 3-6 viñetas con los INSIGHTS clave: qué está pasando (con el número), dónde está la palanca y qué hipótesis vale probar. Enmarcá causa-efecto como hipótesis, no como verdad. No inventes datos. Solo las viñetas, sin JSON ni preámbulo.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parseo / normalización
@@ -222,63 +204,100 @@ function normalizarReco(j: Record<string, unknown>): RetroReco | null {
 // Generación + persistencia
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type OpcionesRetro = { perspectiva?: string; profundidad?: 'rapida' | 'estandar' | 'profunda'; foco?: string };
+export type Profundidad = 'rapida' | 'estandar' | 'profunda';
+export type OpcionesRetro = { perspectiva?: string; profundidad?: Profundidad; areas?: AreaKey[] };
+export type RetroProgreso = { fase: string; label: string };
 
-// La profundidad regula cuánto piensa MaKo (esfuerzo) y el encuadre.
-const EFFORT_POR_PROF: Record<string, 'medium' | 'high' | 'xhigh'> = { rapida: 'medium', estandar: 'high', profunda: 'xhigh' };
-const PROF_TXT: Record<string, string> = {
+const EFFORT_POR_PROF: Record<Profundidad, 'medium' | 'high' | 'xhigh'> = { rapida: 'medium', estandar: 'high', profunda: 'xhigh' };
+const PROF_TXT: Record<Profundidad, string> = {
   rapida: 'PROFUNDIDAD: lectura rápida — lo esencial y 1-2 recomendaciones.',
   estandar: 'PROFUNDIDAD: estándar — análisis completo y plan priorizado.',
   profunda: 'PROFUNDIDAD: profunda — cruzá todas las señales, buscá causas de segundo orden y sé exhaustivo con el plan.',
 };
 
-/** Genera una retrospectiva del período y la guarda como snapshot. */
-export async function generarRetro(desde: string, hasta: string, opts: OpcionesRetro = {}): Promise<Retro> {
-  const [{ destacados, snapshot }, exps, tareas] = await Promise.all([
-    calcularDestacados(desde, hasta),
-    listExperimentos().catch(() => [] as Experimento[]),
-    listTareas().catch(() => []),
-  ]);
-  const { activos, conclusiones } = experimentosTexto(exps);
-  const tareasTxt = tareas.filter((t) => t.estado !== 'hecho').length
-    ? tareas.filter((t) => t.estado !== 'hecho').map((t) => `- [${t.estado}] ${t.titulo}`).join('\n')
-    : '(ninguna)';
+const perspectivaTexto = (p?: string) => (p && p.trim()
+  ? `\nPERSPECTIVA DE MARTÍN (su hipótesis, puede estar equivocada — verificala contra el dato, NO la asumas): "${p.trim()}"\n`
+  : '');
 
-  const prof = opts.profundidad && EFFORT_POR_PROF[opts.profundidad] ? opts.profundidad : 'estandar';
-  const perspectivaTxt = opts.perspectiva && opts.perspectiva.trim()
-    ? `\nPERSPECTIVA DE MARTÍN (su hipótesis, puede estar equivocada — verificala contra el dato, NO la asumas): "${opts.perspectiva.trim()}"\n`
-    : '';
-  const focoTxt = opts.foco && opts.foco.trim() ? `\nFOCO: mirá con lupa ${opts.foco.trim()}.\n` : '';
-
+/** La síntesis final: MaKo escribe el resumen + recomendaciones sobre los destacados y las fuentes/insights. */
+async function sintetizar(
+  destacados: RetroDestacado[], contexto: string, perspectivaTxt: string, prof: Profundidad, tituloFallback: string,
+): Promise<{ titulo: string; resumen: string; recomendaciones: RetroReco[] }> {
   const system = await renderPrompt('experimentos.retro.system', RETRO_SYSTEM_DEFAULT, { catalogo: catalogoTexto() });
   const user = await renderPrompt('experimentos.retro.user', RETRO_USER_DEFAULT, {
-    desde, hasta,
-    profundidad: `\n${PROF_TXT[prof]}\n`,
-    foco: focoTxt,
+    profundidad: `${PROF_TXT[prof]}\n`,
     perspectiva: perspectivaTxt,
     destacados: destacadosTexto(destacados),
-    activos, conclusiones, tareas: tareasTxt,
+    fuentes: contexto || '(sin resúmenes de área disponibles)',
   });
-  snapshot.perspectiva = opts.perspectiva?.trim() || null;
-  snapshot.profundidad = prof;
-  snapshot.foco = opts.foco?.trim() || null;
+  const raw = await chatClaude(system, [{ role: 'user', content: user }], { feature: 'experimentos', effort: EFFORT_POR_PROF[prof] });
+  const j = parseJson<Record<string, unknown>>(raw);
+  const titulo = typeof j.titulo === 'string' && j.titulo.trim() ? j.titulo.trim().slice(0, 160) : tituloFallback;
+  const resumen = String(j.resumen ?? '').trim();
+  const recomendaciones = Array.isArray(j.recomendaciones)
+    ? (j.recomendaciones as Array<Record<string, unknown>>).map(normalizarReco).filter((x): x is RetroReco => x != null).slice(0, 12)
+    : [];
+  return { titulo, resumen, recomendaciones };
+}
+
+/**
+ * Genera una retrospectiva del período y la guarda como snapshot.
+ * `onProgress` recibe cada paso (para transmitirlo en vivo al cliente).
+ * En profundidad 'profunda' analiza ÁREA POR ÁREA (una pasada de insights por área)
+ * y luego sintetiza; en 'rapida'/'estandar' hace una sola pasada.
+ */
+export async function generarRetro(
+  desde: string, hasta: string, opts: OpcionesRetro = {}, onProgress?: (p: RetroProgreso) => void,
+): Promise<Retro> {
+  const prof: Profundidad = opts.profundidad && EFFORT_POR_PROF[opts.profundidad] ? opts.profundidad : 'estandar';
+  const step = (fase: string, label: string) => { try { onProgress?.({ fase, label }); } catch { /* noop */ } };
+  const perspectivaTxt = perspectivaTexto(opts.perspectiva);
+
+  // 1) Dato duro (destacados) — lo calcula el código, no MaKo.
+  step('destacados', 'Midiendo el funnel del período…');
+  const { destacados, snapshot } = await calcularDestacados(desde, hasta);
+
+  // 2) Áreas efectivas (siempre sumamos experimentos como contexto de conclusiones).
+  const pedidas = opts.areas && opts.areas.length ? opts.areas : AREAS.map((a) => a.key);
+  const areasEff = Array.from(new Set<AreaKey>([...pedidas, 'experimentos']));
+
+  // 3) Recolectar las fuentes de cada área (streamea el progreso por área).
+  const fuentes = await recolectarFuentes(desde, hasta, { profundidad: prof, areas: areasEff },
+    (p) => step(`fuente:${p.area}`, `Leyendo ${p.label}…`)).catch(() => [] as Fuente[]);
 
   let titulo = `Retro ${desde} a ${hasta}`;
   let resumen = '';
   let recomendaciones: RetroReco[] = [];
+
   try {
-    const raw = await chatClaude(system, [{ role: 'user', content: user }], { feature: 'experimentos', effort: EFFORT_POR_PROF[prof] });
-    const j = parseJson<Record<string, unknown>>(raw);
-    if (typeof j.titulo === 'string' && j.titulo.trim()) titulo = j.titulo.trim().slice(0, 160);
-    resumen = String(j.resumen ?? '').trim();
-    if (Array.isArray(j.recomendaciones)) {
-      recomendaciones = (j.recomendaciones as Array<Record<string, unknown>>)
-        .map(normalizarReco).filter((x): x is RetroReco => x != null).slice(0, 10);
+    if (prof === 'profunda' && fuentes.length) {
+      const insights: string[] = [];
+      for (const f of fuentes) {
+        step(`insight:${f.area}`, `Sacando insights de ${f.label}…`);
+        const ins = await chatClaude(
+          await getPromptText('experimentos.retro.area_system', RETRO_AREA_SYSTEM_DEFAULT),
+          [{ role: 'user', content: `${f.texto}\n${perspectivaTxt}` }],
+          { feature: 'experimentos', effort: 'high' },
+        ).catch(() => '');
+        if (ins.trim()) insights.push(`## ${f.label}\n${ins.trim()}`);
+      }
+      step('sintesis', 'MaKo está sintetizando la retrospectiva…');
+      ({ titulo, resumen, recomendaciones } = await sintetizar(destacados, insights.join('\n\n'), perspectivaTxt, prof, titulo));
+    } else {
+      step('sintesis', 'MaKo está escribiendo la retrospectiva…');
+      const fuentesTxt = fuentes.map((f) => f.texto).join('\n\n');
+      ({ titulo, resumen, recomendaciones } = await sintetizar(destacados, fuentesTxt, perspectivaTxt, prof, titulo));
     }
   } catch (err) {
     resumen = `No se pudo redactar la retrospectiva automática (${err instanceof Error ? err.message : 'error'}). Los destacados de abajo son dato real del período.`;
   }
 
+  snapshot.perspectiva = opts.perspectiva?.trim() || null;
+  snapshot.profundidad = prof;
+  snapshot.areas = pedidas;
+  snapshot.fuentes = fuentes.map((f) => f.label);
+
+  step('guardando', 'Guardando la retrospectiva…');
   const supabase = getSupabaseServer();
   const { data, error } = await supabase.from('retros').insert({
     periodo_desde: desde,
@@ -319,4 +338,17 @@ export function periodoDefault(dias = 30): { desde: string; hasta: string } {
   const hasta = ayerEnTijuana();
   const desde = diasAntes(hasta, dias - 1);
   return { desde, hasta };
+}
+
+/** Período "todo el histórico": desde el primer día con datos de marketing hasta ayer. */
+export async function periodoHistorico(): Promise<{ desde: string; hasta: string }> {
+  const hasta = ayerEnTijuana();
+  let desde = diasAntes(hasta, 729); // fallback: ~2 años
+  try {
+    const supabase = getSupabaseServer();
+    const { data } = await supabase.from('marketing_metrics_daily').select('fecha').order('fecha', { ascending: true }).limit(1);
+    const f = data && data[0] ? (data[0] as { fecha?: string }).fecha : null;
+    if (f && /^\d{4}-\d{2}-\d{2}/.test(f)) desde = f.slice(0, 10);
+  } catch { /* sin datos → fallback */ }
+  return { desde: desde < hasta ? desde : hasta, hasta };
 }
