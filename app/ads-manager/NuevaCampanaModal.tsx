@@ -35,7 +35,7 @@ const btnGhost: CSSProperties = { padding: '12px 18px', borderRadius: 12, border
 const pregunta: CSSProperties = { fontSize: 25, fontWeight: 600, color: 'var(--ink)', textAlign: 'center', letterSpacing: '-0.02em', lineHeight: 1.2, margin: 0 };
 const ayuda: CSSProperties = { fontSize: 14.5, color: 'var(--dim)', textAlign: 'center', lineHeight: 1.5, margin: '10px 0 0', maxWidth: 440 };
 
-type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
+type Step = 'creativos' | 'inversion' | 'objetivo' | 'estrategia' | 'publico' | 'ubicaciones' | 'destino' | 'armando' | 'revision' | 'publicando' | 'listo';
 type Estrategia = 'retargeting' | 'frio' | 'intereses';
 type AudTipo = 'page' | 'ig' | 'video' | 'pixel';
 type AudienceItem = AudienceRef & { count?: number | null };
@@ -108,9 +108,9 @@ function makeThumb(file: File): Promise<string | null> {
 
 // ── Borrador local ──
 const DRAFT_KEY = 'mako.nuevaCampana.draft.v2';
-type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
+type Draft = { step: Step; tray: TrayItem[]; budgetUsd: number | null; objKey: ObjKey | null; estrategia: Estrategia | null; audiencias: AudienceRef[]; placements: string[] | null; destino: Destino; analisis: Analisis; spec: CampaignSpec | null; uso: Uso };
 function loadDraft(): Draft {
-  const vacio: Draft = { step: 'creativos', tray: [], budgetUsd: null, objKey: null, estrategia: null, audiencias: [], destino: {}, analisis: [], spec: null, uso: null };
+  const vacio: Draft = { step: 'creativos', tray: [], budgetUsd: null, objKey: null, estrategia: null, audiencias: [], placements: null, destino: {}, analisis: [], spec: null, uso: null };
   if (typeof window === 'undefined') return vacio;
   try {
     const raw = window.localStorage.getItem(DRAFT_KEY);
@@ -182,6 +182,8 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   const [estrategia, setEstrategia] = useState<Estrategia | null>(d0.estrategia);
   const obj = objKey ? OBJ_KEYS[objKey] : null;
   const [audiencias, setAudiencias] = useState<AudienceRef[]>(d0.audiencias);
+  // Ubicaciones: null = automáticas (Advantage+, incluye IG/Threads); array = publisher_platforms manuales.
+  const [placements, setPlacements] = useState<string[] | null>(d0.placements);
   const [destino, setDestino] = useState<Destino>(d0.destino);
   const [analisis, setAnalisis] = useState<Analisis>(d0.analisis);
   const [spec, setSpec] = useState<CampaignSpec | null>(d0.spec);
@@ -225,14 +227,14 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
   useEffect(() => {
     try {
       if (step === 'listo') return;
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, estrategia, audiencias, destino, analisis, spec, uso }));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, tray, budgetUsd, objKey, estrategia, audiencias, placements, destino, analisis, spec, uso }));
     } catch { /* quota */ }
-  }, [step, tray, budgetUsd, objKey, estrategia, audiencias, destino, analisis, spec, uso]);
+  }, [step, tray, budgetUsd, objKey, estrategia, audiencias, placements, destino, analisis, spec, uso]);
 
   const usables = () => tray.filter((t) => !t.processing && (t.image_hash || t.video_id || t.source_ad_id));
 
   // ── flujo / navegación ──
-  const flow: Step[] = ['creativos', 'inversion', 'objetivo', 'estrategia', ...(estrategia === 'retargeting' ? ['publico' as Step] : []), 'destino'];
+  const flow: Step[] = ['creativos', 'inversion', 'objetivo', 'estrategia', ...(estrategia === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino'];
   const idx = flow.indexOf(step);
   const puedeAvanzar = (): boolean => {
     switch (step) {
@@ -241,6 +243,7 @@ export function NuevaCampanaModal({ senales, campaignCount, onClose, onPublished
       case 'objetivo': return !!objKey;
       case 'estrategia': return !!estrategia;
       case 'publico': return audiencias.length > 0;
+      case 'ubicaciones': return placements === null || placements.length > 0;
       case 'destino':
         if (obj?.needsForm) return !!destino.lead_form_id;
         if (obj?.needsConv) return !!destino.url?.trim() && !!destino.conv?.pixel_id && !!(destino.conv?.pixel_event || destino.conv?.custom_conversion_id);
@@ -350,8 +353,13 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
     const targeting: Targeting = estrategia === 'retargeting'
       ? { geo_locations: { countries: ['MX'] }, custom_audiences: audiencias.map((x) => ({ id: x.id, name: x.name })), advantage_audience: 0 }
       : estrategia === 'intereses'
-        ? { geo_locations: { countries: ['MX'] }, advantage_audience: 0, flexible_spec: mako?.adsets?.[0]?.targeting?.flexible_spec }
+        // Si MaKo encontró intereses → afinamos (adv 0). Si no encontró ninguno, NO
+        // mandamos un público vacío con Advantage+ apagado (entrega peor): dejamos que
+        // Meta optimice el amplio (adv 1).
+        ? { geo_locations: { countries: ['MX'] }, advantage_audience: mako?.adsets?.[0]?.targeting?.flexible_spec?.some((g) => g.interests?.length) ? 0 : 1, flexible_spec: mako?.adsets?.[0]?.targeting?.flexible_spec }
         : { geo_locations: { countries: ['MX'] }, advantage_audience: 1 };
+    // Ubicaciones: null = automáticas (Advantage+, todas). Array = manuales.
+    if (placements && placements.length) targeting.publisher_platforms = placements;
     const ads: AdSpec[] = u.map((t, i) => {
       const cp = copies[i] ?? copies[0] ?? ({} as Creative);
       const creative: Creative = {
@@ -398,8 +406,9 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
   if (budgetUsd) resumen.push(`$${budgetUsd}/día`);
   if (objKey) resumen.push(OBJETIVO_UI.find((o) => o.value === objKey)?.label ?? '');
   if (estrategia) resumen.push(ESTRATEGIAS.find((e) => e.value === estrategia)?.label ?? '');
+  if (placements && placements.length) resumen.push(`Ubicaciones: ${placements.length}`);
 
-  const enWizard = step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'estrategia' || step === 'publico' || step === 'destino';
+  const enWizard = step === 'creativos' || step === 'inversion' || step === 'objetivo' || step === 'estrategia' || step === 'publico' || step === 'ubicaciones' || step === 'destino';
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
@@ -438,13 +447,19 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
 
           {step === 'estrategia' && (
             <Paso titulo="¿Qué querés hacer con estos creativos?" sub={analisisResumen(analisis)}>
-              <Opciones items={ESTRATEGIAS} value={estrategia} onPick={(v) => { setEstrategia(v as Estrategia); const f: Step[] = ['creativos', 'inversion', 'objetivo', 'estrategia', ...((v as Estrategia) === 'retargeting' ? ['publico' as Step] : []), 'destino']; setStep(f[f.indexOf('estrategia') + 1]); }} />
+              <Opciones items={ESTRATEGIAS} value={estrategia} onPick={(v) => { setEstrategia(v as Estrategia); const f: Step[] = ['creativos', 'inversion', 'objetivo', 'estrategia', ...((v as Estrategia) === 'retargeting' ? ['publico' as Step] : []), 'ubicaciones', 'destino']; setStep(f[f.indexOf('estrategia') + 1]); }} />
             </Paso>
           )}
 
           {step === 'publico' && (
             <Paso titulo="¿A qué público lo mostramos?" sub="Tus públicos personalizados (video viewers, visitantes, leads abiertos…). MaKo no los inventa.">
               <PublicoPicker audiencesAll={audiencesAll} audiencias={audiencias} setAudiencias={setAudiencias} onCrear={crearPublico} creando={creandoPublico} onRefresh={cargarPublicos} />
+            </Paso>
+          )}
+
+          {step === 'ubicaciones' && (
+            <Paso titulo="¿Dónde se muestra?" sub="Las automáticas (Advantage+) reparten en Facebook, Instagram y Threads donde mejor rinde. Es lo recomendado.">
+              <UbicacionesPicker placements={placements} setPlacements={setPlacements} />
             </Paso>
           )}
 
@@ -694,6 +709,50 @@ function PublicoPicker({ audiencesAll, audiencias, setAudiencias, onCrear, crean
   );
 }
 
+// ── ubicaciones (placements): automáticas (Advantage+, incluye IG/Threads) o manuales ──
+const PLACEMENT_OPCIONES = [
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'audience_network', label: 'Audience Network' },
+  { value: 'messenger', label: 'Messenger' },
+];
+function UbicacionesPicker({ placements, setPlacements }: { placements: string[] | null; setPlacements: (p: string[] | null) => void }) {
+  const auto = placements === null;
+  const sel = placements ?? [];
+  const toggle = (v: string) => setPlacements(sel.includes(v) ? sel.filter((x) => x !== v) : [...sel, v]);
+  const card = (on: boolean): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 14, width: '100%', textAlign: 'left', padding: '15px 17px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'rgba(200,135,12,.06)' : 'var(--surface)', cursor: 'pointer', transition: 'border-color .15s' });
+  const chip = (on: boolean): CSSProperties => ({ padding: '7px 14px', borderRadius: 999, border: `1px solid ${on ? 'var(--accent)' : 'var(--border-strong)'}`, background: on ? 'rgba(200,135,12,.08)' : 'var(--surface)', color: on ? '#9A6A09' : 'var(--dim)', fontFamily: SANS, fontSize: 13, cursor: 'pointer' });
+  return (
+    <div style={{ width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button type="button" onClick={() => setPlacements(null)} style={card(auto)}>
+          <span style={{ fontSize: 24, flex: 'none' }}>✨</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Automáticas (Advantage+)</span>
+            <span style={{ display: 'block', fontSize: 13, color: 'var(--dim)', marginTop: 1 }}>Meta reparte donde mejor rinde: Facebook, Instagram, <b>Threads</b>, Reels, Stories… Recomendado.</span>
+          </span>
+        </button>
+        <button type="button" onClick={() => setPlacements(sel.length ? sel : ['facebook', 'instagram'])} style={card(!auto)}>
+          <span style={{ fontSize: 24, flex: 'none' }}>🎛️</span>
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Elegir manualmente</span>
+            <span style={{ display: 'block', fontSize: 13, color: 'var(--dim)', marginTop: 1 }}>Vos decidís en qué plataformas se muestra.</span>
+          </span>
+        </button>
+      </div>
+      {!auto && (
+        <>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {PLACEMENT_OPCIONES.map((p) => { const on = sel.includes(p.value); return <button key={p.value} type="button" onClick={() => toggle(p.value)} style={chip(on)}>{on ? '✓ ' : ''}{p.label}</button>; })}
+          </div>
+          {sel.length === 0 && <span style={{ fontSize: 12, color: 'var(--warn)' }}>Elegí al menos una plataforma.</span>}
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', textAlign: 'center', lineHeight: 1.5 }}>Threads viaja con la identidad de Instagram: para incluirlo, conviene dejar <b>Automáticas</b>.</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── revisión minimalista — los textos se editan EN LÍNEA (tocás y escribís) ──
 function Revision({ spec, budgetUsd, tray, setSpec, err }: { spec: CampaignSpec; budgetUsd: number | null; tray: TrayItem[]; setSpec: (s: CampaignSpec) => void; err: string | null }) {
   const opt = spec.adsets[0]?.optimization_goal;
@@ -783,9 +842,21 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
     return { ...d, conv: { pixel_id: d.conv?.pixel_id, pixel_event: v, label: labelDeEnum(v) } };
   });
   const detectados = !!pixelEvents && pixelEvents.length > 0;
-  const activos = (pixelEvents ?? []).map((n) => STD_EVENTS[n]).filter((s): s is { enum: string; label: string } => !!s).map((s) => ({ value: s.enum, label: s.label, sub: '✓ Activo en tu pixel' }));
+  // ENUMs de Meta que el pixel recibió de verdad (mapeados desde el nombre del evento).
+  const activosSet = new Set((pixelEvents ?? []).map((n) => STD_EVENTS[n]?.enum).filter((e): e is string => !!e));
   const custom = (convs ?? []).map((c) => ({ value: `cc:${c.id}`, label: `Tu conversión: ${c.name}`, sub: 'Conversión que ya medís' }));
-  const eventOpts = detectados ? [...activos, ...custom] : [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verificá que esté activo' })), ...custom];
+  // Con detección: mostramos TODOS los eventos estándar como Meta (Active vs Inactive).
+  // Activos arriba y habilitados; inactivos abajo, en gris y DESHABILITADOS (Dropdown
+  // ya soporta `disabled`), para que el usuario VEA por qué no son opción y no elija
+  // uno muerto. Sin detección: todos seleccionables con la advertencia.
+  let eventOpts: Array<{ value: string; label: string; sub?: string; disabled?: boolean }>;
+  if (detectados) {
+    const activos = EVENTOS_CONV.filter((e) => activosSet.has(e.value)).map((e) => ({ value: e.value, label: e.label, sub: '✓ Activo en tu pixel' }));
+    const inactivos = EVENTOS_CONV.filter((e) => !activosSet.has(e.value)).map((e) => ({ value: e.value, label: e.label, sub: 'Inactivo — sin datos en 30 días', disabled: true }));
+    eventOpts = [...activos, ...custom, ...inactivos];
+  } else {
+    eventOpts = [...EVENTOS_CONV.map((e) => ({ value: e.value, label: e.label, sub: 'Verificá que esté activo' })), ...custom];
+  }
   const eventValue = destino.conv?.custom_conversion_id ? `cc:${destino.conv.custom_conversion_id}` : (destino.conv?.pixel_event ?? '');
   const sinPixeles = pixels !== null && pixels.length === 0;
   const nota = !pixelId
@@ -793,7 +864,7 @@ function ConversionPicker({ pixels, convs, pixelEvents, destino, setDestino }: {
     : pixelEvents === null
       ? <>Buscando los eventos <b>activos</b> de tu pixel…</>
       : detectados
-        ? <>Estos son los eventos <b>activos</b> de tu pixel (los que recibe de verdad) + tus conversiones. <b>No elijas eventos inactivos</b>: Meta no podría optimizar.</>
+        ? <>Los <b>activos</b> (✓) son los que tu pixel recibió en los últimos 30 días. Los <b>inactivos</b> van en gris y no se pueden elegir: Meta no podría optimizar por ellos.</>
         : <>No pudimos detectar los eventos activos. Elegí tu <b>conversión</b> (las que ya medís) o un evento estándar que sepas <b>activo</b> en tu pixel.</>;
   return (
     <>

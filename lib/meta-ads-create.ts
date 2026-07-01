@@ -186,7 +186,12 @@ export function buildObjectStorySpec(c: Creative): Record<string, unknown> {
     const video_data: Record<string, unknown> = { video_id: c.video_id, message: c.primary_text ?? '' };
     if (c.headline) video_data.title = c.headline;
     if (c.description) video_data.link_description = c.description;
-    if (c.thumbnail_url) video_data.image_url = c.thumbnail_url;
+    // image_url SOLO si es una URL http(s) descargable por Meta. Las miniaturas
+    // locales (data:image/… que genera makeThumb por canvas en el cliente) NO se
+    // pueden descargar → causan #3858258 ("No se descargó la imagen"), que Threads
+    // valida más estricto. Si no hay URL válida, la omitimos y Meta genera la
+    // miniatura del video automáticamente (válida en TODAS las ubicaciones).
+    if (c.thumbnail_url && /^https?:\/\//i.test(c.thumbnail_url)) video_data.image_url = c.thumbnail_url;
     if (hasLeadForm) {
       video_data.call_to_action = { type: ctaType ?? 'SIGN_UP', value: { lead_gen_form_id: c.lead_form_id, link: c.destination_url || undefined } };
     } else if (c.destination_url) {
@@ -253,25 +258,43 @@ export async function listCustomAudiences(): Promise<Array<{ id: string; name: s
 
 export type AudienceTipo = 'page' | 'ig' | 'video' | 'pixel';
 
-/** id de la cuenta de Instagram conectada (para públicos de IG). null si no hay. */
-async function getInstagramActorId(): Promise<string | null> {
+/** id de la cuenta de Instagram conectada (públicos de IG + actor del creativo para
+ * que el anuncio corra en IG/Threads). null si no hay. Memoizado por proceso. */
+let _igActorId: string | null | undefined; // undefined = sin resolver; null = no hay IG (confirmado)
+export async function getInstagramActorId(): Promise<string | null> {
+  if (_igActorId !== undefined) return _igActorId;
+  try {
+    _igActorId = await resolveInstagramActorId(); // string (hay IG) | null (Meta respondió: no hay)
+    if (_igActorId == null) console.warn('[meta-ads] sin cuenta de Instagram conectada a la página → los anuncios solo correrán en Facebook.');
+    return _igActorId;
+  } catch {
+    // Fallo transitorio (red/timeout): NO lo cacheamos como "no hay IG" — se reintenta
+    // la próxima vez. Cachear null acá apagaría IG/Threads para todo el proceso.
+    return null;
+  }
+}
+async function resolveInstagramActorId(): Promise<string | null> {
+  let reached = false; // ¿pudimos consultar a Meta al menos una vez?
   try {
     const url = new URL(`${GRAPH_BASE}/${ver()}/${META_PAGE_ID}`);
     url.searchParams.set('fields', 'instagram_business_account{id}');
     url.searchParams.set('access_token', token());
     const data = await graphGet(url.toString());
+    reached = true;
     const iba = data.instagram_business_account as { id?: string } | undefined;
     if (iba?.id) return String(iba.id);
-  } catch { /* sigue */ }
+  } catch { /* sigue: probamos el fallback */ }
   try {
     const url = new URL(`${GRAPH_BASE}/${ver()}/${acct()}/instagram_accounts`);
     url.searchParams.set('fields', 'id');
     url.searchParams.set('access_token', token());
     const data = await graphGet(url.toString());
+    reached = true;
     const arr = Array.isArray(data.data) ? (data.data as Array<{ id?: string }>) : [];
     if (arr[0]?.id) return String(arr[0].id);
   } catch { /* sigue */ }
-  return null;
+  if (!reached) throw new MetaWriteError('No se pudo consultar la cuenta de Instagram (fallo transitorio).');
+  return null; // Meta respondió pero no hay IG conectado
 }
 
 /**
@@ -344,36 +367,57 @@ export async function listCustomConversions(): Promise<Array<{ id: string; name:
 /**
  * Eventos ACTIVOS de un pixel = los que recibió recientemente (Meta los muestra
  * como "Active events"). CRÍTICO: optimizar por un evento INACTIVO arruina la
- * entrega. Lee {pixel_id}/stats?aggregation=event y junta los nombres de evento
- * con datos. Best-effort: si el endpoint no responde, devuelve [] y la UI cae al
- * listado estándar con una advertencia.
+ * entrega. Lee {pixel_id}/stats?aggregation=event en una ventana de ~30 días (SIN
+ * ventana de tiempo Meta devuelve vacío) y junta los nombres de evento con count>0.
+ * Robusto a TODAS las formas que devuelve la Graph API:
+ *   - data[].data[]  → [{ value: "Lead", count: 123 }, ...]   (forma real anidada)
+ *   - data[].value objeto → { "Lead": 123, "PageView": 999 }
+ *   - data[].value array  → [{ value: "Lead", count: 123 }, ...]
+ *   - data[].value string → "Lead" (+ data[].count)
+ * Best-effort: si el endpoint no responde, devuelve [] y la UI cae al listado
+ * estándar con una advertencia.
  */
 export async function listPixelEvents(pixelId: string): Promise<string[]> {
   if (!pixelId) return [];
+  // Ventana de ~30 días (en SEGUNDOS unix, como pide la Graph API). Es código de
+  // servidor Node, así que Date.now() es seguro.
+  const nowSec = Math.floor(Date.now() / 1000);
+  const startSec = nowSec - 30 * 24 * 60 * 60;
   const url = new URL(`${GRAPH_BASE}/${ver()}/${pixelId}/stats`);
   url.searchParams.set('aggregation', 'event');
+  url.searchParams.set('start_time', String(startSec));
+  url.searchParams.set('end_time', String(nowSec));
   url.searchParams.set('access_token', token());
+
   let data: Record<string, unknown>;
   try { data = await graphGet(url.toString()); } catch { return []; }
+
   const out = new Set<string>();
   const add = (name: unknown, count?: unknown) => {
     const n = String(name ?? '').trim();
     if (!n) return;
-    if (count !== undefined && count !== null && Number(count) <= 0) return;
+    // Solo descartamos cuando HAY un conteo explícito <= 0; sin conteo, lo incluimos.
+    if (count !== undefined && count !== null && count !== '' && Number(count) <= 0) return;
     out.add(n);
   };
+  const ingestEntries = (obj: Record<string, unknown>) => { for (const [k, c] of Object.entries(obj)) add(k, c); };
+  const ingestArray = (arr: unknown[]) => {
+    for (const e of arr) {
+      if (e && typeof e === 'object' && !Array.isArray(e)) {
+        const o = e as Record<string, unknown>;
+        add(o.value ?? o.event ?? o.name, o.count); // {value|event|name, count}
+      }
+    }
+  };
+
   const rows = Array.isArray(data.data) ? (data.data as Array<Record<string, unknown>>) : [];
   for (const row of rows) {
+    // FORMA REAL: cada bucket de tiempo trae su desglose por evento en row.data[].
+    if (Array.isArray(row.data)) ingestArray(row.data as unknown[]);
     const v = row.value;
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
-      // forma { "Lead": 123, "PageView": 999 }
-      for (const [k, c] of Object.entries(v as Record<string, unknown>)) add(k, c);
-    } else if (Array.isArray(v)) {
-      // forma [{ value: "Lead", count: 123 }, ...]
-      for (const e of v) { if (e && typeof e === 'object') add((e as Record<string, unknown>).value, (e as Record<string, unknown>).count); }
-    } else if (typeof v === 'string') {
-      add(v, row.count);
-    }
+    if (v && typeof v === 'object' && !Array.isArray(v)) ingestEntries(v as Record<string, unknown>);
+    else if (Array.isArray(v)) ingestArray(v as unknown[]);
+    else if (typeof v === 'string') add(v, row.count);
   }
   return [...out];
 }
@@ -512,7 +556,11 @@ export async function createAdCreative(creative: Creative, adName: string): Prom
     return String(data.id);
   }
   const oss = buildObjectStorySpec(creative);
-  const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_spec: JSON.stringify(oss), url_tags: UTM_TAGS });
+  // Adjuntamos la cuenta de Instagram conectada → el anuncio corre en IG/Threads.
+  // Sin esto Meta solo entrega en Facebook y bloquea la publicación pidiendo IG.
+  // graphPost ignora los valores undefined, así que si no hay IG no rompe nada.
+  const igId = await getInstagramActorId();
+  const data = await graphPost(`${acct()}/adcreatives`, { name: `${adName} — creativo`, object_story_spec: JSON.stringify(oss), instagram_user_id: igId ?? undefined, url_tags: UTM_TAGS });
   return String(data.id);
 }
 
@@ -557,7 +605,9 @@ export async function generatePreviews(creative: Creative, adFormats: string[]):
     if (!storyId) throw new MetaWriteError('El anuncio ganador no tiene un post reutilizable para previsualizar.');
     creativeParam = JSON.stringify({ object_story_id: storyId });
   } else {
-    creativeParam = JSON.stringify({ object_story_spec: buildObjectStorySpec(creative) });
+    // Mismo IG actor que al crear → la previa de Instagram/Threads se renderiza.
+    const igId = await getInstagramActorId();
+    creativeParam = JSON.stringify({ object_story_spec: buildObjectStorySpec(creative), ...(igId ? { instagram_user_id: igId } : {}) });
   }
   const out: Array<{ ad_format: string; body: string }> = [];
   for (const f of adFormats) {

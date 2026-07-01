@@ -141,11 +141,15 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const [recosOpen, setRecosOpen] = useState(false);
   const [nuevaOpen, setNuevaOpen] = useState(false);
 
-  const cargar = () => {
-    setLoading(true); setError(null);
-    fetch('/api/meta-health').then((r) => r.json())
-      .then((j) => { if (j.error) setError(j.error); else setHealth(j); })
-      .catch((e) => setError(String(e))).finally(() => setLoading(false));
+  const cargar = (silent = false) => {
+    if (!silent) setLoading(true);
+    setError(null);
+    fetch('/api/meta-health', { cache: 'no-store' }).then((r) => r.json())
+      // Datos frescos de Meta = autoridad: soltamos los overrides optimistas para que
+      // el effectiveStatus real (ACTIVE / CAMPAIGN_PAUSED / IN_REVIEW / DISAPPROVED…)
+      // reemplace a lo que pintamos al vuelo y la columna "entrega" no mienta.
+      .then((j) => { if (j.error) setError(j.error); else { setHealth(j); setOptimistic(new Map()); } })
+      .catch((e) => setError(String(e))).finally(() => { if (!silent) setLoading(false); });
   };
   useEffect(() => { cargar(); }, []);
   // al cambiar de sub-tab: recargar columnas y resetear orden/edición.
@@ -254,15 +258,51 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       ? `Meta bloqueó la escritura (permiso 4841013). El token ya es System User con ads_management y rol MANAGE; el bloqueo restante suele ser la 2FA obligatoria de la empresa (el admin que controla el system user debe tener 2FA activada) y/o la cuenta restringida por pago. Detalle: ${j.message ?? ''}`
       : `Meta rechazó el cambio: ${j.message ?? 'error'}`;
 
-  async function writeStatus(lvl: Level, id: string, next: 'ACTIVE' | 'PAUSED') {
+  // Ids a ACTIVAR en cascada: el subárbol (hijos) + los ancestros, para que el árbol
+  // COMPLETO entregue. Activar SOLO la campaña deja adsets/ads con su status propio en
+  // PAUSED → la campaña no entrega. Toda la jerarquía ya está en `health` (con parentId).
+  function statusCascadeIds(lvl: Level, id: string): string[] {
+    if (!health) return [id];
+    const ids = new Set<string>([id]);
+    if (lvl === 'campaign') {
+      const adsetIds = new Set<string>();
+      for (const a of health.adsets) if (a.parentId === id) { ids.add(a.id); adsetIds.add(a.id); }
+      for (const ad of health.ads) if (ad.parentId && adsetIds.has(ad.parentId)) ids.add(ad.id);
+    } else if (lvl === 'adset') {
+      const campId = adsetCampId(id);
+      if (campId) ids.add(campId);
+      for (const ad of health.ads) if (ad.parentId === id) ids.add(ad.id);
+    } else {
+      const ad = health.ads.find((x) => x.id === id);
+      const adsetId = ad?.parentId ?? null;
+      if (adsetId) { ids.add(adsetId); const campId = adsetCampId(adsetId); if (campId) ids.add(campId); }
+    }
+    return [...ids];
+  }
+  const levelOf = (id: string): Level => (campaignsById.has(id) ? 'campaign' : adsetsById.has(id) ? 'adset' : 'ad');
+
+  // POST de status de UN id (optimistic + revert). Devuelve ok/mensaje; no togglea selección.
+  async function writeOneStatus(lvl: Level, id: string, next: 'ACTIVE' | 'PAUSED'): Promise<{ ok: boolean; msg?: string }> {
     setWriting((w) => new Set(w).add(id));
     setOpt(id, { status: next });
     try {
       const r = await fetch('/api/meta-write', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ level: lvl, id, op: 'status', status: next }) });
       const j = await r.json();
-      if (!j.ok) { clearOpt(id, 'status'); setToast(permMsg(j)); }
-    } catch (e) { clearOpt(id, 'status'); setToast(`Error de red: ${String(e)}`); }
+      if (!j.ok) { clearOpt(id, 'status'); return { ok: false, msg: permMsg(j) }; }
+      return { ok: true };
+    } catch (e) { clearOpt(id, 'status'); return { ok: false, msg: `Error de red: ${String(e)}` }; }
     finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
+  }
+
+  async function writeStatus(lvl: Level, id: string, next: 'ACTIVE' | 'PAUSED') {
+    // PAUSAR: una sola entidad. Pausar la raíz en Meta ya frena la entrega de todo el
+    // subárbol (los hijos pasan a CAMPAIGN_PAUSED/ADSET_PAUSED solos), así que basta 1 call.
+    if (next === 'PAUSED') { const r = await writeOneStatus(lvl, id, 'PAUSED'); if (!r.ok) setToast(r.msg ?? 'Meta rechazó el cambio'); cargar(true); return; }
+    // ACTIVAR: cascada a padres + hijos para que el árbol completo entregue.
+    const results = await Promise.allSettled(statusCascadeIds(lvl, id).map((cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE')));
+    const fail = results.find((res): res is PromiseFulfilledResult<{ ok: boolean; msg?: string }> => res.status === 'fulfilled' && !res.value.ok);
+    if (fail) setToast(fail.value.msg ?? 'Meta rechazó activar parte del árbol');
+    cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   }
   async function writeBudget(lvl: Level, id: string, mxn: number) {
     setEditingBudgetId(null);
@@ -276,8 +316,15 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     finally { setWriting((w) => { const n = new Set(w); n.delete(id); return n; }); }
   }
   const bulkStatus = async (next: 'ACTIVE' | 'PAUSED') => {
-    const ids = [...selSet];
-    await Promise.allSettled(ids.map((id) => writeStatus(level, id, next)));
+    const seeds = [...selSet];
+    if (next === 'PAUSED') { await Promise.allSettled(seeds.map((id) => writeOneStatus(level, id, 'PAUSED'))); cargar(true); return; }
+    // ACTIVAR en lote: unir los subárboles de todo lo seleccionado y postear cada id 1 vez.
+    const all = new Set<string>();
+    for (const id of seeds) for (const cid of statusCascadeIds(level, id)) all.add(cid);
+    const results = await Promise.allSettled([...all].map((cid) => writeOneStatus(levelOf(cid), cid, 'ACTIVE')));
+    const fail = results.find((res): res is PromiseFulfilledResult<{ ok: boolean; msg?: string }> => res.status === 'fulfilled' && !res.value.ok);
+    if (fail) setToast(fail.value.msg ?? 'Meta rechazó activar parte del árbol');
+    cargar(true); // reconciliar con el estado EFECTIVO real de Meta (sin spinner)
   };
   // Eliminar (solo PAUSADAS, con confirmación). Borrar campaña cascadea conjuntos/anuncios.
   const bulkDelete = async () => {
@@ -390,7 +437,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
         {(selCamp.size > 0 || selAdset.size > 0) && (
           <button type="button" onClick={() => { setSelCamp(new Set()); setSelAdset(new Set()); setSelAd(new Set()); }} style={{ fontSize: 13, color: 'var(--dim)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>✕ Limpiar selección</button>
         )}
-        <button type="button" onClick={cargar} style={{ marginLeft: 'auto', padding: '9px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>↻ Actualizar estado</button>
+        <button type="button" onClick={() => cargar()} style={{ marginLeft: 'auto', padding: '9px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer' }}>↻ Actualizar estado</button>
       </div>
 
       {loading && <div style={{ fontSize: 14, color: 'var(--faint)', padding: '20px 4px' }}>Cargando estado de Meta…</div>}
