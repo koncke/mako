@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
-import { GENEROS, type Targeting, type AudienceRef } from '@/lib/campaign-types';
+import { GENEROS, type AudienceRef } from '@/lib/campaign-types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -24,7 +24,7 @@ const PLACEMENTS = [{ value: 'facebook', label: 'Facebook' }, { value: 'instagra
 type AudItem = AudienceRef & { count?: number | null };
 
 export function EditarPublicoModal({ adsetId, adsetName, onClose, onSaved }: { adsetId: string; adsetName: string; onClose: () => void; onSaved: () => void }) {
-  const [base, setBase] = useState<Targeting | null>(null);
+  const [base, setBase] = useState<Record<string, unknown> | null>(null); // targeting CRUDO de Meta
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [audiencesAll, setAudiencesAll] = useState<AudItem[] | null>(null);
   // estados editables
@@ -43,12 +43,14 @@ export function EditarPublicoModal({ adsetId, adsetName, onClose, onSaved }: { a
       .then((j) => {
         if (cancel) return;
         if (!j.ok) { setLoadErr(j.error || 'No se pudo cargar el conjunto'); return; }
-        const t = j.adset.targeting as Targeting; setBase(t);
-        setAdvantage(t.advantage_audience === 1 ? 1 : 0);
-        setAuds(t.custom_audiences ?? []);
-        setPlacements(t.publisher_platforms?.length ? t.publisher_platforms : null);
-        const g = GENEROS.find((x) => JSON.stringify(x.genders) === JSON.stringify(t.genders ?? [])); setGenero(g?.value ?? 'all');
-        setAgeMin(t.age_min ?? null); setAgeMax(t.age_max ?? null);
+        const t = (j.adset.targeting ?? {}) as Record<string, unknown>; setBase(t);
+        const ta = t.targeting_automation as { advantage_audience?: unknown } | undefined;
+        setAdvantage(Number(ta?.advantage_audience) === 1 ? 1 : 0);
+        setAuds(Array.isArray(t.custom_audiences) ? (t.custom_audiences as Array<{ id?: unknown }>).map((a) => ({ id: String(a.id) })) : []);
+        setPlacements(Array.isArray(t.publisher_platforms) && t.publisher_platforms.length ? (t.publisher_platforms as unknown[]).map(String) : null);
+        const genders = Array.isArray(t.genders) ? (t.genders as unknown[]).map(Number) : [];
+        const g = GENEROS.find((x) => JSON.stringify(x.genders) === JSON.stringify(genders)); setGenero(g?.value ?? 'all');
+        setAgeMin(t.age_min != null ? Number(t.age_min) : null); setAgeMax(t.age_max != null ? Number(t.age_max) : null);
       })
       .catch((e) => { if (!cancel) setLoadErr(String(e)); });
     return () => { cancel = true; };
@@ -62,17 +64,24 @@ export function EditarPublicoModal({ adsetId, adsetName, onClose, onSaved }: { a
   const guardar = async () => {
     if (!base) return;
     setSaving(true); setErr(null);
+    // Superponemos SOLO lo editado sobre el targeting crudo (geo por ciudad, idioma,
+    // behaviors, exclusiones… quedan intactos porque no los tocamos).
+    const t: Record<string, unknown> = { ...base };
     const genders = GENEROS.find((x) => x.value === genero)?.genders ?? [];
-    // Preservamos geo + intereses + exclusiones; pisamos lo editado.
-    const targeting: Targeting = {
-      ...base,
-      genders: genders.length ? genders : undefined,
-      age_min: ageMin ?? undefined,
-      age_max: ageMax ?? undefined,
-      custom_audiences: auds.length ? auds.map((a) => ({ id: a.id })) : undefined,
-      publisher_platforms: placements && placements.length ? placements : undefined,
-      advantage_audience: advantage,
-    };
+    if (genders.length) t.genders = genders; else delete t.genders;
+    if (ageMin != null) t.age_min = ageMin; else delete t.age_min;
+    if (ageMax != null) t.age_max = ageMax; else delete t.age_max;
+    if (auds.length) t.custom_audiences = auds.map((a) => ({ id: a.id })); else delete t.custom_audiences;
+    // Ubicaciones: coherencia con positions (Meta rechaza positions sin su plataforma).
+    if (placements && placements.length) {
+      t.publisher_platforms = placements;
+      if (!placements.includes('facebook')) delete t.facebook_positions;
+      if (!placements.includes('instagram')) delete t.instagram_positions;
+    } else { delete t.publisher_platforms; delete t.facebook_positions; delete t.instagram_positions; }
+    // Advantage+: si es 0 pero no hay señal fina, forzamos 1 (Meta rechaza 0 sin criterios).
+    const hasFine = !!(t.age_min || t.age_max || (Array.isArray(t.genders) && t.genders.length) || (Array.isArray(t.custom_audiences) && t.custom_audiences.length) || (Array.isArray(t.flexible_spec) && (t.flexible_spec as unknown[]).length));
+    t.targeting_automation = { ...(base.targeting_automation as Record<string, unknown> ?? {}), advantage_audience: advantage === 0 && !hasFine ? 1 : advantage };
+    const targeting = t;
     try {
       const r = await fetch('/api/ads-manager/adset-targeting', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adset_id: adsetId, targeting }) });
       const j = await r.json();

@@ -35,6 +35,18 @@ const AgregarAnuncioModal = dynamic(() => import('./AgregarAnuncioModal').then((
 const AgregarConjuntoModal = dynamic(() => import('./AgregarConjuntoModal').then((m) => m.AgregarConjuntoModal), { ssr: false });
 
 const pad = (n: number, w: number): string => String(Math.max(0, Math.floor(n))).padStart(w, '0');
+const letraANum = (s: string): number => { let n = 0; for (const ch of s.toLowerCase()) n = n * 26 + (ch.charCodeAt(0) - 96); return n; };
+// Siguiente sufijo de nomenclatura a partir del MÁXIMO hijo existente (no del conteo),
+// para no colisionar/saltear tras borrar un hijo.
+const nextSuffix = (kids: Array<{ name: string }>, kind: 'letra' | 'num'): number => {
+  let max = 0;
+  for (const k of kids) {
+    const seg = k.name.split(/\s+/)[0].split('.').pop() ?? '';
+    if (kind === 'letra') { if (/^[a-z]+$/i.test(seg)) max = Math.max(max, letraANum(seg)); }
+    else if (/^\d+$/.test(seg)) max = Math.max(max, Number(seg));
+  }
+  return max + 1;
+};
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -411,16 +423,16 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   const rowActionsFor = (r: Row): Array<{ label: string; title: string; onClick: () => void }> => {
     if (r.level === 'ad') return [{ label: 'Aa textos', title: 'Editar textos del anuncio', onClick: () => setEditCopyAd({ id: r.node.id, name: nameOf(r.node) }) }];
     if (r.level === 'adset') {
-      const adsetCode = nameOf(r.node).split(/\s+/)[0];
-      const n = (health?.ads ?? []).filter((a) => a.parentId === r.node.id).length;
+      const adsetCode = nameOf(r.node).split(/\s+/)[0] || (nameOf(r.node).match(/^\d+/)?.[0] ?? '000');
+      const kids = (health?.ads ?? []).filter((a) => a.parentId === r.node.id);
       return [
-        { label: '+ anuncio', title: 'Agregar un anuncio a este conjunto', onClick: () => setAddAnuncioAdset({ id: r.node.id, name: `${adsetCode}.${letra(n + 1)} Anuncio` }) },
+        { label: '+ anuncio', title: 'Agregar un anuncio a este conjunto', onClick: () => setAddAnuncioAdset({ id: r.node.id, name: `${adsetCode}.${letra(nextSuffix(kids, 'letra'))} Anuncio` }) },
         { label: '👥 público', title: 'Editar el público de este conjunto', onClick: () => setEditPublicoAdset({ id: r.node.id, name: nameOf(r.node) }) },
       ];
     }
     const campCode = nameOf(r.node).match(/^\d+/)?.[0] ?? '000';
-    const m = (health?.adsets ?? []).filter((a) => a.parentId === r.node.id).length;
-    return [{ label: '+ conjunto', title: 'Agregar un conjunto a esta campaña', onClick: () => setAddConjuntoCamp({ id: r.node.id, name: `${campCode}.${pad(m + 1, 2)} Conjunto` }) }];
+    const kids = (health?.adsets ?? []).filter((a) => a.parentId === r.node.id);
+    return [{ label: '+ conjunto', title: 'Agregar un conjunto a esta campaña', onClick: () => setAddConjuntoCamp({ id: r.node.id, name: `${campCode}.${pad(nextSuffix(kids, 'num'), 2)} Conjunto` }) }];
   };
 
   // columnas visibles para la tab actual
@@ -583,7 +595,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       {renameOpen && <RenameModal level={level} entities={renameEntities} onClose={() => setRenameOpen(false)} onApply={bulkRename} />}
       {nuevaOpen && <NuevaCampanaModal senales={senales} campaignCount={health?.campaigns.length ?? 0} onClose={() => setNuevaOpen(false)} onPublished={cargar} />}
       {editCopyAd && <EditarTextosModal adId={editCopyAd.id} adName={editCopyAd.name} onClose={() => setEditCopyAd(null)} onSaved={() => { setEditCopyAd(null); setToast('Textos actualizados. Meta va a revisar el anuncio de nuevo.'); cargar(true); }} />}
-      {problemaSel && <ProblemaModal titulo={problemaSel.titulo} ads={problemaSel.ads} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
+      {problemaSel && <ProblemaModal ads={problemaSel.ads} onClose={() => setProblemaSel(null)} onEditAd={(id, name) => { setProblemaSel(null); setEditCopyAd({ id, name }); }} />}
       {editPublicoAdset && <EditarPublicoModal adsetId={editPublicoAdset.id} adsetName={editPublicoAdset.name} onClose={() => setEditPublicoAdset(null)} onSaved={() => { setEditPublicoAdset(null); setToast('Público actualizado. Meta va a revisar el conjunto.'); cargar(true); }} />}
       {addAnuncioAdset && <AgregarAnuncioModal adsetId={addAnuncioAdset.id} defaultName={addAnuncioAdset.name} senales={senales} onClose={() => setAddAnuncioAdset(null)} onSaved={() => { setAddAnuncioAdset(null); setToast('Anuncio agregado en pausa.'); cargar(); }} />}
       {addConjuntoCamp && <AgregarConjuntoModal campaignId={addConjuntoCamp.id} defaultAdsetName={addConjuntoCamp.name} senales={senales} onClose={() => setAddConjuntoCamp(null)} onSaved={() => { setAddConjuntoCamp(null); setToast('Conjunto agregado en pausa.'); cargar(); }} />}
@@ -746,7 +758,7 @@ function Pill({ semaforo, label, onClick }: { semaforo: Semaforo; label: string;
 }
 
 // ── modal: por qué "Con problemas" (en español) + arreglar desde ahí ──
-function ProblemaModal({ titulo, ads, onClose, onEditAd }: { titulo: string; ads: ProblemAd[]; onClose: () => void; onEditAd: (id: string, name: string) => void }) {
+function ProblemaModal({ ads, onClose, onEditAd }: { ads: ProblemAd[]; onClose: () => void; onEditAd: (id: string, name: string) => void }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 84, background: 'rgba(23,21,17,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(23,21,17,.4)', overflow: 'hidden' }}>

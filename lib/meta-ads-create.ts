@@ -753,42 +753,22 @@ export async function deleteEntity(id: string): Promise<void> {
 // Editar el PÚBLICO (targeting) de un conjunto existente
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Meta targeting → nuestro Targeting (para prellenar el editor y preservar lo que
-// el usuario NO toca: geo, intereses, edad… se leen y se re-envían intactos).
-function parseMetaTargeting(t: Record<string, unknown>): Targeting {
-  const out: Targeting = {};
-  const geo = t.geo_locations as { countries?: string[] } | undefined;
-  if (geo?.countries?.length) out.geo_locations = { countries: geo.countries.map(String) };
-  if (t.age_min) out.age_min = Number(t.age_min);
-  if (t.age_max) out.age_max = Number(t.age_max);
-  if (Array.isArray(t.genders)) out.genders = (t.genders as unknown[]).map(Number);
-  if (Array.isArray(t.flexible_spec)) {
-    out.flexible_spec = (t.flexible_spec as Array<Record<string, unknown>>).map((g) => ({
-      interests: Array.isArray(g.interests) ? (g.interests as Array<{ id?: unknown; name?: unknown }>).map((i) => ({ id: String(i.id), name: String(i.name ?? '') })) : [],
-    })).filter((g) => g.interests.length);
-  }
-  if (Array.isArray(t.custom_audiences)) out.custom_audiences = (t.custom_audiences as Array<{ id?: unknown }>).map((a) => ({ id: String(a.id) }));
-  if (Array.isArray(t.excluded_custom_audiences)) out.excluded_custom_audiences = (t.excluded_custom_audiences as Array<{ id?: unknown }>).map((a) => ({ id: String(a.id) }));
-  if (Array.isArray(t.publisher_platforms)) out.publisher_platforms = (t.publisher_platforms as unknown[]).map(String);
-  if (Array.isArray(t.facebook_positions)) out.facebook_positions = (t.facebook_positions as unknown[]).map(String);
-  if (Array.isArray(t.instagram_positions)) out.instagram_positions = (t.instagram_positions as unknown[]).map(String);
-  const ta = t.targeting_automation as { advantage_audience?: unknown } | undefined;
-  if (ta?.advantage_audience != null) out.advantage_audience = Number(ta.advantage_audience) ? 1 : 0;
-  return out;
-}
-
-export async function getAdsetTargeting(adsetId: string): Promise<{ name: string; optimization_goal: string; targeting: Targeting }> {
+// CRÍTICO: el POST /{adset_id} con `targeting` REEMPLAZA el objeto entero (no hace
+// merge). Por eso devolvemos el targeting CRUDO de Meta y el editor superpone solo lo
+// que el usuario toca; así NO se pierde nada que el editor no maneje (geo por ciudad/
+// región, idioma/locales, behaviors/demographics, exclusiones, etc.).
+export async function getAdsetTargeting(adsetId: string): Promise<{ name: string; optimization_goal: string; targeting: Record<string, unknown> }> {
   const url = new URL(`${GRAPH_BASE}/${ver()}/${adsetId}`);
   url.searchParams.set('fields', 'name,optimization_goal,targeting');
   url.searchParams.set('access_token', token());
   const data = await graphGet(url.toString());
-  const t = (data.targeting ?? {}) as Record<string, unknown>;
-  return { name: String(data.name ?? ''), optimization_goal: String(data.optimization_goal ?? ''), targeting: parseMetaTargeting(t) };
+  return { name: String(data.name ?? ''), optimization_goal: String(data.optimization_goal ?? ''), targeting: (data.targeting ?? {}) as Record<string, unknown> };
 }
 
-/** Actualiza la segmentación del conjunto (POST /{adset_id} targeting=…). */
-export async function updateAdsetTargeting(adsetId: string, targeting: Targeting): Promise<void> {
-  await graphPost(adsetId, { targeting: JSON.stringify(buildTargeting(targeting)) });
+/** Actualiza la segmentación del conjunto. Recibe el objeto de targeting COMPLETO
+ * (crudo de Meta con los cambios superpuestos) y lo re-envía tal cual. */
+export async function updateAdsetTargeting(adsetId: string, targeting: Record<string, unknown>): Promise<void> {
+  await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -821,26 +801,27 @@ export async function getCampaignBasics(campaignId: string): Promise<{ name: str
   url.searchParams.set('access_token', token());
   const data = await graphGet(url.toString());
   const objective = String(data.objective ?? 'OUTCOME_LEADS') as Objective;
-  const optimization = objetivoDef(objective).optimization_goal;
   const hasCampBudget = data.daily_budget != null || data.lifetime_budget != null;
-  const needsConv = optimization === 'OFFSITE_CONVERSIONS';
+  // La optimización REAL sale de un conjunto existente (no del default del objetivo):
+  // una campaña OUTCOME_LEADS puede optimizar por conversión web (OFFSITE_CONVERSIONS),
+  // no por formulario. De paso heredamos la conversión (promoted_object).
+  let optimization = objetivoDef(objective).optimization_goal;
   let conversion: AdSetSpec['conversion'];
-  if (needsConv) {
-    try {
-      const u = new URL(`${GRAPH_BASE}/${ver()}/${campaignId}/adsets`);
-      u.searchParams.set('fields', 'promoted_object'); u.searchParams.set('limit', '10'); u.searchParams.set('access_token', token());
-      const d = await graphGet(u.toString());
-      const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
-      for (const a of arr) {
-        const po = a.promoted_object as Record<string, unknown> | undefined;
-        if (po && (po.custom_conversion_id || po.pixel_id)) {
-          conversion = { pixel_id: po.pixel_id ? String(po.pixel_id) : undefined, pixel_event: po.custom_event_type ? String(po.custom_event_type) : undefined, custom_conversion_id: po.custom_conversion_id ? String(po.custom_conversion_id) : undefined };
-          break;
-        }
+  try {
+    const u = new URL(`${GRAPH_BASE}/${ver()}/${campaignId}/adsets`);
+    u.searchParams.set('fields', 'optimization_goal,promoted_object'); u.searchParams.set('limit', '10'); u.searchParams.set('access_token', token());
+    const d = await graphGet(u.toString());
+    const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
+    if (arr[0]?.optimization_goal) optimization = String(arr[0].optimization_goal);
+    for (const a of arr) {
+      const po = a.promoted_object as Record<string, unknown> | undefined;
+      if (po && (po.custom_conversion_id || po.pixel_id)) {
+        conversion = { pixel_id: po.pixel_id ? String(po.pixel_id) : undefined, pixel_event: po.custom_event_type ? String(po.custom_event_type) : undefined, custom_conversion_id: po.custom_conversion_id ? String(po.custom_conversion_id) : undefined };
+        break;
       }
-    } catch { /* sin herencia: el conjunto se creará sin conversión y Meta avisará */ }
-  }
-  return { name: String(data.name ?? ''), objective, budgetLevel: hasCampBudget ? 'campaign' : 'adset', optimization, needsForm: optimization === 'LEAD_GENERATION', needsConv, conversion };
+    }
+  } catch { /* sin conjuntos: usamos el default del objetivo */ }
+  return { name: String(data.name ?? ''), objective, budgetLevel: hasCampBudget ? 'campaign' : 'adset', optimization, needsForm: optimization === 'LEAD_GENERATION', needsConv: optimization === 'OFFSITE_CONVERSIONS', conversion };
 }
 
 /** Crea un conjunto (PAUSED) + sus anuncios dentro de una campaña existente. */

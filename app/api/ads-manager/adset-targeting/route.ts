@@ -7,7 +7,6 @@
 
 import type { NextRequest } from 'next/server';
 import { getAdsetTargeting, updateAdsetTargeting, metaErrorEnvelope } from '@/lib/meta-ads-create';
-import type { Targeting } from '@/lib/campaign-types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -25,7 +24,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { adset_id?: string; targeting?: Targeting };
+  let body: { adset_id?: string; targeting?: Record<string, unknown> };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const adsetId = String(body.adset_id ?? '');
   if (!/^\d+$/.test(adsetId)) return Response.json({ ok: false, error: 'adset_id inválido' }, { status: 400 });
