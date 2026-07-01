@@ -43,6 +43,7 @@ import { DesgloseTrigger, type DesgloseData, type DesgloseItem } from '../_compo
 import { ChartIA, MakoButton } from '../_components/ChartIA';
 import { RevenueMensualChart } from './RevenueMensualChart';
 import { fmtUSD, fmtNum } from '@/lib/format';
+import { GraphicsTabs } from '../_components/GraphicsTabs';
 import {
   ayerEnTijuana,
   hoyEnTijuana,
@@ -246,6 +247,7 @@ export default async function ComercialPage({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+      <GraphicsTabs />
       <header
         style={{
           display: 'flex',

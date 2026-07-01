@@ -37,6 +37,7 @@ import { TendenciasSection } from '../_components/TendenciasSection';
 import { MakoButton } from '../_components/ChartIA';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { ResumenCreativos } from './ResumenCreativos';
+import { GraphicsTabs } from '../_components/GraphicsTabs';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -140,6 +141,7 @@ export default async function Page({
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
+      <GraphicsTabs />
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
