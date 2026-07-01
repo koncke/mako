@@ -7,7 +7,7 @@
 // del perfil + subida de foto (Supabase Storage vía /api/perfil/avatar).
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { MakoLogo } from '../_components/MakoBrand';
+import { Icon } from '../_components/icons';
 import { Dropdown } from '../components/Dropdown';
 
 const MONO = "'Geist Mono', monospace";
@@ -91,7 +91,7 @@ export function PerfilTabs() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <MakoLogo size={36} />
+        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="perfil" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Perfil</h1>
       </header>
       <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Tus datos. El email y el teléfono son a dónde te llegan los reportes; las preferencias de notificaciones están en Configuraciones.</p>

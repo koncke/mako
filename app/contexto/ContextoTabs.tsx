@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { MakoLogo } from '../_components/MakoBrand';
+import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Configuraciones } from '../configuraciones/Configuraciones';
 
@@ -236,7 +236,7 @@ export function ContextoTabs() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <MakoLogo size={36} />
+        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="contexto" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Contexto de MaKo</h1>
       </header>
       <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Lo que MaKo sabe del negocio. Todo es aditivo: lo que dejes vacío no cambia su comportamiento actual.</p>

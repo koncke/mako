@@ -9,6 +9,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { Icon } from './icons';
 
 const SANS = "'Geist', sans-serif";
 
@@ -28,7 +29,8 @@ export function GraphicsTabs() {
   // que aporta el borde inferior y comparte fila con los botones (Ads Manager,
   // filtro de fecha).
   return (
-    <div style={{ display: 'flex', gap: 26, alignItems: 'flex-end' }}>
+    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
+      <span style={{ display: 'inline-flex', color: 'var(--accent)', marginBottom: 5 }} title="Graphics"><Icon name="graphics" size={29} /></span>
       {TABS.map((t) => {
         const on = pathname === t.href || pathname.startsWith(t.href + '/');
         return (

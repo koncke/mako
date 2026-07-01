@@ -8,7 +8,8 @@
 
 import { useEffect, useState } from 'react';
 import { MakoChat } from '../_components/MakoChat';
-import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
+import { MakoIntro } from '../_components/MakoBrand';
+import { Icon } from '../_components/icons';
 import { ChatItemMenu } from '../_components/ChatItemMenu';
 import { chartLabel } from '@/lib/chart-registry';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -63,7 +64,7 @@ export function MakoTab() {
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '24px 28px 20px' }}>
       {intro && <MakoIntro />}
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flex: 'none' }}>
-        <MakoLogo size={36} />
+        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="mako" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 38, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Preguntale a MaKo</h1>
       </header>
 

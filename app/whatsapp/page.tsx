@@ -18,6 +18,7 @@ import { useSearchParams } from 'next/navigation';
 import { Dropdown } from '../components/Dropdown';
 import { EmojiPicker } from './EmojiPicker';
 import { MakoChat } from '../_components/MakoChat';
+import { Icon } from '../_components/icons';
 import { PlantillasPanel } from './PlantillasPanel';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
@@ -860,6 +861,7 @@ function WhatsAppInner() {
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '18px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '7px' }}>
+            <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="whatsapp" size={34} /></span>
             <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>WhatsApp</h1>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: '12.5px', fontWeight: 600 }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>Chatwoot conectado

@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
+import { Icon } from '../_components/icons';
 import type { ClosingViewData, ClosingAnalysisRow, ClosingDim, ClosingEvidence, DimGroup, Tone } from '@/lib/closing';
 
 const MONO = "'Geist Mono', monospace";
@@ -208,7 +209,8 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
       {/* HEADER */}
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', padding: '0 32px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 5 }}>
+            <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="closing" size={34} /></span>
             <h1 style={{ fontWeight: 600, fontSize: 32, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Closing Analyst</h1>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 600, color: conectado ? 'var(--good)' : 'var(--bad)', background: conectado ? 'var(--good-bg)' : 'var(--bad-bg)', border: `1px solid ${conectado ? 'var(--good)' : 'var(--bad)'}` }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: conectado ? 'var(--good)' : 'var(--bad)' }} />{conectado ? 'Fathom' : 'Sin datos'}

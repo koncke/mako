@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
+import { Icon } from '../_components/icons';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos (espejo de lib/email-marketing.ts)
@@ -126,7 +127,10 @@ export default function Page() {
     <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '18px' }}>
         <div>
-          <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 7px', color: 'var(--ink)' }}>Email Marketing</h1>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: '0 0 7px', color: 'var(--ink)' }}>
+            <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="email" size={34} /></span>
+            Email
+          </h1>
           <div style={{ fontSize: '14.5px', color: 'var(--dim)' }}>
             Secuencias y broadcasts por email a tus leads en <strong style={{ color: 'var(--ink)' }}>Nutrición</strong>.
           </div>

@@ -40,6 +40,7 @@ import { LeadDetail } from './LeadDetail';
 import { seedEdits as seedEditsBase, missingFor, sectionForStage } from './edit-logic';
 import { Dropdown } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
+import { Icon } from '../_components/icons';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -534,7 +535,8 @@ export function CrmBoard({
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', display: 'flex', flexDirection: 'column' }}>
       {/* HEADER */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="crm" size={34} /></span>
           <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>CRM</h1>
           <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{filtered.length} de {total} leads</span>
         </div>

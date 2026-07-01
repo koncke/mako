@@ -9,6 +9,7 @@
 import { getSenalesRecon, type SenalRecon } from '@/lib/queries';
 import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmtDDMMYYYY } from '@/lib/date-utils';
 import { FechaFiltro } from '../_components/FechaFiltro';
+import { Icon } from '../_components/icons';
 import { CampanasBrowser } from './CampanasBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,10 @@ export default async function AdsManagerPage({
           <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
             Estado + rendimiento · {fmtDDMMYYYY(rangoDesde)} – {fmtDDMMYYYY(rangoHasta)}
           </div>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Manager</h1>
+          <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="grid" size={34} /></span>
+            <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Manager</h1>
+          </div>
         </div>
         <FechaFiltro hoyReal={hoyReal} />
       </header>

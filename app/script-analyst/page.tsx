@@ -15,6 +15,7 @@ import { getScriptAnalystView, getDrafts, type ScriptAnalystView, type ScriptDra
 import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { ScriptsBrowser } from './ScriptsBrowser';
+import { Icon } from '../_components/icons';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -51,8 +52,9 @@ export default async function ScriptAnalystPage() {
         <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
           Script Analyst · histórico completo
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Scripts Analyst</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="notepencil" size={34} /></span>
+          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Script Analyst</h1>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: 12.5, fontWeight: 600 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Meta Ads
           </span>

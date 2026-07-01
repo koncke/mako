@@ -31,6 +31,7 @@ import { getMetaAccountHealth } from '@/lib/meta-health';
 import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
 import { EditarMeta } from './EditarMeta';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
+import { Icon } from '../_components/icons';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -248,7 +249,10 @@ export default async function GeneralPage() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', marginBottom: 30 }}>
-        <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Vista General</h1>
+        <h1 style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 12, fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>
+          <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="general" size={34} /></span>
+          General
+        </h1>
       </header>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>

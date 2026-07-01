@@ -5,7 +5,8 @@
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { MakoLogo, MakoStar } from '../_components/MakoBrand';
+import { MakoStar } from '../_components/MakoBrand';
+import { Icon } from '../_components/icons';
 import { SaludBoard } from '../marketing/salud/SaludBoard';
 import type { MetaHealth } from '@/lib/meta-health';
 
@@ -114,7 +115,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <MakoLogo size={36} />
+        <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="integraciones" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Integraciones</h1>
       </header>
       <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>
