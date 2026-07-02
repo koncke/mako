@@ -8,7 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { fetchRecordingTranscript } from '@/lib/fathom-api';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const idRaw = req.nextUrl.searchParams.get('recording_id');
   const recordingId = Number(idRaw);
   // Fase 1: los transcripts vienen del Fathom global del dueño → otros vacío benigno.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await integracionConectada('fathom'))) {
     return Response.json({ ok: true, recording_id: Number.isFinite(recordingId) ? recordingId : 0, count: 0, lines: [] });
   }
   if (!Number.isFinite(recordingId) || recordingId <= 0) {

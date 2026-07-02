@@ -11,7 +11,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MakoButton } from '../../_components/ChartIA';
-import { colorDeSemaforo, bgDeSemaforo, type MetaHealth, type Reco, type Semaforo } from '@/lib/meta-health';
+import { colorDeSemaforo, bgDeSemaforo, type MetaHealth, type Reco, type Semaforo } from '@/lib/meta-health-ui';
 
 const MONO = "'Geist Mono', monospace";
 

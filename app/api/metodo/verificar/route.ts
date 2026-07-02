@@ -9,7 +9,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { valorEfectivo } from '@/lib/credenciales';
+import { credWs } from '@/lib/credenciales';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 
 export const dynamic = 'force-dynamic';
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
   for (const campo of servicio.campos) {
     const enviado = enviados[campo.env];
     const usoEnviado = typeof enviado === 'string' && !!enviado.trim();
-    const v = usoEnviado ? (enviado as string).trim() : (await valorEfectivo(campo.env)) ?? '';
+    const v = usoEnviado ? (enviado as string).trim() : (await credWs(campo.env)) ?? '';
     if (v) valores[campo.env] = v;
     else if (!campo.opcional) faltan.push(campo.label);
     if (usoEnviado && campo.host) hostDelRequest = true;

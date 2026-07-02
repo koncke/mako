@@ -9,6 +9,10 @@
 //   GET  https://youtubeanalytics.googleapis.com/v2/reports (data)
 // =============================================================================
 
+import { credWs } from './credenciales';
+import { getWorkspaceActual } from './workspace';
+import { OWNER_WS } from './auth-session';
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const ANALYTICS_URL = 'https://youtubeanalytics.googleapis.com/v2/reports';
 
@@ -26,28 +30,34 @@ export class YouTubeAnalyticsError extends Error {
   }
 }
 
-function getEnv(name: string): string {
-  const v = process.env[name];
+async function getEnv(name: string): Promise<string> {
+  const v = await credWs(name);
   if (!v || v.startsWith('PENDING')) {
     throw new Error(`Env var ${name} no definida`);
   }
   return v;
 }
 
-// Cache simple para no pedir access_token en cada llamada (válido ~1h)
-let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+// Cache de access_token POR WORKSPACE (válido ~1h). El cache antes era
+// module-level (por-proceso): con multi-inquilino habría servido el token del
+// workspace equivocado si dos clientes usaran YT Analytics. Se keyea por el ws
+// resuelto para aislarlos.
+const cachedAccessToken = new Map<number, { token: string; expiresAt: number }>();
 
 /**
- * Intercambia el refresh_token por un access_token fresco. Cachea ~50 min.
+ * Intercambia el refresh_token por un access_token fresco. Cachea ~50 min,
+ * por workspace.
  */
 export async function getAccessToken(): Promise<string> {
-  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now() + 60_000) {
-    return cachedAccessToken.token;
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const cached = cachedAccessToken.get(ws);
+  if (cached && cached.expiresAt > Date.now() + 60_000) {
+    return cached.token;
   }
 
-  const clientId = getEnv('YOUTUBE_OAUTH_CLIENT_ID');
-  const clientSecret = getEnv('YOUTUBE_OAUTH_CLIENT_SECRET');
-  const refreshToken = getEnv('YOUTUBE_OAUTH_REFRESH_TOKEN');
+  const clientId = await getEnv('YOUTUBE_OAUTH_CLIENT_ID');
+  const clientSecret = await getEnv('YOUTUBE_OAUTH_CLIENT_SECRET');
+  const refreshToken = await getEnv('YOUTUBE_OAUTH_REFRESH_TOKEN');
 
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -73,10 +83,10 @@ export async function getAccessToken(): Promise<string> {
     );
   }
 
-  cachedAccessToken = {
+  cachedAccessToken.set(ws, {
     token: body.access_token,
     expiresAt: Date.now() + (body.expires_in ?? 3600) * 1000,
-  };
+  });
 
   return body.access_token;
 }

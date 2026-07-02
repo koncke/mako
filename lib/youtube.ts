@@ -13,6 +13,7 @@
 import { getSupabaseServer } from './supabase';
 import type { MarketingMetricRow } from './types';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
+import { credWs } from './credenciales';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -45,8 +46,8 @@ export class YouTubeApiError extends Error {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getEnv(name: string): string {
-  const v = process.env[name];
+async function getEnv(name: string): Promise<string> {
+  const v = await credWs(name);
   if (!v || v.startsWith('PENDING')) {
     throw new Error(`Env var ${name} no definida (o aún con placeholder)`);
   }
@@ -90,7 +91,7 @@ type ApiResponse = {
  * Trae las estadísticas acumuladas de UN video desde YouTube Data API v3.
  */
 export async function fetchYouTubeStats(videoId: string): Promise<YouTubeStatsRaw> {
-  const apiKey = getEnv('YOUTUBE_API_KEY');
+  const apiKey = await getEnv('YOUTUBE_API_KEY');
 
   const url = new URL(`${YOUTUBE_API_BASE}/videos`);
   url.searchParams.set('part', 'snippet,statistics');

@@ -12,7 +12,7 @@
 import type { NextRequest } from 'next/server';
 import { recomendarMensajes, chatAdvisor, redactarTemplate, type WaMsg, type AdvisorLead } from '@/lib/whatsapp-advisor';
 import { listSessions, createSession, getSessionMessages, appendMessage } from '@/lib/chart-chats';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +43,7 @@ async function sesionDeContacto(groupId: string, contacto: string, crear: boolea
 
 export async function POST(req: NextRequest) {
   // Fase 1: la asesoría opera sobre el inbox global del dueño → los demás no la usan.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
 

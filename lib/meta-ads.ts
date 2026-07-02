@@ -14,6 +14,7 @@
 // =============================================================================
 
 import { getSupabaseServer } from './supabase';
+import { credWs } from './credenciales';
 import type { MarketingMetricRow, MetaInsightRaw, MetaAdsetRaw } from './types';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
@@ -54,8 +55,8 @@ export class MetaApiError extends Error {
 // Helpers internos
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getEnv(name: string): string {
-  const v = process.env[name];
+async function getEnv(name: string): Promise<string> {
+  const v = name === 'META_API_VERSION' ? process.env[name] : await credWs(name);
   if (!v || v.startsWith('PENDING')) {
     throw new Error(`Env var ${name} no definida (o aún con placeholder)`);
   }
@@ -147,9 +148,9 @@ async function fetchPageWithBackoff(
 export async function fetchMetaInsights(
   fecha: string,
 ): Promise<MetaInsightRaw[]> {
-  const adAccountId = getEnv('META_AD_ACCOUNT_ID');
-  const apiVersion = getEnv('META_API_VERSION');
-  const token = getEnv('META_ACCESS_TOKEN');
+  const adAccountId = await getEnv('META_AD_ACCOUNT_ID');
+  const apiVersion = await getEnv('META_API_VERSION');
+  const token = await getEnv('META_ACCESS_TOKEN');
 
   const fields = [
     'adset_id',
@@ -369,8 +370,8 @@ export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, Cre
   const unique = [...new Set(adIds.filter(Boolean))];
   if (unique.length === 0) return out;
 
-  const apiVersion = getEnv('META_API_VERSION');
-  const token = getEnv('META_ACCESS_TOKEN');
+  const apiVersion = await getEnv('META_API_VERSION');
+  const token = await getEnv('META_ACCESS_TOKEN');
 
   const fields =
     'creative{thumbnail_url,image_url,effective_object_story_id,instagram_permalink_url,' +
@@ -487,9 +488,9 @@ export async function upsertMetrics(
  * @returns número de adsets guardados
  */
 export async function fetchAdsetBudgets(fecha: string): Promise<number> {
-  const adAccountId = getEnv('META_AD_ACCOUNT_ID');
-  const apiVersion = getEnv('META_API_VERSION');
-  const token = getEnv('META_ACCESS_TOKEN');
+  const adAccountId = await getEnv('META_AD_ACCOUNT_ID');
+  const apiVersion = await getEnv('META_API_VERSION');
+  const token = await getEnv('META_ACCESS_TOKEN');
 
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}/adsets`);
   url.searchParams.set('fields', 'id,name,daily_budget,status,effective_status');

@@ -14,7 +14,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
 import { CTA_OPCIONES } from '@/lib/campaign-types';
-import { explicarIssueEs } from '@/lib/meta-health';
+import { explicarIssueEs } from '@/lib/meta-health-ui';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

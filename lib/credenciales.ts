@@ -1,41 +1,45 @@
 // =============================================================================
-// credenciales — tokens de integraciones cargados desde la UI (tabla 0053)
+// credenciales — tokens de integraciones POR WORKSPACE (tablas 0053/0054/0055)
 // =============================================================================
-// El problema: ~30 lecturas de process.env repartidas por todo lib/ hacen que
-// dar de alta un cliente nuevo exija cargar env vars en Vercel a mano. La
-// solución NO es refactorizar todas las libs: los valores guardados acá se
-// HIDRATAN a process.env cuando arranca cada instancia (instrumentation.ts) y
-// al momento de guardarlos, así el resto del código sigue leyendo env como
-// siempre.
+// Cada cliente (workspace) guarda sus propios tokens de Meta/Chatwoot/etc.,
+// cifrados AES-256-GCM. El resolver `credWs(clave)` devuelve el token del
+// workspace del request.
 //
-// Reglas:
-//   · La env de Vercel GANA: si META_ACCESS_TOKEN ya está seteada en el server,
-//     lo guardado en la base no la pisa (evita romper producción desde la UI).
-//     En una instancia nueva sin envs, todo sale de acá.
-//   · Cifrado AES-256-GCM app-side: en la base solo viaja gcm1.<iv>.<tag>.<c>.
-//     Clave = SHA-256 del secret (CREDENCIALES_SECRET → AUTH_COOKIE_VALUE →
-//     SUPABASE_SERVICE_ROLE_KEY). Si rota el secret, lo guardado queda ilegible
-//     y hay que volver a pegarlo — la UI lo muestra como "re-conectar".
-//   · Solo claves del catálogo de /metodo (whitelist en el API) — nunca envs
-//     arbitrarias.
+// INVARIANTE DEL DUEÑO (workspace 1): para el dueño el env de Vercel SIEMPRE
+// gana — su resolución es idéntica a antes del multi-inquilino (sin lecturas
+// extra a la base si la env está). Los clientes NUNCA leen process.env: sus
+// tokens salen solo de su fila en la tabla (aislamiento estricto).
+//
+// Cifrado: clave = SHA-256 del secret (CREDENCIALES_SECRET → AUTH_COOKIE_VALUE
+// → SUPABASE_SERVICE_ROLE_KEY). Si rota, lo guardado queda ilegible y /metodo
+// lo marca para re-pegar.
 
 import 'server-only';
 import crypto from 'node:crypto';
 import { getSupabaseServer } from './supabase';
+import { getWorkspaceActual } from './workspace';
+import { OWNER_WS } from './auth-session';
+import { servicioMetodo } from './metodo-catalogo';
 
 export type CredencialMeta = {
   clave: string;
   servicio: string;
-  /** últimos 4 caracteres del valor, para mostrar "••••abcd" en la UI. */
   mask: string;
   updated_by: string | null;
   updated_at: string;
-  /** false si el secret de cifrado cambió y el valor ya no se puede leer. */
   legible: boolean;
 };
 
-// Sobrevive HMR en dev; en Vercel cada instancia arranca con el Set vacío y lo
-// llena la hidratación del boot.
+export type EstadoCampo = {
+  configurado: boolean;
+  /** 'servidor' = env de Vercel (solo dueño); 'panel' = cargado en /metodo. */
+  origen: 'servidor' | 'panel' | null;
+  mask: string;
+  /** guardado pero ilegible (rotó el secret de cifrado) → re-pegar. */
+  ilegible: boolean;
+};
+
+// Set de claves del dueño hidratadas a process.env (solo ws1). Sobrevive HMR.
 const g = globalThis as typeof globalThis & { __makoCredsHidratadas?: Set<string> };
 const hidratadas = (g.__makoCredsHidratadas ??= new Set<string>());
 
@@ -72,38 +76,90 @@ function descifrar(valorEnc: string): string | null {
 const supabaseConfigurado = () =>
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Un valor de env "real": presente y no un placeholder. La convención del repo
-// (lib/meta-ads.ts, lib/panda.ts, lib/youtube.ts…) trata los valores que
-// empiezan con 'PENDING' como ausentes — los replicamos para no bloquear el
-// override desde el panel ni reportar como conectado algo que las libs ignoran.
+// Valor de env "real": presente y no un placeholder 'PENDING…' (convención del repo).
 const esValorReal = (v: string | undefined | null): v is string =>
   Boolean(v && v.trim() && !v.trim().startsWith('PENDING'));
 
-/** Guarda cifrado y aplica a process.env si la env del server no manda. */
-export async function guardarCredencial(clave: string, valor: string, servicio: string, updatedBy: string | null): Promise<void> {
+async function wsDefault(ws?: number): Promise<number> {
+  return ws ?? (await getWorkspaceActual()) ?? OWNER_WS;
+}
+
+// Lee (y descifra) UNA credencial de un workspace de la base. null si no está.
+async function credDeBase(ws: number, clave: string): Promise<string | null> {
+  if (!supabaseConfigurado()) return null;
+  const { data } = await getSupabaseServer()
+    .from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
+  return data ? descifrar(data.valor_enc as string) : null;
+}
+
+/**
+ * Token efectivo de una clave para el workspace del request (o `ws` explícito).
+ * Dueño → env de Vercel gana; cliente → solo su fila cifrada. Es el resolver
+ * que usan las libs de integración.
+ */
+export async function credWs(clave: string, ws?: number): Promise<string | null> {
+  const w = await wsDefault(ws);
+  if (w === OWNER_WS && esValorReal(process.env[clave])) return process.env[clave]!;
+  const v = await credDeBase(w, clave);
+  return esValorReal(v) ? v : null;
+}
+
+/** true si el workspace tiene conectada la integración `servicioKey` (todos sus campos requeridos). */
+export async function integracionConectada(servicioKey: string, ws?: number): Promise<boolean> {
+  const s = servicioMetodo(servicioKey);
+  if (!s) return false;
+  // NO colapsar a OWNER_WS: un admin sin impersonar (getWorkspaceActual()===null)
+  // debe dar false → las vistas en vivo quedan vacías (contrato: el admin sin
+  // impersonar ve el panel, no la data de nadie). El panel /admin pasa OWNER_WS
+  // explícito cuando quiere el estado del dueño.
+  const w = ws ?? (await getWorkspaceActual());
+  if (w == null) return false;
+  const requeridos = s.campos.filter((c) => !c.opcional);
+  const objetivo = requeridos.length ? requeridos : s.campos;
+  const vals = await Promise.all(objetivo.map((c) => credWs(c.env, w)));
+  return requeridos.length ? vals.every(esValorReal) : vals.some(esValorReal);
+}
+
+/** Estado de un campo para /metodo (configurado, origen, máscara). */
+export async function estadoCampo(clave: string, ws?: number): Promise<EstadoCampo> {
+  const w = await wsDefault(ws);
+  if (w === OWNER_WS && esValorReal(process.env[clave])) {
+    return { configurado: true, origen: 'servidor', mask: '', ilegible: false };
+  }
+  if (!supabaseConfigurado()) return { configurado: false, origen: null, mask: '', ilegible: false };
+  const { data } = await getSupabaseServer()
+    .from('credenciales').select('valor_enc').eq('workspace_id', w).eq('clave', clave).maybeSingle();
+  if (!data) return { configurado: false, origen: null, mask: '', ilegible: false };
+  const v = descifrar(data.valor_enc as string);
+  if (esValorReal(v)) return { configurado: true, origen: 'panel', mask: v!.slice(-4), ilegible: false };
+  return { configurado: false, origen: null, mask: '', ilegible: true };
+}
+
+/** Guarda cifrado en el workspace. Solo el dueño refleja el cambio a process.env. */
+export async function guardarCredencial(ws: number, clave: string, valor: string, servicio: string, updatedBy: string | null): Promise<void> {
   const { error } = await getSupabaseServer()
     .from('credenciales')
     .upsert(
-      { clave, valor_enc: cifrar(valor), servicio, updated_by: updatedBy, updated_at: new Date().toISOString() },
-      { onConflict: 'clave' },
+      { workspace_id: ws, clave, valor_enc: cifrar(valor), servicio, updated_by: updatedBy, updated_at: new Date().toISOString() },
+      { onConflict: 'workspace_id,clave' },
     );
   if (error) throw new Error(`credenciales: ${error.message}`);
-  aplicarAEnv(clave, valor);
+  if (ws === OWNER_WS) aplicarAEnv(clave, valor);
 }
 
-export async function eliminarCredencial(clave: string): Promise<void> {
-  const { error } = await getSupabaseServer().from('credenciales').delete().eq('clave', clave);
+export async function eliminarCredencial(ws: number, clave: string): Promise<void> {
+  const { error } = await getSupabaseServer().from('credenciales').delete().eq('workspace_id', ws).eq('clave', clave);
   if (error) throw new Error(`credenciales: ${error.message}`);
-  if (hidratadas.has(clave)) {
+  if (ws === OWNER_WS && hidratadas.has(clave)) {
     delete process.env[clave];
     hidratadas.delete(clave);
   }
 }
 
-/** Metadatos para la UI (máscara, nunca el valor entero). */
-export async function listarCredenciales(): Promise<CredencialMeta[]> {
+/** Metadatos (máscara, nunca el valor) de las credenciales cargadas en un workspace. */
+export async function listarCredenciales(ws: number): Promise<CredencialMeta[]> {
   const { data, error } = await getSupabaseServer()
-    .from('credenciales').select('clave, servicio, valor_enc, updated_by, updated_at');
+    .from('credenciales').select('clave, servicio, valor_enc, updated_by, updated_at').eq('workspace_id', ws);
   if (error) throw new Error(`credenciales: ${error.message}`);
   return (data ?? []).map((r) => {
     const valor = descifrar(r.valor_enc as string);
@@ -118,28 +174,16 @@ export async function listarCredenciales(): Promise<CredencialMeta[]> {
   });
 }
 
-/** Valor efectivo de una clave: env del server → base. Para los pings de /metodo. */
-export async function valorEfectivo(clave: string): Promise<string | null> {
-  if (esValorReal(process.env[clave])) return process.env[clave]!;
-  if (!supabaseConfigurado()) return null;
-  const { data } = await getSupabaseServer()
-    .from('credenciales').select('valor_enc').eq('clave', clave).maybeSingle();
-  return data ? descifrar(data.valor_enc as string) : null;
-}
-
 /**
- * Carga todo lo guardado a process.env (corre en el register() de
- * instrumentation.ts, antes de servir requests). Nunca tira: sin Supabase o
- * con la base caída, la app arranca igual solo con las envs del server.
+ * Hidrata al process.env global SOLO las credenciales del workspace dueño.
+ * Corre en instrumentation.ts (boot). Los tokens de los clientes NUNCA tocan
+ * el process.env global: se resuelven por-request con credWs().
  */
 export async function hidratarCredenciales(): Promise<void> {
   if (!supabaseConfigurado()) return;
   try {
-    // Timeout duro: register() bloquea el arranque de la instancia, así que una
-    // DB colgada al boot no puede dejar la app sin atender requests. El abort
-    // además desactiva los reintentos de postgrest-js y cae en el catch.
     const { data, error } = await getSupabaseServer()
-      .from('credenciales').select('clave, valor_enc')
+      .from('credenciales').select('clave, valor_enc').eq('workspace_id', OWNER_WS)
       .abortSignal(AbortSignal.timeout(4000));
     if (error) {
       console.error(`[credenciales] hidratación: ${error.message}`);
@@ -150,23 +194,17 @@ export async function hidratarCredenciales(): Promise<void> {
       const valor = descifrar(r.valor_enc as string);
       if (valor !== null && aplicarAEnv(r.clave as string, valor)) aplicadas++;
     }
-    if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) hidratadas desde la base`);
+    if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) del dueño hidratadas`);
   } catch (e) {
     console.error('[credenciales] hidratación falló:', e);
   }
 }
 
-/** true si el valor quedó aplicado (la env REAL del server siempre gana). */
+/** true si el valor quedó aplicado (la env REAL del server siempre gana). Solo dueño. */
 function aplicarAEnv(clave: string, valor: string): boolean {
   const envDelServer = esValorReal(process.env[clave]) && !hidratadas.has(clave);
   if (envDelServer) return false;
   process.env[clave] = valor;
   hidratadas.add(clave);
   return true;
-}
-
-/** De dónde sale el valor vigente de una env: del server, del panel, o no está. */
-export function origenCredencial(clave: string): 'servidor' | 'panel' | null {
-  if (!esValorReal(process.env[clave])) return null;
-  return hidratadas.has(clave) ? 'panel' : 'servidor';
 }

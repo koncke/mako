@@ -7,13 +7,13 @@
 // =============================================================================
 
 import { listMetaTemplates, reconcileDrafts, explicarRechazo } from '@/lib/meta-templates';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   // Fase 1: el status vive en el WABA global del dueño → otros workspaces vacío.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, templates: [] });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: true, templates: [] });
   try {
     const metas = await listMetaTemplates();
     // mantener la tabla de borradores al día (best-effort, no rompe la respuesta)

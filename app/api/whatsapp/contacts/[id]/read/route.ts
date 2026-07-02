@@ -7,13 +7,13 @@
 
 import type { NextRequest } from 'next/server';
 import { markContactRead, contactoEnInboxWA } from '@/lib/chatwoot';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   // Fase 1: marcar leído escribe sobre el inbox de WhatsApp global del dueño.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   const { id } = await ctx.params;
   const contactId = Number(id);
   if (!Number.isFinite(contactId)) {

@@ -6,7 +6,7 @@
 // =============================================================================
 
 import { uploadMediaSample, type HeaderMediaFormat } from '@/lib/meta-templates';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ function formatoDe(mime: string): HeaderMediaFormat | null {
 
 export async function POST(req: Request) {
   // Fase 1: subir la muestra la manda al WABA global del dueño en Meta.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   try {
     const form = await req.formData();
     const file = form.get('file');

@@ -6,7 +6,7 @@
 // lado cliente). El Semáforo de /general NO pasa por acá: llama la lib directo.
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +42,7 @@ const HEALTH_SIN_CONEXION: MetaHealth = {
 };
 
 export async function GET() {
-  if (!(await esWorkspaceDueno())) {
+  if (!(await integracionConectada('meta'))) {
     return Response.json({ ...HEALTH_SIN_CONEXION, fetchedAtISO: new Date().toISOString() });
   }
   try {

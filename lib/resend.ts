@@ -11,6 +11,7 @@
 
 import 'server-only';
 import crypto from 'node:crypto';
+import { credWs } from './credenciales';
 
 const ENDPOINT = 'https://api.resend.com/emails';
 
@@ -20,8 +21,8 @@ export const EMAIL_SEND_ENABLED = process.env.EMAIL_SEND_ENABLED === 'true';
 // (solo entrega al dueño de la cuenta) hasta verificar el dominio propio.
 export const EMAIL_FROM = process.env.RESEND_FROM || 'Mauricio Bustos <onboarding@resend.dev>';
 
-export function resendConfigurado(): boolean {
-  return !!process.env.RESEND_API_KEY;
+export async function resendConfigurado(): Promise<boolean> {
+  return !!(await credWs('RESEND_API_KEY'));
 }
 
 // true si el remitente sigue siendo el sandbox de Resend (resend.dev), que NO
@@ -74,7 +75,7 @@ export type SendEmailParams = {
 // Envía un email por Resend. NO chequea EMAIL_SEND_ENABLED — eso lo decide el
 // caller (el motor de nutrición / broadcasts), igual que sendWhatsappTemplate.
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
-  const key = process.env.RESEND_API_KEY;
+  const key = await credWs('RESEND_API_KEY');
   if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
 
   const payload: Record<string, unknown> = {

@@ -9,7 +9,7 @@
 // y (2) el token es de tipo PÁGINA. Con un User/System-User token y el pago al
 // día, este mismo endpoint trae las recomendaciones + el opportunity score.
 
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { credWs, integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,13 +26,13 @@ export async function GET() {
   // Fase 1: Meta es la integración global del dueño. Otros workspaces reciben el
   // shape de éxito "sin datos" (empty:true, sin recomendaciones) → el modal
   // muestra "sin recomendaciones" en vez de romper.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await integracionConectada('meta'))) {
     return Response.json({ ok: true, opportunityScore: null, recomendaciones: [], empty: true });
   }
 
   const ver = process.env.META_API_VERSION;
-  const token = process.env.META_ACCESS_TOKEN;
-  const acct = process.env.META_AD_ACCOUNT_ID;
+  const token = await credWs('META_ACCESS_TOKEN'); // por-workspace
+  const acct = await credWs('META_AD_ACCOUNT_ID'); // por-workspace
   if (!ver || !token || !acct) return Response.json({ ok: false, message: 'Meta no configurado' }, { status: 500 });
 
   async function get(url: string) {

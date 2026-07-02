@@ -6,14 +6,14 @@
 // Allowlist estricto al host de Chatwoot → no es un proxy abierto (evita SSRF).
 // =============================================================================
 
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { credWs, integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   // Fase 1: los archivos viven en el Chatwoot global del dueño → otros
   // workspaces reciben una respuesta vacía benigna (sin contenido).
-  if (!(await esWorkspaceDueno())) return new Response(null, { status: 204 });
+  if (!(await integracionConectada('whatsapp'))) return new Response(null, { status: 204 });
   try {
     const raw = new URL(req.url).searchParams.get('url');
     if (!raw) return new Response('falta url', { status: 400 });
@@ -21,7 +21,10 @@ export async function GET(req: Request) {
     let target: URL;
     try { target = new URL(raw); } catch { return new Response('url inválida', { status: 400 }); }
 
-    const base = process.env.CHATWOOT_BASE_URL || '';
+    // Allowlist anclada al Chatwoot DEL WORKSPACE ACTUAL (no al del dueño): el
+    // dueño resuelve su env de Vercel, el cliente solo su fila cifrada. Alinea
+    // el anti-SSRF con integracionConectada('whatsapp') y mantiene el aislamiento.
+    const base = (await credWs('CHATWOOT_BASE_URL')) || '';
     const baseHost = base ? new URL(base).host : '';
     // Sólo archivos del propio Chatwoot, y sólo http(s).
     if (!baseHost || target.host !== baseHost || !/^https?:$/.test(target.protocol)) {

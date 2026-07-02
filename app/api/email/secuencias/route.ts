@@ -21,8 +21,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function GET() {
   try {
-    const [kpis, secuencias] = await Promise.all([getEmailKpis(), getEmailSecuencias()]);
-    return Response.json({ ok: true, kpis, secuencias, etapas: ETAPAS, triggers: TRIGGERS, sendEnabled: EMAIL_SEND_ENABLED, resendConfigurado: resendConfigurado() });
+    const [kpis, secuencias, resendOk] = await Promise.all([getEmailKpis(), getEmailSecuencias(), resendConfigurado()]);
+    return Response.json({ ok: true, kpis, secuencias, etapas: ETAPAS, triggers: TRIGGERS, sendEnabled: EMAIL_SEND_ENABLED, resendConfigurado: resendOk });
   } catch (e) {
     console.error(`[api:email/secuencias GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

@@ -7,14 +7,14 @@
 
 import type { NextRequest } from 'next/server';
 import { getMessagesForConvs } from '@/lib/chatwoot';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   // Fase 1: el inbox de WhatsApp (Chatwoot) es global del dueño → otros
   // workspaces reciben vacío benigno.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, mensajes: [] });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: true, mensajes: [] });
   const ids = (new URL(req.url).searchParams.get('ids') || '')
     .split(',')
     .map((s) => Number(s.trim()))

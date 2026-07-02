@@ -15,14 +15,16 @@
 // =============================================================================
 
 import 'server-only';
+import { credWs } from './credenciales';
 
 type Cfg = { apiBase: string; token: string; inbox: number };
 
-function cfg(): Cfg {
-  const base = process.env.CHATWOOT_BASE_URL;
-  const account = process.env.CHATWOOT_ACCOUNT_ID;
-  const token = process.env.CHATWOOT_API_TOKEN;
-  const inbox = Number(process.env.CHATWOOT_WA_INBOX_ID ?? '3');
+async function cfg(): Promise<Cfg> {
+  const [base, account, token, inboxRaw] = await Promise.all([
+    credWs('CHATWOOT_BASE_URL'), credWs('CHATWOOT_ACCOUNT_ID'),
+    credWs('CHATWOOT_API_TOKEN'), credWs('CHATWOOT_WA_INBOX_ID'),
+  ]);
+  const inbox = Number(inboxRaw ?? '3');
   if (!base || !account || !token) {
     throw new Error('Chatwoot no configurado (CHATWOOT_BASE_URL / _ACCOUNT_ID / _API_TOKEN)');
   }
@@ -135,7 +137,7 @@ export async function sendWhatsappTemplate(params: {
   template: WhatsappTemplate;
 }): Promise<SendResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     await ensureTemplateSynced(c, params.template.name);
     const contactId = await buscarOCrearContacto(c, params.phone, params.name);
     const conversationId = await crearOReusarConversacion(c, contactId);
@@ -218,7 +220,7 @@ function mapConv(cv: ConvRaw): ChatwootConversation {
 // Trae TODAS las conversaciones del inbox paginando (las páginas extra en
 // paralelo para que no sea lento). Chatwoot devuelve ~25 por página.
 export async function listConversations(maxPages = 12): Promise<ChatwootConversation[]> {
-  const c = cfg();
+  const c = await cfg();
   const url = (page: number) =>
     `${c.apiBase}/conversations?inbox_id=${c.inbox}&status=all&assignee_type=all&page=${page}`;
 
@@ -267,7 +269,7 @@ type MsgRaw = {
 type MsgListResp = { payload?: MsgRaw[] };
 
 export async function getMessages(conversationId: number): Promise<ChatwootMessage[]> {
-  const c = cfg();
+  const c = await cfg();
   const r = await cwFetch<MsgListResp>(
     `${c.apiBase}/conversations/${conversationId}/messages`,
     { method: 'GET' },
@@ -289,7 +291,7 @@ export async function getMessages(conversationId: number): Promise<ChatwootMessa
 
 export async function sendText(conversationId: number, content: string): Promise<SendResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     await cwFetch(
       `${c.apiBase}/conversations/${conversationId}/messages`,
       { method: 'POST', body: JSON.stringify({ content, message_type: 'outgoing' }) },
@@ -336,7 +338,7 @@ async function contactConversaciones(c: Cfg, contactId: number): Promise<Contact
 // inbox de la app expone a los contactos (listConversations filtra por inbox).
 export async function contactoEnInboxWA(contactId: number): Promise<boolean> {
   if (!Number.isInteger(contactId) || contactId <= 0) return false;
-  const c = cfg();
+  const c = await cfg();
   const convs = await contactConversaciones(c, contactId);
   return convs.some((cv) => cv.inboxId === c.inbox);
 }
@@ -346,7 +348,7 @@ export type BlockResult = { ok: true; blocked: boolean } | { ok: false; error: s
 
 export async function blockContact(contactId: number, blocked: boolean): Promise<BlockResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     await cwFetch(
       `${c.apiBase}/contacts/${contactId}/${blocked ? 'block' : 'unblock'}`,
       { method: 'POST', body: JSON.stringify({}) },
@@ -360,7 +362,7 @@ export async function blockContact(contactId: number, blocked: boolean): Promise
 
 // ── Marcar como leído (limpia unread_count vía update_last_seen) ──────────────
 export async function markConversationRead(conversationId: number): Promise<void> {
-  const c = cfg();
+  const c = await cfg();
   await cwFetch(
     `${c.apiBase}/conversations/${conversationId}/update_last_seen`,
     { method: 'POST', body: JSON.stringify({}) },
@@ -370,7 +372,7 @@ export async function markConversationRead(conversationId: number): Promise<void
 
 // Marca leídas TODAS las conversaciones de un contacto (la app agrupa por persona).
 export async function markContactRead(contactId: number): Promise<void> {
-  const c = cfg();
+  const c = await cfg();
   const convs = await contactConversaciones(c, contactId).catch(() => [] as ContactConv[]);
   await Promise.all(convs.map((cv) => markConversationRead(cv.id)));
 }
@@ -392,7 +394,7 @@ async function crearOReusarConversacion(c: Cfg, contactId: number): Promise<numb
 
 // Todos los mensajes de un contacto (merge de sus conversaciones, cronológico).
 export async function getContactMessages(contactId: number): Promise<ChatwootMessage[]> {
-  const c = cfg();
+  const c = await cfg();
   const convs = await contactConversaciones(c, contactId);
   const arrays = await Promise.all(convs.map((cv) => getMessages(cv.id).catch(() => [] as ChatwootMessage[])));
   return arrays.flat().sort((a, b) => (a.fecha ?? 0) - (b.fecha ?? 0));
@@ -414,7 +416,7 @@ export async function getMessagesForConvs(ids: number[]): Promise<ChatwootMessag
 // si está dentro de la ventana de 24h del lead.
 export async function sendToContact(contactId: number, content: string): Promise<SendResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     const conversationId = await crearOReusarConversacion(c, contactId);
     return await sendText(conversationId, content);
   } catch (err) {
@@ -428,7 +430,7 @@ export async function sendToContact(contactId: number, content: string): Promise
 // los reportes a Mauricio una vez que abrió la ventana respondiendo el template.
 export async function sendTextToPhone(phone: string, name: string, content: string): Promise<SendResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     const contactId = await buscarOCrearContacto(c, phone, name);
     const conversationId = await crearOReusarConversacion(c, contactId);
     return await sendText(conversationId, content);
@@ -482,7 +484,7 @@ export async function sendAttachmentToContact(
   content?: string,
 ): Promise<SendResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     const conversationId = await crearOReusarConversacion(c, contactId);
     const fd = new FormData();
     fd.append('message_type', 'outgoing');
@@ -521,7 +523,7 @@ type ProviderConfigResp = {
 
 export async function getWabaConfig(): Promise<WabaConfig> {
   if (_wabaCache && _wabaCache.expiresAt > Date.now()) return _wabaCache.value;
-  const c = cfg();
+  const c = await cfg();
   const r = await cwFetch<ProviderConfigResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
   const pc = r.provider_config ?? {};
   if (!pc.api_key || !pc.business_account_id) {
@@ -568,7 +570,7 @@ type TplRaw = { name?: string; category?: string; language?: string; status?: st
 type InboxResp = { message_templates?: TplRaw[] };
 
 export async function getApprovedTemplates(): Promise<TemplateInfo[]> {
-  const c = cfg();
+  const c = await cfg();
   const r = await cwFetch<InboxResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
   return (r.message_templates ?? [])
     .filter((t) => (t.status ?? '').toUpperCase() === 'APPROVED')
@@ -607,7 +609,7 @@ export async function sendTemplateToContact(
   tpl: { name: string; category: string; language: string; bodyParams: Record<string, string>; content: string },
 ): Promise<SendResult> {
   try {
-    const c = cfg();
+    const c = await cfg();
     await ensureTemplateSynced(c, tpl.name);
     const conversationId = await crearOReusarConversacion(c, contactId);
     await cwFetch(

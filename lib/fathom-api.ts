@@ -15,6 +15,7 @@
 // =============================================================================
 
 import 'server-only';
+import { credWs } from './credenciales';
 
 const BASE = 'https://api.fathom.ai/external/v1';
 
@@ -76,8 +77,8 @@ type MeetingsPage = { items: FathomMeeting[]; next_cursor: string | null; limit?
 
 // ── HTTP ────────────────────────────────────────────────────────────────────
 
-function apiKey(): string {
-  const key = process.env.FATHOM_API_KEY;
+async function apiKey(): Promise<string> {
+  const key = await credWs('FATHOM_API_KEY');
   if (!key) throw new Error('FATHOM_API_KEY no configurada');
   return key;
 }
@@ -96,7 +97,7 @@ async function fathomGet<T>(path: string, params: Record<string, string | number
     const backoff = () => (i < tries - 1 ? sleep(700 * (i + 1)) : Promise.resolve()); // no dormir tras el último intento
     let res: Response;
     try {
-      res = await fetch(url, { headers: { 'X-Api-Key': apiKey(), accept: 'application/json' }, cache: 'no-store' });
+      res = await fetch(url, { headers: { 'X-Api-Key': await apiKey(), accept: 'application/json' }, cache: 'no-store' });
     } catch (e) {
       lastErr = e instanceof Error ? e.message : String(e);
       await backoff();

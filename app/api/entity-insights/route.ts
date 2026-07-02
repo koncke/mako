@@ -8,7 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { credWs, integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,12 +38,12 @@ export async function GET(req: NextRequest) {
 
   // Fase 1: Meta es la integración global del dueño. Otros workspaces reciben el
   // mismo shape de éxito pero vacío (sin key `error`) → el modal no rompe.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await integracionConectada('meta'))) {
     return Response.json({ period: null, daily: [], demograficos: [], plataformas: [], regiones: [] });
   }
 
   const ver = process.env.META_API_VERSION;
-  const token = process.env.META_ACCESS_TOKEN;
+  const token = await credWs('META_ACCESS_TOKEN'); // por-workspace
   if (!ver || !token) return Response.json({ error: 'Meta no configurado' }, { status: 500 });
 
   const timeRange = JSON.stringify({ since: desde, until: hasta });

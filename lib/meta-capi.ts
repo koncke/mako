@@ -18,6 +18,7 @@
 
 import 'server-only';
 import crypto from 'node:crypto';
+import { credWs } from './credenciales';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -94,8 +95,8 @@ function hashPhone(phone: string | null): string | null {
  * un bug futuro en este código no rompa updateLead.
  */
 export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<void> {
-  const pixelId = process.env.META_PIXEL_ID;
-  const accessToken = process.env.META_CAPI_TOKEN;
+  const pixelId = await credWs('META_PIXEL_ID');
+  const accessToken = await credWs('META_CAPI_TOKEN');
   const apiVersion = process.env.META_API_VERSION || 'v24.0';
 
   if (!pixelId || pixelId.startsWith('PENDING')) {

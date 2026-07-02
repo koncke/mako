@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function IntegracionesPage() {
-  const integraciones = getIntegraciones();
+  const integraciones = await getIntegraciones();
   let health: MetaHealth | null = null;
   let metaError: string | null = null;
   try {

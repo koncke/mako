@@ -14,26 +14,22 @@ import {
   actualizarUsuario, contarAdminsActivos, crearUsuario, eliminarUsuario,
   listarUsuarios, type EstadoUsuario, type Usuario,
 } from '@/lib/usuarios';
-import { origenCredencial } from '@/lib/credenciales';
+import { integracionConectada } from '@/lib/credenciales';
 import { SERVICIOS_METODO } from '@/lib/metodo-catalogo';
 import { getAnswers, getSchema } from '@/lib/onboarding';
-import { listarWorkspaces } from '@/lib/workspace';
+import { listarWorkspaces, OWNER_WS } from '@/lib/workspace';
 import type { Rol } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Estado por servicio del catálogo, mirando el process.env ya hidratado.
-function resumenIntegraciones() {
-  const porServicio = SERVICIOS_METODO.map((s) => {
-    const requeridos = s.campos.filter((c) => !c.opcional);
-    // Todos opcionales → conectado exige al menos un campo con valor.
-    const conectada = requeridos.length > 0
-      ? requeridos.every((c) => origenCredencial(c.env))
-      : s.campos.some((c) => origenCredencial(c.env));
-    return { key: s.key, nombre: s.nombre, core: s.core ?? false, conectada };
-  });
+// Estado de integraciones del workspace actual (sin impersonar = el dueño).
+async function resumenIntegraciones() {
+  const porServicio = await Promise.all(SERVICIOS_METODO.map(async (s) => ({
+    key: s.key, nombre: s.nombre, core: s.core ?? false,
+    conectada: await integracionConectada(s.key, OWNER_WS),
+  })));
   return {
     conectadas: porServicio.filter((s) => s.conectada).length,
     total: porServicio.length,
@@ -56,14 +52,14 @@ export async function GET() {
   const admin = await getSesionAdmin();
   if (!admin) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
-    const [usuarios, workspaces, perfilNegocio] = await Promise.all([
-      listarUsuarios(), listarWorkspaces(), resumenPerfilNegocio(),
+    const [usuarios, workspaces, perfilNegocio, integraciones] = await Promise.all([
+      listarUsuarios(), listarWorkspaces(), resumenPerfilNegocio(), resumenIntegraciones(),
     ]);
     return NextResponse.json({
       ok: true,
       usuarios,
       workspaces,
-      resumen: { integraciones: resumenIntegraciones(), perfilNegocio },
+      resumen: { integraciones, perfilNegocio },
       // Solo la cookie compartida real dispara el aviso "sesión vieja" — no la
       // sesión dev-admin de local (sub 'dev'), que también lleva legacy:true.
       sesion: { email: admin.email, legacy: admin.sub === 'legacy' },

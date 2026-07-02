@@ -21,7 +21,7 @@ import {
   colorDeSemaforo, bgDeSemaforo, explicarIssueEs,
   statusLabel as metaStatusLabel, statusSemaforo as metaStatusSemaforo,
   type MetaHealth, type NodoEstado, type Semaforo, type Issue,
-} from '@/lib/meta-health';
+} from '@/lib/meta-health-ui';
 
 type ProblemAd = { id: string; name: string; issues: Issue[]; statusLabel: string };
 import type { CrossData } from './EntityDetalle';

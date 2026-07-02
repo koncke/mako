@@ -14,7 +14,7 @@ import {
   deleteMetaTemplate, deleteDraftByName, markDraftPendingByName, listMetaTemplates, reconcileDrafts, explicarRechazo,
   type TemplateDraft,
 } from '@/lib/meta-templates';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 function normalizarDraft(d: Partial<TemplateDraft>): TemplateDraft {
   return {
@@ -38,7 +38,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   // Fase 1: los borradores + la lista de Meta cuelgan del WABA global del dueño → vacío.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, drafts: [], meta: [] });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: true, drafts: [], meta: [] });
   const sp = req.nextUrl.searchParams;
   const status = sp.get('status') || undefined;
   const etapa = sp.get('etapa') || undefined;
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   // Fase 1: los borradores de plantilla son para el WABA global del dueño.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   let body: { draft?: Partial<TemplateDraft> };
   try {
     body = await req.json();
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   // Fase 1: submit/reconcile/edit tocan el WABA global del dueño en Meta.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   let body: { id?: unknown; action?: unknown; metaId?: unknown; draft?: Partial<TemplateDraft> };
   try {
     body = await req.json();
@@ -146,7 +146,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   // Fase 1: borrar toca el WABA global del dueño en Meta.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   const sp = req.nextUrl.searchParams;
   const name = sp.get('name');
   const idRaw = sp.get('id');

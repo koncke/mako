@@ -9,7 +9,7 @@
 
 import { listConversations, type ChatwootConversation } from '@/lib/chatwoot';
 import { getSupabaseServer } from '@/lib/supabase';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +42,7 @@ function derivarEtapa(l: LeadRow): { key: string; label: string } {
 export async function GET(req: Request) {
   // Fase 1: las integraciones en vivo (Chatwoot/WhatsApp) son globales del dueño.
   // Un cliente nuevo no ve el inbox del dueño → devolvemos vacío benigno.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, contactos: [] });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: true, contactos: [] });
   try {
     // ?recent=1 → solo la página 1 (las 25 conversaciones más recientes). Lo usa
     // el polling: las novedades siempre suben a la página 1, así cada poll pega

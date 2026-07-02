@@ -13,12 +13,13 @@
 // =============================================================================
 
 import 'server-only';
+import { credWs } from './credenciales';
 
 const API_V2 = 'https://api-v2.pandavideo.com';
 const DATA = 'https://data.pandavideo.com';
 
-function key(): string {
-  const k = process.env.PANDA_API_KEY;
+async function key(): Promise<string> {
+  const k = await credWs('PANDA_API_KEY');
   if (!k || k.startsWith('PENDING')) {
     throw new Error('PANDA_API_KEY no configurada');
   }
@@ -32,7 +33,7 @@ export function getPandaVideoIds(): string[] {
 }
 
 async function pandaGet<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Authorization: key() } });
+  const res = await fetch(url, { headers: { Authorization: await key() } });
   const text = await res.text();
   let body: unknown;
   try {

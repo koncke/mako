@@ -12,7 +12,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianG
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { BreakdownCharts, fmtUSD, type Demo, type BD } from '../marketing/ad-charts';
 import { MakoButton } from '../_components/ChartIA';
-import { colorDeSemaforo, bgDeSemaforo, type Semaforo, type Reco } from '@/lib/meta-health';
+import { colorDeSemaforo, bgDeSemaforo, type Semaforo, type Reco } from '@/lib/meta-health-ui';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

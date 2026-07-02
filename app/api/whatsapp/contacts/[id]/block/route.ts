@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server';
 import { blockContact, contactoEnInboxWA } from '@/lib/chatwoot';
 import { setPipelineStage, updateLead } from '@/lib/leads';
 import { getSupabaseServer } from '@/lib/supabase';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,7 @@ const MOTIVO_BLOQUEO = 'Bloqueado en WhatsApp';
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   // Fase 1: WhatsApp (Chatwoot) es la integración global del dueño. Escritura →
   // solo el dueño puede bloquear/desbloquear contactos.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await integracionConectada('whatsapp'))) {
     return Response.json({ ok: false, error: 'solo el workspace dueño puede operar WhatsApp por ahora' }, { status: 403 });
   }
   const { id } = await ctx.params;

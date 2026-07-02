@@ -19,6 +19,7 @@
 // =============================================================================
 
 import { mxnAUsd, META_BALANCE_ALERTA_MXN } from './config';
+import { credWs } from './credenciales';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
 const MAX_PAGES = 50;
@@ -29,86 +30,21 @@ const MAX_BACKOFF_ATTEMPTS = 4;
 // Tipos
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type Semaforo = 'rojo' | 'ambar' | 'verde' | 'gris';
-
-export type Reco = {
-  fuente: 'meta' | 'mako';
-  titulo: string;
-  detalle: string;
-  prioridad: 'alta' | 'media' | 'baja';
-  semaforo: Semaforo;
-};
-
-export type Issue = { resumen: string; mensaje: string };
-
-export type NodoEstado = {
-  id: string;
-  name: string;
-  level: 'campaign' | 'adset' | 'ad';
-  parentId: string | null; // adset.campaign_id / ad.adset_id
-  effectiveStatus: string;
-  configuredStatus: string | null;
-  statusLabel: string;
-  semaforo: Semaforo;
-  createdTime?: string | null; // ISO de creación en Meta (para filtrar por año al renombrar)
-  // Presupuesto (MXN) si el nodo lo tiene propio (campaña CBO o adset ABO).
-  dailyBudgetMxn?: number | null;
-  lifetimeBudgetMxn?: number | null;
-  budgetRemainingMxn?: number | null;
-  // Dónde vive el presupuesto: 'campaign' = CBO, 'adset' = ABO, null = lo hereda.
-  budgetLevel?: 'campaign' | 'adset' | null;
-  // campaigns: objetivo (OUTCOME_LEADS, etc.)
-  objective?: string | null;
-  // adsets: fase de aprendizaje (Meta a veces no la devuelve → degrada a gris)
-  learning?: { status: string | null; label: string; semaforo: Semaforo };
-  // ads: problemas de revisión/políticas si los hay
-  issues?: Issue[];
-  // recomendaciones nativas de Meta para este nodo (suelen venir vacías).
-  recosMeta?: Reco[];
-};
-
-export type MetaAccountHealth = {
-  status: number;
-  statusLabel: string;
-  disableReason: number;
-  disableReasonLabel: string | null;
-  balanceMxn: number;
-  balanceUsd: number;
-  amountSpentMxn: number;
-  spendCapMxn: number | null;
-  isPrepay: boolean;
-  fundingCard: string | null;
-  currency: string;
-  severidad: Semaforo; // 'rojo' | 'ambar' | 'verde'
-  entregaFrenada: boolean;
-};
-
-export type MetaResumen = {
-  activos: number;
-  aprendizaje: number;
-  enRevision: number;
-  pausados: number;
-  rechazados: number;
-};
-
-export type MetaHealth = {
-  account: MetaAccountHealth;
-  campaigns: NodoEstado[];
-  adsets: NodoEstado[];
-  ads: NodoEstado[];
-  resumen: MetaResumen;
-  recomendaciones: Reco[];
-  recosMetaDisponibles: boolean; // ¿Meta devolvió recommendations/issues nativos?
-  parcial: boolean; // alguna sección (campañas/adsets/ads) falló pero la cuenta no
-  fetchedAtISO: string;
-};
+import {
+  type Semaforo, type Reco, type Issue, type NodoEstado,
+  type MetaAccountHealth, type MetaResumen, type MetaHealth,
+  statusLabel, statusSemaforo,
+} from './meta-health-ui';
+// Re-export para el código de servidor que ya importa tipos/helpers desde acá.
+export type { Semaforo, Reco, Issue, NodoEstado, MetaAccountHealth, MetaResumen, MetaHealth } from './meta-health-ui';
+export { colorDeSemaforo, bgDeSemaforo, explicarIssueEs, statusLabel, statusSemaforo } from './meta-health-ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Env + fetch con backoff
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getEnv(name: string): string {
-  const v = process.env[name];
+async function getEnv(name: string): Promise<string> {
+  const v = name === 'META_API_VERSION' ? process.env[name] : await credWs(name);
   if (!v || v.startsWith('PENDING')) {
     throw new Error(`Env var ${name} no definida (o con placeholder)`);
   }
@@ -177,12 +113,6 @@ function num(v: unknown): number {
 // Mapeos enum → etiqueta / color
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function colorDeSemaforo(s: Semaforo): string {
-  return s === 'rojo' ? 'var(--bad)' : s === 'ambar' ? 'var(--warn-fill)' : s === 'verde' ? 'var(--good)' : 'var(--dim)';
-}
-export function bgDeSemaforo(s: Semaforo): string {
-  return s === 'rojo' ? 'var(--bad-bg)' : s === 'ambar' ? 'var(--warn-bg)' : s === 'verde' ? 'var(--good-bg)' : 'var(--surface-2)';
-}
 
 // account_status: https://developers.facebook.com/docs/marketing-api/reference/ad-account
 const ACCOUNT_STATUS: Record<number, string> = {
@@ -217,61 +147,9 @@ export function disableReasonLabel(reason: number): string | null {
   return reason && DISABLE_REASON[reason] ? DISABLE_REASON[reason] : null;
 }
 
-// effective_status de campaign/adset/ad
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Activo',
-  PAUSED: 'Pausado',
-  CAMPAIGN_PAUSED: 'Pausado por campaña',
-  ADSET_PAUSED: 'Pausado por conjunto',
-  ARCHIVED: 'Archivado',
-  DELETED: 'Eliminado',
-  IN_PROCESS: 'Procesando',
-  PENDING_REVIEW: 'En revisión',
-  PREAPPROVED: 'Pre-aprobado',
-  WITH_ISSUES: 'Con problemas',
-  DISAPPROVED: 'Rechazado',
-  PENDING_BILLING_INFO: 'Falta info de pago',
-};
-export function statusLabel(s: string): string {
-  return STATUS_LABEL[s] ?? s.replace(/_/g, ' ').toLowerCase();
-}
-export function statusSemaforo(s: string): Semaforo {
-  switch (s) {
-    case 'ACTIVE':
-      return 'verde';
-    case 'PAUSED':
-    case 'CAMPAIGN_PAUSED':
-    case 'ADSET_PAUSED':
-    case 'ARCHIVED':
-    case 'DELETED':
-      return 'gris';
-    case 'IN_PROCESS':
-    case 'PENDING_REVIEW':
-    case 'PREAPPROVED':
-      return 'ambar';
-    case 'WITH_ISSUES':
-    case 'DISAPPROVED':
-    case 'PENDING_BILLING_INFO':
-      return 'rojo';
-    default:
-      return 'gris';
-  }
-}
 
 // Traduce un problema de Meta (issues_info suele venir en inglés) a una explicación
 // clara en español, por keywords. Devuelve título corto + detalle accionable.
-export function explicarIssueEs(it: Issue): { titulo: string; detalle: string } {
-  const t = `${it.resumen} ${it.mensaje}`.toLowerCase();
-  if (/approv|trusted|owning business admin|really you|not running yet|legitimate|notified them/.test(t))
-    return { titulo: 'Esperando aprobación del administrador', detalle: 'El anuncio se publicó y tus cambios se aplicaron, pero todavía no corre: por seguridad, Meta necesita que un administrador de la cuenta apruebe estos anuncios. Ya le avisó por email y en el Administrador de Anuncios. No tenés que hacer nada más, solo esperar la aprobación.' };
-  if (/reject|disapprov|doesn.?t comply|not comply|polic|violat|prohibited/.test(t))
-    return { titulo: 'Rechazado por las políticas de Meta', detalle: 'Meta rechazó el anuncio por sus políticas de publicidad. Revisá el texto y el creativo, editá los textos y guardá para volver a enviarlo a revisión.' };
-  if (/in review|pending review|being reviewed|under review|in_review/.test(t))
-    return { titulo: 'En revisión de Meta', detalle: 'Meta todavía está revisando el anuncio. Empieza a entregar cuando lo apruebe (normalmente en unas horas).' };
-  if (/payment|billing|unsettled|funding|pay method|declined/.test(t))
-    return { titulo: 'Problema de pago', detalle: 'Hay un problema de pago o facturación en la cuenta que frena la entrega. Regularizalo en el Administrador de Anuncios.' };
-  return { titulo: it.resumen || 'Problema del anuncio', detalle: it.mensaje || 'Meta marcó un problema con este anuncio. Revisalo en el Administrador de Anuncios.' };
-}
 
 const LEARNING_LABEL: Record<string, string> = {
   LEARNING: 'En aprendizaje',
@@ -337,9 +215,9 @@ function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
 }
 
 async function fetchAccountRaw(): Promise<Record<string, unknown>> {
-  const acct = getEnv('META_AD_ACCOUNT_ID');
-  const ver = getEnv('META_API_VERSION');
-  const token = getEnv('META_ACCESS_TOKEN');
+  const acct = await getEnv('META_AD_ACCOUNT_ID');
+  const ver = await getEnv('META_API_VERSION');
+  const token = await getEnv('META_ACCESS_TOKEN');
   const url = new URL(`${GRAPH_BASE}/${ver}/${acct}`);
   url.searchParams.set(
     'fields',
@@ -362,9 +240,9 @@ export async function getMetaAccountHealth(): Promise<MetaAccountHealth> {
  */
 export async function fetchAccountRecommendations(): Promise<Reco[]> {
   try {
-    const acct = getEnv('META_AD_ACCOUNT_ID');
-    const ver = getEnv('META_API_VERSION');
-    const token = getEnv('META_ACCESS_TOKEN');
+    const acct = await getEnv('META_AD_ACCOUNT_ID');
+    const ver = await getEnv('META_API_VERSION');
+    const token = await getEnv('META_ACCESS_TOKEN');
     const url = new URL(`${GRAPH_BASE}/${ver}/${acct}/recommendations`);
     url.searchParams.set('access_token', token);
     const body = await graphGet(url.toString());
@@ -378,10 +256,10 @@ export async function fetchAccountRecommendations(): Promise<Reco[]> {
 // Edges: campañas / conjuntos / anuncios
 // ─────────────────────────────────────────────────────────────────────────────
 
-function edgeUrl(path: string, fields: string): () => URL {
-  const acct = getEnv('META_AD_ACCOUNT_ID');
-  const ver = getEnv('META_API_VERSION');
-  const token = getEnv('META_ACCESS_TOKEN');
+async function edgeUrl(path: string, fields: string): Promise<() => URL> {
+  const acct = await getEnv('META_AD_ACCOUNT_ID');
+  const ver = await getEnv('META_API_VERSION');
+  const token = await getEnv('META_ACCESS_TOKEN');
   return () => {
     const url = new URL(`${GRAPH_BASE}/${ver}/${acct}/${path}`);
     url.searchParams.set('fields', fields);
@@ -594,9 +472,9 @@ export async function getMetaHealth(): Promise<MetaHealth> {
   // MaKo "le pregunta a Meta primero": pedimos recommendations en cada nivel +
   // el edge de cuenta, y las combinamos con las sugerencias derivadas.
   const [campR, adsetR, adR, accRecoR] = await Promise.allSettled([
-    graphGetAll(edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,lifetime_budget,objective,recommendations,created_time')),
-    graphGetAll(edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,lifetime_budget,budget_remaining,learning_stage_info,recommendations,created_time')),
-    graphGetAll(edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations,created_time')),
+    (async () => graphGetAll(await edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,lifetime_budget,objective,recommendations,created_time')))(),
+    (async () => graphGetAll(await edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,lifetime_budget,budget_remaining,learning_stage_info,recommendations,created_time')))(),
+    (async () => graphGetAll(await edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations,created_time')))(),
     fetchAccountRecommendations(),
   ]);
 

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { MakoStar } from '../_components/MakoBrand';
 import { Icon } from '../_components/icons';
 import { SaludBoard } from '../marketing/salud/SaludBoard';
-import type { MetaHealth } from '@/lib/meta-health';
+import type { MetaHealth } from '@/lib/meta-health-ui';
 
 const MONO = "'Geist Mono', monospace";
 
