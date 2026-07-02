@@ -35,10 +35,10 @@ import {
   getLead,
   getPipelineStages,
   getVisitasLandingMap,
+  getVslEngagementMap,
   logLeadChanges,
   logLeadEvent,
   getLeadAudit,
-  type LeadUpdateInput,
   type LeadMetaInput,
   type LeadAuditRow,
   type FathomLink,
@@ -46,8 +46,8 @@ import {
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, type PlanPagos, type PlanManual } from '@/lib/pagos';
-import { mapToCrmLead, type VisitasMap } from './crm-map';
+import { savePlanPagos, marcarPago, type PlanPagos } from '@/lib/pagos';
+import { mapToCrmLead, type VisitasMap, type VslMap } from './crm-map';
 import type { CrmLead } from './CrmBoard';
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
@@ -85,20 +85,6 @@ export async function createLeadAction(formData: FormData): Promise<void> {
 }
 
 /**
- * Actualiza un lead desde el form de detalle. Recibe input ya parseado
- * (el client component lo construye con sus toggles y validaciones).
- */
-export async function updateLeadAction(
-  id: number,
-  input: LeadUpdateInput,
-): Promise<void> {
-  await updateLead(id, input);
-  bust(TAG.leads);
-  revalidatePath('/leads');
-  revalidatePath(`/leads/${id}`);
-}
-
-/**
  * Guarda el plan de pagos de un lead y regenera las cuotas no pagadas.
  */
 export async function savePlanPagosAction(
@@ -107,18 +93,6 @@ export async function savePlanPagosAction(
 ): Promise<void> {
   await savePlanPagos(leadId, plan);
   bust(TAG.pagos, TAG.leads);
-  revalidatePath(`/leads/${leadId}`);
-  revalidatePath('/comercial');
-  revalidatePath('/general');
-}
-
-/**
- * Guarda el plan del CRM con las cuotas tal cual (monto + fecha por cuota).
- */
-export async function savePlanManualAction(leadId: number, plan: PlanManual): Promise<void> {
-  await saveLeadPlanManual(leadId, plan);
-  bust(TAG.pagos, TAG.leads);
-  revalidatePath('/leads');
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/comercial');
   revalidatePath('/general');
@@ -304,14 +278,15 @@ export async function getCrmLeadAction(
 ): Promise<{ lead: CrmLead; stages: Stage[] } | null> {
   const l = await getLead(id);
   if (!l) return null;
-  const [campMap, stages] = await Promise.all([
+  const [campMap, stages, visitasMap, vslMap] = await Promise.all([
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getPipelineStages().catch(() => DEFAULT_STAGES),
+    getVisitasLandingMap([l.visitor_id]).catch(() => new Map() as VisitasMap),
+    getVslEngagementMap([l.visitor_id]).catch(() => new Map() as VslMap),
   ]);
-  const visitasMap: VisitasMap = await getVisitasLandingMap([l.visitor_id]).catch(
-    () => new Map(),
-  );
   // Mismo criterio que /leads: ignorar overrides huérfanos (etapa ya no en el funnel).
   const validStageKeys = new Set(stages.map((s) => s.key));
-  return { lead: mapToCrmLead(l, campMap, visitasMap, validStageKeys), stages };
+  // vslMap: sin esto el modal abierto desde WhatsApp/desgloses mostraba el VSL
+  // vacío (plays 0, retención —) aunque en el CRM sí figuraran los datos.
+  return { lead: mapToCrmLead(l, campMap, visitasMap, validStageKeys, vslMap), stages };
 }

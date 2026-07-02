@@ -68,7 +68,10 @@ export function mapToCrmLead(l: Lead, campMap: Record<string, string>, visitasMa
     created: fmtDay(l.created_at) ?? '—',
     monto: l.monto_cierre_usd ?? 0,
     totalCobrado: l.total_cobrado_usd ?? 0,
-    agenda: fmtDay(l.fecha_agenda) ?? fmtDay(l.fecha_junta_1),
+    // Fecha de R1 canónica: misma prioridad que fechaJ1 y que el recorrido
+    // (fecha_junta_1 gana; fecha_agenda es el fallback). Antes divergían y el
+    // modal mostraba dos fechas distintas para la misma reunión.
+    agenda: fmtDay(l.fecha_junta_1 ?? l.fecha_agenda),
     j2: fmtDay(l.fecha_junta_2),
     fechaJ1: l.fecha_junta_1 ?? l.fecha_agenda,
     fechaJ2: l.fecha_junta_2,

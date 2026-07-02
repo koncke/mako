@@ -69,6 +69,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     fechaCierre: lead.fecha_cierre,
     estadoLead: lead.estado_lead,
     monto: lead.monto_cierre_usd ?? 0,
+    hoyISO: new Date().toISOString().slice(0, 10),
   });
 
   return (

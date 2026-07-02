@@ -19,8 +19,8 @@
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 
-// Code-split: el editor del CRM (LeadDetail + PlanPagosCard + server actions) NO
-// entra al bundle inicial de las tabs que usan Desglose; se baja al abrir la ficha.
+// Code-split: la ficha del CRM (LeadDetail + server actions) NO entra al bundle
+// inicial de las tabs que usan Desglose; se baja al abrir la ficha.
 const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";

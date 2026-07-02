@@ -39,6 +39,11 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
   const cuotaNum = parseFloat(montoCuota) || 0;
   const totalPlan = inicialNum + cuotaNum * nCuotas;
 
+  // Coherencia: el plan debería sumar el monto de cierre. Si no cuadra, avisamos
+  // (el cash del dashboard lee del plan, no del monto de cierre).
+  const montoCierre = lead.monto_cierre_usd ?? 0;
+  const descuadre = montoCierre > 0 && totalPlan > 0 && Math.abs(totalPlan - montoCierre) >= 1;
+
   const cobrado = pagos.filter((p) => p.pagado).reduce((s, p) => s + Number(p.monto_usd), 0);
   const pendiente = pagos.filter((p) => !p.pagado).reduce((s, p) => s + Number(p.monto_usd), 0);
 
@@ -97,6 +102,12 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
         </div>
         <button type="button" onClick={guardarPlan} disabled={pending} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar plan'}</button>
       </div>
+
+      {descuadre && (
+        <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 13.5, marginTop: 14, background: 'var(--warn-bg)', color: 'var(--warn)', border: '1px solid var(--warn-fill)', lineHeight: 1.5 }}>
+          El plan suma {fmtUSD(totalPlan)} pero el monto de cierre es {fmtUSD(montoCierre)}. Revisá que el cobro inicial y las cuotas cuadren con lo cerrado.
+        </div>
+      )}
 
       {feedback && (
         <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, marginTop: 14, background: feedback.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</div>

@@ -5,157 +5,56 @@
 // =============================================================================
 
 import Link from 'next/link';
+import type { CSSProperties, ReactNode } from 'react';
 import { createLeadAction } from '../actions';
 import { guardOnboarding } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 
+const SANS = "'Geist', sans-serif";
+const field: CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
+const card: CSSProperties = { maxWidth: 720, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 'clamp(20px,4vw,32px)' };
+
 export default async function NewLeadPage() {
   await guardOnboarding();
   return (
-    <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
-      <header className="mb-8">
-        <Link href="/leads" className="text-base" style={{ color: 'var(--text-dim)' }}>
-          ← Leads
-        </Link>
-        <h1
-          className="text-[46px] md:text-[62px] tracking-tight leading-tight mt-2"
-          style={{ fontFamily: 'var(--font-cormorant)', fontWeight: 500 }}
-        >
-          Nuevo lead
-        </h1>
-        <p className="mt-1 text-base" style={{ color: 'var(--text-dim)' }}>
-          Captura inicial. Los datos comerciales (R1, calificado, cierre) se llenan después.
-        </p>
-      </header>
+    <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: SANS, padding: 'clamp(20px,4vw,44px)' }}>
+      <div style={{ maxWidth: 920, margin: '0 auto' }}>
+        <Link href="/leads" style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>← Volver a Leads</Link>
+        <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: '14px 0 22px' }}>Nuevo lead</h1>
 
-      <form
-        action={createLeadAction}
-        className="max-w-2xl rounded-xl border p-6 md:p-8 space-y-5"
-        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
-      >
-        {/* Nombre — único requerido */}
-        <Field label="Nombre" required>
-          <input
-            type="text"
-            name="nombre"
-            required
-            autoFocus
-            className="w-full px-3 py-2 rounded border text-lg"
-            style={{
-              background: 'var(--surface-2)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text)',
-            }}
-          />
-        </Field>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Field label="Email">
-            <input
-              type="email"
-              name="email"
-              className="w-full px-3 py-2 rounded border text-lg"
-              style={{
-                background: 'var(--surface-2)',
-                borderColor: 'var(--card-border)',
-                color: 'var(--text)',
-              }}
-            />
+        <form action={createLeadAction} style={{ ...card, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Field label="Nombre" required>
+            <input type="text" name="nombre" required autoFocus style={field} />
           </Field>
-          <Field label="Teléfono">
-            <input
-              type="tel"
-              name="telefono"
-              className="w-full px-3 py-2 rounded border text-lg"
-              style={{
-                background: 'var(--surface-2)',
-                borderColor: 'var(--card-border)',
-                color: 'var(--text)',
-              }}
-            />
-          </Field>
-        </div>
 
-        <Field label="Empresa">
-          <input
-            type="text"
-            name="empresa"
-            className="w-full px-3 py-2 rounded border text-lg"
-            style={{
-              background: 'var(--surface-2)',
-              borderColor: 'var(--card-border)',
-              color: 'var(--text)',
-            }}
-          />
-        </Field>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            <Field label="Email"><input type="email" name="email" style={field} /></Field>
+            <Field label="Teléfono"><input type="tel" name="telefono" style={field} /></Field>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <Field label="Fecha de agendamiento (Calendly)">
-            <input
-              type="date"
-              name="fecha_agenda"
-              className="w-full px-3 py-2 rounded border text-lg"
-              style={{
-                background: 'var(--surface-2)',
-                borderColor: 'var(--card-border)',
-                color: 'var(--text)',
-              }}
-            />
-          </Field>
-          <Field label="Fecha de Reunión 1 (si ya la tienes)">
-            <input
-              type="date"
-              name="fecha_junta_1"
-              className="w-full px-3 py-2 rounded border text-lg"
-              style={{
-                background: 'var(--surface-2)',
-                borderColor: 'var(--card-border)',
-                color: 'var(--text)',
-              }}
-            />
-          </Field>
-        </div>
+          <Field label="Empresa"><input type="text" name="empresa" style={field} /></Field>
 
-        <div className="pt-3 flex items-center gap-3 justify-end">
-          <Link
-            href="/leads"
-            className="px-4 py-2 text-base"
-            style={{ color: 'var(--text-dim)' }}
-          >
-            Cancelar
-          </Link>
-          <button
-            type="submit"
-            className="px-5 py-3 rounded-lg font-medium text-base"
-            style={{ background: 'var(--primary)', color: '#fff' }}
-          >
-            Crear lead
-          </button>
-        </div>
-      </form>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            <Field label="Fecha de agendamiento"><input type="date" name="fecha_agenda" style={field} /></Field>
+            <Field label="Fecha de Reunión 1 (si ya la tenés)"><input type="date" name="fecha_junta_1" style={field} /></Field>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, paddingTop: 4 }}>
+            <Link href="/leads" style={{ padding: '10px 16px', fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>Cancelar</Link>
+            <button type="submit" style={{ padding: '11px 24px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Crear lead</button>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }
 
-function Field({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
+function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="block text-base mb-1.5" style={{ color: 'var(--text-dim)' }}>
-        {label}
-        {required && (
-          <span className="ml-1" style={{ color: 'var(--accent-orange)' }}>
-            *
-          </span>
-        )}
+    <label style={{ display: 'block' }}>
+      <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>
+        {label}{required && <span style={{ color: 'var(--bad)', marginLeft: 3 }}>*</span>}
       </span>
       {children}
     </label>

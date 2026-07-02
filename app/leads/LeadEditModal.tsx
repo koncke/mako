@@ -10,6 +10,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { LeadDetail } from './LeadDetail';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { seedEdits, missingFor, sectionForStage } from './edit-logic';
 import {
   getCrmLeadAction,
@@ -42,6 +43,7 @@ export function LeadEditModal({
   const [moveError, setMoveError] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -112,8 +114,13 @@ export function LeadEditModal({
     });
   };
 
-  const onDelete = () => {
+  // El footer de la ficha pide borrar → abrimos confirmación (antes borraba al
+  // instante desde WhatsApp/desgloses, sin diálogo).
+  const onDelete = () => { if (lead) setConfirmDelete(true); };
+
+  const doDelete = () => {
     if (!lead) return;
+    setConfirmDelete(false);
     setSaveError(false);
     // Borrado in-place (sin redirect): no expulsa al usuario de la tab actual.
     startTransition(async () => {
@@ -148,22 +155,34 @@ export function LeadEditModal({
   }
 
   return (
-    <LeadDetail
-      lead={lead}
-      stages={stages}
-      effStage={effStage(lead)}
-      pendingMove={pendingMove}
-      moveError={moveError}
-      edits={edits}
-      missing={pendingMove ? missingFor(pendingMove.to, edits) : []}
-      onPatch={(patch) => setEdits((e) => (e ? { ...e, ...patch } : e))}
-      onPickStage={onPickStage}
-      onClose={onClose}
-      onSave={onSave}
-      onDelete={onDelete}
-      focus={(pendingMove && sectionForStage(pendingMove.to)) || focus}
-      zIndex={80}
-      saveError={saveError}
-    />
+    <>
+      <LeadDetail
+        lead={lead}
+        stages={stages}
+        effStage={effStage(lead)}
+        pendingMove={pendingMove}
+        moveError={moveError}
+        edits={edits}
+        missing={pendingMove ? missingFor(pendingMove.to, edits) : []}
+        onPatch={(patch) => setEdits((e) => (e ? { ...e, ...patch } : e))}
+        onPickStage={onPickStage}
+        onClose={onClose}
+        onSave={onSave}
+        onDelete={onDelete}
+        focus={(pendingMove && sectionForStage(pendingMove.to)) || focus}
+        zIndex={80}
+        saveError={saveError}
+      />
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Borrar lead"
+          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{lead.name}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
+          confirmLabel="Borrar definitivamente"
+          onConfirm={doDelete}
+          onCancel={() => setConfirmDelete(false)}
+          zIndex={90}
+        />
+      )}
+    </>
   );
 }

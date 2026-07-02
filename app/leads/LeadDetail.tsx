@@ -105,12 +105,22 @@ export function LeadDetail({
 
   const [audit, setAudit] = useState<LeadAuditRow[]>([]);
   const [auditErr, setAuditErr] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(true);
+  const [auditLeadId, setAuditLeadId] = useState(lead.id);
   const [copied, setCopied] = useState('');
+  // Reset al cambiar de lead (el modal reusa el componente): setState en render
+  // guardado por la comparación — patrón React, no dispara el lint del effect.
+  if (auditLeadId !== lead.id) {
+    setAuditLeadId(lead.id);
+    setAuditLoading(true);
+    setAuditErr(false);
+  }
   useEffect(() => {
     let alive = true;
     getLeadAuditAction(lead.id)
       .then((r) => { if (alive) { setAudit(r); setAuditErr(false); } })
-      .catch(() => { if (alive) setAuditErr(true); });
+      .catch(() => { if (alive) setAuditErr(true); })
+      .finally(() => { if (alive) setAuditLoading(false); });
     return () => { alive = false; };
   }, [lead.id]);
 
@@ -141,16 +151,18 @@ export function LeadDetail({
     };
   }, []);
 
-  // Al completar un movimiento, desplazarse a la tarjeta de completar.
+  // Desplazarse a la sección indicada: si hay un movimiento pendiente, a la
+  // tarjeta de completar; si no (p.ej. abierto desde un desglose con focus), a la
+  // sección de solo lectura correspondiente (que ahora sí tiene id).
   useEffect(() => {
-    if (!focus) return;
+    const targetId = pendingMove ? 'lead-sec-completar' : focus ? `lead-sec-${focus}` : null;
+    if (!targetId) return;
     const t = setTimeout(() => {
-      const el = document.getElementById(`lead-sec-${focus}`);
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const el = document.getElementById(targetId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 90);
     return () => clearTimeout(t);
-  }, [focus]);
+  }, [focus, pendingMove]);
 
   const headerMeta = findStage(stages, effStage);
   const completing = !!pendingMove;
@@ -172,6 +184,7 @@ export function LeadDetail({
     fechaCierre: lead.cierreISO,
     estadoLead: lead.estadoLead,
     monto: lead.monto,
+    hoyISO: new Date().toISOString().slice(0, 10),
   });
 
   const setFathom = (i: number, field: 'label' | 'url', v: string) =>
@@ -226,7 +239,7 @@ export function LeadDetail({
 
           {/* tarjeta de completar movimiento (solo cuando el Kanban mueve a una etapa con datos) */}
           {completing && (
-            <div id={focus ? `lead-sec-${focus}` : undefined} style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 14, padding: '16px 18px' }}>
+            <div id="lead-sec-completar" style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 14, padding: '16px 18px' }}>
               <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--warn)' }}>
                 Moviendo a &quot;{findStage(stages, to!).label}&quot; — {missing.length ? 'completá lo obligatorio' : 'confirmá el cambio'}
               </div>
@@ -302,7 +315,7 @@ export function LeadDetail({
 
           {/* datos comerciales */}
           {agendo && (
-            <Section title="Datos comerciales">
+            <Section title="Datos comerciales" id="lead-sec-datos-comerciales">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px,1fr))', gap: 12 }}>
                 <Stat label="Fecha Reunión 1" value={lead.agenda ?? '—'} />
                 <Stat label="¿Asistió a R1?" value={yesNoNode(lead.asistioJ1)} />
@@ -378,14 +391,14 @@ export function LeadDetail({
 
           {/* motivo (perdido/descal) */}
           {isLost && lead.motivo && (
-            <Section title="Motivo de pérdida">
+            <Section title="Motivo de pérdida" id="lead-sec-motivo">
               <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>{lead.motivo}</div>
             </Section>
           )}
 
           {/* plan de pagos — resumen (editable en la ficha completa) */}
           {isGanado && (
-            <Section title="Plan de pagos">
+            <Section title="Plan de pagos" id="lead-sec-plan-pagos">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px,1fr))', gap: 12 }}>
                 <Stat label="Monto de cierre" value={lead.monto ? fmtUSD(lead.monto) : '—'} accent />
                 <Stat label="Cobrado" value={lead.totalCobrado ? fmtUSD(lead.totalCobrado) : '—'} />
@@ -409,7 +422,7 @@ export function LeadDetail({
               ))}
               {audit.length === 0 && (
                 <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>
-                  {auditErr ? 'No se pudo cargar el historial. Reintentá reabriendo la ficha.' : 'Sin cambios registrados todavía. Cada movimiento de etapa, edición o evento de Fathom va a aparecer acá.'}
+                  {auditLoading ? 'Cargando historial…' : auditErr ? 'No se pudo cargar el historial. Reintentá reabriendo la ficha.' : 'Sin cambios registrados todavía. Cada movimiento de etapa, edición o evento de Fathom va a aparecer acá.'}
                 </div>
               )}
             </div>

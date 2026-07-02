@@ -345,6 +345,10 @@ export async function updateLead(
     nombre: merged.nombre,
     email: merged.email,
     telefono: merged.telefono,
+    // Si el caller editó el teléfono, recalculamos su forma normalizada (llave de
+    // match de webhooks Calendly/Meta/Chatwoot). Sin esto, editar el teléfono a
+    // mano dejaba la llave vieja y el próximo webhook creaba un lead duplicado.
+    ...(input.telefono !== undefined ? { telefono_normalizado: normalizarTelefono(merged.telefono) } : {}),
     empresa: merged.empresa,
     fecha_agenda: merged.fecha_agenda,
     fecha_junta_1: merged.fecha_junta_1,
@@ -651,10 +655,16 @@ export async function applyFathomRecording(
 export type LeadAuditRow = { id: number; campo: string; valor_anterior: string | null; valor_nuevo: string | null; autor: string; created_at: string };
 
 const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
+  { k: 'nombre', label: 'Nombre' },
+  { k: 'email', label: 'Email' },
+  { k: 'telefono', label: 'Teléfono' },
+  { k: 'empresa', label: 'Empresa' },
   { k: 'pipeline_stage', label: 'Etapa' },
   { k: 'estado_lead', label: 'Estado' },
+  { k: 'fecha_agenda', label: 'Fecha de agendamiento' },
   { k: 'asistio_j1', label: 'Asistió R1' },
   { k: 'asistio_j2', label: 'Asistió R2' },
+  { k: 'calificado', label: 'Calificado' },
   { k: 'fecha_junta_1', label: 'Fecha R1' },
   { k: 'fecha_junta_2', label: 'Fecha R2' },
   { k: 'closer', label: 'Closer' },
@@ -662,6 +672,7 @@ const AUDIT_FIELDS: Array<{ k: keyof Lead; label: string }> = [
   { k: 'monto_cierre_usd', label: 'Monto de cierre' },
   { k: 'motivo_perdida', label: 'Motivo' },
   { k: 'fecha_confirmacion', label: 'Confirmación de pago' },
+  { k: 'nutricion_manual_deadline', label: 'Deadline de nutrición manual' },
   { k: 'fathom_links', label: 'Links de Fathom' },
 ];
 
