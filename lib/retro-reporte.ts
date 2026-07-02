@@ -160,7 +160,7 @@ export const RETRO_FASES: Array<{ id: RetroFaseId; label: string }> = [
 ];
 
 export type RetroStreamEvent =
-  | { t: 'plan'; fases: Array<{ id: RetroFaseId; label: string }>; tabs: Array<{ id: string; label: string }> }
+  | { t: 'plan'; fases: Array<{ id: RetroFaseId; label: string }>; tabs: Array<{ id: string; label: string; icon?: string }> }
   | { t: 'fase'; fase: RetroFaseId }
   | { t: 'step'; fase: RetroFaseId; label: string; tab?: string; hallazgo?: string }
   | { t: 'done'; retro: unknown }

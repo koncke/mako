@@ -15,6 +15,7 @@ import type { Retro } from '@/lib/retro';
 import type { RetroPlanItem, RetroReporte, RetroStreamEvent, RetroFaseId } from '@/lib/retro-reporte';
 import { ayerEnTijuana, diasAntes, primerDiaDelMesEnTijuana, primerDiaDelMesDeFecha } from '@/lib/date-utils';
 import { MakoStar, MakoWord } from '@/app/_components/MakoBrand';
+import { Icon } from '@/app/_components/icons';
 import type { Toast } from './ExperimentosApp';
 import { RetroReport } from './RetroReport';
 import {
@@ -252,8 +253,14 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
     setStep('ejecutando'); setEventos([]); setErr(null); setIntento((i) => i + 1);
 
     if (demo) {
+      const TAB_DEMO: Record<string, { label: string; icon: string }> = {
+        adquisicion: { label: 'Marketing', icon: 'ads' }, nutricion: { label: 'CRM', icon: 'crm' },
+        conversion: { label: 'Closing Analyst', icon: 'closing' }, creativos: { label: 'Script Analyst', icon: 'notepencil' },
+        revenue: { label: 'Graphics', icon: 'graphics' },
+      };
+      const tabsDemo = (modoTodo ? AREAS_UI : AREAS_UI.filter((a) => areasSel.includes(a.key))).map((a) => TAB_DEMO[a.key]).filter(Boolean);
       demoCancelRef.current?.();
-      demoCancelRef.current = simularDemo(modoTodo ? AREAS_UI.map((a) => a.label.split(' ·')[0]) : AREAS_UI.filter((a) => areasSel.includes(a.key)).map((a) => a.label.split(' ·')[0]), setEventos, () => { notify('En local no se genera (sin Supabase). En producción MaKo la arma con tu dato real.'); onClose(); });
+      demoCancelRef.current = simularDemo(tabsDemo, setEventos, () => { notify('En local no se genera (sin Supabase). En producción MaKo la arma con tu dato real.'); onClose(); });
       return;
     }
 
@@ -297,7 +304,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
       }
       // Última línea sin newline (residuo del buffer).
       if (procesar(buf.trim())) return;
-      setErr('La generación terminó sin resultado. Probá de nuevo.');
+      setErr('El servidor cortó la generación antes de terminar (posible límite de tiempo). Reintentá; si pasa seguido, elegí menos áreas o un período más corto.');
     } catch (e) {
       if ((e as Error)?.name !== 'AbortError') setErr('Se cortó la conexión. Probá de nuevo.');
     }
@@ -392,22 +399,22 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
 }
 
 // ── Simulación de la ejecución en demo (local sin Supabase) ──
-function simularDemo(tabs: string[], setEventos: React.Dispatch<React.SetStateAction<RetroStreamEvent[]>>, onEnd: () => void): () => void {
+function simularDemo(tabs: Array<{ label: string; icon: string }>, setEventos: React.Dispatch<React.SetStateAction<RetroStreamEvent[]>>, onEnd: () => void): () => void {
   const fases: Array<{ id: RetroFaseId; label: string }> = [
     { id: 'memoria', label: 'Memoria' }, { id: 'recoleccion', label: 'Recolección' }, { id: 'auditoria', label: 'Auditoría' },
     { id: 'diagnostico', label: 'Diagnóstico' }, { id: 'cruces', label: 'Cruces' }, { id: 'cerebro', label: 'Organizando' },
     { id: 'verificacion', label: 'Verificando' }, { id: 'redaccion', label: 'Redactando' },
   ];
   const evs: RetroStreamEvent[] = [
-    { t: 'plan', fases, tabs: tabs.map((l) => ({ id: l, label: l })) },
+    { t: 'plan', fases, tabs: tabs.map((x) => ({ id: x.label, label: x.label, icon: x.icon })) },
     { t: 'fase', fase: 'memoria' }, { t: 'step', fase: 'memoria', label: 'Leyendo el retro anterior y su plan…' },
     { t: 'fase', fase: 'recoleccion' }, { t: 'step', fase: 'recoleccion', label: 'Midiendo el funnel del período…' },
-    ...tabs.map((l): RetroStreamEvent => ({ t: 'step', fase: 'recoleccion', label: `Leyendo ${l}…`, tab: l })),
+    ...tabs.map((x): RetroStreamEvent => ({ t: 'step', fase: 'recoleccion', label: `Leyendo la tab ${x.label}…`, tab: x.label })),
     { t: 'fase', fase: 'auditoria' }, { t: 'step', fase: 'auditoria', label: 'Auditando qué falta medir…' },
     { t: 'step', fase: 'auditoria', label: 'Hueco: VSL con dato parcial (12 de 30 días)' },
     { t: 'fase', fase: 'diagnostico' },
-    ...tabs.map((l): RetroStreamEvent => ({ t: 'step', fase: 'diagnostico', label: `Sacando insights de ${l}…`, tab: l })),
-    { t: 'step', fase: 'diagnostico', label: 'Nutrición: 304 leads sin un solo mensaje', tab: 'Nutrición', hallazgo: '304 leads sin tocar (63%)' },
+    ...tabs.map((x): RetroStreamEvent => ({ t: 'step', fase: 'diagnostico', label: `Sacando insights de ${x.label}…`, tab: x.label })),
+    { t: 'step', fase: 'diagnostico', label: 'CRM: 304 leads sin un solo mensaje', tab: 'CRM', hallazgo: '304 leads sin tocar (63%)' },
     { t: 'fase', fase: 'cruces' }, { t: 'step', fase: 'cruces', label: 'Cruzando datos entre áreas…' },
     { t: 'step', fase: 'cruces', label: 'Cruce: los nutridos cierran 2.4× más', tab: 'Cruces', hallazgo: 'Nutridos cierran 2.4× más que fríos' },
     { t: 'fase', fase: 'cerebro' }, { t: 'step', fase: 'cerebro', label: 'Priorizando qué mueve la aguja…' },
@@ -431,7 +438,18 @@ function Ejecucion({ eventos, err, onClose, onReintentar }: { eventos: RetroStre
   const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
   const scrollRef = useRef<HTMLDivElement>(null);
   const [segs, setSegs] = useState(0);
-  useEffect(() => { const id = window.setInterval(() => setSegs((s) => s + 1), 1000); return () => window.clearInterval(id); }, []);
+  const [idle, setIdle] = useState(0);
+  // Marca de tiempo del último evento (el backend late cada ~9s; si algo lo
+  // frena, avisamos abajo que MaKo sigue vivo).
+  const lastEvRef = useRef(0);
+  useEffect(() => { lastEvRef.current = Date.now(); }, [eventos.length]);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setSegs((s) => s + 1);
+      setIdle(lastEvRef.current ? Math.floor((Date.now() - lastEvRef.current) / 1000) : 0);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, []);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [eventos]);
 
   // Reducir los eventos a: plan, fase actual, steps, estado por tab, ticker.
@@ -488,6 +506,11 @@ function Ejecucion({ eventos, err, onClose, onReintentar }: { eventos: RetroStre
       <div style={{ textAlign: 'center' }}>
         <h3 style={{ ...pregunta, fontSize: 19 }}>MaKo está analizando tu negocio</h3>
         <p style={{ margin: '5px 0 0', fontSize: 13.5, color: 'var(--dim)' }}>{actual} <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>· {Math.floor(segs / 60)}:{String(segs % 60).padStart(2, '0')}</span></p>
+        {idle > 15 && (
+          <p style={{ margin: '4px 0 0', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', animation: 'rxj-blink 1.6s ease-in-out infinite' }}>
+            sigue pensando — las fases largas pueden tardar unos minutos
+          </p>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '190px 1fr', gap: 14, flex: 1, minHeight: 0 }}>
@@ -502,6 +525,7 @@ function Ejecucion({ eventos, err, onClose, onReintentar }: { eventos: RetroStre
                 {activa
                   ? <svg width={12} height={12} viewBox="-12 -12 24 24" style={{ overflow: 'visible', flex: 'none' }}><path className="rxj-spark" d={SPARK} fill="#EF9F27" /></svg>
                   : <span style={{ width: 12, textAlign: 'center', fontSize: 11, color: leida ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }}>{leida ? '✓' : '○'}</span>}
+                {t.icon && <span style={{ flex: 'none', color: activa ? 'var(--primary-strong)' : leida ? 'var(--dim)' : 'var(--faint)', display: 'inline-flex' }}><Icon name={t.icon} size={15} /></span>}
                 <span style={{ fontSize: 13, fontWeight: activa ? 600 : 500, color: activa ? 'var(--primary-strong)' : leida ? 'var(--dim)' : 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.label}</span>
               </div>
             );

@@ -18,7 +18,12 @@ import { esFechaValida } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export const maxDuration = 300; // diagnóstico por área en paralelo + cerebro + verificación
+// La retro completa (diagnóstico paralelo + cruces + cerebro + verificación) puede
+// pasar los 5 min: 300 mataba la función a mitad del cerebro y el stream moría sin
+// error. 800 es el máximo de Pro con fluid compute; además el pipeline tiene un
+// presupuesto interno (salta la verificación si va justo). Si el deploy fallara por
+// límite del plan, bajar a 300.
+export const maxDuration = 800;
 
 export async function GET() {
   try {

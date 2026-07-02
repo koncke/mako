@@ -50,6 +50,11 @@ const AREA_TAB: Record<AreaId, string> = {
   adquisicion: 'Marketing', nutricion: 'CRM', conversion: 'Closing Analyst',
   creativos: 'Script Analyst', revenue: 'Graphics', experimentos: 'Experiments',
 };
+// Ícono de cada tab en el rail de la ejecución (claves de app/_components/icons.tsx).
+const AREA_ICON: Record<AreaId, string> = {
+  adquisicion: 'ads', nutricion: 'crm', conversion: 'closing',
+  creativos: 'notepencil', revenue: 'graphics', experimentos: 'experiments',
+};
 
 function parseJson<T>(text: string): T {
   const cleaned = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
@@ -406,21 +411,32 @@ export async function generarRetroV3(
   const perspectiva = opts.perspectiva && opts.perspectiva.trim()
     ? `\nPERSPECTIVA DE MARTÍN (su hipótesis, puede estar equivocada — contrastala con el dato, NO la asumas): "${opts.perspectiva.trim()}"`
     : '';
+  const t0 = Date.now();
 
-  send({ t: 'plan', fases: RETRO_FASES, tabs: areasEff.map((a) => ({ id: a, label: AREA_NOMBRE[a] })) });
+  // LATIDOS: durante las llamadas largas a Claude, emite sub-pasos rotativos cada
+  // ~9s. El loader nunca queda inmóvil y el stream nunca queda idle (algunos
+  // proxies cortan streams silenciosos). No se guardan en `proceso` (son pulso,
+  // no pasos reales).
+  const latidos = (fase: RetroFaseId, labels: string[]): (() => void) => {
+    let i = 0;
+    const id = setInterval(() => { send({ t: 'step', fase, label: labels[i++ % labels.length] }); }, 9000);
+    return () => clearInterval(id);
+  };
+
+  send({ t: 'plan', fases: RETRO_FASES, tabs: areasEff.map((a) => ({ id: a, label: AREA_TAB[a], icon: AREA_ICON[a] })) });
 
   // 0 · Memoria
   fase('memoria');
   step('memoria', 'Leyendo el retro anterior y su plan…');
   const seguimiento = await armarSeguimiento();
 
-  // 1 · Recolección (texto + datos en paralelo)
+  // 1 · Recolección (texto + datos en paralelo) — los pasos nombran la TAB real.
   fase('recoleccion');
   step('recoleccion', 'Midiendo el funnel del período…');
   const [{ destacados }, fuentes, datos] = await Promise.all([
     calcularDestacados(desde, hasta),
     recolectarFuentes(desde, hasta, { profundidad: 'profunda', areas: areasEff as AreaKey[] },
-      (p) => step('recoleccion', `Leyendo ${p.label}…`, AREA_NOMBRE[p.area as AreaId] ?? p.label)).catch(() => [] as Fuente[]),
+      (p) => { const tab = AREA_TAB[p.area as AreaId] ?? p.label; step('recoleccion', `Leyendo la tab ${tab}…`, tab); }).catch(() => [] as Fuente[]),
     recolectarDatos(desde, hasta).catch((): RetroDatos => ({ charts: {}, datos: {}, cobertura: [] })),
   ]);
 
@@ -430,36 +446,67 @@ export async function generarRetroV3(
   const cobertura = datos.cobertura;
   for (const c of cobertura) step('auditoria', `Hueco: ${c.label}`);
 
-  // 3 · Diagnóstico por área (paralelo)
+  // 3 · Diagnóstico por área (paralelo) — con latidos mientras piensan las áreas.
   fase('diagnostico');
-  const porArea = await Promise.all(fuentes.map(async (f) => {
-    const nombre = AREA_NOMBRE[f.area as AreaId] ?? f.label;
-    step('diagnostico', `Sacando insights de ${nombre}…`, nombre);
-    const res = await diagnosticarArea(f, datos.datos[f.area as AreaId], perspectiva);
-    if (res[0]) step('diagnostico', `${nombre}: ${res[0].short}`, nombre, res[0].short);
-    return res;
-  }));
+  const stopDiag = latidos('diagnostico', [
+    'Leyendo los números área por área…',
+    'Comparando contra el período anterior…',
+    'Anotando lo que se sale de lo normal…',
+  ]);
+  let porArea: Candidato[][];
+  try {
+    porArea = await Promise.all(fuentes.map(async (f) => {
+      const tab = AREA_TAB[f.area as AreaId] ?? f.label;
+      step('diagnostico', `Sacando insights de ${tab}…`, tab);
+      const res = await diagnosticarArea(f, datos.datos[f.area as AreaId], perspectiva);
+      if (res[0]) step('diagnostico', `${tab}: ${res[0].short}`, tab, res[0].short);
+      return res;
+    }));
+  } finally { stopDiag(); } // sin finally, un throw dejaría el interval vivo hasta el timeout
   let candidatos: RetroFinding[] = porArea.flat().map((c, i) => ({ ...c, id: `f${i + 1}` } as RetroFinding));
 
   // 4 · Cruces (1 ronda, acotado)
   fase('cruces');
   step('cruces', 'Cruzando datos entre áreas…');
-  const cruces = await buscarCruces(fuentes, datos, candidatos, perspectiva);
+  const stopCruces = latidos('cruces', [
+    'Cruzando nutrición con conversión…',
+    'Cruzando guiones con el costo por lead…',
+    'Buscando lo que ninguna tab muestra sola…',
+  ]);
+  let cruces: Candidato[];
+  try { cruces = await buscarCruces(fuentes, datos, candidatos, perspectiva); } finally { stopCruces(); }
   const base = candidatos.length;
   candidatos = candidatos.concat(cruces.map((c, i) => ({ ...c, id: `f${base + i + 1}` } as RetroFinding)));
   for (const c of cruces.slice(0, 2)) step('cruces', `Cruce: ${c.short}`, 'Cruces', c.short);
 
-  // 5 · Cerebro organizador
+  // 5 · Cerebro organizador (la llamada más larga: latidos sí o sí)
   fase('cerebro');
   step('cerebro', 'Priorizando qué mueve la aguja…');
+  const stopCerebro = latidos('cerebro', [
+    'Puntuando cada hallazgo…',
+    'Buscando el cuello del embudo…',
+    'Estimando el impacto en plata…',
+    'Encadenando el plan: experimentos → tareas…',
+    'Eligiendo qué mueve la aguja…',
+  ]);
   const destacadosTxt = destacados.map((d: RetroDestacado) =>
     `- ${d.label}: ${d.valor}${d.delta != null ? ` (${d.delta > 0 ? '+' : ''}${d.delta.toFixed(1)}% vs anterior)` : ''}`).join('\n');
-  let out = await organizar(destacadosTxt, candidatos, datos, cobertura, seguimiento, areasEff, perspectiva);
+  let out: CerebroOut;
+  try { out = await organizar(destacadosTxt, candidatos, datos, cobertura, seguimiento, areasEff, perspectiva); } finally { stopCerebro(); }
 
-  // 6 · Verificación
+  // 6 · Verificación — con presupuesto: si vamos justos con el límite de la
+  // función (Vercel), publicamos el borrador del cerebro antes que morir sin nada.
   fase('verificacion');
-  step('verificacion', 'Verificando cada número citado…');
-  out = await verificar(out, datos);
+  if (Date.now() - t0 < 500_000) {
+    step('verificacion', 'Verificando cada número citado…');
+    const stopVerif = latidos('verificacion', [
+      'Chequeando cada número contra la fuente…',
+      'Descartando lo que no tiene sustento…',
+    ]);
+    try { out = await verificar(out, datos); } finally { stopVerif(); }
+  } else {
+    step('verificacion', 'Sin margen de tiempo: se publica el borrador del cerebro sin la doble verificación.');
+  }
 
   // 7 · Redacción + guardado
   fase('redaccion');
