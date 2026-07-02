@@ -11,6 +11,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
 import { getPromptText } from '@/lib/prompt-render';
 import { esWorkspaceDueno } from '@/lib/workspace';
+import { credWs } from '@/lib/credenciales';
 
 /** Resuelve los prompts editables de transcripción (override o default). */
 async function resolveTranscribePrompts() {
@@ -53,7 +54,9 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   const prompts = await resolveTranscribePrompts();
-  const res = await transcribeAd(adId, { imageUrl: th?.ad_thumbnail_url ?? undefined, instruccion, prompts });
+  const metaToken = await credWs('META_ACCESS_TOKEN');
+  if (!metaToken) return Response.json({ error: 'META_ACCESS_TOKEN no configurado' }, { status: 500 });
+  const res = await transcribeAd(adId, { imageUrl: th?.ad_thumbnail_url ?? undefined, instruccion, prompts, metaToken });
 
   const { error: upErr } = await supabase.from('ad_transcripts').upsert({
     ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,

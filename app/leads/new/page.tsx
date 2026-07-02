@@ -6,10 +6,12 @@
 
 import Link from 'next/link';
 import { createLeadAction } from '../actions';
+import { guardOnboarding } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 
-export default function NewLeadPage() {
+export default async function NewLeadPage() {
+  await guardOnboarding();
   return (
     <main className="min-h-screen w-full px-6 py-8 md:px-12 md:py-12 bg-[var(--bg)] text-[var(--text)]">
       <header className="mb-8">

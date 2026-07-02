@@ -58,6 +58,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     campos: [
       { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Token de usuario de sistema (no expira). Permisos: ads_read, ads_management, business_management.' },
       { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', placeholder: 'act_1234567890', nota: 'Con el prefijo act_.' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Token de página con leads_retrieval. Necesario para traer los leads de tus formularios de Meta.' },
       { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Solo si vas a usar la Conversions API y la creación de campañas.' },
     ],
     tutorial: {
@@ -222,6 +223,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     campos: [
       { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…' },
       { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', opcional: true, placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en la URL del video.' },
+      { env: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'OAuth Client ID', opcional: true, placeholder: '…apps.googleusercontent.com', nota: 'Para YouTube Analytics (retención/views diarias del canal propio).' },
+      { env: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'OAuth Client secret', secreto: true, opcional: true, placeholder: 'GOCSPX-…' },
+      { env: 'YOUTUBE_OAUTH_REFRESH_TOKEN', label: 'OAuth Refresh token', secreto: true, opcional: true, nota: 'Se obtiene autorizando el canal una vez (OAuth Playground con scope yt-analytics.readonly).' },
     ],
     tutorial: {
       url: 'https://console.cloud.google.com/apis/credentials',

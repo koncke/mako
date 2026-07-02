@@ -6,9 +6,12 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { actualizarWorkspace, crearWorkspace, listarWorkspaces } from '@/lib/workspace';
+import { actualizarWorkspace, crearWorkspace, listarWorkspaces, runWithWorkspace } from '@/lib/workspace';
 import { crearUsuario, listarUsuarios } from '@/lib/usuarios';
 import { getSupabaseServer } from '@/lib/supabase';
+import { setSetting } from '@/lib/settings';
+import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
+import { hoyEnTijuana } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +55,17 @@ export async function POST(req: NextRequest) {
           if (existe) return NextResponse.json({ ok: false, error: 'Ya existe un usuario con ese email.' }, { status: 400 });
         }
         const ws = await crearWorkspace(nombre);
+        // Seed inicial del workspace: onboarding pendiente (su admin cae al
+        // wizard en el primer login) + objetivo_desde = hoy (sin esto, el
+        // progreso del objetivo usaría la fecha de arranque del dueño).
+        try {
+          await runWithWorkspace(ws.id, async () => {
+            await setEstadoOnboarding(estadoInicial('pending'));
+            await setSetting('objetivo_desde', hoyEnTijuana());
+          });
+        } catch (e) {
+          console.error('[admin/workspaces] seed onboarding falló (no fatal):', e);
+        }
         // Crear el usuario admin-del-cliente en el mismo paso. Si falla, revertir
         // el workspace para no dejar basura.
         if (adminEmail) {

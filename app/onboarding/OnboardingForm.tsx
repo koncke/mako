@@ -3,6 +3,8 @@
 // =============================================================================
 // OnboardingForm — perfil del negocio: template por fase (descargar → subir →
 // MaKo lo lee y completa) + wizard minimalista. El lápiz abre el editor de campos.
+// `embedded` lo usa el OnboardingWizard (paso "Tu negocio"): sin chrome propio
+// (main/intro/header grande) y con onComplete al guardar el último grupo.
 // =============================================================================
 
 import Link from 'next/link';
@@ -29,11 +31,11 @@ function PencilIcon() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>;
 }
 
-export function OnboardingForm() {
+export function OnboardingForm({ embedded = false, onComplete }: { embedded?: boolean; onComplete?: () => void } = {}) {
   const [schema, setSchema] = useState<Group[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState(true);
-  const [intro, setIntro] = useState(true);
+  const [intro, setIntro] = useState(!embedded);
   const [editando, setEditando] = useState(false);
   const [step, setStep] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -105,13 +107,14 @@ export function OnboardingForm() {
     finally { setExtrayendo(false); }
   };
 
+  const Cont = embedded ? 'div' : 'main';
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', minHeight: '100vh', position: 'relative' }}>
+    <Cont style={embedded ? { position: 'relative' } : { flex: 1, minWidth: 0, padding: '34px 44px 60px', minHeight: '100vh', position: 'relative' }}>
       {intro && <MakoIntro saludo="Bienvenido a" caption="Configurá el perfil de tu negocio" />}
 
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <MakoLogo size={36} />
-        <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>
+        {!embedded && <MakoLogo size={36} />}
+        {!embedded && <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {saved && <span style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>Guardado ✓</span>}
           <button type="button" onClick={() => setTaxOpen(true)} style={{ ...btnGhostSm, display: 'inline-flex', alignItems: 'center', gap: 7 }}>✎ Ángulos y avatares</button>
@@ -120,7 +123,7 @@ export function OnboardingForm() {
           </button>
         </div>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 6px', maxWidth: 720 }}>El perfil del negocio del cliente. Alimenta el contexto de MaKo.</p>
+      {!embedded && <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 6px', maxWidth: 720 }}>El perfil del negocio del cliente. Alimenta el contexto de MaKo.</p>}
 
       {cargando ? (
         <div style={{ ...card, maxWidth: 760, color: 'var(--faint)', fontFamily: MONO, fontSize: 13, marginTop: 18 }}>Cargando…</div>
@@ -157,7 +160,7 @@ export function OnboardingForm() {
         </div>
       ) : (
         // ── Wizard: una fase por pantalla, con template ──
-        <div style={{ maxWidth: 560, margin: '0 auto', minHeight: 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        <div style={{ maxWidth: 560, margin: '0 auto', minHeight: embedded ? undefined : 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.docx" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && group) subirTemplate(f, group); e.target.value = ''; }} />
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 10 }}>
@@ -199,11 +202,11 @@ export function OnboardingForm() {
             <button style={{ ...btnGhost, opacity: stepSafe === 0 ? 0.4 : 1, cursor: stepSafe === 0 ? 'default' : 'pointer' }} disabled={stepSafe === 0} onClick={() => { setExtractMsg(null); setStep((s) => Math.max(0, s - 1)); }}>← Anterior</button>
             {stepSafe < total - 1
               ? <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={() => { guardar(answers); setExtractMsg(null); setStep((s) => s + 1); }}>Siguiente →</button>
-              : <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={() => guardar(answers)}>Guardar</button>}
+              : <button style={{ ...btnDark, opacity: completo ? 1 : 0.4, cursor: completo ? 'pointer' : 'default' }} disabled={!completo} onClick={async () => { await guardar(answers); onComplete?.(); }}>{embedded ? 'Guardar y continuar →' : 'Guardar'}</button>}
           </div>
 
           {/* Paso final: seguir con el Método (conectar las integraciones). */}
-          {stepSafe === total - 1 && (
+          {stepSafe === total - 1 && !embedded && (
             <div style={{ textAlign: 'center', marginTop: 18 }}>
               <Link href="/metodo" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conectá tus integraciones (Método) →</Link>
             </div>
@@ -212,6 +215,6 @@ export function OnboardingForm() {
       )}
 
       {taxOpen && <TaxonomyManager angles={taxAngles} avatares={taxAvatares} onClose={() => setTaxOpen(false)} onSaved={() => { setTaxOpen(false); fetchTax(); flash(); }} />}
-    </main>
+    </Cont>
   );
 }

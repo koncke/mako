@@ -56,9 +56,11 @@ async function getAdVideo(adId: string, ver: string, token: string): Promise<{ v
  * Para creativos dinámicos (DCO) los campos directos vienen vacíos y el
  * thumbnail es minúsculo (ilegible) → usamos full_picture del post, que apunta
  * a la imagen real (a veces en storage externo vía proxy ?url=).
+ * `metaToken`: token de Meta del WORKSPACE (los callers server lo resuelven con
+ * credWs); sin él cae al env global (dueño / scripts CLI).
  */
-export async function getAdImage(adId: string): Promise<string | null> {
-  const ver = env('META_API_VERSION'), token = env('META_ACCESS_TOKEN');
+export async function getAdImage(adId: string, metaToken?: string): Promise<string | null> {
+  const ver = env('META_API_VERSION'), token = metaToken ?? env('META_ACCESS_TOKEN');
   const cu = new URL(`${GRAPH}/${ver}/${adId}`);
   cu.searchParams.set('fields', 'creative{image_url,object_story_spec{link_data{picture},photo_data{url}},asset_feed_spec{images{url}},effective_object_story_id}');
   cu.searchParams.set('access_token', token);
@@ -195,6 +197,9 @@ export async function transcribeAd(
     instruccion?: string;
     /** Prompts editables resueltos por el caller (ruta server). Los scripts los omiten. */
     prompts?: { structureSystem?: string; imagePrompt?: string; whisperGlossary?: string };
+    /** Token de Meta del WORKSPACE (resolver con credWs en el caller server). Sin
+     *  él cae al env global (dueño / scripts CLI) — NUNCA omitir para un cliente. */
+    metaToken?: string;
   },
 ): Promise<TranscribeResult> {
   const instruccion = opts?.instruccion?.trim() || undefined;
@@ -204,7 +209,7 @@ export async function transcribeAd(
   const whisperHint = instruccion || (pr?.whisperGlossary?.trim() || undefined);
   const base: TranscribeResult = { ad_id: adId, video_id: null, tipo: null, status: 'ok', transcript: null, secciones: null, idioma: null, duracion_s: null, model: null, error: null };
   try {
-    const ver = env('META_API_VERSION'), token = env('META_ACCESS_TOKEN'), oai = env('OPENAI_API_KEY');
+    const ver = env('META_API_VERSION'), token = opts?.metaToken ?? env('META_ACCESS_TOKEN'), oai = env('OPENAI_API_KEY');
     const video = await getAdVideo(adId, ver, token);
 
     if (video) {
@@ -230,7 +235,7 @@ export async function transcribeAd(
     // Sin video → imagen. Preferir la imagen de ALTA resolución del creativo/post
     // (getAdImage); el thumbnail guardado es respaldo (puede ser minúsculo).
     let img: string | null = null;
-    try { img = await getAdImage(adId); } catch { /* no fatal */ }
+    try { img = await getAdImage(adId, opts?.metaToken); } catch { /* no fatal */ }
     img = img ?? opts?.imageUrl ?? null;
     if (!img) return { ...base, status: 'sin_video' };
     const { transcript, secciones } = await analyzeImage(img, instruccion, pr?.imagePrompt);

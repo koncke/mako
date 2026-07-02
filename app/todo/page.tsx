@@ -9,6 +9,7 @@
 // =============================================================================
 
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
+import { guardOnboarding } from '@/lib/tab-access';
 import { TodoBoard } from './TodoBoard';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,7 @@ export const revalidate = 0;
 const MONO = "'Geist Mono', monospace";
 
 export default async function TodoPage() {
+  await guardOnboarding();
   let tareas: Tarea[] = [];
   let categorias: Categoria[] = [];
   let dbDown = false;

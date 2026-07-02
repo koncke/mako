@@ -19,6 +19,7 @@ import { deriveStageKey, stageMeta, CHIP, DEFAULT_STAGES, type Stage } from '@/l
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
+import { guardOnboarding } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
 import { EditLeadForm } from './EditLeadForm';
@@ -31,6 +32,7 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await guardOnboarding();
   const { id: idStr } = await params;
   const idNum = Number(idStr);
   if (!Number.isFinite(idNum)) notFound();

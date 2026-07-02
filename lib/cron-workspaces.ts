@@ -14,7 +14,7 @@
 // del workspace y cae al env global para el dueño (misma resolución que hoy).
 
 import 'server-only';
-import { runWithWorkspace, listarWorkspaces, OWNER_WS } from './workspace';
+import { runWithWorkspace, listarWorkspaces, getWorkspaceActual, OWNER_WS } from './workspace';
 import { integracionConectada } from './credenciales';
 import { getSetting } from './settings';
 
@@ -59,13 +59,15 @@ export async function correrPorWorkspace(
 }
 
 /**
- * Config del workspace actual con fallback al env global (para el dueño). Ej.:
+ * Config del workspace actual con fallback al env global SOLO PARA EL DUEÑO. Ej.:
  *   const ids = await configWs('youtube_vsl_video_id', process.env.YOUTUBE_VSL_VIDEO_ID);
  * Para el dueño (sin la setting cargada) devuelve el env de siempre; para un
- * cliente, lo que cargó en su config.
+ * CLIENTE sin la setting devuelve null (fail-closed: jamás ingesta el video/página
+ * de Mauricio en el workspace de otro negocio).
  */
 export async function configWs(clave: string, envFallback?: string | null): Promise<string | null> {
   const v = await getSetting(clave);
   if (v !== null && v.trim()) return v;
-  return envFallback ?? null;
+  const ws = await getWorkspaceActual();
+  return ws === OWNER_WS || ws == null ? envFallback ?? null : null;
 }
