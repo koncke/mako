@@ -10,6 +10,7 @@
 //   https://dashboard-marketing-six.vercel.app/api/webhooks/chatwoot
 // =============================================================================
 
+import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { pausarPorRespuesta } from '@/lib/nutricion';
@@ -19,6 +20,14 @@ export const dynamic = 'force-dynamic';
 
 function digits(p: string): string {
   return (p || '').replace(/\D/g, '');
+}
+
+/** Compara el secret en tiempo constante (evita fuga por timing y tolera longitudes distintas). */
+function secretoValido(recibido: string | null, esperado: string): boolean {
+  if (!recibido) return false;
+  const a = Buffer.from(recibido);
+  const b = Buffer.from(esperado);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 type ChatwootHook = {
@@ -50,9 +59,25 @@ async function buscarLeadPorTelefono(d: string): Promise<number | null> {
 }
 
 export async function POST(req: NextRequest) {
+  // Auth FAIL-CLOSED: este webhook es público y MUTA datos (pausa nutrición,
+  // reescribe pipeline_stage, dispara Telegram), así que exigimos el secret.
+  // Sin CHATWOOT_WEBHOOK_SECRET: en prod se rechaza (cerrado antes que abierto);
+  // en local/dev se permite para poder testear. Mismo criterio que el gate global.
   const secret = process.env.CHATWOOT_WEBHOOK_SECRET;
-  if (secret && new URL(req.url).searchParams.get('secret') !== secret) {
-    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  if (!secret) {
+    const esProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+    if (esProd) {
+      console.error('[webhook:chatwoot] CHATWOOT_WEBHOOK_SECRET sin configurar en producción → rechazando');
+      return Response.json({ ok: false, error: 'webhook no configurado' }, { status: 401 });
+    }
+  } else {
+    // Aceptamos el secret por header (preferido, no queda en access logs) o por
+    // query ?secret= (compat con la config actual de Chatwoot).
+    const recibido =
+      req.headers.get('x-chatwoot-webhook-secret') ?? new URL(req.url).searchParams.get('secret');
+    if (!secretoValido(recibido, secret)) {
+      return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+    }
   }
 
   let body: ChatwootHook;

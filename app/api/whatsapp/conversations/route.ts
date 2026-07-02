@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { listConversations, type ChatwootConversation } from '@/lib/chatwoot';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
@@ -51,7 +51,9 @@ export async function GET(req: Request) {
     const convs = await listConversations(recent ? 1 : 200);
 
     // Lead por teléfono (best-effort: dígitos completos o últimos 10).
-    const supabase = getSupabaseServer();
+    // getTenantDb() auto-filtra por workspace_id: solo matcheamos contra los leads
+    // del workspace del caller (nunca leads de otros clientes).
+    const supabase = await getTenantDb();
     const { data: leadsData } = await supabase
       .from('leads')
       .select('id, nombre, empresa, telefono_normalizado, estado_lead, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, calificado, fecha_confirmacion, fecha_primer_pago, cerro, visitor_id, meta_lead_id')

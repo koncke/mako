@@ -11,7 +11,7 @@
 
 import type { NextRequest } from 'next/server';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { credWs, integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
@@ -174,7 +174,9 @@ export async function GET(req: NextRequest) {
 
     // Demográficos estructurados (edad × género) para el gráfico de barras agrupadas.
     // Transcripción guardada (cron transcribe-ads) — si existe.
-    const supabase = getSupabaseServer();
+    // getTenantDb() auto-filtra por workspace_id: solo devolvemos el transcript del
+    // anuncio si pertenece al workspace del caller (evita IDOR por ad_id enumerable).
+    const supabase = await getTenantDb();
     const { data: tr } = await supabase
       .from('ad_transcripts')
       .select('status, tipo, transcript, secciones, idioma, duracion_s, instruccion')
