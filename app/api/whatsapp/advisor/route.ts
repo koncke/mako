@@ -43,7 +43,7 @@ async function sesionDeContacto(groupId: string, contacto: string, crear: boolea
 
 export async function POST(req: NextRequest) {
   // Fase 1: la asesoría opera sobre el inbox global del dueño → los demás no la usan.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
 

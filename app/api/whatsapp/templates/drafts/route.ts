@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   // Fase 1: los borradores de plantilla son para el WABA global del dueño.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
   let body: { draft?: Partial<TemplateDraft> };
   try {
     body = await req.json();
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   // Fase 1: submit/reconcile/edit tocan el WABA global del dueño en Meta.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
   let body: { id?: unknown; action?: unknown; metaId?: unknown; draft?: Partial<TemplateDraft> };
   try {
     body = await req.json();
@@ -146,7 +146,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   // Fase 1: borrar toca el WABA global del dueño en Meta.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
   const sp = req.nextUrl.searchParams;
   const name = sp.get('name');
   const idRaw = sp.get('id');

@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   // Fase 1: marcar leídas opera sobre el feed global del dueño.
-  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
   let body: { action?: string; id?: number };
   try {
     body = (await req.json()) as typeof body;

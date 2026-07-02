@@ -7,6 +7,7 @@
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
 import { getHistorialMeta, registrarEstadoMeta, type MetaEstadoHist } from '@/lib/meta-health-history';
+import { integracionConectada } from '@/lib/credenciales';
 import { IntegracionesBoard } from './IntegracionesBoard';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,11 @@ export default async function IntegracionesPage() {
   let health: MetaHealth | null = null;
   let metaError: string | null = null;
   try {
-    health = await getMetaHealth();
+    // No pegarle a Meta en vivo si el workspace no tiene Meta conectado: para un
+    // cliente sin Meta tiraría "META_ACCESS_TOKEN no definida" y para un admin sin
+    // impersonar mostraría el Meta del dueño. health=null → estado "sin conexión".
+    const metaConectado = await integracionConectada('meta');
+    health = metaConectado ? await getMetaHealth() : null;
     if (health) await registrarEstadoMeta(health.account); // registra si está negativo
   } catch (err) {
     metaError = err instanceof Error ? err.message : String(err);

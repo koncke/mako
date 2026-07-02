@@ -14,6 +14,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
+import { getWorkspaceActual, OWNER_WS } from './workspace';
 
 const API_V2 = 'https://api-v2.pandavideo.com';
 const DATA = 'https://data.pandavideo.com';
@@ -48,10 +49,15 @@ async function pandaGet<T>(url: string): Promise<T> {
 // Resolver external_id → id interno (cache en memoria del proceso)
 // ─────────────────────────────────────────────────────────────────────────────
 
-let _videoCache: Map<string, string> | null = null;
+// Keyed por workspace (cada cliente tiene su propia cuenta de Panda) con TTL
+// corto: no servir el catálogo de otro workspace ni cachearlo para siempre.
+const _videoCache = new Map<number, { map: Map<string, string>; ts: number }>();
+const VIDEO_CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function getVideoMap(): Promise<Map<string, string>> {
-  if (_videoCache) return _videoCache;
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const cached = _videoCache.get(ws);
+  if (cached && Date.now() - cached.ts < VIDEO_CACHE_TTL_MS) return cached.map;
   const map = new Map<string, string>();
   // Paginar el listado de videos
   let url: string | null = `${API_V2}/videos?limit=100`;
@@ -64,7 +70,7 @@ async function getVideoMap(): Promise<Map<string, string>> {
     }
     url = page.pagination?.next ?? null;
   }
-  _videoCache = map;
+  _videoCache.set(ws, { map, ts: Date.now() });
   return map;
 }
 

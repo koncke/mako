@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // Fase 1: WhatsApp (Chatwoot) es la integración global del dueño. Escritura →
   // solo el dueño puede bloquear/desbloquear contactos.
   if (!(await integracionConectada('whatsapp'))) {
-    return Response.json({ ok: false, error: 'solo el workspace dueño puede operar WhatsApp por ahora' }, { status: 403 });
+    return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
   }
   const { id } = await ctx.params;
   const contactId = Number(id);

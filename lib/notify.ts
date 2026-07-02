@@ -11,7 +11,7 @@
 
 import 'server-only';
 import type { Reporte } from './reportes';
-import type { CanalPrefs, Perfil } from './perfil';
+import type { CanalPrefs, ContactoReportes } from './perfil';
 import { crearNotificacion, setCanalWa, pendientesWhatsapp } from './notificaciones';
 import { notificarTelegram } from './telegram';
 import { sendEmail, renderEmailHtml } from './resend';
@@ -32,7 +32,7 @@ export type ResultadoDespacho = {
   email: boolean;
 };
 
-export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: Perfil): Promise<ResultadoDespacho> {
+export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: ContactoReportes): Promise<ResultadoDespacho> {
   const waQuiere = canal.wa && !!perfil.telefono;
 
   // 1) Feed in-app (bitácora durable + cola de reintento de WhatsApp).
@@ -80,7 +80,7 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
 
 // Reintenta los reportes que quedaron con canal_wa='pendiente' (ventana cerrada
 // al generarlos). Se llama desde el cron horario tras mandar la apertura del día.
-export async function flushPendientesWhatsapp(perfil: Perfil): Promise<{ enviados: number; pendientes: number }> {
+export async function flushPendientesWhatsapp(perfil: ContactoReportes): Promise<{ enviados: number; pendientes: number }> {
   if (!perfil.telefono) return { enviados: 0, pendientes: 0 };
   const pend = await pendientesWhatsapp();
   let enviados = 0;

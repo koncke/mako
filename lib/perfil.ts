@@ -1,22 +1,25 @@
 // =============================================================================
-// Perfil del usuario + preferencias de notificaciones
+// Perfil personal (por usuario) + config de reportes/notificaciones (por workspace)
 // =============================================================================
-// La app es de UN solo usuario (Mauricio), con gate por contraseña COMPARTIDA
-// por env (no hay tabla de usuarios). Por eso el "perfil" y las preferencias se
-// guardan como pares clave/valor en app_settings:
-//   - perfil    → user_nombre / user_email / user_telefono / user_timezone / …
-//   - prefs     → notification_prefs (un solo JSON)
-// No hay "cambiar contraseña": el login es una clave global de entorno.
-// =============================================================================
+// Multi-inquilino: el PERFIL es de la PERSONA (nombre, foto, cargo, bio…) y vive
+// en su fila de `usuarios` (columnas nombre/email/foto_url + jsonb `perfil`).
+// Antes vivía en app_settings por-workspace y se compartía entre todos.
+//
+// La CONFIG DE REPORTES (a qué email/WhatsApp van los reportes del cron) y las
+// preferencias de notificaciones son por-WORKSPACE: los crons (sin sesión →
+// workspace dueño) las leen de app_settings. Se mantienen las keys de siempre.
 
 import 'server-only';
+import { getSupabaseServer } from './supabase';
 import { getSetting, setSetting } from './settings';
+import { getUsuarioActual } from './auth';
+import { buscarUsuarioPorEmail } from './usuarios';
 
-// ── Perfil ────────────────────────────────────────────────────────────────────
+// ── Perfil personal (por usuario) ─────────────────────────────────────────────
 export type Perfil = {
   nombre: string;
-  email: string;      // destino de los reportes por email
-  telefono: string;   // WhatsApp destino de los reportes (E.164, ej. +5216861234567)
+  email: string;      // el email de login (solo lectura acá)
+  telefono: string;
   cargo: string;
   empresa: string;
   web: string;
@@ -26,54 +29,80 @@ export type Perfil = {
 };
 
 export const DEFAULT_PERFIL: Perfil = {
-  nombre: 'Mauricio Bustos',
-  email: '',
-  telefono: '',
-  cargo: 'Fundador',
-  empresa: '',
-  web: '',
-  bio: '',
-  timezone: 'America/Tijuana',
-  avatarUrl: '',
+  nombre: '', email: '', telefono: '', cargo: '', empresa: '', web: '', bio: '',
+  timezone: 'America/Tijuana', avatarUrl: '',
 };
 
-// clave de perfil → clave en app_settings
-const PERFIL_KEYS: Record<keyof Perfil, string> = {
-  nombre: 'user_nombre',
-  email: 'user_email',
-  telefono: 'user_telefono',
-  cargo: 'user_cargo',
-  empresa: 'user_empresa',
-  web: 'user_web',
-  bio: 'user_bio',
-  timezone: 'user_timezone',
-  avatarUrl: 'user_avatar_url',
-};
+// Campos que viven en el jsonb `perfil` de la fila usuarios (el resto son columnas).
+type PerfilExtra = Pick<Perfil, 'telefono' | 'cargo' | 'empresa' | 'web' | 'bio' | 'timezone'>;
+const EXTRA_KEYS: Array<keyof PerfilExtra> = ['telefono', 'cargo', 'empresa', 'web', 'bio', 'timezone'];
 
+/** Perfil de la PERSONA logueada. Sesiones sin fila real (legacy/dev/maestra) → defaults. */
 export async function getPerfil(): Promise<Perfil> {
-  const out = { ...DEFAULT_PERFIL };
-  await Promise.all(
-    (Object.keys(PERFIL_KEYS) as Array<keyof Perfil>).map(async (k) => {
-      const v = await getSetting(PERFIL_KEYS[k]);
-      if (v !== null) out[k] = v;
-    }),
-  );
-  return out;
+  const sesion = await getUsuarioActual();
+  if (!sesion || !sesion.email) return { ...DEFAULT_PERFIL };
+  let u;
+  try { u = await buscarUsuarioPorEmail(sesion.email); } catch { u = null; }
+  if (!u) return { ...DEFAULT_PERFIL, nombre: sesion.nombre || '', email: sesion.email };
+  const extra = ((u as { perfil?: Partial<PerfilExtra> }).perfil ?? {}) as Partial<PerfilExtra>;
+  return {
+    ...DEFAULT_PERFIL,
+    nombre: u.nombre || sesion.nombre || '',
+    email: u.email,
+    avatarUrl: u.foto_url ?? '',
+    telefono: extra.telefono ?? '',
+    cargo: extra.cargo ?? '',
+    empresa: extra.empresa ?? '',
+    web: extra.web ?? '',
+    bio: extra.bio ?? '',
+    timezone: extra.timezone ?? DEFAULT_PERFIL.timezone,
+  };
 }
 
-/** Guarda solo los campos presentes (upsert por clave). Devuelve el perfil final. */
+/** Guarda el perfil de la PERSONA logueada en su fila usuarios. No toca el email de login. */
 export async function setPerfil(patch: Partial<Perfil>): Promise<Perfil> {
-  await Promise.all(
-    (Object.keys(patch) as Array<keyof Perfil>)
-      .filter((k) => k in PERFIL_KEYS)
-      .map((k) => setSetting(PERFIL_KEYS[k], String(patch[k] ?? '').trim())),
-  );
+  const sesion = await getUsuarioActual();
+  if (!sesion || !sesion.email) return getPerfil(); // break-glass: sin fila, no-op
+  const u = await buscarUsuarioPorEmail(sesion.email);
+  if (!u) return getPerfil();
+
+  const cols: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.nombre !== undefined) cols.nombre = String(patch.nombre).trim();
+  if (patch.avatarUrl !== undefined) cols.foto_url = String(patch.avatarUrl).trim();
+
+  const extraPrev = ((u as { perfil?: Partial<PerfilExtra> }).perfil ?? {}) as Partial<PerfilExtra>;
+  const extra: Partial<PerfilExtra> = { ...extraPrev };
+  for (const k of EXTRA_KEYS) if (patch[k] !== undefined) extra[k] = String(patch[k] ?? '').trim();
+  cols.perfil = extra;
+
+  const { error } = await getSupabaseServer().from('usuarios').update(cols).eq('id', u.id);
+  if (error) throw new Error(`perfil: ${error.message}`);
   return getPerfil();
 }
 
-// ── Preferencias de notificaciones ────────────────────────────────────────────
-// Por cada reporte, qué canales de PUSH usar. El centro de notificaciones in-app
-// (la campanita) SIEMPRE registra todo; los canales son avisos extra.
+// ── Contacto de reportes (por workspace) ──────────────────────────────────────
+// A dónde manda el cron los reportes del workspace. Vive en app_settings
+// (por-workspace, default dueño). Mantiene las keys históricas.
+export type ContactoReportes = { nombre: string; email: string; telefono: string };
+
+export async function getContactoReportes(): Promise<ContactoReportes> {
+  const [nombre, email, telefono] = await Promise.all([
+    getSetting('user_nombre'), getSetting('user_email'), getSetting('user_telefono'),
+  ]);
+  return { nombre: nombre ?? '', email: email ?? '', telefono: telefono ?? '' };
+}
+
+export async function setContactoReportes(c: Partial<ContactoReportes>): Promise<void> {
+  const tareas: Array<Promise<void>> = [];
+  if (c.nombre !== undefined) tareas.push(setSetting('user_nombre', c.nombre.trim()));
+  if (c.email !== undefined) tareas.push(setSetting('user_email', c.email.trim()));
+  if (c.telefono !== undefined) tareas.push(setSetting('user_telefono', c.telefono.trim()));
+  await Promise.all(tareas);
+}
+
+// ── Preferencias de notificaciones (por workspace) ────────────────────────────
+// Config de los reportes del workspace (qué canales, qué secciones). La usan los
+// crons; es del workspace, no personal.
 export type CanalPrefs = {
   activo: boolean;
   wa: boolean;
@@ -82,9 +111,9 @@ export type CanalPrefs = {
 };
 
 export type NotifPrefs = {
-  horario: CanalPrefs;   // "lo urgente", cada hora 8–21h Tijuana
-  diario: CanalPrefs;    // digest de la mañana
-  semanal: CanalPrefs;   // lunes
+  horario: CanalPrefs;
+  diario: CanalPrefs;
+  semanal: CanalPrefs;
   secciones: {
     semaforo: boolean;
     ads: boolean;

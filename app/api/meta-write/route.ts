@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   // Fase 1: escribir a Meta (pausar/activar, presupuesto, nombre, borrar) es una
   // acción sobre la cuenta global del dueño. Solo el dueño puede mutarla.
   if (!(await esWorkspaceDueno())) {
-    return Response.json({ ok: false, error: 'solo el workspace dueño' }, { status: 403 });
+    return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
   }
 
   const ver = process.env.META_API_VERSION;

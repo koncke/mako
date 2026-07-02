@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   // Fase 1: firmar la subida es el primer paso del tooling de creativos que
   // termina empujando a la cuenta de Meta global del dueño.
   if (!(await esWorkspaceDueno())) {
-    return Response.json({ ok: false, error: 'solo el workspace dueño' }, { status: 403 });
+    return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
   }
 
   let body: { filename?: string; content_type?: string };

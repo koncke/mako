@@ -7,7 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { getPerfil, getNotifPrefs } from '@/lib/perfil';
+import { getContactoReportes, getNotifPrefs } from '@/lib/perfil';
 import { buildReporteSemanal } from '@/lib/reportes';
 import { despacharReporte } from '@/lib/notify';
 
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const t0 = Date.now();
   try {
-    const [perfil, prefs] = await Promise.all([getPerfil(), getNotifPrefs()]);
+    const [perfil, prefs] = await Promise.all([getContactoReportes(), getNotifPrefs()]);
     if (!prefs.semanal.activo) {
       return Response.json({ ok: true, skip: 'semanal desactivado', ms: Date.now() - t0 });
     }

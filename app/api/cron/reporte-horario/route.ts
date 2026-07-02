@@ -10,7 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { getPerfil, getNotifPrefs } from '@/lib/perfil';
+import { getContactoReportes, getNotifPrefs } from '@/lib/perfil';
 import { buildReporteHorario } from '@/lib/reportes';
 import { despacharReporte, flushPendientesWhatsapp } from '@/lib/notify';
 import { getMetaAccountHealth } from '@/lib/meta-health';
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
   const t0 = Date.now();
   try {
-    const [perfil, prefs] = await Promise.all([getPerfil(), getNotifPrefs()]);
+    const [perfil, prefs] = await Promise.all([getContactoReportes(), getNotifPrefs()]);
     // Historial de estados de Meta (registra si está negativo y cambió).
     try { await registrarEstadoMeta(await getMetaAccountHealth()); } catch { /* no-op */ }
     if (!prefs.horario.activo) {

@@ -293,10 +293,14 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
     setOptimistic((m) => { const n = new Map(m); n.set(id, { ...(n.get(id) ?? {}), ...patch }); return n; });
   const clearOpt = (id: string, k: 'status' | 'budgetMxn' | 'name') =>
     setOptimistic((m) => { const n = new Map(m); const cur = { ...(n.get(id) ?? {}) }; delete cur[k]; if (Object.keys(cur).length === 0) n.delete(id); else n.set(id, cur); return n; });
-  const permMsg = (j: { error_subcode?: number; message?: string }) =>
-    j.error_subcode === 4841013
-      ? `Meta bloqueó la escritura (permiso 4841013). El token ya es System User con ads_management y rol MANAGE; el bloqueo restante suele ser la 2FA obligatoria de la empresa (el admin que controla el system user debe tener 2FA activada) y/o la cuenta restringida por pago. Detalle: ${j.message ?? ''}`
-      : `Meta rechazó el cambio: ${j.message ?? 'error'}`;
+  const permMsg = (j: { error_subcode?: number; message?: string; error?: string }) => {
+    if (j.error_subcode === 4841013)
+      return `Meta bloqueó la escritura (permiso 4841013). El token ya es System User con ads_management y rol MANAGE; el bloqueo restante suele ser la 2FA obligatoria de la empresa (el admin que controla el system user debe tener 2FA activada) y/o la cuenta restringida por pago. Detalle: ${j.message ?? ''}`;
+    // Si el backend mandó un error propio (p.ej. el guard de workspace), mostralo tal cual
+    // en vez de disfrazarlo como un rechazo de Meta.
+    if (j.error) return j.error;
+    return `Meta rechazó el cambio: ${j.message ?? 'error'}`;
+  };
 
   // Ids a ACTIVAR en cascada: el subárbol (hijos) + los ancestros, para que el árbol
   // COMPLETO entregue. Activar SOLO la campaña deja adsets/ads con su status propio en

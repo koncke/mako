@@ -94,7 +94,7 @@ export function PerfilTabs() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="perfil" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Perfil</h1>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Tus datos. El email y el teléfono son a dónde te llegan los reportes; las preferencias de notificaciones están en Configuraciones.</p>
+      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Tu perfil personal (solo tuyo). Los reportes y las notificaciones se configuran en Configuraciones.</p>
 
       <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={card}>
@@ -120,8 +120,8 @@ export function PerfilTabs() {
             <div><label style={labelStyle}>Cargo</label><input style={input} value={draft.cargo} onChange={(e) => set('cargo', e.target.value)} placeholder="Fundador" /></div>
             <div><label style={labelStyle}>Empresa</label><input style={input} value={draft.empresa} onChange={(e) => set('empresa', e.target.value)} placeholder="Negocio que Escala" /></div>
             <div><label style={labelStyle}>Sitio web</label><input style={input} value={draft.web} onChange={(e) => set('web', e.target.value)} placeholder="https://…" /></div>
-            <div><label style={labelStyle}>Email (reportes)</label><input style={input} type="email" value={draft.email} onChange={(e) => set('email', e.target.value)} placeholder="vos@empresa.com" /></div>
-            <div><label style={labelStyle}>WhatsApp (reportes)</label><input style={input} value={draft.telefono} onChange={(e) => set('telefono', e.target.value)} placeholder="+5216861234567" /></div>
+            <div><label style={labelStyle}>Email (acceso)</label><input style={{ ...input, background: 'var(--surface-2)', color: 'var(--dim)', cursor: 'not-allowed' }} type="email" value={draft.email} readOnly disabled placeholder="—" /></div>
+            <div><label style={labelStyle}>Teléfono</label><input style={input} value={draft.telefono} onChange={(e) => set('telefono', e.target.value)} placeholder="+5216861234567" /></div>
             <div>
               <label style={labelStyle}>Zona horaria</label>
               <Dropdown value={draft.timezone} options={TZ_OPTS} onChange={(v) => set('timezone', v)} width="100%" />

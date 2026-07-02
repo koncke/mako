@@ -10,7 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { getPerfil, getNotifPrefs } from '@/lib/perfil';
+import { getContactoReportes, getNotifPrefs } from '@/lib/perfil';
 import { buildReporteDiario } from '@/lib/reportes';
 import { despacharReporte } from '@/lib/notify';
 import { asegurarPlantillaReporte, enviarAperturaDiaria } from '@/lib/reporte-template';
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   const t0 = Date.now();
   try {
-    const [perfil, prefs] = await Promise.all([getPerfil(), getNotifPrefs()]);
+    const [perfil, prefs] = await Promise.all([getContactoReportes(), getNotifPrefs()]);
     if (!prefs.diario.activo) {
       return Response.json({ ok: true, skip: 'diario desactivado', ms: Date.now() - t0 });
     }

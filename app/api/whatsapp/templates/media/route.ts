@@ -25,7 +25,7 @@ function formatoDe(mime: string): HeaderMediaFormat | null {
 
 export async function POST(req: Request) {
   // Fase 1: subir la muestra la manda al WABA global del dueño en Meta.
-  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
+  if (!(await integracionConectada('whatsapp'))) return Response.json({ ok: false, error: 'WhatsApp no está conectado en este workspace. Conectalo en Configuraciones → Método.' }, { status: 403 });
   try {
     const form = await req.formData();
     const file = form.get('file');

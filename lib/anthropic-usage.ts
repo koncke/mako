@@ -10,8 +10,8 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb } from './workspace';
-import { getSetting, setSetting } from './settings';
+import { getTenantDb, OWNER_WS } from './workspace';
+import { getSupabaseServer } from './supabase';
 
 export type UsageInfo = {
   inputTokens: number;
@@ -76,8 +76,22 @@ export type UsageSummary = {
   porFeature: Array<{ feature: string; costUsd: number; tokens: number }>;
 };
 
+// El saldo es GLOBAL de la agencia: la API key de Anthropic es única, así que
+// leemos/escribimos SIEMPRE contra OWNER_WS con el cliente crudo (settings.ts
+// scopea por workspace del request → cada cliente vería un saldo distinto).
 export async function getSaldo(): Promise<Saldo | null> {
-  const raw = await getSetting('anthropic_saldo');
+  let raw: string | null = null;
+  try {
+    const { data } = await getSupabaseServer()
+      .from('app_settings')
+      .select('value')
+      .eq('workspace_id', OWNER_WS)
+      .eq('key', 'anthropic_saldo')
+      .maybeSingle();
+    raw = (data?.value as string | undefined) ?? null;
+  } catch (e) {
+    console.warn(`[anthropic-usage] no se pudo leer el saldo: ${e instanceof Error ? e.message : String(e)}`);
+  }
   if (!raw) return null;
   try {
     const o = JSON.parse(raw) as Saldo;
@@ -87,7 +101,13 @@ export async function getSaldo(): Promise<Saldo | null> {
 }
 
 export async function setSaldo(usd: number, setAt: string): Promise<void> {
-  await setSetting('anthropic_saldo', JSON.stringify({ usd, setAt }));
+  const { error } = await getSupabaseServer()
+    .from('app_settings')
+    .upsert(
+      { workspace_id: OWNER_WS, key: 'anthropic_saldo', value: JSON.stringify({ usd, setAt }), updated_at: new Date().toISOString() },
+      { onConflict: 'workspace_id,key' },
+    );
+  if (error) throw new Error(`Error guardando saldo de IA: ${error.message}`);
 }
 
 /** Resumen para el chip: gasto del mes, gasto desde el saldo cargado, restante, última op y desglose. */
@@ -98,9 +118,11 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   // calculamos ambos acumulados con UNA sola lectura acotada.
   const desde = saldo && saldo.setAt < monthStart ? saldo.setAt : monthStart;
 
+  // GLOBAL (sin filtro de workspace): el gasto total es contra la única API key
+  // de la agencia, igual que el saldo. Cliente crudo, no getTenantDb() (scopeado).
   let rows: Row[] = [];
   try {
-    const { data } = await (await getTenantDb())
+    const { data } = await getSupabaseServer()
       .from('anthropic_usage')
       .select('created_at, feature, cost_usd, input_tokens, output_tokens')
       .gte('created_at', desde)

@@ -16,6 +16,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
+import { getWorkspaceActual, OWNER_WS } from './workspace';
 
 type Cfg = { apiBase: string; token: string; inbox: number };
 
@@ -514,7 +515,8 @@ export async function sendAttachmentToContact(
 export type WabaConfig = { token: string; wabaId: string; phoneNumberId: string; version: string; appId: string };
 // Cache con TTL: si Mauricio re-autentica WhatsApp en Chatwoot el token cambia, así
 // que no lo cacheamos para siempre (si no, 401 fantasma hasta reiniciar el proceso).
-let _wabaCache: { value: WabaConfig; expiresAt: number } | null = null;
+// Keyed por workspace: cada cliente tiene su propio inbox/WABA, no compartir.
+const _wabaCache = new Map<number, { value: WabaConfig; expiresAt: number }>();
 const WABA_TTL_MS = 10 * 60 * 1000;
 
 type ProviderConfigResp = {
@@ -522,7 +524,9 @@ type ProviderConfigResp = {
 };
 
 export async function getWabaConfig(): Promise<WabaConfig> {
-  if (_wabaCache && _wabaCache.expiresAt > Date.now()) return _wabaCache.value;
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  const cached = _wabaCache.get(ws);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
   const c = await cfg();
   const r = await cwFetch<ProviderConfigResp>(`${c.apiBase}/inboxes/${c.inbox}`, { method: 'GET' }, c.token);
   const pc = r.provider_config ?? {};
@@ -548,7 +552,7 @@ export async function getWabaConfig(): Promise<WabaConfig> {
     version,
     appId,
   };
-  _wabaCache = { value, expiresAt: Date.now() + WABA_TTL_MS };
+  _wabaCache.set(ws, { value, expiresAt: Date.now() + WABA_TTL_MS });
   return value;
 }
 
