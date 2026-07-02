@@ -222,12 +222,19 @@ export function CrmBoard({
   const persistStage = (id: number, key: string, e: Edits, from?: string, tr?: FunnelTransition) => {
     setLocalStage((m) => ({ ...m, [id]: key }));
     startTransition(async () => {
-      await setLeadStageAction(id, key, {
-        monto: key === 'ganado' ? Number(e.plan.total) || null : null,
-        motivo: key === 'perdido' || key === 'descal' ? e.motivo : null,
-        asistio_j1: tr?.asistioJ1,
-        asistio_j2: tr?.asistioJ2,
-      });
+      try {
+        await setLeadStageAction(id, key, {
+          monto: key === 'ganado' ? Number(e.plan.total) || null : null,
+          motivo: key === 'perdido' || key === 'descal' ? e.motivo : null,
+          asistio_j1: tr?.asistioJ1,
+          asistio_j2: tr?.asistioJ2,
+        });
+      } catch {
+        // El server rechazó el movimiento (invariante): revertir el optimista y
+        // limpiar el toast de deshacer. router.refresh() resincroniza con la verdad.
+        setLocalStage((m) => { const n = { ...m }; if (from) n[id] = from; else delete n[id]; return n; });
+        setUndoInfo(null);
+      }
       router.refresh();
     });
     // Toast "Deshacer" (5s) tras concretar un movimiento en el tablero.

@@ -606,12 +606,18 @@ export async function setFechaJunta2(leadId: number, fechaJ2: string): Promise<v
  * override de etapa para que el lead avance por derivación (p.ej. R2 asistida → Facturando).
  */
 export async function setMeetingManual(leadId: number, which: 'agenda' | 'agendaj2', fecha: string, asistio: boolean | null): Promise<void> {
+  // La fecha + asistencia pasan por updateLead para respetar invariantes y
+  // disparar Meta CAPI (Lead/QualifiedLead) igual que cualquier edición humana.
+  // Antes era un UPDATE directo que bypaseaba el CAPI.
+  const input: LeadUpdateInput = {};
+  if (which === 'agenda') { input.fecha_junta_1 = fecha; if (asistio != null) input.asistio_j1 = asistio; }
+  else { input.fecha_junta_2 = fecha; if (asistio != null) input.asistio_j2 = asistio; }
+  await updateLead(leadId, input);
+  // Limpiar el override para que el lead avance por derivación (p.ej. R2 asistida
+  // → Facturando). No lo toca updateLead (pipeline_stage no es campo editable ahí).
   const supabase = (await getTenantDb());
-  const patch: Record<string, unknown> = { pipeline_stage: null };
-  if (which === 'agenda') { patch.fecha_junta_1 = fecha; if (asistio != null) patch.asistio_j1 = asistio; }
-  else { patch.fecha_junta_2 = fecha; if (asistio != null) patch.asistio_j2 = asistio; }
-  const { error } = await supabase.from('leads').update(patch).eq('id', leadId);
-  if (error) throw new Error(`Error marcando reunión manual del lead ${leadId}: ${error.message}`);
+  const { error } = await supabase.from('leads').update({ pipeline_stage: null }).eq('id', leadId);
+  if (error) throw new Error(`Error limpiando override del lead ${leadId}: ${error.message}`);
 }
 
 /**
@@ -628,26 +634,36 @@ export async function applyFathomRecording(
   attended: boolean | null,
 ): Promise<{ markedAsistencia: boolean; addedLink: boolean }> {
   const supabase = (await getTenantDb());
-  const patch: Record<string, unknown> = {};
   const asistField = which === 'j1' ? 'asistio_j1' : 'asistio_j2';
   const yaMarcado = which === 'j1' ? lead.asistio_j1 : lead.asistio_j2;
+  const asistValue = attended ?? true;
 
-  let markedAsistencia = false;
-  if (yaMarcado == null) { patch[asistField] = attended ?? true; markedAsistencia = true; }
+  const markedAsistencia = yaMarcado == null;
 
   let addedLink = false;
+  let newLinks: FathomLink[] | null = null;
   if (shareUrl) {
     const links = lead.fathom_links ?? [];
     if (!links.some((l) => l.url === shareUrl)) {
-      patch.fathom_links = [...links, { label: which === 'j1' ? 'Reunión 1' : 'Reunión 2', url: shareUrl }];
+      newLinks = [...links, { label: which === 'j1' ? 'Reunión 1' : 'Reunión 2', url: shareUrl }];
       addedLink = true;
     }
   }
 
-  if (Object.keys(patch).length === 0) return { markedAsistencia: false, addedLink: false };
-  const { error } = await supabase.from('leads').update(patch).eq('id', lead.id);
-  if (error) throw new Error(`Error aplicando grabación Fathom a lead ${lead.id}: ${error.message}`);
-  await logLeadChanges(lead.id, lead, { ...lead, ...patch } as Lead, 'Fathom');
+  if (!markedAsistencia && !addedLink) return { markedAsistencia: false, addedLink: false };
+
+  // La asistencia pasa por updateLead → dispara Meta CAPI QualifiedLead si el lead
+  // ya estaba calificado (antes el UPDATE directo bypaseaba el CAPI). Los links no
+  // son campo de updateLead, así que van por update directo.
+  if (markedAsistencia) {
+    await updateLead(lead.id, which === 'j1' ? { asistio_j1: asistValue } : { asistio_j2: asistValue });
+  }
+  if (newLinks) {
+    const { error } = await supabase.from('leads').update({ fathom_links: newLinks }).eq('id', lead.id);
+    if (error) throw new Error(`Error aplicando grabación Fathom a lead ${lead.id}: ${error.message}`);
+  }
+  const after = { ...lead, ...(markedAsistencia ? { [asistField]: asistValue } : {}), ...(newLinks ? { fathom_links: newLinks } : {}) } as Lead;
+  await logLeadChanges(lead.id, lead, after, 'Fathom');
   return { markedAsistencia, addedLink };
 }
 
@@ -1164,20 +1180,10 @@ export async function setPipelineStage(
   const supabase = (await getTenantDb());
   const estado = terminalEstadoFor(stageKey);
 
-  // 1) Guardar el override de la columna del tablero. El deadline de nutrición
-  //    manual solo vive mientras el lead está en 'manual'; al moverlo a cualquier
-  //    otra etapa se limpia (el lead dejó de estar aparcado).
-  const patch: Record<string, unknown> = {
-    pipeline_stage: stageKey,
-    nutricion_manual_deadline: stageKey === 'manual' ? (opts?.deadline ?? null) : null,
-  };
-  const { error } = await supabase
-    .from('leads')
-    .update(patch)
-    .eq('id', id);
-  if (error) throw new Error(`Error moviendo lead ${id} a ${stageKey}: ${error.message}`);
-
-  // 2) Sincronizar el desenlace canónico cuando aplica.
+  // 1) Sincronizar PRIMERO el desenlace canónico (invariantes + Meta CAPI). Si
+  //    falla (p.ej. monto inválido), propagamos el error y NO tocamos el override:
+  //    antes el error se tragaba y el tablero quedaba mostrando una etapa cuyo
+  //    estado_lead nunca cambió (Revenue/CAPI divergían en silencio).
   const sync: LeadUpdateInput = { estado_lead: estado };
   if (estado === 'ganado' && opts?.monto != null) sync.monto_cierre_usd = opts.monto;
   if ((estado === 'perdido' || estado === 'descalificado') && opts?.motivo != null) {
@@ -1191,13 +1197,20 @@ export async function setPipelineStage(
   if (NUTRI_KEYS.includes(stageKey)) {
     sync.nutricion_realizada = true;
   }
-  try {
-    await updateLead(id, sync);
-  } catch (err) {
-    // No romper el movimiento del tablero si la sincronización del desenlace
-    // falla (p.ej. ganado sin monto): el override ya quedó guardado.
-    console.error(`[setPipelineStage] sync estado falló para lead ${id}:`, err);
-  }
+  await updateLead(id, sync);
+
+  // 2) Guardar el override de la columna del tablero. El deadline de nutrición
+  //    manual solo vive mientras el lead está en 'manual'; al moverlo a cualquier
+  //    otra etapa se limpia (el lead dejó de estar aparcado).
+  const patch: Record<string, unknown> = {
+    pipeline_stage: stageKey,
+    nutricion_manual_deadline: stageKey === 'manual' ? (opts?.deadline ?? null) : null,
+  };
+  const { error } = await supabase
+    .from('leads')
+    .update(patch)
+    .eq('id', id);
+  if (error) throw new Error(`Error moviendo lead ${id} a ${stageKey}: ${error.message}`);
 }
 
 /** Campos editables desde la ficha del rediseño (Closer/Setter/Fathom/motivo/fechas). */
