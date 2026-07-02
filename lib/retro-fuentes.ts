@@ -467,16 +467,18 @@ export async function recolectarFuentes(
   const todas = AREAS.map((a) => a.key);
   const sel = (!opts.areas || !opts.areas.length) ? todas : todas.filter((k) => opts.areas.includes(k));
 
-  const fuentes: Fuente[] = [];
+  // Las áreas son independientes entre sí → las recolectamos en PARALELO (antes
+  // era serie y sus latencias se sumaban). Emitimos onProgress primero, en orden,
+  // y preservamos el orden de AREAS al armar el resultado.
   for (const key of sel) {
-    const label = LABEL_DE[key];
-    try {
-      onProgress?.({ area: key, label });
-    } catch { /* onProgress nunca debe romper la recolección */ }
+    try { onProgress?.({ area: key, label: LABEL_DE[key] }); }
+    catch { /* onProgress nunca debe romper la recolección */ }
+  }
+  const recolectadas = await Promise.all(sel.map(async (key): Promise<Fuente | null> => {
     try {
       const texto = await RECOLECTORES[key](desde, hasta, prof);
-      if (texto && texto.trim().length > 0) fuentes.push({ area: key, label, texto: texto.trim() });
-    } catch { /* área omitida ante cualquier fallo */ }
-  }
-  return fuentes;
+      return texto && texto.trim().length > 0 ? { area: key, label: LABEL_DE[key], texto: texto.trim() } : null;
+    } catch { return null; /* área omitida ante cualquier fallo */ }
+  }));
+  return recolectadas.filter((f): f is Fuente => f !== null);
 }

@@ -6,7 +6,7 @@
 // como visión. Devuelve JSON con total, duración, fechas y cuotas.
 
 import type { NextRequest } from 'next/server';
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getPromptText } from '@/lib/prompt-render';
 import { CONTRACT_EXTRACT_DEFAULT } from '@/lib/prompt-defaults';
 
@@ -35,14 +35,21 @@ export async function POST(req: NextRequest) {
   if (Number.isFinite(leadId) && leadId > 0) {
     try {
       const supabase = (await getTenantDb());
-      const safe = (file.name || 'contrato').replace(/[^\w.\-]+/g, '_').slice(-80);
-      const path = `${leadId}/${Date.now()}_${safe}`;
-      const { error: upErr } = await supabase.storage.from('contratos').upload(path, buf, { contentType: mime, upsert: true });
-      if (!upErr) {
-        contrato_nombre = file.name || safe;
-        await supabase.from('leads').update({ contrato_path: path, contrato_nombre }).eq('id', leadId);
-      } else {
-        console.warn('[extract-contract] storage:', upErr.message);
+      // Storage NO se scopea por workspace (getTenantDb solo envuelve .from(table)).
+      // Verificamos que el lead sea del workspace del caller ANTES de escribir, y
+      // prefijamos el path con el workspace_id para evitar pisar contratos ajenos.
+      const { data: leadRow } = await supabase.from('leads').select('id').eq('id', leadId).maybeSingle();
+      const ws = await getWorkspaceActual();
+      if (leadRow?.id && ws != null) {
+        const safe = (file.name || 'contrato').replace(/[^\w.\-]+/g, '_').slice(-80);
+        const path = `${ws}/${leadId}/${Date.now()}_${safe}`;
+        const { error: upErr } = await supabase.storage.from('contratos').upload(path, buf, { contentType: mime, upsert: true });
+        if (!upErr) {
+          contrato_nombre = file.name || safe;
+          await supabase.from('leads').update({ contrato_path: path, contrato_nombre }).eq('id', leadId);
+        } else {
+          console.warn('[extract-contract] storage:', upErr.message);
+        }
       }
     } catch (e) { console.warn('[extract-contract] storage falló:', e instanceof Error ? e.message : String(e)); }
   }

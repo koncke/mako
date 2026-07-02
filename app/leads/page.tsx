@@ -12,6 +12,7 @@ import {
   type PendienteItem,
 } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
+import { guardOnboarding } from '@/lib/tab-access';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { mapToCrmLead } from './crm-map';
 
@@ -19,6 +20,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function LeadsPage() {
+  await guardOnboarding();
   const hoy = hoyEnTijuana();
 
   let leads: Lead[] = [];
@@ -50,12 +52,16 @@ export default async function LeadsPage() {
     stages = generateFunnel(DEFAULT_PIPELINE).stages;
   }
 
-  const visitasMap = await getVisitasLandingMap(leads.map((l) => l.visitor_id)).catch(
-    () => new Map<string, { total_visitas: number; dias_distintos: number }>(),
-  );
-  const vslMap = await getVslEngagementMap(leads.map((l) => l.visitor_id)).catch(
-    () => new Map() as Awaited<ReturnType<typeof getVslEngagementMap>>,
-  );
+  // Independientes entre sí → en paralelo (antes eran dos awaits en cascada).
+  const visitorIds = leads.map((l) => l.visitor_id);
+  const [visitasMap, vslMap] = await Promise.all([
+    getVisitasLandingMap(visitorIds).catch(
+      () => new Map<string, { total_visitas: number; dias_distintos: number }>(),
+    ),
+    getVslEngagementMap(visitorIds).catch(
+      () => new Map() as Awaited<ReturnType<typeof getVslEngagementMap>>,
+    ),
+  ]);
 
   const telById = new Map(leads.map((l) => [l.id, l.telefono]));
 

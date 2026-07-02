@@ -97,6 +97,7 @@ export type PandaDailyStat = {
 export async function fetchPandaDailyStat(
   externalId: string,
   fecha: string,
+  retencion?: Map<string, { engagement_pct: number | null; duration_seconds: number | null }>,
 ): Promise<PandaDailyStat> {
   const map = await getVideoMap();
   const internalId = map.get(externalId);
@@ -116,20 +117,29 @@ export async function fetchPandaDailyStat(
     unique += Number(bucket.unique_play ?? 0);
   }
 
-  // b) Retención (engagement % + duration) — endpoint a nivel cuenta, filtramos
+  // b) Retención (engagement % + duration). El endpoint /retention es a NIVEL
+  // CUENTA (devuelve TODOS los videos): si el caller ya lo trajo para la fecha
+  // (fetchPandaRetention), usamos ese mapa y evitamos una llamada idéntica por
+  // cada video (N+1). Sin mapa, caemos a la llamada individual (compat).
   let engagement_pct: number | null = null;
   let duration_seconds: number | null = null;
-  try {
-    const ret = await pandaGet<{
-      videos?: Array<{ engagement?: number | null; duration?: number; video_external_id?: string }>;
-    }>(`${DATA}/retention?start_date=${fecha}&end_date=${fecha}`);
-    const mine = ret.videos?.find((v) => v.video_external_id === externalId);
-    if (mine) {
-      engagement_pct = mine.engagement ?? null;
-      duration_seconds = mine.duration ?? null;
+  if (retencion) {
+    const mine = retencion.get(externalId);
+    engagement_pct = mine?.engagement_pct ?? null;
+    duration_seconds = mine?.duration_seconds ?? null;
+  } else {
+    try {
+      const ret = await pandaGet<{
+        videos?: Array<{ engagement?: number | null; duration?: number; video_external_id?: string }>;
+      }>(`${DATA}/retention?start_date=${fecha}&end_date=${fecha}`);
+      const mine = ret.videos?.find((v) => v.video_external_id === externalId);
+      if (mine) {
+        engagement_pct = mine.engagement ?? null;
+        duration_seconds = mine.duration ?? null;
+      }
+    } catch {
+      // retención es opcional — si falla, plays/unique igual quedan
     }
-  } catch {
-    // retención es opcional — si falla, plays/unique igual quedan
   }
 
   const avg_watch_seconds =
@@ -146,4 +156,64 @@ export async function fetchPandaDailyStat(
     duration_seconds,
     avg_watch_seconds,
   };
+}
+
+/**
+ * Trae la retención (engagement % + duración) de TODOS los videos de la cuenta
+ * para una fecha en UNA sola llamada. Pasar el mapa resultante a fetchPandaDailyStat
+ * evita el N+1 (una llamada idéntica a /retention por cada video).
+ */
+export async function fetchPandaRetention(
+  fecha: string,
+): Promise<Map<string, { engagement_pct: number | null; duration_seconds: number | null }>> {
+  const map = new Map<string, { engagement_pct: number | null; duration_seconds: number | null }>();
+  try {
+    const ret = await pandaGet<{
+      videos?: Array<{ engagement?: number | null; duration?: number; video_external_id?: string }>;
+    }>(`${DATA}/retention?start_date=${fecha}&end_date=${fecha}`);
+    for (const v of ret.videos ?? []) {
+      if (v.video_external_id) {
+        map.set(v.video_external_id, { engagement_pct: v.engagement ?? null, duration_seconds: v.duration ?? null });
+      }
+    }
+  } catch {
+    // retención opcional; si falla, mapa vacío y cada stat cae a null
+  }
+  return map;
+}
+
+/**
+ * Serie diaria de UN video (por external_id) para un RANGO — /general con
+ * start/end devuelve buckets por día. Para el backfill histórico del onboarding
+ * (una llamada por video en vez de una por día). Sin retención (el endpoint de
+ * retention agrega el rango entero; el cron diario la completa hacia adelante).
+ */
+export async function fetchPandaRangeStats(
+  externalId: string,
+  desde: string,
+  hasta: string,
+): Promise<Array<{ fecha: string; plays: number; unique_viewers: number }>> {
+  const map = await getVideoMap();
+  const internalId = map.get(externalId);
+  if (!internalId) {
+    throw new Error(`No se encontró video interno para external_id ${externalId}`);
+  }
+  const general = await pandaGet<{
+    views_data?: Record<string, { play?: number; unique_play?: number }>;
+  }>(`${DATA}/general/${internalId}?start_date=${desde}&end_date=${hasta}`);
+
+  // Los buckets vienen keyed por fecha (YYYY-MM-DD...) en rangos multi-día;
+  // agregamos por día por si alguna key trae hora.
+  const porDia = new Map<string, { plays: number; unique: number }>();
+  for (const [k, bucket] of Object.entries(general.views_data ?? {})) {
+    const dia = k.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) continue;
+    const acc = porDia.get(dia) ?? { plays: 0, unique: 0 };
+    acc.plays += Number(bucket.play ?? 0);
+    acc.unique += Number(bucket.unique_play ?? 0);
+    porDia.set(dia, acc);
+  }
+  return [...porDia.entries()]
+    .map(([fecha, v]) => ({ fecha, plays: v.plays, unique_viewers: v.unique }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
 }

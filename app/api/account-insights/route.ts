@@ -89,7 +89,12 @@ export async function GET(req: NextRequest) {
     const plataformas = mapBD(platArr, (r) => String(r.publisher_platform ?? '—'));
     const regiones = mapBD(regArr, (r) => String(r.region ?? '—')).slice(0, 40);
 
-    return Response.json({ demograficos, plataformas, regiones });
+    // Los insights de Meta toleran latencia; el navegador reusa la respuesta por
+    // (desde,hasta) al alternar tabs / volver a un rango ya visto en vez de re-pegar.
+    return Response.json(
+      { demograficos, plataformas, regiones },
+      { headers: { 'Cache-Control': 'private, max-age=120' } },
+    );
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }

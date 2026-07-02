@@ -10,12 +10,13 @@
 
 import type { NextRequest } from 'next/server';
 import { getTenantDb } from '@/lib/workspace';
-import { fetchPandaDailyStat, getPandaVideoIds } from '@/lib/panda';
+import { fetchPandaDailyStat, fetchPandaRetention, getPandaVideoIds } from '@/lib/panda';
 import { ayerEnTijuana } from '@/lib/date-utils';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
 import type { MarketingMetricRow } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 function checkAuth(request: NextRequest): Response | null {
   const cronSecret = process.env.CRON_SECRET;
@@ -44,9 +45,12 @@ export async function GET(request: NextRequest) {
     const supabase = await getTenantDb();
     const resultados: Array<{ video: string; plays: number; status: string }> = [];
 
+    // /retention es a nivel cuenta: una sola llamada para todos los videos (evita N+1).
+    const retencion = await fetchPandaRetention(fecha);
+
     for (const extId of videoIds) {
       try {
-        const stat = await fetchPandaDailyStat(extId, fecha);
+        const stat = await fetchPandaDailyStat(extId, fecha, retencion);
 
         const row: MarketingMetricRow & {
           video_id?: string | null;

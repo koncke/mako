@@ -20,6 +20,7 @@
 
 import { mxnAUsd, META_BALANCE_ALERTA_MXN } from './config';
 import { credWs } from './credenciales';
+import { cachedRead, TAG } from './cache';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
 const MAX_PAGES = 50;
@@ -463,7 +464,13 @@ function sugerenciasMako(
 // Salud completa (cuenta + edges + sugerencias)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getMetaHealth(): Promise<MetaHealth> {
+// Cacheado por workspace (cachedRead): navegaciones/refrescos a /integraciones
+// dentro de la ventana reusan la Data Cache en vez de re-pegarle a la Graph API
+// las 5+ llamadas paginadas. El estado de Meta casi no cambia minuto a minuto;
+// una mutación puede invalidar con revalidateTag(TAG.marketing).
+export const getMetaHealth = cachedRead('metaHealth', _getMetaHealth, { tags: [TAG.marketing], revalidate: 120 });
+
+async function _getMetaHealth(): Promise<MetaHealth> {
   // La cuenta es obligatoria (sin ella no hay banner): si falla, propaga.
   const accountRaw = await fetchAccountRaw();
   const account = computeAccountHealth(accountRaw);

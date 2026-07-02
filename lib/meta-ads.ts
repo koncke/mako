@@ -378,7 +378,10 @@ export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, Cre
     'object_story_spec{video_data{image_url},link_data{picture},photo_data{url}},' +
     'asset_feed_spec{images{url},videos{thumbnail_url}}}';
 
-  for (const adId of unique) {
+  // Traemos los creativos en PARALELO por chunks: baja el tiempo de N·t a ~(N/CHUNK)·t
+  // sin dispararle a Meta todas las llamadas de golpe (respeta el rate limit).
+  const CHUNK = 10;
+  const fetchOne = async (adId: string): Promise<void> => {
     try {
       const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
       url.searchParams.set('fields', fields);
@@ -390,7 +393,7 @@ export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, Cre
       const body = (await res.json()) as CreativeResponse;
       if (body.error) {
         console.warn(`[meta] creative ${adId}: ${body.error.message}`);
-        continue;
+        return;
       }
       const c = body.creative;
       const thumbnail_url = c ? bestImage(c) : null;
@@ -401,6 +404,9 @@ export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, Cre
     } catch (err) {
       console.warn(`[meta] creative ${adId} falló: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    await Promise.all(unique.slice(i, i + CHUNK).map(fetchOne));
   }
   return out;
 }

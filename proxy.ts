@@ -40,6 +40,27 @@ export function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // CSRF: las APIs internas se autentican por COOKIE, así que una mutación
+  // cross-site desde el navegador de un usuario logueado llevaría su cookie. Un
+  // POST cross-origin del navegador SIEMPRE manda header Origin; exigimos que su
+  // host coincida con el nuestro. (Los webhooks/cron/track ya salieron arriba: son
+  // cross-origin por diseño y validan por firma/secret.) Sin Origin (server-to-
+  // server, sin cookie de víctima) no es un ataque CSRF → se deja pasar al gate.
+  const metodo = req.method.toUpperCase();
+  if (
+    (metodo === 'POST' || metodo === 'PUT' || metodo === 'PATCH' || metodo === 'DELETE') &&
+    pathname.startsWith('/api/')
+  ) {
+    const origin = req.headers.get('origin');
+    if (origin) {
+      let originHost: string | null = null;
+      try { originHost = new URL(origin).host; } catch { originHost = null; }
+      if (!originHost || originHost !== req.headers.get('host')) {
+        return NextResponse.json({ ok: false, error: 'origen no permitido' }, { status: 403 });
+      }
+    }
+  }
+
   // Gate sin configurar: no-op en local/dev, fail-closed en producción.
   if (!gateConfigurado()) {
     const esProd =

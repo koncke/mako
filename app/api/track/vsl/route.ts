@@ -22,8 +22,25 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
+
+// Origins permitidos de la landing (coma-separados) — opcional. Si está seteado,
+// rechazamos beacons cuyo Origin/Referer no matchee (corta el envenenamiento de
+// métricas desde otros sitios). Si NO está seteado, no se fuerza (compat).
+const ALLOWED_ORIGINS = (process.env.VSL_ALLOWED_ORIGINS || '')
+  .split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+
+function origenPermitido(req: NextRequest): boolean {
+  if (!ALLOWED_ORIGINS.length) return true;
+  const origin = (req.headers.get('origin') || '').replace(/\/$/, '');
+  const referer = req.headers.get('referer') || '';
+  return ALLOWED_ORIGINS.some((a) => origin === a || referer.startsWith(a));
+}
+
+// Un visitor_id legítimo es un UUID/token de cookie: solo [A-Za-z0-9_-].
+const VISITOR_RE = /^[\w-]{8,128}$/;
 
 // La landing vive en otro dominio — CORS abierto. Endpoint de tracking
 // anónimo sin credenciales ni datos sensibles, '*' es aceptable y evita
@@ -71,6 +88,16 @@ async function stampVisitorOnLead(token: string, visitorId: string): Promise<voi
 }
 
 export async function POST(request: NextRequest) {
+  // Anti-abuso: origen permitido (si está configurado) + límite de flood por IP.
+  // Silencioso (200 ok:false) para no dar señal ni romper la landing.
+  if (!origenPermitido(request)) {
+    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+  }
+  const ip = clientIp(request);
+  if (!rateLimit(`vsl:${ip}`, 300, 60_000)) {
+    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+  }
+
   let payload: {
     visitor_id?: unknown;
     tipo_evento?: unknown;
@@ -89,15 +116,17 @@ export async function POST(request: NextRequest) {
 
   const visitorId =
     typeof payload.visitor_id === 'string' ? payload.visitor_id.trim() : '';
-  if (!visitorId || visitorId.length > 128) {
+  if (!VISITOR_RE.test(visitorId)) {
     return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
   }
 
   // Camino 1: si el beacon trae `l` (meta_lead_id pegado por el link de
   // WhatsApp), cosemos el visitor_id al lead conocido. Se evalúa antes de la
   // rama 'pageview' para que el PRIMER beacon (la visita al cargar) ya conecte.
+  // El "stamp" es una escritura sensible con "primero gana" → límite MÁS DURO por
+  // IP para frenar el preclaim masivo de visitor_id sobre leads ajenos.
   const leadToken = typeof payload.l === 'string' ? payload.l.trim() : '';
-  if (leadToken && leadToken.length <= 128) {
+  if (leadToken && leadToken.length <= 128 && rateLimit(`vslstamp:${ip}`, 15, 60_000)) {
     await stampVisitorOnLead(leadToken, visitorId);
   }
 

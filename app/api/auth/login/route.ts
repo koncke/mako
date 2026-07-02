@@ -4,15 +4,29 @@
 // Es el fallback de emergencia (Google caído, DB caída, primer arranque): no
 // depende de la tabla usuarios. Quien tenga DASHBOARD_PASSWORD es admin.
 
+import crypto from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, SESSION_DIAS, crearToken } from '@/lib/auth-session';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
+
+/** Comparación en tiempo constante (no filtra el largo/prefijo del password por timing). */
+function passwordOk(recibido: string, esperado: string): boolean {
+  const a = Buffer.from(recibido);
+  const b = Buffer.from(esperado);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 
 export async function POST(req: NextRequest) {
   const esperado = process.env.DASHBOARD_PASSWORD;
   if (!esperado || !process.env.AUTH_COOKIE_VALUE) {
     return NextResponse.json({ ok: false, error: 'auth no configurada' }, { status: 500 });
+  }
+
+  // Anti fuerza bruta del password maestro: pocos intentos por IP.
+  if (!rateLimit(`login:${clientIp(req)}`, 10, 60_000)) {
+    return NextResponse.json({ ok: false, error: 'Demasiados intentos, esperá un minuto' }, { status: 429 });
   }
 
   let password = '';
@@ -23,7 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'body inválido' }, { status: 400 });
   }
 
-  if (password !== esperado) {
+  if (!passwordOk(password, esperado)) {
     return NextResponse.json({ ok: false, error: 'Contraseña incorrecta' }, { status: 401 });
   }
 

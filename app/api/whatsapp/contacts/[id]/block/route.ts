@@ -10,7 +10,7 @@
 import type { NextRequest } from 'next/server';
 import { blockContact, contactoEnInboxWA } from '@/lib/chatwoot';
 import { setPipelineStage, updateLead } from '@/lib/leads';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
@@ -50,7 +50,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // Reflejar en el lead (si lo matcheamos).
     if (Number.isFinite(leadId) && leadId > 0) {
       try {
-        const supabase = getSupabaseServer();
+        // getTenantDb() ata la lectura/escritura al workspace del caller: un leadId
+        // de otro workspace devuelve null acá y el update no matchea (no-op) → sin IDOR.
+        const supabase = await getTenantDb();
         const { data } = await supabase
           .from('leads')
           .select('estado_lead')

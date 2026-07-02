@@ -8,8 +8,13 @@
 // debajo del fold → no bloquea el render de la tab).
 
 import { useEffect, useState } from 'react';
-import { BreakdownCharts, type Breakdowns } from './ad-charts';
+import dynamic from 'next/dynamic';
+import { type Breakdowns } from './ad-charts';
 import { MakoButton } from '../_components/ChartIA';
+
+// recharts + d3-geo pesan y el bloque vive debajo del fold (los datos llegan por
+// fetch después del montaje) → carga diferida para no inflar el bundle de /marketing.
+const BreakdownCharts = dynamic(() => import('./ad-charts').then((m) => m.BreakdownCharts), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 

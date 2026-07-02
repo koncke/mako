@@ -483,18 +483,23 @@ async function enviosUltimas24h(): Promise<number> {
   return count ?? 0;
 }
 
-async function leadTuvoEnvioReciente(leadId: number): Promise<boolean> {
+// Set de lead_ids que ya recibieron un envío (nutrición o broadcast) en las
+// últimas HS_MIN_ENTRE_MSGS horas — calculado en 2 queries batch para TODOS los
+// leads de la corrida (antes eran 2 count-queries POR lead dentro del loop: N+1).
+async function leadsConEnvioReciente(leadIds: number[]): Promise<Set<number>> {
+  const set = new Set<number>();
+  if (leadIds.length === 0) return set;
   const supabase = (await getTenantDb());
   const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
-  // Mira los DOS logs (nutrición + broadcasts) para no contactar al mismo lead
-  // dos veces en <20h aunque el otro toque haya sido un broadcast.
   const [nutri, bcast] = await Promise.all([
-    supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
-      .eq('lead_id', leadId).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
-    supabase.from('email_broadcast_envios').select('id', { count: 'exact', head: true })
-      .eq('lead_id', leadId).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+    supabase.from('nutricion_envios').select('lead_id')
+      .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
+    supabase.from('email_broadcast_envios').select('lead_id')
+      .in('lead_id', leadIds).in('estado', ['enviado', 'simulado']).gte('created_at', desde),
   ]);
-  return (nutri.count ?? 0) + (bcast.count ?? 0) > 0;
+  for (const r of (nutri.data ?? []) as Array<{ lead_id: number }>) set.add(r.lead_id);
+  for (const r of (bcast.data ?? []) as Array<{ lead_id: number }>) set.add(r.lead_id);
+  return set;
 }
 
 export type ResultadoProceso = {
@@ -544,6 +549,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
   const leadMap = new Map(
     ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null }>).map((l) => [l.id, l]),
   );
+  // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
+  const conEnvioReciente = await leadsConEnvioReciente(leadIds);
 
   for (const insc of due) {
     if (res.enviados + res.simulados >= cupo) break;
@@ -558,7 +565,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
       continue;
     }
 
-    if (await leadTuvoEnvioReciente(insc.lead_id)) {
+    if (conEnvioReciente.has(insc.lead_id)) {
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
       continue; // no avanzar; se reintenta en otra corrida
     }

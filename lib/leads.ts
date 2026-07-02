@@ -491,7 +491,7 @@ export async function upsertLeadFromMeta(input: {
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .ilike('email', emailNorm)
+      .eq('email', emailNorm)
       .maybeSingle();
     if (error) throw new Error(`Error buscando por email: ${error.message}`);
     existing = (data as Lead | null) ?? null;
@@ -575,7 +575,7 @@ export async function findLeadByContacto(
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .ilike('email', emailNorm)
+      .eq('email', emailNorm)
       .maybeSingle();
     if (error) throw new Error(`Error buscando lead por email: ${error.message}`);
     if (data) return data as Lead;
@@ -821,7 +821,7 @@ export async function upsertLeadFromCalendly(
     const { data, error } = await supabase
       .from('leads')
       .select('*')
-      .ilike('email', emailNorm)
+      .eq('email', emailNorm)
       .maybeSingle();
     if (error) throw new Error(`Error buscando lead por email: ${error.message}`);
     existing = (data as Lead | null) ?? null;
