@@ -8,10 +8,11 @@
 // histórico se siembra una vez con scripts/backfill-transcripts.mjs.
 
 import type { NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
 import { getPromptText } from '@/lib/prompt-render';
 import { diasAntes, ayerEnTijuana } from '@/lib/date-utils';
+import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -31,64 +32,69 @@ export async function GET(request: NextRequest) {
   if (authFail) return authFail;
 
   const tStart = Date.now();
-  const supabase = getSupabaseServer();
   const desde = diasAntes(ayerEnTijuana(), 45);
 
-  // Anuncios recientes con video potencial
-  const { data: adsData, error: adsErr } = await supabase
-    .from('marketing_metrics_daily')
-    .select('ad_id')
-    .eq('plataforma', 'meta')
-    .not('ad_id', 'is', null)
-    .gte('fecha', desde);
-  if (adsErr) return Response.json({ ok: false, error: adsErr.message }, { status: 500 });
-  const adIds = [...new Set((adsData ?? []).map((r) => r.ad_id as string))];
+  const resultados = await correrPorWorkspace('meta', async () => {
+    const supabase = await getTenantDb();
 
-  // Ya transcritos (cualquier status) → no reprocesar
-  const { data: doneData, error: doneErr } = await supabase.from('ad_transcripts').select('ad_id');
-  if (doneErr) return Response.json({ ok: false, error: doneErr.message }, { status: 500 });
-  const done = new Set((doneData ?? []).map((r) => r.ad_id as string));
-
-  const pendientes = adIds.filter((id) => !done.has(id));
-
-  // Thumbnail por anuncio: fuente de imagen para los anuncios sin video.
-  const thumbs = new Map<string, string>();
-  if (pendientes.length > 0) {
-    const { data: thData } = await supabase
+    // Anuncios recientes con video potencial
+    const { data: adsData, error: adsErr } = await supabase
       .from('marketing_metrics_daily')
-      .select('ad_id, ad_thumbnail_url, fecha')
+      .select('ad_id')
       .eq('plataforma', 'meta')
-      .in('ad_id', pendientes)
-      .not('ad_thumbnail_url', 'is', null)
-      .order('fecha', { ascending: false });
-    for (const r of thData ?? []) if (!thumbs.has(r.ad_id as string)) thumbs.set(r.ad_id as string, r.ad_thumbnail_url as string);
-  }
+      .not('ad_id', 'is', null)
+      .gte('fecha', desde);
+    if (adsErr) throw new Error(adsErr.message);
+    const adIds = [...new Set((adsData ?? []).map((r) => r.ad_id as string))];
 
-  // Prompts editables de transcripción (override o default), una sola vez por corrida.
-  const [structureSystem, imagePrompt, whisperGlossary] = await Promise.all([
-    getPromptText('transcribe.structure.system', STRUCTURE_SYSTEM_BASE),
-    getPromptText('transcribe.analyze_image.user', IMAGE_PROMPT_BASE),
-    getPromptText('transcribe.whisper.prompt', ''),
-  ]);
-  const prompts = { structureSystem, imagePrompt, whisperGlossary };
+    // Ya transcritos (cualquier status) → no reprocesar
+    const { data: doneData, error: doneErr } = await supabase.from('ad_transcripts').select('ad_id');
+    if (doneErr) throw new Error(doneErr.message);
+    const done = new Set((doneData ?? []).map((r) => r.ad_id as string));
 
-  let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0;
-  for (const adId of pendientes) {
-    if (procesados >= MAX_POR_CORRIDA || Date.now() - tStart > TIME_BUDGET_MS) break;
-    procesados++;
-    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts });
-    const { error: upErr } = await supabase.from('ad_transcripts').upsert({
-      ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
-      secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),
-    }, { onConflict: 'ad_id' });
-    if (upErr) { errores++; continue; }
-    if (res.status === 'ok') ok++;
-    else if (res.status === 'sin_video') sinVideo++;
-    else if (res.status === 'muy_grande') grandes++;
-    else errores++;
-  }
+    const pendientes = adIds.filter((id) => !done.has(id));
 
-  const ms = Date.now() - tStart;
-  console.log(`[cron:transcribe-ads] pendientes=${pendientes.length} procesados=${procesados} ok=${ok} sin_video=${sinVideo} grandes=${grandes} err=${errores} ms=${ms}`);
-  return Response.json({ ok: true, total_pendientes: pendientes.length, procesados, ok_count: ok, sin_video: sinVideo, muy_grande: grandes, errores, restantes: pendientes.length - procesados, ms });
+    // Thumbnail por anuncio: fuente de imagen para los anuncios sin video.
+    const thumbs = new Map<string, string>();
+    if (pendientes.length > 0) {
+      const { data: thData } = await supabase
+        .from('marketing_metrics_daily')
+        .select('ad_id, ad_thumbnail_url, fecha')
+        .eq('plataforma', 'meta')
+        .in('ad_id', pendientes)
+        .not('ad_thumbnail_url', 'is', null)
+        .order('fecha', { ascending: false });
+      for (const r of thData ?? []) if (!thumbs.has(r.ad_id as string)) thumbs.set(r.ad_id as string, r.ad_thumbnail_url as string);
+    }
+
+    // Prompts editables de transcripción (override o default), una sola vez por corrida.
+    const [structureSystem, imagePrompt, whisperGlossary] = await Promise.all([
+      getPromptText('transcribe.structure.system', STRUCTURE_SYSTEM_BASE),
+      getPromptText('transcribe.analyze_image.user', IMAGE_PROMPT_BASE),
+      getPromptText('transcribe.whisper.prompt', ''),
+    ]);
+    const prompts = { structureSystem, imagePrompt, whisperGlossary };
+
+    let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0;
+    for (const adId of pendientes) {
+      if (procesados >= MAX_POR_CORRIDA || Date.now() - tStart > TIME_BUDGET_MS) break;
+      procesados++;
+      const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts });
+      const { error: upErr } = await supabase.from('ad_transcripts').upsert({
+        ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
+        secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),
+      }, { onConflict: 'workspace_id,ad_id' });
+      if (upErr) { errores++; continue; }
+      if (res.status === 'ok') ok++;
+      else if (res.status === 'sin_video') sinVideo++;
+      else if (res.status === 'muy_grande') grandes++;
+      else errores++;
+    }
+
+    const ms = Date.now() - tStart;
+    console.log(`[cron:transcribe-ads] pendientes=${pendientes.length} procesados=${procesados} ok=${ok} sin_video=${sinVideo} grandes=${grandes} err=${errores} ms=${ms}`);
+    return { total_pendientes: pendientes.length, procesados, ok_count: ok, sin_video: sinVideo, muy_grande: grandes, errores, restantes: pendientes.length - procesados, ms };
+  });
+
+  return Response.json({ ok: true, workspaces: resultados });
 }

@@ -15,6 +15,7 @@
 import 'server-only';
 import { credWs } from './credenciales';
 import { getWorkspaceActual, OWNER_WS } from './workspace';
+import { configWs } from './cron-workspaces';
 
 const API_V2 = 'https://api-v2.pandavideo.com';
 const DATA = 'https://data.pandavideo.com';
@@ -27,8 +28,8 @@ async function key(): Promise<string> {
   return k;
 }
 
-export function getPandaVideoIds(): string[] {
-  const raw = process.env.PANDA_VSL_VIDEO_IDS;
+export async function getPandaVideoIds(): Promise<string[]> {
+  const raw = await configWs('panda_vsl_video_ids', process.env.PANDA_VSL_VIDEO_IDS);
   if (!raw) return [];
   return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }

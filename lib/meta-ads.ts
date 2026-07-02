@@ -13,8 +13,8 @@
 //   - MetaApiError        → cualquier otro error de Meta
 // =============================================================================
 
-import { getSupabaseServer } from './supabase';
 import { credWs } from './credenciales';
+import { getTenantDb } from './workspace';
 import type { MarketingMetricRow, MetaInsightRaw, MetaAdsetRaw } from './types';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
@@ -445,7 +445,7 @@ export async function upsertMetrics(
     throw new Error('upsertMetrics: este path solo acepta plataforma=meta');
   }
 
-  const supabase = getSupabaseServer();
+  const supabase = await getTenantDb();
 
   // 1) Borra TODAS las filas Meta de ese día. Si un adset desapareció de Meta,
   //    también desaparece de la DB (queremos reflejar el estado actual del
@@ -533,11 +533,11 @@ export async function fetchAdsetBudgets(fecha: string): Promise<number> {
 
   if (rows.length === 0) return 0;
 
-  const supabase = getSupabaseServer();
-  // PK (fecha, adset_id) → upsert directo es idempotente
+  const supabase = await getTenantDb();
+  // PK (workspace_id, fecha, adset_id) → upsert directo es idempotente por workspace
   const { error } = await supabase
     .from('adset_budget_daily')
-    .upsert(rows, { onConflict: 'fecha,adset_id' });
+    .upsert(rows, { onConflict: 'workspace_id,fecha,adset_id' });
   if (error) {
     throw new Error(`Error upserteando adset budgets: ${error.message}`);
   }

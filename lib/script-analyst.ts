@@ -431,7 +431,7 @@ async function upsertRow(row: ScriptAnalysisRow): Promise<void> {
   const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('script_analyses')
-    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'ad_id' });
+    .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'workspace_id,ad_id' });
   if (error) throw new Error(`Error guardando análisis ${row.ad_id}: ${error.message}`);
 }
 

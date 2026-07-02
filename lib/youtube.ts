@@ -10,10 +10,11 @@
 //   - Cumulative se guarda en raw_payload.cumulative_views para usar mañana.
 // =============================================================================
 
-import { getSupabaseServer } from './supabase';
 import type { MarketingMetricRow } from './types';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
 import { credWs } from './credenciales';
+import { getTenantDb } from './workspace';
+import { configWs } from './cron-workspaces';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -210,7 +211,7 @@ export async function processVideo(
     },
   };
 
-  const supabase = getSupabaseServer();
+  const supabase = await getTenantDb();
 
   // DELETE existente para evitar duplicado (mismo día/plataforma/video)
   const { error: delErr } = await supabase
@@ -254,10 +255,10 @@ export async function processAllVideos(
     error?: string;
   }> = [];
 
-  const videos: Array<{ id: string | undefined; type: VideoType }> = [
-    { id: process.env.YOUTUBE_VSL_VIDEO_ID, type: 'vsl' },
-    { id: process.env.YOUTUBE_THANKS_VIDEO_ID, type: 'thanks' },
-    { id: process.env.YOUTUBE_THANKS_PREP_VIDEO_ID, type: 'thanks_prep' },
+  const videos: Array<{ id: string | null; type: VideoType }> = [
+    { id: await configWs('youtube_vsl_video_id', process.env.YOUTUBE_VSL_VIDEO_ID), type: 'vsl' },
+    { id: await configWs('youtube_thanks_video_id', process.env.YOUTUBE_THANKS_VIDEO_ID), type: 'thanks' },
+    { id: await configWs('youtube_thanks_prep_video_id', process.env.YOUTUBE_THANKS_PREP_VIDEO_ID), type: 'thanks_prep' },
   ];
 
   for (const v of videos) {

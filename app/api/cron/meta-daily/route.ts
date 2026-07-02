@@ -24,6 +24,7 @@ import {
   MetaApiError,
 } from '@/lib/meta-ads';
 import { ayerEnTijuana } from '@/lib/date-utils';
+import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,47 +56,50 @@ export async function GET(request: NextRequest) {
 
   const tStart = Date.now();
   try {
-    const insights = await fetchMetaInsights(fecha);
-    const metrics = parseInsightsToMetrics(insights, fecha);
+    const resultados = await correrPorWorkspace('meta', async () => {
+      const insights = await fetchMetaInsights(fecha);
+      const metrics = parseInsightsToMetrics(insights, fecha);
 
-    // Creativo (miniatura + permalink) por anuncio. Si falla, NO romper el cron:
-    // las métricas se guardan igual, solo sin preview.
-    try {
-      const creatives = await fetchAdCreatives(
-        metrics.map((m) => m.ad_id).filter((v): v is string => !!v),
+      // Creativo (miniatura + permalink) por anuncio. Si falla, NO romper el cron:
+      // las métricas se guardan igual, solo sin preview.
+      try {
+        const creatives = await fetchAdCreatives(
+          metrics.map((m) => m.ad_id).filter((v): v is string => !!v),
+        );
+        applyCreatives(metrics, creatives);
+      } catch (err) {
+        console.error(`[cron:meta-daily] creativos falló (no fatal): ${err instanceof Error ? err.message : String(err)}`);
+      }
+
+      const inserted = await upsertMetrics(metrics);
+
+      // Presupuestos de adsets (Fase 1 v2) — si falla, loguear y NO romper
+      // el resto del cron: las métricas ya quedaron guardadas.
+      let budgets_saved = 0;
+      let budgets_error: string | null = null;
+      try {
+        budgets_saved = await fetchAdsetBudgets(fecha);
+      } catch (err) {
+        budgets_error = err instanceof Error ? err.message : String(err);
+        console.error(`[cron:meta-daily] budgets falló (no fatal): ${budgets_error}`);
+      }
+
+      const ms = Date.now() - tStart;
+      console.log(
+        `[cron:meta-daily] fecha=${fecha} insights=${insights.length} inserted=${inserted} budgets=${budgets_saved} ms=${ms}`,
       );
-      applyCreatives(metrics, creatives);
-    } catch (err) {
-      console.error(`[cron:meta-daily] creativos falló (no fatal): ${err instanceof Error ? err.message : String(err)}`);
-    }
 
-    const inserted = await upsertMetrics(metrics);
-
-    // Presupuestos de adsets (Fase 1 v2) — si falla, loguear y NO romper
-    // el resto del cron: las métricas ya quedaron guardadas.
-    let budgets_saved = 0;
-    let budgets_error: string | null = null;
-    try {
-      budgets_saved = await fetchAdsetBudgets(fecha);
-    } catch (err) {
-      budgets_error = err instanceof Error ? err.message : String(err);
-      console.error(`[cron:meta-daily] budgets falló (no fatal): ${budgets_error}`);
-    }
-
-    const ms = Date.now() - tStart;
-    console.log(
-      `[cron:meta-daily] fecha=${fecha} insights=${insights.length} inserted=${inserted} budgets=${budgets_saved} ms=${ms}`,
-    );
-
-    return Response.json({
-      ok: true,
-      fecha,
-      insights_received: insights.length,
-      rows_inserted: inserted,
-      budgets_saved,
-      ...(budgets_error ? { budgets_error } : {}),
-      ms,
+      return {
+        fecha,
+        insights_received: insights.length,
+        rows_inserted: inserted,
+        budgets_saved,
+        ...(budgets_error ? { budgets_error } : {}),
+        ms,
+      };
     });
+
+    return Response.json({ ok: true, workspaces: resultados });
   } catch (err) {
     const ms = Date.now() - tStart;
     if (err instanceof MetaTokenError) {

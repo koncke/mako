@@ -8,6 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { syncClosingCalls } from '@/lib/closing';
+import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -26,13 +27,16 @@ export async function GET(request: NextRequest) {
   if (authFail) return authFail;
 
   try {
-    const res = await syncClosingCalls();
-    console.log(
-      `[cron:closing-sync] fathom=${res.total_fathom} ya=${res.ya_procesadas} cand=${res.candidatas} ` +
-      `analizadas=${res.analizadas} ventas=${res.ventas} servicio=${res.servicio} otras=${res.otras} err=${res.errores} ` +
-      `restantes=${res.restantes} ms=${res.ms}`,
-    );
-    return Response.json({ ok: true, ...res });
+    const resultados = await correrPorWorkspace('fathom', async () => {
+      const res = await syncClosingCalls();
+      console.log(
+        `[cron:closing-sync] fathom=${res.total_fathom} ya=${res.ya_procesadas} cand=${res.candidatas} ` +
+        `analizadas=${res.analizadas} ventas=${res.ventas} servicio=${res.servicio} otras=${res.otras} err=${res.errores} ` +
+        `restantes=${res.restantes} ms=${res.ms}`,
+      );
+      return res;
+    });
+    return Response.json({ ok: true, workspaces: resultados });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cron:closing-sync] error: ${message}`);

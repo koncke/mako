@@ -8,13 +8,9 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import {
-  processAllVideos,
-  YouTubeAuthError,
-  YouTubeApiError,
-  YouTubeNotFoundError,
-} from '@/lib/youtube';
+import { processAllVideos } from '@/lib/youtube';
 import { ayerEnTijuana } from '@/lib/date-utils';
+import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,49 +40,20 @@ export async function GET(request: NextRequest) {
   const fecha = override ?? ayerEnTijuana();
 
   const tStart = Date.now();
-  try {
+  const resultados = await correrPorWorkspace('youtube', async () => {
     const results = await processAllVideos(fecha);
-    const ms = Date.now() - tStart;
-
-    const summary = {
-      ok: results.every((r) => r.status !== 'error'),
+    return {
       fecha,
       total: results.length,
       processed: results.filter((r) => r.status === 'ok').length,
       skipped: results.filter((r) => r.status === 'skipped').length,
       errors: results.filter((r) => r.status === 'error').length,
       results,
-      ms,
     };
+  });
+  const ms = Date.now() - tStart;
 
-    console.log(`[cron:youtube-daily] fecha=${fecha} ok=${summary.processed} skip=${summary.skipped} err=${summary.errors} ms=${ms}`);
+  console.log(`[cron:youtube-daily] fecha=${fecha} workspaces=${resultados.length} ms=${ms}`);
 
-    return Response.json(summary);
-  } catch (err) {
-    const ms = Date.now() - tStart;
-    if (err instanceof YouTubeAuthError) {
-      return Response.json(
-        { ok: false, error: 'auth', message: err.message, fecha, ms },
-        { status: 401 },
-      );
-    }
-    if (err instanceof YouTubeNotFoundError) {
-      return Response.json(
-        { ok: false, error: 'not_found', message: err.message, fecha, ms },
-        { status: 404 },
-      );
-    }
-    if (err instanceof YouTubeApiError) {
-      return Response.json(
-        { ok: false, error: 'youtube_api', message: err.message, code: err.code, fecha, ms },
-        { status: 502 },
-      );
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[cron:youtube-daily] unknown error: ${message}`);
-    return Response.json(
-      { ok: false, error: 'unknown', message, fecha, ms },
-      { status: 500 },
-    );
-  }
+  return Response.json({ ok: true, fecha, workspaces: resultados, ms });
 }

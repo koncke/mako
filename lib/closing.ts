@@ -558,7 +558,7 @@ async function upsertRow(row: ClosingAnalysisRow): Promise<void> {
   void _eh;
   const { error } = await supabase
     .from('closing_analyses')
-    .upsert({ ...rest, updated_at: new Date().toISOString() }, { onConflict: 'recording_id' });
+    .upsert({ ...rest, updated_at: new Date().toISOString() }, { onConflict: 'workspace_id,recording_id' });
   if (error) throw new Error(`Error guardando análisis ${row.recording_id}: ${error.message}`);
 }
 

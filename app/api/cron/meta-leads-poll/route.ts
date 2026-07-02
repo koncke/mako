@@ -22,6 +22,8 @@ import {
   type MetaFieldData,
 } from '@/lib/meta-leads';
 import { META_PAGE_ID } from '@/lib/config';
+import { correrPorWorkspace, configWs } from '@/lib/cron-workspaces';
+import { credWs } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +42,8 @@ function checkAuth(request: NextRequest): Response | null {
   return null;
 }
 
-function pageToken(): string {
-  const t = process.env.META_PAGE_ACCESS_TOKEN;
+async function pageToken(): Promise<string> {
+  const t = await credWs('META_PAGE_ACCESS_TOKEN');
   if (!t || t.startsWith('PENDING')) {
     throw new Error('META_PAGE_ACCESS_TOKEN no configurado');
   }
@@ -82,13 +84,14 @@ export async function GET(request: NextRequest) {
   const corteMs = Date.now() - dias * 86400_000;
   const tStart = Date.now();
 
-  try {
-    const token = pageToken();
+  const workspaces = await correrPorWorkspace('meta', async () => {
+    const token = await pageToken();
+    const pageId = await configWs('meta_page_id', META_PAGE_ID);
 
     // 1) Listar formularios activos de la página
     const forms: FormRow[] = [];
     let formsUrl: string | null =
-      `${GRAPH}/${META_GRAPH_VERSION}/${META_PAGE_ID}/leadgen_forms` +
+      `${GRAPH}/${META_GRAPH_VERSION}/${pageId}/leadgen_forms` +
       `?fields=id,name&limit=${PAGE_SIZE}&access_token=${token}`;
     let formPages = 0;
     while (formsUrl && formPages++ < MAX_PAGES) {
@@ -145,13 +148,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const ms = Date.now() - tStart;
     console.log(
-      `[cron:meta-leads-poll] dias=${dias} forms=${forms.length} vistos=${vistos} creados=${creados} existentes=${existentes} errores=${errores.length} ms=${ms}`,
+      `[cron:meta-leads-poll] dias=${dias} forms=${forms.length} vistos=${vistos} creados=${creados} existentes=${existentes} errores=${errores.length}`,
     );
 
-    return Response.json({
-      ok: true,
+    return {
       dias,
       forms_revisados: forms.length,
       leads_vistos: vistos,
@@ -159,11 +160,9 @@ export async function GET(request: NextRequest) {
       existentes,
       errores: errores.length,
       ...(errores.length > 0 ? { detalle_errores: errores.slice(0, 10) } : {}),
-      ms,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[cron:meta-leads-poll] error: ${message}`);
-    return Response.json({ ok: false, error: message }, { status: 500 });
-  }
+    };
+  });
+
+  const ms = Date.now() - tStart;
+  return Response.json({ ok: true, dias, workspaces, ms });
 }
