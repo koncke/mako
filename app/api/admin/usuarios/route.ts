@@ -140,7 +140,11 @@ export async function POST(req: NextRequest) {
         if (wsId !== objetivo.workspace_id && (await dejariaClienteSinAdmin(objetivo))) {
           return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
         }
-        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { workspace_id: wsId }) });
+        // Al asignar a un cliente, un usuario sin rol de negocio queda como admin
+        // de ese cliente (el rol se puede bajar después desde el equipo).
+        const patch: { workspace_id: number | null; rol_ws?: RolWorkspace } = { workspace_id: wsId };
+        if (wsId != null && objetivo.rol_ws == null) patch.rol_ws = 'admin';
+        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, patch) });
       }
 
       case 'rolws': {

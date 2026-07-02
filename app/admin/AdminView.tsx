@@ -9,8 +9,9 @@
 //    del cliente (admin / closer / setter) para visualizar y revocar; el alta de
 //    equipo la hace el propio cliente desde su panel de Equipo. "Entrar como"
 //    mete al admin de agencia en el dashboard del cliente.
-//  · Agencia → los admins de la APP (rol global 'admin'). Alta por email, baja.
-// Los guards duros (no dejar sin admin de agencia ni sin admin de cliente) viven
+//  · Super Admins → los admins de la APP (rol global 'admin'). Alta por email,
+//    baja. Gestionan todos los clientes y no pertenecen a ninguno.
+// Los guards duros (no dejar sin super admin ni sin admin de cliente) viven
 // en el API; acá solo mostramos sus errores.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
@@ -70,7 +71,7 @@ function ChipEstadoUsuario({ estado }: { estado: Usuario['estado'] }) {
 // AdminView
 // =============================================================================
 export function AdminView() {
-  const [tab, setTab] = useState<'clientes' | 'agencia'>('clientes');
+  const [tab, setTab] = useState<'clientes' | 'superadmins'>('clientes');
 
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -106,7 +107,7 @@ export function AdminView() {
     </header>
   );
 
-  const tabBtn = (id: 'clientes' | 'agencia'): CSSProperties => ({
+  const tabBtn = (id: 'clientes' | 'superadmins'): CSSProperties => ({
     padding: '10px 2px', marginRight: 26, background: 'transparent', border: 'none', cursor: 'pointer',
     fontFamily: SANS, fontSize: 15, fontWeight: tab === id ? 600 : 500,
     color: tab === id ? 'var(--ink)' : 'var(--dim)',
@@ -116,7 +117,7 @@ export function AdminView() {
   const tabs = (
     <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
       <button style={tabBtn('clientes')} onClick={() => setTab('clientes')}>Clientes</button>
-      <button style={tabBtn('agencia')} onClick={() => setTab('agencia')}>Agencia</button>
+      <button style={tabBtn('superadmins')} onClick={() => setTab('superadmins')}>Super Admins</button>
     </div>
   );
 
@@ -148,7 +149,7 @@ export function AdminView() {
         {tabs}
         {tab === 'clientes'
           ? <TabClientes workspaces={workspaces} usuarios={usuarios} recargar={cargar} />
-          : <TabAgencia usuarios={usuarios} sesion={sesion} recargar={cargar} />}
+          : <TabSuperAdmins usuarios={usuarios} sesion={sesion} recargar={cargar} />}
       </div>
     </main>
   );
@@ -367,6 +368,48 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
         </div>
       )}
 
+      {/* ── Usuarios sin cliente (huérfanos) ─────────────────────────────────── */}
+      {(() => {
+        const huerfanos = usuarios.filter((u) => u.rol === 'usuario' && u.workspace_id == null);
+        if (huerfanos.length === 0) return null;
+        const wsOpts = workspaces.map((w) => ({ value: String(w.id), label: w.nombre }));
+        return (
+          <div style={card}>
+            <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Sin cliente</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 14 }}>Cuentas que no pertenecen a ningún cliente: no ven datos hasta que las asignes.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {huerfanos.map((u) => (
+                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Cuadro texto={inicialesTxt(u.nombre || u.email)} foto={u.foto_url} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+                  </div>
+                  <ChipEstadoUsuario estado={u.estado} />
+                  <div style={{ flex: 'none', width: 180 }}>
+                    <Dropdown
+                      value="" options={wsOpts}
+                      onChange={(v) => accionUser({ action: 'workspace', id: u.id, workspace_id: Number(v) })}
+                      width="100%" align="right" placeholder="Asignar a cliente…"
+                      disabled={accionando || workspaces.length === 0}
+                      ariaLabel={`Asignar cliente a ${u.email}`}
+                      buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+                    />
+                  </div>
+                  <Dropdown
+                    value="" resetAfterSelect align="right" placeholder="⋯"
+                    ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
+                    buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+                    options={[{ value: 'eliminar', label: 'Eliminar…', color: 'var(--bad)' }]}
+                    onChange={(v) => { if (v === 'eliminar') setAEliminar(u); }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
         Cada cliente ve solo sus propios datos. El <b>Admin</b> del cliente ve todas las tabs de su negocio; <b>Closer</b> y <b>Setter</b> ven solo las suyas. &ldquo;Entrar como&rdquo; te mete en su dashboard para configurarlo o dar soporte.
       </div>
@@ -411,9 +454,9 @@ function NombreClienteDialog({ nombre, onNombre, onCancel, onConfirm, titulo = '
 }
 
 // =============================================================================
-// TAB — Agencia (admins de la app)
+// TAB — Super Admins (admins de la app)
 // =============================================================================
-function TabAgencia({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
+function TabSuperAdmins({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void> }) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [creando, setCreando] = useState(false);
@@ -456,11 +499,11 @@ function TabAgencia({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesio
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={card}>
-        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar admin de agencia</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Los admins de agencia gestionan todos los clientes y no pertenecen a ninguno. No son lo mismo que el &ldquo;admin&rdquo; de un cliente.</div>
+        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar super admin</div>
+        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Los super admins gestionan todos los clientes y no pertenecen a ninguno. No son lo mismo que el &ldquo;admin&rdquo; de un cliente.</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr auto', gap: 12, alignItems: 'end' }}>
           <div><label style={labelStyle}>Nombre</label><input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellido" /></div>
-          <div><label style={labelStyle}>Email</label><input style={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@agencia.com" onKeyDown={(e) => { if (e.key === 'Enter' && email.trim()) crear(); }} /></div>
+          <div><label style={labelStyle}>Email</label><input style={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@empresa.com" onKeyDown={(e) => { if (e.key === 'Enter' && email.trim()) crear(); }} /></div>
           <button style={{ ...btnDark, opacity: creando || !email.trim() ? 0.5 : 1 }} disabled={creando || !email.trim()} onClick={crear}>{creando ? 'Agregando…' : 'Agregar'}</button>
         </div>
         {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
@@ -470,7 +513,7 @@ function TabAgencia({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesio
       {errAccion && <div style={bannerError}>{errAccion}</div>}
 
       {admins.length === 0 ? (
-        <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5 }}>No hay admins de agencia.</div>
+        <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5 }}>No hay super admins.</div>
       ) : (
         <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
           {admins.map((u, i) => (
@@ -480,7 +523,7 @@ function TabAgencia({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesio
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
               </div>
-              <span style={chip('var(--primary-bg)', 'var(--primary)')}>admin agencia</span>
+              <span style={chip('var(--primary-bg)', 'var(--primary)')}>super admin</span>
               <ChipEstadoUsuario estado={u.estado} />
               <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', flex: 'none', width: 118, textAlign: 'right' }} title="Último login">{fmtLogin(u.ultimo_login)}</span>
               <Dropdown
@@ -510,7 +553,7 @@ function TabAgencia({ usuarios, sesion, recargar }: { usuarios: Usuario[]; sesio
       {aEliminar && (
         <ConfirmDialog
           titulo={`¿Eliminar a ${aEliminar.nombre || aEliminar.email}?`}
-          detalle="Pierde el acceso al panel de agencia. Esta acción no se puede deshacer."
+          detalle="Pierde el acceso como super admin. Esta acción no se puede deshacer."
           confirmLabel="Eliminar"
           danger
           onCancel={() => setAEliminar(null)}
