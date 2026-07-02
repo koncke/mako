@@ -31,13 +31,12 @@ import {
 import type { EstadoLead, FathomLink } from '@/lib/leads';
 import {
   setLeadStageAction,
-  saveLeadMetaAction,
-  deleteLeadInlineAction,
   markManualNutritionAction,
   markMeetingManualAction,
 } from './actions';
-import { LeadDetail } from './LeadDetail';
-import { seedEdits as seedEditsBase, missingFor, sectionForStage } from './edit-logic';
+import { LeadEditModal } from './LeadEditModal';
+import { sectionForStage } from './edit-logic';
+import { missingForStage } from '@/lib/stage-requirements';
 import { Dropdown } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 import { Icon } from '../_components/icons';
@@ -107,24 +106,6 @@ export type CrmMarcar = {
   tipo: 'A' | 'B' | 'C' | 'M';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?  M=nutrición manual vencida
 };
 
-export type Edits = {
-  nombre: string;
-  email: string;
-  telefono: string;
-  empresa: string;
-  closer: string;
-  setter: string;
-  motivo: string;
-  fechaJ1: string;   // ISO YYYY-MM-DD (editable al mover a Agenda J1)
-  fechaJ2: string;   // ISO YYYY-MM-DD (editable al mover a Agenda J2 / Facturando)
-  fathom: FathomLink[];
-  nutriciones: { name: string; dt: string }[];
-  plan: { total: string; cierre: string; inicio: string; duracion: string };
-  cuotas: { monto: string; fecha: string }[];
-};
-
-export type PendingMove = { id: number; from: string; to: string; asistioJ1?: boolean; asistioJ2?: boolean };
-
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
 
 function chipStyle(tone: Stage['tone']): CSSProperties {
@@ -164,14 +145,11 @@ export function CrmBoard({
   const [originFilter, setOriginFilter] = useState('todos');
   const [showSinMarcar, setShowSinMarcar] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
-  const [moveError, setMoveError] = useState(false);
-  const [editsMap, setEditsMap] = useState<Record<number, Edits>>({});
+  const [sheetStage, setSheetStage] = useState<string | undefined>(undefined);   // etapa destino al abrir la ficha para completar
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string } | null>(null);
-  const [contactConfirm, setContactConfirm] = useState<CrmLead | null>(null);
   const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualDeadline, setManualDeadline] = useState('');
@@ -179,8 +157,6 @@ export function CrmBoard({
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<CrmLead | null>(null);
-  const [saveError, setSaveError] = useState(false);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const firstKey = stages[0]?.key ?? 'lead';
@@ -190,28 +166,15 @@ export function CrmBoard({
     return stageKeys.has(k) ? k : firstKey;
   };
 
-  const seedEdits = (l: CrmLead): Edits => seedEditsBase(l, effStage(l));
-
-  const editsFor = (l: CrmLead): Edits => editsMap[l.id] ?? seedEdits(l);
-  const patchEdits = (id: number, patch: Partial<Edits>) =>
-    setEditsMap((m) => ({ ...m, [id]: { ...(m[id] ?? seedEdits(leads.find((x) => x.id === id)!)), ...patch } }));
-
-  const openDetail = (l: CrmLead) => {
-    // Re-sembrar siempre desde los datos frescos: si quedó un edits viejo en caché
-    // (p.ej. tras un reagende de Calendly o asistencia marcada por Fathom), no debe
-    // pisar lo nuevo. Limpiar al cerrar/guardar garantiza que acá no haya entrada.
-    setEditsMap((m) => (m[l.id] ? m : { ...m, [l.id]: seedEdits(l) }));
+  // Abrir la ficha del lead (editable). `stage` opcional: etapa destino a
+  // pre-seleccionar cuando el movimiento del Kanban pide completar datos.
+  const openDetail = (l: CrmLead, stage?: string) => {
     setSelectedId(l.id);
-    setPendingMove(null);
-    setMoveError(false);
-    setSaveError(false);
+    setSheetStage(stage);
   };
   const closeDetail = () => {
-    if (selectedId != null) setEditsMap((m) => { const n = { ...m }; delete n[selectedId]; return n; });
     setSelectedId(null);
-    setPendingMove(null);
-    setMoveError(false);
-    setSaveError(false);
+    setSheetStage(undefined);
   };
 
   // Transición del grafo que define el movimiento `from → to` (si existe). Lleva
@@ -219,16 +182,12 @@ export function CrmBoard({
   const transitionFor = (from: string, to: string): FunnelTransition | undefined =>
     transitions.find((t) => t.from === from && t.to === to);
 
-  const persistStage = (id: number, key: string, e: Edits, from?: string, tr?: FunnelTransition) => {
+  // Movimiento directo (etapas que no piden completar datos). Optimista + revert.
+  const persistStage = (id: number, key: string, from?: string, tr?: FunnelTransition) => {
     setLocalStage((m) => ({ ...m, [id]: key }));
     startTransition(async () => {
       try {
-        await setLeadStageAction(id, key, {
-          monto: key === 'ganado' ? Number(e.plan.total) || null : null,
-          motivo: key === 'perdido' || key === 'descal' ? e.motivo : null,
-          asistio_j1: tr?.asistioJ1,
-          asistio_j2: tr?.asistioJ2,
-        });
+        await setLeadStageAction(id, key, { asistio_j1: tr?.asistioJ1, asistio_j2: tr?.asistioJ2 });
       } catch {
         // El server rechazó el movimiento (invariante): revertir el optimista y
         // limpiar el toast de deshacer. router.refresh() resincroniza con la verdad.
@@ -269,7 +228,12 @@ export function CrmBoard({
   // ¿Mover a `key` exige pasar por la ficha? Sí cuando hay un campo obligatorio
   // faltante (bloquea) o cuando la etapa tiene una sección que completar (motivo,
   // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
-  const needsFicha = (key: string, e: Edits) => missingFor(key, e).length > 0 || !!sectionForStage(key);
+  const missingForLead = (l: CrmLead, key: string) => missingForStage(key, {
+    fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2,
+    hasFathomUrl: l.fathom.some((f) => f.url?.trim()),
+    monto: l.monto || null, motivo: l.motivo, setter: l.setter,
+  });
+  const needsFicha = (l: CrmLead, key: string) => missingForLead(l, key).length > 0 || !!sectionForStage(key);
 
   // Abre Calendly (prefill nombre/email); la fecha la setea el webhook al reservar
   // y el lead avanza solo. NO persistimos acá.
@@ -287,23 +251,6 @@ export function CrmBoard({
     setMeetingChoice({ leadId: lead.id, name: lead.name, which: key as 'agenda' | 'agendaj2' });
   };
 
-  const requestStage = (l: CrmLead, key: string) => {
-    if (key === effStage(l)) { setPendingMove(null); setMoveError(false); return; }
-    // "Nutrición - Manual" SIEMPRE pasa por el modal que exige motivo + deadline.
-    if (key === 'manual') { openManualNutri(l.id); setPendingMove(null); setMoveError(false); return; }
-    if (calendlyUrlFor(key)) { scheduleViaCalendly(l, key); setPendingMove(null); setMoveError(false); return; }
-    const e = editsFor(l);
-    const tr = transitionFor(effStage(l), key);
-    if (needsFicha(key, e)) {
-      setPendingMove({ id: l.id, from: effStage(l), to: key, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
-      setMoveError(false);
-    } else {
-      persistStage(l.id, key, e, effStage(l), tr);
-      setPendingMove(null);
-      setMoveError(false);
-    }
-  };
-
   const handleDrop = (stageKey: string) => {
     const id = dragId;
     setDragId(null);
@@ -312,25 +259,20 @@ export function CrmBoard({
     if (!lead || effStage(lead) === stageKey) return;
     if (stageKey === 'manual') { openManualNutri(id); return; }
     if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
-    const e = editsFor(lead);
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
-    if (needsFicha(stageKey, e)) {
-      openDetail(lead);
-      setPendingMove({ id, from, to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
-    } else {
-      persistStage(id, stageKey, e, from, tr);
-    }
+    if (needsFicha(lead, stageKey)) openDetail(lead, stageKey);
+    else persistStage(id, stageKey, from, tr);
   };
 
-  // Resolver un "dato sin marcar": abre la ficha con el pase pendiente (lleva la
-  // asistencia que implica la transición) para completar lo obligatorio y guardar.
+  // Resolver un "dato sin marcar": si la etapa destino pide datos, abre la ficha en
+  // esa etapa; si no, mueve directo aplicando la asistencia que implica la transición.
   const resolveMarcar = (leadId: number, t: FunnelTransition) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
     if (calendlyUrlFor(t.to)) { scheduleViaCalendly(lead, t.to); return; }
-    openDetail(lead);
-    setPendingMove({ id: leadId, from: effStage(lead), to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
+    if (needsFicha(lead, t.to)) openDetail(lead, t.to);
+    else persistStage(leadId, t.to, effStage(lead), t);
   };
 
   // "Nutrición - Manual" desde el worklist: pide MOTIVO antes de guardar.
@@ -361,70 +303,6 @@ export function CrmBoard({
     const asistio = mmAsistio === '' ? null : mmAsistio === 'si';
     setManualMeeting(null);
     startTransition(async () => { await markMeetingManualAction(leadId, which, mmFecha, asistio); router.refresh(); });
-  };
-
-  // ¿Cambió algún dato de contacto respecto del origen? (gatilla confirmación)
-  const contactChanged = (l: CrmLead, e: Edits) => {
-    const ph = l.phone === '—' ? '' : l.phone;
-    const co = l.company === 'Sin empresa' ? '' : l.company;
-    return e.nombre.trim() !== l.name.trim() || e.email.trim() !== l.email.trim() || e.telefono.trim() !== ph.trim() || e.empresa.trim() !== co.trim();
-  };
-
-  const persistDetail = (l: CrmLead) => {
-    const e = editsFor(l);
-    const move = pendingMove && pendingMove.id === l.id ? pendingMove : null;
-    setSaveError(false);
-    startTransition(async () => {
-      try {
-        await saveLeadMetaAction(l.id, {
-          closer: e.closer, setter: e.setter, fathom_links: e.fathom, motivo_perdida: e.motivo,
-          nombre: e.nombre.trim() || undefined, email: e.email.trim() || null,
-          telefono: e.telefono.trim() || null, empresa: e.empresa.trim() || null,
-          fecha_junta_1: e.fechaJ1 || null, fecha_junta_2: e.fechaJ2 || null,
-        });
-        if (move) {
-          await setLeadStageAction(l.id, move.to, {
-            monto: move.to === 'ganado' ? Number(e.plan.total) || null : null,
-            motivo: e.motivo,
-            asistio_j1: move.asistioJ1,
-            asistio_j2: move.asistioJ2,
-          });
-          setLocalStage((m) => ({ ...m, [l.id]: move.to }));
-        }
-        router.refresh();
-        closeDetail();   // limpia el edits cacheado + cierra solo si TODO salió bien
-      } catch {
-        // No cerramos: el usuario ve el error y sus cambios siguen en el modal.
-        setSaveError(true);
-      }
-    });
-  };
-
-  const saveDetail = (l: CrmLead) => {
-    const e = editsFor(l);
-    if (pendingMove && pendingMove.id === l.id && missingFor(pendingMove.to, e).length) {
-      setMoveError(true);
-      return;
-    }
-    if (contactChanged(l, e)) { setContactConfirm(l); return; } // contacto: pedir confirmación
-    persistDetail(l);
-  };
-
-  // Borrar es irreversible: lo confirmamos en un diálogo aparte (como el de contacto).
-  const confirmRemove = () => {
-    if (!deleteConfirm) return;
-    const id = deleteConfirm.id;
-    setDeleteConfirm(null);
-    setSaveError(false);
-    startTransition(async () => {
-      try {
-        await deleteLeadInlineAction(id);
-        router.refresh();
-        closeDetail();
-      } catch {
-        setSaveError(true);
-      }
-    });
   };
 
   // Opciones contextuales del worklist: las transiciones salientes de la etapa
@@ -685,51 +563,7 @@ export function CrmBoard({
       )}
 
       {selected && (
-        <LeadDetail
-          lead={selected}
-          stages={stages}
-          effStage={effStage(selected)}
-          pendingMove={pendingMove && pendingMove.id === selected.id ? pendingMove : null}
-          moveError={moveError}
-          edits={editsFor(selected)}
-          missing={pendingMove && pendingMove.id === selected.id ? missingFor(pendingMove.to, editsFor(selected)) : []}
-          focus={pendingMove && pendingMove.id === selected.id ? sectionForStage(pendingMove.to) : undefined}
-          onPatch={(patch) => patchEdits(selected.id, patch)}
-          onPickStage={(key) => requestStage(selected, key)}
-          onClose={closeDetail}
-          onSave={() => saveDetail(selected)}
-          onDelete={() => setDeleteConfirm(selected)}
-          onSchedule={(key) => scheduleViaCalendly(selected, key)}
-          saveError={saveError}
-        />
-      )}
-
-      {/* Confirmación de borrado (irreversible) */}
-      {deleteConfirm && (
-        <div onClick={() => setDeleteConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Borrar lead</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{deleteConfirm.name}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              <button onClick={confirmRemove} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Borrar definitivamente</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmación al editar datos de contacto */}
-      {contactConfirm && (
-        <div onClick={() => setContactConfirm(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Confirmar cambios de contacto</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Vas a editar datos de contacto (nombre, email, teléfono o empresa) de <b style={{ color: 'var(--ink)' }}>{contactConfirm.name}</b>. Normalmente se sincronizan del origen (Meta/Calendly); un cambio manual puede desincronizarse.</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setContactConfirm(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              <button onClick={() => { const l = contactConfirm; setContactConfirm(null); persistDetail(l); }} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Confirmar y guardar</button>
-            </div>
-          </div>
-        </div>
+        <LeadEditModal leadId={selected.id} initialStage={sheetStage} onClose={closeDetail} />
       )}
 
       {/* Confirmación: motivo de la nutrición manual */}

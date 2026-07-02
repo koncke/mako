@@ -1,70 +1,18 @@
 // =============================================================================
-// edit-logic — lógica de edición de un lead compartida por CrmBoard y LeadEditModal
+// edit-logic — helpers de etapa para el CRM
 // =============================================================================
-// seedEdits / missingFor vivían inline en CrmBoard. Se extrajeron para que el
-// modal de edición in-place (usable desde cualquier desglose del dashboard)
-// reutilice EXACTAMENTE la misma semilla y validación que el CRM.
+// La semilla/validación de edición vivía acá cuando el modal era read-only con
+// una máquina de "Edits". Con la ficha editable (LeadSheet) eso desapareció; las
+// reglas de requisitos viven en lib/stage-requirements. Queda solo el mapeo de
+// etapa → sección a completar, que usa el Kanban para decidir si abre la ficha.
 
 import { NUTRI_KEYS } from '@/lib/pipeline';
-import { missingForStage } from '@/lib/stage-requirements';
-import type { FathomLink } from '@/lib/leads';
-import type { CrmLead, Edits } from './CrmBoard';
 
-const ADV = ['agendaj2', 'facturando', 'ganado'];
 const AGENDA_STAGES = ['agenda', 'agendaj2', 'facturando'];
 
-/** Semilla de edición para un lead dado su etapa efectiva. */
-export function seedEdits(l: CrmLead, effStage: string): Edits {
-  const passedJ1 = !!l.agenda || ADV.includes(effStage);
-  const passedJ2 = ADV.includes(effStage);
-  const fathom: FathomLink[] = l.fathom.length
-    ? l.fathom
-    : [
-        ...(passedJ1 ? [{ label: 'Reunión 1', url: '' }] : []),
-        ...(passedJ2 ? [{ label: 'Reunión 2', url: '' }] : []),
-      ];
-  const isGanado = effStage === 'ganado';
-  const cuota = isGanado ? String(Math.round(l.monto / 3)) : '';
-  return {
-    nombre: l.name,
-    email: l.email,
-    telefono: l.phone === '—' ? '' : l.phone,
-    empresa: l.company === 'Sin empresa' ? '' : l.company,
-    closer: l.closer,
-    setter: l.setter,
-    motivo: l.motivo,
-    fechaJ1: l.fechaJ1 ?? '',
-    fechaJ2: l.fechaJ2 ?? '',
-    fathom,
-    // El detalle de nutriciones por lead no se persiste todavía (Lead solo guarda
-    // nutricion_realizada). Arrancamos vacío para no mostrar filas inventadas.
-    nutriciones: [],
-    plan: { total: isGanado ? String(l.monto) : '', cierre: '', inicio: '', duracion: '3' },
-    cuotas: isGanado ? [{ monto: cuota, fecha: '' }, { monto: cuota, fecha: '' }] : [],
-  };
-}
-
 /**
- * Campos OBLIGATORIOS que faltan para mover a una etapa (vacío = se puede mover).
- * Adaptador del shape de UI (Edits) al módulo compartido lib/stage-requirements,
- * que es la fuente única de reglas (Kanban + ficha + backstop del server).
- */
-export function missingFor(stage: string, e: Edits): string[] {
-  return missingForStage(stage, {
-    fechaJ1: e.fechaJ1,
-    fechaJ2: e.fechaJ2,
-    hasFathomUrl: e.fathom.some((f) => f.url.trim()),
-    monto: Number(e.plan.total) || null,
-    motivo: e.motivo,
-    setter: e.setter,
-  });
-}
-
-/**
- * Sección de la ficha (id `lead-sec-…`) a la que saltar y desplegar cuando el
- * lead se mueve a una etapa que pide completar datos. Si devuelve algo, el
- * movimiento abre la ficha enfocada en esa sección (en vez de mover en silencio).
- * `missingFor` decide además qué se exige antes de poder guardar el cambio.
+ * Sección de la ficha que una etapa "pide completar". Si devuelve algo, mover a
+ * esa etapa abre la ficha (en vez de mover en silencio) para cargar esos datos.
  */
 export function sectionForStage(stage: string): string | undefined {
   if (stage === 'perdido' || stage === 'descal') return 'motivo';

@@ -36,19 +36,50 @@ import {
   getPipelineStages,
   getVisitasLandingMap,
   getVslEngagementMap,
+  getVslEngagement,
   logLeadChanges,
   logLeadEvent,
   getLeadAudit,
   type LeadMetaInput,
   type LeadAuditRow,
   type FathomLink,
+  type Lead,
+  type VslEngagement,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { getCampaignNameMap } from '@/lib/queries';
-import { savePlanPagos, marcarPago, type PlanPagos } from '@/lib/pagos';
+import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
+import { savePlanPagos, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { mapToCrmLead, type VisitasMap, type VslMap } from './crm-map';
 import type { CrmLead } from './CrmBoard';
+
+/** Datos completos para hidratar la ficha (LeadSheet) como modal. */
+export type LeadFullData = {
+  lead: Lead;
+  stages: Stage[];
+  pagos: Pago[];
+  vslEng: VslEngagement;
+  campana: { texto: string | null; tooltip: string | null };
+};
+
+/**
+ * Carga TODO lo que la ficha (LeadSheet) necesita para editar un lead desde un
+ * modal (CRM / WhatsApp / desgloses): el Lead completo, etapas, plan de pagos,
+ * engagement del VSL y campaña resuelta. Mismo dataset que la ruta /leads/[id].
+ */
+export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
+  const lead = await getLead(id);
+  if (!lead) return null;
+  const [vslEng, pagos, campMap, stagesRaw] = await Promise.all([
+    getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true }) as VslEngagement),
+    getPagosByLead(lead.id).catch(() => [] as Pago[]),
+    getCampaignNameMap().catch(() => ({}) as Record<string, string>),
+    getPipelineStages().catch(() => DEFAULT_STAGES),
+  ]);
+  const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
+  const campana = resolverNombreCampana(lead.utm_campaign, campMap);
+  return { lead, stages, pagos, vslEng, campana };
+}
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;

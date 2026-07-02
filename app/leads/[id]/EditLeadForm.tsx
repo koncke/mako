@@ -10,8 +10,10 @@
 
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
+import { saveLeadEditorAction, deleteLeadAction, deleteLeadInlineAction, type LeadEditorInput } from '../actions';
 import { CHIP, BAND_LABEL, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
+import { missingForStage } from '@/lib/stage-requirements';
+import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { CobranzaPlanCard } from './CobranzaPlanCard';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { Pago } from '@/lib/pagos';
@@ -26,13 +28,17 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stage[]; pagos: Pago[] }) {
+export function EditLeadForm({ lead, stages, pagos, initialStage, onClose }: { lead: Lead; stages: Stage[]; pagos: Pago[]; initialStage?: string; onClose?: () => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const validKeys = new Set(stages.map((s) => s.key));
-  const initStage = lead.pipeline_stage && validKeys.has(lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
+  // Etapa actual del lead vs etapa inicial mostrada (puede venir forzada por un
+  // movimiento del Kanban que abre la ficha para completar datos).
+  const currentStage = lead.pipeline_stage && validKeys.has(lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
+  const initStage = initialStage && validKeys.has(initialStage) ? initialStage : currentStage;
 
   const [stage, setStage] = useState<string>(initStage);
   const [nombre, setNombre] = useState(lead.nombre);
@@ -84,8 +90,14 @@ export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stag
   const guardar = () => {
     setFeedback(null);
     if (!nombre.trim()) { setFeedback({ kind: 'err', msg: 'El nombre es obligatorio.' }); return; }
-    if (isGanado && !(parseFloat(monto) > 0)) { setFeedback({ kind: 'err', msg: 'Para Ganado, el monto de cierre debe ser un número positivo.' }); return; }
     if (isManual && !deadline) { setFeedback({ kind: 'err', msg: 'Para "Nutrición - Manual" tenés que poner una fecha límite.' }); return; }
+    // Requisitos de la etapa: se exigen al MOVER a una etapa nueva (no al editar
+    // un lead que ya estaba ahí), unificado con el Kanban vía stage-requirements.
+    // Un lead ya en Ganado igual necesita un monto positivo para poder guardarse.
+    const reqs = stage !== currentStage
+      ? missingForStage(stage, { fechaJ1, fechaJ2, hasFathomUrl: fathom.some((f) => f.url.trim()), monto: parseFloat(monto) || null, motivo, setter })
+      : (isGanado && !(parseFloat(monto) > 0) ? ['Monto de cierre'] : []);
+    if (reqs.length) { setFeedback({ kind: 'err', msg: `Falta para "${sm?.label ?? stage}": ${reqs.join(', ')}` }); return; }
 
     const payload: LeadEditorInput = {
       stage,
@@ -112,8 +124,11 @@ export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stag
     startTransition(async () => {
       try {
         await saveLeadEditorAction(lead.id, payload);
-        setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
         router.refresh();
+        // En el modal, cerrar al guardar (el board de atrás ya se refrescó); en la
+        // ruta, quedarse con el aviso de guardado.
+        if (onClose) onClose();
+        else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
       } catch (err) {
         setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
       }
@@ -121,10 +136,13 @@ export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stag
   };
 
   const borrar = () => {
-    if (!confirm(`¿Borrar lead "${lead.nombre}"? Esta acción no se puede deshacer.`)) return;
+    setConfirmDelete(false);
     startTransition(async () => {
-      try { await deleteLeadAction(lead.id); }
-      catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
+      try {
+        // Modal → borrado in-place (no expulsa de la tab); ruta → borra y redirige.
+        if (onClose) { await deleteLeadInlineAction(lead.id); router.refresh(); onClose(); }
+        else { await deleteLeadAction(lead.id); }
+      } catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
 
@@ -137,7 +155,7 @@ export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stag
           {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" onClick={() => router.push('/leads')} style={btnGhost}>Cancelar</button>
+          <button type="button" onClick={() => (onClose ? onClose() : router.push('/leads'))} style={btnGhost}>Cancelar</button>
           <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
         </div>
       </div>
@@ -261,8 +279,19 @@ export function EditLeadForm({ lead, stages, pagos }: { lead: Lead; stages: Stag
 
       {/* BORRAR (discreto, al fondo) */}
       <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: 4 }}>
-        <button type="button" onClick={borrar} disabled={pending} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>Borrar lead</button>
+        <button type="button" onClick={() => setConfirmDelete(true)} disabled={pending} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>Borrar lead</button>
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Borrar lead"
+          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{lead.nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
+          confirmLabel="Borrar definitivamente"
+          onConfirm={borrar}
+          onCancel={() => setConfirmDelete(false)}
+          zIndex={130}
+        />
+      )}
     </div>
   );
 }

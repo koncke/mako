@@ -1,188 +1,66 @@
 'use client';
 
 // =============================================================================
-// LeadEditModal — ficha editable del lead, abrible desde cualquier desglose
+// LeadEditModal — carga la ficha completa on-demand y la muestra como modal
 // =============================================================================
-// Carga el lead on-demand (getCrmLeadAction) y reutiliza el MISMO editor del CRM
-// (LeadDetail) con sus server actions. Se monta por encima del modal de desglose
-// (zIndex alto) y salta a la sección indicada por `focus`.
+// Wrapper fino: trae getLeadFullAction (Lead completo + etapas + plan + VSL) y
+// monta LeadSheet (ficha editable). Se abre desde el CRM, WhatsApp y los
+// desgloses. initialStage llega cuando el Kanban mueve a una etapa que pide datos.
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { LeadDetail } from './LeadDetail';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { seedEdits, missingFor, sectionForStage } from './edit-logic';
-import {
-  getCrmLeadAction,
-  saveLeadMetaAction,
-  setLeadStageAction,
-  deleteLeadInlineAction,
-} from './actions';
-import type { CrmLead, Edits, PendingMove } from './CrmBoard';
-import type { Stage } from '@/lib/pipeline';
+import { LeadSheet } from './LeadSheet';
+import { getLeadFullAction, type LeadFullData } from './actions';
 
 const SANS = "'Geist', sans-serif";
+const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 };
+const box: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', fontFamily: SANS, fontSize: 14, color: 'var(--dim)' };
 
 export function LeadEditModal({
   leadId,
-  focus,
+  initialStage,
   onClose,
 }: {
   leadId: number;
+  /** Sección de foco (compat desgloses) — la ficha abre igual, se ve al scrollear. */
   focus?: string;
+  /** Etapa destino a pre-seleccionar cuando el Kanban abre la ficha para completar. */
+  initialStage?: string;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
-
-  const [lead, setLead] = useState<CrmLead | null>(null);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [edits, setEdits] = useState<Edits | null>(null);
-  const [localStage, setLocalStage] = useState<string | null>(null);
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
-  const [moveError, setMoveError] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [data, setData] = useState<LeadFullData | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    getCrmLeadAction(leadId)
-      .then((d) => {
-        if (!alive) return;
-        if (!d) { setNotFound(true); return; }
-        setLead(d.lead);
-        setStages(d.stages);
-        setEdits(seedEdits(d.lead, d.lead.stage));
-      })
+    getLeadFullAction(leadId)
+      .then((d) => { if (!alive) return; if (!d) setNotFound(true); else setData(d); })
       .catch(() => { if (alive) setNotFound(true); });
     return () => { alive = false; };
   }, [leadId]);
 
-  const effStage = (l: CrmLead): string => localStage ?? l.stage;
-
-  const onPickStage = (key: string) => {
-    if (!lead || !edits) return;
-    if (key === effStage(lead)) { setPendingMove(null); setMoveError(false); return; }
-    // Igual que el tablero: las etapas con sección a completar (motivo, plan,
-    // nutrición) o con un obligatorio faltante pasan por la ficha antes de mover.
-    if (missingFor(key, edits).length || sectionForStage(key)) {
-      setPendingMove({ id: lead.id, from: effStage(lead), to: key });
-      setMoveError(false);
-    } else {
-      setLocalStage(key);
-      setPendingMove(null);
-      setMoveError(false);
-      startTransition(async () => {
-        await setLeadStageAction(lead.id, key, {
-          monto: key === 'ganado' ? Number(edits.plan.total) || null : null,
-          motivo: key === 'perdido' || key === 'descal' ? edits.motivo : null,
-        });
-        router.refresh();
-      });
-    }
-  };
-
-  const onSave = () => {
-    if (!lead || !edits) return;
-    if (pendingMove && missingFor(pendingMove.to, edits).length) {
-      setMoveError(true);
-      return;
-    }
-    setSaveError(false);
-    // Cerrar SOLO si la acción tuvo éxito: si falla, el modal queda abierto con
-    // los cambios intactos y muestra el error (antes: onClose síncrono perdía todo).
-    startTransition(async () => {
-      try {
-        await saveLeadMetaAction(lead.id, {
-          closer: edits.closer, setter: edits.setter, fathom_links: edits.fathom, motivo_perdida: edits.motivo,
-          fecha_junta_1: edits.fechaJ1 || null, fecha_junta_2: edits.fechaJ2 || null,
-        });
-        if (pendingMove) {
-          await setLeadStageAction(lead.id, pendingMove.to, {
-            monto: pendingMove.to === 'ganado' ? Number(edits.plan.total) || null : null,
-            motivo: edits.motivo,
-            asistio_j1: pendingMove.asistioJ1,
-            asistio_j2: pendingMove.asistioJ2,
-          });
-        }
-        router.refresh();
-        onClose();
-      } catch {
-        setSaveError(true);
-      }
-    });
-  };
-
-  // El footer de la ficha pide borrar → abrimos confirmación (antes borraba al
-  // instante desde WhatsApp/desgloses, sin diálogo).
-  const onDelete = () => { if (lead) setConfirmDelete(true); };
-
-  const doDelete = () => {
-    if (!lead) return;
-    setConfirmDelete(false);
-    setSaveError(false);
-    // Borrado in-place (sin redirect): no expulsa al usuario de la tab actual.
-    startTransition(async () => {
-      try {
-        await deleteLeadInlineAction(lead.id);
-        router.refresh();
-        onClose();
-      } catch {
-        setSaveError(true);
-      }
-    });
-  };
-
   if (notFound) {
     return (
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+      <div onClick={onClose} style={overlay}>
+        <div onClick={(e) => e.stopPropagation()} style={box}>
           No se pudo cargar el lead. <button onClick={onClose} style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
         </div>
       </div>
     );
   }
 
-  if (!lead || !edits) {
+  if (!data) {
     return (
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
-          Cargando ficha…
-        </div>
+      <div onClick={onClose} style={overlay}>
+        <div onClick={(e) => e.stopPropagation()} style={box}>Cargando ficha…</div>
       </div>
     );
   }
 
-  return (
-    <>
-      <LeadDetail
-        lead={lead}
-        stages={stages}
-        effStage={effStage(lead)}
-        pendingMove={pendingMove}
-        moveError={moveError}
-        edits={edits}
-        missing={pendingMove ? missingFor(pendingMove.to, edits) : []}
-        onPatch={(patch) => setEdits((e) => (e ? { ...e, ...patch } : e))}
-        onPickStage={onPickStage}
-        onClose={onClose}
-        onSave={onSave}
-        onDelete={onDelete}
-        focus={(pendingMove && sectionForStage(pendingMove.to)) || focus}
-        zIndex={80}
-        saveError={saveError}
-      />
-      {confirmDelete && (
-        <ConfirmDialog
-          title="Borrar lead"
-          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{lead.name}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
-          confirmLabel="Borrar definitivamente"
-          onConfirm={doDelete}
-          onCancel={() => setConfirmDelete(false)}
-          zIndex={90}
-        />
-      )}
-    </>
-  );
+  // router.refresh al cerrar: sincroniza la vista de atrás (board/desglose) con los
+  // cambios guardados en la ficha.
+  const close = () => { router.refresh(); onClose(); };
+
+  return <LeadSheet data={data} onClose={close} initialStage={initialStage} />;
 }
