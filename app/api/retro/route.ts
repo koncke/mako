@@ -1,20 +1,24 @@
 // =============================================================================
-// /api/retro — retrospectivas de /experimentos (tab Retro)
+// /api/retro — retrospectivas (pipeline v3)
 // =============================================================================
 // GET  → { retros }
-// POST { action: 'generar', ... } → STREAM NDJSON: {t:'step',fase,label}\n … \n
-//        {t:'done',retro} | {t:'error',error}. MaKo lee todas las áreas elegidas
-//        y transmite el progreso en vivo.
-// POST { action: 'borrar', id } → { ok }   (JSON normal)
+// POST { action: 'generar', ... } → STREAM NDJSON de RetroStreamEvent:
+//        {t:'plan',fases,tabs} → {t:'fase'}/{t:'step'} … → {t:'done',retro}|{t:'error'}.
+//        Siempre profundidad máxima (el wizard ya no la pide).
+// POST { action: 'plan', id, itemId, op, motivo? } → { ok, reporte } (aceptar
+//        crea el experimento real + sus tareas encadenadas en To-do).
+// POST { action: 'borrar', id } → { ok }
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { generarRetro, listRetros, borrarRetro, periodoDefault, periodoHistorico, type OpcionesRetro } from '@/lib/retro';
+import { listRetros, borrarRetro, periodoDefault, periodoHistorico } from '@/lib/retro';
+import { generarRetroV3, aplicarPlan, type PlanOp, type OpcionesRetroV3 } from '@/lib/retro-pipeline';
+import type { RetroStreamEvent } from '@/lib/retro-reporte';
 import { esFechaValida } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export const maxDuration = 300; // profundidad profunda analiza área por área
+export const maxDuration = 300; // diagnóstico por área en paralelo + cerebro + verificación
 
 export async function GET() {
   try {
@@ -24,13 +28,14 @@ export async function GET() {
   }
 }
 
-type GenBody = {
+type Body = {
   action?: string; id?: number; desde?: string; hasta?: string; historico?: boolean;
-  perspectiva?: string; profundidad?: OpcionesRetro['profundidad']; areas?: string[];
+  perspectiva?: string; areas?: string[];
+  itemId?: string; op?: PlanOp; motivo?: string;
 };
 
 export async function POST(req: NextRequest) {
-  let body: GenBody;
+  let body: Body;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
 
   if (body.action === 'borrar') {
@@ -40,9 +45,25 @@ export async function POST(req: NextRequest) {
     catch (err) { return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 }); }
   }
 
+  if (body.action === 'plan') {
+    const id = Number(body.id);
+    const itemId = String(body.itemId ?? '');
+    const op = body.op;
+    const OPS: PlanOp[] = ['aceptar', 'posponer', 'descartar', 'deshacer'];
+    if (!Number.isFinite(id) || !itemId || !op || !OPS.includes(op)) {
+      return Response.json({ ok: false, error: 'id, itemId y op (aceptar|posponer|descartar|deshacer) requeridos' }, { status: 400 });
+    }
+    try {
+      const reporte = await aplicarPlan(id, itemId, op, body.motivo);
+      return Response.json({ ok: true, reporte });
+    } catch (err) {
+      return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
+  }
+
   if (body.action !== 'generar') return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
 
-  // Resolver período (histórico o rango).
+  // Período (histórico o rango).
   let desde: string, hasta: string;
   if (body.historico) {
     ({ desde, hasta } = await periodoHistorico());
@@ -53,18 +74,17 @@ export async function POST(req: NextRequest) {
   }
   if (desde > hasta) return Response.json({ ok: false, error: 'rango de fechas inválido' }, { status: 400 });
 
-  const opts: OpcionesRetro = {
+  const opts: OpcionesRetroV3 = {
     perspectiva: body.perspectiva,
-    profundidad: body.profundidad,
-    areas: Array.isArray(body.areas) ? (body.areas as OpcionesRetro['areas']) : undefined,
+    areas: Array.isArray(body.areas) ? (body.areas as OpcionesRetroV3['areas']) : undefined,
   };
 
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (o: unknown) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { /* cerrado */ } };
+      const send = (o: RetroStreamEvent) => { try { controller.enqueue(enc.encode(JSON.stringify(o) + '\n')); } catch { /* cerrado */ } };
       try {
-        const retro = await generarRetro(desde, hasta, opts, (p) => send({ t: 'step', ...p }));
+        const retro = await generarRetroV3(desde, hasta, opts, send);
         send({ t: 'done', retro });
       } catch (err) {
         send({ t: 'error', error: err instanceof Error ? err.message : String(err) });

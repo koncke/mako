@@ -58,6 +58,8 @@ export type Retro = {
   destacados: RetroDestacado[] | null;
   recomendaciones: RetroReco[] | null;
   snapshot: Record<string, unknown> | null;
+  /** Reporte compuesto v3 (lib/retro-reporte.ts). Null en retros viejas (legacy). */
+  reporte: import('./retro-reporte').RetroReporte | null;
   model: string | null;
   created_at: string;
 };
@@ -75,7 +77,7 @@ const diaInclusive = (a: string, b: string): number =>
   Math.floor((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) -
     Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 86400000) + 1;
 
-async function calcularDestacados(desde: string, hasta: string): Promise<{ destacados: RetroDestacado[]; snapshot: Record<string, unknown> }> {
+export async function calcularDestacados(desde: string, hasta: string): Promise<{ destacados: RetroDestacado[]; snapshot: Record<string, unknown> }> {
   const dias = Math.max(1, diaInclusive(desde, hasta));
   const prevHasta = diasAntes(desde, 1);
   const prevDesde = diasAntes(desde, dias);

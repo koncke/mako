@@ -77,8 +77,7 @@ export function ExperimentosApp({
 
       {tab === 'retro' && (
         <RetroTab retros={retros} setRetros={setRetros} refreshRetros={refreshRetros}
-          refreshExp={refreshExp} notify={notify} demo={demo}
-          onGoExperiments={() => setTab('experiments')} />
+          refreshExp={refreshExp} notify={notify} demo={demo} />
       )}
       {tab === 'experiments' && (
         <ExperimentsTab view={expView} refreshExp={refreshExp} notify={notify} demo={demo} />

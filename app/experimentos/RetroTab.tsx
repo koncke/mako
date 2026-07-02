@@ -1,24 +1,28 @@
 'use client';
 
 // =============================================================================
-// RetroTab — lista SIMPLE de retros + detalle VISUAL + wizard con ejecución en vivo
+// RetroTab — lista de retros + reporte v3 + wizard con ejecución en vivo
 // =============================================================================
-// Lista simple (título + período + una línea). Clic → detalle. "+ Nueva Retro"
-// abre un wizard: profundidad → alcance (qué áreas) → período (con histórico) →
-// tu perspectiva → y transmite la EJECUCIÓN en vivo (streaming NDJSON) mientras
-// MaKo lee cada área.
+// Lista SIMPLE (título-tesis + período + plan aplicado). Clic → RetroReport (el
+// reporte compuesto v3, diseño de Claude Design) o el render legacy para retros
+// viejas. "+ Nueva Retro" abre el wizard (alcance → período → perspectiva; la
+// profundidad ya no se elige: siempre a fondo) y muestra la EJECUCIÓN en vivo:
+// stepper de fases + rail de tabs que MaKo va navegando + checklist anidada +
+// ticker de hallazgos, todo alimentado por el stream NDJSON real.
 
-import { useState } from 'react';
-import type { Retro, RetroRecoExperimento, RetroRecoTarea } from '@/lib/retro';
-import { ayerEnTijuana, diasAntes, primerDiaDelMesEnTijuana } from '@/lib/date-utils';
+import { useEffect, useRef, useState } from 'react';
+import type { Retro } from '@/lib/retro';
+import type { RetroPlanItem, RetroReporte, RetroStreamEvent, RetroFaseId } from '@/lib/retro-reporte';
+import { ayerEnTijuana, diasAntes, primerDiaDelMesEnTijuana, primerDiaDelMesDeFecha } from '@/lib/date-utils';
 import { MakoStar, MakoWord } from '@/app/_components/MakoBrand';
 import type { Toast } from './ExperimentosApp';
+import { RetroReport } from './RetroReport';
 import {
   MONO, SANS, card, btnPrimary, btnGhost, btnDark, pregunta, ayuda, sectionLabel,
-  Pill, Markdown, Empty, fmtFechaLarga, fmtDelta, dirLabel,
+  Pill, Markdown, Empty, fmtFechaLarga, fmtDelta,
 } from './ui';
 
-// ── Áreas (en sync con AREAS de lib/retro-fuentes.ts). 'experimentos' va siempre. ──
+// ── Áreas del wizard (en sync con lib/retro-reporte AREA ids) ──
 const AREAS_UI = [
   { key: 'adquisicion', label: 'Adquisición · TOFU', sub: 'Meta ads · impresiones → landing → VSL', emoji: '🎯' },
   { key: 'nutricion', label: 'Nutrición · MOFU', sub: 'Leads sin agenda · follow-ups · secuencias', emoji: '🌱' },
@@ -27,8 +31,7 @@ const AREAS_UI = [
   { key: 'revenue', label: 'Revenue y cobranza', sub: 'Ingresos · CAC · cobranza', emoji: '💰' },
 ];
 
-type Preset = { key: string; label: string };
-const PRESETS: Preset[] = [
+const PRESETS = [
   { key: '7', label: 'Últimos 7 días' },
   { key: '30', label: 'Últimos 30 días' },
   { key: 'mes', label: 'Este mes' },
@@ -38,34 +41,32 @@ const PRESETS: Preset[] = [
 function rangoPreset(k: string): { desde?: string; hasta?: string; historico?: boolean } {
   const ayer = ayerEnTijuana();
   if (k === 'historico') return { historico: true };
-  if (k === 'mes') return { desde: primerDiaDelMesEnTijuana(), hasta: ayer };
+  if (k === 'mes') {
+    // El día 1 del mes "este mes" no tiene días completos todavía → usamos el
+    // mes de AYER completo (si no, desde > hasta y el backend rechaza el rango).
+    const desde = primerDiaDelMesEnTijuana();
+    return desde > ayer ? { desde: primerDiaDelMesDeFecha(ayer), hasta: ayer } : { desde, hasta: ayer };
+  }
   if (k === '7') return { desde: diasAntes(ayer, 6), hasta: ayer };
   if (k === '90') return { desde: diasAntes(ayer, 89), hasta: ayer };
   return { desde: diasAntes(ayer, 29), hasta: ayer };
 }
 
-const PROF_UI = [
-  { key: 'rapida', label: 'Rápida', sub: 'los titulares de cada área' },
-  { key: 'estandar', label: 'Estándar', sub: 'análisis completo y plan' },
-  { key: 'profunda', label: 'Profunda', sub: 'área por área + causas de 2º orden' },
-] as const;
-
 export function RetroTab({
-  retros, setRetros, refreshRetros, refreshExp, notify, demo, onGoExperiments,
+  retros, setRetros, refreshRetros, refreshExp, notify, demo,
 }: {
   retros: Retro[]; setRetros: (r: Retro[]) => void; refreshRetros: () => Promise<void>;
-  refreshExp: () => Promise<void>; notify: Toast; demo: boolean; onGoExperiments: () => void;
+  refreshExp: () => Promise<void>; notify: Toast; demo: boolean;
 }) {
   const [selId, setSelId] = useState<number | null>(null);
   const [wizard, setWizard] = useState(false);
-  const [applied, setApplied] = useState<Record<string, 'exp' | 'todo'>>({});
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
 
   const sel = selId != null ? retros.find((r) => r.id === selId) ?? null : null;
 
   const onGenerada = (retro: Retro) => { setRetros([retro, ...retros]); setSelId(retro.id); setWizard(false); notify('Retro generada'); };
 
-  const borrarRetro = async (id: number) => {
+  const borrar = async (id: number) => {
     if (!window.confirm('¿Eliminar esta retrospectiva?')) return;
     setRetros(retros.filter((r) => r.id !== id));
     if (selId === id) setSelId(null);
@@ -76,46 +77,52 @@ export function RetroTab({
     } catch { refreshRetros(); }
   };
 
-  const aplicarExperimento = async (r: RetroRecoExperimento, key: string) => {
-    setBusy(key);
+  // Acciones del plan (aceptar crea el experimento real + sus tareas en To-do).
+  const onPlan = async (item: RetroPlanItem, op: 'aceptar' | 'posponer' | 'descartar' | 'deshacer', motivo?: string) => {
+    if (!sel) return;
+    if (busyPlanId) return; // una operación por vez: evita el read-modify-write concurrente
+    if (demo) { notify('En local no se aplica (sin Supabase); en producción crea el experimento y sus tareas.'); return; }
+    setBusyPlanId(item.id);
     try {
-      const j = await fetch('/api/experimentos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'crear', experimento: {
-          titulo: r.titulo, hipotesis: r.hipotesis, cambio: r.cambio, metrica: r.metrica, direccion: r.direccion,
-          objetivo_valor: r.objetivo_valor, criterio_exito: r.criterio_exito, ventana_dias: r.ventana_dias,
-          origen: 'mako', racional: r.racional, config: { retro_id: sel?.id }, arrancar: true,
-        } }) }).then((x) => x.json());
-      if (j.ok) { setApplied((a) => ({ ...a, [key]: 'exp' })); await refreshExp(); notify('Experimento iniciado'); }
-      else notify(j.error || 'No se pudo iniciar', 'bad');
-    } catch (e) { notify(String(e), 'bad'); } finally { setBusy(null); }
-  };
-  const aplicarTarea = async (r: RetroRecoTarea, key: string) => {
-    setBusy(key);
-    try {
-      const j = await fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'crear', tarea: { titulo: r.titulo, detalle: r.detalle, prioridad: r.prioridad, origen: 'retro', retro_id: sel?.id } }) }).then((x) => x.json());
-      if (j.ok) { setApplied((a) => ({ ...a, [key]: 'todo' })); notify('Tarea agregada a To-do'); }
-      else notify(j.error || 'No se pudo agregar', 'bad');
-    } catch (e) { notify(String(e), 'bad'); } finally { setBusy(null); }
+      const j = await fetch('/api/retro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'plan', id: sel.id, itemId: item.id, op, motivo }),
+      }).then((r) => r.json());
+      if (j.ok && j.reporte) {
+        setRetros(retros.map((r) => (r.id === sel.id ? { ...r, reporte: j.reporte as RetroReporte } : r)));
+        if (op === 'aceptar') { notify(item.kind === 'exp' ? 'Experimento iniciado + tareas en To-do' : 'Tarea agregada a To-do'); refreshExp(); }
+      } else notify(j.error || 'No se pudo aplicar', 'bad');
+    } catch (e) { notify(String(e), 'bad'); } finally { setBusyPlanId(null); }
   };
 
+  // ── Detalle ──
   if (sel) {
+    const periodo = `${fmtFechaLarga(sel.periodo_desde)} – ${fmtFechaLarga(sel.periodo_hasta)}`;
+    const alcance = alcanceLabel(sel);
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <button type="button" onClick={() => setSelId(null)} style={{ ...btnGhost, border: 'none', paddingLeft: 0 }}>← Volver a las retros</button>
-          <button type="button" onClick={() => borrarRetro(sel.id)} style={{ ...btnGhost, border: 'none', color: 'var(--faint)' }}>🗑 Eliminar</button>
+          <button type="button" onClick={() => setSelId(null)} style={{ ...btnGhost, border: 'none', paddingLeft: 0 }}>← Todas las retros</button>
+          <button type="button" onClick={() => borrar(sel.id)} style={{ ...btnGhost, border: 'none', color: 'var(--faint)' }}>🗑 Eliminar</button>
         </div>
-        <RetroDetalle retro={sel} applied={applied} busy={busy} onExperimento={aplicarExperimento} onTarea={aplicarTarea} onGoExperiments={onGoExperiments} />
+        {sel.reporte ? (
+          <>
+            <h2 style={{ margin: '-6px 0 0', fontSize: 30, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.12, color: 'var(--ink)', maxWidth: 820 }}>{sel.titulo}</h2>
+            <RetroReport reporte={sel.reporte} periodo={periodo} alcance={alcance} onPlan={onPlan} busyPlanId={busyPlanId} />
+          </>
+        ) : (
+          <LegacyDetalle retro={sel} periodo={periodo} />
+        )}
       </div>
     );
   }
 
+  // ── Lista ──
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <p style={{ margin: 0, fontSize: 14.5, color: 'var(--dim)', maxWidth: 560, lineHeight: 1.55 }}>
-          MaKo lee tu negocio de punta a punta y te deja una <b>lectura clara</b> del período, con un plan de qué probar y qué hacer.
+          MaKo navega todas tus tabs, cruza los datos y te deja <b>una tesis con su plan</b>. Vos aceptás, posponés o descartás cada recomendación.
         </p>
         <button type="button" onClick={() => setWizard(true)} style={{ ...btnPrimary, padding: '13px 22px', fontSize: 15, boxShadow: '0 8px 22px rgba(47,111,237,.28)' }}>
           <MakoStar size={15} color="#fff" /> Nueva Retro
@@ -124,12 +131,12 @@ export function RetroTab({
 
       {retros.length === 0 ? (
         <Empty titulo="Todavía no hay retrospectivas"
-          sub="MaKo cruza adquisición, nutrición, conversión, creativos, revenue y tus experimentos, y te deja una lectura del período con un plan.">
+          sub="MaKo cruza adquisición, nutrición, conversión, creativos, revenue y tus experimentos, y te deja una tesis con un plan accionable.">
           <button type="button" onClick={() => setWizard(true)} style={{ ...btnDark, marginTop: 6 }}>Generar mi primera Retro</button>
         </Empty>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {retros.map((r) => <RetroFila key={r.id} retro={r} onOpen={() => setSelId(r.id)} onBorrar={() => borrarRetro(r.id)} />)}
+          {retros.map((r) => <RetroFila key={r.id} retro={r} onOpen={() => setSelId(r.id)} onBorrar={() => borrar(r.id)} />)}
         </div>
       )}
 
@@ -138,20 +145,25 @@ export function RetroTab({
   );
 }
 
-// ── Fila de la lista (SIMPLE: título + período + 1 línea; borrar al hover) ──
+function alcanceLabel(r: Retro): string {
+  const areas = (r.snapshot?.areas as string[] | undefined) ?? [];
+  if (!areas.length || areas.length >= 5) return 'todo el negocio';
+  return AREAS_UI.filter((a) => areas.includes(a.key)).map((a) => a.label.split(' ·')[0]).join(' + ') || 'todo el negocio';
+}
+
+// ── Fila de la lista ──
 function RetroFila({ retro, onOpen, onBorrar }: { retro: Retro; onOpen: () => void; onBorrar: () => void }) {
   const [hover, setHover] = useState(false);
-  const recos = retro.recomendaciones ?? [];
-  const n = recos.length;
-  const prof = (retro.snapshot?.profundidad as string) || 'estándar';
+  const plan = retro.reporte?.plan ?? [];
+  const n = plan.length || (retro.recomendaciones?.length ?? 0);
+  const aplicadas = plan.filter((p) => p.status?.estado === 'aceptada').length;
   return (
-    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
-      style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s', borderColor: hover ? 'var(--border-strong)' : 'var(--border)', boxShadow: hover ? '0 6px 18px rgba(18,21,27,.06)' : 'none' }}
-      onClick={onOpen}>
+    <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onClick={onOpen}
+      style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s', borderColor: hover ? 'var(--border-strong)' : 'var(--border)', boxShadow: hover ? '0 6px 18px rgba(18,21,27,.06)' : 'none' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 4 }}>{retro.titulo}</div>
         <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>
-          {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)} · {prof} · {n} recomendación{n === 1 ? '' : 'es'}
+          {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)} · {alcanceLabel(retro)} · {n} {n === 1 ? 'recomendación' : 'recomendaciones'}{aplicadas > 0 ? ` · ✓ ${aplicadas} aplicada${aplicadas === 1 ? '' : 's'}` : ''}
         </div>
       </div>
       <button type="button" onClick={(e) => { e.stopPropagation(); onBorrar(); }} aria-label="Eliminar"
@@ -163,165 +175,116 @@ function RetroFila({ retro, onOpen, onBorrar }: { retro: Retro; onOpen: () => vo
   );
 }
 
-// ── Detalle VISUAL ──
-function RetroDetalle({
-  retro, applied, busy, onExperimento, onTarea, onGoExperiments,
-}: {
-  retro: Retro; applied: Record<string, 'exp' | 'todo'>; busy: string | null;
-  onExperimento: (r: RetroRecoExperimento, key: string) => void;
-  onTarea: (r: RetroRecoTarea, key: string) => void; onGoExperiments: () => void;
-}) {
-  const recos = retro.recomendaciones ?? [];
-  const exps = recos.map((r, i) => ({ r, i })).filter((x) => x.r.tipo === 'experimento') as Array<{ r: RetroRecoExperimento; i: number }>;
-  const tareas = recos.map((r, i) => ({ r, i })).filter((x) => x.r.tipo === 'tarea') as Array<{ r: RetroRecoTarea; i: number }>;
-  const areas = (retro.snapshot?.fuentes as string[] | undefined) ?? [];
-
+// ── Render legacy (retros anteriores al reporte v3) ──
+function LegacyDetalle({ retro, periodo }: { retro: Retro; periodo: string }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {/* hero */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
-        <div style={sectionLabel}>Retro · {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)}</div>
-        <h2 style={{ margin: '7px 0 0', fontSize: 29, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.12, color: 'var(--ink)', maxWidth: 780 }}>{retro.titulo}</h2>
-        {areas.length > 0 && (
-          <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {areas.map((a) => <span key={a} style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px' }}>{a}</span>)}
-          </div>
-        )}
+        <div style={sectionLabel}>Retro · {periodo} · formato anterior</div>
+        <h2 style={{ margin: '6px 0 0', fontSize: 27, fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.15, color: 'var(--ink)' }}>{retro.titulo}</h2>
       </div>
-
-      {/* destacados: el DATO, bien visual */}
       {retro.destacados && retro.destacados.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))', gap: 10 }}>
-          {retro.destacados.map((d) => {
-            const col = d.tono === 'good' ? 'var(--good)' : d.tono === 'bad' ? 'var(--bad)' : 'var(--faint)';
-            const arrow = d.delta == null ? '' : d.delta > 0 ? '↑' : d.delta < 0 ? '↓' : '';
-            return (
-              <div key={d.metrica} style={{ ...card, padding: '13px 14px' }}>
-                <div style={{ fontSize: 11.5, color: 'var(--dim)', minHeight: 28, lineHeight: 1.3 }}>{d.label}</div>
-                <div style={{ fontFamily: MONO, fontSize: 21, fontWeight: 600, color: 'var(--ink)', marginTop: 3 }}>{d.valor}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  {d.delta != null && <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, color: col }}>{arrow} {fmtDelta(d.delta)}</span>}
-                  <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)' }}>vs {d.valor_prev}</span>
-                </div>
-              </div>
-            );
-          })}
+          {retro.destacados.map((d) => (
+            <div key={d.metrica} style={{ ...card, padding: '13px 14px' }}>
+              <div style={{ fontSize: 11.5, color: 'var(--dim)', minHeight: 28, lineHeight: 1.3 }}>{d.label}</div>
+              <div style={{ fontFamily: MONO, fontSize: 21, fontWeight: 600, color: 'var(--ink)', marginTop: 3 }}>{d.valor}</div>
+              {d.delta != null && <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, marginTop: 4, color: d.tono === 'good' ? 'var(--good)' : d.tono === 'bad' ? 'var(--bad)' : 'var(--faint)' }}>{fmtDelta(d.delta)}</div>}
+            </div>
+          ))}
         </div>
       )}
-
-      {/* la lectura */}
       {retro.resumen && (
-        <div style={{ ...card, padding: '24px 28px', maxWidth: 780 }}>
-          <div style={{ ...sectionLabel, marginBottom: 10 }}>La lectura de MaKo</div>
-          <div style={{ fontSize: 15, color: 'var(--ink)' }}><Markdown text={retro.resumen} /></div>
+        <div style={{ ...card, padding: '22px 26px', maxWidth: 780 }}>
+          <div style={{ fontSize: 14.5, color: 'var(--ink)' }}><Markdown text={retro.resumen} /></div>
         </div>
       )}
-
-      {/* plan */}
-      {(exps.length > 0 || tareas.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 18 }}>
-          {exps.length > 0 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>🧪 Probá esto</h3><span style={sectionLabel}>experimentos</span>
+      {retro.recomendaciones && retro.recomendaciones.length > 0 && (
+        <div>
+          <div style={{ ...sectionLabel, marginBottom: 10 }}>Recomendaciones</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {retro.recomendaciones.map((r, i) => (
+              <div key={i} style={{ ...card, padding: '14px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Pill tone={r.tipo === 'experimento' ? 'primary' : 'faint'}>{r.tipo === 'experimento' ? '🧪 Experimento' : '✅ Tarea'}</Pill>
+                  <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{r.titulo}</span>
+                </div>
+                <p style={{ margin: '7px 0 0', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
+                  {r.tipo === 'experimento' ? r.hipotesis || r.racional : r.detalle}
+                </p>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {exps.map(({ r, i }) => {
-                  const key = `${retro.id}:${i}`; const done = applied[key] === 'exp';
-                  return (
-                    <div key={key} style={{ ...card, borderColor: done ? 'var(--good)' : 'var(--border)' }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{r.titulo}</div>
-                      <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{r.hipotesis}</p>
-                      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 10 }}>
-                        <Pill tone="primary">📏 {r.metrica}</Pill><Pill>objetivo: {dirLabel(r.direccion)}</Pill><Pill>ventana: {r.ventana_dias}d</Pill>
-                      </div>
-                      {r.racional && <p style={{ margin: '10px 0 0', fontSize: 12, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.5 }}>💡 {r.racional}</p>}
-                      <div style={{ marginTop: 14 }}>
-                        {done
-                          ? <button type="button" onClick={onGoExperiments} style={{ ...btnGhost, color: 'var(--good)', borderColor: 'var(--good)' }}>✓ Iniciado · ver en Experiments →</button>
-                          : <button type="button" disabled={busy === key} onClick={() => onExperimento(r, key)} style={{ ...btnPrimary, opacity: busy === key ? 0.6 : 1 }}>{busy === key ? 'Iniciando…' : 'Iniciar experimento'}</button>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {tareas.length > 0 && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>✅ Hacé esto</h3><span style={sectionLabel}>tareas → To-do</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {tareas.map(({ r, i }) => {
-                  const key = `${retro.id}:${i}`; const done = applied[key] === 'todo';
-                  return (
-                    <div key={key} style={{ ...card, borderColor: done ? 'var(--good)' : 'var(--border)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{r.titulo}</span>
-                          <Pill tone={r.prioridad === 'alta' ? 'bad' : r.prioridad === 'baja' ? 'faint' : 'warn'}>{r.prioridad}</Pill>
-                        </div>
-                        {r.detalle && <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{r.detalle}</p>}
-                      </div>
-                      {done
-                        ? <span style={{ ...btnGhost, color: 'var(--good)', borderColor: 'var(--good)', flexShrink: 0 }}>✓ En To-do</span>
-                        : <button type="button" disabled={busy === key} onClick={() => onTarea(r, key)} style={{ ...btnDark, flexShrink: 0, opacity: busy === key ? 0.6 : 1 }}>{busy === key ? '…' : '+ To-do'}</button>}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ── Wizard + ejecución en vivo ──
-type WStep = 'profundidad' | 'alcance' | 'periodo' | 'perspectiva' | 'ejecutando';
-type Ev = { fase: string; label: string };
+// ═════════════════════════════════════════════════════════════════════════════
+// Wizard (alcance → período → perspectiva) + Ejecución en vivo
+// ═════════════════════════════════════════════════════════════════════════════
+
+type WStep = 'alcance' | 'periodo' | 'perspectiva' | 'ejecutando';
 
 function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
   onClose: () => void; onGenerada: (r: Retro) => void; notify: Toast; demo: boolean;
 }) {
-  const [step, setStep] = useState<WStep>('profundidad');
-  const [profundidad, setProfundidad] = useState<'rapida' | 'estandar' | 'profunda'>('estandar');
+  const [step, setStep] = useState<WStep>('alcance');
   const [modoTodo, setModoTodo] = useState(true);
   const [areasSel, setAreasSel] = useState<string[]>([]);
   const [preset, setPreset] = useState('30');
   const [perspectiva, setPerspectiva] = useState('');
-  const [pasos, setPasos] = useState<Ev[]>([]);
+  const [eventos, setEventos] = useState<RetroStreamEvent[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const demoCancelRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => { abortRef.current?.abort(); demoCancelRef.current?.(); }, []);
 
   const toggleArea = (k: string) => { setModoTodo(false); setAreasSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k])); };
   const areasPayload = modoTodo || areasSel.length === 0 ? [] : areasSel;
-
-  const inputSteps: WStep[] = ['profundidad', 'alcance', 'periodo', 'perspectiva'];
+  const inputSteps: WStep[] = ['alcance', 'periodo', 'perspectiva'];
   const idx = inputSteps.indexOf(step);
 
   const generar = async () => {
-    setStep('ejecutando'); setPasos([]); setErr(null);
-    const payload = { action: 'generar', ...rangoPreset(preset), perspectiva, profundidad, areas: areasPayload };
+    setStep('ejecutando'); setEventos([]); setErr(null); setIntento((i) => i + 1);
 
-    if (demo) { // en local no hay Supabase → simulamos la ejecución para ver el diseño
-      const fake = ['Midiendo el funnel del período…', ...(modoTodo ? AREAS_UI : AREAS_UI.filter((a) => areasSel.includes(a.key))).map((a) => `Leyendo ${a.label}…`), 'Leyendo Experimentos…', 'MaKo está escribiendo la retrospectiva…', 'Guardando la retrospectiva…'];
-      let i = 0;
-      const tick = () => {
-        if (i < fake.length) { setPasos((p) => [...p, { fase: `f${i}`, label: fake[i] }]); i++; window.setTimeout(tick, 650); }
-        else { notify('En local no se genera (sin Supabase). En producción MaKo la arma con tu dato real.'); onClose(); }
-      };
-      tick();
+    if (demo) {
+      demoCancelRef.current?.();
+      demoCancelRef.current = simularDemo(modoTodo ? AREAS_UI.map((a) => a.label.split(' ·')[0]) : AREAS_UI.filter((a) => areasSel.includes(a.key)).map((a) => a.label.split(' ·')[0]), setEventos, () => { notify('En local no se genera (sin Supabase). En producción MaKo la arma con tu dato real.'); onClose(); });
       return;
     }
 
     try {
-      const res = await fetch('/api/retro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!res.body) { const j = await res.json().catch(() => null); if (j?.ok && j.retro) onGenerada(j.retro); else setErr('No se pudo generar'); return; }
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const res = await fetch('/api/retro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generar', ...rangoPreset(preset), perspectiva, areas: areasPayload }),
+        signal: ctrl.signal,
+      });
+      // Errores pre-stream (400/401/5xx) llegan como JSON plano: mostrarlos tal cual.
+      if (!res.ok || (res.headers.get('content-type') ?? '').includes('application/json')) {
+        const j = await res.json().catch(() => null);
+        setErr((j && (j.error as string)) || `Error ${res.status}`);
+        return;
+      }
+      if (!res.body) { setErr('Sin respuesta del servidor'); return; }
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = '';
+      // Procesa una línea NDJSON; devuelve true si el stream terminó (done/error).
+      const procesar = (line: string): boolean => {
+        if (!line) return false;
+        let ev: RetroStreamEvent;
+        try { ev = JSON.parse(line) as RetroStreamEvent; } catch { return false; }
+        if (ev.t === 'done') { onGenerada(ev.retro as Retro); return true; }
+        if (ev.t === 'error') { setErr(ev.error || 'Error generando la retro'); return true; }
+        setEventos((p) => [...p, ev]);
+        return false;
+      };
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -329,21 +292,20 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
         let nl: number;
         while ((nl = buf.indexOf('\n')) >= 0) {
           const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-          if (!line) continue;
-          let ev: { t?: string; fase?: string; label?: string; retro?: Retro; error?: string };
-          try { ev = JSON.parse(line); } catch { continue; }
-          if (ev.t === 'step' && ev.label) setPasos((p) => [...p, { fase: ev.fase || '', label: ev.label as string }]);
-          else if (ev.t === 'done' && ev.retro) { onGenerada(ev.retro); return; }
-          else if (ev.t === 'error') { setErr(ev.error || 'Error generando la retro'); return; }
+          if (procesar(line)) return;
         }
       }
+      // Última línea sin newline (residuo del buffer).
+      if (procesar(buf.trim())) return;
       setErr('La generación terminó sin resultado. Probá de nuevo.');
-    } catch (e) { setErr(String(e)); }
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') setErr('Se cortó la conexión. Probá de nuevo.');
+    }
   };
 
   return (
     <div onClick={step === 'ejecutando' ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px 18px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden', fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: step === 'ejecutando' ? 880 : 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden', fontFamily: SANS, transition: 'max-width .25s' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', flexShrink: 0 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}>
             <MakoStar size={12} /> <MakoWord base="var(--accent)">MaKo</MakoWord> · nueva retro
@@ -353,35 +315,17 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
               {inputSteps.map((s, i) => <span key={s} style={{ width: i === idx ? 22 : 7, height: 7, borderRadius: 999, background: i <= idx ? 'var(--primary)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
             </div>
           )}
-          {step !== 'ejecutando' && <button onClick={onClose} style={{ width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>}
+          <button onClick={() => { abortRef.current?.abort(); demoCancelRef.current?.(); onClose(); }} style={{ marginLeft: step === 'ejecutando' ? 'auto' : 0, width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {step === 'profundidad' && (
-            <div style={{ padding: '30px 30px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
-              <div><h2 style={pregunta}>¿Qué tan a fondo?</h2><p style={ayuda}>Cuánto va a profundizar MaKo en cada área que elijas.</p></div>
-              <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {PROF_UI.map((p) => {
-                  const on = profundidad === p.key;
-                  return (
-                    <button key={p.key} type="button" onClick={() => setProfundidad(p.key)}
-                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '15px 18px', borderRadius: 14, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left' }}>
-                      <span><span style={{ display: 'block', fontSize: 15.5, fontWeight: 600, color: 'var(--ink)' }}>{p.label}</span><span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 1 }}>{p.sub}</span></span>
-                      {p.key === 'profunda' && <Pill tone="faint">más lento</Pill>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {step === 'alcance' && (
             <div style={{ padding: '28px 30px 12px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ textAlign: 'center' }}><h2 style={pregunta}>¿Qué querés que analice?</h2><p style={{ ...ayuda, margin: '8px auto 0' }}>Todo el negocio, o elegí áreas específicas. (Tus experimentos van siempre.)</p></div>
+              <div style={{ textAlign: 'center' }}><h2 style={pregunta}>¿Qué querés que analice?</h2><p style={{ ...ayuda, margin: '8px auto 0' }}>Siempre a fondo. Todo el negocio, o elegí áreas. (Tus experimentos van siempre.)</p></div>
               <button type="button" onClick={() => { setModoTodo(true); setAreasSel([]); }}
                 style={{ padding: '14px 18px', borderRadius: 14, border: `1.5px solid ${modoTodo ? 'var(--primary)' : 'var(--border)'}`, background: modoTodo ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 22 }}>🧭</span>
-                <span><span style={{ display: 'block', fontSize: 15.5, fontWeight: 600, color: 'var(--ink)' }}>Todo el negocio</span><span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>Adquisición · nutrición · conversión · creativos · revenue</span></span>
+                <span><span style={{ display: 'block', fontSize: 15.5, fontWeight: 600, color: 'var(--ink)' }}>Todo el negocio</span><span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>Adquisición · nutrición · conversión · creativos · revenue + cruces entre todas</span></span>
               </button>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 10 }}>
                 {AREAS_UI.map((a) => {
@@ -424,7 +368,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
             </div>
           )}
 
-          {step === 'ejecutando' && <Ejecucion pasos={pasos} err={err} onClose={onClose} onReintentar={generar} />}
+          {step === 'ejecutando' && <Ejecucion key={intento} eventos={eventos} err={err} onClose={onClose} onReintentar={generar} />}
         </div>
 
         {step !== 'ejecutando' && (
@@ -447,10 +391,61 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
   );
 }
 
-// ── Ejecución en vivo (checklist que se llena con los pasos que llegan por streaming) ──
-function Ejecucion({ pasos, err, onClose, onReintentar }: { pasos: Ev[]; err: string | null; onClose: () => void; onReintentar: () => void }) {
+// ── Simulación de la ejecución en demo (local sin Supabase) ──
+function simularDemo(tabs: string[], setEventos: React.Dispatch<React.SetStateAction<RetroStreamEvent[]>>, onEnd: () => void): () => void {
+  const fases: Array<{ id: RetroFaseId; label: string }> = [
+    { id: 'memoria', label: 'Memoria' }, { id: 'recoleccion', label: 'Recolección' }, { id: 'auditoria', label: 'Auditoría' },
+    { id: 'diagnostico', label: 'Diagnóstico' }, { id: 'cruces', label: 'Cruces' }, { id: 'cerebro', label: 'Organizando' },
+    { id: 'verificacion', label: 'Verificando' }, { id: 'redaccion', label: 'Redactando' },
+  ];
+  const evs: RetroStreamEvent[] = [
+    { t: 'plan', fases, tabs: tabs.map((l) => ({ id: l, label: l })) },
+    { t: 'fase', fase: 'memoria' }, { t: 'step', fase: 'memoria', label: 'Leyendo el retro anterior y su plan…' },
+    { t: 'fase', fase: 'recoleccion' }, { t: 'step', fase: 'recoleccion', label: 'Midiendo el funnel del período…' },
+    ...tabs.map((l): RetroStreamEvent => ({ t: 'step', fase: 'recoleccion', label: `Leyendo ${l}…`, tab: l })),
+    { t: 'fase', fase: 'auditoria' }, { t: 'step', fase: 'auditoria', label: 'Auditando qué falta medir…' },
+    { t: 'step', fase: 'auditoria', label: 'Hueco: VSL con dato parcial (12 de 30 días)' },
+    { t: 'fase', fase: 'diagnostico' },
+    ...tabs.map((l): RetroStreamEvent => ({ t: 'step', fase: 'diagnostico', label: `Sacando insights de ${l}…`, tab: l })),
+    { t: 'step', fase: 'diagnostico', label: 'Nutrición: 304 leads sin un solo mensaje', tab: 'Nutrición', hallazgo: '304 leads sin tocar (63%)' },
+    { t: 'fase', fase: 'cruces' }, { t: 'step', fase: 'cruces', label: 'Cruzando datos entre áreas…' },
+    { t: 'step', fase: 'cruces', label: 'Cruce: los nutridos cierran 2.4× más', tab: 'Cruces', hallazgo: 'Nutridos cierran 2.4× más que fríos' },
+    { t: 'fase', fase: 'cerebro' }, { t: 'step', fase: 'cerebro', label: 'Priorizando qué mueve la aguja…' },
+    { t: 'fase', fase: 'verificacion' }, { t: 'step', fase: 'verificacion', label: 'Verificando cada número citado…' },
+    { t: 'fase', fase: 'redaccion' }, { t: 'step', fase: 'redaccion', label: 'Componiendo el reporte…' },
+  ];
+  let i = 0;
+  let tid = 0;
+  let cancelado = false;
+  const tick = () => {
+    if (cancelado) return;
+    if (i < evs.length) { const e = evs[i++]; setEventos((p) => [...p, e]); tid = window.setTimeout(tick, e.t === 'fase' ? 260 : 620); }
+    else onEnd();
+  };
+  tick();
+  return () => { cancelado = true; window.clearTimeout(tid); };
+}
+
+// ── La pantalla de ejecución: stepper de fases + rail de tabs + checklist ──
+function Ejecucion({ eventos, err, onClose, onReintentar }: { eventos: RetroStreamEvent[]; err: string | null; onClose: () => void; onReintentar: () => void }) {
   const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
-  const uid = 'exj';
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [segs, setSegs] = useState(0);
+  useEffect(() => { const id = window.setInterval(() => setSegs((s) => s + 1), 1000); return () => window.clearInterval(id); }, []);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [eventos]);
+
+  // Reducir los eventos a: plan, fase actual, steps, estado por tab, ticker.
+  const plan = eventos.find((e): e is Extract<RetroStreamEvent, { t: 'plan' }> => e.t === 'plan');
+  const fases = plan?.fases ?? [];
+  const faseActual = [...eventos].reverse().find((e): e is Extract<RetroStreamEvent, { t: 'fase' }> => e.t === 'fase')?.fase;
+  const faseIdx = fases.findIndex((f) => f.id === faseActual);
+  const steps = eventos.filter((e): e is Extract<RetroStreamEvent, { t: 'step' }> => e.t === 'step');
+  const ticker = [...steps].reverse().find((s) => s.hallazgo)?.hallazgo;
+
+  const tabs = plan?.tabs ?? [];
+  const tabActiva = [...steps].reverse().find((s) => s.tab)?.tab;
+  const tabsTocadas = new Set(steps.map((s) => s.tab).filter(Boolean));
+
   if (err) {
     return (
       <div style={{ padding: '48px 32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, textAlign: 'center' }}>
@@ -464,37 +459,84 @@ function Ejecucion({ pasos, err, onClose, onReintentar }: { pasos: Ev[]; err: st
       </div>
     );
   }
-  const actual = pasos[pasos.length - 1]?.label ?? 'Preparando el análisis…';
+
+  const actual = steps[steps.length - 1]?.label ?? 'Preparando el análisis…';
+
   return (
-    <div style={{ padding: '40px 34px 34px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22 }}>
+    <div style={{ padding: '20px 26px 24px', display: 'flex', flexDirection: 'column', gap: 16, minHeight: 480 }}>
       <style dangerouslySetInnerHTML={{ __html: `
-        .${uid}-spark{transform-box:fill-box;transform-origin:center;animation:${uid}-p 1.5s ease-in-out infinite}
-        @keyframes ${uid}-p{0%,100%{transform:scale(.9);opacity:.85}50%{transform:scale(1.12);opacity:1}}
-        .${uid}-r{transform-box:fill-box;transform-origin:center;opacity:0;animation:${uid}-s 1.8s ease-out infinite}
-        .${uid}-r2{animation-delay:.9s}
-        @keyframes ${uid}-s{0%{transform:scale(.5);opacity:.5}100%{transform:scale(2.3);opacity:0}}
+        .rxj-spark{transform-box:fill-box;transform-origin:center;animation:rxj-p 1.5s ease-in-out infinite}
+        @keyframes rxj-p{0%,100%{transform:scale(.9);opacity:.85}50%{transform:scale(1.12);opacity:1}}
+        @keyframes rxj-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+        .rxj-step{animation:rxj-in .3s ease}
+        @keyframes rxj-blink{0%,100%{opacity:1}50%{opacity:.45}}
       ` }} />
-      <svg width={58} height={58} viewBox="-33 -33 66 66" role="img" aria-label="MaKo trabajando">
-        <defs><linearGradient id={`${uid}-g`} x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#F6D365" /><stop offset="100%" stopColor="#EF9F27" /></linearGradient></defs>
-        <circle className={`${uid}-r`} r="13" fill="none" stroke="#EF9F27" strokeWidth="1.5" strokeOpacity=".5" />
-        <circle className={`${uid}-r ${uid}-r2`} r="13" fill="none" stroke="#F6D365" strokeWidth="1.5" strokeOpacity=".45" />
-        <g transform="scale(1.5)"><path className={`${uid}-spark`} d={SPARK} fill={`url(#${uid}-g)`} /></g>
-      </svg>
-      <div style={{ textAlign: 'center' }}>
-        <h3 style={{ ...pregunta, fontSize: 20 }}>MaKo está analizando tu negocio</h3>
-        <p style={{ ...ayuda, margin: '6px auto 0' }}>{actual}</p>
-      </div>
-      <div style={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {pasos.map((p, i) => {
-          const last = i === pasos.length - 1;
+
+      {/* Stepper de fases */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {fases.map((f, i) => {
+          const done = faseIdx > i;
+          const activa = faseIdx === i;
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: last ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${last ? 'var(--primary-weak)' : 'var(--border)'}` }}>
-              <span style={{ width: 16, height: 16, borderRadius: '50%', flex: 'none', display: 'grid', placeItems: 'center', fontSize: 10, background: last ? 'transparent' : 'var(--good)', color: '#fff', border: last ? '2px solid var(--primary)' : 'none' }}>{last ? '' : '✓'}</span>
-              <span style={{ fontSize: 13, color: last ? 'var(--primary-strong)' : 'var(--dim)', fontWeight: last ? 600 : 500 }}>{p.label}</span>
-            </div>
+            <span key={f.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 999, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.05em', textTransform: 'uppercase', fontWeight: 600, background: activa ? 'var(--primary-bg)' : done ? 'var(--good-bg)' : 'var(--surface-2)', color: activa ? 'var(--primary-strong)' : done ? 'var(--good)' : 'var(--faint)', border: `1px solid ${activa ? 'var(--primary-weak)' : done ? 'var(--good)' : 'var(--border)'}` }}>
+              {done ? '✓' : activa ? <svg width={10} height={10} viewBox="-12 -12 24 24" style={{ overflow: 'visible' }}><path className="rxj-spark" d={SPARK} fill="#EF9F27" /></svg> : '○'} {f.label}
+            </span>
           );
         })}
       </div>
+
+      <div style={{ textAlign: 'center' }}>
+        <h3 style={{ ...pregunta, fontSize: 19 }}>MaKo está analizando tu negocio</h3>
+        <p style={{ margin: '5px 0 0', fontSize: 13.5, color: 'var(--dim)' }}>{actual} <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>· {Math.floor(segs / 60)}:{String(segs % 60).padStart(2, '0')}</span></p>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '190px 1fr', gap: 14, flex: 1, minHeight: 0 }}>
+        {/* Rail de tabs que MaKo navega */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 0 4px 4px' }}>Navegando</div>
+          {tabs.map((t) => {
+            const activa = tabActiva === t.label;
+            const leida = !activa && tabsTocadas.has(t.label);
+            return (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9, background: activa ? 'var(--primary-bg)' : 'transparent', border: `1px solid ${activa ? 'var(--primary-weak)' : 'transparent'}`, transition: 'background .2s' }}>
+                {activa
+                  ? <svg width={12} height={12} viewBox="-12 -12 24 24" style={{ overflow: 'visible', flex: 'none' }}><path className="rxj-spark" d={SPARK} fill="#EF9F27" /></svg>
+                  : <span style={{ width: 12, textAlign: 'center', fontSize: 11, color: leida ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }}>{leida ? '✓' : '○'}</span>}
+                <span style={{ fontSize: 13, fontWeight: activa ? 600 : 500, color: activa ? 'var(--primary-strong)' : leida ? 'var(--dim)' : 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.label}</span>
+              </div>
+            );
+          })}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 9 }}>
+            <span style={{ width: 12, textAlign: 'center', fontSize: 11, color: tabsTocadas.has('Cruces') ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }}>{tabsTocadas.has('Cruces') ? '✓' : '⇄'}</span>
+            <span style={{ fontSize: 13, color: 'var(--faint)' }}>Cruces</span>
+          </div>
+        </div>
+
+        {/* Checklist anidada en vivo */}
+        <div ref={scrollRef} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', overflowY: 'auto', maxHeight: 320, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {steps.map((s, i) => {
+            const last = i === steps.length - 1;
+            return (
+              <div key={i} className="rxj-step" style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '6px 9px', borderRadius: 9, background: last ? 'var(--surface)' : 'transparent', border: `1px solid ${last ? 'var(--primary-weak)' : 'transparent'}` }}>
+                <span style={{ width: 15, height: 15, borderRadius: '50%', flex: 'none', display: 'grid', placeItems: 'center', fontSize: 9, marginTop: 1, background: last ? 'transparent' : 'var(--good)', color: '#fff', border: last ? '2px solid var(--primary)' : 'none', animation: last ? 'rxj-blink 1.2s ease-in-out infinite' : 'none' }}>{last ? '' : '✓'}</span>
+                <span style={{ minWidth: 0 }}>
+                  {s.tab && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', display: 'block' }}>{s.tab}</span>}
+                  <span style={{ fontSize: 12.5, color: last ? 'var(--primary-strong)' : 'var(--dim)', fontWeight: last ? 600 : 500, lineHeight: 1.4 }}>{s.label}</span>
+                </span>
+              </div>
+            );
+          })}
+          {steps.length === 0 && <div style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: 20 }}>conectando…</div>}
+        </div>
+      </div>
+
+      {/* Ticker del último hallazgo */}
+      {ticker && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px', borderRadius: 11, background: 'var(--warn-bg)', border: '1px solid var(--warn)' }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--warn)' }}>(!)</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--warn)' }}>{ticker}</span>
+        </div>
+      )}
     </div>
   );
 }

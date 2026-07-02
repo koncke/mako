@@ -9,6 +9,7 @@
 
 import type { ExperimentosView, ExperimentoConMedicion, Experimento, Medicion } from '@/lib/experimentos';
 import type { Retro } from '@/lib/retro';
+import type { RetroReporte } from '@/lib/retro-reporte';
 import type { Tarea, Categoria } from '@/lib/todo';
 
 const serie = (base: number, pts: number[], _desde?: string): { fecha: string; valor: number }[] =>
@@ -66,7 +67,82 @@ export const demoView: ExperimentosView = {
   counts: { activos: activos.length, propuestos: propuestos.length, cerrados: aprendizajes.length, validadas: 1 },
 };
 
+// ── Reporte v3 de demo (los datos de muestra del diseño de Claude Design) ──
+export const demoReporte: RetroReporte = {
+  version: 3,
+  tesis: {
+    texto: 'Compraste atención más barata que nunca, pero la perdés en el VSL: de cada 100 que llegan a la landing, 93 no lo ven. Las llamadas cierran bien, así que arreglar ese tramo vale más que todo lo demás junto.',
+    highlight: '93 no lo ven',
+  },
+  fuga: { valor: '$18k', unidad: 'por período', titulo: 'El problema principal, en plata', texto: 'El VSL: solo el 7% de la landing lo ve. Recuperar la mitad de ese tramo valdría cerca de $18,000 en ventas nuevas por período.' },
+  areas: [
+    { id: 'adquisicion', name: 'Adquisición', st: 'good', line: 'Comprás atención más barata que nunca: CPL $9.2, ↓22%' },
+    { id: 'nutricion', name: 'Nutrición', st: 'bad', line: '304 leads, el 63%, sin un solo mensaje' },
+    { id: 'conversion', name: 'Conversión', st: 'warn', line: 'El no-show se concentra en «Oferta directa»' },
+    { id: 'creativos', name: 'Creativos', st: 'good', line: '«Resultado en 5 s» gana clarísimo' },
+    { id: 'revenue', name: 'Revenue', st: 'good', line: 'CAC ↓12% con el cash arriba, ojo 2 cuotas' },
+    { id: 'experimentos', name: 'Experiments', st: 'gris', line: 'Datos a medias: todavía no concluyo' },
+  ],
+  findings: [
+    { id: 'f1', tipo: 'cruce', area: 'nutricion', tool: 'crosses', cross: 'Nutrición × Conversión', ev: { type: 'num', value: '2.4×', label: 'más cierre con al menos un mensaje', tone: 'blue' }, short: 'Los nutridos cierran 2.4 veces más: los 304 fríos valen ~7 cierres.', insight: 'Los leads nutridos cierran 2.4 veces más que los fríos: los 304 sin tocar valen cerca de 7 cierres.', source: 'CRM + Closing · nov a jun', tab: 'CRM', recId: 'p2' },
+    { id: 'f2', tipo: 'cruce', area: 'creativos', tool: 'crosses', cross: 'Script Analyst × Graphics', ev: { type: 'bars', rows: [{ label: '«resultado en 5 s»', val: '$7.4', pct: 57, strong: true, tone: 'blue' }, { label: 'resto de guiones', val: '$12.9', pct: 100, tone: 'gray' }] }, short: 'El guion ganador paga 43% menos por lead que el resto.', insight: 'El guion explica el CPL: «resultado en 5 s» paga 43% menos por lead que el resto.', source: 'Meta Ads + Script Analyst · jun', tab: 'Script Analyst', recId: 'p1' },
+    { id: 'f3', tipo: 'hallazgo', area: 'nutricion', tool: 'crm', ev: { type: 'num', value: '304', label: 'leads sin tocar, de 480 en el CRM', tone: 'bad' }, short: 'El 63% de tus leads nunca recibió un mensaje.', insight: 'El 63% de tus leads nunca recibió un mensaje: es plata dormida en el CRM.', source: 'CRM · al 30 jun', tab: 'CRM', recId: 'p2' },
+    { id: 'f4', tipo: 'anomalia', area: 'conversion', tool: 'closing', ev: { type: 'bars', rows: [{ label: '«Oferta directa»', val: '34%', pct: 100, strong: true, tone: 'bad' }, { label: 'resto de anuncios', val: '12%', pct: 35, tone: 'gray' }] }, short: 'El no-show no es del negocio: lo trae «Oferta directa».', insight: 'El no-show no es del negocio: lo concentran las agendas de «Oferta directa», 34% contra 12%.', source: 'Calendly + Meta Ads · jun', tab: 'Closing Analyst', recId: 'p4' },
+    { id: 'f5', tipo: 'cruce', area: 'conversion', tool: 'crosses', cross: 'Closing × Offer', ev: { type: 'bars', rows: [{ label: 'score ≥ 7', val: '71% pasa', pct: 71, strong: true, tone: 'blue' }, { label: 'score < 7', val: '22% pasa', pct: 22, tone: 'gray' }] }, short: 'Subí 1 punto el score de la R1 y sumás ~6 R2.', insight: 'Subí 1 punto el score de la R1 y sumás cerca de 6 R2 por período.', source: 'Closing · nov a jun', tab: 'Closing Analyst' },
+    { id: 'f6', tipo: 'hallazgo', area: 'creativos', tool: 'script', ev: { type: 'bars', rows: [{ label: 'hook rate', val: '38%', pct: 76, strong: true, tone: 'blue' }, { label: 'retención 50%', val: '61%', pct: 100, strong: true, tone: 'blue' }] }, short: '«Resultado en 5 s» engancha y retiene a la vez.', insight: '«Resultado en 5 s» es el único que engancha y retiene a la vez: usalo de base para el VSL nuevo.', source: 'Script Analyst · jun', tab: 'Script Analyst' },
+    { id: 'f7', tipo: 'anomalia', area: 'adquisicion', tool: 'market', ev: { type: 'spark', vals: [2.1, 2.3, 2.6, 2.9, 3.1, 3.4], tone: 'warn', note: 'frecuencia, 6 semanas' }, short: '«Oferta directa» se está quemando: frecuencia 3.4.', insight: '«Oferta directa» se está quemando: la frecuencia saltó a 3.4 y sigue subiendo.', source: 'Meta Ads · jun', tab: 'Marketing', recId: 'p4' },
+    { id: 'f8', tipo: 'hallazgo', area: 'adquisicion', tool: 'market', ev: { type: 'num', value: '$9.2', label: 'CPL, ↓22% en el período', tone: 'good' }, short: 'Comprás atención más barata que nunca.', insight: 'Comprás atención más barata que nunca: CPL $9.2, bajando 22%. El problema del período no está acá.', source: 'Meta Ads · jun', tab: 'Marketing' },
+    { id: 'f9', tipo: 'anomalia', area: 'revenue', tool: 'graphics', ev: { type: 'num', value: '$4,500', label: 'vencido: 2 cuotas de marzo', tone: 'bad' }, short: 'Dos cuotas de marzo siguen vencidas.', insight: 'Dos cuotas de marzo siguen vencidas por $4,500: Securiters y QS Media.', source: 'Cobranza · al 30 jun', tab: 'Graphics', recId: 'p3' },
+    { id: 'f10', tipo: 'hallazgo', area: 'revenue', tool: 'graphics', ev: { type: 'num', value: '$1,720', label: 'CAC full, ↓12%, cash ↑9%', tone: 'good' }, short: 'El CAC bajó 12% mientras el cash subió.', insight: 'El CAC bajó 12% mientras el cash cobrado subió 9%: la máquina de plata está sana.', source: 'Cobranza + Ads · jun', tab: 'Graphics' },
+  ],
+  plan: [
+    { id: 'p1', kind: 'exp', destacado: true, origen: 'Nace del cruce Creativos × Adquisición', titulo: 'Grabá el VSL nuevo con el resultado en los primeros 5 segundos.', why: 'Es tu fuga más cara: hoy solo el 7% de la landing entra al VSL, y el guion ganador ya paga 43% menos por lead.', impacto: '~$18k/período', chain: ['Grabar el VSL nuevo con el hook en 5 s', 'Montar el A/B de la landing (50/50)'], experimento: { hipotesis: 'Un VSL con el resultado en 5s sube la tasa landing→VSL del 7%.', cambio: 'VSL nuevo + A/B de la landing.', metrica: 'tasa_landing', direccion: 'subir', objetivo_valor: 14, criterio_exito: 'Duplicar el paso landing→VSL en 21 días.', ventana_dias: 21 } },
+    { id: 'p2', kind: 'exp', origen: 'Nace del cruce Nutrición × Conversión', titulo: 'Reactivá los 304 leads sin tocar con una secuencia de 4 mensajes.', why: 'Son leads ya pagados y sin trabajar; los nutridos cierran 2.4 veces más que los fríos.', impacto: '~7 cierres', chain: ['Segmentar los 304 en el CRM', 'Escribir la secuencia de 4 mensajes'], experimento: { hipotesis: 'Reactivar fríos con secuencia de 4 mensajes genera cierres extra.', cambio: 'Secuencia de reactivación a los 304.', metrica: 'cierres', direccion: 'subir', objetivo_valor: null, criterio_exito: '≥3 cierres desde el segmento en 30 días.', ventana_dias: 30 } },
+    { id: 'p3', kind: 'tarea', prio: 'alta', origen: 'Nace del hallazgo: 2 cuotas vencidas', titulo: 'Cobrá las 2 cuotas vencidas de marzo.', why: 'Es plata ya vendida sin cobrar: Securiters y QS Media, cohorte de marzo.', impacto: '$4,500 ya', tarea: { detalle: 'Contactar Securiters y QS Media por las cuotas de marzo.' } },
+    { id: 'p4', kind: 'tarea', prio: 'media', origen: 'Nace del hallazgo: frecuencia 3.4', titulo: 'Apagá «Oferta directa» y pasá el gasto a «Testimonio Axel».', why: 'CPL $14.6, se quema y concentra el no-show de las agendas.', impacto: 'CPL medio ↓ ~8%', tarea: { detalle: 'Pausar el adset y reasignar presupuesto.' } },
+    { id: 'p5', kind: 'tarea', prio: 'media', origen: 'Nace de la cobertura de datos', titulo: 'Configurá el UTM en Calendly.', why: 'Sin eso no puedo atribuir cierres por anuncio ni cerrar 3 cruces.', impacto: 'habilita 3 cruces', tarea: { detalle: 'Agregar UTM a los links de Calendly.' } },
+  ],
+  seguimiento: [
+    { st: 'done', title: 'Secuencia de WhatsApp para leads fríos', estado: 'Hecho', fx: '+9 agendas', fxT: 'good' },
+    { st: 'done', title: 'Mover presupuesto a «Testimonio Axel»', estado: 'Hecho', fx: 'CPL bajó 8%', fxT: 'good' },
+    { st: 'curso', title: 'Guion de R1 con manejo de objeciones', estado: 'En curso', fx: 'score 6.1 a 6.8', fxT: 'warn' },
+    { st: 'no', title: 'Trackear reproducción del VSL', estado: 'Sin tocar', fx: 'sin efecto', fxT: 'gris' },
+  ],
+  cobertura: [
+    { label: 'VSL: 12 de 30 días con dato', tone: 'warn' },
+    { label: 'UTM de Calendly sin configurar', tone: 'gris', accion: 'Configurar' },
+  ],
+  charts: {
+    market: { puntos: [ { x: '05/05', spend: 980, cpl: 12.1 }, { x: '12/05', spend: 1050, cpl: 11.4 }, { x: '19/05', spend: 1120, cpl: 10.8 }, { x: '26/05', spend: 1180, cpl: 10.1 }, { x: '02/06', spend: 1240, cpl: 9.7 }, { x: '09/06', spend: 1210, cpl: 9.2 } ], series: ['spend', 'cpl'] },
+    graphics: { funnel: [ { label: 'Impresiones', valor: 420000 }, { label: 'Landing', valor: 4100 }, { label: 'VSL', valor: 287, fuga: true }, { label: 'Formularios', valor: 476 }, { label: 'Agendas', valor: 131 }, { label: 'Cierres', valor: 12 } ] },
+    crm: { split: [ { label: 'Nutridos', valor: 176, tone: 'good' }, { label: 'Sin tocar', valor: 304, tone: 'bad' } ] },
+    closing: { pasos: [ { label: 'Agendas', valor: 131 }, { label: 'R1', valor: 89 }, { label: 'R2', valor: 41 }, { label: 'Cierres', valor: 12 } ], score: 6.8 },
+    script: { guiones: [ { nombre: 'Resultado en 5 s', hook: 38, ret: 61, spend: 1420 }, { nombre: 'Testimonio Axel', hook: 31, ret: 48, spend: 980 }, { nombre: 'Oferta directa', hook: 22, ret: 29, spend: 1130 }, { nombre: 'Detrás de escena', hook: 27, ret: 35, spend: 410 } ] },
+  },
+  proceso: [
+    { fase: 'memoria', label: 'Leyendo el retro anterior y su plan…' },
+    { fase: 'recoleccion', label: 'Leyendo Adquisición · TOFU…' },
+    { fase: 'diagnostico', label: 'Sacando insights de Nutrición · MOFU…' },
+    { fase: 'cruces', label: 'Cruzando datos entre áreas…' },
+    { fase: 'cerebro', label: 'Priorizando qué mueve la aguja…' },
+    { fase: 'verificacion', label: 'Verificando cada número citado…' },
+  ],
+};
+
 export const demoRetros: Retro[] = [
+  {
+    id: 2,
+    periodo_desde: '2025-11-30',
+    periodo_hasta: '2026-06-30',
+    titulo: 'El frente compra atención barata; el embudo pierde por dos agujeros',
+    resumen: demoReporte.tesis.texto,
+    destacados: null,
+    recomendaciones: null,
+    snapshot: { areas: [], v: 3 },
+    reporte: demoReporte,
+    model: 'claude-opus-4-8',
+    created_at: '2026-07-01T09:00:00Z',
+  },
   {
     id: 1,
     periodo_desde: '2026-05-31',
@@ -89,6 +165,7 @@ export const demoRetros: Retro[] = [
       { tipo: 'tarea', titulo: 'Documentar el retargeting validado como estándar', detalle: 'Dejar el adset de video-viewers 50% como parte fija de la estructura.', prioridad: 'media' },
     ],
     snapshot: null,
+    reporte: null,
     model: 'claude-opus-4-8',
     created_at: '2026-06-30T09:00:00Z',
   },
