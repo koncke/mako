@@ -99,16 +99,22 @@ dueño)**.
   cliente para ver/operar su dashboard (con un banner de aviso). Los usuarios se
   asignan a un workspace desde /admin.
 
-### Fase 1 vs Fase 2
+### Fases
 
 - **Fase 1 (hecha):** aislamiento de los datos de la base + panel admin +
   impersonación.
-- **Fase 2 (pendiente):** integraciones **en vivo por cliente** (cada cliente su
-  propio Meta/Chatwoot/Fathom) y los crons iterando por workspace. Hasta
-  entonces, las integraciones en vivo son del **dueño**: las vistas que dependen
-  de ellas (WhatsApp, insights de Meta en vivo, Closing) muestran **vacío** para
-  un cliente que no sea el dueño (guard `esWorkspaceDueno()`), y un cliente nuevo
-  no tiene ingesta automática hasta conectar y correr la suya.
+- **Fase 2 (hecha):** credenciales e integraciones **en vivo por cliente**. Cada
+  cliente carga sus propios tokens (Meta, Chatwoot, Resend, Fathom, Panda,
+  YouTube) en **/metodo** y ve sus datos en vivo con ellos (su inbox de WhatsApp,
+  su salud/insights de Meta, su Closing). El resolver `credWs` (`lib/credenciales.ts`)
+  devuelve, para el **dueño** (workspace 1), el env de Vercel tal cual; para un
+  **cliente**, solo su fila cifrada — nunca el token del dueño. Anthropic/OpenAI/
+  Telegram siguen compartidos (los provee la agencia).
+- **Fase 2b (pendiente):** **ingesta automática por cliente** — los 12 crons
+  iterando por workspace + config por-workspace (qué video es el VSL, page id,
+  flags de envío). Hasta 2b, los crons corren solo para el dueño, así que un
+  cliente nuevo ve sus vistas en vivo pero su dashboard histórico
+  (marketing_metrics_daily) recién se llena cuando corra su propia ingesta.
 
 ### Operativa tras el deploy
 
