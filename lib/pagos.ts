@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
 
 export type Pago = {
@@ -37,7 +37,7 @@ export type PlanPagos = {
 
 /** Pagos de un lead, ordenados por numero (inicial primero). */
 export async function getPagosByLead(leadId: number): Promise<Pago[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
     .select('*')
@@ -59,7 +59,7 @@ export type LeadPlan = {
 
 /** Plan + cuotas + info de contrato de un lead (para el modo "ver" del CRM). */
 export async function getLeadPlan(leadId: number): Promise<LeadPlan> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('monto_cierre_usd, duracion_meses, fecha_cierre, fecha_inicio_servicio, contrato_nombre, contrato_path')
@@ -112,7 +112,7 @@ export async function savePlanPagos(
   plan: PlanPagos,
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<Pago[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Necesitamos la fecha de cierre como ancla del calendario
   const { data: leadRow, error: leadErr } = await supabase
@@ -204,7 +204,7 @@ export type PlanManual = {
 };
 
 export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // El plan de pagos pertenece a un lead GANADO: dejamos el desenlace coherente
   // (estado_lead/cerro) para que Sold Revenue y los cierres lo cuenten siempre.
@@ -248,7 +248,7 @@ export async function marcarPago(
   pagado: boolean,
   fechaPago: string | null = new Date().toISOString().slice(0, 10),
 ): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
     .select('lead_id')
@@ -273,7 +273,7 @@ export async function marcarPago(
  * pagos pagados. Mantiene coherentes los consumidores que leen total_cobrado.
  */
 export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const pagos = await getPagosByLead(leadId);
   const pagados = pagos.filter((p) => p.pagado);
 
@@ -301,7 +301,7 @@ export async function sincronizarTotalCobrado(leadId: number): Promise<void> {
 
 /** Cash collected de un período: Σ pagos pagado=true con fecha_pago en rango. */
 export async function getCashCollectedPeriodo(start: string, end: string): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
     .select('monto_usd')
@@ -319,7 +319,7 @@ export async function getCashCollectedPeriodo(start: string, end: string): Promi
  * de antes del período.
  */
 export async function getOutstandingPeriodo(start: string, _end: string): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
     .select('monto_usd')
@@ -341,7 +341,7 @@ const relNombre = (leads: unknown): string => {
 
 export const getRevenueBreakdowns = cachedRead('getRevenueBreakdowns', _getRevenueBreakdowns, { tags: [TAG.pagos, TAG.leads], revalidate: TTL.user });
 async function _getRevenueBreakdowns(start: string, end: string): Promise<RevenueBreakdowns> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const [soldRes, cashRes, outRes] = await Promise.all([
     supabase.from('leads').select('id, nombre, monto_cierre_usd, fecha_cierre').eq('cerro', true).gte('fecha_cierre', start).lte('fecha_cierre', end),
     supabase.from('pagos').select('monto_usd, fecha_pago, numero, lead_id, leads(nombre)').eq('pagado', true).gte('fecha_pago', start).lte('fecha_pago', end),
@@ -363,7 +363,7 @@ async function _getRevenueBreakdowns(start: string, end: string): Promise<Revenu
 
 /** Outstanding global: Σ monto_usd de pagos NO pagados (lo que falta cobrar). */
 export async function getOutstandingTotal(): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
     .select('monto_usd')
@@ -391,7 +391,7 @@ export const getOutstandingDetalle = cachedRead('getOutstandingDetalle', _getOut
 async function _getOutstandingDetalle(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<{ items: OutstandingLead[]; total: number }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
     .select('id, lead_id, numero, monto_usd, fecha_esperada, pagado, leads(nombre, monto_cierre_usd, fecha_cierre)');
@@ -469,7 +469,7 @@ async function _getCuotasPendientes(
   hoy: string = new Date().toISOString().slice(0, 10),
   diasAviso = 3,
 ): Promise<{ vencidas: CuotaPendiente[]; porVencer: CuotaPendiente[] }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
     .select('id, lead_id, numero, monto_usd, fecha_esperada, leads(nombre)')

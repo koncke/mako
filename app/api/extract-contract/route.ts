@@ -6,7 +6,7 @@
 // como visión. Devuelve JSON con total, duración, fechas y cuotas.
 
 import type { NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { getPromptText } from '@/lib/prompt-render';
 import { CONTRACT_EXTRACT_DEFAULT } from '@/lib/prompt-defaults';
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   let contrato_nombre: string | null = null;
   if (Number.isFinite(leadId) && leadId > 0) {
     try {
-      const supabase = getSupabaseServer();
+      const supabase = (await getTenantDb());
       const safe = (file.name || 'contrato').replace(/[^\w.\-]+/g, '_').slice(-80);
       const path = `${leadId}/${Date.now()}_${safe}`;
       const { error: upErr } = await supabase.storage.from('contratos').upload(path, buf, { contentType: mime, upsert: true });

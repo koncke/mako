@@ -3,6 +3,7 @@ import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
 import { NotificationsProvider } from './_components/NotificationsProvider';
+import { ImpersonationBanner } from './_components/ImpersonationBanner';
 
 export const metadata: Metadata = {
   title: 'Marketing OS — Mauricio Bustos',
@@ -45,7 +46,12 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <Sidebar />
             </Suspense>
-            {children}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Suspense fallback={null}>
+                <ImpersonationBanner />
+              </Suspense>
+              {children}
+            </div>
           </div>
         </NotificationsProvider>
       </body>

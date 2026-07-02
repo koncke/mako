@@ -5,7 +5,7 @@
 // Calcula ratios derivados (1 de cada X).
 // =============================================================================
 
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
 import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
@@ -112,7 +112,7 @@ async function _getMarketingWindow(
   start: string,
   end: string,
 ): Promise<MarketingWindow> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Query del último cumulativo de cada video (raw_payload de la fila más
   // reciente, sin importar fecha — es la "vistas totales del video desde su
@@ -350,7 +350,7 @@ export type CohorteMes = {
  */
 export const listCohortesSemanales = cachedRead('listCohortesSemanales', _listCohortesSemanales, { tags: [TAG.leads], revalidate: TTL.user });
 async function _listCohortesSemanales(limit = 8): Promise<CohorteSemana[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('v_cohortes_semanales')
     .select('*')
@@ -365,7 +365,7 @@ async function _listCohortesSemanales(limit = 8): Promise<CohorteSemana[]> {
  */
 export const listCohortesMensuales = cachedRead('listCohortesMensuales', _listCohortesMensuales, { tags: [TAG.leads], revalidate: TTL.user });
 async function _listCohortesMensuales(limit = 6): Promise<CohorteMes[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('v_cohortes_mensuales')
     .select('*')
@@ -406,7 +406,7 @@ export type ResumenComercialMaduras = {
  */
 export const getResumenComercialMaduras = cachedRead('getResumenComercialMaduras', _getResumenComercialMaduras, { tags: [TAG.leads], revalidate: TTL.user });
 async function _getResumenComercialMaduras(start?: string | null, end?: string | null): Promise<ResumenComercialMaduras> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   let q = supabase
     .from('v_cohortes_semanales')
     .select('*')
@@ -466,7 +466,7 @@ export type AgendaItem = {
 
 /** Leads con Junta 1 en [start, end] — fuente del desglose de Agendas (CRM). */
 export async function getAgendasBreakdown(start: string, end: string): Promise<AgendaItem[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('id, nombre, empresa, fecha_junta_1')
@@ -513,7 +513,7 @@ export type FunnelMadurasLeads = {
  * que la vista marca 'madura' (misma CURRENT_DATE → mismo set).
  */
 export async function getFunnelMadurasLeads(start?: string | null, end?: string | null): Promise<FunnelMadurasLeads> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const vacio: FunnelMadurasLeads = { agenda: [], asistio: [], noShow: [], calificado: [], cierre: [] };
 
   let sq = supabase
@@ -568,7 +568,7 @@ export async function getFunnelMadurasLeads(start?: string | null, end?: string 
  * más recientes) en vez de escanear toda la tabla.
  */
 export async function getJ1Leads(minFecha?: string): Promise<FunnelLeadItem[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   let q = supabase
     .from('leads')
     .select('id, nombre, empresa, fecha_junta_1, asistio_j1, calificado, cerro, monto_cierre_usd, estado_lead')
@@ -606,7 +606,7 @@ export type SCLLeadItem = {
  * getSCL. Devuelve sus fechas intermedias y la duración total agenda→pago.
  */
 export async function getSCLLeads(): Promise<SCLLeadItem[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('id, nombre, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago')
@@ -653,7 +653,7 @@ export type CACAcumulado = {
 
 export const getCACAcumulado = cachedRead('getCACAcumulado', _getCACAcumulado, { tags: [TAG.marketing, TAG.leads], revalidate: TTL.cron });
 async function _getCACAcumulado(hastaFecha?: string): Promise<CACAcumulado> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   let spendQuery = supabase
     .from('marketing_metrics_daily')
@@ -730,7 +730,7 @@ async function _getRevenuePeriod(
   start: string,
   end: string,
 ): Promise<RevenuePeriod> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // cash_collected y outstanding ahora salen de la tabla `pagos` (Fase 8-bis):
   //   cash    = Σ pagos pagado=true con fecha_pago en el período (inflow real,
@@ -829,7 +829,7 @@ export type SCL = {
 
 export const getSCL = cachedRead('getSCL', _getSCL, { tags: [TAG.leads], revalidate: TTL.user });
 async function _getSCL(): Promise<SCL> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('fecha_agenda, fecha_primer_pago')
@@ -886,7 +886,7 @@ export type DistribucionPipeline = {
 };
 
 export async function getDistribucionPipeline(): Promise<DistribucionPipeline> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Activos = asistieron J1 y NO han cerrado (cerro != true)
   const { data, error } = await supabase
@@ -954,7 +954,7 @@ export type CACMensualEntry = {
 };
 
 export async function listCACMensual(limit = 12): Promise<CACMensualEntry[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Pull spend Meta + leads con fecha_primer_pago en paralelo
   const [spendRes, pagosRes] = await Promise.all([
@@ -1027,7 +1027,7 @@ export const getRevenueMensual = cachedRead('getRevenueMensual', _getRevenueMens
 // mesesMax = ventana de búsqueda; el resultado RECORTA los meses iniciales sin
 // ningún dato (no se extiende antes del primer mes con actividad).
 async function _getRevenueMensual(hasta: string, mesesMax = 18): Promise<RevenueMensualPunto[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const [hy, hm] = hasta.split('-').map(Number);
   const months: string[] = [];
   for (let i = mesesMax - 1; i >= 0; i--) {
@@ -1138,7 +1138,7 @@ export async function getFunnelEtapas(
   end: string,
   sourceMap?: Record<string, 'ok' | 'stale' | 'off'>,
 ): Promise<FunnelMes> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   const [mkt, leadsRes] = await Promise.all([
     getMarketingWindow(start, end),
@@ -1319,7 +1319,7 @@ async function _getFunnelSeries(
   end: string = new Date().toISOString().slice(0, 10),
   semanas = 12,
 ): Promise<FunnelSeries> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Semanas (lunes) más viejas → más nuevas
   const ultimoLunes = lunesDeFecha(end);
@@ -1461,7 +1461,7 @@ async function _getSenalesRecon(
   start: string,
   end: string,
 ): Promise<SenalRecon[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   // Columnas del creativo (migración 0022). Si la migración aún no se aplicó,
   // la query falla con "column ... does not exist" → reintentamos sin ellas para
   // no romper toda la pantalla de Marketing (degradación elegante).
@@ -1641,7 +1641,7 @@ async function _getSenalesRecon(
 export type AgendasComparador = { meta: number; crm: number };
 
 export async function getAgendasComparador(start: string, end: string): Promise<AgendasComparador> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const [adsRes, crmRes] = await Promise.all([
     supabase
       .from('marketing_metrics_daily')
@@ -1681,7 +1681,7 @@ export type TramosSCL = {
 
 export const getTramosSCL = cachedRead('getTramosSCL', _getTramosSCL, { tags: [TAG.leads], revalidate: TTL.user });
 async function _getTramosSCL(): Promise<TramosSCL> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('created_at, meta_lead_id, fecha_agenda, fecha_junta_1, fecha_junta_2, fecha_confirmacion, fecha_primer_pago');
@@ -1855,7 +1855,7 @@ export type VslSerie = {
 
 export const getVslSerie = cachedRead('getVslSerie', _getVslSerie, { tags: [TAG.marketing], revalidate: TTL.cron });
 async function _getVslSerie(dias = 56): Promise<VslSerie> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const hasta = new Date();
   const desde = new Date(hasta.getTime() - dias * 86400_000);
   const fmt = (d: Date) =>
@@ -1975,7 +1975,7 @@ export const getPendientesDeMarcar = cachedRead('getPendientesDeMarcar', _getPen
 async function _getPendientesDeMarcar(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<Pendientes> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('id, nombre, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, estado_lead, pipeline_stage, nutricion_manual_deadline')
@@ -2123,7 +2123,7 @@ async function _getJuntasProximas(
   const fechasSet = new Set(fechas);
   const enLista = fechas.join(',');
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('*')
@@ -2212,7 +2212,7 @@ export const getColaDeAccion = cachedRead('getColaDeAccion', _getColaDeAccion, {
 async function _getColaDeAccion(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<ColaItem[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const items: ColaItem[] = [];
 
   // ── 1) pendiente_marcar (tipos A y C) y j1_sin_j2 (tipo B) ──
@@ -2332,7 +2332,7 @@ export type FormSinAgenda = {
 export async function getFormulariosSinAgenda(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<FormSinAgenda[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const desde = restarDiasISO(hoy, 30); // ventana amplia para no perder rezagados
   const { data, error } = await supabase
     .from('leads')
@@ -2402,7 +2402,7 @@ export const getObjetivoProgreso = cachedRead('getObjetivoProgreso', _getObjetiv
 async function _getObjetivoProgreso(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<ObjetivoProgreso> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   const [cierresMeta, cashMeta, desdeRaw] = await Promise.all([
     getSettingNum('objetivo_cierres'),
@@ -2475,7 +2475,7 @@ export const getFatigaAdsets = cachedRead('getFatigaAdsets', _getFatigaAdsets, {
 async function _getFatigaAdsets(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<AdsetFatiga[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const d28 = restarDiasISO(hoy, 28);
   const d7 = restarDiasISO(hoy, 7);
   const { data, error } = await supabase
@@ -2534,7 +2534,7 @@ export async function getTramoJ1J2Reciente(
   hoy: string = new Date().toISOString().slice(0, 10),
   dias = 60,
 ): Promise<TramoJ1J2> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const desde = restarDiasISO(hoy, dias);
   const { data, error } = await supabase
     .from('leads')
@@ -2602,7 +2602,7 @@ async function _getTendencias(
   start: string,
   end: string = new Date().toISOString().slice(0, 10),
 ): Promise<Tendencias> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Piso de datos: no mostrar nada anterior a noviembre 2025.
   const PISO_TENDENCIAS = '2025-11-01';
@@ -2807,7 +2807,7 @@ async function _getTendencias(
 // flujos piden por separado (page de leads, crm-map, etc.).
 export const getCampaignNameMap = cachedRead('getCampaignNameMap', _getCampaignNameMap, { tags: [TAG.marketing], revalidate: TTL.cron });
 async function _getCampaignNameMap(): Promise<Record<string, string>> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('marketing_metrics_daily')
     .select('campaign_id, campaign_name, fecha')

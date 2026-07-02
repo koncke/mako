@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { getSetting, setSetting } from './settings';
 
 export type UsageInfo = {
@@ -49,7 +49,7 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead });
   const info: UsageInfo = { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
   try {
-    await getSupabaseServer().from('anthropic_usage').insert({
+    await (await getTenantDb()).from('anthropic_usage').insert({
       feature: feature || 'otros',
       model,
       input_tokens: input,
@@ -100,7 +100,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
 
   let rows: Row[] = [];
   try {
-    const { data } = await getSupabaseServer()
+    const { data } = await (await getTenantDb())
       .from('anthropic_usage')
       .select('created_at, feature, cost_usd, input_tokens, output_tokens')
       .gte('created_at', desde)

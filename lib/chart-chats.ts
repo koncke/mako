@@ -3,7 +3,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 
 export type ChartMsg = { role: 'user' | 'assistant'; content: string; created_at?: string };
 export type ChartSession = {
@@ -20,7 +20,7 @@ export type ChartSession = {
 const SESSION_COLS = 'id, chart_key, titulo, contexto, pinned, archived, created_at, updated_at';
 
 export async function createSession(chartKey: string, titulo: string | null, contexto: string | null): Promise<ChartSession> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('chart_sessions')
     .insert({ chart_key: chartKey, titulo, contexto })
@@ -31,7 +31,7 @@ export async function createSession(chartKey: string, titulo: string | null, con
 }
 
 export async function getSession(sessionId: number): Promise<ChartSession | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('chart_sessions')
     .select(SESSION_COLS)
@@ -43,7 +43,7 @@ export async function getSession(sessionId: number): Promise<ChartSession | null
 
 /** Sesiones de un gráfico: pineadas primero, luego por actividad. Sin archivadas. */
 export async function listSessions(chartKey: string, incluirArchivadas = false): Promise<ChartSession[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   let q = supabase.from('chart_sessions').select(SESSION_COLS).eq('chart_key', chartKey);
   if (!incluirArchivadas) q = q.eq('archived', false);
   const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false });
@@ -55,7 +55,7 @@ export async function listSessions(chartKey: string, incluirArchivadas = false):
  *  asesoría por lead de WhatsApp (chart_key 'wa-advisor:*'), que son privadas de
  *  cada chat y no deben ensuciar la lista global de MaKo. */
 export async function listAllSessions(incluirArchivadas = false, limit = 300): Promise<ChartSession[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   let q = supabase.from('chart_sessions').select(SESSION_COLS).not('chart_key', 'like', 'wa-advisor:%');
   if (!incluirArchivadas) q = q.eq('archived', false);
   const { data, error } = await q.order('pinned', { ascending: false }).order('updated_at', { ascending: false }).limit(limit);
@@ -64,26 +64,26 @@ export async function listAllSessions(incluirArchivadas = false, limit = 300): P
 }
 
 export async function renameSession(id: number, titulo: string): Promise<void> {
-  const { error } = await getSupabaseServer().from('chart_sessions').update({ titulo }).eq('id', id);
+  const { error } = await (await getTenantDb()).from('chart_sessions').update({ titulo }).eq('id', id);
   if (error) throw new Error(`renameSession falló: ${error.message}`);
 }
 export async function setPinned(id: number, pinned: boolean): Promise<void> {
-  const { error } = await getSupabaseServer().from('chart_sessions').update({ pinned }).eq('id', id);
+  const { error } = await (await getTenantDb()).from('chart_sessions').update({ pinned }).eq('id', id);
   if (error) throw new Error(`setPinned falló: ${error.message}`);
 }
 export async function setArchived(id: number, archived: boolean): Promise<void> {
-  const { error } = await getSupabaseServer().from('chart_sessions').update({ archived }).eq('id', id);
+  const { error } = await (await getTenantDb()).from('chart_sessions').update({ archived }).eq('id', id);
   if (error) throw new Error(`setArchived falló: ${error.message}`);
 }
 export async function deleteSession(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   await supabase.from('chart_chats').delete().eq('session_id', id);
   const { error } = await supabase.from('chart_sessions').delete().eq('id', id);
   if (error) throw new Error(`deleteSession falló: ${error.message}`);
 }
 
 export async function getSessionMessages(sessionId: number): Promise<ChartMsg[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('chart_chats')
     .select('role, content, created_at')
@@ -94,7 +94,7 @@ export async function getSessionMessages(sessionId: number): Promise<ChartMsg[]>
 }
 
 export async function appendMessage(sessionId: number, role: 'user' | 'assistant', content: string): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('chart_chats').insert({ session_id: sessionId, role, content });
   if (error) throw new Error(`appendMessage falló: ${error.message}`);
   // bump updated_at para ordenar las sesiones por actividad

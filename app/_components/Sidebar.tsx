@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, ADS_MANAGER_ITEM, type NavItem } from './nav';
+import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, ADS_MANAGER_ITEM, ADMIN_NAV, type NavItem } from './nav';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
@@ -64,6 +64,7 @@ export function Sidebar() {
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>('');
+  const [impersonando, setImpersonando] = useState(false);
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
   const userBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -102,14 +103,22 @@ export function Sidebar() {
     return () => { alive = false; };
   }, [pathname]);
 
-  // Rol de la sesión: decide si se muestra la entrada Admin del menú.
+  // Rol + impersonación de la sesión: deciden qué shell mostrar (admin vs cliente).
   useEffect(() => {
     let alive = true;
     fetch('/api/auth/me').then((r) => r.json())
-      .then((j) => { if (alive && j?.ok && j.autenticado) setRol((j.rol as string) || ''); })
+      .then((j) => {
+        if (!alive || !j?.ok || !j.autenticado) return;
+        setRol((j.rol as string) || '');
+        setImpersonando(Boolean(j.impersonando));
+      })
       .catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [pathname]);
+
+  // Un admin que NO está impersonando ve el shell de gestión (sin tabs de
+  // marketing). Impersonando o siendo usuario, ve el dashboard normal.
+  const adminShell = rol === 'admin' && !impersonando;
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
@@ -215,22 +224,33 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Navegación */}
+        {/* Navegación — el admin (sin impersonar) ve el shell de gestión. */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 3, minHeight: 0 }}>
-          {TOP_NAV.map((item) => (
-            <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} expanded={open} />
-          ))}
-          <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '10px 8px' : '10px 12px' }} />
-          <NavLink item={ADS_MANAGER_ITEM} active={ADS_MANAGER_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
-          {NAV_GROUPS.map((g) => (
-            <GroupHeader key={g.key} gKey={g.key} label={g.label} icon={g.icon} />
-          ))}
+          {adminShell ? (
+            <>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: open ? '4px 12px 8px' : '4px 0 8px', textAlign: open ? 'left' : 'center' }}>{open ? 'Administración' : '·'}</div>
+              {ADMIN_NAV.map((item) => (
+                <NavLink key={item.key} item={item} active={item.match(pathname)} badge={0} query="" expanded={open} />
+              ))}
+            </>
+          ) : (
+            <>
+              {TOP_NAV.map((item) => (
+                <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} expanded={open} />
+              ))}
+              <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '10px 8px' : '10px 12px' }} />
+              <NavLink item={ADS_MANAGER_ITEM} active={ADS_MANAGER_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
+              {NAV_GROUPS.map((g) => (
+                <GroupHeader key={g.key} gKey={g.key} label={g.label} icon={g.icon} />
+              ))}
+            </>
+          )}
         </nav>
 
         {/* MaKo (aparte) + Usuario (abajo) */}
         <div style={{ marginTop: 'auto', paddingTop: 14 }}>
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
-          <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
+          {!adminShell && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511', overflow: 'hidden' }}>
               {perfilAvatar

@@ -13,9 +13,10 @@
 // vigente de inmediato.
 
 import 'server-only';
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import {
-  EMAIL_COOKIE, LEGACY_COOKIE, SESSION_COOKIE,
+  EMAIL_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE,
   gateConfigurado, verificarToken, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
@@ -27,20 +28,24 @@ function tieneFila(sesion: Sesion): boolean {
   return !sesion.legacy && sesion.sub !== 'password' && /^\d+$/.test(sesion.sub);
 }
 
-/** Sesión del request actual, o null si no hay nadie logueado. */
-export async function getUsuarioActual(): Promise<Sesion | null> {
+/**
+ * Sesión del request actual, o null si no hay nadie logueado. Memoizada por
+ * request (React cache) porque el scoping por workspace la consulta muchas veces.
+ */
+export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
   const store = await cookies();
 
   const firmada = verificarToken(store.get(SESSION_COOKIE)?.value);
   if (firmada) {
-    // Sesión con fila real: re-chequear estado/rol vigente. Suspender o eliminar
-    // al usuario invalida su sesión de inmediato (fail-open ante DB caída para no
-    // desloguear a todos por un error transitorio).
+    // Sesión con fila real: re-chequear estado/rol/workspace vigente. Suspender
+    // o eliminar al usuario invalida su sesión de inmediato (fail-open ante DB
+    // caída para no desloguear a todos por un error transitorio).
     if (tieneFila(firmada)) {
       try {
         const u = await buscarUsuarioPorEmail(firmada.email);
         if (!u || u.estado === 'suspendido') return null;
-        return { ...firmada, rol: u.rol }; // el rol de la base gana sobre el de la cookie
+        // El rol y el workspace de la base ganan sobre lo firmado en la cookie.
+        return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null };
       } catch {
         return firmada;
       }
@@ -48,21 +53,21 @@ export async function getUsuarioActual(): Promise<Sesion | null> {
     return firmada;
   }
 
-  // Cookie compartida vieja: todos los que la tenían accedían a todo → admin.
+  // Cookie compartida vieja: es el login del dueño → admin sobre el workspace 1.
   const esperado = process.env.AUTH_COOKIE_VALUE;
   if (esperado && store.get(LEGACY_COOKIE)?.value === esperado) {
     const email = store.get(EMAIL_COOKIE)?.value ?? '';
-    return { sub: 'legacy', email, nombre: '', rol: 'admin', exp: 0, legacy: true };
+    return { sub: 'legacy', email, nombre: '', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS };
   }
 
-  // Gate sin configurar (local/dev): el proxy deja pasar todo → sesión dev.
+  // Gate sin configurar (local/dev): el proxy deja pasar todo → sesión dev dueño.
   const esProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   if (!gateConfigurado() && !esProd) {
-    return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true };
+    return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS };
   }
 
   return null;
-}
+});
 
 /**
  * Sesión admin verificada, o null. getUsuarioActual ya re-chequeó la fila real

@@ -7,11 +7,15 @@
 
 import type { NextRequest } from 'next/server';
 import { listNotificaciones, contarNoLeidas, marcarLeida, marcarTodasLeidas } from '@/lib/notificaciones';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
+  // Fase 1: el feed de notificaciones se nutre de las integraciones globales del
+  // dueño → otros workspaces reciben vacío benigno.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, items: [], unread: 0 });
   const soloNoLeidas = req.nextUrl.searchParams.get('no_leidas') === '1';
   const limitRaw = Number(req.nextUrl.searchParams.get('limit') ?? '30');
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(1, limitRaw), 100) : 30;
@@ -23,6 +27,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Fase 1: marcar leídas opera sobre el feed global del dueño.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   let body: { action?: string; id?: number };
   try {
     body = (await req.json()) as typeof body;

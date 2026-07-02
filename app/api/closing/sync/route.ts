@@ -8,11 +8,14 @@
 
 import type { NextRequest } from 'next/server';
 import { syncClosingCalls } from '@/lib/closing';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  // Fase 1: Fathom es la integración global del dueño → solo él sincroniza.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   let body: { max?: number; force?: boolean } = {};
   try { body = await req.json(); } catch { /* body opcional */ }
 

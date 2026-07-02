@@ -1,7 +1,7 @@
 // GET /api/contract?leadId= — redirige a una URL firmada para descargar el
 // contrato guardado en Storage (bucket privado).
 import type { NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const leadId = Number(req.nextUrl.searchParams.get('leadId'));
   if (!Number.isFinite(leadId) || leadId <= 0) return Response.json({ error: 'leadId inválido' }, { status: 400 });
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data: lead, error } = await supabase.from('leads').select('contrato_path, contrato_nombre').eq('id', leadId).single();
   if (error || !lead?.contrato_path) return Response.json({ error: 'sin contrato' }, { status: 404 });
 

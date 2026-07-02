@@ -25,7 +25,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { TIPO_DE_CAMBIO_USD_MXN } from './config';
 import { getAngles, type Angle } from './script-angles';
@@ -428,7 +428,7 @@ function descartadaRow(t: TranscriptRow, motivo: string): ScriptAnalysisRow {
 }
 
 async function upsertRow(row: ScriptAnalysisRow): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('script_analyses')
     .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'ad_id' });
@@ -455,7 +455,7 @@ const PAGE = 1000;
 
 /** Trae los transcripts de video utilizables (status='ok', con texto). Paginado. */
 async function getVideoTranscripts(): Promise<TranscriptRow[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const out: TranscriptRow[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
@@ -476,7 +476,7 @@ async function getVideoTranscripts(): Promise<TranscriptRow[]> {
 async function getAdNames(adIds: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (!adIds.length) return map;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   for (let i = 0; i < adIds.length; i += 300) {
     const chunk = adIds.slice(i, i + 300);
     // Paginado + orden estable (fecha desc, ad_id) para no truncar en el tope de
@@ -527,7 +527,7 @@ export async function syncScriptAnalyses(opts: { max?: number; timeBudgetMs?: nu
   const max = opts.max ?? DEFAULT_MAX;
   const timeBudget = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const [transcripts, doneRows, angles, avatares] = await Promise.all([
     getVideoTranscripts(),
     supabase.from('script_analyses').select('ad_id, status'),
@@ -583,7 +583,7 @@ export async function syncScriptAnalyses(opts: { max?: number; timeBudgetMs?: nu
 
 /** Re-analiza UN anuncio puntual (botón "Re-analizar" / endpoint manual). */
 export async function analyzeOne(adId: string): Promise<ScriptStatus> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('ad_transcripts')
     .select('ad_id, video_id, status, tipo, idioma, duracion_s, transcript, secciones')
@@ -618,7 +618,7 @@ type AdMetrics = {
 async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string): Promise<Map<string, AdMetrics>> {
   const map = new Map<string, AdMetrics>();
   if (!adIds.length) return map;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const ids = new Set(adIds);
   for (let i = 0; i < adIds.length; i += 200) {
     const chunk = adIds.slice(i, i + 200);
@@ -675,7 +675,7 @@ async function getScriptMetrics(adIds: string[], desde?: string, hasta?: string)
 async function getCierresByAd(adIds: string[]): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (!adIds.length) return map;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   for (let i = 0; i < adIds.length; i += 200) {
     const chunk = adIds.slice(i, i + 200);
     // Paginado con orden estable (id, único) — hay 1 fila por lead 'ganado' y
@@ -702,7 +702,7 @@ async function getCierresByAd(adIds: string[]): Promise<Map<string, number>> {
 
 /** Todos los ad_id de Meta con métricas (para el contador de cobertura). */
 async function getAllMetaAdIds(): Promise<Set<string>> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const set = new Set<string>();
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
@@ -777,7 +777,7 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
 /** Datos para /script-analyst: TODOS los guiones analizados con sus métricas
  *  vivas de todo el histórico (sin filtro de fecha). */
 export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data: rowsData, error } = await supabase.from('script_analyses').select(VIEW_COLS);
   if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
 
@@ -820,7 +820,7 @@ export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
  *  unificada cuando se abre desde Ads Manager (que no tiene la ScriptView a mano).
  *  Devuelve null si el anuncio no está analizado o no tiene señal. */
 export async function getScriptView(adId: string): Promise<ScriptView | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('script_analyses').select(VIEW_COLS).eq('ad_id', adId).maybeSingle();
   if (error) throw new Error(`Error leyendo script_analyses: ${error.message}`);
   if (!data) return null;
@@ -845,7 +845,7 @@ export type QuadPoint = {
 
 /** Recalcula los puntos del cuadrante para una ventana (o todo, sin fechas). */
 export async function getQuadrantData(desde?: string, hasta?: string): Promise<QuadPoint[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('script_analyses')
     .select('ad_id, short, angle, angle_override, beats, dur')
@@ -1087,7 +1087,7 @@ const DRAFT_COLS = 'id, guion, short, angle, hook_type, verdicto, valoracion, cr
 
 /** Guarda un guion nuevo + su valoración. Devuelve la fila persistida. */
 export async function saveDraft(guion: string, valoracion: Valoracion): Promise<ScriptDraft> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('script_drafts')
     .insert({
@@ -1103,7 +1103,7 @@ export async function saveDraft(guion: string, valoracion: Valoracion): Promise<
 
 /** Historial de guiones valorados, más recientes primero. */
 export async function getDrafts(limit = 50): Promise<ScriptDraft[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('script_drafts')
     .select(DRAFT_COLS)
@@ -1114,7 +1114,7 @@ export async function getDrafts(limit = 50): Promise<ScriptDraft[]> {
 }
 
 export async function deleteDraft(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('script_drafts').delete().eq('id', id);
   if (error) throw new Error(`Error borrando guion: ${error.message}`);
 }
@@ -1122,7 +1122,7 @@ export async function deleteDraft(id: number): Promise<void> {
 /** Corrige a mano el ángulo de un anuncio (override que sobrevive al re-análisis).
  *  angle=null vuelve a la clasificación de la IA. Escribe SOLO angle_override. */
 export async function setAngleOverride(adId: string, angle: string | null): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('script_analyses')
     .update({ angle_override: angle && angle.trim() ? angle.trim() : null, updated_at: new Date().toISOString() })
@@ -1133,7 +1133,7 @@ export async function setAngleOverride(adId: string, angle: string | null): Prom
 /** Corrige a mano el avatar de un anuncio (override que sobrevive al re-análisis).
  *  avatar=null vuelve a la clasificación de la IA. Escribe SOLO avatar_override. */
 export async function setAvatarOverride(adId: string, avatar: string | null): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('script_analyses')
     .update({ avatar_override: avatar && avatar.trim() ? avatar.trim() : null, updated_at: new Date().toISOString() })

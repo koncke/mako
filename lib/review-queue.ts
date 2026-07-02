@@ -6,7 +6,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 
 export type ReviewItem = {
   id: number;
@@ -29,7 +29,7 @@ export async function enqueueJ2SinMatch(item: {
   fecha_evento: string | null;
   payload_resumen: unknown;
 }): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('review_queue').insert({
     tipo: 'j2_sin_match',
     email: item.email,
@@ -42,7 +42,7 @@ export async function enqueueJ2SinMatch(item: {
 
 /** Items pendientes de revisión (resuelto=false), más nuevos primero. */
 export async function listReviewPendientes(): Promise<ReviewItem[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('review_queue')
     .select('*')

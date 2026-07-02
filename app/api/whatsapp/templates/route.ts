@@ -8,10 +8,13 @@
 
 import { getApprovedTemplates } from '@/lib/chatwoot';
 import { listMetaTemplates } from '@/lib/meta-templates';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  // Fase 1: las plantillas de WhatsApp/Meta son del WABA global del dueño → vacío.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, templates: [] });
   try {
     // Meta es la fuente de verdad de las aprobadas (incluye las recién aprobadas).
     const metas = await listMetaTemplates();

@@ -5,11 +5,46 @@
 // Lo consume la vista /marketing/salud para el botón "Actualizar" (refetch del
 // lado cliente). El Semáforo de /general NO pasa por acá: llama la lib directo.
 
-import { getMetaHealth } from '@/lib/meta-health';
+import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
+// Fase 1: Meta es la integración global del dueño. Para un cliente nuevo
+// devolvemos un MetaHealth vacío y benigno (cuenta "gris"/sin conexión, sin
+// campañas) para que /marketing/salud muestre "sin conexión" en vez de romper.
+// No lleva key `error` a propósito: el cliente solo entra en estado de error si
+// la respuesta trae `error`.
+const HEALTH_SIN_CONEXION: MetaHealth = {
+  account: {
+    status: 0,
+    statusLabel: 'Sin conexión',
+    disableReason: 0,
+    disableReasonLabel: null,
+    balanceMxn: 0,
+    balanceUsd: 0,
+    amountSpentMxn: 0,
+    spendCapMxn: null,
+    isPrepay: false,
+    fundingCard: null,
+    currency: 'MXN',
+    severidad: 'gris',
+    entregaFrenada: false,
+  },
+  campaigns: [],
+  adsets: [],
+  ads: [],
+  resumen: { activos: 0, aprendizaje: 0, enRevision: 0, pausados: 0, rechazados: 0 },
+  recomendaciones: [],
+  recosMetaDisponibles: false,
+  parcial: false,
+  fetchedAtISO: new Date().toISOString(),
+};
+
 export async function GET() {
+  if (!(await esWorkspaceDueno())) {
+    return Response.json({ ...HEALTH_SIN_CONEXION, fetchedAtISO: new Date().toISOString() });
+  }
   try {
     const health = await getMetaHealth();
     return Response.json(health);

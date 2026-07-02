@@ -14,11 +14,17 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope } from '@/lib/meta-ads-create';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  // Fase 1: crear campañas escribe en la cuenta de Meta global del dueño.
+  if (!(await esWorkspaceDueno())) {
+    return Response.json({ ok: false, error: 'solo el workspace dueño' }, { status: 403 });
+  }
+
   let body: { spec?: CampaignSpec; prompt?: string; uso?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

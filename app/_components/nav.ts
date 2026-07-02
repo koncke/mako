@@ -39,6 +39,13 @@ export const ADS_MANAGER_ITEM: NavItem = { key: 'ads-manager', label: 'Ads Manag
 // MaKo va aparte, abajo del todo (arriba del perfil), siempre con su estrella dorada.
 export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', match: starts('/mako') };
 
+// Shell de administración: lo ve un admin que NO está impersonando. Sin tabs de
+// marketing — solo gestión de clientes e integraciones.
+export const ADMIN_NAV: NavItem[] = [
+  { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: starts('/admin') },
+  { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
+];
+
 // Grupos colapsables.
 export const NAV_GROUPS: NavGroup[] = [
   {

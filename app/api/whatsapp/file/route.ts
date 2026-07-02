@@ -6,9 +6,14 @@
 // Allowlist estricto al host de Chatwoot → no es un proxy abierto (evita SSRF).
 // =============================================================================
 
+import { esWorkspaceDueno } from '@/lib/workspace';
+
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  // Fase 1: los archivos viven en el Chatwoot global del dueño → otros
+  // workspaces reciben una respuesta vacía benigna (sin contenido).
+  if (!(await esWorkspaceDueno())) return new Response(null, { status: 204 });
   try {
     const raw = new URL(req.url).searchParams.get('url');
     if (!raw) return new Response('falta url', { status: 400 });

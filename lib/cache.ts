@@ -14,13 +14,16 @@
 //   - revalidate corto (60s) en datos de usuario = piso de frescura aunque
 //     faltara un tag; 600s en datos de cron.
 //
-// Seguro de cachear: getSupabaseServer usa la service_role key (no cookies/
-// headers), así que las funciones son puras respecto del request.
+// Multi-inquilino: la caché se aísla POR WORKSPACE. El workspace se resuelve
+// desde cookies FUERA de unstable_cache (adentro cookies() está prohibido) y se
+// (a) mete en la clave de caché y (b) fija en el AsyncLocalStorage para que las
+// lecturas scopeadas (getTenantDb) lo vean sin volver a leer cookies.
 // =============================================================================
 
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { cache as reactCache } from 'react';
+import { getWorkspaceActual, runWithWorkspace } from './workspace';
 
 export const TAG = {
   marketing: 'marketing',
@@ -45,7 +48,15 @@ export function cachedRead<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   opts: { tags: string[]; revalidate: number },
 ): T {
-  return reactCache(
-    unstable_cache(fn, [keyPrefix], { tags: opts.tags, revalidate: opts.revalidate }),
-  ) as T;
+  return (reactCache(async (...args: unknown[]) => {
+    const ws = await getWorkspaceActual(); // cookies OK acá (fuera de unstable_cache)
+    // El workspace entra en la clave (aísla la Data Cache por cliente) y se fija
+    // en el ALS para que fn() lo vea adentro sin tocar cookies.
+    const cached = unstable_cache(
+      (...a: unknown[]) => runWithWorkspace(ws, () => fn(...a)),
+      [keyPrefix, `ws:${ws}`],
+      { tags: opts.tags, revalidate: opts.revalidate },
+    );
+    return cached(...args);
+  }) as unknown) as T;
 }

@@ -9,6 +9,8 @@
 // y (2) el token es de tipo PÁGINA. Con un User/System-User token y el pago al
 // día, este mismo endpoint trae las recomendaciones + el opportunity score.
 
+import { esWorkspaceDueno } from '@/lib/workspace';
+
 export const dynamic = 'force-dynamic';
 
 const GRAPH = 'https://graph.facebook.com';
@@ -21,6 +23,13 @@ function num(v: unknown): number | null {
 }
 
 export async function GET() {
+  // Fase 1: Meta es la integración global del dueño. Otros workspaces reciben el
+  // shape de éxito "sin datos" (empty:true, sin recomendaciones) → el modal
+  // muestra "sin recomendaciones" en vez de romper.
+  if (!(await esWorkspaceDueno())) {
+    return Response.json({ ok: true, opportunityScore: null, recomendaciones: [], empty: true });
+  }
+
   const ver = process.env.META_API_VERSION;
   const token = process.env.META_ACCESS_TOKEN;
   const acct = process.env.META_AD_ACCOUNT_ID;

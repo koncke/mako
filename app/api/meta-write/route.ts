@@ -10,6 +10,7 @@
 // status HTTP. Requiere un token con ads_management sobre la cuenta.
 
 import type { NextRequest } from 'next/server';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,12 @@ type Body =
   | { level: 'campaign' | 'adset' | 'ad'; id: string; op: 'delete' };
 
 export async function POST(req: NextRequest) {
+  // Fase 1: escribir a Meta (pausar/activar, presupuesto, nombre, borrar) es una
+  // acción sobre la cuenta global del dueño. Solo el dueño puede mutarla.
+  if (!(await esWorkspaceDueno())) {
+    return Response.json({ ok: false, error: 'solo el workspace dueño' }, { status: 403 });
+  }
+
   const ver = process.env.META_API_VERSION;
   const token = process.env.META_ACCESS_TOKEN;
   if (!ver || !token) return Response.json({ ok: false, message: 'Meta no configurado' }, { status: 500 });

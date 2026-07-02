@@ -11,7 +11,7 @@
 // flag NUTRICION_SEND_ENABLED.
 // =============================================================================
 
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { getVslEngagementMap } from '@/lib/leads';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
@@ -69,7 +69,7 @@ function haceDiasISO(dias: number): string {
 
 // ── Secuencias ───────────────────────────────────────────────────────────────
 export async function getSecuenciasActivas(): Promise<Secuencia[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
     .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
@@ -95,7 +95,7 @@ export type SecuenciaConStats = Secuencia & { inscriptos: number; enviados: numb
 // Todas las secuencias (activas y pausadas) + conteo de inscriptos y enviados.
 // Para la tab /whatsapp. Dos queries (no N+1): trae los ids y cuenta en JS.
 export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
     .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
@@ -135,7 +135,7 @@ export async function getSecuenciasConStats(): Promise<SecuenciaConStats[]> {
 }
 
 export async function setSecuenciaActiva(id: number, activa: boolean): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('nutricion_secuencias')
     .update({ activa, updated_at: ahoraISO() })
@@ -144,7 +144,7 @@ export async function setSecuenciaActiva(id: number, activa: boolean): Promise<v
 }
 
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   // Normaliza el orden (1..n) y descarta basura.
   const limpio = pasos
     .filter((p) => p && typeof p === 'object')
@@ -169,7 +169,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
 
 // ── Cohortes: qué leads dispara cada secuencia ───────────────────────────────
 export async function leadsDeCohorte(triggerTipo: string): Promise<number[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const desde = haceDiasISO(VENTANA_DIAS);          // timestamp ISO, para created_at
   const hoy = ahoraISO().slice(0, 10);              // YYYY-MM-DD (UTC), para fechas futuras
   const fechaDesde45 = haceDiasISO(45).slice(0, 10); // YYYY-MM-DD, ventana de hitos recientes
@@ -360,7 +360,7 @@ export type PlanInscripcion = { secuencia: string; lead_id: number; proximo_envi
 
 // Devuelve los leads que se inscribirían (no escribe). Para el dry-run.
 export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   const plan: PlanInscripcion[] = [];
 
@@ -385,7 +385,7 @@ export async function planificarInscripciones(): Promise<PlanInscripcion[]> {
 
 // Persiste las inscripciones nuevas. Devuelve cuántas creó.
 export async function comprometerInscripciones(): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   let creadas = 0;
 
@@ -434,7 +434,7 @@ export type PlanEnvio = {
 };
 
 async function inscripcionesVencidas(): Promise<InscripcionVencida[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
     .select('id, lead_id, secuencia_id, paso_actual')
@@ -473,7 +473,7 @@ function dentroDeVentana(): boolean {
 }
 
 async function enviosUltimas24h(): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { count, error } = await supabase
     .from('nutricion_envios')
     .select('id', { count: 'exact', head: true })
@@ -484,7 +484,7 @@ async function enviosUltimas24h(): Promise<number> {
 }
 
 async function leadTuvoEnvioReciente(leadId: number): Promise<boolean> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const desde = haceHorasISO(HS_MIN_ENTRE_MSGS);
   // Mira los DOS logs (nutrición + broadcasts) para no contactar al mismo lead
   // dos veces en <20h aunque el otro toque haya sido un broadcast.
@@ -520,7 +520,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
   if (presupuesto <= 0) return { ...res, saltado: 'tope-diario' };
   const cupo = Math.min(MAX_POR_CORRIDA, presupuesto);
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const secuencias = await getSecuenciasActivas();
   const porId = new Map(secuencias.map((s) => [s.id, s]));
 
@@ -680,7 +680,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
 // Pausa la nutrición de un lead cuando responde (lo usará /api/webhooks/chatwoot
 // en el hito 2). Marca las inscripciones activas como 'respondio'.
 export async function pausarPorRespuesta(leadId: number): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_inscripciones')
     .update({ estado: 'respondio', proximo_envio_at: null, updated_at: ahoraISO() })

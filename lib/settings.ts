@@ -7,6 +7,13 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { getWorkspaceActual } from './workspace';
+import { OWNER_WS } from './auth-session';
+
+// app_settings es per-workspace (PK compuesta workspace_id+key). Scopeamos
+// explícito: el default es el dueño (1) para crons/sistema, que leen la config
+// de Mauricio como hasta ahora.
+const wsActual = async () => (await getWorkspaceActual()) ?? OWNER_WS;
 
 /** Valor crudo (string) de una setting, o null si no existe. */
 export async function getSetting(key: string): Promise<string | null> {
@@ -14,6 +21,7 @@ export async function getSetting(key: string): Promise<string | null> {
   const { data, error } = await supabase
     .from('app_settings')
     .select('value')
+    .eq('workspace_id', await wsActual())
     .eq('key', key)
     .maybeSingle();
   if (error) {
@@ -35,11 +43,14 @@ export async function getSettingNum(key: string): Promise<number | null> {
   return n;
 }
 
-/** Guarda (upsert) una setting. */
+/** Guarda (upsert) una setting en el workspace actual. */
 export async function setSetting(key: string, value: string): Promise<void> {
   const supabase = getSupabaseServer();
   const { error } = await supabase
     .from('app_settings')
-    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    .upsert(
+      { workspace_id: await wsActual(), key, value, updated_at: new Date().toISOString() },
+      { onConflict: 'workspace_id,key' },
+    );
   if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
 }

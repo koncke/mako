@@ -22,7 +22,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { getPromptText, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
@@ -168,7 +168,7 @@ export function preClassify(m: FathomMeeting): ClosingCategory | null {
 
 /** Trae los leads necesarios para matchear, indexados por email en minúscula. */
 export async function getLeadsByEmail(): Promise<Map<string, LeadMatch>> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio');
@@ -551,7 +551,7 @@ function analyzedRow(m: FathomMeeting, lead: LeadMatch | null, a: ClaudeAnalysis
 }
 
 async function upsertRow(row: ClosingAnalysisRow): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   // No tocamos edit_history desde el análisis/sync — solo lo manejan las
   // revisiones humanas (así un re-análisis no borra el historial de cambios).
   const { edit_history: _eh, ...rest } = row;
@@ -629,7 +629,7 @@ export async function syncClosingCalls(opts: { max?: number; timeBudgetMs?: numb
   const max = opts.max ?? DEFAULT_MAX;
   const timeBudget = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS;
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const [meetings, leadsByEmail, doneRows] = await Promise.all([
     fetchAllMeetings({ includeSummary: false }),
     getLeadsByEmail(),
@@ -740,7 +740,7 @@ function pushHistory(prev: ClosingEdit[] | null, e: ClosingEdit): ClosingEdit[] 
 /** Edición MANUAL: pisa scores de dimensiones / outcome / resumen y recalcula el
  *  puntaje final como promedio de las dimensiones. Registra el cambio. */
 export async function reviseAnalysis(recordingId: number, input: ReviseManualInput): Promise<{ score: number | null }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('closing_analyses')
     .select('score, dims, outcome, outcome_tone, summary, next_step, edit_history')
@@ -782,7 +782,7 @@ export async function reviseAnalysis(recordingId: number, input: ReviseManualInp
 /** Re-evaluación CON MaKo: re-corre el análisis pasándole el comentario del
  *  revisor; pisa el análisis y registra el cambio (conservando el historial). */
 export async function reviseWithMako(recordingId: number, note: string, autor?: string): Promise<{ score: number | null }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data: prev } = await supabase
     .from('closing_analyses').select('score, edit_history').eq('recording_id', recordingId).maybeSingle();
   const prevScore = prev?.score == null ? null : Number(prev.score);
@@ -850,7 +850,7 @@ function avg(nums: number[]): number | null {
 
 /** Datos para /closing: las llamadas de venta analizadas + contadores + KPIs. */
 export async function getClosingViewData(): Promise<ClosingViewData> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const [ventasRes, allRes] = await Promise.all([
     supabase
       .from('closing_analyses')

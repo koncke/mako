@@ -8,7 +8,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import type { MetaAccountHealth } from './meta-health';
 
 export type MetaEstadoHist = {
@@ -27,7 +27,7 @@ export type MetaEstadoHist = {
 export async function registrarEstadoMeta(h: MetaAccountHealth): Promise<void> {
   try {
     if (h.severidad === 'verde' && !h.entregaFrenada) return;
-    const supabase = getSupabaseServer();
+    const supabase = (await getTenantDb());
     const { data: last } = await supabase
       .from('meta_health_history')
       .select('severidad, status_label, entrega_frenada')
@@ -51,7 +51,7 @@ export async function registrarEstadoMeta(h: MetaAccountHealth): Promise<void> {
 
 export async function getHistorialMeta(limit = 20): Promise<MetaEstadoHist[]> {
   try {
-    const supabase = getSupabaseServer();
+    const supabase = (await getTenantDb());
     const { data, error } = await supabase
       .from('meta_health_history')
       .select('*')

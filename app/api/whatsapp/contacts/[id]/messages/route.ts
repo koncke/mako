@@ -10,6 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getContactMessages, sendToContact, sendTemplateToContact, contactoEnInboxWA } from '@/lib/chatwoot';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,8 @@ async function bloquearSiFueraDelInbox(contactId: number): Promise<Response | nu
 }
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  // Fase 1: el inbox de WhatsApp es global del dueño → otros workspaces vacío.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: true, mensajes: [] });
   const { id } = await ctx.params;
   const contactId = Number(id);
   if (!Number.isFinite(contactId)) {
@@ -46,6 +49,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 }
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  // Fase 1: enviar por WhatsApp escribe sobre la integración global del dueño.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   const { id } = await ctx.params;
   const contactId = Number(id);
   if (!Number.isFinite(contactId)) {

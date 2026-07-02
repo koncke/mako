@@ -10,6 +10,7 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/transcribe';
 import { getPromptText } from '@/lib/prompt-render';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 /** Resuelve los prompts editables de transcripción (override o default). */
 async function resolveTranscribePrompts() {
@@ -30,6 +31,13 @@ export async function POST(req: NextRequest) {
   const adId = body.ad_id;
   const instruccion = (body.instruccion ?? '').slice(0, 1000);
   if (!adId || !/^\d+$/.test(adId)) return Response.json({ error: 'ad_id inválido' }, { status: 400 });
+
+  // Fase 1: la transcripción usa las métricas/creativos de Meta globales del dueño.
+  // Para otros workspaces devolvemos la MISMA forma de éxito pero "sin datos" (sin
+  // tocar Meta/OpenAI ni la DB), para no romper el modal que la consume.
+  if (!(await esWorkspaceDueno())) {
+    return Response.json({ status: 'sin_video', tipo: null, transcript: null, secciones: null, idioma: null, duracion_s: null, instruccion: instruccion || null, error: null });
+  }
 
   const supabase = getSupabaseServer();
 

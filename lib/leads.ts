@@ -6,7 +6,8 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb, getWorkspaceActual } from './workspace';
+import { OWNER_WS } from './auth-session';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS } from './pipeline';
@@ -194,7 +195,7 @@ const LISTA_COLS =
 
 export const listLeads = cachedRead('listLeads', _listLeads, { tags: [TAG.leads], revalidate: TTL.user });
 async function _listLeads(): Promise<Lead[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select(LISTA_COLS)
@@ -207,7 +208,7 @@ async function _listLeads(): Promise<Lead[]> {
  * Obtiene UN lead por su id.
  */
 export async function getLead(id: number): Promise<Lead | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .select('*')
@@ -228,7 +229,7 @@ export async function createLead(input: LeadCreateInput): Promise<Lead> {
   if (!input.nombre || !input.nombre.trim()) {
     throw new Error('Nombre es requerido');
   }
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
     .insert({
@@ -258,7 +259,7 @@ export async function updateLead(
   id: number,
   input: LeadUpdateInput,
 ): Promise<Lead> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Trae el lead actual para mergear estado y validar transiciones
   const actual = await getLead(id);
@@ -408,7 +409,7 @@ export async function updateLead(
  * Borra un lead. Hard delete — no hay soft delete en el esquema actual.
  */
 export async function deleteLead(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('leads').delete().eq('id', id);
   if (error) throw new Error(`Error borrando lead ${id}: ${error.message}`);
 }
@@ -458,7 +459,7 @@ export async function upsertLeadFromMeta(input: {
     throw new Error('Nombre es requerido en lead de Meta');
   }
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // 1) Idempotencia: ¿ya procesamos este leadgen_id? (reintento de Meta)
   const { data: porLeadId, error: leadIdErr } = await supabase
@@ -558,7 +559,7 @@ export async function findLeadByContacto(
   email: string | null,
   telefono: string | null,
 ): Promise<Lead | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const telNorm = normalizarTelefono(telefono);
   if (telNorm) {
     const { data, error } = await supabase
@@ -587,7 +588,7 @@ export async function findLeadByContacto(
  * Nunca toca otros campos.
  */
 export async function setFechaJunta2(leadId: number, fechaJ2: string): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('leads')
     .update({ fecha_junta_2: fechaJ2 })
@@ -601,7 +602,7 @@ export async function setFechaJunta2(leadId: number, fechaJ2: string): Promise<v
  * override de etapa para que el lead avance por derivación (p.ej. R2 asistida → Facturando).
  */
 export async function setMeetingManual(leadId: number, which: 'agenda' | 'agendaj2', fecha: string, asistio: boolean | null): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const patch: Record<string, unknown> = { pipeline_stage: null };
   if (which === 'agenda') { patch.fecha_junta_1 = fecha; if (asistio != null) patch.asistio_j1 = asistio; }
   else { patch.fecha_junta_2 = fecha; if (asistio != null) patch.asistio_j2 = asistio; }
@@ -622,7 +623,7 @@ export async function applyFathomRecording(
   shareUrl: string | null,
   attended: boolean | null,
 ): Promise<{ markedAsistencia: boolean; addedLink: boolean }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const patch: Record<string, unknown> = {};
   const asistField = which === 'j1' ? 'asistio_j1' : 'asistio_j2';
   const yaMarcado = which === 'j1' ? lead.asistio_j1 : lead.asistio_j2;
@@ -681,7 +682,7 @@ export async function logLeadChanges(leadId: number, before: Lead | null, after:
   });
   if (!rows.length) return;
   try {
-    const { error } = await getSupabaseServer().from('lead_audit').insert(rows);
+    const { error } = await (await getTenantDb()).from('lead_audit').insert(rows);
     if (error) console.error(`[audit] insert falló: ${error.message}`);
   } catch (e) {
     console.error('[audit] insert excepción', e);
@@ -691,7 +692,7 @@ export async function logLeadChanges(leadId: number, before: Lead | null, after:
 /** Registra un evento suelto en el historial (ej. el motivo de una nutrición manual). */
 export async function logLeadEvent(leadId: number, campo: string, valor: string, autor = 'CRM'): Promise<void> {
   try {
-    const { error } = await getSupabaseServer().from('lead_audit').insert([{ lead_id: leadId, campo, valor_anterior: null, valor_nuevo: valor, autor }]);
+    const { error } = await (await getTenantDb()).from('lead_audit').insert([{ lead_id: leadId, campo, valor_anterior: null, valor_nuevo: valor, autor }]);
     if (error) console.error(`[audit] event falló: ${error.message}`);
   } catch (e) {
     console.error('[audit] event excepción', e);
@@ -701,7 +702,7 @@ export async function logLeadEvent(leadId: number, campo: string, valor: string,
 /** Historial de cambios de un lead (más reciente primero). Vacío si la tabla no existe. */
 export async function getLeadAudit(leadId: number): Promise<LeadAuditRow[]> {
   try {
-    const { data, error } = await getSupabaseServer()
+    const { data, error } = await (await getTenantDb())
       .from('lead_audit')
       .select('id, campo, valor_anterior, valor_nuevo, autor, created_at')
       .eq('lead_id', leadId)
@@ -740,7 +741,7 @@ export async function cancelarJuntaEnLead(
   }
   if (!campo) return 'fecha cancelada no coincide con R1/R2 — sin cambios';
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('leads')
     .update({ [campo]: null })
@@ -802,7 +803,7 @@ export async function upsertLeadFromCalendly(
   const telNorm = normalizarTelefono(input.telefono);
   const soloVacios = opts?.soloCompletarVacios ?? false;
 
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   // Match 4B-bis: primero por teléfono normalizado (la señal más confiable
   // — la comparte con el instant form de Meta), después por email.
@@ -1003,7 +1004,7 @@ export function labelMadurez(estado: EstadoMadurez): { emoji: string; label: str
  */
 export async function contarVslPlays(visitorId: string | null): Promise<number> {
   if (!visitorId) return 0;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { count, error } = await supabase
     .from('vsl_events')
     .select('id', { count: 'exact', head: true })
@@ -1028,7 +1029,7 @@ export type VslEngagement = { plays: number; max_pct: number | null; sin_datos: 
 
 export async function getVslEngagement(visitorId: string | null): Promise<VslEngagement> {
   if (!visitorId) return { plays: 0, max_pct: null, sin_datos: true };
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('vsl_events')
     .select('tipo_evento, porcentaje, event')
@@ -1055,7 +1056,7 @@ export async function getVslEngagementMap(
   const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
   const map = new Map<string, VslEngagement>();
   if (ids.length === 0) return map;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('vsl_events')
     .select('visitor_id, tipo_evento, porcentaje, event')
@@ -1099,11 +1100,12 @@ function buildFunnel(pipeline: Stage[], suppressed: string[]): FunnelConfig {
 
 export async function getFunnel(): Promise<FunnelConfig> {
   try {
-    const supabase = getSupabaseServer();
+    const supabase = (await getTenantDb());
+    const ws = (await getWorkspaceActual()) ?? OWNER_WS;
     const { data, error } = await supabase
       .from('funnel_config')
       .select('data')
-      .eq('id', 1)
+      .eq('workspace_id', ws)
       .maybeSingle();
     if (error || !data || !data.data) return buildFunnel(DEFAULT_PIPELINE, []);
     const cfg = data.data as { pipeline?: Stage[]; suppressed?: string[] };
@@ -1115,12 +1117,16 @@ export async function getFunnel(): Promise<FunnelConfig> {
   }
 }
 
-/** Guarda la config del funnel (upsert id=1): solo pipeline + suprimidas. */
+/** Guarda la config del funnel del workspace actual (una fila por workspace). */
 export async function saveFunnel(pipeline: Stage[], suppressed: string[]): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
   const { error } = await supabase
     .from('funnel_config')
-    .upsert({ id: 1, data: { pipeline, suppressed }, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+    .upsert(
+      { id: ws, workspace_id: ws, data: { pipeline, suppressed }, updated_at: new Date().toISOString() },
+      { onConflict: 'workspace_id' },
+    );
   if (error) throw new Error(`Error guardando el funnel: ${error.message}`);
 }
 
@@ -1144,7 +1150,7 @@ export async function setPipelineStage(
   stageKey: string,
   opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null; deadline?: string | null },
 ): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const estado = terminalEstadoFor(stageKey);
 
   // 1) Guardar el override de la columna del tablero. El deadline de nutrición
@@ -1209,12 +1215,12 @@ export async function setBoardStageOverride(id: number, stageKey: string, deadli
     nutricion_manual_deadline: stageKey === 'manual' ? (deadline ?? null) : null,
   };
   if (NUTRI_KEYS.includes(stageKey)) patch.nutricion_realizada = true;
-  const { error } = await getSupabaseServer().from('leads').update(patch).eq('id', id);
+  const { error } = await (await getTenantDb()).from('leads').update(patch).eq('id', id);
   if (error) throw new Error(`Error guardando etapa del lead ${id}: ${error.message}`);
 }
 
 export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const payload: Record<string, unknown> = {};
   if (meta.closer !== undefined) payload.closer = meta.closer;
   if (meta.setter !== undefined) payload.setter = meta.setter;
@@ -1265,7 +1271,7 @@ function resumirVisitas(rows: Array<{ created_at: string }>): VisitasLanding {
  */
 export async function contarVisitasLanding(visitorId: string | null): Promise<VisitasLanding> {
   if (!visitorId) return { ...SIN_VISITAS };
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('landing_visits')
     .select('created_at')
@@ -1287,7 +1293,7 @@ export async function getVisitasLandingMap(
   const ids = [...new Set(visitorIds.filter((v): v is string => !!v))];
   const out = new Map<string, VisitasLanding>();
   if (ids.length === 0) return out;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('landing_visits')
     .select('visitor_id, created_at')

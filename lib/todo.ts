@@ -8,7 +8,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 
 export type EstadoTarea = 'por_hacer' | 'en_curso' | 'hecho';
 export type Prioridad = 'alta' | 'media' | 'baja' | 'futuro';
@@ -68,7 +68,7 @@ const catsOk = (c: unknown): number[] =>
   Array.isArray(c) ? c.map(Number).filter((n) => Number.isFinite(n)) : [];
 
 export async function listTareas(): Promise<Tarea[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('experimento_tareas')
     .select(COLS)
@@ -93,7 +93,7 @@ export type NuevaTarea = {
 
 /** Orden para el tope de una columna (las nuevas entran arriba). */
 async function ordenTope(estado: EstadoTarea): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data } = await supabase
     .from('experimento_tareas')
     .select('orden')
@@ -120,7 +120,7 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     orden: await ordenTope(estado),
     updated_at: new Date().toISOString(),
   };
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').insert(fila).select(COLS).single();
   if (error) throw new Error(`crearTarea: ${error.message}`);
   return rowTo(data);
@@ -151,7 +151,7 @@ export async function crearTareasDesde(
     updated_at: new Date().toISOString(),
   }));
   if (!filas.length) return 0;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('experimento_tareas').insert(filas);
   if (error) throw new Error(`crearTareasDesde: ${error.message}`);
   return filas.length;
@@ -167,7 +167,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
     updated_at: new Date().toISOString(),
   };
   if (est === 'hecho') patch.progreso = 100;
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single();
   if (error) throw new Error(`moverTarea: ${error.message}`);
   return rowTo(data);
@@ -186,14 +186,14 @@ export async function editarTarea(
   if (patch.progreso != null) upd.progreso = clampPct(patch.progreso);
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);
   return rowTo(data);
 }
 
 export async function borrarTarea(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('experimento_tareas').delete().eq('id', id);
   if (error) throw new Error(`borrarTarea: ${error.message}`);
 }
@@ -205,14 +205,14 @@ export async function borrarTarea(id: number): Promise<void> {
 const catRow = (r: Record<string, unknown>): Categoria => r as unknown as Categoria;
 
 export async function listCategorias(): Promise<Categoria[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias').select('*').order('created_at', { ascending: true });
   if (error) throw new Error(`listCategorias: ${error.message}`);
   return (data ?? []).map(catRow);
 }
 
 export async function crearCategoria(nombre: string, color: string): Promise<Categoria> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
     .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2' })
     .select('*').single();
@@ -222,7 +222,7 @@ export async function crearCategoria(nombre: string, color: string): Promise<Cat
 
 /** Borra la categoría y la quita de todas las tareas que la tenían. */
 export async function borrarCategoria(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data: conCat } = await supabase.from('experimento_tareas').select('id, categorias').contains('categorias', [id]);
   await Promise.all((conCat ?? []).map((t) => {
     const cats = catsOk((t as { categorias: unknown }).categorias).filter((c) => c !== id);

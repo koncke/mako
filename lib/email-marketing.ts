@@ -9,7 +9,7 @@
 // El envío real queda detrás de EMAIL_SEND_ENABLED (igual que el resto): si está
 // apagado, los broadcasts se registran 'simulado' y no se manda nada.
 
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, EMAIL_SEND_ENABLED, remitenteEsSandbox } from '@/lib/resend';
@@ -40,7 +40,7 @@ const pct = (num: number, den: number): number => (den > 0 ? Math.round((num / d
 // Junta los eventos de email de los dos orígenes (nutrición + broadcasts) en un
 // arreglo común {created_at, estado, abierto_at, clic_at} para los KPIs.
 async function emailEventos(desdeISO?: string): Promise<Array<{ created_at: string; estado: string; abierto_at: string | null; clic_at: string | null }>> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   let q1 = supabase.from('nutricion_envios')
     .select('created_at, estado, abierto_at, clic_at')
     .eq('canal', 'email');
@@ -59,7 +59,7 @@ async function emailEventos(desdeISO?: string): Promise<Array<{ created_at: stri
 const esEnviado = (estado: string) => estado === 'enviado' || estado === 'simulado';
 
 export async function getEmailKpis(): Promise<EmailKpi[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const inicioMes = new Date(); inicioMes.setUTCDate(1); inicioMes.setUTCHours(0, 0, 0, 0);
   const inicioMesISO = inicioMes.toISOString();
 
@@ -98,7 +98,7 @@ export type EmailSecuencia = {
 };
 
 export async function getEmailSecuencias(): Promise<EmailSecuencia[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('nutricion_secuencias')
     .select('id, clave, nombre, etapa, trigger_tipo, activa, pasos')
@@ -147,7 +147,7 @@ export async function getEmailSecuencias(): Promise<EmailSecuencia[]> {
 
 // Crea una secuencia de email nueva (pausada) con un paso vacío.
 export async function crearEmailSecuencia(nombre: string, etapa: string, trigger: string): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const clave = `email-${Date.now().toString(36)}`;
   const pasoInicial: PasoSecuencia = { orden: 1, canal: 'email', delay_horas: 0, asunto: '', preheader: '', cuerpo: '', template_wa: null };
   const { data, error } = await supabase
@@ -162,7 +162,7 @@ export async function crearEmailSecuencia(nombre: string, etapa: string, trigger
 // Actualiza metadata de una secuencia (nombre / etapa / trigger). Solo toca los
 // campos provistos.
 export async function actualizarMetaEmailSecuencia(id: number, patch: { nombre?: string; etapa?: string; trigger_tipo?: string }): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const upd: Record<string, unknown> = { updated_at: ahoraISO() };
   if (typeof patch.nombre === 'string') upd.nombre = patch.nombre;
   if (typeof patch.etapa === 'string' && patch.etapa) upd.etapa = patch.etapa;
@@ -245,7 +245,7 @@ function filtroSegmento<T extends LeadFilter>(q: T, segmento: string): T {
 
 // Resuelve los leads de un segmento (siempre con email y sin opt-out).
 export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const q = supabase.from('leads').select('id, nombre, email, empresa');
   const { data, error } = await filtroSegmento(q as unknown as LeadFilter, segmento as string) as unknown as { data: unknown; error: { message: string } | null };
   if (error) throw new Error(`leadsDeSegmento: ${error.message}`);
@@ -255,7 +255,7 @@ export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> 
 }
 
 export async function contarSegmento(segmento: string): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const q = supabase.from('leads').select('id', { count: 'exact', head: true });
   const { count, error } = await filtroSegmento(q as unknown as LeadFilter, segmento) as unknown as { count: number | null; error: { message: string } | null };
   if (error) throw new Error(`contarSegmento: ${error.message}`);
@@ -276,7 +276,7 @@ export type Broadcast = {
 };
 
 export async function getBroadcasts(): Promise<Broadcast[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('email_broadcasts')
     .select('id, asunto, preheader, cuerpo, segmento, estado, programado_at, enviado_at, total_destinatarios, created_at')
@@ -302,7 +302,7 @@ export async function getBroadcasts(): Promise<Broadcast[]> {
 }
 
 export async function crearBroadcast(input: { asunto?: string; preheader?: string; cuerpo?: string; segmento?: string }): Promise<number> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('email_broadcasts')
     .insert({
@@ -319,7 +319,7 @@ export async function crearBroadcast(input: { asunto?: string; preheader?: strin
 }
 
 export async function actualizarBroadcast(id: number, patch: { asunto?: string; preheader?: string | null; cuerpo?: string; segmento?: string; programado_at?: string | null; estado?: string }): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const upd: Record<string, unknown> = { updated_at: ahoraISO() };
   if (patch.asunto !== undefined) upd.asunto = patch.asunto;
   if (patch.preheader !== undefined) upd.preheader = patch.preheader;
@@ -332,14 +332,14 @@ export async function actualizarBroadcast(id: number, patch: { asunto?: string; 
 }
 
 export async function eliminarBroadcast(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('email_broadcasts').delete().eq('id', id);
   if (error) throw new Error(`eliminarBroadcast: ${error.message}`);
 }
 
 // Envía un email de prueba del broadcast a una dirección (no toca el estado).
 export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Promise<{ ok: boolean; error?: string }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('email_broadcasts').select('asunto, preheader, cuerpo').eq('id', id).single();
   if (error) return { ok: false, error: error.message };
   const b = data as { asunto: string; preheader: string | null; cuerpo: string };
@@ -363,7 +363,7 @@ export type ResultadoBroadcast = { ok: boolean; enviados: number; simulados: num
 // lead_ids que ya recibieron un email (nutrición o broadcast) en las últimas N
 // horas → para no contactarlos de nuevo con un broadcast (guard anti-spam).
 async function leadsContactadosRecientemente(): Promise<Set<number>> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const desde = new Date(Date.now() - GUARD_HORAS * 3600 * 1000).toISOString();
   const [nutri, bcast] = await Promise.all([
     supabase.from('nutricion_envios').select('lead_id').eq('canal', 'email').in('estado', ['enviado', 'simulado']).gte('created_at', desde),
@@ -380,7 +380,7 @@ async function leadsContactadosRecientemente(): Promise<Set<number>> {
 // está apagado, registra 'simulado' (no manda nada real). Saltea leads contactados
 // en las últimas 20h (anti-spam). Un segmento vacío NO se marca enviado.
 export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const vacio = (error?: string): ResultadoBroadcast => ({ ok: false, enviados: 0, simulados: 0, fallos: 0, saltados: 0, total: 0, error });
   const { data, error } = await supabase
     .from('email_broadcasts')
@@ -457,7 +457,7 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
 
 // Procesa los broadcasts programados que ya vencieron (lo llama el cron).
 export async function procesarBroadcastsProgramados(): Promise<{ procesados: number; detalle: ResultadoBroadcast[] }> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('email_broadcasts')
     .select('id')
@@ -473,7 +473,7 @@ export async function procesarBroadcastsProgramados(): Promise<{ procesados: num
 // ── Webhook de Resend: marca abierto/clic/rebote por proveedor_id ─────────────
 // Busca el envío en los dos orígenes (nutrición + broadcasts) y actualiza.
 export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic', whenISO: string): Promise<boolean> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const col = tipo === 'abierto' ? 'abierto_at' : 'clic_at';
   let tocado = false;
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
@@ -490,7 +490,7 @@ export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | '
 
 // Rebote/queja → además de loguear, da de baja al lead (supresión).
 export async function suprimirPorRebote(proveedorId: string): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   // Encontrar el lead por el proveedor_id en cualquiera de los dos logs.
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
     const { data } = await supabase.from(tabla).select('lead_id').eq('proveedor_id', proveedorId).limit(1);

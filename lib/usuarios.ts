@@ -22,9 +22,11 @@ export type Usuario = {
   invitado_por: string | null;
   ultimo_login: string | null;
   created_at: string;
+  /** workspace al que pertenece (null para admins que cruzan workspaces). */
+  workspace_id: number | null;
 };
 
-const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at';
+const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id';
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   const { data, error } = await getSupabaseServer()
@@ -41,7 +43,7 @@ export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | nu
 }
 
 export async function crearUsuario(u: {
-  email: string; nombre?: string; rol?: Rol; estado?: EstadoUsuario; invitado_por?: string | null;
+  email: string; nombre?: string; rol?: Rol; estado?: EstadoUsuario; invitado_por?: string | null; workspace_id?: number | null;
 }): Promise<Usuario> {
   const { data, error } = await getSupabaseServer()
     .from('usuarios')
@@ -51,6 +53,7 @@ export async function crearUsuario(u: {
       rol: u.rol ?? 'usuario',
       estado: u.estado ?? 'invitado',
       invitado_por: u.invitado_por ?? null,
+      workspace_id: u.workspace_id ?? null,
     })
     .select(COLS).single();
   if (error) throw new Error(`usuarios: ${error.message}`);
@@ -59,7 +62,7 @@ export async function crearUsuario(u: {
 
 export async function actualizarUsuario(
   id: number,
-  patch: Partial<Pick<Usuario, 'nombre' | 'rol' | 'estado' | 'foto_url'>>,
+  patch: Partial<Pick<Usuario, 'nombre' | 'rol' | 'estado' | 'foto_url' | 'workspace_id'>>,
 ): Promise<Usuario> {
   const { data, error } = await getSupabaseServer()
     .from('usuarios')

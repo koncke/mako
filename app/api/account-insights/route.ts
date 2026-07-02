@@ -8,6 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,12 @@ export async function GET(req: NextRequest) {
   const desde = req.nextUrl.searchParams.get('desde');
   const hasta = req.nextUrl.searchParams.get('hasta');
   if (!isISO(desde) || !isISO(hasta)) return Response.json({ error: 'fechas inválidas' }, { status: 400 });
+
+  // Fase 1: Meta es la integración global del dueño. Otros workspaces reciben el
+  // mismo shape de éxito pero con desgloses vacíos (sin key `error`).
+  if (!(await esWorkspaceDueno())) {
+    return Response.json({ demograficos: [], plataformas: [], regiones: [] });
+  }
 
   const ver = process.env.META_API_VERSION;
   const token = process.env.META_ACCESS_TOKEN;

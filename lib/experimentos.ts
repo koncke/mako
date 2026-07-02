@@ -21,7 +21,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { getPromptText, renderPrompt } from './prompt-render';
 import { getMarketingWindow, type MarketingWindow } from './queries';
@@ -308,14 +308,14 @@ function rowToExp(r: Record<string, unknown>): Experimento {
 }
 
 export async function listExperimentos(): Promise<Experimento[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimentos').select(COLS).order('created_at', { ascending: false });
   if (error) throw new Error(`listExperimentos: ${error.message}`);
   return (data ?? []).map(rowToExp);
 }
 
 export async function getExperimento(id: number): Promise<Experimento | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimentos').select(COLS).eq('id', id).maybeSingle();
   if (error) throw new Error(`getExperimento: ${error.message}`);
   return data ? rowToExp(data) : null;
@@ -374,7 +374,7 @@ function sanea(input: NuevoExperimento) {
 /** Crea un experimento. Si arranca, mide el baseline en la ventana previa al inicio. */
 export async function crearExperimento(input: NuevoExperimento): Promise<Experimento> {
   const { def, ventana } = sanea(input);
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const arrancar = input.arrancar ?? true;
 
   const fila: Record<string, unknown> = {
@@ -422,7 +422,7 @@ export async function iniciarExperimento(id: number): Promise<Experimento> {
   const baselineHasta = diasAntes(inicio, 1);
   const baselineDesde = diasAntes(inicio, ventana);
   const baseline = await medirVentana(exp.metrica, baselineDesde, baselineHasta);
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimentos').update({
     estado: 'activo',
     fecha_inicio: inicio,
@@ -437,14 +437,14 @@ export async function iniciarExperimento(id: number): Promise<Experimento> {
 }
 
 export async function descartarExperimento(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('experimentos')
     .update({ estado: 'descartado', updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw new Error(`descartarExperimento: ${error.message}`);
 }
 
 export async function eliminarExperimento(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('experimentos').delete().eq('id', id);
   if (error) throw new Error(`eliminarExperimento: ${error.message}`);
 }
@@ -678,7 +678,7 @@ export async function cerrarExperimento(id: number): Promise<Experimento> {
   }
 
   const config = { ...(exp.config ?? {}), serie_cierre: med?.serie ?? [] };
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimentos').update({
     estado: 'cerrado',
     veredicto,

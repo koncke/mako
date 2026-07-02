@@ -10,7 +10,7 @@
 // muestra 0% ni dispara cuello de botella — muestra "fuente pendiente".
 // =============================================================================
 
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 
 export type SourceStatus = 'ok' | 'stale' | 'off';
 
@@ -30,7 +30,7 @@ function diasDesde(fecha: string | null): number | null {
 }
 
 export async function getDataSources(): Promise<DataSource[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
 
   const [metaRes, pandaRes, beaconRes, metaLeadRes, calendlyRes] = await Promise.all([
     supabase

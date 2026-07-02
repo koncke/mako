@@ -17,6 +17,7 @@ import {
 import { origenCredencial } from '@/lib/credenciales';
 import { SERVICIOS_METODO } from '@/lib/metodo-catalogo';
 import { getAnswers, getSchema } from '@/lib/onboarding';
+import { listarWorkspaces } from '@/lib/workspace';
 import type { Rol } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
@@ -55,10 +56,13 @@ export async function GET() {
   const admin = await getSesionAdmin();
   if (!admin) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
   try {
-    const [usuarios, perfilNegocio] = await Promise.all([listarUsuarios(), resumenPerfilNegocio()]);
+    const [usuarios, workspaces, perfilNegocio] = await Promise.all([
+      listarUsuarios(), listarWorkspaces(), resumenPerfilNegocio(),
+    ]);
     return NextResponse.json({
       ok: true,
       usuarios,
+      workspaces,
       resumen: { integraciones: resumenIntegraciones(), perfilNegocio },
       // Solo la cookie compartida real dispara el aviso "sesión vieja" — no la
       // sesión dev-admin de local (sub 'dev'), que también lleva legacy:true.
@@ -76,6 +80,7 @@ type Body = {
   nombre?: string;
   rol?: Rol;
   estado?: EstadoUsuario;
+  workspace_id?: number | null;
 };
 
 // true si tocar (bajar de rol / suspender / borrar) a este usuario dejaría el
@@ -109,8 +114,16 @@ export async function POST(req: NextRequest) {
         }
         const rol: Rol = body.rol === 'admin' ? 'admin' : 'usuario';
         const invitadoPor = admin.legacy ? 'admin' : (admin.email || 'admin');
-        const nuevo = await crearUsuario({ email, nombre: body.nombre, rol, invitado_por: invitadoPor });
+        // Un usuario (no admin) tiene que pertenecer a un workspace.
+        const wsId = typeof body.workspace_id === 'number' ? body.workspace_id : null;
+        const nuevo = await crearUsuario({ email, nombre: body.nombre, rol, invitado_por: invitadoPor, workspace_id: rol === 'admin' ? null : wsId });
         return NextResponse.json({ ok: true, usuario: nuevo });
+      }
+
+      case 'workspace': {
+        if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
+        const wsId = typeof body.workspace_id === 'number' ? body.workspace_id : null;
+        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { workspace_id: wsId }) });
       }
 
       case 'nombre': {

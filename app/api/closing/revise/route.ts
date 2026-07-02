@@ -10,11 +10,14 @@
 
 import type { NextRequest } from 'next/server';
 import { reviseAnalysis, reviseWithMako, type ReviseManualInput, type Tone } from '@/lib/closing';
+import { esWorkspaceDueno } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
+  // Fase 1: revisar pisa análisis de las llamadas del Fathom global del dueño → solo él.
+  if (!(await esWorkspaceDueno())) return Response.json({ ok: false, error: 'solo el workspace dueño (Fase 1)' }, { status: 403 });
   let body: { recording_id?: number | string; mode?: string; note?: string } & ReviseManualInput;
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 

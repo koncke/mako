@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { getWabaConfig } from '@/lib/chatwoot';
 
 export type TemplateButton =
@@ -74,7 +74,7 @@ function rowToDraft(r: DraftRow): TemplateDraft {
 
 // ── CRUD de borradores ───────────────────────────────────────────────────────
 export async function listDrafts(opts: { status?: string; etapa?: string } = {}): Promise<TemplateDraft[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   let q = supabase.from('whatsapp_template_drafts').select('*').order('updated_at', { ascending: false });
   if (opts.status) q = q.eq('status', opts.status);
   if (opts.etapa) q = q.eq('etapa', opts.etapa);
@@ -84,7 +84,7 @@ export async function listDrafts(opts: { status?: string; etapa?: string } = {})
 }
 
 export async function getDraft(id: number): Promise<TemplateDraft | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('whatsapp_template_drafts').select('*').eq('id', id).maybeSingle();
   if (error) throw new Error(`getDraft: ${error.message}`);
   return data ? rowToDraft(data as DraftRow) : null;
@@ -93,7 +93,7 @@ export async function getDraft(id: number): Promise<TemplateDraft | null> {
 // Crea o actualiza un borrador. No toca el status si ya existe (eso lo manejan
 // submit / setDraftStatus) salvo que se pida explícito.
 export async function upsertDraft(d: TemplateDraft): Promise<TemplateDraft> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const base = {
     name: d.name.trim(),
     language: d.language || 'es_MX',
@@ -121,7 +121,7 @@ export async function upsertDraft(d: TemplateDraft): Promise<TemplateDraft> {
 }
 
 export async function deleteDraft(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('whatsapp_template_drafts').delete().eq('id', id);
   if (error) throw new Error(`deleteDraft: ${error.message}`);
 }
@@ -131,7 +131,7 @@ export async function setDraftStatus(
   status: TemplateStatus,
   extra: { meta_template_id?: string | null; rejection_reason?: string | null } = {},
 ): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if ('meta_template_id' in extra) patch.meta_template_id = extra.meta_template_id ?? null;
   if ('rejection_reason' in extra) patch.rejection_reason = extra.rejection_reason ?? null;
@@ -405,14 +405,14 @@ export async function deleteMetaTemplate(name: string): Promise<{ ok: boolean; e
 }
 
 export async function deleteDraftByName(name: string): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   await supabase.from('whatsapp_template_drafts').delete().eq('name', name);
 }
 
 // Tras editar en Meta una plantilla que TAMBIÉN tiene fila local: dejarla en
 // pending (idempotente; si no hay fila no hace nada).
 export async function markDraftPendingByName(name: string, language: string): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   await supabase
     .from('whatsapp_template_drafts')
     .update({ status: 'pending', rejection_reason: null, updated_at: new Date().toISOString() })

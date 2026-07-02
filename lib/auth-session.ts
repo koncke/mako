@@ -24,12 +24,18 @@ export type Sesion = {
   exp: number;
   /** true si vino de la cookie compartida vieja o del gate sin configurar. */
   legacy?: boolean;
+  /** workspace del usuario (multi-inquilino). null = admin sin workspace propio. */
+  ws?: number | null;
 };
 
 export const SESSION_COOKIE = 'mako_session';
 export const LEGACY_COOKIE = 'mako_auth';
 export const EMAIL_COOKIE = 'mako_email';
+/** Cookie de impersonación: workspace que un admin está "viendo como". Firmada. */
+export const IMPERSONATE_COOKIE = 'mako_ws';
 export const SESSION_DIAS = 30;
+/** Workspace dueño: contiene todos los datos previos al multi-inquilino. */
+export const OWNER_WS = 1;
 
 /** Secret de firma. En prod existe AUTH_COOKIE_VALUE (el gate lo exige). */
 function secret(): string | null {
@@ -96,4 +102,29 @@ export function verificarToken(token: string | undefined | null): Sesion | null 
   } catch {
     return null;
   }
+}
+
+// ── Impersonación (admin "entra como" un cliente) ────────────────────────────
+// Valor firmado `w1.<wsId>.<firma>` en la cookie mako_ws. Solo lo setea un
+// endpoint admin; getWorkspaceActual lo honra únicamente para sesiones admin.
+
+export function firmarImpersonacion(wsId: number): string | null {
+  const sec = secret();
+  if (!sec) return null;
+  const body = String(wsId);
+  return `w1.${body}.${firmar(body, sec)}`;
+}
+
+export function leerImpersonacion(cookie: string | undefined | null): number | null {
+  if (!cookie) return null;
+  const sec = secret();
+  if (!sec) return null;
+  const partes = cookie.split('.');
+  if (partes.length !== 3 || partes[0] !== 'w1') return null;
+  const [, body, firma] = partes;
+  const a = Buffer.from(firma);
+  const b = Buffer.from(firmar(body, sec));
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const ws = Number(body);
+  return Number.isInteger(ws) && ws > 0 ? ws : null;
 }

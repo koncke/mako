@@ -13,7 +13,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getSupabaseServer } from './supabase';
+import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { getPromptText, renderPrompt } from './prompt-render';
 import { getMarketingWindow, type MarketingWindow } from './queries';
@@ -298,7 +298,7 @@ export async function generarRetro(
   snapshot.fuentes = fuentes.map((f) => f.label);
 
   step('guardando', 'Guardando la retrospectiva…');
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('retros').insert({
     periodo_desde: desde,
     periodo_hasta: hasta,
@@ -314,21 +314,21 @@ export async function generarRetro(
 }
 
 export async function listRetros(): Promise<Retro[]> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('retros').select(COLS).order('created_at', { ascending: false });
   if (error) throw new Error(`listRetros: ${error.message}`);
   return (data ?? []).map(rowTo);
 }
 
 export async function getRetro(id: number): Promise<Retro | null> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('retros').select(COLS).eq('id', id).maybeSingle();
   if (error) throw new Error(`getRetro: ${error.message}`);
   return data ? rowTo(data) : null;
 }
 
 export async function borrarRetro(id: number): Promise<void> {
-  const supabase = getSupabaseServer();
+  const supabase = (await getTenantDb());
   const { error } = await supabase.from('retros').delete().eq('id', id);
   if (error) throw new Error(`borrarRetro: ${error.message}`);
 }
@@ -345,7 +345,7 @@ export async function periodoHistorico(): Promise<{ desde: string; hasta: string
   const hasta = ayerEnTijuana();
   let desde = diasAntes(hasta, 729); // fallback: ~2 años
   try {
-    const supabase = getSupabaseServer();
+    const supabase = (await getTenantDb());
     const { data } = await supabase.from('marketing_metrics_daily').select('fecha').order('fecha', { ascending: true }).limit(1);
     const f = data && data[0] ? (data[0] as { fecha?: string }).fecha : null;
     if (f && /^\d{4}-\d{2}-\d{2}/.test(f)) desde = f.slice(0, 10);
