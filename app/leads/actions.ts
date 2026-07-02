@@ -146,6 +146,13 @@ export async function setLeadStageAction(
   opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
 ): Promise<void> {
   const before = await getLead(id).catch(() => null);
+  // Backstop server-side del dato crítico: un lead "Ganado" sin monto positivo
+  // cuenta $0 en Revenue. La UI ya lo exige, pero cualquier caller (MaKo, API)
+  // pasa por acá. El monto efectivo puede venir en la move o ya estar cargado.
+  if (stageKey === 'ganado') {
+    const montoEfectivo = opts?.monto ?? before?.monto_cierre_usd ?? null;
+    if (!(Number(montoEfectivo) > 0)) throw new Error('Para mover a Ganado hace falta un monto de cierre positivo.');
+  }
   await setPipelineStage(id, stageKey, opts);
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, 'CRM');
@@ -240,6 +247,11 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
   const estado = terminalEstadoFor(p.stage);
   const esGanado = estado === 'ganado';
   const esLost = estado === 'perdido' || estado === 'descalificado';
+  // Backstop server-side: Ganado sin monto positivo cuenta $0 en Revenue. El form
+  // ya lo valida en el cliente; esto lo garantiza para cualquier caller.
+  if (esGanado && !(Number(p.monto_cierre_usd) > 0)) {
+    throw new Error('Para Ganado, el monto de cierre debe ser un número positivo.');
+  }
   await updateLead(id, {
     nombre: p.nombre ?? undefined, email: p.email, telefono: p.telefono, empresa: p.empresa,
     fecha_agenda: p.fecha_agenda, fecha_junta_1: p.fecha_junta_1, fecha_junta_2: p.fecha_junta_2,

@@ -6,6 +6,7 @@
 // reutilice EXACTAMENTE la misma semilla y validación que el CRM.
 
 import { NUTRI_KEYS } from '@/lib/pipeline';
+import { missingForStage } from '@/lib/stage-requirements';
 import type { FathomLink } from '@/lib/leads';
 import type { CrmLead, Edits } from './CrmBoard';
 
@@ -43,38 +44,20 @@ export function seedEdits(l: CrmLead, effStage: string): Edits {
   };
 }
 
-const hasFathomUrl = (e: Edits) => e.fathom.some((f) => f.url.trim());
-
 /**
  * Campos OBLIGATORIOS que faltan para mover a una etapa (vacío = se puede mover).
- * Cada etapa con datos a completar exige lo suyo; ninguna es "blanda".
+ * Adaptador del shape de UI (Edits) al módulo compartido lib/stage-requirements,
+ * que es la fuente única de reglas (Kanban + ficha + backstop del server).
  */
 export function missingFor(stage: string, e: Edits): string[] {
-  const m: string[] = [];
-  switch (stage) {
-    case 'agenda':
-      if (!e.fechaJ1.trim()) m.push('Fecha de la Reunión 1');
-      if (!hasFathomUrl(e)) m.push('Link de Fathom');
-      break;
-    case 'agendaj2':
-    case 'facturando':
-      if (!e.fechaJ2.trim()) m.push('Fecha de la Reunión 2');
-      if (!hasFathomUrl(e)) m.push('Link de Fathom');
-      break;
-    case 'ganado':
-      if (!(Number(e.plan.total) > 0)) m.push('Monto de cierre');
-      break;
-    case 'perdido':
-    case 'descal':
-      if (!e.motivo.trim()) m.push('Motivo');
-      break;
-    case 'manual':
-      if (!e.setter.trim()) m.push('Setter');
-      break;
-    // noshow / nutri / nopaga / postagenda: el detalle de nutrición no se persiste
-    // todavía, así que no se exige nada para mover a estas etapas.
-  }
-  return m;
+  return missingForStage(stage, {
+    fechaJ1: e.fechaJ1,
+    fechaJ2: e.fechaJ2,
+    hasFathomUrl: e.fathom.some((f) => f.url.trim()),
+    monto: Number(e.plan.total) || null,
+    motivo: e.motivo,
+    setter: e.setter,
+  });
 }
 
 /**
