@@ -12,7 +12,14 @@
 
 import crypto from 'node:crypto';
 
+/** Rol GLOBAL de la app: admin = agencia, usuario = lado cliente. */
 export type Rol = 'admin' | 'usuario';
+
+/**
+ * Rol DENTRO del negocio de un cliente (eje distinto de `Rol`). 'admin' acá =
+ * dueño del cliente (ve todas las tabs de SU negocio, NO es admin de la app).
+ */
+export type RolWorkspace = 'admin' | 'closer' | 'setter';
 
 export type Sesion = {
   /** id del usuario en la tabla, o 'password' | 'legacy' | 'dev' para sesiones sin fila. */
@@ -26,6 +33,8 @@ export type Sesion = {
   legacy?: boolean;
   /** workspace del usuario (multi-inquilino). null = admin sin workspace propio. */
   ws?: number | null;
+  /** rol dentro del workspace (equipo del cliente). Se resuelve de la base, no se firma. */
+  rolWs?: RolWorkspace | null;
 };
 
 export const SESSION_COOKIE = 'mako_session';

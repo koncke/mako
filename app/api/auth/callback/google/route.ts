@@ -49,7 +49,7 @@ async function resolverConFallback(email: string): Promise<Usuario | null> {
   } catch (e) {
     console.error('[auth] resolverUsuario falló, evaluando allowlist:', e);
     if (!enAllowlist(email)) return null;
-    return { id: 0, email, nombre: '', rol: 'admin', estado: 'activo', foto_url: null, invitado_por: 'allowlist-fallback', ultimo_login: null, created_at: '', workspace_id: null };
+    return { id: 0, email, nombre: '', rol: 'admin', estado: 'activo', foto_url: null, invitado_por: 'allowlist-fallback', ultimo_login: null, created_at: '', workspace_id: null, rol_ws: null };
   }
 }
 

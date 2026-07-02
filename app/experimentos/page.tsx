@@ -16,6 +16,7 @@
 import { getExperimentosView, type ExperimentosView } from '@/lib/experimentos';
 import { listRetros, type Retro } from '@/lib/retro';
 import { ExperimentosApp } from './ExperimentosApp';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,6 +27,7 @@ const EMPTY_VIEW: ExperimentosView = {
 };
 
 export default async function ExperimentosPage() {
+  await requireRolWs([]);
   let view: ExperimentosView = EMPTY_VIEW;
   let retros: Retro[] = [];
   let errorMsg: string | null = null;

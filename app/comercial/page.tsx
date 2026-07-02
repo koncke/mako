@@ -55,6 +55,7 @@ import {
 } from '@/lib/date-utils';
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { CobrarTable } from './CobrarTable';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -133,6 +134,7 @@ export default async function ComercialPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
+  await requireRolWs([]);
   const hoyReal = hoyEnTijuana();
   const ayerReal = ayerEnTijuana();
 

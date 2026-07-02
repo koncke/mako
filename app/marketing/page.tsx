@@ -38,6 +38,7 @@ import { MakoButton } from '../_components/ChartIA';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { ResumenCreativos } from './ResumenCreativos';
 import { GraphicsTabs } from '../_components/GraphicsTabs';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -83,6 +84,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
+  await requireRolWs([]);
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;

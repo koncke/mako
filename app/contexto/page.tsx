@@ -3,10 +3,12 @@
 // =============================================================================
 
 import { ContextoTabs } from './ContextoTabs';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function ContextoPage() {
+export default async function ContextoPage() {
+  await requireRolWs([]);
   return <ContextoTabs />;
 }

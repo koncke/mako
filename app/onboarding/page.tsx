@@ -3,10 +3,12 @@
 // =============================================================================
 
 import { OnboardingForm } from './OnboardingForm';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  await requireRolWs([]);
   return <OnboardingForm />;
 }

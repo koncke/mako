@@ -11,6 +11,7 @@ import { ayerEnTijuana, hoyEnTijuana, esFechaValida, primerDiaDelMesDeFecha, fmt
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { Icon } from '../_components/icons';
 import { CampanasBrowser } from './CampanasBrowser';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,6 +23,7 @@ export default async function AdsManagerPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
+  await requireRolWs([]);
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;

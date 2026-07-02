@@ -8,6 +8,7 @@
 import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/script-analyst';
 import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { getAvatares, type Avatar } from '@/lib/script-avatares';
+import { requireRolWs } from '@/lib/tab-access';
 import { GuionesFull } from '../ScriptsBrowser';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +23,7 @@ const EMPTY: ScriptAnalystView = {
 };
 
 export default async function GuionesPage() {
+  await requireRolWs([]); // solo admin-cliente/agencia; closer/setter → /leads
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let angles: Angle[] = DEFAULT_ANGLES;

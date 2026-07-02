@@ -6,11 +6,13 @@
 import { Icon } from '../_components/icons';
 import { ConfigTabs } from '../_components/ConfigTabs';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function ConfiguracionesPage() {
+export default async function ConfiguracionesPage() {
+  await requireRolWs([]);
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>

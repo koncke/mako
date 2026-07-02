@@ -24,7 +24,7 @@ import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
 import { getUsuarioActual } from './auth';
-import { IMPERSONATE_COOKIE, OWNER_WS, firmarImpersonacion, leerImpersonacion } from './auth-session';
+import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 
 export { firmarImpersonacion, IMPERSONATE_COOKIE, OWNER_WS };
 
@@ -52,13 +52,20 @@ const TENANT_TABLES = new Set<string>([
 // unstable_cache; adentro se usa el AsyncLocalStorage.
 const resolverDesdeCookies = cache(async (): Promise<number | null> => {
   const sesion = await getUsuarioActual();
-  if (!sesion) return OWNER_WS;              // cron / webhook / público → dueño
-  if (sesion.legacy) return OWNER_WS;        // login compartido viejo / dev → dueño
-  if (sesion.rol === 'admin') {
-    const store = await cookies();
-    return leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value); // ws o null
+  if (sesion) {
+    if (sesion.legacy) return OWNER_WS;        // login compartido viejo / dev → dueño
+    if (sesion.rol === 'admin') {
+      const store = await cookies();
+      return leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value); // ws o null
+    }
+    return sesion.ws ?? null;                   // usuario → su workspace
   }
-  return sesion.ws ?? null;                   // usuario → su workspace
+  // Sin sesión resuelta: distinguir "no hay cookie de sesión" (cron / webhook /
+  // público → dueño) de "hay cookie pero su fila ya no vale" (usuario suspendido
+  // o eliminado cuyo token sigue firmado → FAIL-CLOSED: nunca caer al dueño).
+  const store = await cookies();
+  const tieneCookieSesion = Boolean(store.get(SESSION_COOKIE)?.value || store.get(LEGACY_COOKIE)?.value);
+  return tieneCookieSesion ? null : OWNER_WS;
 });
 
 /** Workspace efectivo del request, o null si un admin no está impersonando. */
@@ -76,6 +83,24 @@ export async function getWorkspaceActual(): Promise<number | null> {
  */
 export async function esWorkspaceDueno(): Promise<boolean> {
   return (await getWorkspaceActual()) === OWNER_WS;
+}
+
+/**
+ * Rol EFECTIVO dentro del workspace que ve el request, para gatear tabs:
+ *   · admin de agencia (impersonando o no) → 'admin' (acceso total a las tabs;
+ *     el aislamiento de DATOS lo hace getWorkspaceActual, no este rol)
+ *   · owner / legacy / dev                 → 'admin'
+ *   · usuario cliente                      → su rol_ws (null → 'admin' por backfill)
+ *   · sin sesión                           → null
+ * OJO: es distinto del rol GLOBAL. Un admin-cliente devuelve 'admin' pero jamás
+ * ve el shell /admin de la agencia (eso lo decide el rol GLOBAL en el Sidebar).
+ */
+export async function getRolWsEfectivo(): Promise<RolWorkspace | null> {
+  const sesion = await getUsuarioActual();
+  if (!sesion) return null;
+  if (sesion.legacy) return 'admin';
+  if (sesion.rol === 'admin') return 'admin';
+  return sesion.rolWs ?? 'admin';
 }
 
 /**

@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspace, IMPERSONATE_COOKIE } from '@/lib/workspace';
+import { getWorkspace, getWorkspaceActual, getRolWsEfectivo, IMPERSONATE_COOKIE } from '@/lib/workspace';
 import { leerImpersonacion } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
@@ -35,6 +35,9 @@ export async function GET() {
     email: sesion.email,
     nombre: sesion.nombre,
     rol: sesion.rol,
+    // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
+    rolWs: await getRolWsEfectivo(),
+    ws: await getWorkspaceActual(),
     legacy: sesion.sub === 'legacy',
     impersonando,
     clienteNombre,

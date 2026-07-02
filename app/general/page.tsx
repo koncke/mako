@@ -32,6 +32,7 @@ import { hoyEnTijuana, ayerEnTijuana } from '@/lib/date-utils';
 import { EditarMeta } from './EditarMeta';
 import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_components/Desglose';
 import { Icon } from '../_components/icons';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -56,6 +57,7 @@ type Nivel = 'rojo' | 'ambar' | 'verde';
 type Alerta = { nivel: Nivel; titulo: string; detalle: string; href: string; hrefLabel: string; desglose?: DesgloseData };
 
 export default async function GeneralPage() {
+  await requireRolWs([]);
   const hoy = hoyEnTijuana();
   const ayer = ayerEnTijuana();
 

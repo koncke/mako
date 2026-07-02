@@ -44,8 +44,8 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
       try {
         const u = await buscarUsuarioPorEmail(firmada.email);
         if (!u || u.estado === 'suspendido') return null;
-        // El rol y el workspace de la base ganan sobre lo firmado en la cookie.
-        return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null };
+        // El rol, el workspace y el rol-de-workspace de la base ganan sobre lo firmado.
+        return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null, rolWs: u.rol_ws ?? null };
       } catch {
         return firmada;
       }
@@ -57,13 +57,13 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
   const esperado = process.env.AUTH_COOKIE_VALUE;
   if (esperado && store.get(LEGACY_COOKIE)?.value === esperado) {
     const email = store.get(EMAIL_COOKIE)?.value ?? '';
-    return { sub: 'legacy', email, nombre: '', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS };
+    return { sub: 'legacy', email, nombre: '', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
   }
 
   // Gate sin configurar (local/dev): el proxy deja pasar todo → sesión dev dueño.
   const esProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
   if (!gateConfigurado() && !esProd) {
-    return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS };
+    return { sub: 'dev', email: '', nombre: 'Dev', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
   }
 
   return null;

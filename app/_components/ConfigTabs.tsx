@@ -16,6 +16,7 @@ const TABS = [
   { label: 'Notificaciones', href: '/configuraciones' },
   { label: 'Funnel', href: '/funnel' },
   { label: 'Onboarding', href: '/onboarding' },
+  { label: 'Equipo', href: '/equipo' },
   { label: 'Método', href: '/metodo', adminOnly: true },
 ];
 

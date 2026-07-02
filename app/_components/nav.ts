@@ -7,6 +7,8 @@
 // que todavía no existen apuntan a su ruta con comingSoon=true (view "coming
 // soon").
 
+import type { RolWorkspace } from '@/lib/auth-session';
+
 export type NavItem = {
   key: string;
   label: string;
@@ -14,8 +16,14 @@ export type NavItem = {
   icon: string;
   badge?: boolean;
   comingSoon?: boolean;
-  /** Solo visible para rol admin (el Sidebar filtra con /api/auth/me). */
+  /** Solo visible para rol admin de AGENCIA (el Sidebar filtra con /api/auth/me). */
   adminOnly?: boolean;
+  /**
+   * Roles DENTRO del negocio que ven esta tab. El admin-cliente (rol_ws='admin')
+   * ve TODO igual; esto solo habilita tabs a closer/setter. Ausente = solo
+   * admin-cliente (y agencia). El enforcement real es server-side (lib/tab-access).
+   */
+  rolesWs?: RolWorkspace[];
   match: (pathname: string) => boolean;
 };
 
@@ -27,17 +35,17 @@ const starts = (p: string) => (pathname: string) =>
 // Items sueltos (arriba del divider).
 export const TOP_NAV: NavItem[] = [
   { key: 'general', label: 'General', href: '/general', icon: 'general', match: starts('/general') },
-  { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, match: starts('/leads') },
+  { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, rolesWs: ['closer', 'setter'], match: starts('/leads') },
   { key: 'graphics', label: 'Graphics', href: '/graphics', icon: 'graphics', match: (p) => starts('/graphics')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  { key: 'todo', label: 'To-do', href: '/todo', icon: 'todo', match: starts('/todo') },
+  { key: 'todo', label: 'To-do', href: '/todo', icon: 'todo', rolesWs: ['closer', 'setter'], match: starts('/todo') },
 ];
 
 // Ads Manager va DEBAJO del divider, arriba de los grupos.
 export const ADS_MANAGER_ITEM: NavItem = { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') };
 
 // MaKo va aparte, abajo del todo (arriba del perfil), siempre con su estrella dorada.
-export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', match: starts('/mako') };
+export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', href: '/mako', icon: 'mako', rolesWs: ['closer', 'setter'], match: starts('/mako') };
 
 // Shell de administración: lo ve un admin que NO está impersonando. Sin tabs de
 // marketing — solo gestión de clientes e integraciones.
@@ -50,7 +58,7 @@ export const ADMIN_NAV: NavItem[] = [
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'analytics', label: 'Analytics', icon: 'analytics', items: [
-      { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', match: starts('/closing') },
+      { key: 'closing', label: 'Closing Analyst', href: '/closing', icon: 'closing', rolesWs: ['closer'], match: starts('/closing') },
       { key: 'script', label: 'Script Analyst', href: '/script-analyst', icon: 'notepencil', match: starts('/script-analyst') },
       { key: 'offer', label: 'Offer Analyst', href: '/offer-analyst', icon: 'tag', comingSoon: true, match: starts('/offer-analyst') },
       { key: 'landing-an', label: 'Landing Analyst', href: '/landing-analyst', icon: 'web', comingSoon: true, match: starts('/landing-analyst') },
@@ -68,8 +76,8 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     key: 'chats', label: 'Chats', icon: 'chats', items: [
-      { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', badge: true, match: starts('/whatsapp') },
-      { key: 'email', label: 'Email', href: '/email', icon: 'email', match: starts('/email') },
+      { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', badge: true, rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
+      { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
       { key: 'instagram', label: 'Instagram', href: '/instagram', icon: 'instagram', comingSoon: true, match: starts('/instagram') },
     ],
   },
@@ -85,9 +93,9 @@ export const NAV_GROUPS: NavGroup[] = [
 // eso el item Configuraciones también matchea esas rutas. Admin solo lo ven
 // los usuarios con rol admin.
 export const USER_NAV: NavItem[] = [
-  { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', match: starts('/perfil') },
+  { key: 'perfil', label: 'Perfil', href: '/perfil', icon: 'perfil', rolesWs: ['closer', 'setter'], match: starts('/perfil') },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icon: 'integraciones', match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   { key: 'contexto', label: 'Contexto de MaKo', href: '/contexto', icon: 'contexto', match: starts('/contexto') },
-  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/funnel')(p) || starts('/onboarding')(p) || starts('/metodo')(p) },
+  { key: 'configuraciones', label: 'Configuraciones', href: '/configuraciones', icon: 'config', match: (p) => starts('/configuraciones')(p) || starts('/funnel')(p) || starts('/onboarding')(p) || starts('/metodo')(p) || starts('/equipo')(p) },
   { key: 'admin', label: 'Admin', href: '/admin', icon: 'admin', adminOnly: true, match: starts('/admin') },
 ];

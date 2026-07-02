@@ -3,10 +3,12 @@
 // =============================================================================
 
 import { ConocimientoView } from './ConocimientoView';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default function ConocimientoPage() {
+export default async function ConocimientoPage() {
+  await requireRolWs([]);
   return <ConocimientoView />;
 }

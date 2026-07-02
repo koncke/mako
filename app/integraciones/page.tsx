@@ -9,11 +9,13 @@ import { getIntegraciones } from '@/lib/integraciones';
 import { getHistorialMeta, registrarEstadoMeta, type MetaEstadoHist } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { IntegracionesBoard } from './IntegracionesBoard';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function IntegracionesPage() {
+  await requireRolWs([]);
   const integraciones = await getIntegraciones();
   let health: MetaHealth | null = null;
   let metaError: string | null = null;

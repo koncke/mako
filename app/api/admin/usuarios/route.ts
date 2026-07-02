@@ -11,14 +11,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import {
-  actualizarUsuario, contarAdminsActivos, crearUsuario, eliminarUsuario,
+  actualizarUsuario, contarAdminsActivos, contarAdminsClienteActivos, crearUsuario, eliminarUsuario,
   listarUsuarios, type EstadoUsuario, type Usuario,
 } from '@/lib/usuarios';
 import { integracionConectada } from '@/lib/credenciales';
 import { SERVICIOS_METODO } from '@/lib/metodo-catalogo';
 import { getAnswers, getSchema } from '@/lib/onboarding';
 import { listarWorkspaces, OWNER_WS } from '@/lib/workspace';
-import type { Rol } from '@/lib/auth-session';
+import type { Rol, RolWorkspace } from '@/lib/auth-session';
+
+const ROLES_WS: RolWorkspace[] = ['admin', 'closer', 'setter'];
 
 export const dynamic = 'force-dynamic';
 
@@ -75,15 +77,24 @@ type Body = {
   email?: string;
   nombre?: string;
   rol?: Rol;
+  rol_ws?: RolWorkspace | null;
   estado?: EstadoUsuario;
   workspace_id?: number | null;
 };
 
-// true si tocar (bajar de rol / suspender / borrar) a este usuario dejaría el
-// workspace sin ningún admin activo.
+// true si tocar (bajar de rol / suspender / borrar) a este usuario dejaría a la
+// AGENCIA sin ningún admin activo.
 async function dejariaSinAdmins(u: Usuario): Promise<boolean> {
   if (u.rol !== 'admin' || u.estado === 'suspendido') return false;
   return (await contarAdminsActivos()) <= 1;
+}
+
+// true si tocar a este usuario dejaría a su CLIENTE sin ningún admin-cliente
+// activo. `nuevoRolWs` = rol que quedaría tras el cambio (undefined = suspender/borrar).
+async function dejariaClienteSinAdmin(u: Usuario, nuevoRolWs?: RolWorkspace | null): Promise<boolean> {
+  if (u.rol !== 'usuario' || u.rol_ws !== 'admin' || u.estado === 'suspendido' || u.workspace_id == null) return false;
+  if (nuevoRolWs === 'admin') return false; // sigue siendo admin del cliente
+  return (await contarAdminsClienteActivos(u.workspace_id)) <= 1;
 }
 
 export async function POST(req: NextRequest) {
@@ -112,14 +123,37 @@ export async function POST(req: NextRequest) {
         const invitadoPor = admin.legacy ? 'admin' : (admin.email || 'admin');
         // Un usuario (no admin) tiene que pertenecer a un workspace.
         const wsId = typeof body.workspace_id === 'number' ? body.workspace_id : null;
-        const nuevo = await crearUsuario({ email, nombre: body.nombre, rol, invitado_por: invitadoPor, workspace_id: rol === 'admin' ? null : wsId });
+        // rol dentro del negocio: admin de agencia → null; usuario-cliente → el
+        // rol pedido (default 'admin', el dueño del negocio).
+        const rolWs: RolWorkspace | null = rol === 'admin'
+          ? null
+          : (body.rol_ws && ROLES_WS.includes(body.rol_ws) ? body.rol_ws : 'admin');
+        const nuevo = await crearUsuario({ email, nombre: body.nombre, rol, invitado_por: invitadoPor, workspace_id: rol === 'admin' ? null : wsId, rol_ws: rolWs });
         return NextResponse.json({ ok: true, usuario: nuevo });
       }
 
       case 'workspace': {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         const wsId = typeof body.workspace_id === 'number' ? body.workspace_id : null;
+        // Mover/desasignar al único admin-cliente lo sacaría de su workspace y lo
+        // dejaría sin ningún admin de cliente.
+        if (wsId !== objetivo.workspace_id && (await dejariaClienteSinAdmin(objetivo))) {
+          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
+        }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { workspace_id: wsId }) });
+      }
+
+      case 'rolws': {
+        if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
+        const rolWs = body.rol_ws;
+        if (!rolWs || !ROLES_WS.includes(rolWs)) return NextResponse.json({ ok: false, error: 'rol_ws inválido' }, { status: 400 });
+        if (objetivo.rol !== 'usuario' || objetivo.workspace_id == null) {
+          return NextResponse.json({ ok: false, error: 'El rol de equipo solo aplica a usuarios de un cliente.' }, { status: 400 });
+        }
+        if (await dejariaClienteSinAdmin(objetivo, rolWs)) {
+          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
+        }
+        return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { rol_ws: rolWs }) });
       }
 
       case 'nombre': {
@@ -142,8 +176,9 @@ export async function POST(req: NextRequest) {
         if (estado !== 'activo' && estado !== 'suspendido' && estado !== 'invitado') {
           return NextResponse.json({ ok: false, error: 'estado inválido' }, { status: 400 });
         }
-        if (estado === 'suspendido' && (await dejariaSinAdmins(objetivo))) {
-          return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigná otro admin antes.' }, { status: 400 });
+        if (estado === 'suspendido') {
+          if (await dejariaSinAdmins(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigná otro admin antes.' }, { status: 400 });
+          if (await dejariaClienteSinAdmin(objetivo)) return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
         }
         return NextResponse.json({ ok: true, usuario: await actualizarUsuario(objetivo.id, { estado }) });
       }
@@ -152,6 +187,9 @@ export async function POST(req: NextRequest) {
         if (!objetivo) return NextResponse.json({ ok: false, error: 'usuario no encontrado' }, { status: 404 });
         if (await dejariaSinAdmins(objetivo)) {
           return NextResponse.json({ ok: false, error: 'Es el único admin activo — asigná otro admin antes.' }, { status: 400 });
+        }
+        if (await dejariaClienteSinAdmin(objetivo)) {
+          return NextResponse.json({ ok: false, error: 'Es el único admin de ese cliente — asigná otro admin antes.' }, { status: 400 });
         }
         await eliminarUsuario(objetivo.id);
         return NextResponse.json({ ok: true });

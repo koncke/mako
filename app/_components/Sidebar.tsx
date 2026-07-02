@@ -64,6 +64,7 @@ export function Sidebar() {
   const [perfilNombre, setPerfilNombre] = useState('Mauricio Bustos');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>('');
+  const [rolWs, setRolWs] = useState<string>('');
   const [impersonando, setImpersonando] = useState(false);
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
@@ -110,6 +111,7 @@ export function Sidebar() {
       .then((j) => {
         if (!alive || !j?.ok || !j.autenticado) return;
         setRol((j.rol as string) || '');
+        setRolWs((j.rolWs as string) || '');
         setImpersonando(Boolean(j.impersonando));
       })
       .catch(() => {});
@@ -119,6 +121,12 @@ export function Sidebar() {
   // Un admin que NO está impersonando ve el shell de gestión (sin tabs de
   // marketing). Impersonando o siendo usuario, ve el dashboard normal.
   const adminShell = rol === 'admin' && !impersonando;
+
+  // Filtro de tabs por rol-de-workspace. El admin-cliente (o mientras carga)
+  // ve todo; closer/setter solo las tabs anotadas con su rol en nav.ts.
+  const rolCliente = rolWs === 'closer' || rolWs === 'setter';
+  const puedeVer = (it: NavItem) =>
+    !rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true;
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
@@ -235,12 +243,16 @@ export function Sidebar() {
             </>
           ) : (
             <>
-              {TOP_NAV.map((item) => (
+              {TOP_NAV.filter(puedeVer).map((item) => (
                 <NavLink key={item.key} item={item} active={item.match(pathname)} badge={badgeFor(item)} query={dateQuery} expanded={open} />
               ))}
-              <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '10px 8px' : '10px 12px' }} />
-              <NavLink item={ADS_MANAGER_ITEM} active={ADS_MANAGER_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
-              {NAV_GROUPS.map((g) => (
+              {puedeVer(ADS_MANAGER_ITEM) && (
+                <>
+                  <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '10px 8px' : '10px 12px' }} />
+                  <NavLink item={ADS_MANAGER_ITEM} active={ADS_MANAGER_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />
+                </>
+              )}
+              {NAV_GROUPS.filter((g) => g.items.some(puedeVer)).map((g) => (
                 <GroupHeader key={g.key} gKey={g.key} label={g.label} icon={g.icon} />
               ))}
             </>
@@ -250,7 +262,7 @@ export function Sidebar() {
         {/* MaKo (aparte) + Usuario (abajo) */}
         <div style={{ marginTop: 'auto', paddingTop: 14 }}>
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
-          {!adminShell && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
+          {!adminShell && puedeVer(MAKO_ITEM) && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, color: '#171511', overflow: 'hidden' }}>
               {perfilAvatar
@@ -279,7 +291,7 @@ export function Sidebar() {
           style={{ position: 'fixed', top: flyout.top, left: flyout.left, zIndex: 2000, width: 226, background: 'var(--sidebar)', border: '1px solid var(--sidebar-2)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.4)', overflow: 'hidden', padding: 8 }}>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: '4px 10px 8px' }}>{flyoutGroup.label}</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {flyoutGroup.items.map((it) => (
+            {flyoutGroup.items.filter(puedeVer).map((it) => (
               <NavLink key={it.key} item={it} active={it.match(pathname)} badge={badgeFor(it)} query={dateQuery} expanded nested onClick={() => setFlyout(null)} />
             ))}
           </div>
@@ -293,7 +305,7 @@ export function Sidebar() {
           onMouseEnter={() => { if (userTimer.current) clearTimeout(userTimer.current); }}
           onMouseLeave={scheduleCloseUser}
           style={{ position: 'fixed', left: menuPos.left, bottom: menuPos.bottom, zIndex: 2000, width: 226, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 18px 44px rgba(23,21,17,.32)', overflow: 'hidden', padding: '5px 0' }}>
-            {USER_NAV.filter((it) => !it.adminOnly || rol === 'admin').map((it) => {
+            {USER_NAV.filter((it) => (!it.adminOnly || rol === 'admin') && puedeVer(it)).map((it) => {
               const on = it.match(pathname);
               return (
                 <Link key={it.key} href={it.href + dateQuery} onClick={() => setUserOpen(false)}

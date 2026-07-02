@@ -16,6 +16,7 @@ import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { ScriptsBrowser } from './ScriptsBrowser';
 import { Icon } from '../_components/icons';
+import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -29,6 +30,7 @@ const EMPTY: ScriptAnalystView = {
 };
 
 export default async function ScriptAnalystPage() {
+  await requireRolWs([]);
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let drafts: ScriptDraft[] = [];

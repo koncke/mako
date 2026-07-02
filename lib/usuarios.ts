@@ -8,7 +8,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
-import type { Rol } from './auth-session';
+import type { Rol, RolWorkspace } from './auth-session';
 
 export type EstadoUsuario = 'invitado' | 'activo' | 'suspendido';
 
@@ -24,9 +24,11 @@ export type Usuario = {
   created_at: string;
   /** workspace al que pertenece (null para admins que cruzan workspaces). */
   workspace_id: number | null;
+  /** rol dentro del negocio del cliente ('admin'|'closer'|'setter'); null = admin de agencia. */
+  rol_ws: RolWorkspace | null;
 };
 
-const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id';
+const COLS = 'id, email, nombre, rol, estado, foto_url, invitado_por, ultimo_login, created_at, workspace_id, rol_ws';
 
 export async function listarUsuarios(): Promise<Usuario[]> {
   const { data, error } = await getSupabaseServer()
@@ -43,7 +45,7 @@ export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | nu
 }
 
 export async function crearUsuario(u: {
-  email: string; nombre?: string; rol?: Rol; estado?: EstadoUsuario; invitado_por?: string | null; workspace_id?: number | null;
+  email: string; nombre?: string; rol?: Rol; estado?: EstadoUsuario; invitado_por?: string | null; workspace_id?: number | null; rol_ws?: RolWorkspace | null;
 }): Promise<Usuario> {
   const { data, error } = await getSupabaseServer()
     .from('usuarios')
@@ -54,6 +56,7 @@ export async function crearUsuario(u: {
       estado: u.estado ?? 'invitado',
       invitado_por: u.invitado_por ?? null,
       workspace_id: u.workspace_id ?? null,
+      rol_ws: u.rol_ws ?? null,
     })
     .select(COLS).single();
   if (error) throw new Error(`usuarios: ${error.message}`);
@@ -62,7 +65,7 @@ export async function crearUsuario(u: {
 
 export async function actualizarUsuario(
   id: number,
-  patch: Partial<Pick<Usuario, 'nombre' | 'rol' | 'estado' | 'foto_url' | 'workspace_id'>>,
+  patch: Partial<Pick<Usuario, 'nombre' | 'rol' | 'estado' | 'foto_url' | 'workspace_id' | 'rol_ws'>>,
 ): Promise<Usuario> {
   const { data, error } = await getSupabaseServer()
     .from('usuarios')
@@ -107,6 +110,19 @@ export async function contarAdminsActivos(): Promise<number> {
   const { count, error } = await getSupabaseServer()
     .from('usuarios').select('id', { head: true, count: 'exact' })
     .eq('rol', 'admin').neq('estado', 'suspendido');
+  if (error) throw new Error(`usuarios: ${error.message}`);
+  return count ?? 0;
+}
+
+/**
+ * Admins-de-cliente NO suspendidos de un workspace. Guard análogo a
+ * contarAdminsActivos pero por-negocio: evita dejar a un cliente sin un
+ * admin-cliente (rol_ws='admin') al suspender/eliminar/degradar un miembro.
+ */
+export async function contarAdminsClienteActivos(ws: number): Promise<number> {
+  const { count, error } = await getSupabaseServer()
+    .from('usuarios').select('id', { head: true, count: 'exact' })
+    .eq('workspace_id', ws).eq('rol_ws', 'admin').neq('estado', 'suspendido');
   if (error) throw new Error(`usuarios: ${error.message}`);
   return count ?? 0;
 }
