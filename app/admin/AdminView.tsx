@@ -291,7 +291,7 @@ function TabClientes({ workspaces, recargar }: { workspaces: Workspace[]; recarg
       </div>
 
       {renombrando && (
-        <RenombrarDialog
+        <NombreClienteDialog
           nombre={nombreEdit}
           onNombre={setNombreEdit}
           onCancel={() => setRenombrando(null)}
@@ -302,16 +302,16 @@ function TabClientes({ workspaces, recargar }: { workspaces: Workspace[]; recarg
   );
 }
 
-// Mini modal para renombrar un workspace (reusa el chrome de ConfirmDialog).
-function RenombrarDialog({ nombre, onNombre, onCancel, onConfirm }: { nombre: string; onNombre: (v: string) => void; onCancel: () => void; onConfirm: () => void }) {
+// Mini modal para nombrar un workspace (renombrar o crear uno nuevo).
+function NombreClienteDialog({ nombre, onNombre, onCancel, onConfirm, titulo = 'Renombrar cliente', confirmLabel = 'Guardar' }: { nombre: string; onNombre: (v: string) => void; onCancel: () => void; onConfirm: () => void; titulo?: string; confirmLabel?: string }) {
   return (
     <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 360, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.32)', padding: '20px 22px' }}>
-        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 14 }}>Renombrar cliente</div>
-        <input autoFocus style={input} value={nombre} onChange={(e) => onNombre(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); }} placeholder="Nombre del cliente" />
+        <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 14 }}>{titulo}</div>
+        <input autoFocus style={input} value={nombre} onChange={(e) => onNombre(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onConfirm(); }} placeholder="Ej. Elevate, Levanta Muertos…" />
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
           <button type="button" onClick={onCancel} style={btnGhost}>Cancelar</button>
-          <button type="button" onClick={onConfirm} style={{ ...btnPrimary, opacity: nombre.trim().length < 2 ? 0.5 : 1 }} disabled={nombre.trim().length < 2}>Guardar</button>
+          <button type="button" onClick={onConfirm} style={{ ...btnPrimary, opacity: nombre.trim().length < 2 ? 0.5 : 1 }} disabled={nombre.trim().length < 2}>{confirmLabel}</button>
         </div>
       </div>
     </div>
@@ -333,9 +333,18 @@ function TabUsuarios({ usuarios, workspaces, sesion, recargar }: { usuarios: Usu
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
   const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
+  // Modal "crear cliente" disparado desde un selector. 'form' = viene del alta de
+  // usuario (autoselecciona); número = id del usuario a reasignar al cliente nuevo.
+  const [nuevoClientePara, setNuevoClientePara] = useState<'form' | number | null>(null);
+  const [nombreCliente, setNombreCliente] = useState('');
 
-  const nombreWs = (id: number | null) => (id == null ? '— (admin)' : (workspaces.find((w) => w.id === id)?.nombre ?? `#${id}`));
+  // Opciones de cliente para los selectores. Además de los workspaces reales,
+  // un ítem para crear uno nuevo sin salir de la tab, y (en las filas) uno para
+  // dejar al usuario SIN cliente (des-asignar).
   const wsOpts = workspaces.map((w) => ({ value: String(w.id), label: w.nombre }));
+  const OPT_CREAR = { value: '__nuevo__', label: '+ Crear cliente nuevo…' };
+  const wsOptsAlta = [...wsOpts, OPT_CREAR];
+  const wsOptsFila = [{ value: '', label: 'Sin cliente', sub: 'Queda sin acceso a datos hasta reasignar' }, ...wsOpts, OPT_CREAR];
 
   const post = async (body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
     try {
@@ -343,6 +352,30 @@ function TabUsuarios({ usuarios, workspaces, sesion, recargar }: { usuarios: Usu
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
+  };
+
+  // Crea un workspace nuevo (endpoint de workspaces) y lo usa según el disparador:
+  // en el alta lo deja preseleccionado, en una fila reasigna a ese usuario.
+  const crearClienteYUsar = async () => {
+    const nom = nombreCliente.trim();
+    const destino = nuevoClientePara;
+    setNuevoClientePara(null); setNombreCliente('');
+    if (nom.length < 2 || destino == null || accionando) return;
+    setErrAccion(null); setAccionando(true);
+    try {
+      const rw = await fetch('/api/admin/workspaces', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'crear', nombre: nom }) });
+      const jw = await rw.json();
+      if (!jw.ok) { setErrAccion(jw.error ?? 'No se pudo crear el cliente.'); return; }
+      const nuevoId: number | undefined = jw.workspace?.id;
+      await recargar();
+      if (nuevoId == null) return;
+      if (destino === 'form') { setWsNuevo(String(nuevoId)); return; }
+      const ru = await post({ action: 'workspace', id: destino, workspace_id: nuevoId });
+      if (!ru.ok) { setErrAccion(ru.error ?? 'Cliente creado, pero no se pudo asignar.'); return; }
+      await recargar();
+    } catch (e) {
+      setErrAccion(e instanceof Error ? e.message : String(e));
+    } finally { setAccionando(false); }
   };
 
   const crear = async () => {
@@ -387,11 +420,11 @@ function TabUsuarios({ usuarios, workspaces, sesion, recargar }: { usuarios: Usu
             <label style={labelStyle}>Cliente (workspace)</label>
             <Dropdown
               value={rolNuevo === 'admin' ? '' : wsNuevo}
-              options={wsOpts}
-              onChange={setWsNuevo}
+              options={wsOptsAlta}
+              onChange={(v) => { if (v === '__nuevo__') { setNombreCliente(''); setNuevoClientePara('form'); } else setWsNuevo(v); }}
               width="100%"
               placeholder={rolNuevo === 'admin' ? 'No aplica' : 'Elegí un cliente'}
-              disabled={rolNuevo === 'admin' || workspaces.length === 0}
+              disabled={rolNuevo === 'admin'}
               ariaLabel="Cliente del usuario nuevo"
             />
           </div>
@@ -428,12 +461,15 @@ function TabUsuarios({ usuarios, workspaces, sesion, recargar }: { usuarios: Usu
                 <div style={{ flex: 'none', width: 150 }} title="Cliente">
                   <Dropdown
                     value={u.workspace_id != null ? String(u.workspace_id) : ''}
-                    options={wsOpts}
-                    onChange={(v) => accion({ action: 'workspace', id: u.id, workspace_id: Number(v) })}
+                    options={wsOptsFila}
+                    onChange={(v) => {
+                      if (v === '__nuevo__') { setNombreCliente(''); setNuevoClientePara(u.id); }
+                      else accion({ action: 'workspace', id: u.id, workspace_id: v ? Number(v) : null });
+                    }}
                     width="100%"
                     align="right"
                     placeholder="Sin cliente"
-                    disabled={accionando || workspaces.length === 0}
+                    disabled={accionando}
                     ariaLabel={`Cliente de ${u.email}`}
                     buttonStyle={{ padding: '7px 10px', fontSize: 12.5, borderRadius: 9 }}
                   />
@@ -483,6 +519,17 @@ function TabUsuarios({ usuarios, workspaces, sesion, recargar }: { usuarios: Usu
           danger
           onCancel={() => setAEliminar(null)}
           onConfirm={() => { const u = aEliminar; setAEliminar(null); accion({ action: 'eliminar', id: u.id }); }}
+        />
+      )}
+
+      {nuevoClientePara != null && (
+        <NombreClienteDialog
+          titulo="Nuevo cliente"
+          confirmLabel="Crear y asignar"
+          nombre={nombreCliente}
+          onNombre={setNombreCliente}
+          onCancel={() => { setNuevoClientePara(null); setNombreCliente(''); }}
+          onConfirm={crearClienteYUsar}
         />
       )}
     </div>
