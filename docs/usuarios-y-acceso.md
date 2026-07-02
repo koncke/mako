@@ -1,5 +1,11 @@
 # Usuarios, roles y credenciales
 
+> **Multi-inquilino (migración 0054):** cada usuario ve solo su propio
+> **workspace**; los datos de hoy son el workspace 1 (Mauricio). El admin tiene
+> un panel de gestión propio y puede "entrar como" cualquier cliente. Ver la
+> sección **Workspaces (multi-inquilino)** al final.
+
+
 Cómo funciona el acceso al dashboard desde la migración 0053, y cómo se da de
 alta un usuario/cliente nuevo sin tocar Vercel.
 
@@ -70,7 +76,43 @@ ilegible y /metodo lo marca para re-pegar.
 
 ```bash
 node scripts/apply-migration.mjs supabase/migrations/0053_usuarios_credenciales.sql
+node scripts/apply-migration.mjs supabase/migrations/0054_workspaces.sql
 ```
 
 (Necesita `DATABASE_URL` en `.env.local`; si no, pegar el SQL en el editor de
 Supabase.)
+
+---
+
+## Workspaces (multi-inquilino)
+
+Desde la migración **0054**, cada usuario ve solo su **workspace**. Un cliente =
+un workspace; los datos previos a la migración son el **workspace 1 (Mauricio,
+dueño)**.
+
+- **Aislamiento**: cada tabla de datos tiene `workspace_id` (default 1). El
+  scoping lo hace la app en `lib/workspace.ts` (`getTenantDb()` filtra y estampa
+  por workspace) porque el `service_role` bypassa RLS. Un usuario nuevo arranca
+  con el dashboard **vacío**, nunca ve datos de otro.
+- **Admin**: el rol `admin` ve un **panel de gestión propio** (`/admin`, sin
+  tabs de marketing) — Clientes y Usuarios — y puede **"Entrar como"** cualquier
+  cliente para ver/operar su dashboard (con un banner de aviso). Los usuarios se
+  asignan a un workspace desde /admin.
+
+### Fase 1 vs Fase 2
+
+- **Fase 1 (hecha):** aislamiento de los datos de la base + panel admin +
+  impersonación.
+- **Fase 2 (pendiente):** integraciones **en vivo por cliente** (cada cliente su
+  propio Meta/Chatwoot/Fathom) y los crons iterando por workspace. Hasta
+  entonces, las integraciones en vivo son del **dueño**: las vistas que dependen
+  de ellas (WhatsApp, insights de Meta en vivo, Closing) muestran **vacío** para
+  un cliente que no sea el dueño (guard `esWorkspaceDueno()`), y un cliente nuevo
+  no tiene ingesta automática hasta conectar y correr la suya.
+
+### Operativa tras el deploy
+
+Las cuentas que eran admin (por `AUTH_ALLOWED_EMAILS`) ahora ven el **panel
+admin**, no el dashboard de marketing. Para ver los datos de Mauricio: **Entrar
+como → Mauricio Bustos**. Si Mauricio necesita su propio login como usuario
+normal, creá un usuario asignado al **workspace 1** desde /admin.
