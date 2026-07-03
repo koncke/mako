@@ -29,6 +29,9 @@ import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { RespuestasCard } from '../lead-view/RespuestasCard';
+import { ReunionesCard } from '../lead-view/ReunionesCard';
+import { InsightsCard } from '../lead-view/InsightsCard';
+import { getLeadInsights } from '../actions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -46,12 +49,13 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, stagesRaw, visitasMap] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
     getPipelineStages().catch(() => [] as Stage[]),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map<string, { total_visitas: number; dias_distintos: number }>()),
+    getLeadInsights(idNum),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
@@ -104,36 +108,50 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           </div>
         </div>
 
-        {/* TABS + botón Editar (el modo edición reemplaza el contenido) */}
+        {/* TABS + Mover a… + botón Editar (la edición usa las mismas tabs) */}
         <LeadDetailBody
           lead={lead}
           stages={stages}
+          pagos={pagos}
           initialTab={tab}
           initialEdit={edit === '1'}
-          cuotasPendientes={cuotasPendientes}
-          resumen={
-            <>
-              <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
-              <section style={card}>
-                <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
-                <JourneyTimeline steps={journey} />
-              </section>
-              <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
-              <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} />
-              <RespuestasCard lead={lead} />
-            </>
-          }
-          cobranza={
-            esVenta || tienePlan ? (
-              <CobranzaPlanCard lead={lead} pagos={pagos} />
-            ) : (
-              <section style={card}>
-                <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
-                <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado. Movelo de etapa con el botón Editar.</p>
-              </section>
-            )
-          }
-          actividad={<AuditHistory leadId={lead.id} />}
+          tabs={[
+            {
+              key: 'resumen', label: 'Resumen',
+              content: (
+                <>
+                  <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
+                  <section style={card}>
+                    <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
+                    <JourneyTimeline steps={journey} />
+                  </section>
+                </>
+              ),
+            },
+            { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} /> },
+            {
+              key: 'comportamiento', label: 'Comportamiento',
+              content: (
+                <>
+                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
+                  <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} />
+                </>
+              ),
+            },
+            { key: 'insights', label: 'Insights', badge: insights.length, content: <><InsightsCard insights={insights} /><RespuestasCard lead={lead} /></> },
+            {
+              key: 'cobranza', label: 'Cobranza', badge: cuotasPendientes,
+              content: esVenta || tienePlan ? (
+                <CobranzaPlanCard lead={lead} pagos={pagos} editable={false} />
+              ) : (
+                <section style={card}>
+                  <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
+                  <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado (con &quot;Mover a…&quot;).</p>
+                </section>
+              ),
+            },
+            { key: 'actividad', label: 'Actividad', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+          ]}
         />
       </div>
     </main>

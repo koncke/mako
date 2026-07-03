@@ -35,7 +35,7 @@ import {
   markMeetingManualAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
-import { StageMoveDialog, type StageMoveTarget } from './StageMoveDialog';
+import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
 import { sectionForStage } from './edit-logic';
 import { missingForStage } from '@/lib/stage-requirements';
 import { Dropdown } from '../components/Dropdown';
@@ -159,6 +159,7 @@ export function CrmBoard({
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
+  const [mmNota, setMmNota] = useState('');   // por qué se agendó fuera de Calendly (excepción)
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
@@ -232,6 +233,7 @@ export function CrmBoard({
   // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
   const missingForLead = (l: CrmLead, key: string) => missingForStage(key, {
     fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2,
+    asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado,
     hasFathomUrl: l.fathom.some((f) => f.url?.trim()),
     monto: l.monto || null, motivo: l.motivo, setter: l.setter,
     hoyISO: hoy,
@@ -301,18 +303,20 @@ export function CrmBoard({
   // 'futura' = ya está agendada por fuera pero todavía no se tuvo (solo fecha).
   const openManualMeeting = (leadId: number, which: 'agenda' | 'agendaj2', modo: 'pasada' | 'futura') => {
     const l = leads.find((x) => x.id === leadId);
-    setMmFecha(''); setMmAsistio('si');
+    setMmFecha(''); setMmAsistio('si'); setMmNota('');
     setManualMeeting({ leadId, name: l?.name ?? 'lead', which, modo });
   };
   const confirmManualMeeting = () => {
     if (!manualMeeting || !mmFecha) return;
+    if (manualMeeting.modo === 'futura' && !mmNota.trim()) return;
     const { leadId, which, modo } = manualMeeting;
     const asistio = modo === 'futura' ? null : mmAsistio === '' ? null : mmAsistio === 'si';
     const lead = leads.find((l) => l.id === leadId);
     const from = lead ? effStage(lead) : undefined;
+    const nota = modo === 'futura' ? mmNota.trim() : null;
     setManualMeeting(null);
     startTransition(async () => {
-      await markMeetingManualAction(leadId, which, mmFecha, asistio);
+      await markMeetingManualAction(leadId, which, mmFecha, asistio, nota);
       router.refresh();
     });
     // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
@@ -589,7 +593,7 @@ export function CrmBoard({
         const from = effStage(l);
         return (
           <StageMoveDialog
-            lead={l}
+            lead={leadToMoveInfo(l)}
             stages={stages}
             move={stageMove.move}
             onClose={() => setStageMove(null)}
@@ -672,6 +676,12 @@ export function CrmBoard({
             </div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{manualMeeting.modo === 'pasada' ? '¿Cuándo fue?' : '¿Para cuándo está agendada?'}</div>
             <input type="date" value={mmFecha} min={manualMeeting.modo === 'futura' ? hoy : undefined} max={manualMeeting.modo === 'pasada' ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
+            {manualMeeting.modo === 'futura' && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '16px 0 6px' }}>¿Por qué se agendó fuera de Calendly?</div>
+                <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} placeholder="Es una excepción: todas las reuniones deberían agendarse por Calendly. Contá el motivo…" style={{ width: '100%', minHeight: 70, resize: 'vertical', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
+              </>
+            )}
             {manualMeeting.modo === 'pasada' && (
               <>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '16px 0 6px' }}>¿Asistió?</div>
@@ -684,7 +694,9 @@ export function CrmBoard({
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
               <button onClick={() => setManualMeeting(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              <button onClick={confirmManualMeeting} disabled={!mmFecha} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: mmFecha ? 'var(--primary)' : 'var(--border)', color: mmFecha ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: mmFecha ? 'pointer' : 'default', opacity: mmFecha ? 1 : 0.6, fontFamily: SANS }}>Guardar reunión</button>
+              {(() => { const ok = !!mmFecha && (manualMeeting.modo !== 'futura' || !!mmNota.trim()); return (
+                <button onClick={confirmManualMeeting} disabled={!ok} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: ok ? 'var(--primary)' : 'var(--border)', color: ok ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: ok ? 'pointer' : 'default', opacity: ok ? 1 : 0.6, fontFamily: SANS }}>Guardar reunión</button>
+              ); })()}
             </div>
           </div>
         </div>

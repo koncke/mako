@@ -11,22 +11,24 @@
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
-import { CHIP, BAND_LABEL, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
-import { missingForStage } from '@/lib/stage-requirements';
+import { CHIP, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
+import { LeadTabs } from '../lead-view/LeadTabs';
+import { CobranzaPlanCard } from './CobranzaPlanCard';
 import type { Lead, FathomLink } from '@/lib/leads';
+import type { Pago } from '@/lib/pagos';
 
 type TriState = boolean | null;
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
-const cardAccion: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: '22px 24px', boxShadow: '0 1px 3px rgba(18,21,27,.05)' };
+
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; stages: Stage[]; onDone?: () => void; onCancel?: () => void }) {
+export function EditLeadForm({ lead, stages, pagos, onDone, onCancel }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -36,7 +38,8 @@ export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; s
   const validKeys = new Set(stages.map((s) => s.key));
   const currentStage = lead.pipeline_stage && validKeys.has(lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
 
-  const [stage, setStage] = useState<string>(currentStage);
+  // La etapa NO se edita acá: se cambia con "Mover a…" (wizard con requisitos).
+  const stage = currentStage;
   const [nombre, setNombre] = useState(lead.nombre);
   const [email, setEmail] = useState(lead.email ?? '');
   const [telefono, setTelefono] = useState(lead.telefono ?? '');
@@ -84,21 +87,12 @@ export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; s
   const setFathomAt = (i: number, field: 'label' | 'url', v: string) =>
     setFathom((arr) => arr.map((f, fi) => (fi === i ? { ...f, [field]: v } : f)));
 
-  const groups = (['pipeline', 'nutricion', 'salidas'] as StageBand[])
-    .map((b) => ({ label: BAND_LABEL[b], keys: stages.filter((s) => (s.band ?? 'pipeline') === b).sort((a, c) => (a.col ?? 0) - (c.col ?? 0)).map((s) => s.key) }))
-    .filter((g) => g.keys.length > 0);
-
   const guardar = () => {
     setFeedback(null);
     if (!nombre.trim()) { setFeedback({ kind: 'err', msg: 'El nombre es obligatorio.' }); return; }
     if (isManual && !deadline) { setFeedback({ kind: 'err', msg: 'Para "Nutrición - Manual" tenés que poner una fecha límite.' }); return; }
-    // Requisitos de la etapa: se exigen al MOVER a una etapa nueva (no al editar
-    // un lead que ya estaba ahí), unificado con el Kanban vía stage-requirements.
-    // Un lead ya en Ganado igual necesita un monto positivo para poder guardarse.
-    const reqs = stage !== currentStage
-      ? missingForStage(stage, { fechaJ1, fechaJ2, hasFathomUrl: fathom.some((f) => f.url.trim()), monto: parseFloat(monto) || null, motivo, setter, hoyISO: new Date().toISOString().slice(0, 10) })
-      : (isGanado && !(parseFloat(monto) > 0) ? ['Monto de cierre'] : []);
-    if (reqs.length) { setFeedback({ kind: 'err', msg: `Falta para "${sm?.label ?? stage}": ${reqs.join(', ')}` }); return; }
+    // Un lead en Ganado necesita un monto positivo para poder guardarse.
+    if (isGanado && !(parseFloat(monto) > 0)) { setFeedback({ kind: 'err', msg: 'Para Ganado, el monto de cierre debe ser un número positivo.' }); return; }
 
     const payload: LeadEditorInput = {
       stage,
@@ -130,7 +124,6 @@ export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; s
     const dif = (label: string, antes: string | number | boolean | null | undefined, ahora: string | number | boolean | null | undefined) => {
       if (fmt(antes) !== fmt(ahora)) cambios.push(`${label}: ${fmt(antes)} → ${fmt(ahora)}`);
     };
-    dif('Etapa', stageMeta(stages, currentStage)?.label ?? currentStage, sm?.label ?? stage);
     dif('Nombre', lead.nombre, payload.nombre);
     dif('Email', lead.email, payload.email);
     dif('Teléfono', lead.telefono, payload.telefono);
@@ -182,57 +175,21 @@ export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; s
     });
   };
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Barra de acción FIJA */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 4px 16px rgba(18,21,27,.07)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <span style={{ ...chipStyleFor(sm), }}>{sm?.label ?? stage}</span>
-          {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" onClick={() => (onCancel ? onCancel() : router.push('/leads'))} style={btnGhost}>Cancelar</button>
-          <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
-        </div>
+  // ── Contenido editable por tab (mismas tabs que la vista) ──
+  const tabContacto = (
+    <section style={card}>
+      <div style={{ ...sectLabel, marginBottom: 16 }}>Información principal</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+        <Field label="Nombre" required><input className="lead-field" value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
+        <Field label="Empresa"><input className="lead-field" value={empresa} onChange={(e) => setEmpresa(e.target.value)} /></Field>
+        <Field label="Email"><input className="lead-field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        <Field label="Teléfono"><input className="lead-field" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} /></Field>
       </div>
+    </section>
+  );
 
-      {/* ETAPA */}
-      <section style={cardAccion}>
-        <div style={{ ...sectLabel, marginBottom: 14 }}>Etapa del lead</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {groups.map((g) => (
-            <div key={g.label}>
-              <div style={{ fontSize: 11.5, color: 'var(--dim)', marginBottom: 8 }}>{g.label}</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {g.keys.map((k) => {
-                  const st = stageMeta(stages, k);
-                  if (!st || st.key !== k) return null;
-                  const c = CHIP[st.tone] || CHIP.neutral;
-                  const active = stage === k;
-                  return (
-                    <button key={k} type="button" aria-pressed={active} onClick={() => setStage(k)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, padding: '8px 12px', borderRadius: 9, fontFamily: SANS, background: active ? c.bg : 'var(--surface)', color: active ? c.fg : 'var(--dim)', border: '1px solid ' + (active ? c.bd : 'var(--border-strong)') }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: st.dot, flex: 'none' }} />{st.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* CONTACTO */}
-      <section style={card}>
-        <div style={{ ...sectLabel, marginBottom: 16 }}>Información de contacto</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-          <Field label="Nombre" required><input className="lead-field" value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
-          <Field label="Empresa"><input className="lead-field" value={empresa} onChange={(e) => setEmpresa(e.target.value)} /></Field>
-          <Field label="Email"><input className="lead-field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-          <Field label="Teléfono"><input className="lead-field" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} /></Field>
-        </div>
-      </section>
-
-      {/* DATOS COMERCIALES */}
+  const tabReuniones = (
+    <>
       {showComercial && (
         <section style={card}>
           <div style={{ ...sectLabel, marginBottom: 16 }}>Datos comerciales</div>
@@ -283,18 +240,6 @@ export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; s
         </section>
       )}
 
-      {/* CIERRE (ganado) */}
-      {isGanado && (
-        <section style={card}>
-          <div style={{ ...sectLabel, marginBottom: 16 }}>Cierre</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            <Field label="Monto del cierre (USD)" required><input className="lead-field" type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} /></Field>
-            <Field label="Fecha de cierre"><input className="lead-field" type="date" value={fechaCierre} onChange={(e) => setFechaCierre(e.target.value)} /></Field>
-            <Field label="Fecha inicio de servicio (opcional)"><input className="lead-field" type="date" value={fechaInicioServicio} onChange={(e) => setFechaInicioServicio(e.target.value)} /></Field>
-          </div>
-        </section>
-      )}
-
       {/* FATHOM */}
       {(reachedMeeting || fathom.length > 0 || !!closer) && (
         <section style={card}>
@@ -310,6 +255,53 @@ export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; s
           </div>
         </section>
       )}
+    </>
+  );
+
+  const tabCobranzaEdit = (isGanado || stage === 'facturando' || pagos.length > 0) ? (
+    <>
+      {isGanado && (
+        <section style={card}>
+          <div style={{ ...sectLabel, marginBottom: 16 }}>Cierre</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+            <Field label="Monto del cierre (USD)" required><input className="lead-field" type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} /></Field>
+            <Field label="Fecha de cierre"><input className="lead-field" type="date" value={fechaCierre} onChange={(e) => setFechaCierre(e.target.value)} /></Field>
+            <Field label="Fecha inicio de servicio (opcional)"><input className="lead-field" type="date" value={fechaInicioServicio} onChange={(e) => setFechaInicioServicio(e.target.value)} /></Field>
+          </div>
+        </section>
+      )}
+      <CobranzaPlanCard lead={lead} pagos={pagos} />
+    </>
+  ) : (
+    <section style={card}>
+      <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
+      <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado (con &quot;Mover a…&quot;).</p>
+    </section>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Barra de acción FIJA (solo existe en modo edición) */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 14, boxShadow: '0 4px 16px rgba(18,21,27,.07)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <span style={{ ...chipStyleFor(sm) }}>{sm?.label ?? stage}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>Editando</span>
+          {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button type="button" onClick={() => (onCancel ? onCancel() : router.push('/leads'))} style={btnGhost}>Cancelar</button>
+          <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
+        </div>
+      </div>
+
+      {/* Mismas tabs que la vista, ahora editables */}
+      <LeadTabs
+        tabs={[
+          { key: 'resumen', label: 'Resumen', content: tabContacto },
+          { key: 'reuniones', label: 'Reuniones', content: tabReuniones },
+          { key: 'cobranza', label: 'Cobranza', content: tabCobranzaEdit },
+        ]}
+      />
 
       {/* BORRAR (discreto, al fondo) */}
       <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: 4 }}>

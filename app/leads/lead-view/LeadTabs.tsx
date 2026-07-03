@@ -17,10 +17,12 @@ export type LeadTabDef = {
   badge?: number;
 };
 
-export function LeadTabs({ tabs, initial, onChange }: {
+export function LeadTabs({ tabs, initial, onChange, actions }: {
   tabs: LeadTabDef[];
   initial?: string;
   onChange?: (key: string) => void;
+  /** Contenido extra a la derecha de la fila de tabs (ej. botón Editar). */
+  actions?: ReactNode;
 }) {
   const [tab, setTab] = useState<string>(initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '');
 
@@ -36,7 +38,8 @@ export function LeadTabs({ tabs, initial, onChange }: {
 
   return (
     <div>
-      <div role="tablist" style={{ borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap' }}>
+      <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap', minWidth: 0 }}>
         {tabs.map((t) => {
           const active = tab === t.key;
           return (
@@ -48,6 +51,8 @@ export function LeadTabs({ tabs, initial, onChange }: {
             </button>
           );
         })}
+        </div>
+        {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>{actions}</div>}
       </div>
       <div role="tabpanel" style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 20 }}>
         {activeTab?.content}

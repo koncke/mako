@@ -8,8 +8,9 @@
 // un usuario; chip para sistemas: Fathom/Calendly/CRM) y, cuando el campo tiene
 // mapeo directo, un botón "Deshacer" que revierte ese cambio puntual.
 
-import { useEffect, useState, useTransition, type CSSProperties } from 'react';
+import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { stageMeta, type Stage } from '@/lib/pipeline';
 import { getLeadAuditAction, revertAuditChangeAction, type LeadAuditRowFull } from '../actions';
 
 const MONO = "'Geist Mono', monospace";
@@ -20,7 +21,13 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const fmtAuditDate = (iso: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }).format(d);
+  // Formato corto 24h — entra en una línea, sin "a.m./p.m." colgando.
+  return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Tijuana' }).format(d).replace(',', '');
+};
+
+/** Nombres legibles del estado canónico. */
+const ESTADO_LABEL: Record<string, string> = {
+  abierto: 'Abierto', ganado: 'Ganado', perdido: 'Perdido', descalificado: 'Descalificado', no_responde: 'No responde',
 };
 const sysColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : '#8A6D3B');
 
@@ -48,8 +55,20 @@ function Autor({ row }: { row: LeadAuditRowFull }) {
   );
 }
 
-export function AuditHistory({ leadId }: { leadId: number }) {
+export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stage[] }) {
   const router = useRouter();
+
+  // Valores legibles: keys de etapa → label del funnel; estados → label; chips.
+  const legible = (campo: string, v: string | null): ReactNode => {
+    if (v == null || v === '') return <span style={{ color: 'var(--faint)' }}>—</span>;
+    let txt = v;
+    if (campo === 'Etapa' && stages?.length) txt = stageMeta(stages, v)?.label ?? v;
+    if (campo === 'Estado') txt = ESTADO_LABEL[v] ?? v;
+    if (campo === 'Etapa' || campo === 'Estado') {
+      return <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', color: 'var(--ink)' }}>{txt}</span>;
+    }
+    return <span>{txt}</span>;
+  };
   const [pending, startTransition] = useTransition();
   const [audit, setAudit] = useState<LeadAuditRowFull[]>([]);
   const [err, setErr] = useState(false);
@@ -109,9 +128,9 @@ export function AuditHistory({ leadId }: { leadId: number }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rows.map((a) => (
           <div key={a.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap' }}>
-            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', width: 100 }}>{fmtAuditDate(a.created_at)}</span>
-            <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)' }}>
-              <b style={{ fontWeight: 600 }}>{a.campo}</b>: {a.valor_anterior ?? '—'} → {a.valor_nuevo ?? '—'}
+            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtAuditDate(a.created_at)}</span>
+            <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <b style={{ fontWeight: 600 }}>{a.campo}:</b> {legible(a.campo, a.valor_anterior)} <span style={{ color: 'var(--faint)' }}>→</span> {legible(a.campo, a.valor_nuevo)}
             </span>
             <Autor row={a} />
             {a.revertible && a.valor_anterior !== a.valor_nuevo && (

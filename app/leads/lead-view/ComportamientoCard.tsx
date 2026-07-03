@@ -13,6 +13,18 @@ const miniCard: CSSProperties = { background: 'var(--surface-2)', border: '1px s
 
 export function ComportamientoCard({ visitas, dias, plays, maxPct }: { visitas: number; dias: number; plays: number; maxPct: number | null }) {
   const pctColor = maxPct == null ? 'var(--faint)' : maxPct >= 60 ? 'var(--good)' : maxPct >= 30 ? 'var(--accent)' : 'var(--bad)';
+  // Sin ningún dato: mensaje claro en vez de tres cuadros con rayas. Este dato
+  // es IMPOSIBLE de reconstruir (no se midió en su momento), por eso nunca se exige.
+  if (!visitas && !plays && maxPct == null) {
+    return (
+      <section style={card}>
+        <div style={{ ...sectLabel, marginBottom: 10 }}>Comportamiento</div>
+        <p style={{ fontSize: 14, color: 'var(--faint)' }}>
+          Sin tracking para este lead: entró antes de que existiera el tracking del VSL, o llegó por instant form sin pasar por la landing. No hay forma de reconstruirlo.
+        </p>
+      </section>
+    );
+  }
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 14 }}>Comportamiento</div>

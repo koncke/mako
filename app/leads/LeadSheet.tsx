@@ -8,12 +8,11 @@
 // pop-up chico (StageMoveDialog), no esta ficha.
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { CHIP, deriveStageKey, stageMeta, type Stage } from '@/lib/pipeline';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import type { FathomLink } from '@/lib/leads';
 import { deleteLeadInlineAction, type LeadFullData } from './actions';
 import { JourneyTimeline } from './JourneyTimeline';
 import { OrigenCard } from './lead-view/OrigenCard';
@@ -21,6 +20,9 @@ import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { RespuestasCard } from './lead-view/RespuestasCard';
+import { ReunionesCard } from './lead-view/ReunionesCard';
+import { InsightsCard } from './lead-view/InsightsCard';
+import { CobranzaPlanCard } from './[id]/CobranzaPlanCard';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -28,32 +30,15 @@ const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
-const miniCard: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' };
 
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
-const fmtUSD = (n: number) => '$' + n.toLocaleString('en-US');
 
 function IconX() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 }
 
-const yesNo = (v: boolean | null): ReactNode =>
-  v === true ? <span style={{ fontSize: 12.5, fontWeight: 700, padding: '2px 10px', borderRadius: 999, color: 'var(--good)', background: 'var(--good-bg)' }}>Sí</span>
-  : v === false ? <span style={{ fontSize: 12.5, fontWeight: 700, padding: '2px 10px', borderRadius: 999, color: 'var(--bad)', background: 'var(--bad-bg)' }}>No</span>
-  : <span style={{ color: 'var(--faint)' }}>—</span>;
-
-function Stat({ label, value }: { label: string; value: ReactNode }) {
-  const isEmpty = value === '—' || value == null || value === '';
-  return (
-    <div style={miniCard}>
-      <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</div>
-      <div style={{ fontSize: 15, color: isEmpty ? 'var(--faint)' : 'var(--ink)', fontWeight: isEmpty ? 400 : 600, marginTop: 3 }}>{value}</div>
-    </div>
-  );
-}
-
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, visitas } = data;
+  const { lead, stages, pagos, vslEng, campana, visitas, insights } = data;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -92,10 +77,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const chip = sm ? CHIP[sm.tone] || CHIP.neutral : CHIP.neutral;
   const isLost = lead.estado_lead === 'perdido' || lead.estado_lead === 'descalificado';
   const isGanado = lead.estado_lead === 'ganado';
-  const agendo = !!lead.fecha_junta_1 || !!lead.fecha_junta_2 || !!lead.fecha_agenda || lead.asistio_j1 != null;
-
-  const cobrado = pagos.filter((p) => p.pagado).reduce((s, p) => s + Number(p.monto_usd), 0);
-  const pendiente = pagos.filter((p) => !p.pagado).reduce((s, p) => s + Number(p.monto_usd), 0);
   const monto = lead.monto_cierre_usd ?? 0;
 
   const journey = buildJourney({
@@ -121,8 +102,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     });
   };
 
-  const fathomLinks = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
-
   const tabResumen = (
     <>
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
@@ -130,69 +109,24 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         <div style={{ ...sectLabel, marginBottom: 16 }}>Recorrido del lead</div>
         <JourneyTimeline steps={journey} />
       </section>
-      {agendo && (
-        <section style={card}>
-          <div style={{ ...sectLabel, marginBottom: 14 }}>Datos comerciales</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12 }}>
-            <Stat label="Fecha Reunión 1" value={lead.fecha_junta_1 ? fmtDDMMYYYY(lead.fecha_junta_1) : lead.fecha_agenda ? fmtDDMMYYYY(lead.fecha_agenda) : '—'} />
-            <Stat label="¿Asistió a R1?" value={yesNo(lead.asistio_j1)} />
-            <Stat label="¿Era calificado?" value={yesNo(lead.calificado)} />
-            {(lead.fecha_junta_2 || lead.asistio_j2 != null) && <Stat label="Fecha Reunión 2" value={lead.fecha_junta_2 ? fmtDDMMYYYY(lead.fecha_junta_2) : '—'} />}
-            {(lead.fecha_junta_2 || lead.asistio_j2 != null) && <Stat label="¿Asistió a R2?" value={yesNo(lead.asistio_j2)} />}
-            {lead.fecha_confirmacion && <Stat label="Confirmación de pago" value={fmtDDMMYYYY(lead.fecha_confirmacion)} />}
-            <Stat label="Closer" value={lead.closer || '—'} />
-            <Stat label="Setter" value={lead.setter || '—'} />
-          </div>
-          {fathomLinks.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
-              {fathomLinks.map((f, i) => (
-                <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, textDecoration: 'none', padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{f.label || 'Llamada'} (Fathom)</span>
-                  <span style={{ fontSize: 13, color: 'var(--accent)' }}>Abrir →</span>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
       {isLost && lead.motivo_perdida && (
         <section style={card}>
           <div style={{ ...sectLabel, marginBottom: 12 }}>Motivo de pérdida</div>
           <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5 }}>{lead.motivo_perdida}</div>
         </section>
       )}
-      <OrigenCard lead={lead} vslEng={vslEng} campana={campana} />
-      <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} />
-      <RespuestasCard lead={lead} />
     </>
   );
 
-  const tabCobranza = (
+  const tabCobranza = isGanado || pagos.length > 0 ? (
+    <>
+      <CobranzaPlanCard lead={lead} pagos={pagos} editable={false} />
+      <Link href={`/leads/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar plan →</Link>
+    </>
+  ) : (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 14 }}>Cobranza</div>
-      {isGanado || pagos.length > 0 ? (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12 }}>
-            <Stat label="Monto de cierre" value={monto ? fmtUSD(monto) : '—'} />
-            <Stat label="Cobrado" value={fmtUSD(cobrado)} />
-            <Stat label="Pendiente" value={pendiente > 0 ? fmtUSD(pendiente) : cobrado > 0 ? 'Pagado' : '—'} />
-          </div>
-          {pagos.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 14 }}>
-              {pagos.map((p) => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 13px', borderRadius: 10, border: '1px solid var(--border)', background: p.pagado ? 'var(--good-bg)' : 'var(--surface-2)', fontSize: 13.5 }}>
-                  <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{p.numero === 0 ? 'Cobro inicial' : `Cuota ${p.numero}`}</span>
-                  <span style={{ color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{fmtUSD(Number(p.monto_usd))}</span>
-                  <span style={{ color: p.pagado ? 'var(--good)' : 'var(--dim)', fontSize: 12.5 }}>{p.pagado ? `cobrada ${fmtDDMMYYYY(p.fecha_pago)}` : `vence ${fmtDDMMYYYY(p.fecha_esperada)}`}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          <Link href={`/leads/${lead.id}?tab=cobranza`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', marginTop: 14 }}>Editar plan y marcar cuotas →</Link>
-        </>
-      ) : (
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado.</p>
-      )}
+      <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
+      <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado.</p>
     </section>
   );
 
@@ -222,8 +156,11 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             initial={initialTab}
             tabs={[
               { key: 'resumen', label: 'Resumen', content: tabResumen },
+              { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} /> },
+              { key: 'comportamiento', label: 'Comportamiento', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} /></> },
+              { key: 'insights', label: 'Insights', content: <><InsightsCard insights={insights} /><RespuestasCard lead={lead} /></>, badge: insights.length },
               { key: 'cobranza', label: 'Cobranza', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },
-              { key: 'actividad', label: 'Actividad', content: <AuditHistory leadId={lead.id} /> },
+              { key: 'actividad', label: 'Actividad', content: <AuditHistory leadId={lead.id} stages={stages} /> },
             ]}
           />
         </div>

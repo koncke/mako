@@ -30,7 +30,7 @@ function fmtUSD(n: number | null | undefined): string {
 
 type Modo = 'unico' | 'cuotas';
 
-export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] }) {
+export function CobranzaPlanCard({ lead, pagos, editable = true }: { lead: Lead; pagos: Pago[]; editable?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -49,11 +49,14 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
   const nCuotas = modo === 'unico' ? 0 : parseInt(totalCuotas, 10) || 0;
   const inicialNum = parseFloat(cobroInicial) || 0;
   const cuotaNum = modo === 'unico' ? 0 : parseFloat(montoCuota) || 0;
-  const totalPlan = inicialNum + cuotaNum * nCuotas;
 
   const cobrado = pagos.filter((p) => p.pagado).reduce((s, p) => s + Number(p.monto_usd), 0);
   const pendiente = pagos.filter((p) => !p.pagado).reduce((s, p) => s + Number(p.monto_usd), 0);
   const totalPagos = cobrado + pendiente;
+  // Total del plan: lo que dicen los campos, o — si están vacíos porque las
+  // cuotas se cargaron con el modelo viejo — la suma real de las cuotas.
+  const totalCampos = inicialNum + cuotaNum * nCuotas;
+  const totalPlan = totalCampos > 0 ? totalCampos : totalPagos;
   const progreso = totalPagos > 0 ? Math.min(100, Math.round((cobrado / totalPagos) * 100)) : 0;
 
   const montoCierre = lead.monto_cierre_usd ?? 0;
@@ -169,13 +172,16 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {contratoNombre && <a href={`/api/contract?leadId=${lead.id}`} style={{ ...ghostBtn, textDecoration: 'none' }}>Descargar</a>}
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={extrayendo} style={{ ...ghostBtn, borderColor: 'var(--primary)', color: 'var(--primary)', opacity: extrayendo ? 0.6 : 1 }}>
-            {extrayendo ? 'Leyendo contrato…' : contratoNombre ? 'Reemplazar y releer' : 'Subir contrato'}
-          </button>
+          {editable && (
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={extrayendo} style={{ ...ghostBtn, borderColor: 'var(--primary)', color: 'var(--primary)', opacity: extrayendo ? 0.6 : 1 }}>
+              {extrayendo ? 'Leyendo contrato…' : contratoNombre ? 'Reemplazar y releer' : 'Subir contrato'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* PLAN — modo + campos */}
+      {/* PLAN — modo + campos (solo en modo edición) */}
+      {editable && (
       <div style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
           <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 4, gap: 4 }}>
@@ -235,6 +241,7 @@ export function CobranzaPlanCard({ lead, pagos }: { lead: Lead; pagos: Pago[] })
           <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 14, fontWeight: 600, marginTop: 12, background: feedback.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</div>
         )}
       </div>
+      )}
 
       {/* CUOTAS */}
       {pagos.length > 0 && (

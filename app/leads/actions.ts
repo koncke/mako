@@ -71,6 +71,40 @@ import { savePlanPagos, marcarPago, getPagosByLead, type PlanPagos, type Pago } 
 import { mapToCrmLead, type VisitasMap, type VslMap } from './crm-map';
 import type { CrmLead } from './CrmBoard';
 
+/** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
+export type LeadInsightRow = {
+  recording_id: number;
+  share_url: string | null;
+  started_at: string | null;
+  tipo: string | null;
+  score: number | null;
+  outcome: string | null;
+  outcome_tone: string | null;
+  summary: string | null;
+  next_step: string | null;
+  dims: Array<{ label?: string; note?: string; quote?: string }> | null;
+  objections: Array<{ quote?: string; handled?: boolean; note?: string }> | null;
+  closer: string | null;
+  duration_min: number | null;
+};
+
+/** Llamadas analizadas del lead (más reciente primero). Nunca rompe la ficha. */
+export async function getLeadInsights(leadId: number): Promise<LeadInsightRow[]> {
+  try {
+    const { data, error } = await (await getTenantDb())
+      .from('closing_analyses')
+      .select('recording_id, share_url, started_at, tipo, score, outcome, outcome_tone, summary, next_step, dims, objections, closer, duration_min')
+      .eq('lead_id', leadId)
+      .eq('status', 'done')
+      .order('started_at', { ascending: false })
+      .limit(10);
+    if (error) return [];
+    return (data ?? []) as LeadInsightRow[];
+  } catch {
+    return [];
+  }
+}
+
 /** Datos completos para hidratar la ficha (LeadSheet) como modal. */
 export type LeadFullData = {
   lead: Lead;
@@ -79,6 +113,7 @@ export type LeadFullData = {
   vslEng: VslEngagement;
   campana: { texto: string | null; tooltip: string | null };
   visitas: { total_visitas: number; dias_distintos: number };
+  insights: LeadInsightRow[];
 };
 
 /**
@@ -89,20 +124,21 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, stagesRaw, visitasMap] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getPipelineStages().catch(() => DEFAULT_STAGES),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
+    getLeadInsights(id),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
-  return { lead, stages, pagos, vslEng, campana, visitas };
+  return { lead, stages, pagos, vslEng, campana, visitas, insights };
 }
 
-/** Datos que la tarjeta "completar movimiento" del preview puede aportar. */
+/** Datos que el wizard de movimiento puede aportar. */
 export type StageMoveData = {
   fechaJ1?: string | null;
   fechaJ2?: string | null;
@@ -112,27 +148,34 @@ export type StageMoveData = {
   setter?: string | null;
   asistioJ1?: boolean | null;
   asistioJ2?: boolean | null;
+  calificado?: boolean | null;
+  plan?: PlanPagos | null;
 };
 
 /**
- * Completa un movimiento del Kanban que exige datos (desde la tarjeta del
- * preview): guarda los datos aportados y mueve la etapa en una sola acción.
- * Valida los requisitos server-side (fuente única: lib/stage-requirements).
+ * Completa un movimiento de etapa (wizard del Kanban/ficha): guarda los datos
+ * aportados y mueve, en una sola acción. Valida los requisitos ACUMULATIVOS
+ * server-side (fuente única: lib/stage-requirements).
  */
 export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<void> {
   const before = await getLead(id).catch(() => null);
+  const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
   const faltan = missingForStage(to, {
     fechaJ1: d.fechaJ1 ?? before?.fecha_junta_1 ?? null,
     fechaJ2: d.fechaJ2 ?? before?.fecha_junta_2 ?? null,
+    asistioJ1: d.asistioJ1 ?? before?.asistio_j1 ?? null,
+    asistioJ2: d.asistioJ2 ?? before?.asistio_j2 ?? null,
+    calificado: d.calificado ?? before?.calificado ?? null,
     hasFathomUrl: (d.fathom ?? before?.fathom_links ?? []).some((f) => f.url?.trim()),
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
     motivo: d.motivo ?? before?.motivo_perdida ?? null,
     setter: d.setter ?? before?.setter ?? null,
+    tienePlan: to === 'ganado' ? (!!d.plan || pagosExistentes.length > 0) : undefined,
     hoyISO: hoyEnTijuana(),
   });
   if (faltan.length) throw new Error(`Falta: ${faltan.join(', ')}`);
 
-  // 1) Datos aportados (fechas/fathom/motivo/setter) — solo los que vinieron.
+  // 1) Fechas/fathom/motivo/setter — solo lo que vino.
   const meta: LeadMetaInput = {};
   if (d.fechaJ1 !== undefined) meta.fecha_junta_1 = d.fechaJ1;
   if (d.fechaJ2 !== undefined) meta.fecha_junta_2 = d.fechaJ2;
@@ -141,13 +184,19 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   if (d.setter !== undefined) meta.setter = d.setter;
   if (Object.keys(meta).length) await saveLeadMeta(id, meta);
 
-  // 2) Mover (updateLead primero — invariantes + CAPI — y override solo si OK).
-  await setPipelineStage(id, to, {
-    monto: d.monto ?? null,
-    motivo: d.motivo ?? null,
-    asistio_j1: d.asistioJ1,
-    asistio_j2: d.asistioJ2,
-  });
+  // 2) Asistencias + calificado por updateLead (invariantes + CAPI: marcar
+  //    calificado=true con asistencia dispara Lead/QualifiedLead a Meta).
+  const upd: Parameters<typeof updateLead>[1] = {};
+  if (d.asistioJ1 !== undefined && d.asistioJ1 !== null) upd.asistio_j1 = d.asistioJ1;
+  if (d.asistioJ2 !== undefined && d.asistioJ2 !== null) upd.asistio_j2 = d.asistioJ2;
+  if (d.calificado !== undefined && d.calificado !== null) upd.calificado = d.calificado;
+  if (Object.keys(upd).length) await updateLead(id, upd);
+
+  // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
+  if (d.plan) await savePlanPagos(id, d.plan);
+
+  // 4) Mover (updateLead sincroniza estado primero; override solo si OK).
+  await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
 
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
@@ -266,6 +315,9 @@ export async function setLeadStageAction(
   const faltanMove = missingForStage(stageKey, {
     fechaJ1: before?.fecha_junta_1 ?? null,
     fechaJ2: before?.fecha_junta_2 ?? null,
+    asistioJ1: opts?.asistio_j1 ?? before?.asistio_j1 ?? null,
+    asistioJ2: opts?.asistio_j2 ?? before?.asistio_j2 ?? null,
+    calificado: before?.calificado ?? null,
     hasFathomUrl: (before?.fathom_links ?? []).some((f) => f.url?.trim()),
     monto: opts?.monto ?? before?.monto_cierre_usd ?? null,
     motivo: opts?.motivo ?? before?.motivo_perdida ?? null,
@@ -412,9 +464,14 @@ export async function markMeetingManualAction(
   which: 'agenda' | 'agendaj2',
   fecha: string,
   asistio: boolean | null,
+  /** Motivo de la excepción cuando se agendó por fuera de Calendly. */
+  notaExcepcion?: string | null,
 ): Promise<void> {
   const before = await getLead(id).catch(() => null);
   await setMeetingManual(id, which, fecha, asistio);
+  if (notaExcepcion?.trim()) {
+    await logLeadEvent(id, 'Agendada fuera de Calendly', notaExcepcion.trim(), await autorActual());
+  }
   const after = await getLead(id).catch(() => null);
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);

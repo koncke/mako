@@ -69,7 +69,8 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono }: 
   return (
     <section style={card}>
       <div style={{ ...sectLabel, marginBottom: 14 }}>Información principal</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
+      {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} />
         <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} />
         <Row
