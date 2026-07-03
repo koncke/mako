@@ -47,6 +47,7 @@ import {
   type VslEngagement,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
+import { missingForStage } from '@/lib/stage-requirements';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
 import { savePlanPagos, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
@@ -60,25 +61,82 @@ export type LeadFullData = {
   pagos: Pago[];
   vslEng: VslEngagement;
   campana: { texto: string | null; tooltip: string | null };
+  visitas: { total_visitas: number; dias_distintos: number };
 };
 
 /**
- * Carga TODO lo que la ficha (LeadSheet) necesita para editar un lead desde un
+ * Carga TODO lo que la ficha (LeadSheet) necesita para mostrar un lead desde un
  * modal (CRM / WhatsApp / desgloses): el Lead completo, etapas, plan de pagos,
- * engagement del VSL y campaña resuelta. Mismo dataset que la ruta /leads/[id].
+ * engagement del VSL, visitas a la landing y campaña resuelta.
  */
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, stagesRaw] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw, visitasMap] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getPipelineStages().catch(() => DEFAULT_STAGES),
+    getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
-  return { lead, stages, pagos, vslEng, campana };
+  const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
+  return { lead, stages, pagos, vslEng, campana, visitas };
+}
+
+/** Datos que la tarjeta "completar movimiento" del preview puede aportar. */
+export type StageMoveData = {
+  fechaJ1?: string | null;
+  fechaJ2?: string | null;
+  fathom?: FathomLink[];
+  monto?: number | null;
+  motivo?: string | null;
+  setter?: string | null;
+  asistioJ1?: boolean | null;
+  asistioJ2?: boolean | null;
+};
+
+/**
+ * Completa un movimiento del Kanban que exige datos (desde la tarjeta del
+ * preview): guarda los datos aportados y mueve la etapa en una sola acción.
+ * Valida los requisitos server-side (fuente única: lib/stage-requirements).
+ */
+export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<void> {
+  const before = await getLead(id).catch(() => null);
+  const faltan = missingForStage(to, {
+    fechaJ1: d.fechaJ1 ?? before?.fecha_junta_1 ?? null,
+    fechaJ2: d.fechaJ2 ?? before?.fecha_junta_2 ?? null,
+    hasFathomUrl: (d.fathom ?? before?.fathom_links ?? []).some((f) => f.url?.trim()),
+    monto: d.monto ?? before?.monto_cierre_usd ?? null,
+    motivo: d.motivo ?? before?.motivo_perdida ?? null,
+    setter: d.setter ?? before?.setter ?? null,
+  });
+  if (faltan.length) throw new Error(`Falta: ${faltan.join(', ')}`);
+
+  // 1) Datos aportados (fechas/fathom/motivo/setter) — solo los que vinieron.
+  const meta: LeadMetaInput = {};
+  if (d.fechaJ1 !== undefined) meta.fecha_junta_1 = d.fechaJ1;
+  if (d.fechaJ2 !== undefined) meta.fecha_junta_2 = d.fechaJ2;
+  if (d.fathom !== undefined) meta.fathom_links = d.fathom;
+  if (d.motivo !== undefined) meta.motivo_perdida = d.motivo;
+  if (d.setter !== undefined) meta.setter = d.setter;
+  if (Object.keys(meta).length) await saveLeadMeta(id, meta);
+
+  // 2) Mover (updateLead primero — invariantes + CAPI — y override solo si OK).
+  await setPipelineStage(id, to, {
+    monto: d.monto ?? null,
+    motivo: d.motivo ?? null,
+    asistio_j1: d.asistioJ1,
+    asistio_j2: d.asistioJ2,
+  });
+
+  const after = await getLead(id).catch(() => null);
+  await logLeadChanges(id, before, after, 'CRM');
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath(`/leads/${id}`);
+  revalidatePath('/general');
 }
 
 function emptyToNull(v: FormDataEntryValue | null): string | null {

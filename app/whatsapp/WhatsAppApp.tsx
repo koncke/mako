@@ -374,6 +374,18 @@ function WhatsAppInner() {
         setSelId(target);
         return;
       }
+      // ?lead=<id>: abrir el chat del contacto matcheado a ese lead del CRM
+      // (deep-link desde la ficha del lead). Si no hay chat, se queda como está.
+      const leadParam = Number(searchParamsWA.get('lead'));
+      if (Number.isFinite(leadParam) && leadParam > 0) {
+        const c = contactos.find((x) => x.leadId === leadParam);
+        if (c) {
+          lastSearchRef.current = s;
+          setView('chats');
+          setSelId(c.id);
+          return;
+        }
+      }
     }
     if (selId == null && contactos.length) setSelId(contactos[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps

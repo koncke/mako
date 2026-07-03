@@ -10,13 +10,11 @@
 
 import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveLeadEditorAction, deleteLeadAction, deleteLeadInlineAction, type LeadEditorInput } from '../actions';
+import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
 import { CHIP, BAND_LABEL, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
 import { missingForStage } from '@/lib/stage-requirements';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
-import { CobranzaPlanCard } from './CobranzaPlanCard';
 import type { Lead, FathomLink } from '@/lib/leads';
-import type { Pago } from '@/lib/pagos';
 
 type TriState = boolean | null;
 
@@ -28,19 +26,16 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, pagos, initialStage, onClose }: { lead: Lead; stages: Stage[]; pagos: Pago[]; initialStage?: string; onClose?: () => void }) {
+export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const validKeys = new Set(stages.map((s) => s.key));
-  // Etapa actual del lead vs etapa inicial mostrada (puede venir forzada por un
-  // movimiento del Kanban que abre la ficha para completar datos).
   const currentStage = lead.pipeline_stage && validKeys.has(lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
-  const initStage = initialStage && validKeys.has(initialStage) ? initialStage : currentStage;
 
-  const [stage, setStage] = useState<string>(initStage);
+  const [stage, setStage] = useState<string>(currentStage);
   const [nombre, setNombre] = useState(lead.nombre);
   const [email, setEmail] = useState(lead.email ?? '');
   const [telefono, setTelefono] = useState(lead.telefono ?? '');
@@ -124,11 +119,8 @@ export function EditLeadForm({ lead, stages, pagos, initialStage, onClose }: { l
     startTransition(async () => {
       try {
         await saveLeadEditorAction(lead.id, payload);
+        setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
         router.refresh();
-        // En el modal, cerrar al guardar (el board de atrás ya se refrescó); en la
-        // ruta, quedarse con el aviso de guardado.
-        if (onClose) onClose();
-        else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
       } catch (err) {
         setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
       }
@@ -138,11 +130,8 @@ export function EditLeadForm({ lead, stages, pagos, initialStage, onClose }: { l
   const borrar = () => {
     setConfirmDelete(false);
     startTransition(async () => {
-      try {
-        // Modal → borrado in-place (no expulsa de la tab); ruta → borra y redirige.
-        if (onClose) { await deleteLeadInlineAction(lead.id); router.refresh(); onClose(); }
-        else { await deleteLeadAction(lead.id); }
-      } catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
+      try { await deleteLeadAction(lead.id); }
+      catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
 
@@ -155,7 +144,7 @@ export function EditLeadForm({ lead, stages, pagos, initialStage, onClose }: { l
           {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" onClick={() => (onClose ? onClose() : router.push('/leads'))} style={btnGhost}>Cancelar</button>
+          <button type="button" onClick={() => router.push('/leads')} style={btnGhost}>Cancelar</button>
           <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
         </div>
       </div>
@@ -271,12 +260,6 @@ export function EditLeadForm({ lead, stages, pagos, initialStage, onClose }: { l
         </section>
       )}
 
-      {/* RESPUESTAS DEL FORMULARIO (solo lectura) */}
-      <RespuestasCard lead={lead} />
-
-      {/* PLAN DE PAGOS (ganado / facturando) */}
-      {(isGanado || stage === 'facturando') && <CobranzaPlanCard lead={lead} pagos={pagos} />}
-
       {/* BORRAR (discreto, al fondo) */}
       <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: 4 }}>
         <button type="button" onClick={() => setConfirmDelete(true)} disabled={pending} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--bad)', background: 'transparent', color: 'var(--bad)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>Borrar lead</button>
@@ -348,32 +331,4 @@ function MotivoSugerencias({ value, onChange }: { value: string; onChange: (v: s
   );
 }
 
-function RespuestasCard({ lead }: { lead: Lead }) {
-  const rows: Array<{ label: string; value: string | null }> = [
-    { label: '¿Qué quiere lograr?', value: lead.respuesta_objetivo },
-    { label: '¿Puede invertir?', value: lead.respuesta_inversion },
-    { label: '¿Cuántos colaboradores?', value: lead.respuesta_colaboradores },
-    { label: '¿Factura +$20M MXN?', value: lead.respuesta_facturacion },
-    { label: '¿Alguien más decide?', value: lead.respuesta_decisor },
-    { label: '¿Cuándo quiere empezar?', value: lead.respuesta_cuando_empezar },
-  ];
-  const hay = rows.some((r) => r.value && r.value.trim());
-  return (
-    <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 16 }}>Respuestas del formulario</div>
-      {!hay ? (
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>Sin respuestas capturadas. Probablemente un lead orgánico, manual, o agendado antes de que el form tuviera estas preguntas.</p>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-          {rows.map((r) => (
-            <div key={r.label}>
-              <div style={{ fontSize: 11.5, color: 'var(--dim)', marginBottom: 3 }}>{r.label}</div>
-              <div style={{ fontSize: 14.5, color: r.value ? 'var(--ink)' : 'var(--faint)' }}>{r.value && r.value.trim() ? r.value : '—'}</div>
-            </div>
-          ))}
-        </div>
-      )}
-      <p style={{ fontSize: 12, marginTop: 14, color: 'var(--faint)' }}>Datos automáticos del webhook de Calendly. Solo lectura.</p>
-    </section>
-  );
-}
+// RespuestasCard vive ahora en ../lead-view/RespuestasCard (compartida con el modal).

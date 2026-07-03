@@ -35,6 +35,7 @@ import {
   markMeetingManualAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
+import type { PendingMoveInfo } from './LeadSheet';
 import { sectionForStage } from './edit-logic';
 import { missingForStage } from '@/lib/stage-requirements';
 import { Dropdown } from '../components/Dropdown';
@@ -145,7 +146,7 @@ export function CrmBoard({
   const [originFilter, setOriginFilter] = useState('todos');
   const [showSinMarcar, setShowSinMarcar] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [sheetStage, setSheetStage] = useState<string | undefined>(undefined);   // etapa destino al abrir la ficha para completar
+  const [sheetMove, setSheetMove] = useState<PendingMoveInfo | null>(null);   // movimiento pendiente al abrir la ficha para completar
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
@@ -166,15 +167,15 @@ export function CrmBoard({
     return stageKeys.has(k) ? k : firstKey;
   };
 
-  // Abrir la ficha del lead (editable). `stage` opcional: etapa destino a
-  // pre-seleccionar cuando el movimiento del Kanban pide completar datos.
-  const openDetail = (l: CrmLead, stage?: string) => {
+  // Abrir la ficha del lead (preview). `move` opcional: movimiento del Kanban
+  // que exige completar datos antes de mover (la ficha muestra la tarjeta warn).
+  const openDetail = (l: CrmLead, move?: PendingMoveInfo | null) => {
     setSelectedId(l.id);
-    setSheetStage(stage);
+    setSheetMove(move ?? null);
   };
   const closeDetail = () => {
     setSelectedId(null);
-    setSheetStage(undefined);
+    setSheetMove(null);
   };
 
   // Transición del grafo que define el movimiento `from → to` (si existe). Lleva
@@ -261,17 +262,18 @@ export function CrmBoard({
     if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
-    if (needsFicha(lead, stageKey)) openDetail(lead, stageKey);
+    if (needsFicha(lead, stageKey)) openDetail(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
     else persistStage(id, stageKey, from, tr);
   };
 
-  // Resolver un "dato sin marcar": si la etapa destino pide datos, abre la ficha en
-  // esa etapa; si no, mueve directo aplicando la asistencia que implica la transición.
+  // Resolver un "dato sin marcar": si la etapa destino pide datos, abre la ficha
+  // con el movimiento pendiente; si no, mueve directo aplicando la asistencia que
+  // implica la transición del grafo.
   const resolveMarcar = (leadId: number, t: FunnelTransition) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
     if (calendlyUrlFor(t.to)) { scheduleViaCalendly(lead, t.to); return; }
-    if (needsFicha(lead, t.to)) openDetail(lead, t.to);
+    if (needsFicha(lead, t.to)) openDetail(lead, { to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
     else persistStage(leadId, t.to, effStage(lead), t);
   };
 
@@ -563,7 +565,7 @@ export function CrmBoard({
       )}
 
       {selected && (
-        <LeadEditModal leadId={selected.id} initialStage={sheetStage} onClose={closeDetail} />
+        <LeadEditModal leadId={selected.id} pendingMove={sheetMove} onClose={closeDetail} />
       )}
 
       {/* Confirmación: motivo de la nutrición manual */}

@@ -105,6 +105,10 @@ export type Lead = {
   fathom_links?: FathomLink[] | null;
   nutricion_manual_deadline?: string | null;   // deadline de la nutrición manual (migración 0044)
 
+  // Contrato subido (migración 0029): archivo en Storage + nombre original.
+  contrato_nombre?: string | null;
+  contrato_path?: string | null;
+
   created_at: string;
   updated_at: string;
 };

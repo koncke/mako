@@ -1,8 +1,8 @@
 // =============================================================================
-// /leads/[id] — ficha del lead como página (permalink). Comparte los mismos
-// sub-componentes que el modal (LeadSheet): editor, origen, quick actions,
-// recorrido, historial.
+// /leads/[id] — detalle del lead en tabs: Resumen / Editar / Cobranza / Actividad
 // =============================================================================
+// Header fijo (etapa, nombre, cohorte, acciones rápidas) + tabs. La edición vive
+// en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -14,6 +14,7 @@ import {
   labelMadurez,
   textoCohorteJ1,
   getVslEngagement,
+  getVisitasLandingMap,
 } from '@/lib/leads';
 import { deriveStageKey, stageMeta, CHIP, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
@@ -23,9 +24,13 @@ import { guardOnboarding } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
 import { EditLeadForm } from './EditLeadForm';
+import { CobranzaPlanCard } from './CobranzaPlanCard';
 import { OrigenCard } from '../lead-view/OrigenCard';
 import { QuickActions } from '../lead-view/QuickActions';
 import { AuditHistory } from '../lead-view/AuditHistory';
+import { ComportamientoCard } from '../lead-view/ComportamientoCard';
+import { RespuestasCard } from '../lead-view/RespuestasCard';
+import { LeadTabs, type LeadTabKey } from '../lead-view/LeadTabs';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -34,23 +39,25 @@ const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   await guardOnboarding();
-  const { id: idStr } = await params;
+  const [{ id: idStr }, { tab }] = await Promise.all([params, searchParams]);
   const idNum = Number(idStr);
   if (!Number.isFinite(idNum)) notFound();
 
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, stagesRaw] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw, visitasMap] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
     getPipelineStages().catch(() => [] as Stage[]),
+    getVisitasLandingMap([lead.visitor_id]).catch(() => new Map<string, { total_visitas: number; dias_distintos: number }>()),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
+  const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
   const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
   void _e;
@@ -75,6 +82,10 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     hoyISO: new Date().toISOString().slice(0, 10),
   });
 
+  const esVenta = lead.estado_lead === 'ganado' || stageKey === 'facturando';
+  const tienePlan = pagos.length > 0 || !!lead.cobro_inicial_usd || (lead.total_cuotas ?? 0) > 0;
+  const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
+
   return (
     <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
@@ -95,26 +106,38 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </div>
         </div>
 
-        <div style={{ marginTop: 16 }}>
-          <QuickActions email={lead.email} telefono={lead.telefono} telefonoNorm={lead.telefono_normalizado} />
+        <div style={{ margin: '16px 0 18px' }}>
+          <QuickActions leadId={lead.id} email={lead.email} telefono={lead.telefono} />
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 22 }}>
-          {/* RECORRIDO */}
-          <section style={card}>
-            <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
-            <JourneyTimeline steps={journey} />
-          </section>
-
-          {/* ORIGEN Y COMPORTAMIENTO */}
-          <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
-
-          {/* EDITOR COMPLETO (etapa + secciones por status + plan de pagos + barra fija) */}
-          <EditLeadForm lead={lead} stages={stages} pagos={pagos} />
-
-          {/* HISTORIAL DE CAMBIOS */}
-          <AuditHistory leadId={lead.id} />
-        </div>
+        {/* TABS */}
+        <LeadTabs
+          initial={(tab as LeadTabKey) || 'resumen'}
+          badges={{ cobranza: cuotasPendientes }}
+          resumen={
+            <>
+              <section style={card}>
+                <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
+                <JourneyTimeline steps={journey} />
+              </section>
+              <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
+              <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} />
+              <RespuestasCard lead={lead} />
+            </>
+          }
+          editar={<EditLeadForm lead={lead} stages={stages} />}
+          cobranza={
+            esVenta || tienePlan ? (
+              <CobranzaPlanCard lead={lead} pagos={pagos} />
+            ) : (
+              <section style={card}>
+                <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
+                <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado. Movelo de etapa desde la tab Editar.</p>
+              </section>
+            )
+          }
+          actividad={<AuditHistory leadId={lead.id} />}
+        />
       </div>
     </main>
   );
