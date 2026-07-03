@@ -4,7 +4,6 @@
 // Header fijo (etapa, nombre, cohorte, acciones rápidas) + tabs. La edición vive
 // en la tab Editar; el modal del CRM es solo preview y linkea acá con ?tab=.
 
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 import {
@@ -23,14 +22,13 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { guardOnboarding } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
-import { EditLeadForm } from './EditLeadForm';
 import { CobranzaPlanCard } from './CobranzaPlanCard';
+import { LeadDetailBody, BackButton } from './LeadDetailBody';
 import { OrigenCard } from '../lead-view/OrigenCard';
-import { QuickActions } from '../lead-view/QuickActions';
+import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { RespuestasCard } from '../lead-view/RespuestasCard';
-import { LeadTabs, type LeadTabKey } from '../lead-view/LeadTabs';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,9 +37,9 @@ const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string }> }) {
   await guardOnboarding();
-  const [{ id: idStr }, { tab }] = await Promise.all([params, searchParams]);
+  const [{ id: idStr }, { tab, edit }] = await Promise.all([params, searchParams]);
   const idNum = Number(idStr);
   if (!Number.isFinite(idNum)) notFound();
 
@@ -90,8 +88,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
         {/* HEADER */}
-        <Link href="/leads" style={{ fontSize: 14, color: 'var(--dim)', textDecoration: 'none' }}>← Volver a Leads</Link>
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <BackButton />
+        <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
           <div style={{ minWidth: 0 }}>
             <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd, marginBottom: 9 }}>{sm?.label ?? lead.estado_lead}</span>
             <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{lead.nombre}</h1>
@@ -106,16 +104,16 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           </div>
         </div>
 
-        <div style={{ margin: '16px 0 18px' }}>
-          <QuickActions leadId={lead.id} email={lead.email} telefono={lead.telefono} />
-        </div>
-
-        {/* TABS */}
-        <LeadTabs
-          initial={(tab as LeadTabKey) || 'resumen'}
-          badges={{ cobranza: cuotasPendientes }}
+        {/* TABS + botón Editar (el modo edición reemplaza el contenido) */}
+        <LeadDetailBody
+          lead={lead}
+          stages={stages}
+          initialTab={tab}
+          initialEdit={edit === '1'}
+          cuotasPendientes={cuotasPendientes}
           resumen={
             <>
+              <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
               <section style={card}>
                 <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
                 <JourneyTimeline steps={journey} />
@@ -125,14 +123,13 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               <RespuestasCard lead={lead} />
             </>
           }
-          editar={<EditLeadForm lead={lead} stages={stages} />}
           cobranza={
             esVenta || tienePlan ? (
               <CobranzaPlanCard lead={lead} pagos={pagos} />
             ) : (
               <section style={card}>
                 <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
-                <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado. Movelo de etapa desde la tab Editar.</p>
+                <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado. Movelo de etapa con el botón Editar.</p>
               </section>
             )
           }

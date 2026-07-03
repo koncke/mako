@@ -26,11 +26,12 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) {
+export function EditLeadForm({ lead, stages, onDone, onCancel }: { lead: Lead; stages: Stage[]; onDone?: () => void; onCancel?: () => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmSave, setConfirmSave] = useState<{ cambios: string[]; payload: LeadEditorInput } | null>(null);
 
   const validKeys = new Set(stages.map((s) => s.key));
   const currentStage = lead.pipeline_stage && validKeys.has(lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
@@ -65,8 +66,13 @@ export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) 
   const isLost = stage === 'perdido' || stage === 'descal';
   const isNutri = band === 'nutricion';
   const isManual = stage === 'manual';
-  const reachedMeeting = ['agenda', 'agendaj2', 'facturando', 'ganado'].includes(stage) || !!fechaJ1 || !!fechaJ2;
-  const showComercial = band === 'pipeline' || reachedMeeting || isLost;
+  // Mostrar SOLO lo relevante a la etapa: un "Lead (Instant form)" no edita
+  // reuniones; los campos de R2 aparecen recién cuando la etapa llegó a R2 (o
+  // ya hay datos previos cargados que conviene poder corregir).
+  const reachedR1 = ['agenda', 'agendaj2', 'facturando', 'ganado'].includes(stage) || !!fechaJ1 || !!lead.fecha_agenda || lead.asistio_j1 != null;
+  const reachedR2 = ['agendaj2', 'facturando', 'ganado'].includes(stage) || !!fechaJ2 || lead.asistio_j2 != null;
+  const reachedMeeting = reachedR1 || reachedR2;
+  const showComercial = reachedMeeting || isLost;
 
   const asistioJ1Disabled = !fechaJ1;
   const calificadoDisabled = asistioJ1 !== true;
@@ -90,7 +96,7 @@ export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) 
     // un lead que ya estaba ahí), unificado con el Kanban vía stage-requirements.
     // Un lead ya en Ganado igual necesita un monto positivo para poder guardarse.
     const reqs = stage !== currentStage
-      ? missingForStage(stage, { fechaJ1, fechaJ2, hasFathomUrl: fathom.some((f) => f.url.trim()), monto: parseFloat(monto) || null, motivo, setter })
+      ? missingForStage(stage, { fechaJ1, fechaJ2, hasFathomUrl: fathom.some((f) => f.url.trim()), monto: parseFloat(monto) || null, motivo, setter, hoyISO: new Date().toISOString().slice(0, 10) })
       : (isGanado && !(parseFloat(monto) > 0) ? ['Monto de cierre'] : []);
     if (reqs.length) { setFeedback({ kind: 'err', msg: `Falta para "${sm?.label ?? stage}": ${reqs.join(', ')}` }); return; }
 
@@ -116,11 +122,52 @@ export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) 
       setter: setter.trim() || null,
       fathom_links: fathom.filter((f) => f.url.trim() || f.label.trim()),
     };
+
+    // Diff legible de lo que se está por cambiar → confirmación antes de guardar.
+    const fmt = (v: string | number | boolean | null | undefined): string =>
+      v === null || v === undefined || v === '' ? '—' : v === true ? 'Sí' : v === false ? 'No' : String(v);
+    const cambios: string[] = [];
+    const dif = (label: string, antes: string | number | boolean | null | undefined, ahora: string | number | boolean | null | undefined) => {
+      if (fmt(antes) !== fmt(ahora)) cambios.push(`${label}: ${fmt(antes)} → ${fmt(ahora)}`);
+    };
+    dif('Etapa', stageMeta(stages, currentStage)?.label ?? currentStage, sm?.label ?? stage);
+    dif('Nombre', lead.nombre, payload.nombre);
+    dif('Email', lead.email, payload.email);
+    dif('Teléfono', lead.telefono, payload.telefono);
+    dif('Empresa', lead.empresa, payload.empresa);
+    dif('Fecha de agendamiento', lead.fecha_agenda, payload.fecha_agenda);
+    dif('Fecha R1', lead.fecha_junta_1, payload.fecha_junta_1);
+    dif('Asistió R1', lead.asistio_j1, payload.asistio_j1);
+    dif('Calificado', lead.calificado, payload.calificado);
+    dif('Fecha R2', lead.fecha_junta_2, payload.fecha_junta_2);
+    dif('Asistió R2', lead.asistio_j2, payload.asistio_j2);
+    dif('Confirmación de pago', lead.fecha_confirmacion, payload.fecha_confirmacion);
+    dif('Motivo', lead.motivo_perdida, payload.motivo_perdida);
+    dif('Monto de cierre', lead.monto_cierre_usd, payload.monto_cierre_usd);
+    dif('Fecha de cierre', lead.fecha_cierre, payload.fecha_cierre);
+    dif('Inicio de servicio', lead.fecha_inicio_servicio, payload.fecha_inicio_servicio);
+    dif('Closer', lead.closer, payload.closer);
+    dif('Setter', lead.setter, payload.setter);
+    dif('Deadline de nutrición', lead.nutricion_manual_deadline, payload.deadline);
+    const fathomAntes = (lead.fathom_links ?? []).filter((f) => f.url.trim()).length;
+    const fathomAhora = payload.fathom_links.filter((f) => f.url.trim()).length;
+    if (fathomAntes !== fathomAhora) cambios.push(`Links de Fathom: ${fathomAntes} → ${fathomAhora}`);
+
+    if (!cambios.length) { setFeedback({ kind: 'ok', msg: 'No hay cambios para guardar.' }); return; }
+    setConfirmSave({ cambios, payload });
+  };
+
+  const ejecutarGuardado = () => {
+    if (!confirmSave) return;
+    const { payload } = confirmSave;
+    setConfirmSave(null);
     startTransition(async () => {
       try {
         await saveLeadEditorAction(lead.id, payload);
-        setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
         router.refresh();
+        // Al confirmar, volver a la tab donde estaba el usuario.
+        if (onDone) onDone();
+        else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
       } catch (err) {
         setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
       }
@@ -144,7 +191,7 @@ export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) 
           {feedback && <span style={{ fontSize: 13, fontWeight: 600, color: feedback.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{feedback.msg}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button type="button" onClick={() => router.push('/leads')} style={btnGhost}>Cancelar</button>
+          <button type="button" onClick={() => (onCancel ? onCancel() : router.push('/leads'))} style={btnGhost}>Cancelar</button>
           <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
         </div>
       </div>
@@ -198,11 +245,15 @@ export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) 
             <Field label="¿Era lead calificado?" disabled={calificadoDisabled} hint={calificadoDisabled ? 'Solo si asistió a R1 = Sí' : undefined}>
               <TriToggle value={calificado} onChange={setCalificado} disabled={calificadoDisabled} />
             </Field>
-            <Field label="Fecha de Reunión 2 (opcional)"><input className="lead-field" type="date" value={fechaJ2} onChange={(e) => handleFechaJ2(e.target.value)} /></Field>
-            <Field label="¿Asistió a R2?" disabled={asistioJ2Disabled} hint={asistioJ2Disabled ? 'Marcá fecha R2 primero' : undefined}>
-              <TriToggle value={asistioJ2} onChange={setAsistioJ2} disabled={asistioJ2Disabled} />
-            </Field>
-            <Field label="Fecha de confirmación (opcional)" hint="Cuándo confirmó verbalmente el cierre (entre R2 y primer pago)."><input className="lead-field" type="date" value={fechaConfirmacion} onChange={(e) => setFechaConfirmacion(e.target.value)} /></Field>
+            {reachedR2 && (
+              <>
+                <Field label="Fecha de Reunión 2"><input className="lead-field" type="date" value={fechaJ2} onChange={(e) => handleFechaJ2(e.target.value)} /></Field>
+                <Field label="¿Asistió a R2?" disabled={asistioJ2Disabled} hint={asistioJ2Disabled ? 'Marcá fecha R2 primero' : undefined}>
+                  <TriToggle value={asistioJ2} onChange={setAsistioJ2} disabled={asistioJ2Disabled} />
+                </Field>
+                <Field label="Fecha de confirmación (opcional)" hint="Cuándo confirmó verbalmente el cierre (entre R2 y primer pago)."><input className="lead-field" type="date" value={fechaConfirmacion} onChange={(e) => setFechaConfirmacion(e.target.value)} /></Field>
+              </>
+            )}
             <Field label="Closer asignado"><input className="lead-field" value={closer} onChange={(e) => setCloser(e.target.value)} placeholder="Nombre del closer…" /></Field>
           </div>
         </section>
@@ -272,6 +323,25 @@ export function EditLeadForm({ lead, stages }: { lead: Lead; stages: Stage[] }) 
           confirmLabel="Borrar definitivamente"
           onConfirm={borrar}
           onCancel={() => setConfirmDelete(false)}
+          zIndex={130}
+        />
+      )}
+
+      {confirmSave && (
+        <ConfirmDialog
+          title="Confirmar cambios"
+          tone="primary"
+          message={
+            <div>
+              <div style={{ marginBottom: 10 }}>Estás por aplicar estos cambios en <b style={{ color: 'var(--ink)' }}>{lead.nombre}</b>:</div>
+              <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 260, overflowY: 'auto' }}>
+                {confirmSave.cambios.map((c) => <li key={c} style={{ fontSize: 13.5, color: 'var(--ink)' }}>{c}</li>)}
+              </ul>
+            </div>
+          }
+          confirmLabel="Confirmar"
+          onConfirm={ejecutarGuardado}
+          onCancel={() => setConfirmSave(null)}
           zIndex={130}
         />
       )}

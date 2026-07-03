@@ -1,16 +1,19 @@
 'use client';
 
 // =============================================================================
-// AuditHistory — historial de cambios de un lead (fetch client-side)
+// AuditHistory — historial de cambios del lead
 // =============================================================================
-// Extraído de LeadDetail para compartirlo entre el modal y la ruta /leads/[id]:
-// quien edita también ve quién tocó qué antes de pisar un dato.
+// Dos sub-tabs: cambios de STATUS (etapa/estado) y cambios de INFORMACIÓN (el
+// resto). Cada fila muestra QUIÉN hizo el cambio (nombre + foto de perfil si es
+// un usuario; chip para sistemas: Fathom/Calendly/CRM) y, cuando el campo tiene
+// mapeo directo, un botón "Deshacer" que revierte ese cambio puntual.
 
-import { useEffect, useState, type CSSProperties } from 'react';
-import { getLeadAuditAction } from '../actions';
-import type { LeadAuditRow } from '@/lib/leads';
+import { useEffect, useState, useTransition, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
+import { getLeadAuditAction, revertAuditChangeAction, type LeadAuditRowFull } from '../actions';
 
 const MONO = "'Geist Mono', monospace";
+const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
@@ -19,15 +22,49 @@ const fmtAuditDate = (iso: string) => {
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }).format(d);
 };
-const autorColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : a === 'CRM' ? '#8A6D3B' : '#5B6472');
+const sysColor = (a: string) => (a === 'Fathom' ? '#0E8E7E' : a === 'Calendly' ? '#2F6DDB' : '#8A6D3B');
+
+/** Campos que cuentan como cambio de STATUS (el resto es INFORMACIÓN). */
+const STATUS_FIELDS = new Set(['Etapa', 'Estado', 'Nutrición manual', 'Auditoría']);
+
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+
+function Autor({ row }: { row: LeadAuditRowFull }) {
+  const esUsuario = row.autor.includes('@');
+  if (!esUsuario) {
+    const c = sysColor(row.autor);
+    return <span style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: c, background: c + '1A', borderRadius: 999, padding: '2px 8px' }}>{row.autor_nombre}</span>;
+  }
+  return (
+    <span title={row.autor} style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {row.autor_foto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={row.autor_foto} alt="" width={20} height={20} style={{ borderRadius: '50%', display: 'block' }} referrerPolicy="no-referrer" />
+      ) : (
+        <span aria-hidden style={{ width: 20, height: 20, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{initials(row.autor_nombre)}</span>
+      )}
+      <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.autor_nombre}</span>
+    </span>
+  );
+}
 
 export function AuditHistory({ leadId }: { leadId: number }) {
-  const [audit, setAudit] = useState<LeadAuditRow[]>([]);
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [audit, setAudit] = useState<LeadAuditRowFull[]>([]);
   const [err, setErr] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [subTab, setSubTab] = useState<'status' | 'info'>('status');
+  const [revertErr, setRevertErr] = useState<string | null>(null);
   const [auditLeadId, setAuditLeadId] = useState(leadId);
   if (auditLeadId !== leadId) { setAuditLeadId(leadId); setLoading(true); setErr(false); }
 
+  const cargar = () => {
+    getLeadAuditAction(leadId)
+      .then((r) => { setAudit(r); setErr(false); })
+      .catch(() => setErr(true))
+      .finally(() => setLoading(false));
+  };
   useEffect(() => {
     let alive = true;
     getLeadAuditAction(leadId)
@@ -37,22 +74,54 @@ export function AuditHistory({ leadId }: { leadId: number }) {
     return () => { alive = false; };
   }, [leadId]);
 
+  const esStatus = (r: LeadAuditRowFull) => STATUS_FIELDS.has(r.campo);
+  const statusRows = audit.filter(esStatus);
+  const infoRows = audit.filter((r) => !esStatus(r));
+  const rows = subTab === 'status' ? statusRows : infoRows;
+
+  const deshacer = (r: LeadAuditRowFull) => {
+    setRevertErr(null);
+    startTransition(async () => {
+      try {
+        await revertAuditChangeAction(r.id, leadId);
+        cargar();
+        router.refresh();
+      } catch (e) {
+        setRevertErr(e instanceof Error ? e.message : String(e));
+      }
+    });
+  };
+
+  const subBtn = (active: boolean): CSSProperties => ({ padding: '6px 13px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, background: active ? 'var(--ink)' : 'transparent', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
+
   return (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 14 }}>Historial de cambios</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div style={sectLabel}>Historial de cambios</div>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: 3, gap: 3 }}>
+          <button type="button" onClick={() => setSubTab('status')} style={subBtn(subTab === 'status')}>Status{statusRows.length ? ` · ${statusRows.length}` : ''}</button>
+          <button type="button" onClick={() => setSubTab('info')} style={subBtn(subTab === 'info')}>Información{infoRows.length ? ` · ${infoRows.length}` : ''}</button>
+        </div>
+      </div>
+
+      {revertErr && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 10 }}>{revertErr}</div>}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {audit.map((a) => (
-          <div key={a.id} style={{ display: 'flex', gap: 12, alignItems: 'baseline', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10 }}>
-            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', width: 112 }}>{fmtAuditDate(a.created_at)}</span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, color: 'var(--ink)' }}>
+        {rows.map((a) => (
+          <div key={a.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap' }}>
+            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', width: 100 }}>{fmtAuditDate(a.created_at)}</span>
+            <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)' }}>
               <b style={{ fontWeight: 600 }}>{a.campo}</b>: {a.valor_anterior ?? '—'} → {a.valor_nuevo ?? '—'}
             </span>
-            <span style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: autorColor(a.autor), background: autorColor(a.autor) + '1A', borderRadius: 999, padding: '2px 8px' }}>{a.autor}</span>
+            <Autor row={a} />
+            {a.revertible && a.valor_anterior !== a.valor_nuevo && (
+              <button type="button" onClick={() => deshacer(a)} disabled={pending} title={`Volver a "${a.valor_anterior ?? '—'}"`} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ Deshacer</button>
+            )}
           </div>
         ))}
-        {audit.length === 0 && (
+        {rows.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>
-            {loading ? 'Cargando historial…' : err ? 'No se pudo cargar el historial. Reintentá reabriendo la ficha.' : 'Sin cambios registrados todavía. Cada movimiento de etapa, edición o evento de Fathom va a aparecer acá.'}
+            {loading ? 'Cargando historial…' : err ? 'No se pudo cargar el historial. Reintentá reabriendo la ficha.' : subTab === 'status' ? 'Sin cambios de status registrados todavía.' : 'Sin cambios de información registrados todavía.'}
           </div>
         )}
       </div>

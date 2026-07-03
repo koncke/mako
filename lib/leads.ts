@@ -616,6 +616,12 @@ export async function setMeetingManual(leadId: number, which: 'agenda' | 'agenda
   const input: LeadUpdateInput = {};
   if (which === 'agenda') { input.fecha_junta_1 = fecha; if (asistio != null) input.asistio_j1 = asistio; }
   else { input.fecha_junta_2 = fecha; if (asistio != null) input.asistio_j2 = asistio; }
+  // Esta función solo se invoca desde flujos de MOVIMIENTO (Kanban/worklist):
+  // si el lead estaba en un desenlace terminal (p.ej. Ganado) hay que REABRIRLO,
+  // si no la derivación lo devuelve a la columna terminal y el movimiento "no
+  // hace nada" (bug: Ganado → R2 no cambiaba el status).
+  const actual = await getLead(leadId);
+  if (actual && actual.estado_lead !== 'abierto') input.estado_lead = 'abierto';
   await updateLead(leadId, input);
   // Limpiar el override para que el lead avance por derivación (p.ej. R2 asistida
   // → Facturando). No lo toca updateLead (pipeline_stage no es campo editable ahí).
@@ -1236,13 +1242,14 @@ export type LeadMetaInput = {
  * Persiste SOLO el override de la columna del tablero (pipeline_stage) y el
  * deadline de nutrición manual, sin tocar estado_lead (el editor ya lo sincroniza
  * vía updateLead). El deadline solo vive en 'manual'; en otra etapa se limpia.
+ * stageKey=null limpia el override (vuelve a la derivación automática).
  */
-export async function setBoardStageOverride(id: number, stageKey: string, deadline: string | null): Promise<void> {
+export async function setBoardStageOverride(id: number, stageKey: string | null, deadline: string | null): Promise<void> {
   const patch: Record<string, unknown> = {
     pipeline_stage: stageKey,
     nutricion_manual_deadline: stageKey === 'manual' ? (deadline ?? null) : null,
   };
-  if (NUTRI_KEYS.includes(stageKey)) patch.nutricion_realizada = true;
+  if (stageKey && NUTRI_KEYS.includes(stageKey)) patch.nutricion_realizada = true;
   const { error } = await (await getTenantDb()).from('leads').update(patch).eq('id', id);
   if (error) throw new Error(`Error guardando etapa del lead ${id}: ${error.message}`);
 }

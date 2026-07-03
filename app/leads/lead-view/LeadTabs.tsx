@@ -1,34 +1,28 @@
 'use client';
 
 // =============================================================================
-// LeadTabs — tabs del detalle del lead (Resumen / Editar / Cobranza / Actividad)
+// LeadTabs — tabs del detalle del lead (texto con subrayado activo)
 // =============================================================================
-// Recibe el contenido de cada tab como ReactNode (server components incluidos).
-// Texto con subrayado activo, mismo lenguaje que el resto del CRM.
+// Genérico: recibe la lista de tabs con su contenido (ReactNode, server
+// components incluidos). Lo usan la ruta /leads/[id] y el modal de preview.
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 
 const SANS = "'Geist', sans-serif";
 
-export type LeadTabKey = 'resumen' | 'editar' | 'cobranza' | 'actividad';
+export type LeadTabDef = {
+  key: string;
+  label: string;
+  content: ReactNode;
+  badge?: number;
+};
 
-const TABS: Array<{ key: LeadTabKey; label: string }> = [
-  { key: 'resumen', label: 'Resumen' },
-  { key: 'editar', label: 'Editar' },
-  { key: 'cobranza', label: 'Cobranza' },
-  { key: 'actividad', label: 'Actividad' },
-];
-
-export function LeadTabs({ initial, resumen, editar, cobranza, actividad, badges }: {
-  initial?: LeadTabKey;
-  resumen: ReactNode;
-  editar: ReactNode;
-  cobranza: ReactNode;
-  actividad: ReactNode;
-  /** Numeritos opcionales por tab (ej. cuotas pendientes en Cobranza). */
-  badges?: Partial<Record<LeadTabKey, number>>;
+export function LeadTabs({ tabs, initial, onChange }: {
+  tabs: LeadTabDef[];
+  initial?: string;
+  onChange?: (key: string) => void;
 }) {
-  const [tab, setTab] = useState<LeadTabKey>(initial && TABS.some((t) => t.key === initial) ? initial : 'resumen');
+  const [tab, setTab] = useState<string>(initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '');
 
   const tabBtn = (active: boolean): CSSProperties => ({
     position: 'relative', padding: '11px 2px', marginRight: 26, border: 'none', background: 'transparent',
@@ -38,26 +32,25 @@ export function LeadTabs({ initial, resumen, editar, cobranza, actividad, badges
     display: 'inline-flex', alignItems: 'center', gap: 7,
   });
 
-  const content: Record<LeadTabKey, ReactNode> = { resumen, editar, cobranza, actividad };
+  const activeTab = tabs.find((t) => t.key === tab) ?? tabs[0];
 
   return (
     <div>
       <div role="tablist" style={{ borderBottom: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap' }}>
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const active = tab === t.key;
-          const badge = badges?.[t.key];
           return (
-            <button key={t.key} role="tab" aria-selected={active} onClick={() => setTab(t.key)} style={tabBtn(active)}>
+            <button key={t.key} role="tab" aria-selected={active} onClick={() => { setTab(t.key); onChange?.(t.key); }} style={tabBtn(active)}>
               {t.label}
-              {badge != null && badge > 0 && (
-                <span style={{ fontSize: 11.5, fontWeight: 700, minWidth: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '0 6px', background: active ? 'rgba(47,111,237,.12)' : 'var(--surface-2)', color: active ? 'var(--primary)' : 'var(--dim)', border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)') }}>{badge}</span>
+              {t.badge != null && t.badge > 0 && (
+                <span style={{ fontSize: 11.5, fontWeight: 700, minWidth: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '0 6px', background: active ? 'rgba(47,111,237,.12)' : 'var(--surface-2)', color: active ? 'var(--primary)' : 'var(--dim)', border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)') }}>{t.badge}</span>
               )}
             </button>
           );
         })}
       </div>
       <div role="tabpanel" style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 20 }}>
-        {content[tab]}
+        {activeTab?.content}
       </div>
     </div>
   );

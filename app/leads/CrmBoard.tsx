@@ -35,7 +35,7 @@ import {
   markMeetingManualAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
-import type { PendingMoveInfo } from './LeadSheet';
+import { StageMoveDialog, type StageMoveTarget } from './StageMoveDialog';
 import { sectionForStage } from './edit-logic';
 import { missingForStage } from '@/lib/stage-requirements';
 import { Dropdown } from '../components/Dropdown';
@@ -146,15 +146,17 @@ export function CrmBoard({
   const [originFilter, setOriginFilter] = useState('todos');
   const [showSinMarcar, setShowSinMarcar] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [sheetMove, setSheetMove] = useState<PendingMoveInfo | null>(null);   // movimiento pendiente al abrir la ficha para completar
+  const [stageMove, setStageMove] = useState<{ leadId: number; move: StageMoveTarget } | null>(null);   // pop-up chico de completar movimiento
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
-  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string } | null>(null);
+  const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null } | null>(null);
   const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualDeadline, setManualDeadline] = useState('');
-  const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
+  // modo 'pasada' = ya ocurrió (pide asistencia); 'futura' = ya está agendada
+  // por fuera de Calendly pero todavía no se tuvo (solo fecha).
+  const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
@@ -167,16 +169,9 @@ export function CrmBoard({
     return stageKeys.has(k) ? k : firstKey;
   };
 
-  // Abrir la ficha del lead (preview). `move` opcional: movimiento del Kanban
-  // que exige completar datos antes de mover (la ficha muestra la tarjeta warn).
-  const openDetail = (l: CrmLead, move?: PendingMoveInfo | null) => {
-    setSelectedId(l.id);
-    setSheetMove(move ?? null);
-  };
-  const closeDetail = () => {
-    setSelectedId(null);
-    setSheetMove(null);
-  };
+  // Abrir la ficha del lead (preview).
+  const openDetail = (l: CrmLead) => setSelectedId(l.id);
+  const closeDetail = () => setSelectedId(null);
 
   // Transición del grafo que define el movimiento `from → to` (si existe). Lleva
   // la asistencia (R1/R2) que ese paso implica, igual que en "Datos sin marcar".
@@ -200,17 +195,23 @@ export function CrmBoard({
     // Toast "Deshacer" (5s) tras concretar un movimiento en el tablero.
     if (from && from !== key) {
       const lead = leads.find((l) => l.id === id);
-      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label });
+      setUndoInfo({ id, name: lead?.name ?? `Lead ${id}`, from, toLabel: findStage(stages, key).label, monto: lead?.monto || null, motivo: lead?.motivo || null });
     }
   };
 
-  // Revertir el último movimiento a su etapa anterior.
+  // Revertir el último movimiento a su etapa anterior. Lleva el monto/motivo que
+  // el lead tenía ANTES del movimiento: volver a Ganado tras des-ganar (que borra
+  // el monto) necesita reponerlo o el server lo rechaza.
   const undoMove = () => {
     if (!undoInfo) return;
-    const { id, from } = undoInfo;
+    const { id, from, monto, motivo } = undoInfo;
     setUndoInfo(null);
     setLocalStage((m) => ({ ...m, [id]: from }));
-    startTransition(async () => { await setLeadStageAction(id, from); router.refresh(); });
+    startTransition(async () => {
+      try { await setLeadStageAction(id, from, { monto, motivo }); }
+      catch { setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; }); }
+      router.refresh();
+    });
   };
 
   // El toast se autodescarta a los 5s.
@@ -233,8 +234,12 @@ export function CrmBoard({
     fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2,
     hasFathomUrl: l.fathom.some((f) => f.url?.trim()),
     monto: l.monto || null, motivo: l.motivo, setter: l.setter,
+    hoyISO: hoy,
   });
   const needsFicha = (l: CrmLead, key: string) => missingForLead(l, key).length > 0 || !!sectionForStage(key);
+
+  // Abrir el pop-up chico de completar movimiento (no la ficha entera).
+  const openStageMove = (l: CrmLead, move: StageMoveTarget) => setStageMove({ leadId: l.id, move });
 
   // Abre Calendly (prefill nombre/email); la fecha la setea el webhook al reservar
   // y el lead avanza solo. NO persistimos acá.
@@ -262,18 +267,17 @@ export function CrmBoard({
     if (calendlyUrlFor(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
-    if (needsFicha(lead, stageKey)) openDetail(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
+    if (needsFicha(lead, stageKey)) openStageMove(lead, { to: stageKey, asistioJ1: tr?.asistioJ1, asistioJ2: tr?.asistioJ2 });
     else persistStage(id, stageKey, from, tr);
   };
 
-  // Resolver un "dato sin marcar": si la etapa destino pide datos, abre la ficha
-  // con el movimiento pendiente; si no, mueve directo aplicando la asistencia que
-  // implica la transición del grafo.
+  // Resolver un "dato sin marcar": si la etapa destino pide datos, abre el pop-up
+  // de completar; si no, mueve directo aplicando la asistencia de la transición.
   const resolveMarcar = (leadId: number, t: FunnelTransition) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
     if (calendlyUrlFor(t.to)) { scheduleViaCalendly(lead, t.to); return; }
-    if (needsFicha(lead, t.to)) openDetail(lead, { to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
+    if (needsFicha(lead, t.to)) openStageMove(lead, { to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
     else persistStage(leadId, t.to, effStage(lead), t);
   };
 
@@ -293,18 +297,28 @@ export function CrmBoard({
     startTransition(async () => { await markManualNutritionAction(leadId, manualMotivo.trim(), deadline); router.refresh(); });
   };
 
-  // Reunión (R1/R2) ya realizada: marcar a mano (fecha + asistencia), sin Calendly.
-  const openManualMeeting = (leadId: number, which: 'agenda' | 'agendaj2') => {
+  // Reunión (R1/R2) sin Calendly: 'pasada' = ya ocurrió (fecha + asistencia);
+  // 'futura' = ya está agendada por fuera pero todavía no se tuvo (solo fecha).
+  const openManualMeeting = (leadId: number, which: 'agenda' | 'agendaj2', modo: 'pasada' | 'futura') => {
     const l = leads.find((x) => x.id === leadId);
     setMmFecha(''); setMmAsistio('si');
-    setManualMeeting({ leadId, name: l?.name ?? 'lead', which });
+    setManualMeeting({ leadId, name: l?.name ?? 'lead', which, modo });
   };
   const confirmManualMeeting = () => {
     if (!manualMeeting || !mmFecha) return;
-    const { leadId, which } = manualMeeting;
-    const asistio = mmAsistio === '' ? null : mmAsistio === 'si';
+    const { leadId, which, modo } = manualMeeting;
+    const asistio = modo === 'futura' ? null : mmAsistio === '' ? null : mmAsistio === 'si';
+    const lead = leads.find((l) => l.id === leadId);
+    const from = lead ? effStage(lead) : undefined;
     setManualMeeting(null);
-    startTransition(async () => { await markMeetingManualAction(leadId, which, mmFecha, asistio); router.refresh(); });
+    startTransition(async () => {
+      await markMeetingManualAction(leadId, which, mmFecha, asistio);
+      router.refresh();
+    });
+    // Toast Deshacer también en este camino (antes solo lo tenía el drag directo).
+    if (lead && from && from !== which) {
+      setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label, monto: lead.monto || null, motivo: lead.motivo || null });
+    }
   };
 
   // Opciones contextuales del worklist: las transiciones salientes de la etapa
@@ -373,7 +387,7 @@ export function CrmBoard({
       <div key={c.key}
         onDragOver={(e) => { e.preventDefault(); if (dragId != null && dragOverCol !== c.key) setDragOverCol(c.key); }}
         onDrop={(e) => { e.preventDefault(); handleDrop(c.key); setDragOverCol(null); }}
-        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none' }}
+        style={{ flex: 'none', width: 282, background: dragOverCol === c.key && dragId != null ? 'var(--surface-2)' : 'var(--surface)', borderLeft: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderRight: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderBottom: '1px solid ' + (dragOverCol === c.key && dragId != null ? 'var(--primary)' : 'var(--border)'), borderTop: '3px solid ' + bandC, borderRadius: 16, display: 'flex', flexDirection: 'column', maxHeight: '68vh', transition: 'background .15s, border-color .15s, box-shadow .15s', boxShadow: dragOverCol === c.key && dragId != null ? '0 0 0 3px var(--primary-weak)' : 'none' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 11px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
@@ -396,7 +410,7 @@ export function CrmBoard({
                 draggable
                 onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
                 onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
-                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
+                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
@@ -565,8 +579,31 @@ export function CrmBoard({
       )}
 
       {selected && (
-        <LeadEditModal leadId={selected.id} pendingMove={sheetMove} onClose={closeDetail} />
+        <LeadEditModal leadId={selected.id} seed={{ nombre: selected.name, empresa: selected.company }} onClose={closeDetail} />
       )}
+
+      {/* Pop-up chico de completar movimiento (drag/worklist a etapa que pide datos) */}
+      {stageMove && (() => {
+        const l = leads.find((x) => x.id === stageMove.leadId);
+        if (!l) return null;
+        const from = effStage(l);
+        return (
+          <StageMoveDialog
+            lead={l}
+            stages={stages}
+            move={stageMove.move}
+            onClose={() => setStageMove(null)}
+            onDone={() => {
+              setStageMove(null);
+              setLocalStage((m) => ({ ...m, [l.id]: stageMove.move.to }));
+              if (from !== stageMove.move.to) {
+                setUndoInfo({ id: l.id, name: l.name, from, toLabel: findStage(stages, stageMove.move.to).label, monto: l.monto || null, motivo: l.motivo || null });
+              }
+              router.refresh();
+            }}
+          />
+        );
+      })()}
 
       {/* Confirmación: motivo de la nutrición manual */}
       {manualNutri && (
@@ -592,20 +629,27 @@ export function CrmBoard({
         <div onClick={() => setMeetingChoice(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
             <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Reunión {meetingChoice.which === 'agenda' ? 'R1' : 'R2'} — {meetingChoice.name}</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 18 }}>¿Ya tuviste esta {meetingChoice.which === 'agenda' ? 'R1' : 'R2'} o la querés agendar?</div>
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 18 }}>¿En qué situación está esta {meetingChoice.which === 'agenda' ? 'R1' : 'R2'}?</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
-                onClick={() => { const c = meetingChoice; setMeetingChoice(null); openManualMeeting(c.leadId, c.which); }}
+                onClick={() => { const c = meetingChoice; setMeetingChoice(null); openManualMeeting(c.leadId, c.which, 'pasada'); }}
                 style={{ width: '100%', padding: '13px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}
               >
                 <div>Ya la tuve</div>
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dim)', marginTop: 2 }}>Marcar fecha y asistencia a mano (sin Calendly)</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dim)', marginTop: 2 }}>Marcar fecha y asistencia a mano</div>
+              </button>
+              <button
+                onClick={() => { const c = meetingChoice; setMeetingChoice(null); openManualMeeting(c.leadId, c.which, 'futura'); }}
+                style={{ width: '100%', padding: '13px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}
+              >
+                <div>Ya está agendada (todavía no se tuvo)</div>
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dim)', marginTop: 2 }}>Se agendó por fuera de Calendly — cargar la fecha</div>
               </button>
               <button
                 onClick={() => { const c = meetingChoice; setMeetingChoice(null); const l = leads.find((x) => x.id === c.leadId); if (l) doOpenCalendly(l, c.which); }}
                 style={{ width: '100%', padding: '13px 16px', borderRadius: 11, border: '1px solid var(--primary)', background: 'rgba(47,111,237,.10)', color: 'var(--primary-strong)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left' }}
               >
-                <div>📅 Agendarla por Calendly</div>
+                <div>Agendarla por Calendly</div>
                 <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--primary-strong)', opacity: 0.85, marginTop: 2 }}>Abrir Calendly para reservar fecha</div>
               </button>
             </div>
@@ -620,16 +664,24 @@ export function CrmBoard({
       {manualMeeting && (
         <div onClick={() => setManualMeeting(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Marcar {manualMeeting.which === 'agenda' ? 'R1' : 'R2'} manual — {manualMeeting.name}</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>La reunión ya ocurrió. Registrala a mano (sin Calendly) para avanzar el lead.</div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>¿Cuándo fue?</div>
-            <input type="date" value={mmFecha} onChange={(e) => setMmFecha(e.target.value)} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '16px 0 6px' }}>¿Asistió?</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {([['si', 'Sí'], ['no', 'No'], ['', 'No sé']] as const).map(([v, lbl]) => (
-                <button key={lbl} onClick={() => setMmAsistio(v)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? 'var(--surface)' : 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
-              ))}
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{manualMeeting.modo === 'pasada' ? 'Marcar' : 'Registrar'} {manualMeeting.which === 'agenda' ? 'R1' : 'R2'} — {manualMeeting.name}</div>
+            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>
+              {manualMeeting.modo === 'pasada'
+                ? 'La reunión ya ocurrió. Registrala a mano (sin Calendly) para avanzar el lead.'
+                : 'La reunión ya está agendada por fuera de Calendly. Cargá la fecha; la asistencia se marca cuando ocurra.'}
             </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{manualMeeting.modo === 'pasada' ? '¿Cuándo fue?' : '¿Para cuándo está agendada?'}</div>
+            <input type="date" value={mmFecha} min={manualMeeting.modo === 'futura' ? hoy : undefined} max={manualMeeting.modo === 'pasada' ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
+            {manualMeeting.modo === 'pasada' && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '16px 0 6px' }}>¿Asistió?</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {([['si', 'Sí'], ['no', 'No'], ['', 'No sé']] as const).map(([v, lbl]) => (
+                    <button key={lbl} onClick={() => setMmAsistio(v)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? 'var(--surface)' : 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
+                  ))}
+                </div>
+              </>
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
               <button onClick={() => setManualMeeting(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
               <button onClick={confirmManualMeeting} disabled={!mmFecha} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: mmFecha ? 'var(--primary)' : 'var(--border)', color: mmFecha ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: mmFecha ? 'pointer' : 'default', opacity: mmFecha ? 1 : 0.6, fontFamily: SANS }}>Guardar reunión</button>

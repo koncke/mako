@@ -48,6 +48,23 @@ import {
 } from '@/lib/leads';
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { missingForStage } from '@/lib/stage-requirements';
+import { hoyEnTijuana } from '@/lib/date-utils';
+import { getUsuarioActual } from '@/lib/auth';
+import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
+
+/**
+ * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
+ * foto al leer el historial) o 'CRM' para sesiones sin email (legacy/dev).
+ */
+async function autorActual(): Promise<string> {
+  try {
+    const s = await getUsuarioActual();
+    return s?.email?.trim() || 'CRM';
+  } catch {
+    return 'CRM';
+  }
+}
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
 import { savePlanPagos, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
@@ -111,6 +128,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
     motivo: d.motivo ?? before?.motivo_perdida ?? null,
     setter: d.setter ?? before?.setter ?? null,
+    hoyISO: hoyEnTijuana(),
   });
   if (faltan.length) throw new Error(`Falta: ${faltan.join(', ')}`);
 
@@ -132,7 +150,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   });
 
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, 'CRM');
+  await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath(`/leads/${id}`);
@@ -159,6 +177,11 @@ export async function createLeadAction(formData: FormData): Promise<void> {
   const nombre = emptyToNull(formData.get('nombre'));
   if (!nombre) {
     throw new Error('Nombre es requerido');
+  }
+  // Un lead sin email NI teléfono es incontactable: el dato es posible de
+  // conseguir al momento de crearlo, así que se exige al menos uno.
+  if (!emptyToNull(formData.get('email')) && !emptyToNull(formData.get('telefono'))) {
+    throw new Error('Cargá al menos un email o un teléfono: sin eso el lead es incontactable.');
   }
   const created = await createLead({
     nombre,
@@ -235,16 +258,24 @@ export async function setLeadStageAction(
   opts?: { monto?: number | null; motivo?: string | null; asistio_j1?: boolean | null; asistio_j2?: boolean | null },
 ): Promise<void> {
   const before = await getLead(id).catch(() => null);
-  // Backstop server-side del dato crítico: un lead "Ganado" sin monto positivo
-  // cuenta $0 en Revenue. La UI ya lo exige, pero cualquier caller (MaKo, API)
-  // pasa por acá. El monto efectivo puede venir en la move o ya estar cargado.
-  if (stageKey === 'ganado') {
-    const montoEfectivo = opts?.monto ?? before?.monto_cierre_usd ?? null;
-    if (!(Number(montoEfectivo) > 0)) throw new Error('Para mover a Ganado hace falta un monto de cierre positivo.');
-  }
+  // Backstop server-side: mover a una etapa exige sus datos obligatorios (los
+  // "posibles de conseguir": fechas de reunión, Fathom solo si la reunión ya
+  // pasó, monto para Ganado, motivo para perdidos). La UI ya lo exige; esto lo
+  // garantiza para cualquier caller (MaKo, API). Se evalúa con el dato de la
+  // move o el ya cargado en el lead.
+  const faltanMove = missingForStage(stageKey, {
+    fechaJ1: before?.fecha_junta_1 ?? null,
+    fechaJ2: before?.fecha_junta_2 ?? null,
+    hasFathomUrl: (before?.fathom_links ?? []).some((f) => f.url?.trim()),
+    monto: opts?.monto ?? before?.monto_cierre_usd ?? null,
+    motivo: opts?.motivo ?? before?.motivo_perdida ?? null,
+    setter: before?.setter ?? null,
+    hoyISO: hoyEnTijuana(),
+  });
+  if (faltanMove.length) throw new Error(`Para mover falta: ${faltanMove.join(', ')}`);
   await setPipelineStage(id, stageKey, opts);
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, 'CRM');
+  await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');
@@ -255,14 +286,105 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   const before = await getLead(id).catch(() => null);
   await saveLeadMeta(id, meta);
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, 'CRM');
+  await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads);
   revalidatePath('/leads');
 }
 
-/** Historial de cambios de un lead (para la ficha). */
-export async function getLeadAuditAction(id: number): Promise<LeadAuditRow[]> {
-  return getLeadAudit(id);
+/** Fila del historial enriquecida con la identidad del autor (si es un usuario). */
+export type LeadAuditRowFull = LeadAuditRow & {
+  autor_nombre: string;          // nombre legible (usuario o sistema: CRM/Fathom/Calendly)
+  autor_foto: string | null;     // foto de perfil si el autor es un usuario
+  revertible: boolean;           // si la fila se puede deshacer desde el historial
+};
+
+/** Campos del historial que se pueden revertir (mapean 1:1 a una columna). */
+const REVERTIBLES = new Set([
+  'Etapa', 'Estado', 'Asistió R1', 'Asistió R2', 'Calificado', 'Fecha R1', 'Fecha R2',
+  'Fecha de agendamiento', 'Closer', 'Setter', 'Monto de cierre', 'Motivo',
+  'Confirmación de pago', 'Deadline de nutrición manual',
+  'Nombre', 'Email', 'Teléfono', 'Empresa',
+]);
+
+/** Historial de cambios de un lead, con autor resuelto (nombre + foto). */
+export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]> {
+  const rows = await getLeadAudit(id);
+  // Autores con pinta de email → resolver contra la tabla usuarios (global).
+  const emails = [...new Set(rows.map((r) => r.autor).filter((a) => a.includes('@')))];
+  const porEmail = new Map<string, { nombre: string; foto_url: string | null }>();
+  if (emails.length) {
+    try {
+      const { data } = await getSupabaseServer()
+        .from('usuarios')
+        .select('email, nombre, foto_url')
+        .in('email', emails);
+      for (const u of (data ?? []) as Array<{ email: string; nombre: string | null; foto_url: string | null }>) {
+        porEmail.set(u.email, { nombre: u.nombre?.trim() || u.email, foto_url: u.foto_url ?? null });
+      }
+    } catch { /* sin enriquecer: se muestra el email pelado */ }
+  }
+  return rows.map((r) => {
+    const u = porEmail.get(r.autor);
+    return {
+      ...r,
+      autor_nombre: u?.nombre ?? (r.autor.includes('@') ? r.autor.split('@')[0] : r.autor),
+      autor_foto: u?.foto_url ?? null,
+      revertible: REVERTIBLES.has(r.campo),
+    };
+  });
+}
+
+/**
+ * Deshace un cambio puntual del historial: vuelve el campo a su valor anterior.
+ * Solo campos con mapeo 1:1 a una columna (REVERTIBLES). Queda registrado como
+ * un cambio nuevo en el historial (nunca se borra historia).
+ */
+export async function revertAuditChangeAction(auditId: number, leadId: number): Promise<void> {
+  const rows = await getLeadAudit(leadId);
+  const row = rows.find((r) => r.id === auditId);
+  if (!row) throw new Error('No se encontró ese cambio en el historial.');
+  if (!REVERTIBLES.has(row.campo)) throw new Error(`"${row.campo}" no se puede deshacer automáticamente.`);
+
+  const before = await getLead(leadId).catch(() => null);
+  const v = row.valor_anterior; // string | null (formato de auditVal)
+  const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
+
+  switch (row.campo) {
+    case 'Etapa': {
+      if (v) await setPipelineStage(leadId, v);
+      else await setBoardStageOverride(leadId, null, null); // volver a derivación
+      break;
+    }
+    case 'Estado': await updateLead(leadId, { estado_lead: (v ?? 'abierto') as Lead['estado_lead'] }); break;
+    case 'Asistió R1': await updateLead(leadId, { asistio_j1: bool(v) }); break;
+    case 'Asistió R2': await updateLead(leadId, { asistio_j2: bool(v) }); break;
+    case 'Calificado': await updateLead(leadId, { calificado: bool(v) }); break;
+    case 'Fecha R1': await updateLead(leadId, { fecha_junta_1: v }); break;
+    case 'Fecha R2': await updateLead(leadId, { fecha_junta_2: v }); break;
+    case 'Fecha de agendamiento': await updateLead(leadId, { fecha_agenda: v }); break;
+    case 'Monto de cierre': await updateLead(leadId, { monto_cierre_usd: v ? parseFloat(v) : null }); break;
+    case 'Motivo': await updateLead(leadId, { motivo_perdida: v }); break;
+    case 'Confirmación de pago': await updateLead(leadId, { fecha_confirmacion: v }); break;
+    case 'Closer': await saveLeadMeta(leadId, { closer: v }); break;
+    case 'Setter': await saveLeadMeta(leadId, { setter: v }); break;
+    case 'Nombre': await saveLeadMeta(leadId, { nombre: v }); break;
+    case 'Email': await saveLeadMeta(leadId, { email: v }); break;
+    case 'Teléfono': await saveLeadMeta(leadId, { telefono: v }); break;
+    case 'Empresa': await saveLeadMeta(leadId, { empresa: v }); break;
+    case 'Deadline de nutrición manual': {
+      const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: v }).eq('id', leadId);
+      if (error) throw new Error(error.message);
+      break;
+    }
+    default: throw new Error(`"${row.campo}" no se puede deshacer automáticamente.`);
+  }
+
+  const after = await getLead(leadId).catch(() => null);
+  await logLeadChanges(leadId, before, after, await autorActual());
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath('/general');
 }
 
 /**
@@ -273,9 +395,9 @@ export async function markManualNutritionAction(id: number, motivo: string, dead
   const before = await getLead(id).catch(() => null);
   await setPipelineStage(id, 'manual', { deadline: deadline || null });
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, 'CRM');
+  await logLeadChanges(id, before, after, await autorActual());
   const nota = [motivo.trim() || null, deadline ? `vence ${fmtDDMMYYYY(deadline)}` : null].filter(Boolean).join(' · ');
-  if (nota) await logLeadEvent(id, 'Nutrición manual', nota, 'CRM');
+  if (nota) await logLeadEvent(id, 'Nutrición manual', nota, await autorActual());
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');
@@ -294,7 +416,7 @@ export async function markMeetingManualAction(
   const before = await getLead(id).catch(() => null);
   await setMeetingManual(id, which, fecha, asistio);
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, 'CRM');
+  await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath('/general');
@@ -355,7 +477,7 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
   await saveLeadMeta(id, { closer: p.closer, setter: p.setter, fathom_links: p.fathom_links });
   await setBoardStageOverride(id, p.stage, p.deadline);
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, 'CRM');
+  await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath(`/leads/${id}`);
