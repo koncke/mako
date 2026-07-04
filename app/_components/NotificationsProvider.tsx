@@ -33,6 +33,9 @@ export interface Contacto {
   estadoLead: string | null;
   etapaKey: string | null;
   etapaLabel: string | null;
+  /** Lead del CRM que todavía NO tiene chat en Chatwoot: aparece en la lista,
+      pero el contacto se crea recién al escribirle (no ensuciamos el inbox). */
+  sinChat?: boolean;
 }
 
 interface NotifCtx {

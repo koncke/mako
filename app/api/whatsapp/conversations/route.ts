@@ -112,12 +112,14 @@ export async function GET(req: Request) {
       }
     }
 
+    const conChat = new Set<string>();
     const contactos = [...grupos.values()]
       .sort((a, b) => b.ultimaActividad - a.ultimaActividad)
       .map((ct) => {
         const d = digits(ct.telefono);
         const lead = leadByPhone.get(d) ?? (d.length >= 10 ? leadByPhone.get(d.slice(-10)) : undefined);
         const etapa = lead ? derivarEtapa(lead) : null;
+        if (d.length >= 10) conChat.add(d.slice(-10));
         return {
           id: ct.id,
           convIds: [...ct.convs].sort((a, b) => b.act - a.act).map((x) => x.id),
@@ -140,8 +142,32 @@ export async function GET(req: Request) {
           estadoLead: lead?.estado_lead ?? null,
           etapaKey: etapa?.key ?? null,
           etapaLabel: etapa?.label ?? null,
+          sinChat: false,
         };
       });
+
+    // Unión: leads del CRM con teléfono que TODAVÍA no tienen chat en Chatwoot.
+    // Aparecen igual en la lista (abajo, sin actividad); el contacto se crea recién
+    // al escribirles (no ensuciamos el inbox real con conversaciones vacías). Solo
+    // en el fetch completo (no en el polling `recent`, que busca novedades).
+    if (!recent) {
+      const vistos = new Set<number>();
+      for (const l of (leadsData ?? []) as LeadRow[]) {
+        const d = digits(l.telefono_normalizado);
+        if (d.length < 10 || conChat.has(d.slice(-10)) || vistos.has(l.id)) continue;
+        vistos.add(l.id);
+        conChat.add(d.slice(-10));
+        const etapa = derivarEtapa(l);
+        contactos.push({
+          id: 'lead' + l.id, convIds: [], sendContactId: 0,
+          contacto: l.nombre ?? `Lead #${l.id}`, telefono: l.telefono_normalizado, avatar: null,
+          bloqueado: false, ultimoMensaje: null, ultimaActividad: 0, sinLeer: 0, ultimoEntrante: false,
+          ventanaAbierta: false, ventanaVenceAt: null,
+          leadId: l.id, empresa: l.empresa ?? null, estadoLead: l.estado_lead ?? null,
+          etapaKey: etapa.key, etapaLabel: etapa.label, sinChat: true,
+        });
+      }
+    }
 
     return Response.json({ ok: true, contactos });
   } catch (err) {

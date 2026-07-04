@@ -550,7 +550,17 @@ function WhatsAppInner() {
     setSending(true);
     setSendError(null);
     try {
-      const r = await fetch(`/api/whatsapp/contacts/${grupo.sendContactId}/messages`, {
+      // Lead sin chat todavía: creamos el contacto en Chatwoot al escribirle (lazy).
+      let sendCid = grupo.sendContactId;
+      if (grupo.sinChat || !sendCid) {
+        if (!grupo.leadId) { setMensajes((m) => m.filter((x) => x.id !== tempId)); setDraft(txt); setSendError('Este contacto no tiene lead vinculado.'); setSending(false); return; }
+        const cr = await fetch(`/api/whatsapp/lead/${grupo.leadId}`, { method: 'POST' });
+        const cj = await cr.json();
+        if (!cj.ok || !cj.contactId) { setMensajes((m) => m.filter((x) => x.id !== tempId)); setDraft(txt); setSendError(cj.error || 'No se pudo iniciar el chat.'); setSending(false); return; }
+        sendCid = cj.contactId;
+        setContactos((prev) => prev.map((c) => (c.id === grupo.id ? { ...c, sendContactId: sendCid, sinChat: false } : c)));
+      }
+      const r = await fetch(`/api/whatsapp/contacts/${sendCid}/messages`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: txt }),
       });
       const j = await r.json();
@@ -889,7 +899,7 @@ function WhatsAppInner() {
   const chipBtn = (active: boolean): CSSProperties => ({ padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
   return (
-    <main style={{ flex: 1, minWidth: 0, height: '100vh', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
+    <main style={{ flex: 1, minWidth: 0, height: '100dvh', maxHeight: '100dvh', boxSizing: 'border-box', overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '30px 36px 24px' }}>
       <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', marginBottom: '18px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '7px' }}>
