@@ -9,13 +9,12 @@
 // completable, se pide con el wizard conocido. Diseño scaneble, no muro de texto.
 
 import { useState, useTransition, type CSSProperties } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { deriveStageKey, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { LeadInsightGen } from '@/lib/lead-insights';
 import type { Step } from '@/lib/stage-requirements';
-import { generateLeadInsightAction } from '../insights-actions';
+import { generateLeadInsightAction, analizarLlamadaLeadAction } from '../insights-actions';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 
 const MONO = "'Geist Mono', monospace";
@@ -56,6 +55,8 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
   const [faltantes, setFaltantes] = useState<Step[]>(faltantesIniciales);
   const [error, setError] = useState<string | null>(null);
   const [wizard, setWizard] = useState(false);
+  // Loader de acciones progresivas del botón "Analizar la llamada".
+  const [fase, setFase] = useState<string | null>(null);
 
   // Adopción de props tras router.refresh() (patrón prev-key).
   const fpProps = `${inicial?.id ?? 0}|${faltantesIniciales.map((f) => f.id).join(',')}`;
@@ -82,6 +83,22 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
       const res = await generateLeadInsightAction(lead.id);
       if (res.ok) { setInsight(res.insight); setFaltantes([]); router.refresh(); }
       else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); }
+    });
+  };
+
+  // Sin llamada analizada pero con Fathom: analiza la llamada (Fathom → closing)
+  // y encadena la generación del insight, mostrando cada acción en progreso.
+  const analizarYGenerar = () => {
+    setError(null);
+    startTransition(async () => {
+      setFase('Extrayendo los datos de Fathom y analizando el closing…');
+      const an = await analizarLlamadaLeadAction(lead.id);
+      if (!an.ok) { setError(an.motivo); setFase(null); return; }
+      setFase('Generando los insights del lead…');
+      const res = await generateLeadInsightAction(lead.id);
+      setFase(null);
+      if (res.ok) { setInsight(res.insight); setFaltantes([]); router.refresh(); }
+      else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); router.refresh(); }
     });
   };
 
@@ -119,18 +136,29 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
           </div>
         )}
 
-        {/* Gate: sin llamadas analizadas no se genera (salvo que ya haya insight). */}
-        {!insight && !hayLlamadas && !faltantes.length && (
+        {/* Loader de acciones en progreso (analizar la llamada → generar insight). */}
+        {fase && (
+          <div style={{ ...mini, display: 'flex', alignItems: 'center', gap: 11 }}>
+            <span aria-hidden style={{ width: 16, height: 16, flex: 'none', borderRadius: '50%', border: '2px solid var(--border-strong)', borderTopColor: 'var(--primary)', animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{fase}</span>
+          </div>
+        )}
+
+        {/* Gate: sin llamadas analizadas. Con Fathom → se analiza acá mismo; sin
+            Fathom → se pide cargar el link (Completar datos abre el wizard). */}
+        {!insight && !hayLlamadas && !faltantes.length && !fase && (
           <div style={{ ...mini, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>Se necesita al menos una llamada</div>
               <div style={{ fontSize: 13, color: 'var(--dim)' }}>
                 {tieneFathom
-                  ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada.'
-                  : 'Los insights se generan a partir de las llamadas de venta. Cargá el link de Fathom y analizala.'}
+                  ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada. MaKo la analiza y genera el insight.'
+                  : 'Los insights se generan a partir de las llamadas de venta. Cargá el link de Fathom y MaKo la analiza.'}
               </div>
             </div>
-            <Link href="/closing" style={{ ...btnSec, textDecoration: 'none' }}>Ir a Closing Analyst →</Link>
+            {tieneFathom
+              ? <button type="button" onClick={analizarYGenerar} disabled={pending} style={btn}>✦ Analizar la llamada</button>
+              : <button type="button" onClick={() => setWizard(true)} style={btnSec}>Cargar link de Fathom</button>}
           </div>
         )}
 

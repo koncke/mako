@@ -594,6 +594,62 @@ export async function processCandidate(
   return { status: row.status, category: row.category };
 }
 
+/**
+ * Analiza las llamadas de Fathom de UN lead — para el botón "Analizar la llamada"
+ * de la tab Insights. Busca en Fathom las meetings del lead (por email O por el
+ * share_url ya cargado en el lead) y las procesa a closing_analyses con lead_id
+ * FIJADO (así aparecen en getLeadInsights). Salta las que ya están analizadas
+ * para ese lead. Liviano: barre metadata y solo baja transcript de las del lead.
+ */
+export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; yaEstaban: number }> {
+  const supabase = (await getTenantDb());
+  const { data: lr, error } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, email, closer, estado_lead, fecha_junta_1, fecha_junta_2, fecha_cierre, fecha_inicio_servicio, fathom_links')
+    .eq('id', leadId)
+    .maybeSingle();
+  if (error) throw new Error(`Error leyendo lead ${leadId}: ${error.message}`);
+  if (!lr) throw new Error('Lead no encontrado');
+  const row = lr as Record<string, unknown>;
+  const lead: LeadMatch = {
+    id: Number(row.id), nombre: String(row.nombre ?? ''), empresa: (row.empresa as string | null) ?? null,
+    email: (row.email as string | null) ?? null, closer: (row.closer as string | null) ?? null,
+    estado_lead: (row.estado_lead as string | null) ?? null,
+    fecha_junta_1: (row.fecha_junta_1 as string | null) ?? null, fecha_junta_2: (row.fecha_junta_2 as string | null) ?? null,
+    fecha_cierre: (row.fecha_cierre as string | null) ?? null, fecha_inicio_servicio: (row.fecha_inicio_servicio as string | null) ?? null,
+  };
+  const normUrl = (u: string) => u.trim().replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();
+  const emailNorm = (lead.email ?? '').trim().toLowerCase();
+  const shareSet = new Set(((row.fathom_links as Array<{ url?: string }> | null) ?? []).map((f) => normUrl(f.url ?? '')).filter(Boolean));
+
+  const [meetings, done] = await Promise.all([
+    fetchAllMeetings({ includeSummary: false }),
+    supabase.from('closing_analyses').select('recording_id, lead_id, status'),
+  ]);
+  const doneByRec = new Map<number, { lead_id: number | null; status: string }>();
+  for (const r of ((done.data ?? []) as Array<{ recording_id: number; lead_id: number | null; status: string }>)) doneByRec.set(r.recording_id, { lead_id: r.lead_id, status: r.status });
+
+  const mias = meetings.filter((m) => {
+    if (!m.recording_id) return false;
+    if (m.share_url && shareSet.has(normUrl(m.share_url))) return true;
+    if (emailNorm && externalInviteeEmails(m).some((e) => e.toLowerCase() === emailNorm)) return true;
+    return false;
+  });
+
+  let analizadas = 0;
+  let yaEstaban = 0;
+  for (const meta of mias) {
+    const prev = doneByRec.get(meta.recording_id);
+    if (prev && prev.lead_id === lead.id && prev.status !== 'error' && prev.status !== 'pendiente') { yaEstaban++; continue; }
+    let m: FathomMeeting = meta;
+    try { m = await fetchMeetingContent(meta); } catch { /* seguimos con la metadata */ }
+    const res = await analyzeMeeting(m, lead);
+    if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis)); analizadas++; }
+    else await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
+  }
+  return { encontradas: mias.length, analizadas, yaEstaban };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Sync (orquestador con presupuesto por corrida)
 // ─────────────────────────────────────────────────────────────────────────────

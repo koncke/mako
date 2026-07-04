@@ -132,6 +132,9 @@ select {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(207, 78, 41, 0.65); }
   50% { opacity: 0.45; box-shadow: 0 0 0 6px rgba(207, 78, 41, 0); }
 }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 @keyframes konckeGlow {
   0%,
