@@ -106,6 +106,8 @@ export type CrmMarcar = {
   company: string;
   message: string;
   tipo: 'A' | 'B' | 'C' | 'M';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?  M=nutrición manual vencida
+  /** true = solo faltan datos estáticos (tel/empresa/detalle): se editan, no wizard. */
+  soloEdit?: boolean;
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
@@ -311,11 +313,13 @@ export function CrmBoard({
     else persistStage(id, stageKey, from, tr);
   };
 
-  // "Solucionar" un dato sin marcar: abre EL MISMO wizard de la ficha, apuntado
-  // a la etapa ACTUAL del lead (completar datos), con su autollenado.
+  // "Solucionar" un dato sin marcar: si son datos de reunión/venta, abre EL MISMO
+  // wizard de la ficha (etapa actual, con autollenado). Si solo faltan datos
+  // estáticos (tel/empresa/detalle del cierre), no hay wizard: se va a Editar.
   const solucionarMarcar = (leadId: number) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
+    if (marcar.find((m) => m.leadId === leadId)?.soloEdit) { router.push(`/leads/${leadId}?edit=1`); return; }
     openStageMove(lead, { to: effStage(lead) });
   };
 
@@ -439,8 +443,8 @@ export function CrmBoard({
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
                   {overdueManual
-                    ? <span title="Venció el deadline de la nutrición manual" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>● vencida</span>
-                    : waiting && <span title="Faltan datos posibles de conseguir para esta etapa" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>⚠ Datos sin marcar</span>}
+                    ? <span title="Venció el deadline de la nutrición manual" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', animation: 'blinkRed 1.2s infinite' }}><span aria-hidden>🚨</span> Vencida</span>
+                    : waiting && <span title="Faltan datos posibles de conseguir para esta etapa" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}><span aria-hidden style={{ width: 7, height: 7, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.2s infinite' }} /> Datos sin marcar</span>}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>

@@ -20,6 +20,7 @@ import {
   type EstadoLead,
   type EstadoMadurez,
 } from './leads';
+import { hayPasoDeWizard } from './stage-requirements';
 
 export type MarketingWindow = {
   // Rango
@@ -1939,6 +1940,9 @@ export type PendienteItem = {
   tipo: TipoPendiente;
   mensaje: string;
   fecha: string;       // la fecha relevante (J1 para A/B, J2 para C)
+  /** true = lo que falta son datos estáticos (tel/empresa/detalle): se editan,
+   *  no se resuelven con el wizard. El worklist manda a Editar en vez de Solucionar. */
+  soloEdit: boolean;
 };
 
 export type Pendientes = {
@@ -1993,6 +1997,7 @@ async function _getPendientesDeMarcar(
           tipo: 'M',
           mensaje: `Venció la nutrición manual (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse — definí cómo sigue`,
           fecha: l.nutricion_manual_deadline,
+          soloEdit: false,
         });
       }
       continue;
@@ -2007,6 +2012,7 @@ async function _getPendientesDeMarcar(
       tipo: 'A',
       mensaje: `Faltan: ${faltan.map((f) => f.label).join(' · ')}`,
       fecha,
+      soloEdit: !hayPasoDeWizard(faltan),
     });
   }
 

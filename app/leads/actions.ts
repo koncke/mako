@@ -32,6 +32,7 @@ import {
   setBoardStageOverride,
   saveLeadMeta,
   saveFunnel,
+  faltantesDeLead,
   getLead,
   getPipelineStages,
   getVisitasLandingMap,
@@ -126,6 +127,8 @@ export type LeadFullData = {
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
   insightGen: LeadInsightGen | null;
   faltantesInsight: Step[];
+  /** Datos sin marcar de la etapa actual (completos: incluye tel/empresa/deal). */
+  faltantes: Step[];
   equipo: MiembroEquipo[];
   closerDetectado: string | null;
 };
@@ -154,8 +157,9 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0);
+  const faltantes = faltantesDeLead(lead, pagos.length > 0);
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
-  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, equipo, closerDetectado };
+  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

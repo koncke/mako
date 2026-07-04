@@ -13,7 +13,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
-import type { Step } from '@/lib/stage-requirements';
+import { hayPasoDeWizard, type Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditLeadForm } from './EditLeadForm';
@@ -42,12 +42,14 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [] }: {
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [] }: {
   lead: Lead;
   stages: Stage[];
   pagos: Pago[];
   initialTab?: string;
   initialEdit?: boolean;
+  /** ?solucionar=1: abrir directo el asistente (o la edición si solo faltan datos estáticos). */
+  initialSolucionar?: boolean;
   /** Tabs de LECTURA (contenido server-rendered). */
   tabs: LeadTabDef[];
   // Datos del header (antes vivían en page.tsx; ahora acá para que "Editar"
@@ -62,17 +64,19 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [editing, setEditing] = useState(!!initialEdit);
+  const currentStage = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
+  // Si solo faltan datos estáticos (tel/empresa/detalle del cierre), no hay
+  // asistente: se completan en Editar. Con algún dato de reunión/venta → wizard.
+  const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
+  const [editing, setEditing] = useState(!!initialEdit || (!!initialSolucionar && soloEdit));
   const [tab, setTab] = useState(initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : tabs[0]?.key ?? 'resumen');
-  const [moveTo, setMoveTo] = useState<string | null>(null);
+  const [moveTo, setMoveTo] = useState<string | null>(initialSolucionar && !soloEdit && faltantes.length > 0 ? currentStage : null);
   // Si una navegación pone ?edit=1 (ej. la alarma "Editar y completar" del deal),
   // abrir el modo edición. Patrón prev-prop: reacciona al cambio del prop.
   const [prevInitEdit, setPrevInitEdit] = useState(!!initialEdit);
   if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditing(true); }
-  const salirEdicion = () => { setEditing(false); if (initialEdit) router.replace(pathname); };
+  const salirEdicion = () => { setEditing(false); if (initialEdit || initialSolucionar) router.replace(pathname); };
   const chip = CHIP[chipTone] || CHIP.neutral;
-
-  const currentStage = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -123,11 +127,14 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
           <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>
-          {/* Advertencia roja a la altura del nombre + Solucionar (abre el wizard). */}
+          {/* Advertencia roja a la altura del nombre + Solucionar/Completar. */}
           {faltantes.length > 0 && (
             <>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>⚠ {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar</span>
-              <button type="button" onClick={() => setMoveTo(currentStage)} style={{ padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Solucionar</button>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>
+                <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
+                {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar
+              </span>
+              <button type="button" onClick={() => (soloEdit ? setEditing(true) : setMoveTo(currentStage))} style={{ padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{soloEdit ? 'Completar' : 'Solucionar'}</button>
             </>
           )}
         </div>
@@ -151,6 +158,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
           stages={stages}
           pagos={pagos}
           initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
+          faltantes={faltantes}
           onDone={() => { salirEdicion(); router.refresh(); }}
           onCancel={salirEdicion}
         />

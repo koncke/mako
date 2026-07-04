@@ -16,7 +16,8 @@
 export type StepId =
   | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'monto' | 'plan' | 'motivo' | 'setter';
+  | 'monto' | 'plan' | 'motivo' | 'setter'
+  | 'telefono' | 'empresa' | 'dealDetalle';
 
 export type Step = { id: StepId; label: string };
 
@@ -31,6 +32,11 @@ export interface StageReqValues {
   monto?: number | null;
   motivo?: string | null;
   setter?: string | null;
+  /** Contacto: se exigen una vez que el lead entró al pipeline activo (agenda+). */
+  telefono?: string | null;
+  empresa?: string | null;
+  /** Deal Details (servicio + facturación) cargado. Solo se exige en ganado. */
+  dealCompleto?: boolean;
   /** undefined = el caller no sabe si hay plan (no se exige); boolean = se exige. */
   tienePlan?: boolean;
   /** Hoy en ISO (YYYY-MM-DD). Si falta, las fechas se asumen pasadas (estricto). */
@@ -62,13 +68,16 @@ const NIVEL: Record<string, number> = {
 export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   const steps: Step[] = [];
 
-  // Salidas: solo motivo. Manual: solo setter (el flujo del Kanban pide motivo+deadline aparte).
+  // Salidas: solo motivo, específico según el desenlace (perdido vs descalificado).
+  // Manual: solo setter (el flujo del Kanban pide motivo+deadline aparte).
   if (stageKey === 'perdido' || stageKey === 'descal') {
-    if (!v.motivo?.trim()) steps.push({ id: 'motivo', label: 'Motivo' });
+    if (!v.motivo?.trim()) {
+      steps.push({ id: 'motivo', label: stageKey === 'perdido' ? 'Motivo de la pérdida' : 'Motivo de la descalificación' });
+    }
     return steps;
   }
   if (stageKey === 'manual') {
-    if (!v.setter?.trim()) steps.push({ id: 'setter', label: 'Setter' });
+    if (!v.setter?.trim()) steps.push({ id: 'setter', label: 'Setter asignado' });
     return steps;
   }
 
@@ -109,7 +118,15 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   if (nivel >= 5) {
     if (!(Number(v.monto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
     if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
+    // Detalle del cierre: qué se vendió + a quién se factura (Deal Details).
+    if (v.dealCompleto === false) steps.push({ id: 'dealDetalle', label: 'Detalle del cierre (servicio y facturación)' });
+    // Empresa: se necesita para facturar el cierre.
+    if (v.empresa !== undefined && !v.empresa?.trim()) steps.push({ id: 'empresa', label: 'Empresa' });
   }
+
+  // ── Higiene de contacto (agenda en adelante): teléfono para poder llamar ──
+  // Va al final: primero lo de la reunión/venta, después completar el contacto.
+  if (v.telefono !== undefined && !v.telefono?.trim()) steps.push({ id: 'telefono', label: 'Teléfono de contacto' });
 
   return steps;
 }
@@ -118,3 +135,16 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
 export function missingForStage(stageKey: string, v: StageReqValues): string[] {
   return stepsForStage(stageKey, v).map((s) => s.label);
 }
+
+/**
+ * Steps que el wizard "Solucionar" (StageMoveDialog) sabe resolver paso a paso.
+ * El resto (teléfono, empresa, detalle del cierre, setter) son datos estáticos
+ * de ficha: se completan en "Editar", no con el asistente de movimiento.
+ */
+export const WIZARD_STEP_IDS: ReadonlySet<StepId> = new Set<StepId>([
+  'fechaJ1', 'asistenciaR1', 'calificado', 'fathomR1',
+  'fechaJ2', 'asistenciaR2', 'fathomR2', 'monto', 'plan', 'motivo',
+]);
+
+/** ¿Hay al menos un dato que el wizard pueda resolver? (si no, se va a Editar). */
+export const hayPasoDeWizard = (steps: Step[]): boolean => steps.some((s) => WIZARD_STEP_IDS.has(s.id));

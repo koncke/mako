@@ -78,11 +78,13 @@ function etapaDe(lead: Lead): string {
 
 /**
  * Faltantes para el gate de Insights: igual que faltantesDeLead (lib/leads) pero
- * sin 'setter' (dato operativo del Kanban, irrelevante para el análisis y sin
- * paso propio en el wizard).
+ * sin los datos operativos/administrativos que no afectan al análisis de la
+ * llamada (setter, teléfono, empresa, detalle del cierre). Insights se apoya en
+ * lo que pasó en la reunión, no en la higiene de la ficha.
  */
+const NO_INSIGHTS: ReadonlySet<Step['id']> = new Set(['setter', 'telefono', 'empresa', 'dealDetalle']);
 export function faltantesParaInsights(lead: Lead, tienePlan: boolean): Step[] {
-  return faltantesDeLead(lead, tienePlan).filter((s) => s.id !== 'setter');
+  return faltantesDeLead(lead, tienePlan).filter((s) => !NO_INSIGHTS.has(s.id));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

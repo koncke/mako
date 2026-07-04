@@ -87,6 +87,7 @@ export default async function LeadsPage() {
     company: crmLeads.find((c) => c.id === p.lead_id)?.company ?? '',
     message: p.mensaje,
     tipo: p.tipo,
+    soloEdit: p.soloEdit,
   }));
 
   return (

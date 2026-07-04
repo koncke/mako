@@ -1403,6 +1403,9 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
 export function faltantesDeLead(lead: Lead, tienePlan?: boolean): Step[] {
   const stage = (lead.pipeline_stage && lead.pipeline_stage.trim()) ? lead.pipeline_stage : deriveStageKey(lead);
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
+  // Deal Details "completo" = qué se vendió (servicio) + a quién se factura
+  // (razón social). Con eso alcanza para no marcar el cierre como incompleto.
+  const dealCompleto = !!(lead.deal_servicio?.que_es?.trim()) && !!(lead.deal_fiscal?.razon?.trim());
   return stepsForStage(stage, {
     fechaJ1: lead.fecha_junta_1,
     asistioJ1: lead.asistio_j1,
@@ -1413,6 +1416,9 @@ export function faltantesDeLead(lead: Lead, tienePlan?: boolean): Step[] {
     monto: lead.monto_cierre_usd,
     motivo: lead.motivo_perdida,
     setter: lead.setter,
+    telefono: lead.telefono,
+    empresa: lead.empresa,
+    dealCompleto,
     tienePlan,
     hoyISO: hoyEnTijuana(),
     sinR1: !!lead.sin_r1,

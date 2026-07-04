@@ -34,6 +34,7 @@ import { ChatCard } from '../lead-view/ChatCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
+import { hayPasoDeWizard } from '@/lib/stage-requirements';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
@@ -44,9 +45,9 @@ const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
-export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string }> }) {
+export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; solucionar?: string }> }) {
   await guardOnboarding();
-  const [{ id: idStr }, { tab, edit }] = await Promise.all([params, searchParams]);
+  const [{ id: idStr }, { tab, edit, solucionar }] = await Promise.all([params, searchParams]);
   const idNum = Number(idStr);
   if (!Number.isFinite(idNum)) notFound();
 
@@ -97,6 +98,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
   // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir).
   const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined);
+  // Si solo faltan datos estáticos (tel/empresa/detalle) no hay wizard: se editan.
+  const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
 
   return (
@@ -111,6 +114,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           pagos={pagos}
           initialTab={tab}
           initialEdit={edit === '1'}
+          initialSolucionar={solucionar === '1'}
           nombre={lead.nombre}
           empresa={lead.empresa}
           createdISO={lead.created_at}
@@ -124,8 +128,13 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 <>
                   {faltantes.length > 0 && (
                     <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)' }}>
-                      <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 10 }}>Datos sin marcar</div>
-                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: '0 0 10px' }}>Faltan datos posibles de conseguir para esta etapa. Tocá <b>Solucionar</b> (arriba, al lado del nombre) para completarlos con el asistente.</p>
+                      <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                        <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
+                        Datos sin marcar
+                      </div>
+                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: '0 0 10px' }}>{soloEdit
+                        ? <>Faltan datos de la ficha. Tocá <b>Editar</b> (arriba a la derecha) para cargarlos.</>
+                        : <>Faltan datos posibles de conseguir para esta etapa. Tocá <b>Solucionar</b> (arriba, al lado del nombre) para completarlos con el asistente.</>}</p>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {faltantes.map((f) => (
                           <span key={f.id} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' }}>{f.label}</span>

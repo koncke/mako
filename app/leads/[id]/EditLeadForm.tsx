@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { LeadTabs } from '../lead-view/LeadTabs';
 import { DealDetailsCard, type DealDetailsHandle } from './DealDetailsCard';
 import type { Lead, FathomLink } from '@/lib/leads';
+import type { Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 
 type TriState = boolean | null;
@@ -28,7 +29,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string }) {
+export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab, faltantes = [] }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string; faltantes?: Step[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -292,6 +293,22 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
           <button type="button" onClick={guardar} disabled={pending} style={{ ...btnPrimary, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Guardar cambios'}</button>
         </div>
       </div>
+
+      {/* Datos sin marcar: guía lo que falta mientras se edita (tel/empresa en
+          Overview, detalle del cierre en Deal Details, reuniones en Meetings). */}
+      {faltantes.length > 0 && (
+        <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)', padding: '16px 20px' }}>
+          <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 9, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+            <span aria-hidden style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
+            Datos sin marcar
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {faltantes.map((f) => (
+              <span key={f.id} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' }}>{f.label}</span>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Mismas tabs que la vista (mismos nombres), ahora editables. Abre en la
           tab donde estaba el usuario (initialTab). */}
