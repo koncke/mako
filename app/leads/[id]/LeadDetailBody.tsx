@@ -70,8 +70,13 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
   const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
   // Selector de etapa: muestra la ETAPA ACTUAL; elegir otra abre el wizard.
-  // Agrupado por banda (pipeline / nutrición / salida) para orientarse sin scroll.
-  const bandSub: Record<string, string> = { pipeline: 'Pipeline', nutricion: 'Nutrición', salidas: 'Salida' };
+  // Dos columnas lado a lado (Pipeline + Salida | Nutrición) para verlo entero
+  // sin scroll.
+  const deBanda = (band: 'pipeline' | 'nutricion' | 'salidas') =>
+    stages
+      .filter((s) => (s.band ?? 'pipeline') === band)
+      .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+      .map((s) => ({ value: s.key, label: s.label, color: s.dot }));
   const stageSelector: ReactNode = (
     <Dropdown
       value={currentStage}
@@ -79,12 +84,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
       width={250}
       ariaLabel="Etapa del lead (elegí otra para mover)"
       onChange={(key) => { if (key && key !== currentStage) setMoveTo(key); }}
-      options={(['pipeline', 'nutricion', 'salidas'] as const).flatMap((band) =>
-        stages
-          .filter((s) => (s.band ?? 'pipeline') === band)
-          .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
-          .map((s) => ({ value: s.key, label: s.label, color: s.dot, sub: bandSub[band] })),
-      )}
+      columns={[
+        [{ title: 'Pipeline', options: deBanda('pipeline') }, { title: 'Salida', options: deBanda('salidas') }],
+        [{ title: 'Nutrición', options: deBanda('nutricion') }],
+      ]}
     />
   );
 
