@@ -14,6 +14,7 @@ import {
   textoCohorteJ1,
   getVslEngagement,
   getVisitasLandingMap,
+  getTrackingEvents,
 } from '@/lib/leads';
 import { deriveStageKey, stageMeta, CHIP, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
@@ -30,6 +31,7 @@ import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { RespuestasCard } from '../lead-view/RespuestasCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
+import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { InsightsCard } from '../lead-view/InsightsCard';
 import { getLeadInsights } from '../actions';
 
@@ -49,13 +51,14 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights, trackingEventos] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
     getPipelineStages().catch(() => [] as Stage[]),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map<string, { total_visitas: number; dias_distintos: number }>()),
     getLeadInsights(idNum),
+    getTrackingEvents(lead.visitor_id),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
@@ -137,6 +140,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} />
+                  <TrackingTimelineCard eventos={trackingEventos} />
                 </>
               ),
             },

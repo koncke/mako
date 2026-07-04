@@ -102,7 +102,10 @@ export async function POST(request: NextRequest) {
     visitor_id?: unknown;
     tipo_evento?: unknown;
     porcentaje?: unknown;
-    video_id?: unknown;
+    video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
+    vsl_titulo?: unknown;  // título del video de Panda, si la landing lo puede leer
+    landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
+    referrer?: unknown;
     event?: unknown;       // legacy
     play_count?: unknown;  // legacy
     l?: unknown;           // Camino 1: token de identidad (meta_lead_id) del link de WhatsApp
@@ -134,12 +137,21 @@ export async function POST(request: NextRequest) {
   let tipoEvento =
     typeof payload.tipo_evento === 'string' ? payload.tipo_evento.trim().toLowerCase() : '';
 
+  // Sanitizadores de los campos nuevos (opcionales, beacon viejo sigue andando).
+  const texto = (v: unknown, max: number): string | null =>
+    typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
+
   // Visita a la landing → tabla propia (landing_visits), NO vsl_events.
   // Se intercepta antes de la coerción a 'play' de tipos desconocidos.
   if (tipoEvento === 'pageview') {
     try {
       const supabase = getSupabaseServer();
-      const { error } = await supabase.from('landing_visits').insert({ visitor_id: visitorId });
+      const { error } = await supabase.from('landing_visits').insert({
+        visitor_id: visitorId,
+        // URL exacta de la landing (multi-landing / pruebas A/B) + referrer.
+        landing_url: texto(payload.landing_url, 500),
+        referrer: texto(payload.referrer, 500),
+      });
       if (error) console.error(`[track:vsl] landing_visits insert falló: ${error.message}`);
     } catch (err) {
       console.error(`[track:vsl] landing_visits error: ${err instanceof Error ? err.message : String(err)}`);
@@ -183,6 +195,10 @@ export async function POST(request: NextRequest) {
       tipo_evento: tipoEvento,
       porcentaje,
       play_count: playCount,
+      // Multi-VSL (pruebas A/B desde Panda): id del video + título si la landing
+      // lo puede leer. Antes video_id llegaba en el payload y se descartaba.
+      video_id: texto(payload.video_id, 120),
+      vsl_titulo: texto(payload.vsl_titulo, 200),
     });
     if (error) {
       console.error(`[track:vsl] insert falló: ${error.message}`);

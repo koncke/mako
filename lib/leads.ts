@@ -1124,6 +1124,53 @@ export async function getVslEngagementMap(
   return map;
 }
 
+// ── Timeline de comportamiento por lead (tab Tracking) ──────────────────────
+// Merge cronológico de landing_visits + vsl_events del visitor: cada visita a
+// la landing (con URL si la manda el beacon nuevo), cada play del VSL y los
+// hitos de retención/abandono, todos con fecha y hora reales (created_at).
+
+export type TrackingEvent = {
+  ts: string;                                   // ISO
+  tipo: 'pageview' | 'play' | 'retencion' | 'exit';
+  porcentaje: number | null;                    // retención/abandono
+  landing_url: string | null;
+  referrer: string | null;
+  video_id: string | null;
+  vsl_titulo: string | null;
+};
+
+export async function getTrackingEvents(visitorId: string | null, limit = 120): Promise<TrackingEvent[]> {
+  if (!visitorId) return [];
+  try {
+    const supabase = (await getTenantDb());
+    const [visitas, eventos] = await Promise.all([
+      supabase.from('landing_visits')
+        .select('created_at, landing_url, referrer')
+        .eq('visitor_id', visitorId)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+      supabase.from('vsl_events')
+        .select('created_at, tipo_evento, porcentaje, event, video_id, vsl_titulo')
+        .eq('visitor_id', visitorId)
+        .order('created_at', { ascending: false })
+        .limit(limit),
+    ]);
+    const out: TrackingEvent[] = [];
+    for (const v of (visitas.data ?? []) as Array<{ created_at: string; landing_url: string | null; referrer: string | null }>) {
+      out.push({ ts: v.created_at, tipo: 'pageview', porcentaje: null, landing_url: v.landing_url, referrer: v.referrer, video_id: null, vsl_titulo: null });
+    }
+    for (const e of (eventos.data ?? []) as Array<{ created_at: string; tipo_evento: string | null; porcentaje: number | null; event: string | null; video_id: string | null; vsl_titulo: string | null }>) {
+      const esPlay = e.tipo_evento === 'play' || e.event === 'vsl_play';
+      const tipo: TrackingEvent['tipo'] = esPlay ? 'play' : e.tipo_evento === 'exit' ? 'exit' : 'retencion';
+      out.push({ ts: e.created_at, tipo, porcentaje: e.porcentaje, landing_url: null, referrer: null, video_id: e.video_id, vsl_titulo: e.vsl_titulo });
+    }
+    out.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+    return out.slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pipeline del CRM — etapas editables + Closer/Setter/Fathom (migración 0020)
 // ─────────────────────────────────────────────────────────────────────────────

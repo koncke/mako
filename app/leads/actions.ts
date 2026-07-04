@@ -37,6 +37,7 @@ import {
   getVisitasLandingMap,
   getVslEngagementMap,
   getVslEngagement,
+  getTrackingEvents,
   logLeadChanges,
   logLeadEvent,
   getLeadAudit,
@@ -45,6 +46,7 @@ import {
   type FathomLink,
   type Lead,
   type VslEngagement,
+  type TrackingEvent,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { missingForStage } from '@/lib/stage-requirements';
@@ -114,6 +116,7 @@ export type LeadFullData = {
   campana: { texto: string | null; tooltip: string | null };
   visitas: { total_visitas: number; dias_distintos: number };
   insights: LeadInsightRow[];
+  tracking: TrackingEvent[];
 };
 
 /**
@@ -124,18 +127,19 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights] = await Promise.all([
+  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights, tracking] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
     getPipelineStages().catch(() => DEFAULT_STAGES),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
+    getTrackingEvents(lead.visitor_id),
   ]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
-  return { lead, stages, pagos, vslEng, campana, visitas, insights };
+  return { lead, stages, pagos, vslEng, campana, visitas, insights, tracking };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
