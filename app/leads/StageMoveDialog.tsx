@@ -14,6 +14,7 @@ import { stageMeta, type Stage } from '@/lib/pipeline';
 import { stepsForStage } from '@/lib/stage-requirements';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, type StageMoveCuota } from './actions';
+import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
 
 const SANS = "'Geist', sans-serif";
@@ -47,9 +48,13 @@ export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
 }
 
 type PasoId =
+  | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
   | 'monto' | 'plan' | 'motivo' | 'resumen';
+
+// Pasos de datos de reunión que la búsqueda automática puede resolver.
+const AUTO_RESOLUBLES: PasoId[] = ['fechaJ1', 'asistenciaR1', 'fathomR1', 'fechaJ2', 'asistenciaR2', 'fathomR2'];
 
 function BigChoice({ options, value, onPick }: { options: Array<{ v: string; label: string; sub?: string }>; value: string | null; onPick: (v: string) => void }) {
   return (
@@ -99,6 +104,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
   const [motivo, setMotivo] = useState(lead.motivo ?? '');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
 
+  // "Automático primero": antes de preguntar datos de reuniones se ofrece
+  // buscarlos en Calendly + Fathom; lo resuelto no se vuelve a preguntar.
+  const [autoOferta, setAutoOferta] = useState(true);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoReporte, setAutoReporte] = useState<string[] | null>(null);
+  const [resueltos, setResueltos] = useState<Set<PasoId>>(() => new Set());
+
   // Pasos que la etapa destino EXIGE con lo que el lead ya tiene (se calcula
   // UNA vez al montar — lazy useState, no depende de las respuestas del wizard).
   const [requeridos] = useState(() => new Set(stepsForStage(to, {
@@ -145,8 +157,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     if (requeridos.has('plan')) p.push('plan');
     if (requeridos.has('motivo')) p.push('motivo');
     p.push('resumen');
-    return p;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, huboR1, huboR2, asistioJ1, asistioJ2]);
+    // Lo que la búsqueda automática ya resolvió no se vuelve a preguntar.
+    const filtrados = p.filter((id) => id === 'resumen' || !resueltos.has(id));
+    // "Automático primero": si hay datos de reunión por pedir, ofrecer buscarlos.
+    // Con reporte ya generado el paso se mantiene (aunque todo quede resuelto)
+    // para que el usuario VEA qué se encontró antes de seguir.
+    if (autoOferta && (autoReporte !== null || filtrados.some((id) => (AUTO_RESOLUBLES as string[]).includes(id)))) {
+      filtrados.unshift('auto');
+    }
+    return filtrados;
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -160,6 +180,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
 
   const respondido = (() => {
     switch (paso) {
+      case 'auto': return autoReporte != null; // sin buscar, se sale con "Cargar a mano"
       case 'huboR1': return huboR1 != null;
       case 'motivoNoR1': return !!motivoNoR1.trim();
       case 'huboR2': return huboR2 != null;
@@ -192,6 +213,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     setIdx(i >= 0 ? i : Math.max(0, idx - 1));
   };
 
+  // Un dato "se pidió" si tuvo paso propio O lo resolvió la búsqueda automática.
+  const pide = (id: PasoId) => pasos.includes(id) || resueltos.has(id);
+
   const confirmar = () => {
     setErr(null);
     startTransition(async () => {
@@ -200,14 +224,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
           ? cuotas.filter((c) => parseFloat(c.monto) > 0).map((c) => ({ monto: parseFloat(c.monto), fecha: c.fecha || null }))
           : [];
         await completeStageMoveAction(lead.id, to, {
-          ...(pasos.includes('fechaJ1') && huboR1 !== false ? { fechaJ1: fechaJ1 || null } : {}),
-          ...(pasos.includes('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null } : {}),
-          ...(pasos.includes('asistenciaR1') ? { asistioJ1 } : { asistioJ1: move.asistioJ1 }),
-          ...(pasos.includes('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
-          ...(pasos.includes('calificado') ? { calificado } : {}),
-          ...(pasos.includes('fathomR1') || pasos.includes('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
-          ...(pasos.includes('monto') ? { monto: totalMonto || null } : {}),
-          ...(pasos.includes('motivo') ? { motivo: motivo.trim() || null } : {}),
+          ...(pide('fechaJ1') && huboR1 !== false ? { fechaJ1: fechaJ1 || null } : {}),
+          ...(pide('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null } : {}),
+          ...(pide('asistenciaR1') ? { asistioJ1 } : { asistioJ1: move.asistioJ1 }),
+          ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
+          ...(pide('calificado') ? { calificado } : {}),
+          ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
+          ...(pide('monto') ? { monto: totalMonto || null } : {}),
+          ...(pide('motivo') ? { motivo: motivo.trim() || null } : {}),
           ...(cuotasPayload.length ? { cuotas: cuotasPayload } : {}),
           sinR1Motivo: huboR1 === false ? motivoNoR1.trim() : null,
           sinR2Motivo: huboR1 !== false && huboR2 === false ? motivoNoR2.trim() : null,
@@ -229,7 +253,66 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     <BigChoice value={value == null ? null : String(value)} onPick={(v) => set(v === 'true')} options={[{ v: 'true', label: si }, { v: 'false', label: no }]} />
   );
 
+  // Aplica lo encontrado por la búsqueda automática y marca resuelto lo que
+  // ya no hay que preguntar (calificado y monto siempre quedan en manos humanas).
+  const buscarAuto = async () => {
+    setAutoBusy(true);
+    setErr(null);
+    try {
+      const r = await autoReunionesAction(lead.id);
+      if ('error' in r) { setErr(r.error); return; }
+      const ok = new Set(resueltos);
+      if (r.fechaJ1) { setFechaJ1(r.fechaJ1); setHuboR1(true); ok.add('fechaJ1'); ok.add('huboR1'); }
+      if (r.asistioJ1 != null) { setAsistioJ1(r.asistioJ1); ok.add('asistenciaR1'); }
+      if (r.fechaJ2) { setFechaJ2(r.fechaJ2); setHuboR2(true); ok.add('fechaJ2'); ok.add('huboR2'); }
+      if (r.asistioJ2 != null) { setAsistioJ2(r.asistioJ2); ok.add('asistenciaR2'); }
+      if (r.fathomR1 || r.fathomR2) {
+        setFathom((prev) => {
+          const links = prev.filter((f) => f.url.trim());
+          for (const nuevo of [r.fathomR1, r.fathomR2]) {
+            if (nuevo && !links.some((l) => l.url === nuevo.url)) links.push(nuevo);
+          }
+          return links.length ? links : prev;
+        });
+        if (r.fathomR1) ok.add('fathomR1');
+        if (r.fathomR2) ok.add('fathomR2');
+      }
+      setResueltos(ok);
+      setAutoReporte([
+        ...(r.encontrado.length ? r.encontrado : ['No encontré nada en Calendly ni Fathom para este lead.']),
+        ...r.faltante.map((f) => `A mano: ${f}`),
+      ]);
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
   switch (paso) {
+    case 'auto':
+      pregunta = '¿Buscamos los datos automáticamente?';
+      sub = 'MaKo revisa Calendly y Fathom y solo te pregunta lo que falte.';
+      cuerpo = autoReporte ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
+          {autoReporte.map((l, i) => (
+            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'baseline', fontSize: 13.5, padding: '9px 13px', background: 'var(--surface-2)', borderRadius: 10 }}>
+              <span style={{ flex: 'none' }}>{l.startsWith('A mano:') ? '✎' : '✓'}</span>
+              <span style={{ color: 'var(--ink)' }}>{l}</span>
+            </div>
+          ))}
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Seguí con «Siguiente»: solo se pregunta lo que faltó.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button type="button" disabled={autoBusy} onClick={buscarAuto} style={{ minWidth: 190, padding: '13px 22px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 14.5, fontWeight: 700, cursor: autoBusy ? 'default' : 'pointer', fontFamily: SANS, opacity: autoBusy ? 0.7 : 1 }}>
+            {autoBusy ? 'Buscando…' : '✦ Buscar automáticamente'}
+            <div style={{ fontSize: 11.5, fontWeight: 500, marginTop: 2, opacity: 0.75 }}>Recomendado</div>
+          </button>
+          <button type="button" disabled={autoBusy} onClick={() => setAutoOferta(false)} style={{ minWidth: 150, padding: '13px 22px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+            Cargar a mano
+          </button>
+        </div>
+      );
+      break;
     case 'huboR1':
       pregunta = '¿Hubo Reunión 1?';
       sub = 'Hay cierres raros sin reunión — si no la hubo, contanos por qué.';
@@ -334,21 +417,21 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       const filas: Array<[string, string]> = [];
       if (huboR1 === false) filas.push(['Sin R1', motivoNoR1]);
       else {
-        if (pasos.includes('fechaJ1')) filas.push(['Fecha R1', fechaJ1 || '—']);
-        if (pasos.includes('asistenciaR1')) filas.push(['Asistió R1', asistioJ1 ? 'Sí' : 'No']);
-        if (pasos.includes('calificado')) filas.push(['Calificado', calificado ? 'Sí' : 'No']);
+        if (pide('fechaJ1')) filas.push(['Fecha R1', fechaJ1 || '—']);
+        if (pide('asistenciaR1')) filas.push(['Asistió R1', asistioJ1 ? 'Sí' : 'No']);
+        if (pide('calificado')) filas.push(['Calificado', calificado ? 'Sí' : 'No']);
       }
       if (huboR1 !== false) {
         if (huboR2 === false) filas.push(['Sin R2', motivoNoR2]);
         else {
-          if (pasos.includes('fechaJ2')) filas.push(['Fecha R2', fechaJ2 || '—']);
-          if (pasos.includes('asistenciaR2')) filas.push(['Asistió R2', asistioJ2 ? 'Sí' : 'No']);
+          if (pide('fechaJ2')) filas.push(['Fecha R2', fechaJ2 || '—']);
+          if (pide('asistenciaR2')) filas.push(['Asistió R2', asistioJ2 ? 'Sí' : 'No']);
         }
       }
-      if (pasos.includes('fathomR1') || pasos.includes('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
-      if (pasos.includes('monto')) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
-      if (pasos.includes('plan')) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
-      if (pasos.includes('motivo')) filas.push(['Motivo', motivo || '—']);
+      if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
+      if (pide('monto')) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
+      if (pide('plan')) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
+      if (pide('motivo')) filas.push(['Motivo', motivo || '—']);
       pregunta = filas.length ? 'Revisá y confirmá' : 'Confirmá el movimiento';
       cuerpo = filas.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
