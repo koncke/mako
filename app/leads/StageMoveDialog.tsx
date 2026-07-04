@@ -51,7 +51,7 @@ type PasoId =
   | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'monto' | 'plan' | 'motivo' | 'resumen';
+  | 'monto' | 'plan' | 'motivo' | 'motivoDetalle' | 'resumen';
 
 // Pasos de datos de reunión que la búsqueda automática puede resolver.
 const AUTO_RESOLUBLES: PasoId[] = ['fechaJ1', 'asistenciaR1', 'fathomR1', 'fechaJ2', 'asistenciaR2', 'fathomR2'];
@@ -101,8 +101,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
   const [fathom, setFathom] = useState<FathomLink[]>(() => (lead.fathom.length ? lead.fathom : [{ label: 'Llamada', url: '' }]));
   const [fathomOmitido, setFathomOmitido] = useState(false);
   const [monto, setMonto] = useState(lead.monto ? String(lead.monto) : '');
+  // Motivo en 2 pasos: categoría (botón) + detalle específico (texto libre).
   const [motivo, setMotivo] = useState(lead.motivo ?? '');
+  const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
+  const esDescal = to === 'descal';
+  const motivoFinal = [motivo.trim(), motivoDetalle.trim()].filter(Boolean).join(' — ');
 
   // "Automático primero": antes de preguntar datos de reuniones se ofrece
   // buscarlos en Calendly + Fathom; lo resuelto no se vuelve a preguntar.
@@ -155,7 +159,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     }
     if (requeridos.has('monto')) p.push('monto');
     if (requeridos.has('plan')) p.push('plan');
-    if (requeridos.has('motivo')) p.push('motivo');
+    if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
     p.push('resumen');
     // Lo que la búsqueda automática ya resolvió no se vuelve a preguntar.
     const filtrados = p.filter((id) => id === 'resumen' || !resueltos.has(id));
@@ -194,6 +198,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       case 'monto': return totalMonto > 0;
       case 'plan': return cuotasCuadran;
       case 'motivo': return !!motivo.trim();
+      case 'motivoDetalle': return !!motivoDetalle.trim();
       default: return true;
     }
   })();
@@ -231,7 +236,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
           ...(pide('calificado') ? { calificado } : {}),
           ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
           ...(pide('monto') ? { monto: totalMonto || null } : {}),
-          ...(pide('motivo') ? { motivo: motivo.trim() || null } : {}),
+          ...(pide('motivo') ? { motivo: motivoFinal || null } : {}),
           ...(cuotasPayload.length ? { cuotas: cuotasPayload } : {}),
           sinR1Motivo: huboR1 === false ? motivoNoR1.trim() : null,
           sinR2Motivo: huboR1 !== false && huboR2 === false ? motivoNoR2.trim() : null,
@@ -245,7 +250,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
   };
 
   // ── Render del paso ──
-  const sugerencias = ['Precio', 'Timing', 'No calificado', 'Fantasma', 'Otro'];
+  // Categorías según el desenlace: perder ≠ descalificar (motivos distintos).
+  const sugerencias = esDescal
+    ? ['No calificado', 'Fuera de perfil', 'Sin presupuesto', 'No es quien decide', 'Otro']
+    : ['Precio', 'Timing', 'Eligió a otro', 'Fantasma', 'No respondió', 'Otro'];
   let pregunta = '';
   let sub = '';
   let cuerpo: ReactNode = null;
@@ -376,18 +384,21 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       cuerpo = <input inputMode="numeric" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0" autoFocus style={{ ...compInput, maxWidth: 220, margin: '0 auto', display: 'block', fontSize: 22, fontWeight: 700 }} />;
       break;
     case 'motivo':
-      pregunta = '¿Por qué se perdió o descalificó?';
+      pregunta = esDescal ? '¿Por qué se descalificó?' : '¿Por qué se perdió?';
+      sub = 'Elegí la categoría; en el próximo paso contás el detalle.';
       cuerpo = (
-        <div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginBottom: 10, justifyContent: 'center' }}>
-            {sugerencias.map((s) => {
-              const active = motivo.trim().toLowerCase() === s.toLowerCase();
-              return <button key={s} type="button" onClick={() => setMotivo(s)} style={{ padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600, fontFamily: SANS, cursor: 'pointer', background: active ? 'rgba(47,111,237,.10)' : 'var(--surface)', border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border-strong)'), color: active ? 'var(--primary)' : 'var(--dim)' }}>{s}</button>;
-            })}
-          </div>
-          <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Contá el contexto…" style={{ ...compInput, minHeight: 74, textAlign: 'left', lineHeight: 1.5 }} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          {sugerencias.map((s) => {
+            const active = motivo.trim().toLowerCase() === s.toLowerCase();
+            return <button key={s} type="button" onClick={() => setMotivo(s)} style={{ padding: '9px 16px', borderRadius: 11, fontSize: 14, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: active ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), color: active ? '#F3F5F8' : 'var(--ink)' }}>{s}</button>;
+          })}
         </div>
       );
+      break;
+    case 'motivoDetalle':
+      pregunta = esDescal ? 'Contanos por qué no calificaba' : 'Sé específico: ¿qué pasó?';
+      sub = motivo.trim() ? `Categoría: ${motivo.trim()}. Agregá el detalle concreto.` : 'Agregá el detalle concreto.';
+      cuerpo = <textarea value={motivoDetalle} onChange={(e) => setMotivoDetalle(e.target.value)} placeholder={esDescal ? 'Ej: factura menos de X, no tiene equipo a cargo…' : 'Ej: le pareció caro vs. la competencia, se enfrió tras la R2…'} autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
       break;
     case 'plan':
       pregunta = '¿Cómo se van a cobrar las cuotas?';
@@ -431,7 +442,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
       if (pide('monto')) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
       if (pide('plan')) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
-      if (pide('motivo')) filas.push(['Motivo', motivo || '—']);
+      if (pide('motivo')) filas.push([esDescal ? 'Motivo de descalificación' : 'Motivo de pérdida', motivoFinal || '—']);
       pregunta = filas.length ? 'Revisá y confirmá' : 'Confirmá el movimiento';
       cuerpo = filas.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

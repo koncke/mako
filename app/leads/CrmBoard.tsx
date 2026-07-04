@@ -37,6 +37,7 @@ import {
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
+import { WizardShell, wizardInput } from './WizardShell';
 import { sectionForStage } from './edit-logic';
 import { missingForStage } from '@/lib/stage-requirements';
 import { Dropdown } from '../components/Dropdown';
@@ -140,7 +141,7 @@ export function CrmBoard({
   hoy: string;
 }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
   const [activeBands, setActiveBands] = useState<Set<StageBand>>(() => new Set<StageBand>(['pipeline', 'nutricion', 'salidas']));
@@ -179,12 +180,14 @@ export function CrmBoard({
   const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualDeadline, setManualDeadline] = useState('');
+  const [manualNutriPaso, setManualNutriPaso] = useState(0);   // wizard: 0=motivo, 1=fecha límite
   // modo 'pasada' = ya ocurrió (pide asistencia); 'futura' = ya está agendada
   // por fuera de Calendly pero todavía no se tuvo (solo fecha).
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
   const [mmFecha, setMmFecha] = useState('');
   const [mmAsistio, setMmAsistio] = useState<'si' | 'no' | ''>('si');
   const [mmNota, setMmNota] = useState('');   // por qué se agendó fuera de Calendly (excepción)
+  const [mmPaso, setMmPaso] = useState(0);    // wizard: 0=fecha, 1=asistencia (pasada) / motivo (futura)
   const [meetingChoice, setMeetingChoice] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2' } | null>(null);
 
   const stageKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
@@ -328,6 +331,7 @@ export function CrmBoard({
     const l = leads.find((x) => x.id === leadId);
     setManualMotivo('');
     setManualDeadline('');
+    setManualNutriPaso(0);
     setManualNutri({ leadId, name: l?.name ?? 'lead' });
   };
   const confirmManualNutri = () => {
@@ -343,7 +347,7 @@ export function CrmBoard({
   // 'futura' = ya está agendada por fuera pero todavía no se tuvo (solo fecha).
   const openManualMeeting = (leadId: number, which: 'agenda' | 'agendaj2', modo: 'pasada' | 'futura') => {
     const l = leads.find((x) => x.id === leadId);
-    setMmFecha(''); setMmAsistio('si'); setMmNota('');
+    setMmFecha(''); setMmAsistio('si'); setMmNota(''); setMmPaso(0);
     setManualMeeting({ leadId, name: l?.name ?? 'lead', which, modo });
   };
   const confirmManualMeeting = () => {
@@ -634,24 +638,32 @@ export function CrmBoard({
         );
       })()}
 
-      {/* Confirmación: motivo de la nutrición manual */}
+      {/* Nutrición manual — wizard de 2 pasos (motivo + fecha límite) */}
       {manualNutri && (
-        <div onClick={() => setManualNutri(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Nutrición manual — {manualNutri.name}</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 12 }}>Contá el motivo y poné una fecha límite. Si llega esa fecha sin que el lead avance, vuelve a &quot;datos sin marcar&quot; en rojo.</div>
-            <textarea value={manualMotivo} onChange={(e) => setManualMotivo(e.target.value)} autoFocus placeholder="Ej: pidió que lo contactemos en 2 meses; está cerrando presupuesto…" style={{ width: '100%', minHeight: 84, resize: 'vertical', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>Fecha límite para concluir</div>
-              <input type="date" value={manualDeadline} min={hoy} onChange={(e) => setManualDeadline(e.target.value)} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-              <button onClick={() => setManualNutri(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              <button onClick={confirmManualNutri} disabled={!manualMotivo.trim() || !manualDeadline} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: manualMotivo.trim() && manualDeadline ? 'var(--primary)' : 'var(--border)', color: manualMotivo.trim() && manualDeadline ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: manualMotivo.trim() && manualDeadline ? 'pointer' : 'default', opacity: manualMotivo.trim() && manualDeadline ? 1 : 0.6, fontFamily: SANS }}>Guardar nutrición manual</button>
-            </div>
-          </div>
-        </div>
+        <WizardShell
+          titulo={`Nutrición manual · ${manualNutri.name}`}
+          total={2}
+          idx={manualNutriPaso}
+          pregunta={manualNutriPaso === 0 ? '¿Por qué pasa a nutrición manual?' : '¿Hasta cuándo la seguís?'}
+          sub={manualNutriPaso === 0
+            ? 'Contá el motivo del parking. Queda en el historial del lead.'
+            : 'Poné una fecha límite: si llega sin que el lead avance, vuelve a «datos sin marcar» en rojo.'}
+          puedeAvanzar={manualNutriPaso === 0 ? !!manualMotivo.trim() : !!manualDeadline}
+          enUltimo={manualNutriPaso === 1}
+          confirmLabel="Guardar nutrición manual"
+          pending={isPending}
+          atrasLabel={manualNutriPaso === 0 ? 'Cancelar' : 'Atrás'}
+          onClose={() => setManualNutri(null)}
+          onAtras={() => (manualNutriPaso === 0 ? setManualNutri(null) : setManualNutriPaso(0))}
+          onSiguiente={() => setManualNutriPaso(1)}
+          onConfirmar={confirmManualNutri}
+        >
+          {manualNutriPaso === 0 ? (
+            <textarea value={manualMotivo} onChange={(e) => setManualMotivo(e.target.value)} autoFocus placeholder="Ej: pidió que lo contactemos en 2 meses; está cerrando presupuesto…" style={{ ...wizardInput, minHeight: 96, textAlign: 'left', lineHeight: 1.5 }} />
+          ) : (
+            <input type="date" value={manualDeadline} min={hoy} onChange={(e) => setManualDeadline(e.target.value)} autoFocus style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+          )}
+        </WizardShell>
       )}
 
       {/* ¿La reunión ya ocurrió o se va a agendar? Paso previo a Calendly */}
@@ -691,44 +703,46 @@ export function CrmBoard({
         </div>
       )}
 
-      {/* Marcar reunión (R1/R2) a mano — para casos viejos cuya reunión ya ocurrió */}
-      {manualMeeting && (
-        <div onClick={() => setManualMeeting(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
-            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{manualMeeting.modo === 'pasada' ? 'Marcar' : 'Registrar'} {manualMeeting.which === 'agenda' ? 'R1' : 'R2'} — {manualMeeting.name}</div>
-            <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>
-              {manualMeeting.modo === 'pasada'
-                ? 'La reunión ya ocurrió. Registrala a mano (sin Calendly) para avanzar el lead.'
-                : 'La reunión ya está agendada por fuera de Calendly. Cargá la fecha; la asistencia se marca cuando ocurra.'}
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{manualMeeting.modo === 'pasada' ? '¿Cuándo fue?' : '¿Para cuándo está agendada?'}</div>
-            <input type="date" value={mmFecha} min={manualMeeting.modo === 'futura' ? hoy : undefined} max={manualMeeting.modo === 'pasada' ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' }} />
-            {manualMeeting.modo === 'futura' && (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '16px 0 6px' }}>¿Por qué se agendó fuera de Calendly?</div>
-                <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} placeholder="Es una excepción: todas las reuniones deberían agendarse por Calendly. Contá el motivo…" style={{ width: '100%', minHeight: 70, resize: 'vertical', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none' }} />
-              </>
+      {/* Marcar/Registrar reunión (R1/R2) a mano — wizard de 2 pasos */}
+      {manualMeeting && (() => {
+        const esPasada = manualMeeting.modo === 'pasada';
+        const rLabel = manualMeeting.which === 'agenda' ? 'R1' : 'R2';
+        const puede = mmPaso === 0 ? !!mmFecha : (esPasada ? true : !!mmNota.trim());
+        return (
+          <WizardShell
+            titulo={`${esPasada ? 'Marcar' : 'Registrar'} ${rLabel} · ${manualMeeting.name}`}
+            total={2}
+            idx={mmPaso}
+            pregunta={mmPaso === 0
+              ? (esPasada ? `¿Cuándo fue la ${rLabel}?` : `¿Para cuándo está agendada la ${rLabel}?`)
+              : (esPasada ? `¿Asistió a la ${rLabel}?` : '¿Por qué se agendó fuera de Calendly?')}
+            sub={mmPaso === 0
+              ? (esPasada ? 'La reunión ya ocurrió: registrala a mano (sin Calendly) para avanzar el lead.' : 'Ya está agendada por fuera de Calendly. Cargá la fecha; la asistencia se marca cuando ocurra.')
+              : (esPasada ? undefined : 'Es una excepción: todas las reuniones deberían agendarse por Calendly.')}
+            puedeAvanzar={puede}
+            enUltimo={mmPaso === 1}
+            confirmLabel="Guardar reunión"
+            pending={isPending}
+            atrasLabel={mmPaso === 0 ? 'Cancelar' : 'Atrás'}
+            onClose={() => setManualMeeting(null)}
+            onAtras={() => (mmPaso === 0 ? setManualMeeting(null) : setMmPaso(0))}
+            onSiguiente={() => setMmPaso(1)}
+            onConfirmar={confirmManualMeeting}
+          >
+            {mmPaso === 0 ? (
+              <input type="date" value={mmFecha} min={esPasada ? undefined : hoy} max={esPasada ? hoy : undefined} onChange={(e) => setMmFecha(e.target.value)} autoFocus style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />
+            ) : esPasada ? (
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+                {([['si', 'Sí, asistió'], ['no', 'No asistió'], ['', 'No sé']] as const).map(([v, lbl]) => (
+                  <button key={lbl} onClick={() => setMmAsistio(v)} style={{ minWidth: 120, padding: '12px 16px', borderRadius: 12, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
+                ))}
+              </div>
+            ) : (
+              <textarea value={mmNota} onChange={(e) => setMmNota(e.target.value)} autoFocus placeholder="Contá el motivo de la excepción…" style={{ ...wizardInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />
             )}
-            {manualMeeting.modo === 'pasada' && (
-              <>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', margin: '16px 0 6px' }}>¿Asistió?</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {([['si', 'Sí'], ['no', 'No'], ['', 'No sé']] as const).map(([v, lbl]) => (
-                    <button key={lbl} onClick={() => setMmAsistio(v)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: `1px solid ${mmAsistio === v ? 'var(--ink)' : 'var(--border-strong)'}`, background: mmAsistio === v ? 'var(--ink)' : 'var(--surface)', color: mmAsistio === v ? 'var(--surface)' : 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{lbl}</button>
-                  ))}
-                </div>
-              </>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
-              <button onClick={() => setManualMeeting(null)} style={{ padding: '10px 18px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
-              {(() => { const ok = !!mmFecha && (manualMeeting.modo !== 'futura' || !!mmNota.trim()); return (
-                <button onClick={confirmManualMeeting} disabled={!ok} style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: ok ? 'var(--primary)' : 'var(--border)', color: ok ? '#fff' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: ok ? 'pointer' : 'default', opacity: ok ? 1 : 0.6, fontFamily: SANS }}>Guardar reunión</button>
-              ); })()}
-            </div>
-          </div>
-        </div>
-      )}
+          </WizardShell>
+        );
+      })()}
 
       {/* Toast Deshacer (5s) tras mover una card en el tablero */}
       {undoInfo && (
