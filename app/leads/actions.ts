@@ -67,7 +67,7 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
-import { savePlanPagos, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { mapToCrmLead, type VisitasMap, type VslMap } from './crm-map';
 import type { CrmLead } from './CrmBoard';
 
@@ -138,6 +138,9 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   return { lead, stages, pagos, vslEng, campana, visitas, insights };
 }
 
+/** Cuota explícita del plan (modelo simple: monto + fecha). */
+export type StageMoveCuota = { monto: number; fecha: string | null };
+
 /** Datos que el wizard de movimiento puede aportar. */
 export type StageMoveData = {
   fechaJ1?: string | null;
@@ -150,6 +153,13 @@ export type StageMoveData = {
   asistioJ2?: boolean | null;
   calificado?: boolean | null;
   plan?: PlanPagos | null;
+  /** Cuotas explícitas (reemplazan al plan por modos). */
+  cuotas?: StageMoveCuota[] | null;
+  /** Excepciones declaradas: cierre sin R1/R2 (quedan en el historial). */
+  sinR1Motivo?: string | null;
+  sinR2Motivo?: string | null;
+  /** La reunión no se grabó: el link de Fathom no se exige. */
+  fathomOmitido?: boolean;
 };
 
 /**
@@ -170,10 +180,19 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
     motivo: d.motivo ?? before?.motivo_perdida ?? null,
     setter: d.setter ?? before?.setter ?? null,
-    tienePlan: to === 'ganado' ? (!!d.plan || pagosExistentes.length > 0) : undefined,
+    tienePlan: to === 'ganado' ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0) : undefined,
     hoyISO: hoyEnTijuana(),
+    sinR1: !!d.sinR1Motivo?.trim(),
+    sinR2: !!d.sinR2Motivo?.trim(),
+    fathomOmitido: !!d.fathomOmitido,
   });
   if (faltan.length) throw new Error(`Falta: ${faltan.join(', ')}`);
+
+  // Excepciones declaradas: quedan como eventos del historial (auditables).
+  const autor = await autorActual();
+  if (d.sinR1Motivo?.trim()) await logLeadEvent(id, 'Cierre sin R1', d.sinR1Motivo.trim(), autor);
+  if (d.sinR2Motivo?.trim()) await logLeadEvent(id, 'Cierre sin R2', d.sinR2Motivo.trim(), autor);
+  if (d.fathomOmitido) await logLeadEvent(id, 'Reunión sin grabación', 'El link de Fathom se omitió porque la reunión no se grabó', autor);
 
   // 1) Fechas/fathom/motivo/setter — solo lo que vino.
   const meta: LeadMetaInput = {};
@@ -193,13 +212,24 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
   if (Object.keys(upd).length) await updateLead(id, upd);
 
   // 3) Plan de pagos (genera las cuotas; el cash del dashboard lee de acá).
-  if (d.plan) await savePlanPagos(id, d.plan);
+  //    Modelo simple: cuotas explícitas (monto + fecha). `plan` queda por compat.
+  if (d.cuotas?.length) {
+    await saveLeadPlanManual(id, {
+      total_usd: d.monto ?? before?.monto_cierre_usd ?? null,
+      duracion_meses: null,
+      fecha_cierre: null,
+      fecha_inicio: null,
+      cuotas: d.cuotas.map((c) => ({ monto_usd: c.monto, fecha_esperada: c.fecha })),
+    });
+  } else if (d.plan) {
+    await savePlanPagos(id, d.plan);
+  }
 
   // 4) Mover (updateLead sincroniza estado primero; override solo si OK).
   await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
 
   const after = await getLead(id).catch(() => null);
-  await logLeadChanges(id, before, after, await autorActual());
+  await logLeadChanges(id, before, after, autor);
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath(`/leads/${id}`);

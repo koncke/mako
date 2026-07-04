@@ -101,11 +101,14 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               {lead.empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}
             </p>
           </div>
-          <div style={{ ...card, padding: '14px 18px', minWidth: 180 }}>
-            <div style={sectLabel}>Cohorte</div>
-            <div style={{ fontSize: 20, fontWeight: 600, color: cohorteColor, marginTop: 4 }}>{cohorteLabel}</div>
-            {textoJ1 && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3 }}>{textoJ1}</div>}
-          </div>
+          {/* Cohorte solo tiene sentido si hubo R1 (es el anchor de cohorte). */}
+          {lead.fecha_junta_1 && (
+            <div style={{ ...card, padding: '14px 18px', minWidth: 180 }}>
+              <div style={sectLabel}>Cohorte</div>
+              <div style={{ fontSize: 20, fontWeight: 600, color: cohorteColor, marginTop: 4 }}>{cohorteLabel}</div>
+              {textoJ1 && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3 }}>{textoJ1}</div>}
+            </div>
+          )}
         </div>
 
         {/* TABS + Mover a… + botón Editar (la edición usa las mismas tabs) */}
@@ -117,7 +120,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           initialEdit={edit === '1'}
           tabs={[
             {
-              key: 'resumen', label: 'Resumen',
+              key: 'resumen', label: 'Overview',
               content: (
                 <>
                   <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
@@ -128,9 +131,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} /> },
             {
-              key: 'comportamiento', label: 'Comportamiento',
+              key: 'comportamiento', label: 'Tracking',
               content: (
                 <>
                   <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
@@ -138,19 +140,20 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            { key: 'insights', label: 'Insights', badge: insights.length, content: <><InsightsCard insights={insights} /><RespuestasCard lead={lead} /></> },
+            { key: 'reuniones', label: 'Meetings', content: <><ReunionesCard lead={lead} /><RespuestasCard lead={lead} /></> },
+            { key: 'insights', label: 'Insights', badge: insights.length, content: <InsightsCard insights={insights} /> },
             {
-              key: 'cobranza', label: 'Cobranza', badge: cuotasPendientes,
+              key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,
               content: esVenta || tienePlan ? (
                 <CobranzaPlanCard lead={lead} pagos={pagos} editable={false} />
               ) : (
                 <section style={card}>
-                  <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
-                  <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado (con &quot;Mover a…&quot;).</p>
+                  <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>
+                  <p style={{ fontSize: 14, color: 'var(--faint)' }}>El deal se habilita cuando el lead pasa a Facturando o Ganado (cambiando la etapa arriba).</p>
                 </section>
               ),
             },
-            { key: 'actividad', label: 'Actividad', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+            { key: 'actividad', label: 'Change History', content: <AuditHistory leadId={lead.id} stages={stages} /> },
           ]}
         />
       </div>

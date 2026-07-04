@@ -155,12 +155,12 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
           <LeadTabs
             initial={initialTab}
             tabs={[
-              { key: 'resumen', label: 'Resumen', content: tabResumen },
-              { key: 'reuniones', label: 'Reuniones', content: <ReunionesCard lead={lead} /> },
-              { key: 'comportamiento', label: 'Comportamiento', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} /></> },
-              { key: 'insights', label: 'Insights', content: <><InsightsCard insights={insights} /><RespuestasCard lead={lead} /></>, badge: insights.length },
-              { key: 'cobranza', label: 'Cobranza', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },
-              { key: 'actividad', label: 'Actividad', content: <AuditHistory leadId={lead.id} stages={stages} /> },
+              { key: 'resumen', label: 'Overview', content: tabResumen },
+              { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} /></> },
+              { key: 'reuniones', label: 'Meetings', content: <><ReunionesCard lead={lead} /><RespuestasCard lead={lead} /></> },
+              { key: 'insights', label: 'Insights', content: <InsightsCard insights={insights} />, badge: insights.length },
+              { key: 'cobranza', label: 'Deal Details', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },
+              { key: 'actividad', label: 'Change History', content: <AuditHistory leadId={lead.id} stages={stages} /> },
             ]}
           />
         </div>

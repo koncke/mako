@@ -35,6 +35,11 @@ export interface StageReqValues {
   tienePlan?: boolean;
   /** Hoy en ISO (YYYY-MM-DD). Si falta, las fechas se asumen pasadas (estricto). */
   hoyISO?: string | null;
+  /** Excepciones declaradas (con motivo registrado): cierre sin R1 / sin R2. */
+  sinR1?: boolean;
+  sinR2?: boolean;
+  /** La reunión no se grabó: no se exige el link de Fathom. */
+  fathomOmitido?: boolean;
 }
 
 /** ¿La fecha ya pasó? Sin hoyISO asumimos que sí (comportamiento estricto). */
@@ -70,28 +75,33 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   const nivel = NIVEL[stageKey] ?? 0;
   if (nivel === 0) return steps; // lead / nutriciones: sin requisitos
 
-  // ── Nivel 1: R1 agendada ──
-  if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
+  const hayFathom = !!v.hasFathomUrl || !!v.fathomOmitido;
 
-  // ── Nivel 2: R1 completa (la fecha ya pasó, o la etapa destino implica que ocurrió) ──
-  const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
-  if (r1DebeEstarCompleta) {
-    if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
-    // Calificado: crucial para Meta CAPI. Solo aplica si asistió (o está por marcarse).
-    if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
-    if (v.asistioJ1 !== false && !v.hasFathomUrl) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
+  // ── Nivel 1: R1 agendada ──
+  if (!v.sinR1) {
+    if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
+
+    // ── Nivel 2: R1 completa (la fecha ya pasó, o la etapa destino implica que ocurrió) ──
+    const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
+    if (r1DebeEstarCompleta) {
+      if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
+      // Calificado: crucial para Meta CAPI. Solo aplica si asistió (o está por marcarse).
+      if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
+      if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
+    }
   }
 
-  // ── Nivel 3: R2 agendada ──
-  if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
+  // ── Niveles 3-4: R2 (no aplican si no hubo R1 o se declaró sin R2) ──
+  if (!v.sinR1 && !v.sinR2) {
+    if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
 
-  // ── Nivel 4: R2 completa ──
-  const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
-  if (r2DebeEstarCompleta && v.fechaJ2) {
-    if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
-    if (v.asistioJ2 !== false && !v.hasFathomUrl) {
-      // El set de links es único; si ya se pidió por R1 no se duplica el paso.
-      if (!steps.some((s) => s.id === 'fathomR1')) steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
+    const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
+    if (r2DebeEstarCompleta && v.fechaJ2) {
+      if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
+      if (v.asistioJ2 !== false && !hayFathom) {
+        // El set de links es único; si ya se pidió por R1 no se duplica el paso.
+        if (!steps.some((s) => s.id === 'fathomR1')) steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
+      }
     }
   }
 

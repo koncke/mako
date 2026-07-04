@@ -32,7 +32,7 @@ function Row({ label, value, copyKey, copied, onCopy, extra }: {
   const has = !!value?.trim();
   const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', flex: 'none' };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</div>
         {has ? (

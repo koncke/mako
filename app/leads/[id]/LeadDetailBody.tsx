@@ -69,18 +69,28 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
 
   const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
+  // Selector de etapa: muestra la ETAPA ACTUAL; elegir otra abre el wizard.
+  // Agrupado por banda (pipeline / nutrición / salida) para orientarse sin scroll.
+  const bandSub: Record<string, string> = { pipeline: 'Pipeline', nutricion: 'Nutrición', salidas: 'Salida' };
+  const stageSelector: ReactNode = (
+    <Dropdown
+      value={currentStage}
+      align="right"
+      width={250}
+      ariaLabel="Etapa del lead (elegí otra para mover)"
+      onChange={(key) => { if (key && key !== currentStage) setMoveTo(key); }}
+      options={(['pipeline', 'nutricion', 'salidas'] as const).flatMap((band) =>
+        stages
+          .filter((s) => (s.band ?? 'pipeline') === band)
+          .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+          .map((s) => ({ value: s.key, label: s.label, color: s.dot, sub: bandSub[band] })),
+      )}
+    />
+  );
+
   const actions: ReactNode = (
     <>
-      <Dropdown
-        value=""
-        resetAfterSelect
-        align="right"
-        width={230}
-        placeholder="Mover a…"
-        ariaLabel="Mover de etapa"
-        onChange={(key) => { if (key && key !== currentStage) setMoveTo(key); }}
-        options={stages.filter((s) => s.key !== currentStage).map((s) => ({ value: s.key, label: s.label, color: s.dot }))}
-      />
+      {stageSelector}
       {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
     </>
   );
@@ -88,13 +98,17 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
   return (
     <div>
       {editing ? (
-        <EditLeadForm
-          lead={lead}
-          stages={stages}
-          pagos={pagos}
-          onDone={() => { setEditing(false); router.refresh(); }}
-          onCancel={() => setEditing(false)}
-        />
+        <>
+          {/* El selector de etapa sigue disponible en modo edición. */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>{stageSelector}</div>
+          <EditLeadForm
+            lead={lead}
+            stages={stages}
+            pagos={pagos}
+            onDone={() => { setEditing(false); router.refresh(); }}
+            onCancel={() => setEditing(false)}
+          />
+        </>
       ) : (
         <LeadTabs initial={tab} onChange={setTab} tabs={tabs} actions={actions} />
       )}
