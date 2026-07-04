@@ -428,14 +428,18 @@ async function _getOutstandingDetalle(
   const items: OutstandingLead[] = [];
 
   for (const [leadId, rows] of porLead) {
-    const noPagados = rows.filter((r) => !r.pagado);
+    let noPagados = rows.filter((r) => !r.pagado);
+    // Filtro de fecha de Comercial: "lo que se está por cobrar en el intervalo"
+    // = cuotas SIN pagar cuyo VENCIMIENTO (fecha_esperada) cae dentro del rango.
+    // Sin rango, es el outstanding total a hoy.
+    if (desde && hasta) {
+      noPagados = noPagados.filter((r) => r.fecha_esperada && r.fecha_esperada >= desde && r.fecha_esperada <= hasta);
+    }
     const pendiente = noPagados.reduce((s, r) => s + Number(r.monto_usd), 0);
     if (pendiente <= 0) continue;
     const cobrado = rows.filter((r) => r.pagado).reduce((s, r) => s + Number(r.monto_usd), 0);
     const rel = Array.isArray(rows[0].leads) ? rows[0].leads[0] : rows[0].leads;
     const fechaCierre = rel?.fecha_cierre ?? null;
-    // Filtro de fecha de Comercial: acota a deals cerrados dentro del rango.
-    if (desde && hasta && (!fechaCierre || fechaCierre < desde || fechaCierre > hasta)) continue;
     const conFecha = noPagados.filter((r) => r.fecha_esperada).sort((a, b) => (a.fecha_esperada! < b.fecha_esperada! ? -1 : 1));
     const prox = conFecha[0] ?? noPagados[0];
     let dias: number | null = null;

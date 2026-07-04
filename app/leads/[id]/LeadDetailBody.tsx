@@ -128,7 +128,11 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
         <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
         <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>{empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(createdISO)}</p>
       </div>
-      {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
+      {/* Dropdown de etapa + Editar, juntos arriba a la derecha. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        {stageSelector}
+        {!editing && <button type="button" onClick={() => setEditing(true)} style={editarBtn}><IconPencil /> Editar</button>}
+      </div>
     </div>
   );
 
@@ -136,20 +140,16 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
     <div>
       {header}
       {editing ? (
-        <>
-          {/* El selector de etapa sigue disponible en modo edición. */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>{stageSelector}</div>
-          <EditLeadForm
-            lead={lead}
-            stages={stages}
-            pagos={pagos}
-            initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
-            onDone={() => { setEditing(false); router.refresh(); }}
-            onCancel={() => setEditing(false)}
-          />
-        </>
+        <EditLeadForm
+          lead={lead}
+          stages={stages}
+          pagos={pagos}
+          initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
+          onDone={() => { setEditing(false); router.refresh(); }}
+          onCancel={() => setEditing(false)}
+        />
       ) : (
-        <LeadTabs initial={tab} onChange={setTab} tabs={tabs} actions={stageSelector} />
+        <LeadTabs initial={tab} onChange={setTab} tabs={tabs} />
       )}
 
       {moveTo && (

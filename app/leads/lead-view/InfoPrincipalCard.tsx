@@ -84,20 +84,19 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
           label="Email" value={email} copyKey="email" copied={copied} onCopy={copy}
           extra={<a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email ?? '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escribir por Gmail" title="Escribir por Gmail" style={iconLink}><IconMail /></a>}
         />
-        {/* Dirección — a todo el ancho (se autollena del contrato). */}
-        <div style={{ gridColumn: '1 / -1' }}>
+        {/* Dirección + Cohorte en la MISMA fila (Dirección ocupa todo si no hay cohorte). */}
+        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: cohorte ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: '16px 24px' }}>
           <Row label="Dirección" value={direccion ?? null} copyKey="dir" copied={copied} onCopy={copy} />
-        </div>
-        {/* Cohorte adentro de Info principal (antes vivía en el header). */}
-        {cohorte && (
-          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
-            <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: cohorte.color }}>{cohorte.label}</span>
-              {cohorte.texto && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cohorte.texto}</span>}
+          {cohorte && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
+              <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: cohorte.color }}>{cohorte.label}</span>
+                {cohorte.texto && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cohorte.texto}</span>}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </section>
   );
