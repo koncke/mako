@@ -10,7 +10,9 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey } from './pipeline';
+import { stepsForStage, type Step } from './stage-requirements';
+import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1389,6 +1391,34 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
   if (Object.keys(payload).length === 0) return;
   const { error } = await supabase.from('leads').update(payload).eq('id', id);
   if (error) throw new Error(`Error guardando datos del lead ${id}: ${error.message}`);
+}
+
+/**
+ * "Datos sin marcar": TODOS los datos completables que la etapa ACTUAL del lead
+ * adeuda (asistencia, calificado, Fathom de reuniones pasadas, monto, plan,
+ * motivo, setter…), respetando las excepciones persistidas (sin_r1/sin_r2/
+ * fathom_omitido). Fuente única para la ficha, el badge del Kanban y el worklist.
+ * Solo pide lo POSIBLE de conseguir (el Fathom de una reunión futura no cuenta).
+ */
+export function faltantesDeLead(lead: Lead, tienePlan?: boolean): Step[] {
+  const stage = (lead.pipeline_stage && lead.pipeline_stage.trim()) ? lead.pipeline_stage : deriveStageKey(lead);
+  const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
+  return stepsForStage(stage, {
+    fechaJ1: lead.fecha_junta_1,
+    asistioJ1: lead.asistio_j1,
+    calificado: lead.calificado,
+    fechaJ2: lead.fecha_junta_2,
+    asistioJ2: lead.asistio_j2,
+    hasFathomUrl: links.length > 0,
+    monto: lead.monto_cierre_usd,
+    motivo: lead.motivo_perdida,
+    setter: lead.setter,
+    tienePlan,
+    hoyISO: hoyEnTijuana(),
+    sinR1: !!lead.sin_r1,
+    sinR2: !!lead.sin_r2,
+    fathomOmitido: !!lead.fathom_omitido,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

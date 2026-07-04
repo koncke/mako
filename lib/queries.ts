@@ -7,7 +7,7 @@
 
 import { getTenantDb } from './workspace';
 import { cachedRead, TAG, TTL } from './cache';
-import { TIPO_DE_CAMBIO_USD_MXN, DIAS_GRACIA_J2, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
+import { TIPO_DE_CAMBIO_USD_MXN, RECON_LEADS_VALIDACION, RECON_SPEND_SIN_LEADS_USD, VSL_PRUEBA_VIDEO_ID } from './config';
 import { getCashCollectedPeriodo, getOutstandingPeriodo, getCuotasPendientes } from './pagos';
 import { listReviewPendientes } from './review-queue';
 import { getSettingNum, getSetting } from './settings';
@@ -15,6 +15,7 @@ import { lunesDeFecha, diasAntes, ayerEnTijuana } from './date-utils';
 import {
   getVslEngagementMap,
   estadoMadurezLead,
+  faltantesDeLead,
   type Lead,
   type EstadoLead,
   type EstadoMadurez,
@@ -1957,19 +1958,12 @@ function restarDiasISO(yyyy_mm_dd: string, dias: number): string {
   return new Date(Date.UTC(y, m - 1, d - dias)).toISOString().slice(0, 10);
 }
 
-function diasEntreISO(desde: string, hasta: string): number {
-  const [dy, dm, dd] = desde.split('-').map(Number);
-  const [hy, hm, hd] = hasta.split('-').map(Number);
-  return Math.floor((Date.UTC(hy, hm - 1, hd) - Date.UTC(dy, dm - 1, dd)) / (1000 * 60 * 60 * 24));
-}
-
 /**
- * Leads con un dato manual pendiente de marcar. Un item por lead, con
- * prioridad A → B → C (lo más fundamental primero):
+ * Leads con "Datos sin marcar": TODO lo que la etapa actual del lead adeuda,
+ * calculado con el motor de requisitos acumulativos (faltantesDeLead). Un item
+ * por lead, con el detalle de qué falta. Caso especial:
  *   M) Aparcado en "Nutrición - Manual" y venció el deadline sin resolverse.
- *   A) J1 ya pasó y no se marcó asistencia.
- *   B) Asistió a J1, sigue 'abierto', no hay J2 y pasaron > DIAS_GRACIA_J2.
- *   C) J2 ya pasó y no se marcó asistencia.
+ * El resto (tipo 'A' = genérico) se resuelve con el mismo wizard de la ficha.
  */
 export const getPendientesDeMarcar = cachedRead('getPendientesDeMarcar', _getPendientesDeMarcar, { tags: [TAG.leads, TAG.pagos], revalidate: TTL.user });
 async function _getPendientesDeMarcar(
@@ -1978,27 +1972,19 @@ async function _getPendientesDeMarcar(
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
-    .select('id, nombre, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, estado_lead, pipeline_stage, nutricion_manual_deadline')
-    .or('fecha_junta_1.not.is.null,fecha_junta_2.not.is.null,pipeline_stage.eq.manual');
+    .select('*');
   if (error) throw new Error(`Query pendientes de marcar falló: ${error.message}`);
 
-  const cutoffB = restarDiasISO(hoy, DIAS_GRACIA_J2);
+  // ¿Qué leads ya tienen plan de pagos? (para el requisito 'plan' de ganado).
+  const { data: pagosRows } = await supabase.from('pagos').select('lead_id');
+  const conPlan = new Set((pagosRows ?? []).map((p) => (p as { lead_id: number }).lead_id));
+
   const items: PendienteItem[] = [];
 
-  for (const l of (data ?? []) as Array<{
-    id: number;
-    nombre: string;
-    fecha_junta_1: string | null;
-    fecha_junta_2: string | null;
-    asistio_j1: boolean | null;
-    asistio_j2: boolean | null;
-    estado_lead: string;
-    pipeline_stage: string | null;
-    nutricion_manual_deadline: string | null;
-  }>) {
-    // M) Aparcado en "Nutrición - Manual": si el deadline venció y sigue abierto,
-    //    vuelve a "datos sin marcar". Si todavía no venció, está esperando (no es
-    //    pendiente). En cualquier caso un lead en 'manual' NO cae a A/B/C.
+  for (const raw of (data ?? []) as Lead[]) {
+    const l = raw;
+    // M) Nutrición - Manual: si venció el deadline y sigue abierto, vuelve a
+    //    "datos sin marcar" con su mensaje propio. Si no venció, está esperando.
     if (l.pipeline_stage === 'manual') {
       if (l.estado_lead === 'abierto' && l.nutricion_manual_deadline && l.nutricion_manual_deadline < hoy) {
         items.push({
@@ -2011,54 +1997,23 @@ async function _getPendientesDeMarcar(
       }
       continue;
     }
-    // A) J1 pasada sin marcar asistencia. Solo leads abiertos y SIN R2 ya
-    //    agendada (si ya tienen R2, avanzaron; no tiene sentido preguntar por la
-    //    asistencia a R1 — la marca Fathom igual). Si está resuelto, irrelevante.
-    if (l.fecha_junta_1 && l.fecha_junta_1 < hoy && l.asistio_j1 === null && l.estado_lead === 'abierto' && !l.fecha_junta_2) {
-      items.push({
-        lead_id: l.id,
-        lead_nombre: l.nombre,
-        tipo: 'A',
-        mensaje: `Pasó la R1 del ${fmtFechaPendiente(l.fecha_junta_1)} — marcá si asistió y cómo siguió`,
-        fecha: l.fecha_junta_1,
-      });
-      continue;
-    }
-    // B) Asistió J1, abierto, sin J2, pasaron > DIAS_GRACIA_J2 desde J1
-    if (
-      l.asistio_j1 === true &&
-      l.fecha_junta_2 === null &&
-      l.estado_lead === 'abierto' &&
-      l.fecha_junta_1 &&
-      l.fecha_junta_1 < cutoffB
-    ) {
-      const dias = diasEntreISO(l.fecha_junta_1, hoy);
-      items.push({
-        lead_id: l.id,
-        lead_nombre: l.nombre,
-        tipo: 'B',
-        mensaje: `Asistió a la R1 hace ${dias} días y sigue sin R2 — agendá la R2 o marcá cómo terminó`,
-        fecha: l.fecha_junta_1,
-      });
-      continue;
-    }
-    // C) J2 pasada sin marcar asistencia (solo leads abiertos)
-    if (l.fecha_junta_2 && l.fecha_junta_2 < hoy && l.asistio_j2 === null && l.estado_lead === 'abierto') {
-      items.push({
-        lead_id: l.id,
-        lead_nombre: l.nombre,
-        tipo: 'C',
-        mensaje: `Pasó la R2 del ${fmtFechaPendiente(l.fecha_junta_2)} — marcá si asistió y cómo siguió`,
-        fecha: l.fecha_junta_2,
-      });
-      continue;
-    }
+    // Resto: el motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
+    const faltan = faltantesDeLead(l, conPlan.has(l.id));
+    if (faltan.length === 0) continue;
+    const fecha = (l.fecha_junta_2 && l.fecha_junta_2 < hoy) ? l.fecha_junta_2 : (l.fecha_junta_1 ?? l.fecha_agenda ?? hoy);
+    items.push({
+      lead_id: l.id,
+      lead_nombre: l.nombre,
+      tipo: 'A',
+      mensaje: `Faltan: ${faltan.map((f) => f.label).join(' · ')}`,
+      fecha,
+    });
   }
 
   const porTipo = {
     A: items.filter((i) => i.tipo === 'A').length,
-    B: items.filter((i) => i.tipo === 'B').length,
-    C: items.filter((i) => i.tipo === 'C').length,
+    B: 0,
+    C: 0,
     M: items.filter((i) => i.tipo === 'M').length,
   };
 

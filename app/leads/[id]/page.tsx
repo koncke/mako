@@ -33,6 +33,7 @@ import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { ChatCard } from '../lead-view/ChatCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
+import { faltantesDeLead } from '@/lib/leads';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { InsightsCard } from '../lead-view/InsightsCard';
 import { getLeadInsights } from '../actions';
@@ -93,6 +94,9 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
   const esVenta = lead.estado_lead === 'ganado' || stageKey === 'facturando';
   const tienePlan = pagos.length > 0 || !!lead.cobro_inicial_usd || (lead.total_cuotas ?? 0) > 0;
+
+  // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir).
+  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
 
   return (
@@ -112,11 +116,23 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           createdISO={lead.created_at}
           stageLabel={sm?.label ?? lead.estado_lead}
           chipTone={sm?.tone ?? 'neutral'}
+          faltantes={faltantes}
           tabs={[
             {
               key: 'resumen', label: 'Overview',
               content: (
                 <>
+                  {faltantes.length > 0 && (
+                    <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)' }}>
+                      <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 10 }}>Datos sin marcar</div>
+                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: '0 0 10px' }}>Faltan datos posibles de conseguir para esta etapa. Tocá <b>Solucionar</b> (arriba, al lado del nombre) para completarlos con el asistente.</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {faltantes.map((f) => (
+                          <span key={f.id} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' }}>{f.label}</span>
+                        ))}
+                      </div>
+                    </section>
+                  )}
                   <InfoPrincipalCard
                     leadId={lead.id}
                     nombre={lead.nombre}

@@ -24,7 +24,6 @@ import {
   BAND_LABEL,
   bandToCategory,
   stageMeta as findStage,
-  transitionsFrom,
   type Stage,
   type StageBand,
   type FunnelTransition,
@@ -312,14 +311,12 @@ export function CrmBoard({
     else persistStage(id, stageKey, from, tr);
   };
 
-  // Resolver un "dato sin marcar": si la etapa destino pide datos, abre el pop-up
-  // de completar; si no, mueve directo aplicando la asistencia de la transición.
-  const resolveMarcar = (leadId: number, t: FunnelTransition) => {
+  // "Solucionar" un dato sin marcar: abre EL MISMO wizard de la ficha, apuntado
+  // a la etapa ACTUAL del lead (completar datos), con su autollenado.
+  const solucionarMarcar = (leadId: number) => {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
-    if (calendlyUrlFor(t.to)) { scheduleViaCalendly(lead, t.to); return; }
-    if (needsFicha(lead, t.to)) openStageMove(lead, { to: t.to, asistioJ1: t.asistioJ1, asistioJ2: t.asistioJ2 });
-    else persistStage(leadId, t.to, effStage(lead), t);
+    openStageMove(lead, { to: effStage(lead) });
   };
 
   // "Nutrición - Manual" desde el worklist: pide MOTIVO antes de guardar.
@@ -362,22 +359,6 @@ export function CrmBoard({
     if (lead && from && from !== which) {
       setUndoInfo({ id: leadId, name: lead.name, from, toLabel: findStage(stages, which).label, monto: lead.monto || null, motivo: lead.motivo || null });
     }
-  };
-
-  // Opciones contextuales del worklist: las transiciones salientes de la etapa
-  // actual del lead, filtradas por coherencia de asistencia ya marcada.
-  const optionsForMarcar = (m: CrmMarcar): FunnelTransition[] => {
-    const lead = leads.find((l) => l.id === m.leadId);
-    if (!lead) return [];
-    // Opciones según la posición REAL en el funnel (derivada de los datos), no
-    // según el override manual (ej. un lead parkeado en "Nutrición - Manual" igual
-    // muestra los pasos que le corresponden por su etapa real).
-    // !t.auto: excluye nutriciones automáticas (ej. Post Agenda, que corre antes
-    // de la reunión) — no son resultados que el humano elija acá.
-    let opts = transitionsFrom(transitions, lead.derivedStage).filter((t) => !t.auto);
-    if (lead.asistioJ1 === true) opts = opts.filter((t) => t.asistioJ1 !== false);
-    if (lead.asistioJ2 === true) opts = opts.filter((t) => t.asistioJ2 !== false);
-    return opts;
   };
 
   // ── Filtro ──
@@ -453,13 +434,13 @@ export function CrmBoard({
                 draggable
                 onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
                 onDragEnd={() => { setDragId(null); setDragOverCol(null); stopAutoScroll(); }}
-                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
+                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--bad)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.25, minWidth: 0 }}>{l.name}</div>
                   {overdueManual
                     ? <span title="Venció el deadline de la nutrición manual" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>● vencida</span>
-                    : waiting && <span title="Esperando que marques cómo quedó" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>✋ te espera</span>}
+                    : waiting && <span title="Faltan datos posibles de conseguir para esta etapa" style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap' }}>⚠ Datos sin marcar</span>}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.company}</div>
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.03em', color: 'var(--faint)', marginTop: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.origin}</div>
@@ -563,7 +544,7 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} optionsFor={optionsForMarcar} onResolve={resolveMarcar} onManualNutri={openManualNutri} stageLabel={(k) => findStage(stages, k).label} />
+        <SinMarcar marcar={marcar} onSolucionar={solucionarMarcar} onManualNutri={openManualNutri} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
@@ -635,6 +616,7 @@ export function CrmBoard({
             lead={leadToMoveInfo(l)}
             stages={stages}
             move={stageMove.move}
+            titulo={stageMove.move.to === from ? 'Completar datos' : undefined}
             onClose={() => setStageMove(null)}
             onDone={() => {
               setStageMove(null);
@@ -755,16 +737,13 @@ export function CrmBoard({
 
 // ── Datos sin marcar (worklist) ──
 function SinMarcar({
-  marcar, optionsFor, onResolve, onManualNutri, stageLabel,
+  marcar, onSolucionar, onManualNutri,
 }: {
   marcar: CrmMarcar[];
-  optionsFor: (m: CrmMarcar) => FunnelTransition[];
-  onResolve: (leadId: number, t: FunnelTransition) => void;
+  onSolucionar: (leadId: number) => void;
   onManualNutri: (leadId: number) => void;
-  stageLabel: (key: string) => string;
 }) {
-  // Intención del movimiento, para distinguir claramente nutrir vs dar de baja.
-  const intent = (cat: FunnelTransition['category']) => (cat === 'avanza' ? 'avanza en el pipeline' : cat === 'nutricion' ? 'sigue en nutrición' : 'se da de baja');
+  const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -772,39 +751,21 @@ function SinMarcar({
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {marcar.map((m) => {
-          const options = optionsFor(m);
-          // Al elegir una reunión (R1/R2) salta un pop-up que pregunta si ya ocurrió
-          // o se agenda — no hace falta una opción aparte acá.
-          // "Nutrición - Manual" SIEMPRE disponible (pide motivo antes de guardar).
-          const ddOptions = [
-            ...options.map((opt, i) => ({ value: String(i), label: stageLabel(opt.to), sub: intent(opt.category), color: CATEGORY[opt.category].c })),
-            { value: 'MANUAL', label: 'Nutrición - Manual', sub: 'sigue en nutrición · pide motivo', color: CATEGORY.nutricion.c },
-          ];
-          return (
-            <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 240, flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
-                  <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
-                </div>
-                <Dropdown
-                  value=""
-                  resetAfterSelect
-                  align="right"
-                  width={232}
-                  placeholder="Mover a…"
-                  ariaLabel={'Mover a ' + m.name}
-                  onChange={(v) => {
-                    if (v === 'MANUAL') { onManualNutri(m.leadId); return; }
-                    const t = options[Number(v)]; if (t) onResolve(m.leadId, t);
-                  }}
-                  options={ddOptions}
-                />
+        {marcar.map((m) => (
+          <div key={m.id} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ minWidth: 240, flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
+                <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
               </div>
+              {/* Un solo botón: abre el MISMO wizard conocido (con autollenado). La
+                  nutrición manual vencida pide motivo con su propio pop-up. */}
+              {m.tipo === 'M'
+                ? <button type="button" style={{ ...btn, background: 'var(--warn-fill)' }} onClick={() => onManualNutri(m.leadId)}>Resolver</button>
+                : <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>}
             </div>
-          );
-        })}
+          </div>
+        ))}
         {marcar.length === 0 && <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>}
       </div>
     </div>

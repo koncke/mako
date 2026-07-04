@@ -13,6 +13,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
+import type { Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditLeadForm } from './EditLeadForm';
@@ -41,7 +42,7 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, tabs, nombre, empresa, createdISO, stageLabel, chipTone }: {
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [] }: {
   lead: Lead;
   stages: Stage[];
   pagos: Pago[];
@@ -56,6 +57,8 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
   createdISO: string;
   stageLabel: string;
   chipTone: keyof typeof CHIP;
+  /** Datos sin marcar de la etapa actual (badge + Solucionar). */
+  faltantes?: Step[];
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(!!initialEdit);
@@ -112,7 +115,16 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
   const header: ReactNode = (
     <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
       <div style={{ minWidth: 0 }}>
-        <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd, marginBottom: 9 }}>{stageLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
+          <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>
+          {/* Advertencia roja a la altura del nombre + Solucionar (abre el wizard). */}
+          {faltantes.length > 0 && (
+            <>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>⚠ {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar</span>
+              <button type="button" onClick={() => setMoveTo(currentStage)} style={{ padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Solucionar</button>
+            </>
+          )}
+        </div>
         <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
         <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>{empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(createdISO)}</p>
       </div>
@@ -145,6 +157,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
           lead={moveInfo}
           stages={stages}
           move={{ to: moveTo }}
+          titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           onClose={() => setMoveTo(null)}
           onDone={() => { setMoveTo(null); router.refresh(); }}
         />

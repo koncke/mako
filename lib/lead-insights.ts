@@ -18,10 +18,10 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { renderPrompt, getPromptText, contenidoNoConfiable } from './prompt-render';
-import { stepsForStage, type Step } from './stage-requirements';
+import { type Step } from './stage-requirements';
 import { deriveStageKey } from './pipeline';
 import { hoyEnTijuana } from './date-utils';
-import { getLead, getLeadRespuestas, getTrackingEvents, type Lead, type FathomLink, type RespuestaQA, type TrackingEvent } from './leads';
+import { getLead, getLeadRespuestas, getTrackingEvents, faltantesDeLead, type Lead, type FathomLink, type RespuestaQA, type TrackingEvent } from './leads';
 import { getPagosByLead, type Pago } from './pagos';
 import { contactoIdPorTelefono, getContactMessages, type ChatwootMessage } from './chatwoot';
 
@@ -77,31 +77,12 @@ function etapaDe(lead: Lead): string {
 }
 
 /**
- * Datos completables que la etapa ACTUAL adeuda (asistencia, calificado,
- * Fathom de reuniones pasadas, etc.). Si hay faltantes, el análisis se
- * bloquea y se piden con el wizard. Respeta las excepciones persistidas
- * (sin_r1/sin_r2/fathom_omitido) para no re-exigir lo eximido, y excluye
- * 'setter' (dato operativo del Kanban, irrelevante para el análisis y sin
+ * Faltantes para el gate de Insights: igual que faltantesDeLead (lib/leads) pero
+ * sin 'setter' (dato operativo del Kanban, irrelevante para el análisis y sin
  * paso propio en el wizard).
  */
 export function faltantesParaInsights(lead: Lead, tienePlan: boolean): Step[] {
-  const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
-  return stepsForStage(etapaDe(lead), {
-    fechaJ1: lead.fecha_junta_1,
-    asistioJ1: lead.asistio_j1,
-    calificado: lead.calificado,
-    fechaJ2: lead.fecha_junta_2,
-    asistioJ2: lead.asistio_j2,
-    hasFathomUrl: links.length > 0,
-    monto: lead.monto_cierre_usd,
-    motivo: lead.motivo_perdida,
-    setter: lead.setter,
-    tienePlan,
-    hoyISO: hoyEnTijuana(),
-    sinR1: !!lead.sin_r1,
-    sinR2: !!lead.sin_r2,
-    fathomOmitido: !!lead.fathom_omitido,
-  }).filter((s) => s.id !== 'setter');
+  return faltantesDeLead(lead, tienePlan).filter((s) => s.id !== 'setter');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
