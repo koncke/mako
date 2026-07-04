@@ -179,7 +179,7 @@ export default async function ComercialPage({
       getResumenComercialMaduras(rangoDesde, rangoHasta),
       getTramosSCL(),
       getRevenuePeriod(revDesde, revHasta),
-      getOutstandingDetalle(hoyReal),
+      getOutstandingDetalle(hoyReal, rangoDesde, rangoHasta),
       getCACAcumulado(),
       getRevenueBreakdowns(revDesde, revHasta),
       getFunnelMadurasLeads(rangoDesde, rangoHasta),

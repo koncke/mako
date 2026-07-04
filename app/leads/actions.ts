@@ -73,7 +73,7 @@ async function autorActual(): Promise<string> {
   }
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
-import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
+import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
 import { mapToCrmLead, type VisitasMap, type VslMap } from './crm-map';
 import type { CrmLead } from './CrmBoard';
@@ -119,6 +119,7 @@ export type LeadFullData = {
   pagos: Pago[];
   vslEng: VslEngagement;
   campana: { texto: string | null; tooltip: string | null };
+  adNombre: string | null;
   visitas: { total_visitas: number; dias_distintos: number };
   insights: LeadInsightRow[];
   tracking: TrackingEvent[];
@@ -135,10 +136,11 @@ export type LeadFullData = {
 export async function getLeadFullAction(id: number): Promise<LeadFullData | null> {
   const lead = await getLead(id);
   if (!lead) return null;
-  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights, tracking] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, tracking] = await Promise.all([
     getVslEngagement(lead.visitor_id).catch(() => ({ plays: 0, max_pct: null, sin_datos: true }) as VslEngagement),
     getPagosByLead(lead.id).catch(() => [] as Pago[]),
     getCampaignNameMap().catch(() => ({}) as Record<string, string>),
+    getAdNameMap().catch(() => ({}) as Record<string, string>),
     getPipelineStages().catch(() => DEFAULT_STAGES),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
@@ -147,9 +149,10 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const [respuestas, insightGen] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
+  const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0);
-  return { lead, stages, pagos, vslEng, campana, visitas, insights, tracking, respuestas, insightGen, faltantesInsight };
+  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

@@ -2841,3 +2841,38 @@ export function resolverNombreCampana(
   if (nombre) return { texto: nombre, tooltip: v };
   return { texto: `Campaña ${v} (sin nombre)`, tooltip: v };
 }
+
+/** Mapa ad_id → ad_name (el más reciente), gemelo de getCampaignNameMap. */
+// Un ad renombrado en Meta cambia su nombre en las métricas pero NO en el
+// leads.meta_ad_name denormalizado; resolvemos por id para reflejar el rename.
+export const getAdNameMap = cachedRead('getAdNameMap', _getAdNameMap, { tags: [TAG.marketing], revalidate: TTL.cron });
+async function _getAdNameMap(): Promise<Record<string, string>> {
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase
+    .from('marketing_metrics_daily')
+    .select('ad_id, ad_name, fecha')
+    .eq('plataforma', 'meta')
+    .not('ad_id', 'is', null)
+    .not('ad_name', 'is', null)
+    .order('fecha', { ascending: false });
+  if (error) throw new Error(`getAdNameMap falló: ${error.message}`);
+  const map: Record<string, string> = {};
+  for (const r of (data ?? []) as Array<{ ad_id: string; ad_name: string }>) {
+    if (!map[r.ad_id]) map[r.ad_id] = r.ad_name; // desc → primera = más reciente
+  }
+  return map;
+}
+
+/**
+ * Nombre del anuncio a mostrar: prefiere el nombre FRESCO resuelto por
+ * meta_ad_id (refleja renames); cae al denormalizado meta_ad_name / adset.
+ */
+export function resolverNombreAd(
+  metaAdId: string | null,
+  fallback: string | null,
+  map: Record<string, string>,
+): string | null {
+  const id = metaAdId?.trim();
+  if (id && map[id]) return map[id];
+  return fallback ?? null;
+}

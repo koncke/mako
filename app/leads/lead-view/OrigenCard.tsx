@@ -29,8 +29,9 @@ function Item({ label, value, color }: { label: string; value: string | null; co
   );
 }
 
-export function OrigenCard({ lead, vslEng, campana }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null } }) {
+export function OrigenCard({ lead, vslEng, campana, adNombre }: { lead: Lead; vslEng: VslEngagement; campana: { texto: string | null; tooltip: string | null }; adNombre?: string | null }) {
   void vslEng;
+  const anuncio = adNombre ?? lead.meta_ad_name ?? lead.meta_adset_name;
   const tieneAtribucion = lead.origen_lead || lead.meta_campaign_name || lead.meta_adset_name || lead.meta_ad_name || lead.utm_campaign || lead.utm_source;
 
   if (!tieneAtribucion) {
@@ -49,7 +50,7 @@ export function OrigenCard({ lead, vslEng, campana }: { lead: Lead; vslEng: VslE
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         <Item label="Canal de entrada" value={origen.texto} color={origen.color} />
         <Item label="Campaña" value={lead.meta_campaign_name ?? campana.texto} />
-        {(lead.meta_ad_name || lead.meta_adset_name) && <Item label="Anuncio" value={lead.meta_ad_name ?? lead.meta_adset_name} />}
+        {anuncio && <Item label="Anuncio" value={anuncio} />}
         {lead.utm_source && <Item label="Fuente (UTM)" value={lead.utm_source === 'fb' ? 'Facebook' : lead.utm_source === 'ig' ? 'Instagram' : lead.utm_source} />}
       </div>
     </section>

@@ -394,6 +394,11 @@ export type OutstandingLead = {
 export const getOutstandingDetalle = cachedRead('getOutstandingDetalle', _getOutstandingDetalle, { tags: [TAG.pagos], revalidate: TTL.user });
 async function _getOutstandingDetalle(
   hoy: string = new Date().toISOString().slice(0, 10),
+  // Rango opcional (filtro de fecha de Comercial): si viene, solo cuenta deals
+  // CERRADOS dentro de [desde, hasta] — igual que Revenue sold/cash. Sin rango,
+  // es el outstanding total a hoy.
+  desde: string | null = null,
+  hasta: string | null = null,
 ): Promise<{ items: OutstandingLead[]; total: number }> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
@@ -428,9 +433,11 @@ async function _getOutstandingDetalle(
     if (pendiente <= 0) continue;
     const cobrado = rows.filter((r) => r.pagado).reduce((s, r) => s + Number(r.monto_usd), 0);
     const rel = Array.isArray(rows[0].leads) ? rows[0].leads[0] : rows[0].leads;
+    const fechaCierre = rel?.fecha_cierre ?? null;
+    // Filtro de fecha de Comercial: acota a deals cerrados dentro del rango.
+    if (desde && hasta && (!fechaCierre || fechaCierre < desde || fechaCierre > hasta)) continue;
     const conFecha = noPagados.filter((r) => r.fecha_esperada).sort((a, b) => (a.fecha_esperada! < b.fecha_esperada! ? -1 : 1));
     const prox = conFecha[0] ?? noPagados[0];
-    const fechaCierre = rel?.fecha_cierre ?? null;
     let dias: number | null = null;
     if (fechaCierre) {
       const [cy, cm, cd] = fechaCierre.split('-').map(Number);

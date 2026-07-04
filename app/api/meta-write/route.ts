@@ -10,7 +10,9 @@
 // status HTTP. Requiere un token con ads_management sobre la cuenta.
 
 import type { NextRequest } from 'next/server';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { updateTag } from 'next/cache';
+import { esWorkspaceDueno, getTenantDb } from '@/lib/workspace';
+import { TAG } from '@/lib/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +106,28 @@ export async function POST(req: NextRequest) {
         { ok: false, code: e.code, error_subcode: e.error_subcode, message: e.message ?? 'Meta rechazó la escritura' },
         { status },
       );
+    }
+    // Propagar el rename a NUESTROS datos en el acto: si no, el lead sigue
+    // mostrando el nombre viejo del anuncio hasta que las métricas re-sincronicen
+    // (la campaña ya se resolvía por id; el ad quedaba denormalizado y viejo).
+    if (body.op === 'name' && applied.name) {
+      try {
+        const db = await getTenantDb();
+        const nombre = applied.name;
+        if (body.level === 'ad') {
+          await db.from('leads').update({ meta_ad_name: nombre }).eq('meta_ad_id', body.id);
+          await db.from('marketing_metrics_daily').update({ ad_name: nombre }).eq('ad_id', body.id);
+        } else if (body.level === 'campaign') {
+          await db.from('leads').update({ meta_campaign_name: nombre }).eq('utm_campaign', body.id);
+          await db.from('marketing_metrics_daily').update({ campaign_name: nombre }).eq('campaign_id', body.id);
+        } else if (body.level === 'adset') {
+          // Los leads no guardan meta_adset_id → solo se propaga a las métricas.
+          await db.from('marketing_metrics_daily').update({ adset_name: nombre }).eq('adset_id', body.id);
+        }
+        try { updateTag(TAG.leads); updateTag(TAG.marketing); } catch { /* la caché vence sola por TTL */ }
+      } catch (e) {
+        console.error('[meta-write] propagar rename a leads/métricas falló:', e instanceof Error ? e.message : String(e));
+      }
     }
     return Response.json({ ok: true, id: body.id, applied });
   } catch (err) {

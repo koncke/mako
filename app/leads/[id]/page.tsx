@@ -19,7 +19,7 @@ import {
 } from '@/lib/leads';
 import { deriveStageKey, stageMeta, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
-import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
+import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
 import { guardOnboarding } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
@@ -53,10 +53,11 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const lead = await getLead(idNum);
   if (!lead) notFound();
 
-  const [vslEng, pagos, campMap, stagesRaw, visitasMap, insights, trackingEventos] = await Promise.all([
+  const [vslEng, pagos, campMap, adMap, stagesRaw, visitasMap, insights, trackingEventos] = await Promise.all([
     getVslEngagement(lead.visitor_id),
     getPagosByLead(lead.id),
     getCampaignNameMap(),
+    getAdNameMap().catch(() => ({} as Record<string, string>)),
     getPipelineStages().catch(() => [] as Stage[]),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map<string, { total_visitas: number; dias_distintos: number }>()),
     getLeadInsights(idNum),
@@ -65,6 +66,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const [respuestas, insightGen] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
+  const adResuelto = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
 
   const { emoji: _e, label: cohorteLabel, color: cohorteColor } = labelMadurez(estadoMadurezLead(lead));
@@ -135,7 +137,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               key: 'comportamiento', label: 'Tracking',
               content: (
                 <>
-                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} />
+                  <OrigenCard lead={lead} vslEng={vslEng} campana={campanaResuelta} adNombre={adResuelto} />
                   <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} />
                   <TrackingTimelineCard eventos={trackingEventos} />
                 </>

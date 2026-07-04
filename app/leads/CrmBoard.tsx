@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type CSSProperties,
@@ -151,6 +152,28 @@ export function CrmBoard({
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  // Auto-scroll horizontal del tablero al arrastrar cerca de un borde: sin esto
+  // no se puede soltar en una columna que quedó fuera de la vista.
+  const boardScrollRef = useRef<HTMLDivElement | null>(null);
+  const autoScrollDir = useRef(0);
+  const autoScrollRaf = useRef(0);
+  const stopAutoScroll = () => { autoScrollDir.current = 0; if (autoScrollRaf.current) { cancelAnimationFrame(autoScrollRaf.current); autoScrollRaf.current = 0; } };
+  const tickAutoScroll = () => {
+    const el = boardScrollRef.current;
+    if (el && autoScrollDir.current !== 0) el.scrollLeft += autoScrollDir.current * 16;
+    if (autoScrollDir.current !== 0) autoScrollRaf.current = requestAnimationFrame(tickAutoScroll);
+    else autoScrollRaf.current = 0;
+  };
+  const onBoardDragOver = (e: React.DragEvent) => {
+    const el = boardScrollRef.current;
+    if (!el || dragId == null) return;
+    const r = el.getBoundingClientRect();
+    const EDGE = 90;
+    const dir = e.clientX < r.left + EDGE ? -1 : e.clientX > r.right - EDGE ? 1 : 0;
+    autoScrollDir.current = dir;
+    if (dir !== 0 && autoScrollRaf.current === 0) autoScrollRaf.current = requestAnimationFrame(tickAutoScroll);
+  };
+  useEffect(() => () => stopAutoScroll(), []);
   const [undoInfo, setUndoInfo] = useState<{ id: number; name: string; from: string; toLabel: string; monto: number | null; motivo: string | null } | null>(null);
   const [manualNutri, setManualNutri] = useState<{ leadId: number; name: string } | null>(null);
   const [manualMotivo, setManualMotivo] = useState('');
@@ -429,7 +452,7 @@ export function CrmBoard({
                 onClick={() => openDetail(l)}
                 draggable
                 onDragStart={(ev) => { setDragId(l.id); ev.dataTransfer.effectAllowed = 'move'; }}
-                onDragEnd={() => { setDragId(null); setDragOverCol(null); }}
+                onDragEnd={() => { setDragId(null); setDragOverCol(null); stopAutoScroll(); }}
                 style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', borderLeft: overdueManual ? '3px solid var(--bad)' : waiting ? '3px solid var(--warn-fill)' : '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', transition: 'opacity .15s, transform .15s, box-shadow .15s', opacity: dragId === l.id ? 0.5 : 1, transform: dragId === l.id ? 'scale(0.97)' : 'none', boxShadow: dragId === l.id ? '0 10px 26px rgba(18,21,27,.20)' : 'none' }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -559,7 +582,7 @@ export function CrmBoard({
               );
             })}
           </div>
-          <div style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
+          <div ref={boardScrollRef} onDragOver={onBoardDragOver} onDrop={stopAutoScroll} style={{ flex: 1, minHeight: 0, overflowX: 'auto', paddingBottom: 14 }}>
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', width: 'max-content' }}>
               {stages
                 .filter((s) => activeBands.has(s.band ?? 'pipeline'))
