@@ -99,6 +99,29 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
   const infoRows = audit.filter((r) => !esStatus(r));
   const rows = subTab === 'status' ? statusRows : infoRows;
 
+  // Tiempo que el lead estuvo (sin resolver) en cada etapa: se deriva de los
+  // cambios de "Etapa" del historial. Cada evento marca cuándo ENTRÓ a esa etapa;
+  // estuvo ahí hasta el cambio siguiente (o hasta hoy, si es la etapa actual).
+  const etapaEvents = audit
+    .filter((r) => r.campo === 'Etapa' && r.valor_nuevo)
+    .slice()
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const tramos = now > 0
+    ? etapaEvents.map((e, i) => {
+        const from = new Date(e.created_at).getTime();
+        const to = i + 1 < etapaEvents.length ? new Date(etapaEvents[i + 1].created_at).getTime() : now;
+        return { stage: e.valor_nuevo as string, ms: Math.max(0, to - from), actual: i + 1 === etapaEvents.length };
+      })
+    : [];
+  const fmtDur = (ms: number) => {
+    const d = Math.floor(ms / 86400000);
+    if (d >= 1) return `${d} día${d === 1 ? '' : 's'}`;
+    const h = Math.floor(ms / 3600000);
+    if (h >= 1) return `${h} h`;
+    return `${Math.max(1, Math.floor(ms / 60000))} min`;
+  };
+  const etapaLabel = (k: string) => (stages?.length ? stageMeta(stages, k)?.label ?? k : k);
+
   // Un "movimiento" = todas las filas escritas en el mismo instante por el mismo
   // autor (un drag Ganado→Lead escribe Etapa+Estado+Monto a la vez). Se agrupan
   // para revertir todo junto, no campo por campo (que dejaba datos a medias).
@@ -135,6 +158,21 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       </div>
 
       {revertErr && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 10 }}>{revertErr}</div>}
+
+      {/* Tiempo sin resolver en cada etapa (solo en el sub-tab Status). */}
+      {subTab === 'status' && tramos.length > 0 && (
+        <div style={{ marginBottom: 12, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <div style={{ ...sectLabel, marginBottom: 9 }}>Tiempo en cada etapa</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {tramos.map((t, i) => (
+              <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, padding: '4px 11px', borderRadius: 999, background: t.actual ? 'var(--accent-soft, #FBF3DE)' : 'var(--surface)', border: '1px solid ' + (t.actual ? '#EBD9A8' : 'var(--border-strong)'), color: 'var(--ink)' }}>
+                <b style={{ fontWeight: 600 }}>{etapaLabel(t.stage)}</b>
+                <span style={{ color: 'var(--dim)', fontFamily: MONO, fontSize: 11.5 }}>{fmtDur(t.ms)}{t.actual ? ' · actual' : ''}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {grupos.map((g) => {

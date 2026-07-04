@@ -1962,6 +1962,13 @@ function restarDiasISO(yyyy_mm_dd: string, dias: number): string {
   return new Date(Date.UTC(y, m - 1, d - dias)).toISOString().slice(0, 10);
 }
 
+/** Días enteros entre dos fechas ISO (b - a). Negativo si b < a. */
+function diasEntreISO(a: string, b: string): number {
+  const [ay, am, ad] = a.slice(0, 10).split('-').map(Number);
+  const [by, bm, bd] = b.slice(0, 10).split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+}
+
 /**
  * Leads con "Datos sin marcar": TODO lo que la etapa actual del lead adeuda,
  * calculado con el motor de requisitos acumulativos (faltantesDeLead). Un item
@@ -1991,11 +1998,12 @@ async function _getPendientesDeMarcar(
     //    "datos sin marcar" con su mensaje propio. Si no venció, está esperando.
     if (l.pipeline_stage === 'manual') {
       if (l.estado_lead === 'abierto' && l.nutricion_manual_deadline && l.nutricion_manual_deadline < hoy) {
+        const diasVencida = diasEntreISO(l.nutricion_manual_deadline, hoy);
         items.push({
           lead_id: l.id,
           lead_nombre: l.nombre,
           tipo: 'M',
-          mensaje: `Venció la nutrición manual (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse — definí cómo sigue`,
+          mensaje: `Venció hace ${diasVencida} día${diasVencida === 1 ? '' : 's'} (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse — definí qué hacer ahora`,
           fecha: l.nutricion_manual_deadline,
           soloEdit: false,
         });
