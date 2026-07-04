@@ -10,7 +10,7 @@
 // "Volver" usa el historial del navegador (regresa al contexto exacto).
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { Step } from '@/lib/stage-requirements';
@@ -61,9 +61,15 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
   faltantes?: Step[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [editing, setEditing] = useState(!!initialEdit);
   const [tab, setTab] = useState(initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : tabs[0]?.key ?? 'resumen');
   const [moveTo, setMoveTo] = useState<string | null>(null);
+  // Si una navegación pone ?edit=1 (ej. la alarma "Editar y completar" del deal),
+  // abrir el modo edición. Patrón prev-prop: reacciona al cambio del prop.
+  const [prevInitEdit, setPrevInitEdit] = useState(!!initialEdit);
+  if (!!initialEdit !== prevInitEdit) { setPrevInitEdit(!!initialEdit); if (initialEdit) setEditing(true); }
+  const salirEdicion = () => { setEditing(false); if (initialEdit) router.replace(pathname); };
   const chip = CHIP[chipTone] || CHIP.neutral;
 
   const currentStage = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
@@ -145,8 +151,8 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
           stages={stages}
           pagos={pagos}
           initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
-          onDone={() => { setEditing(false); router.refresh(); }}
-          onCancel={() => setEditing(false)}
+          onDone={() => { salirEdicion(); router.refresh(); }}
+          onCancel={salirEdicion}
         />
       ) : (
         <LeadTabs initial={tab} onChange={setTab} tabs={tabs} />

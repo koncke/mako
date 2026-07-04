@@ -8,13 +8,13 @@
 // - Manual, y barra de acción FIJA (sticky) arriba. Guarda en una sola acción
 // (saveLeadEditorAction) que sincroniza estado + override de tablero + meta.
 
-import { useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
 import { CHIP, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { LeadTabs } from '../lead-view/LeadTabs';
-import { DealDetailsCard } from './DealDetailsCard';
+import { DealDetailsCard, type DealDetailsHandle } from './DealDetailsCard';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { Pago } from '@/lib/pagos';
 
@@ -34,6 +34,8 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmSave, setConfirmSave] = useState<{ cambios: string[]; payload: LeadEditorInput } | null>(null);
+  // El Deal Details se edita inline y se guarda con ESTE mismo botón (vía ref).
+  const dealRef = useRef<DealDetailsHandle>(null);
 
   const validKeys = new Set(stages.map((s) => s.key));
   const currentStage = lead.pipeline_stage && validKeys.has(lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
@@ -146,7 +148,19 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
     const fathomAhora = payload.fathom_links.filter((f) => f.url.trim()).length;
     if (fathomAntes !== fathomAhora) cambios.push(`Links de Fathom: ${fathomAntes} → ${fathomAhora}`);
 
-    if (!cambios.length) { setFeedback({ kind: 'ok', msg: 'No hay cambios para guardar.' }); return; }
+    // Sin cambios de lead, pero puede haber del Deal Details → guardar el deal igual.
+    if (!cambios.length) {
+      startTransition(async () => {
+        try {
+          await dealRef.current?.save();
+          router.refresh();
+          if (onDone) onDone(); else setFeedback({ kind: 'ok', msg: 'Cambios guardados' });
+        } catch (err) {
+          setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) });
+        }
+      });
+      return;
+    }
     setConfirmSave({ cambios, payload });
   };
 
@@ -157,6 +171,8 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
     startTransition(async () => {
       try {
         await saveLeadEditorAction(lead.id, payload);
+        // Guardar también las secciones del deal (mismo botón).
+        await dealRef.current?.save();
         router.refresh();
         // Al confirmar, volver a la tab donde estaba el usuario.
         if (onDone) onDone();
@@ -270,10 +286,9 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
           </div>
         </section>
       )}
-      {/* Sin botón "Editar deal" acá (evita el doble Editar): las secciones del
-          deal se editan desde la tab Deal Details; acá se edita el Cierre (monto)
-          y Marcar pagada sigue disponible. */}
-      <DealDetailsCard lead={lead} pagos={pagos} editable={false} />
+      {/* Un solo modo de edición: acá el deal se edita inline (editing) y se
+          guarda con el mismo "Guardar cambios" (vía dealRef). Sin botón propio. */}
+      <DealDetailsCard ref={dealRef} lead={lead} pagos={pagos} editing />
     </>
   ) : (
     <section style={card}>

@@ -121,7 +121,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
   const tabCobranza = isGanado || pagos.length > 0 ? (
     <>
-      <DealDetailsCard lead={lead} pagos={pagos} editable={false} />
+      <DealDetailsCard lead={lead} pagos={pagos} />
       <Link href={`/leads/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>
     </>
   ) : (
