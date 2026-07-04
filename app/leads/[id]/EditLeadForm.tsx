@@ -28,7 +28,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, pagos, onDone, onCancel }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void }) {
+export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -294,8 +294,10 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel }: { lead: 
         </div>
       </div>
 
-      {/* Mismas tabs que la vista (mismos nombres), ahora editables */}
+      {/* Mismas tabs que la vista (mismos nombres), ahora editables. Abre en la
+          tab donde estaba el usuario (initialTab). */}
       <LeadTabs
+        initial={initialTab}
         tabs={[
           { key: 'resumen', label: 'Overview', content: tabContacto },
           { key: 'reuniones', label: 'Meetings', content: tabReuniones },

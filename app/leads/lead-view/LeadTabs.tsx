@@ -31,8 +31,8 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
   const [visitadas, setVisitadas] = useState<string[]>([initKey]);
 
   const tabBtn = (active: boolean): CSSProperties => ({
-    position: 'relative', padding: '11px 2px', marginRight: 26, border: 'none', background: 'transparent',
-    fontFamily: SANS, fontSize: 15, fontWeight: 600, cursor: 'pointer',
+    position: 'relative', padding: '11px 2px', marginRight: 22, border: 'none', background: 'transparent',
+    fontFamily: SANS, fontSize: 15, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flex: 'none',
     color: active ? 'var(--primary)' : 'var(--dim)',
     borderBottom: '2px solid ' + (active ? 'var(--primary)' : 'transparent'),
     display: 'inline-flex', alignItems: 'center', gap: 7,
@@ -42,8 +42,10 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
 
   return (
     <div>
-      <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div role="tablist" style={{ display: 'flex', flexWrap: 'wrap', minWidth: 0 }}>
+      {/* Fila única: las tabs scrollean en horizontal si no entran (nunca doble
+          fila) y las acciones (dropdown de etapa) quedan en la MISMA línea. */}
+      <div style={{ borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div role="tablist" className="lead-tabs-scroll" style={{ display: 'flex', flexWrap: 'nowrap', minWidth: 0, flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
         {tabs.map((t) => {
           const active = tab === t.key;
           return (
@@ -56,7 +58,7 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
           );
         })}
         </div>
-        {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>{actions}</div>}
+        {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', flex: 'none' }}>{actions}</div>}
       </div>
       <div role="tabpanel" style={{ marginTop: 20 }}>
         {tabs

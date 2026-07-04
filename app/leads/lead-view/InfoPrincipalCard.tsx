@@ -58,8 +58,11 @@ function Row({ label, value, copyKey, copied, onCopy, extra }: {
   );
 }
 
-export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono }: {
+export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, direccion, cohorte }: {
   leadId: number; nombre: string; empresa: string | null; email: string | null; telefono: string | null;
+  direccion?: string | null;
+  /** Cohorte de madurez del lead — solo tiene sentido si hubo R1. */
+  cohorte?: { label: string; color: string; texto: string | null } | null;
 }) {
   const [copied, setCopied] = useState('');
   const copy = (text: string, key: string) => {
@@ -81,6 +84,20 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono }: 
           label="Email" value={email} copyKey="email" copied={copied} onCopy={copy}
           extra={<a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email ?? '')}`} target="_blank" rel="noopener noreferrer" aria-label="Escribir por Gmail" title="Escribir por Gmail" style={iconLink}><IconMail /></a>}
         />
+        {/* Dirección — a todo el ancho (se autollena del contrato). */}
+        <div style={{ gridColumn: '1 / -1' }}>
+          <Row label="Dirección" value={direccion ?? null} copyKey="dir" copied={copied} onCopy={copy} />
+        </div>
+        {/* Cohorte adentro de Info principal (antes vivía en el header). */}
+        {cohorte && (
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 15px' }}>
+            <div style={{ fontSize: 11.5, color: 'var(--dim)' }}>Cohorte</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: cohorte.color }}>{cohorte.label}</span>
+              {cohorte.texto && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cohorte.texto}</span>}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

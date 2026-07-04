@@ -106,7 +106,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
   const tabResumen = (
     <>
-      <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
+      <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} direccion={lead.deal_fiscal?.domicilio ?? null} />
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: 16 }}>Recorrido del lead</div>
         <JourneyTimeline steps={journey} />

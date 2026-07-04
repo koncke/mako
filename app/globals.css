@@ -180,6 +180,10 @@ textarea.mako-field {
   resize: vertical;
 }
 
+/* Fila de tabs de la ficha: scroll horizontal sin barra visible (una sola fila). */
+.lead-tabs-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+.lead-tabs-scroll::-webkit-scrollbar { display: none; }
+
 /* Campo compacto del modal de detalle del lead: misma identidad de foco que
    .mako-field pero con densidad chica (no rompe el layout de la ficha). */
 .lead-field {

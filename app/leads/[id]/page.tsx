@@ -17,10 +17,9 @@ import {
   getTrackingEvents,
   getLeadRespuestas,
 } from '@/lib/leads';
-import { deriveStageKey, stageMeta, CHIP, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { deriveStageKey, stageMeta, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana } from '@/lib/queries';
-import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { guardOnboarding } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
@@ -74,7 +73,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
   const stageKey = lead.pipeline_stage && stages.some((s) => s.key === lead.pipeline_stage) ? lead.pipeline_stage : deriveStageKey(lead);
   const sm = stages.length ? stageMeta(stages, stageKey) : null;
-  const chip = sm ? CHIP[sm.tone] || CHIP.neutral : CHIP.neutral;
 
   const journey = buildJourney({
     createdISO: lead.created_at,
@@ -98,39 +96,34 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   return (
     <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        {/* HEADER */}
         <BackButton />
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
-          <div style={{ minWidth: 0 }}>
-            <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd, marginBottom: 9 }}>{sm?.label ?? lead.estado_lead}</span>
-            <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{lead.nombre}</h1>
-            <p style={{ marginTop: 6, fontSize: 14, color: 'var(--dim)' }}>
-              {lead.empresa ?? 'Sin empresa'} · Lead #{lead.id} · creado {fmtDDMMYYYY(lead.created_at)}
-            </p>
-          </div>
-          {/* Cohorte solo tiene sentido si hubo R1 (es el anchor de cohorte). */}
-          {lead.fecha_junta_1 && (
-            <div style={{ ...card, padding: '14px 18px', minWidth: 180 }}>
-              <div style={sectLabel}>Cohorte</div>
-              <div style={{ fontSize: 20, fontWeight: 600, color: cohorteColor, marginTop: 4 }}>{cohorteLabel}</div>
-              {textoJ1 && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3 }}>{textoJ1}</div>}
-            </div>
-          )}
-        </div>
-
-        {/* TABS + Mover a… + botón Editar (la edición usa las mismas tabs) */}
+        {/* HEADER (nombre + chip + Editar) y tabs viven en LeadDetailBody; la
+            cohorte pasó adentro de Información principal. */}
         <LeadDetailBody
           lead={lead}
           stages={stages}
           pagos={pagos}
           initialTab={tab}
           initialEdit={edit === '1'}
+          nombre={lead.nombre}
+          empresa={lead.empresa}
+          createdISO={lead.created_at}
+          stageLabel={sm?.label ?? lead.estado_lead}
+          chipTone={sm?.tone ?? 'neutral'}
           tabs={[
             {
               key: 'resumen', label: 'Overview',
               content: (
                 <>
-                  <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} />
+                  <InfoPrincipalCard
+                    leadId={lead.id}
+                    nombre={lead.nombre}
+                    empresa={lead.empresa}
+                    email={lead.email}
+                    telefono={lead.telefono}
+                    direccion={lead.deal_fiscal?.domicilio ?? null}
+                    cohorte={lead.fecha_junta_1 ? { label: cohorteLabel, color: cohorteColor, texto: textoJ1 } : null}
+                  />
                   <section style={card}>
                     <div style={{ ...sectLabel, marginBottom: 18 }}>Recorrido del lead</div>
                     <JourneyTimeline steps={journey} />
