@@ -48,8 +48,9 @@ const chip = (v: boolean | null, si: string, no: string): ReactNode =>
   : v === false ? <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 10px', borderRadius: 999, color: 'var(--bad)', background: 'var(--bad-bg)' }}>{no}</span>
   : <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 999, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)' }}>Sin marcar</span>;
 
-function BloqueReunion({ titulo, fecha, chips, fathom, respuestas }: {
+function BloqueReunion({ titulo, reunion, fecha, chips, fathom, respuestas }: {
   titulo: string;
+  reunion: 'R1' | 'R2';
   fecha: string | null;
   chips: ReactNode;
   fathom: FathomLink[];
@@ -79,7 +80,7 @@ function BloqueReunion({ titulo, fecha, chips, fathom, respuestas }: {
       {respuestas.length > 0 && (
         <details style={{ marginTop: 12 }}>
           <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', listStyle: 'none' }}>
-            Respuestas del formulario · {respuestas.length} ▾
+            Respuestas del formulario de Calendly ({reunion}) · {respuestas.length} ▾
           </summary>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
             {respuestas.map((r, i) => (
@@ -121,6 +122,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <BloqueReunion
           titulo="Reunión 1"
+          reunion="R1"
           fecha={lead.fecha_junta_1 ?? lead.fecha_agenda}
           chips={<>{chip(lead.asistio_j1, 'Asistió', 'No asistió')}{lead.asistio_j1 === true && chip(lead.calificado, 'Calificado', 'No calificado')}</>}
           fathom={fathomR1}
@@ -129,6 +131,7 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
         {tuvoR2 && (
           <BloqueReunion
             titulo="Reunión 2"
+            reunion="R2"
             fecha={lead.fecha_junta_2}
             chips={chip(lead.asistio_j2, 'Asistió', 'No asistió')}
             fathom={fathomR2}
