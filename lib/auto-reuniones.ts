@@ -11,6 +11,7 @@
 import 'server-only';
 import { getTenantDb } from './workspace';
 import { credWs } from './credenciales';
+import { buscarEventosGoogle } from './google-calendar';
 import type { FathomLink, Lead } from './leads';
 
 export type AutoReuniones = {
@@ -51,7 +52,7 @@ type AnalisisReunion = { tipo: string | null; started_at: string | null; share_u
 export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReuniones> {
   const supabase = (await getTenantDb());
 
-  const [eventos, analisisRes] = await Promise.all([
+  const [eventos, analisisRes, gcalEventos] = await Promise.all([
     eventosCalendly(lead.email),
     supabase
       .from('closing_analyses')
@@ -60,6 +61,13 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
       .not('started_at', 'is', null)
       .order('started_at', { ascending: true })
       .then((r) => (r.data ?? []) as AnalisisReunion[]),
+    (async () => {
+      if (!lead.email) return [];
+      const now = new Date();
+      const timeMin = new Date(now.getTime() - 365 * 86400000).toISOString();
+      const timeMax = new Date(now.getTime() + 60 * 86400000).toISOString();
+      return buscarEventosGoogle(lead.email, timeMin, timeMax);
+    })(),
   ]);
 
   // Calendly: primera agenda de cada tipo (por nombre del evento).
@@ -71,9 +79,15 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
   const anaR1 = analisisRes.find((a) => a.tipo === 'R1') ?? (analisisRes[0]?.tipo == null ? analisisRes[0] : undefined);
   const anaR2 = analisisRes.find((a) => a.tipo === 'R2') ?? (analisisRes[1]?.tipo == null ? analisisRes[1] : undefined);
 
+  // Google Calendar (3ra fuente): eventos con el email del lead, por nombre.
+  const gcalJ1 = gcalEventos.find((e) => !ES_R2.test(e.summary ?? ''));
+  const gcalJ2 = gcalEventos.find((e) => ES_R2.test(e.summary ?? ''));
+
   // Lo ya cargado en el lead no se reporta ni como hallazgo ni como faltante.
-  const extJ1 = calJ1?.start_time?.slice(0, 10) ?? anaR1?.started_at?.slice(0, 10) ?? null;
-  const extJ2 = calJ2?.start_time?.slice(0, 10) ?? anaR2?.started_at?.slice(0, 10) ?? null;
+  const extJ1 = calJ1?.start_time?.slice(0, 10) ?? anaR1?.started_at?.slice(0, 10) ?? gcalJ1?.start?.slice(0, 10) ?? null;
+  const extJ2 = calJ2?.start_time?.slice(0, 10) ?? anaR2?.started_at?.slice(0, 10) ?? gcalJ2?.start?.slice(0, 10) ?? null;
+  const fuenteJ1 = calJ1 ? 'Calendly' : anaR1 ? 'Fathom' : gcalJ1 ? 'Google Calendar' : '';
+  const fuenteJ2 = calJ2 ? 'Calendly' : anaR2 ? 'Fathom' : gcalJ2 ? 'Google Calendar' : '';
   const fechaJ1 = extJ1 ?? lead.fecha_junta_1 ?? null;
   const fechaJ2 = extJ2 ?? lead.fecha_junta_2 ?? null;
   const linkR1 = anaR1 ? (anaR1.share_url || anaR1.call_url) : null;
@@ -81,11 +95,11 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
 
   const encontrado: string[] = [];
   const faltante: string[] = [];
-  if (extJ1) encontrado.push(`Fecha R1: ${fmt(extJ1)} (${calJ1 ? 'Calendly' : 'Fathom'})`);
+  if (extJ1) encontrado.push(`Fecha R1: ${fmt(extJ1)} (${fuenteJ1})`);
   else if (!lead.fecha_junta_1) faltante.push('fecha de la R1');
   if (linkR1) encontrado.push('Grabación de la R1 (Fathom) → asistió');
   else if (fechaJ1 && lead.asistio_j1 == null) faltante.push('grabación / asistencia de la R1');
-  if (extJ2) encontrado.push(`Fecha R2: ${fmt(extJ2)} (${calJ2 ? 'Calendly' : 'Fathom'})`);
+  if (extJ2) encontrado.push(`Fecha R2: ${fmt(extJ2)} (${fuenteJ2})`);
   if (linkR2) encontrado.push('Grabación de la R2 (Fathom) → asistió');
   else if (fechaJ2 && lead.asistio_j2 == null) faltante.push('grabación / asistencia de la R2');
 

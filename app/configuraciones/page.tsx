@@ -4,10 +4,12 @@
 // =============================================================================
 // El editor de prompts de MaKo se movió a "Contexto de MaKo".
 
+import { Suspense } from 'react';
 import { Icon } from '../_components/icons';
 import { ConfigTabs } from '../_components/ConfigTabs';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
+import { GoogleCalendarPanel } from './GoogleCalendarPanel';
 import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +28,7 @@ export default async function ConfiguracionesPage() {
         <ConfigTabs />
         <NotificacionesPanel />
         <IdentidadesFiscalesPanel />
+        <Suspense fallback={null}><GoogleCalendarPanel /></Suspense>
       </div>
     </main>
   );
