@@ -39,6 +39,7 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './script-analyst';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
+import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
   WA_ADVISOR_SYSTEM_TEMPLATE,
   WA_ADVISOR_RECOMMEND_USER_TEMPLATE,
@@ -269,6 +270,26 @@ export const REGISTRY: Group[] = [
         variables: [v('metadatos', 'título/fecha/duración/host'), v('leadCtx', 'contexto del lead en el CRM'), v('summary', 'resumen de Fathom'), v('actions', 'action items'), v('transcript', 'transcript con segundos'), v('feedbackBlock', 'revisión humana (si la hay)')], scope: 'full', sensitive: false,
         default: CLOSING_USER_TEMPLATE,
         context: 'Arma el pedido con todo lo de la llamada. Si alguien revisa la llamada y deja un comentario, se inyecta en {{feedbackBlock}} para que MaKo reanalice. Conservá los slots; sin ellos MaKo pierde el contexto.',
+      },
+    ],
+  },
+  {
+    group: 'Insights del lead (ficha del CRM)',
+    icon: '🔎',
+    blurb: 'MaKo junta TODO lo que se sabe de un lead (reuniones, forms, llamadas, chat, anuncio, tracking, cobranza) y genera un análisis comercial accionable en la tab Insights.',
+    entries: [
+      {
+        key: 'lead_insights.system', source: 'override',
+        label: 'Instrucciones de insights del lead (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: LEAD_INSIGHTS_SYSTEM_TEMPLATE,
+        context: 'El cerebro del botón "Generar insights" de la ficha del lead: qué priorizar (dolor, señales de compra, objeciones, próxima acción) y la forma EXACTA del JSON de salida. Conservá el esquema JSON o la ficha no puede mostrar el análisis.',
+      },
+      {
+        key: 'lead_insights.user', source: 'override',
+        label: 'Datos del lead (user)', kind: 'user', dynamic: true,
+        variables: [v('hoy', 'fecha de hoy'), v('etapa', 'etapa actual del pipeline'), v('ficha', 'datos del CRM'), v('reuniones', 'R1/R2 y asistencias'), v('respuestas', 'forms de Calendly'), v('llamadas', 'análisis de Fathom'), v('chat', 'mensajes de WhatsApp'), v('anuncio', 'transcript del ad de origen'), v('tracking', 'landing/VSL'), v('deal', 'cobranza y servicio')], scope: 'full', sensitive: false,
+        default: LEAD_INSIGHTS_USER_TEMPLATE,
+        context: 'Arma el pedido con todas las fuentes del lead. Conservá los slots; sin ellos MaKo pierde contexto y el análisis empeora.',
       },
     ],
   },

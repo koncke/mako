@@ -23,6 +23,8 @@ type Mensaje = {
   status: string | null;
   error: string | null;
   adjuntos: Array<{ tipo: string; url: string; ext: string | null }>;
+  /** 0 entrante · 1 saliente · 2 actividad de sistema · 3 plantilla (saliente). */
+  messageType?: number;
 };
 
 type Estado =
@@ -52,7 +54,12 @@ export function ChatCard({ leadId }: { leadId: number }) {
         if (!j.ok) { setEstado({ fase: 'error' }); return; }
         if (j.sinTelefono) { setEstado({ fase: 'sin-telefono' }); return; }
         if (!j.contactId) { setEstado({ fase: 'sin-chat' }); return; }
-        setEstado({ fase: 'ok', contactId: j.contactId, mensajes: j.mensajes ?? [] });
+        // Las actividades de sistema de Chatwoot ("conversación resuelta") no
+        // son parte del hilo; las plantillas (type 3) son mensajes NUESTROS.
+        const mensajes = ((j.mensajes ?? []) as Mensaje[])
+          .filter((m) => m.messageType !== 2)
+          .map((m) => (m.messageType === 3 ? { ...m, saliente: true } : m));
+        setEstado({ fase: 'ok', contactId: j.contactId, mensajes });
       } catch {
         if (vivo) setEstado({ fase: 'error' });
       }

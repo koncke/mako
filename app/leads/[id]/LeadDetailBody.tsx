@@ -65,6 +65,9 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, t
     motivo: lead.motivo_perdida,
     setter: lead.setter ?? null,
     tienePlan: pagos.length > 0,
+    sinR1: !!lead.sin_r1,
+    sinR2: !!lead.sin_r2,
+    fathomOmitido: !!lead.fathom_omitido,
   };
 
   const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };

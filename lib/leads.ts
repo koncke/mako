@@ -105,6 +105,12 @@ export type Lead = {
   fathom_links?: FathomLink[] | null;
   nutricion_manual_deadline?: string | null;   // deadline de la nutrición manual (migración 0044)
 
+  // Excepciones declaradas (migración 0064): eximen requisitos de etapa de
+  // forma PERSISTENTE (antes solo quedaban como eventos y se volvían a exigir).
+  sin_r1?: boolean | null;          // cierre sin Reunión 1
+  sin_r2?: boolean | null;          // cierre sin Reunión 2
+  fathom_omitido?: boolean | null;  // la reunión no se grabó
+
   // Contrato subido (migración 0029): archivo en Storage + nombre original.
   contrato_nombre?: string | null;
   contrato_path?: string | null;

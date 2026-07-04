@@ -35,6 +35,11 @@ export type MoveLeadInfo = {
   motivo: string | null;
   setter: string | null;
   tienePlan?: boolean;
+  // Excepciones ya declaradas (persistidas en el lead): el wizard no re-pregunta
+  // lo que ya se eximió una vez (cierre sin R1/R2, reunión sin grabar).
+  sinR1?: boolean;
+  sinR2?: boolean;
+  fathomOmitido?: boolean;
 };
 
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
@@ -62,12 +67,14 @@ function BigChoice({ options, value, onPick }: { options: Array<{ v: string; lab
   );
 }
 
-export function StageMoveDialog({ lead, stages, move, onDone, onClose }: {
+export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }: {
   lead: MoveLeadInfo;
   stages: Stage[];
   move: StageMoveTarget;
   onDone: () => void;
   onClose: () => void;
+  /** Título contextual del header (default "Mover a <etapa>"): p.ej. "Completar datos" cuando el destino es la etapa actual. */
+  titulo?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -102,6 +109,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose }: {
     monto: lead.monto, motivo: lead.motivo, setter: lead.setter,
     tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
     hoyISO,
+    sinR1: lead.sinR1, sinR2: lead.sinR2, fathomOmitido: lead.fathomOmitido,
   }).map((s) => s.id)));
 
   // ── Flujo DINÁMICO: la lista de pasos visibles depende de las respuestas ──
@@ -374,7 +382,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose }: {
 
         {/* Cuerpo centrado: una pregunta por paso */}
         <div style={{ padding: '26px clamp(20px,6vw,56px) 30px', textAlign: 'center' }}>
-          <div style={{ fontSize: 12.5, color: 'var(--faint)', fontFamily: MONO, marginBottom: 8 }}>Mover a {label} · {lead.name}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--faint)', fontFamily: MONO, marginBottom: 8 }}>{titulo ?? `Mover a ${label}`} · {lead.name}</div>
           <h3 style={{ fontSize: 'clamp(20px,4vw,26px)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', fontFamily: SANS }}>{pregunta}</h3>
           {sub && <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 18px' }}>{sub}</p>}
           {!sub && <div style={{ height: 12 }} />}

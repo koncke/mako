@@ -256,6 +256,8 @@ export type ChatwootMessage = {
   status: string | null;   // sent | delivered | read | failed
   error: string | null;    // motivo si falló
   adjuntos: AdjuntoWA[];   // imágenes/audios/archivos del mensaje
+  /** message_type crudo de Chatwoot: 0 entrante · 1 saliente · 2 actividad (sistema) · 3 plantilla (saliente). */
+  messageType: number;
 };
 
 type MsgRaw = {
@@ -280,6 +282,7 @@ export async function getMessages(conversationId: number): Promise<ChatwootMessa
     id: m.id ?? 0,
     texto: m.content ?? null,
     saliente: m.message_type === 1,
+    messageType: m.message_type ?? 0,
     fecha: m.created_at ?? null,
     template: m.content_attributes?.template_params?.name ?? null,
     status: m.status ?? null,

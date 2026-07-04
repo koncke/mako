@@ -24,7 +24,11 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
   /** Contenido extra a la derecha de la fila de tabs (ej. botón Editar). */
   actions?: ReactNode;
 }) {
-  const [tab, setTab] = useState<string>(initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '');
+  const initKey = initial && tabs.some((t) => t.key === initial) ? initial : tabs[0]?.key ?? '';
+  const [tab, setTab] = useState<string>(initKey);
+  // Las tabs ya visitadas quedan MONTADAS (ocultas con display:none): cambiar de
+  // tab no descarta estado del cliente (insight recién generado, chat cargado).
+  const [visitadas, setVisitadas] = useState<string[]>([initKey]);
 
   const tabBtn = (active: boolean): CSSProperties => ({
     position: 'relative', padding: '11px 2px', marginRight: 26, border: 'none', background: 'transparent',
@@ -34,7 +38,7 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
     display: 'inline-flex', alignItems: 'center', gap: 7,
   });
 
-  const activeTab = tabs.find((t) => t.key === tab) ?? tabs[0];
+  const activeKey = tabs.some((t) => t.key === tab) ? tab : tabs[0]?.key ?? '';
 
   return (
     <div>
@@ -43,7 +47,7 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
         {tabs.map((t) => {
           const active = tab === t.key;
           return (
-            <button key={t.key} role="tab" aria-selected={active} onClick={() => { setTab(t.key); onChange?.(t.key); }} style={tabBtn(active)}>
+            <button key={t.key} role="tab" aria-selected={active} onClick={() => { setTab(t.key); setVisitadas((v) => (v.includes(t.key) ? v : [...v, t.key])); onChange?.(t.key); }} style={tabBtn(active)}>
               {t.label}
               {t.badge != null && t.badge > 0 && (
                 <span style={{ fontSize: 11.5, fontWeight: 700, minWidth: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999, padding: '0 6px', background: active ? 'rgba(47,111,237,.12)' : 'var(--surface-2)', color: active ? 'var(--primary)' : 'var(--dim)', border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)') }}>{t.badge}</span>
@@ -54,8 +58,14 @@ export function LeadTabs({ tabs, initial, onChange, actions }: {
         </div>
         {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>{actions}</div>}
       </div>
-      <div role="tabpanel" style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 20 }}>
-        {activeTab?.content}
+      <div role="tabpanel" style={{ marginTop: 20 }}>
+        {tabs
+          .filter((t) => t.key === activeKey || visitadas.includes(t.key))
+          .map((t) => (
+            <div key={t.key} style={{ display: t.key === activeKey ? 'flex' : 'none', flexDirection: 'column', gap: 18 }}>
+              {t.content}
+            </div>
+          ))}
       </div>
     </div>
   );

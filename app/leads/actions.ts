@@ -55,6 +55,8 @@ import { missingForStage } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
+import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
+import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb } from '@/lib/workspace';
 
@@ -121,6 +123,8 @@ export type LeadFullData = {
   insights: LeadInsightRow[];
   tracking: TrackingEvent[];
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
+  insightGen: LeadInsightGen | null;
+  faltantesInsight: Step[];
 };
 
 /**
@@ -140,11 +144,12 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
   ]);
-  const respuestas = await getLeadRespuestas(lead);
+  const [respuestas, insightGen] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
-  return { lead, stages, pagos, vslEng, campana, visitas, insights, tracking, respuestas };
+  const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0);
+  return { lead, stages, pagos, vslEng, campana, visitas, insights, tracking, respuestas, insightGen, faltantesInsight };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -191,17 +196,34 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     setter: d.setter ?? before?.setter ?? null,
     tienePlan: to === 'ganado' ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0) : undefined,
     hoyISO: hoyEnTijuana(),
-    sinR1: !!d.sinR1Motivo?.trim(),
-    sinR2: !!d.sinR2Motivo?.trim(),
-    fathomOmitido: !!d.fathomOmitido,
+    // La excepción vale si se declara AHORA o si ya quedó persistida en el lead.
+    sinR1: !!d.sinR1Motivo?.trim() || !!before?.sin_r1,
+    sinR2: !!d.sinR2Motivo?.trim() || !!before?.sin_r2,
+    fathomOmitido: !!d.fathomOmitido || !!before?.fathom_omitido,
   });
   if (faltan.length) throw new Error(`Falta: ${faltan.join(', ')}`);
 
-  // Excepciones declaradas: quedan como eventos del historial (auditables).
+  // Excepciones declaradas: evento en el historial (auditable) + flag persistente
+  // en el lead — sin el flag, cada re-validación (gate de Insights, backstop de
+  // movimientos) volvía a exigir el dato eximido y duplicaba estos eventos.
   const autor = await autorActual();
-  if (d.sinR1Motivo?.trim()) await logLeadEvent(id, 'Cierre sin R1', d.sinR1Motivo.trim(), autor);
-  if (d.sinR2Motivo?.trim()) await logLeadEvent(id, 'Cierre sin R2', d.sinR2Motivo.trim(), autor);
-  if (d.fathomOmitido) await logLeadEvent(id, 'Reunión sin grabación', 'El link de Fathom se omitió porque la reunión no se grabó', autor);
+  const flags: Record<string, boolean> = {};
+  if (d.sinR1Motivo?.trim() && !before?.sin_r1) {
+    await logLeadEvent(id, 'Cierre sin R1', d.sinR1Motivo.trim(), autor);
+    flags.sin_r1 = true;
+  }
+  if (d.sinR2Motivo?.trim() && !before?.sin_r2) {
+    await logLeadEvent(id, 'Cierre sin R2', d.sinR2Motivo.trim(), autor);
+    flags.sin_r2 = true;
+  }
+  if (d.fathomOmitido && !before?.fathom_omitido) {
+    await logLeadEvent(id, 'Reunión sin grabación', 'El link de Fathom se omitió porque la reunión no se grabó', autor);
+    flags.fathom_omitido = true;
+  }
+  if (Object.keys(flags).length) {
+    const { error: flagErr } = await (await getTenantDb()).from('leads').update(flags).eq('id', id);
+    if (flagErr) console.error(`[leads] persistir excepciones falló: ${flagErr.message}`);
+  }
 
   // 1) Fechas/fathom/motivo/setter — solo lo que vino.
   const meta: LeadMetaInput = {};
@@ -365,6 +387,9 @@ export async function setLeadStageAction(
     motivo: opts?.motivo ?? before?.motivo_perdida ?? null,
     setter: before?.setter ?? null,
     hoyISO: hoyEnTijuana(),
+    sinR1: !!before?.sin_r1,
+    sinR2: !!before?.sin_r2,
+    fathomOmitido: !!before?.fathom_omitido,
   });
   if (faltanMove.length) throw new Error(`Para mover falta: ${faltanMove.join(', ')}`);
   await setPipelineStage(id, stageKey, opts);

@@ -32,6 +32,8 @@ import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { ChatCard } from '../lead-view/ChatCard';
+import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
+import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { InsightsCard } from '../lead-view/InsightsCard';
 import { getLeadInsights } from '../actions';
@@ -61,7 +63,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     getLeadInsights(idNum),
     getTrackingEvents(lead.visitor_id),
   ]);
-  const respuestas = await getLeadRespuestas(lead);
+  const [respuestas, insightGen] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id)]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
@@ -148,7 +150,22 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             },
             { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} /> },
             { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
-            { key: 'insights', label: 'Insights', badge: insights.length, content: <InsightsCard insights={insights} /> },
+            {
+              key: 'insights', label: 'Insights', badge: insights.length,
+              content: (
+                <>
+                  <GeneratedInsightCard
+                    lead={lead}
+                    stages={stages}
+                    tienePlan={pagos.length > 0}
+                    inicial={insightGen}
+                    faltantesIniciales={faltantesParaInsights(lead, pagos.length > 0)}
+                    haySenales={insights.length > 0 || respuestas.R1.length > 0 || respuestas.R2.length > 0}
+                  />
+                  <InsightsCard insights={insights} />
+                </>
+              ),
+            },
             {
               key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,
               content: esVenta || tienePlan ? (
