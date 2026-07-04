@@ -181,6 +181,7 @@ export function CrmBoard({
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualDeadline, setManualDeadline] = useState('');
   const [manualNutriPaso, setManualNutriPaso] = useState(0);   // wizard: 0=motivo, 1=fecha límite
+  const [queHacer, setQueHacer] = useState<{ leadId: number; name: string } | null>(null);   // manual vencida: "¿qué hacer ahora?"
   // modo 'pasada' = ya ocurrió (pide asistencia); 'futura' = ya está agendada
   // por fuera de Calendly pero todavía no se tuvo (solo fecha).
   const [manualMeeting, setManualMeeting] = useState<{ leadId: number; name: string; which: 'agenda' | 'agendaj2'; modo: 'pasada' | 'futura' } | null>(null);
@@ -552,7 +553,7 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} onSolucionar={solucionarMarcar} onManualNutri={openManualNutri} />
+        <SinMarcar marcar={marcar} onSolucionar={solucionarMarcar} onQueHacer={(id) => { const l = leads.find((x) => x.id === id); setQueHacer({ leadId: id, name: l?.name ?? 'lead' }); }} />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
@@ -666,6 +667,35 @@ export function CrmBoard({
         </WizardShell>
       )}
 
+      {/* Manual vencida: "¿qué hacer ahora?" — seguir nutriendo o mover de etapa */}
+      {queHacer && (() => {
+        const l = leads.find((x) => x.id === queHacer.leadId);
+        const opt = (band: 'pipeline' | 'salidas') => stages.filter((s) => (s.band ?? 'pipeline') === band && s.key !== 'lead').sort((a, b) => (a.col ?? 0) - (b.col ?? 0));
+        const stageBtn = (s: Stage) => (
+          <button key={s.key} type="button" onClick={() => { setQueHacer(null); if (l) openStageMove(l, { to: s.key }); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+            <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', background: s.dot, flex: 'none' }} />{s.label}
+          </button>
+        );
+        return (
+          <div onClick={() => setQueHacer(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
+              <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 8 }}>✦ MAKO</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>¿Qué hacer ahora? — {queHacer.name}</div>
+              <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 16 }}>Venció la nutrición manual sin resolverse. Elegí cómo sigue.</div>
+              <button type="button" onClick={() => { const id = queHacer.leadId; setQueHacer(null); openManualNutri(id); }} style={{ width: '100%', padding: '12px 16px', borderRadius: 11, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, textAlign: 'left', marginBottom: 14 }}>🔁 Seguir nutriendo — nuevo plazo</button>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dim)', marginBottom: 8 }}>o mover a otra etapa</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {opt('pipeline').map(stageBtn)}
+                {opt('salidas').map(stageBtn)}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                <button type="button" onClick={() => setQueHacer(null)} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>Cancelar</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ¿La reunión ya ocurrió o se va a agendar? Paso previo a Calendly */}
       {meetingChoice && (
         <div onClick={() => setMeetingChoice(null)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -758,11 +788,11 @@ export function CrmBoard({
 
 // ── Datos sin marcar (worklist) ──
 function SinMarcar({
-  marcar, onSolucionar, onManualNutri,
+  marcar, onSolucionar, onQueHacer,
 }: {
   marcar: CrmMarcar[];
   onSolucionar: (leadId: number) => void;
-  onManualNutri: (leadId: number) => void;
+  onQueHacer: (leadId: number) => void;
 }) {
   const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
   return (
@@ -779,10 +809,10 @@ function SinMarcar({
                 <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>{m.name}</div>
                 <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 2 }}>{m.company ? m.company + ' · ' : ''}{m.message}</div>
               </div>
-              {/* Un solo botón: abre el MISMO wizard conocido (con autollenado). La
-                  nutrición manual vencida pide motivo con su propio pop-up. */}
+              {/* Solucionar abre el wizard de datos. La nutrición manual vencida
+                  pregunta "¿qué hacer ahora?" (elegir la etapa destino). */}
               {m.tipo === 'M'
-                ? <button type="button" style={{ ...btn, background: 'var(--warn-fill)' }} onClick={() => onManualNutri(m.leadId)}>Resolver</button>
+                ? <button type="button" style={{ ...btn, background: 'var(--warn-fill)' }} onClick={() => onQueHacer(m.leadId)}>¿Qué hacer ahora?</button>
                 : <button type="button" style={btn} onClick={() => onSolucionar(m.leadId)}>Solucionar</button>}
             </div>
           </div>
