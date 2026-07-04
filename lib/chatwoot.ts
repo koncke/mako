@@ -32,6 +32,11 @@ async function cfg(): Promise<Cfg> {
   return { apiBase: `${base.replace(/\/$/, '')}/api/v1/accounts/${account}`, token, inbox };
 }
 
+/** ¿El workspace tiene Chatwoot configurado? (sin tirar si falta). */
+export async function chatwootConfigurado(): Promise<boolean> {
+  try { await cfg(); return true; } catch { return false; }
+}
+
 function authHeaders(token: string): Record<string, string> {
   return { api_access_token: token, 'Content-Type': 'application/json' };
 }

@@ -9,14 +9,16 @@
 import { Suspense, useState, type CSSProperties } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
+import { TelefonosPanel } from './TelefonosPanel';
 import { GoogleCalendarPanel } from './GoogleCalendarPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'integraciones';
+type TabKey = 'notif' | 'fiscal' | 'telefonos' | 'integraciones';
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'notif', label: 'Notificaciones' },
   { key: 'fiscal', label: 'Identidades fiscales' },
+  { key: 'telefonos', label: 'Teléfonos' },
   { key: 'integraciones', label: 'Integraciones' },
 ];
 
@@ -36,6 +38,7 @@ export function ConfigInnerTabs() {
       </div>
       {tab === 'notif' && <NotificacionesPanel />}
       {tab === 'fiscal' && <IdentidadesFiscalesPanel />}
+      {tab === 'telefonos' && <TelefonosPanel />}
       {tab === 'integraciones' && (
         <Suspense fallback={null}><GoogleCalendarPanel /></Suspense>
       )}
