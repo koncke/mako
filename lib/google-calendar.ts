@@ -12,6 +12,22 @@ import { getSetting, setSetting } from './settings';
 export const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const TOKEN_KEY = 'google.calendar.refresh_token';
 
+/**
+ * Redirect URI del OAuth de Google Calendar. DEBE coincidir EXACTAMENTE con una
+ * de las "URIs de redireccionamiento autorizadas" del cliente OAuth en Google
+ * Cloud Console; si no, Google devuelve `Error 400: redirect_uri_mismatch`.
+ *
+ * Prioriza `GOOGLE_REDIRECT_URI` (fija el valor y evita que un proxy/dominio
+ * distinto rompa el match). Si no está, la deriva del origin del request. El
+ * paso 1 (auth) y el paso 2 (token exchange) tienen que usar el MISMO valor.
+ */
+export function googleRedirectUri(origin: string): string {
+  const fijo = process.env.GOOGLE_REDIRECT_URI?.trim();
+  if (fijo) return fijo;
+  const base = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/+$/, '') || origin.replace(/\/+$/, '');
+  return `${base}/api/integraciones/google-calendar/callback`;
+}
+
 export async function guardarRefreshTokenGoogle(rt: string): Promise<void> {
   await setSetting(TOKEN_KEY, rt);
 }

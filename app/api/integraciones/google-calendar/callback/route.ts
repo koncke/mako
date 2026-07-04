@@ -4,7 +4,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { esWorkspaceDueno } from '@/lib/workspace';
-import { guardarRefreshTokenGoogle } from '@/lib/google-calendar';
+import { guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!clientId || !clientSecret) return fail('config');
 
-  const redirectUri = `${url.origin}/api/integraciones/google-calendar/callback`;
+  const redirectUri = googleRedirectUri(url.origin);
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',

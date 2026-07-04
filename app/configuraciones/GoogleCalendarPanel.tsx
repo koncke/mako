@@ -24,13 +24,16 @@ const MSG: Record<string, { kind: 'ok' | 'err'; txt: string }> = {
   'no-permitido': { kind: 'err', txt: 'Solo el workspace principal puede conectar Google Calendar.' },
 };
 
+const mono: CSSProperties = { fontFamily: "'Geist Mono', monospace", fontSize: 12, wordBreak: 'break-all', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--ink)', display: 'block', marginTop: 6 };
+
 export function GoogleCalendarPanel() {
   const sp = useSearchParams();
   const gcal = sp.get('gcal');
-  const [estado, setEstado] = useState<{ conectado: boolean; puede: boolean } | null>(null);
+  const [estado, setEstado] = useState<{ conectado: boolean; puede: boolean; redirectUri: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
-  const cargar = () => { getGoogleCalendarStatusAction().then(setEstado).catch(() => setEstado({ conectado: false, puede: false })); };
+  const cargar = () => { getGoogleCalendarStatusAction().then(setEstado).catch(() => setEstado({ conectado: false, puede: false, redirectUri: '' })); };
   useEffect(() => { cargar(); }, []);
 
   const desconectar = async () => { setBusy(true); try { await disconnectGoogleCalendarAction(); cargar(); } finally { setBusy(false); } };
@@ -58,6 +61,24 @@ export function GoogleCalendarPanel() {
           </div>
         ) : (
           <a href="/api/integraciones/google-calendar" style={primaryBtn}>Conectar Google Calendar</a>
+        )}
+
+        {/* Ayuda para el "Error 400: redirect_uri_mismatch": ese error lo muestra
+            Google (antes de volver a la app) cuando la URI de abajo no está
+            registrada en el cliente OAuth. Se muestra siempre que no esté conectado. */}
+        {estado && !estado.conectado && estado.redirectUri && (
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 4 }}>¿Ves «Error 400: redirect_uri_mismatch»?</div>
+            <p style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, margin: 0 }}>
+              En Google Cloud Console → APIs y servicios → Credenciales → tu cliente OAuth, agregá esta URI EXACTA en «URIs de redireccionamiento autorizadas»:
+            </p>
+            <code style={mono}>{estado.redirectUri}</code>
+            <button
+              type="button"
+              style={{ ...ghostBtn, marginTop: 8, padding: '6px 12px', fontSize: 12.5 }}
+              onClick={() => { void navigator.clipboard?.writeText(estado.redirectUri); setCopiado(true); setTimeout(() => setCopiado(false), 1600); }}
+            >{copiado ? 'Copiado ✓' : 'Copiar URI'}</button>
+          </div>
         )}
       </div>
     </section>

@@ -7,7 +7,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { esWorkspaceDueno } from '@/lib/workspace';
-import { GCAL_SCOPE } from '@/lib/google-calendar';
+import { GCAL_SCOPE, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +18,7 @@ export async function GET(req: NextRequest) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) return NextResponse.json({ ok: false, error: 'GOOGLE_CLIENT_ID no configurado' }, { status: 500 });
 
-  const origin = new URL(req.url).origin;
-  const redirectUri = `${origin}/api/integraciones/google-calendar/callback`;
+  const redirectUri = googleRedirectUri(new URL(req.url).origin);
   const state = crypto.randomBytes(16).toString('hex');
 
   const auth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
