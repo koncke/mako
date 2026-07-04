@@ -10,7 +10,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
-import { CHIP, deriveStageKey, stageMeta, type Stage } from '@/lib/pipeline';
+import { CHIP, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
 import { hayPasoDeWizard } from '@/lib/stage-requirements';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -110,9 +110,17 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
   const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
   const solucionarHref = `/leads/${lead.id}?${soloEdit ? 'edit=1' : 'solucionar=1'}`;
   const chipFalta: CSSProperties = { fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' };
+  // Nutrición positiva (derivada): el lead avanza dentro de su etapa.
+  const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
   const tabResumen = (
     <>
+      {nutriPos && (
+        <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
+          <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
+          <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>El lead está avanzando — sigue en su etapa. Ventana informativa hasta la {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} del <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'es hoy' : `faltan ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
+        </section>
+      )}
       {faltantes.length > 0 && (
         <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>

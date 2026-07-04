@@ -17,7 +17,8 @@ import {
   getTrackingEvents,
   getLeadRespuestas,
 } from '@/lib/leads';
-import { deriveStageKey, stageMeta, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
+import { deriveStageKey, stageMeta, DEFAULT_STAGES, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
+import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
 import { guardOnboarding } from '@/lib/tab-access';
@@ -101,6 +102,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // Si solo faltan datos estáticos (tel/empresa/detalle) no hay wizard: se editan.
   const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
+  // Nutrición positiva (derivada): el lead avanza y está en su ventana informativa.
+  const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
   return (
     <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", padding: 'clamp(20px,4vw,44px)' }}>
@@ -126,6 +129,12 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               key: 'resumen', label: 'Overview',
               content: (
                 <>
+                  {nutriPos && (
+                    <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
+                      <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
+                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>El lead está avanzando — sigue en su etapa, no es una nutrición aparte. Ventana informativa hasta la {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} del <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'es hoy' : `faltan ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}). Si no avanza, recién ahí pasa a una nutrición negativa.</p>
+                    </section>
+                  )}
                   {faltantes.length > 0 && (
                     <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)' }}>
                       <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 7 }}>

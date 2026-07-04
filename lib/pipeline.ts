@@ -359,6 +359,44 @@ export function pipelineStageOf(l: StageDerivable): string {
   return l.pipeline_stage || deriveStageKey(l);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Nutrición POSITIVA — ventana derivada, NO es una etapa
+// ─────────────────────────────────────────────────────────────────────────────
+// El lead que avanza no "cae" en una etapa de nutrición: sigue en Agenda R1/R2 y
+// atraviesa una ventana INFORMATIVA que termina en la fecha de su próxima
+// reunión. Solo si NO avanza (no-show / no reagenda) pasa a una nutrición
+// NEGATIVA (cambio de etapa real, con deadline y desenlace posible).
+//   - post-agenda:  agendó R1, espera la R1  → hasta fecha_junta_1
+//   - post-reunion: asistió R1, espera la R2 → hasta fecha_junta_2
+
+export type NutriPositiva = { tipo: 'post-agenda' | 'post-reunion'; hasta: string; dias: number };
+
+function diasHastaISO(hoyISO: string, hastaISO: string): number {
+  const [hy, hm, hd] = hoyISO.slice(0, 10).split('-').map(Number);
+  const [ty, tm, td] = hastaISO.slice(0, 10).split('-').map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(hy, hm - 1, hd)) / 86400000);
+}
+
+/**
+ * Ventana de nutrición positiva del lead (o null si no está en una). Derivada:
+ * no cambia la etapa. `hasta` = fecha de la próxima reunión; `dias` = cuántos
+ * faltan (0 = es hoy). Solo aplica a leads abiertos con reunión futura sin marcar.
+ */
+export function nutricionPositivaDe(l: StageDerivable, hoyISO: string): NutriPositiva | null {
+  if (l.estado_lead !== 'abierto') return null;
+  const hoy = hoyISO.slice(0, 10);
+  // Post-reunión R1: asistió a la R1 y tiene R2 futura todavía sin marcar.
+  if (l.asistio_j1 === true && l.fecha_junta_2 && l.asistio_j2 == null && l.fecha_junta_2.slice(0, 10) >= hoy) {
+    return { tipo: 'post-reunion', hasta: l.fecha_junta_2.slice(0, 10), dias: diasHastaISO(hoy, l.fecha_junta_2) };
+  }
+  // Post-agenda: tiene la R1 (o el agendamiento) a futuro y todavía no la marcó.
+  const r1 = l.fecha_junta_1 ?? l.fecha_agenda;
+  if (l.asistio_j1 == null && r1 && r1.slice(0, 10) >= hoy) {
+    return { tipo: 'post-agenda', hasta: r1.slice(0, 10), dias: diasHastaISO(hoy, r1) };
+  }
+  return null;
+}
+
 /**
  * Para etapas terminales, el estado_lead que debe sincronizarse (mantiene
  * Revenue/CAPI correctos). null = etapa no terminal → estado 'abierto'.
