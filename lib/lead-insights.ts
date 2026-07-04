@@ -65,7 +65,7 @@ export type LeadInsightGen = {
 
 export type GenerarInsightResult =
   | { ok: true; insight: LeadInsightGen }
-  | { ok: false; motivo: string; faltantes?: Step[] };
+  | { ok: false; motivo: string; faltantes?: Step[]; sinLlamadas?: boolean };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Gate de requisitos (compartido entre el render de la ficha y la generación)
@@ -381,17 +381,19 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
       };
     }
 
-    // Gate 2: sin NINGUNA señal sustantiva no hay nada que analizar. Cuenta
-    // solo mensajes REALES del lead (type 0 entrante): nuestras plantillas y
-    // las actividades de sistema no son conversación.
-    const chatConTexto = chatMsgs.filter((m) => m.messageType === 0 && m.texto?.trim()).length;
-    const haySustancia = analisis.length > 0 || respuestas.R1.length > 0 || respuestas.R2.length > 0 || chatConTexto > 0;
-    if (!haySustancia) {
+    // Gate 2: SOLO se genera con al menos una LLAMADA analizada (Closing Analyst).
+    // Es la fuente que da la sustancia comercial; sin eso, el análisis es humo.
+    if (analisis.length === 0) {
+      const tieneFathom = ((lead.fathom_links ?? []) as FathomLink[]).some((f) => f.url?.trim());
       return {
         ok: false,
-        motivo: 'No es posible generar insights todavía: no hay respuestas de Calendly, llamadas analizadas ni conversación de WhatsApp. Se habilita apenas el lead agende, conteste un mensaje o se analice una llamada.',
+        motivo: tieneFathom
+          ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada. Analizala en Closing Analyst y volvé a generar.'
+          : 'Los insights se generan a partir de las llamadas. Cargá el link de Fathom de la reunión y analizala en Closing Analyst para habilitarlos.',
+        sinLlamadas: true,
       };
     }
+    const chatConTexto = chatMsgs.filter((m) => m.messageType === 0 && m.texto?.trim()).length;
 
     // Prompt (system y user editables desde /configuraciones).
     // Contenido escrito por el lead o por terceros (ficha del CRM, tracking del

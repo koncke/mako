@@ -23,7 +23,6 @@ import { ReunionesCard } from './lead-view/ReunionesCard';
 import { ChatCard } from './lead-view/ChatCard';
 import { GeneratedInsightCard } from './lead-view/GeneratedInsightCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
-import { InsightsCard } from './lead-view/InsightsCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -164,17 +163,14 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               {
                 key: 'insights', label: 'Insights', badge: insights.length,
                 content: (
-                  <>
-                    <GeneratedInsightCard
-                      lead={lead}
-                      stages={stages}
-                      tienePlan={pagos.length > 0}
-                      inicial={insightGen}
-                      faltantesIniciales={faltantesInsight}
-                      haySenales={insights.length > 0 || respuestas.R1.length > 0 || respuestas.R2.length > 0}
-                    />
-                    <InsightsCard insights={insights} />
-                  </>
+                  <GeneratedInsightCard
+                    lead={lead}
+                    stages={stages}
+                    tienePlan={pagos.length > 0}
+                    inicial={insightGen}
+                    faltantesIniciales={faltantesInsight}
+                    llamadas={insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+                  />
                 ),
               },
               { key: 'cobranza', label: 'Deal Details', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },

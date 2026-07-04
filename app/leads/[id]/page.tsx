@@ -35,7 +35,6 @@ import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
-import { InsightsCard } from '../lead-view/InsightsCard';
 import { getLeadInsights } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -164,17 +163,14 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             {
               key: 'insights', label: 'Insights', badge: insights.length,
               content: (
-                <>
-                  <GeneratedInsightCard
-                    lead={lead}
-                    stages={stages}
-                    tienePlan={pagos.length > 0}
-                    inicial={insightGen}
-                    faltantesIniciales={faltantesParaInsights(lead, pagos.length > 0)}
-                    haySenales={insights.length > 0 || respuestas.R1.length > 0 || respuestas.R2.length > 0}
-                  />
-                  <InsightsCard insights={insights} />
-                </>
+                <GeneratedInsightCard
+                  lead={lead}
+                  stages={stages}
+                  tienePlan={pagos.length > 0}
+                  inicial={insightGen}
+                  faltantesIniciales={faltantesParaInsights(lead, pagos.length > 0)}
+                  llamadas={insights.map((i) => ({ tipo: i.tipo, fecha: i.started_at, url: i.share_url }))}
+                />
               ),
             },
             {
