@@ -35,7 +35,7 @@ import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
-import { getLeadInsights } from '../actions';
+import { getLeadInsights, getEquipoAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -63,7 +63,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     getLeadInsights(idNum),
     getTrackingEvents(lead.visitor_id),
   ]);
-  const [respuestas, insightGen] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id)]);
+  const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(lead.id), getEquipoAction()]);
+  const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
   const adResuelto = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
@@ -158,7 +159,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} /> },
+            { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} equipo={equipo} closerDetectado={closerDetectado} /> },
             { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
             {
               key: 'insights', label: 'Insights', badge: insights.length,

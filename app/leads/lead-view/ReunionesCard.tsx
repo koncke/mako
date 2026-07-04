@@ -8,6 +8,36 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead, FathomLink, RespuestaQA } from '@/lib/leads';
+import type { MiembroEquipo } from '../actions';
+
+const iniciales = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+
+// Nombre del closer/setter con foto del equipo si matchea (por nombre o 1er nombre).
+function Persona({ label, nombre, equipo, hint }: { label: string; nombre: string | null; equipo: MiembroEquipo[]; hint?: string }) {
+  const n = nombre?.trim() || '';
+  const low = n.toLowerCase();
+  const u = n ? equipo.find((m) => m.nombre.toLowerCase() === low || m.nombre.toLowerCase().split(' ')[0] === low.split(' ')[0]) : undefined;
+  return (
+    <div>
+      <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
+        {n ? (
+          <>
+            {u?.foto_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={u.foto_url} alt="" width={22} height={22} style={{ borderRadius: '50%', display: 'block' }} referrerPolicy="no-referrer" />
+            ) : (
+              <span aria-hidden style={{ width: 22, height: 22, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 9.5, fontWeight: 700, background: 'var(--primary)', color: '#fff' }}>{iniciales(u?.nombre || n)}</span>
+            )}
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{u?.nombre || n}</span>
+          </>
+        ) : (
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--faint)' }}>{hint || '—'}</span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -65,7 +95,7 @@ function BloqueReunion({ titulo, fecha, chips, fathom, respuestas }: {
   );
 }
 
-export function ReunionesCard({ lead, respuestas }: { lead: Lead; respuestas?: { R1: RespuestaQA[]; R2: RespuestaQA[] } }) {
+export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }: { lead: Lead; respuestas?: { R1: RespuestaQA[]; R2: RespuestaQA[] }; equipo?: MiembroEquipo[]; closerDetectado?: string | null }) {
   const agendo = !!lead.fecha_junta_1 || !!lead.fecha_junta_2 || !!lead.fecha_agenda || lead.asistio_j1 != null;
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
   // Heurística de asignación de grabaciones: por etiqueta; lo no etiquetado va a R1.
@@ -107,11 +137,12 @@ export function ReunionesCard({ lead, respuestas }: { lead: Lead; respuestas?: {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-        <div><span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Closer</span><div style={{ fontSize: 14, fontWeight: 600, color: lead.closer ? 'var(--ink)' : 'var(--faint)', marginTop: 2 }}>{lead.closer || '—'}</div></div>
-        <div><span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Setter</span><div style={{ fontSize: 14, fontWeight: 600, color: lead.setter ? 'var(--ink)' : 'var(--faint)', marginTop: 2 }}>{lead.setter || '—'}</div></div>
+      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+        {/* Closer: si está vacío pero Fathom detectó uno, lo mostramos como sugerencia. */}
+        <Persona label="Closer" nombre={lead.closer || closerDetectado || null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
+        <Persona label="Setter" nombre={lead.setter ?? null} equipo={equipo} />
         {lead.fecha_confirmacion && (
-          <div><span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginTop: 2 }}>{fmtDDMMYYYY(lead.fecha_confirmacion)}</div></div>
+          <div><span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginTop: 3 }}>{fmtDDMMYYYY(lead.fecha_confirmacion)}</div></div>
         )}
       </div>
     </section>

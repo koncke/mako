@@ -126,6 +126,8 @@ export type LeadFullData = {
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
   insightGen: LeadInsightGen | null;
   faltantesInsight: Step[];
+  equipo: MiembroEquipo[];
+  closerDetectado: string | null;
 };
 
 /**
@@ -146,13 +148,14 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
   ]);
-  const [respuestas, insightGen] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id)]);
+  const [respuestas, insightGen, equipo] = await Promise.all([getLeadRespuestas(lead), getUltimoInsightGenerado(id), getEquipoAction()]);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0);
-  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight };
+  const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
+  return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, equipo, closerDetectado };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */
@@ -411,6 +414,26 @@ export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promi
   await logLeadChanges(id, before, after, await autorActual());
   bust(TAG.leads);
   revalidatePath('/leads');
+}
+
+export type MiembroEquipo = { nombre: string; email: string; foto_url: string | null };
+
+/**
+ * Equipo del workspace (closers/setters) con su foto, para mostrarla junto al
+ * nombre en Meetings. Excluye admins (no son closer/setter) y suspendidos.
+ */
+export async function getEquipoAction(): Promise<MiembroEquipo[]> {
+  try {
+    const { data } = await getSupabaseServer()
+      .from('usuarios')
+      .select('nombre, email, foto_url, rol, estado')
+      .neq('estado', 'suspendido');
+    return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string }>)
+      .filter((u) => u.rol !== 'admin' && (u.nombre?.trim() || u.email))
+      .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: u.foto_url ?? null }));
+  } catch {
+    return [];
+  }
 }
 
 /** Fila del historial enriquecida con la identidad del autor (si es un usuario). */
