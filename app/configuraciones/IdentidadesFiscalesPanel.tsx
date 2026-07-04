@@ -6,7 +6,7 @@
 // Se cargan una sola vez acá y después se eligen como "Facturado por" en la tab
 // Deal Details de cada lead. Puede haber varias; una puede ser la default.
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import {
   getIdentidadesFiscalesAction,
@@ -49,6 +49,35 @@ export function IdentidadesFiscalesPanel() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [confirmBorrar, setConfirmBorrar] = useState<IdentidadFiscal | null>(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Sube el documento fiscal propio (PDF/foto) y prellena el form con lo extraído
+  // (solo lo que esté vacío — no pisa lo que ya cargaste).
+  const subirDocFiscal = async (file: File) => {
+    if (!form) return;
+    setErr(null);
+    setLeyendo(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/extract-fiscal', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j.error) throw new Error(j.error);
+      setForm((prev) => prev && ({
+        ...prev,
+        nombre: prev.nombre.trim() || j.razon || '',
+        idFiscal: prev.idFiscal.trim() || j.id_fiscal || '',
+        domicilio: prev.domicilio.trim() || j.domicilio || '',
+        correo: prev.correo.trim() || j.correo || '',
+      }));
+    } catch (e) {
+      setErr(`No se pudo leer el documento: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setLeyendo(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
 
   const cargar = async () => {
     try { setLista(await getIdentidadesFiscalesAction()); }
@@ -148,6 +177,14 @@ export function IdentidadesFiscalesPanel() {
 
         {form ? (
           <div style={{ padding: '14px 15px', border: '1.5px dashed var(--border-strong)', borderRadius: 12, marginTop: lista && lista.length > 0 ? 14 : 0 }}>
+            {/* Subir el documento fiscal propio → IA rellena los campos de abajo. */}
+            <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirDocFiscal(f); }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+              <button type="button" style={{ ...ghostBtn, opacity: leyendo ? 0.6 : 1 }} disabled={leyendo} onClick={() => fileRef.current?.click()}>
+                {leyendo ? 'Leyendo documento…' : '⇪ Subir PDF/foto de tus datos fiscales'}
+              </button>
+              <span style={{ fontSize: 12, color: 'var(--faint)' }}>La IA lee la constancia/RFC/CUIT y rellena lo vacío. Revisá antes de guardar.</span>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               <Campo label="Razón social / nombre">
                 <input className="lead-field" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
