@@ -535,6 +535,71 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
 }
 
 /**
+ * Revierte un MOVIMIENTO completo del historial (todas las filas escritas en el
+ * mismo instante: etapa + estado + monto + fechas juntas). Un drag Ganado→Lead
+ * escribe 3 filas a la vez; revertir solo "Etapa" dejaba el monto en null y el
+ * estado desincronizado. Acá se restauran TODOS los campos del movimiento en una
+ * sola pasada, respetando las invariantes (estado y monto van en el mismo
+ * updateLead para que "cerro=true ⇒ monto" no se pise). Queda auditado.
+ */
+export async function revertMoveAction(leadId: number, createdAt: string): Promise<void> {
+  const grupo = (await getLeadAudit(leadId)).filter(
+    (r) => r.created_at === createdAt && REVERTIBLES.has(r.campo) && r.valor_anterior !== r.valor_nuevo,
+  );
+  if (!grupo.length) throw new Error('Ese movimiento no tiene cambios reversibles.');
+
+  const before = await getLead(leadId).catch(() => null);
+  const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
+
+  const upd: Parameters<typeof updateLead>[1] = {};
+  const meta: LeadMetaInput = {};
+  let etapa: { set: boolean; value: string | null } = { set: false, value: null };
+  let deadline: { set: boolean; value: string | null } = { set: false, value: null };
+
+  for (const r of grupo) {
+    const v = r.valor_anterior;
+    switch (r.campo) {
+      case 'Etapa': etapa = { set: true, value: v }; break;
+      case 'Estado': upd.estado_lead = (v ?? 'abierto') as Lead['estado_lead']; break;
+      case 'Asistió R1': upd.asistio_j1 = bool(v); break;
+      case 'Asistió R2': upd.asistio_j2 = bool(v); break;
+      case 'Calificado': upd.calificado = bool(v); break;
+      case 'Fecha R1': upd.fecha_junta_1 = v; break;
+      case 'Fecha R2': upd.fecha_junta_2 = v; break;
+      case 'Fecha de agendamiento': upd.fecha_agenda = v; break;
+      case 'Monto de cierre': upd.monto_cierre_usd = v ? parseFloat(v) : null; break;
+      case 'Motivo': upd.motivo_perdida = v; break;
+      case 'Confirmación de pago': upd.fecha_confirmacion = v; break;
+      case 'Closer': meta.closer = v; break;
+      case 'Setter': meta.setter = v; break;
+      case 'Nombre': meta.nombre = v ?? undefined; break;
+      case 'Email': meta.email = v; break;
+      case 'Teléfono': meta.telefono = v; break;
+      case 'Empresa': meta.empresa = v; break;
+      case 'Deadline de nutrición manual': deadline = { set: true, value: v }; break;
+    }
+  }
+
+  // 1) Columnas del lead JUNTAS (estado + monto en la misma llamada → invariantes OK).
+  if (Object.keys(upd).length) await updateLead(leadId, upd);
+  // 2) Meta (closer/setter/contacto).
+  if (Object.keys(meta).length) await saveLeadMeta(leadId, meta);
+  // 3) Override de la columna del tablero (o null = volver a derivación).
+  if (etapa.set) await setBoardStageOverride(leadId, etapa.value, deadline.set ? deadline.value : null);
+  else if (deadline.set) {
+    const { error } = await (await getTenantDb()).from('leads').update({ nutricion_manual_deadline: deadline.value }).eq('id', leadId);
+    if (error) throw new Error(error.message);
+  }
+
+  const after = await getLead(leadId).catch(() => null);
+  await logLeadChanges(leadId, before, after, await autorActual());
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath(`/leads/${leadId}`);
+  revalidatePath('/general');
+}
+
+/**
  * Mueve un lead a "Nutrición - Manual" con MOTIVO y DEADLINE (desde el worklist).
  * Si el deadline vence sin resolverse, el lead vuelve a "datos sin marcar" (rojo).
  */

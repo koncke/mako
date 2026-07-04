@@ -11,7 +11,7 @@
 import { useEffect, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { stageMeta, type Stage } from '@/lib/pipeline';
-import { getLeadAuditAction, revertAuditChangeAction, type LeadAuditRowFull } from '../actions';
+import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -75,19 +75,20 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<'status' | 'info'>('status');
   const [revertErr, setRevertErr] = useState<string | null>(null);
+  const [now, setNow] = useState(0); // Date.now() de la última carga (para "Deshacer" vs "Restaurar")
   const [auditLeadId, setAuditLeadId] = useState(leadId);
   if (auditLeadId !== leadId) { setAuditLeadId(leadId); setLoading(true); setErr(false); }
 
   const cargar = () => {
     getLeadAuditAction(leadId)
-      .then((r) => { setAudit(r); setErr(false); })
+      .then((r) => { setAudit(r); setErr(false); setNow(Date.now()); })
       .catch(() => setErr(true))
       .finally(() => setLoading(false));
   };
   useEffect(() => {
     let alive = true;
     getLeadAuditAction(leadId)
-      .then((r) => { if (alive) { setAudit(r); setErr(false); } })
+      .then((r) => { if (alive) { setAudit(r); setErr(false); setNow(Date.now()); } })
       .catch(() => { if (alive) setErr(true); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
@@ -98,11 +99,21 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
   const infoRows = audit.filter((r) => !esStatus(r));
   const rows = subTab === 'status' ? statusRows : infoRows;
 
-  const deshacer = (r: LeadAuditRowFull) => {
+  // Un "movimiento" = todas las filas escritas en el mismo instante por el mismo
+  // autor (un drag Ganado→Lead escribe Etapa+Estado+Monto a la vez). Se agrupan
+  // para revertir todo junto, no campo por campo (que dejaba datos a medias).
+  const grupos: LeadAuditRowFull[][] = [];
+  for (const r of rows) {
+    const ult = grupos[grupos.length - 1];
+    if (ult && ult[0].created_at === r.created_at && ult[0].autor === r.autor) ult.push(r);
+    else grupos.push([r]);
+  }
+
+  const deshacer = (createdAt: string) => {
     setRevertErr(null);
     startTransition(async () => {
       try {
-        await revertAuditChangeAction(r.id, leadId);
+        await revertMoveAction(leadId, createdAt);
         cargar();
         router.refresh();
       } catch (e) {
@@ -126,18 +137,29 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       {revertErr && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 10 }}>{revertErr}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {rows.map((a) => (
-          <div key={a.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap' }}>
-            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtAuditDate(a.created_at)}</span>
-            <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <b style={{ fontWeight: 600 }}>{a.campo}:</b> {legible(a.campo, a.valor_anterior)} <span style={{ color: 'var(--faint)' }}>→</span> {legible(a.campo, a.valor_nuevo)}
-            </span>
-            <Autor row={a} />
-            {a.revertible && a.valor_anterior !== a.valor_nuevo && (
-              <button type="button" onClick={() => deshacer(a)} disabled={pending} title={`Volver a "${a.valor_anterior ?? '—'}" (queda registrado en el historial)`} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ Restaurar</button>
-            )}
-          </div>
-        ))}
+        {grupos.map((g) => {
+          const head = g[0];
+          const revertible = g.some((r) => r.revertible && r.valor_anterior !== r.valor_nuevo);
+          // "Deshacer" para cambios recientes (<10 min); pasado eso, "Restaurar".
+          // Ambos revierten y quedan auditados; solo cambia la palabra.
+          const reciente = now > 0 && now - new Date(head.created_at).getTime() < 10 * 60_000;
+          return (
+            <div key={head.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap' }}>
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{fmtAuditDate(head.created_at)}</span>
+              <span style={{ flex: 1, minWidth: 160, fontSize: 13.5, color: 'var(--ink)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {g.map((a) => (
+                  <span key={a.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <b style={{ fontWeight: 600 }}>{a.campo}:</b> {legible(a.campo, a.valor_anterior)} <span style={{ color: 'var(--faint)' }}>→</span> {legible(a.campo, a.valor_nuevo)}
+                  </span>
+                ))}
+              </span>
+              <Autor row={head} />
+              {revertible && (
+                <button type="button" onClick={() => deshacer(head.created_at)} disabled={pending} title={reciente ? 'Deshacer este movimiento' : 'Volver al estado anterior (queda registrado en el historial)'} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ {reciente ? 'Deshacer' : 'Restaurar'}</button>
+              )}
+            </div>
+          );
+        })}
         {rows.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', padding: '4px 0' }}>
             {loading ? 'Cargando historial…' : err ? 'No se pudo cargar el historial. Reintentá reabriendo la ficha.' : subTab === 'status' ? 'Sin cambios de status registrados todavía.' : 'Sin cambios de información registrados todavía.'}
