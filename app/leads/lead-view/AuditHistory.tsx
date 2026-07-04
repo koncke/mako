@@ -134,7 +134,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
             </span>
             <Autor row={a} />
             {a.revertible && a.valor_anterior !== a.valor_nuevo && (
-              <button type="button" onClick={() => deshacer(a)} disabled={pending} title={`Volver a "${a.valor_anterior ?? '—'}"`} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ Deshacer</button>
+              <button type="button" onClick={() => deshacer(a)} disabled={pending} title={`Volver a "${a.valor_anterior ?? '—'}" (queda registrado en el historial)`} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ Restaurar</button>
             )}
           </div>
         ))}

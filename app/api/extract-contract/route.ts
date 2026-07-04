@@ -1,9 +1,12 @@
 // =============================================================================
-// POST /api/extract-contract — extrae el plan de pagos de un contrato (PDF o
-// imagen) con OpenAI, para autollenar el plan de pagos del lead en el CRM.
+// POST /api/extract-contract — extrae el plan de pagos + Deal Details de un
+// contrato (PDF o imagen) con OpenAI, para autollenar el lead en el CRM.
 // =============================================================================
 // Recibe el archivo (multipart 'file'). PDF → se manda como documento; imagen →
-// como visión. Devuelve JSON con total, duración, fechas y cuotas.
+// como visión. Devuelve JSON con total, duración, fechas, cuotas y las secciones
+// del Deal Details (fiscal, servicio, promesa, obligaciones), resumidas en
+// lenguaje simple. Además rellena en el lead SOLO los campos deal_* (y empresa)
+// que estén VACÍOS: nunca pisa lo ya cargado a mano.
 
 import type { NextRequest } from 'next/server';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
@@ -72,15 +75,96 @@ export async function POST(req: NextRequest) {
     if (j.error) return Response.json({ error: `openai: ${j.error.message}` }, { status: 502 });
     let parsed: Record<string, unknown> = {};
     try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta' }, { status: 502 }); }
+
+    // Autollenado del lead: SOLO campos vacíos (fill-if-empty, nunca pisar).
+    if (Number.isFinite(leadId) && leadId > 0) {
+      try { await rellenarLeadSiVacio(leadId, parsed); }
+      catch (e) { console.warn('[extract-contract] autollenado falló:', e instanceof Error ? e.message : String(e)); }
+    }
+
+    // Devolvemos TODO lo extraído para que la UI muestre qué encontró la IA.
     return Response.json({
       total_usd: parsed.total_usd ?? null,
       duracion_meses: parsed.duracion_meses ?? null,
       fecha_cierre: parsed.fecha_cierre ?? null,
       fecha_inicio: parsed.fecha_inicio ?? null,
       cuotas: Array.isArray(parsed.cuotas) ? parsed.cuotas : [],
+      empresa: parsed.empresa ?? null,
+      fiscal: parsed.fiscal ?? null,
+      servicio: parsed.servicio ?? null,
+      promesa: parsed.promesa ?? null,
+      obligaciones: parsed.obligaciones ?? null,
+      nota: parsed.nota ?? null,
       contrato_nombre,
     });
   } catch (err) {
     return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fill-if-empty: completa en el lead SOLO lo que esté vacío. Lo cargado a mano
+// (o por una extracción anterior) NO se pisa jamás.
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Json = Record<string, unknown>;
+
+const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+const vacio = (v: unknown): boolean => v == null || (typeof v === 'string' && !v.trim());
+const lista = (v: unknown): string[] =>
+  Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean) : [];
+
+// Merge por campo de una sección jsonb: conserva TODO lo existente (incluidos
+// campos ajenos como doc_path/doc_nombre) y solo llena los declarados vacíos.
+function mergeSeccion(actual: unknown, extraido: unknown, campos: string[]): Json | null {
+  if (!extraido || typeof extraido !== 'object') return null;
+  const base: Json = { ...((actual as Json | null) ?? {}) };
+  let cambio = false;
+  for (const c of campos) {
+    const nuevo = texto((extraido as Json)[c]);
+    if (vacio(base[c]) && nuevo) { base[c] = nuevo; cambio = true; }
+  }
+  return cambio ? base : null;
+}
+
+async function rellenarLeadSiVacio(leadId: number, parsed: Json): Promise<void> {
+  const supabase = (await getTenantDb());
+  const { data: lead } = await supabase
+    .from('leads')
+    .select('empresa, deal_fiscal, deal_servicio, deal_promesa, deal_obligaciones')
+    .eq('id', leadId)
+    .maybeSingle();
+  if (!lead) return; // lead de otro workspace (o inexistente) → no tocar nada
+
+  const upd: Json = {};
+
+  // empresa (vive en otras tabs del lead): la completa el contrato si falta.
+  const empresaNueva = texto(parsed.empresa) ?? texto((parsed.fiscal as Json | null)?.razon);
+  if (vacio(lead.empresa) && empresaNueva) upd.empresa = empresaNueva;
+
+  const fiscal = mergeSeccion(lead.deal_fiscal, parsed.fiscal, ['razon', 'id_fiscal', 'domicilio', 'correo']);
+  if (fiscal) upd.deal_fiscal = fiscal;
+
+  const servicio = mergeSeccion(lead.deal_servicio, parsed.servicio, ['que_es', 'fecha_inicio', 'fecha_termino', 'duracion', 'frecuencia', 'modalidad', 'sesiones']);
+  if (servicio) upd.deal_servicio = servicio;
+
+  const promesa = mergeSeccion(lead.deal_promesa, parsed.promesa, ['resultado', 'garantia']);
+  if (promesa) upd.deal_promesa = promesa;
+
+  // Obligaciones: listas — solo se llenan si la lista actual está vacía.
+  const oblExt = (parsed.obligaciones ?? null) as Json | null;
+  if (oblExt && typeof oblExt === 'object') {
+    const oblAct = ((lead.deal_obligaciones as Json | null) ?? {});
+    const nueva: Json = { ...oblAct };
+    let cambio = false;
+    for (const lado of ['cliente', 'prestador'] as const) {
+      const extraida = lista(oblExt[lado]);
+      if (lista(oblAct[lado]).length === 0 && extraida.length > 0) { nueva[lado] = extraida; cambio = true; }
+    }
+    if (cambio) upd.deal_obligaciones = nueva;
+  }
+
+  if (Object.keys(upd).length === 0) return;
+  const { error } = await supabase.from('leads').update(upd).eq('id', leadId);
+  if (error) throw new Error(error.message);
 }

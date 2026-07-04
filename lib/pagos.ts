@@ -21,6 +21,10 @@ export type Pago = {
   fecha_esperada: string | null; // YYYY-MM-DD
   pagado: boolean;
   fecha_pago: string | null;
+  // Comprobante del pago (migración 0060): archivo en Storage + hora del pago.
+  comprobante_path?: string | null;
+  comprobante_nombre?: string | null;
+  pago_hora?: string | null;
   created_at: string;
 };
 

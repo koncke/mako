@@ -22,7 +22,7 @@ import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { RespuestasCard } from './lead-view/RespuestasCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
 import { InsightsCard } from './lead-view/InsightsCard';
-import { CobranzaPlanCard } from './[id]/CobranzaPlanCard';
+import { DealDetailsCard } from './[id]/DealDetailsCard';
 import { LeadTabs } from './lead-view/LeadTabs';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -120,13 +120,13 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
   const tabCobranza = isGanado || pagos.length > 0 ? (
     <>
-      <CobranzaPlanCard lead={lead} pagos={pagos} editable={false} />
-      <Link href={`/leads/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar plan →</Link>
+      <DealDetailsCard lead={lead} pagos={pagos} editable={false} />
+      <Link href={`/leads/${lead.id}?tab=cobranza&edit=1`} style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Editar deal →</Link>
     </>
   ) : (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
-      <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado.</p>
+      <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>
+      <p style={{ fontSize: 14, color: 'var(--faint)' }}>El deal se habilita cuando el lead pasa a Facturando o Ganado.</p>
     </section>
   );
 

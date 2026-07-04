@@ -14,7 +14,7 @@ import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '..
 import { CHIP, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { LeadTabs } from '../lead-view/LeadTabs';
-import { CobranzaPlanCard } from './CobranzaPlanCard';
+import { DealDetailsCard } from './DealDetailsCard';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { Pago } from '@/lib/pagos';
 
@@ -270,12 +270,12 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel }: { lead: 
           </div>
         </section>
       )}
-      <CobranzaPlanCard lead={lead} pagos={pagos} />
+      <DealDetailsCard lead={lead} pagos={pagos} />
     </>
   ) : (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 10 }}>Cobranza</div>
-      <p style={{ fontSize: 14, color: 'var(--faint)' }}>La cobranza se habilita cuando el lead pasa a Facturando o Ganado (con &quot;Mover a…&quot;).</p>
+      <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>
+      <p style={{ fontSize: 14, color: 'var(--faint)' }}>El deal se habilita cuando el lead pasa a Facturando o Ganado (cambiando la etapa arriba).</p>
     </section>
   );
 
@@ -294,12 +294,12 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel }: { lead: 
         </div>
       </div>
 
-      {/* Mismas tabs que la vista, ahora editables */}
+      {/* Mismas tabs que la vista (mismos nombres), ahora editables */}
       <LeadTabs
         tabs={[
-          { key: 'resumen', label: 'Resumen', content: tabContacto },
-          { key: 'reuniones', label: 'Reuniones', content: tabReuniones },
-          { key: 'cobranza', label: 'Cobranza', content: tabCobranzaEdit },
+          { key: 'resumen', label: 'Overview', content: tabContacto },
+          { key: 'reuniones', label: 'Meetings', content: tabReuniones },
+          { key: 'cobranza', label: 'Deal Details', content: tabCobranzaEdit },
         ]}
       />
 

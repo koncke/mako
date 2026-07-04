@@ -109,6 +109,14 @@ export type Lead = {
   contrato_nombre?: string | null;
   contrato_path?: string | null;
 
+  // Deal Details (migración 0060): secciones extraídas del contrato por IA
+  // (resumen en lenguaje simple, editable) + identidad fiscal propia elegida.
+  deal_fiscal?: { razon?: string | null; id_fiscal?: string | null; domicilio?: string | null; correo?: string | null; doc_path?: string | null; doc_nombre?: string | null } | null;
+  deal_servicio?: { que_es?: string | null; fecha_inicio?: string | null; fecha_termino?: string | null; duracion?: string | null; frecuencia?: string | null; modalidad?: string | null; sesiones?: string | null } | null;
+  deal_promesa?: { resultado?: string | null; garantia?: string | null } | null;
+  deal_obligaciones?: { cliente?: string[]; prestador?: string[] } | null;
+  facturado_por_id?: number | null;
+
   created_at: string;
   updated_at: string;
 };

@@ -31,6 +31,7 @@ import {
 import type { EstadoLead, FathomLink } from '@/lib/leads';
 import {
   setLeadStageAction,
+  undoStageMoveAction,
   markManualNutritionAction,
   markMeetingManualAction,
 } from './actions';
@@ -200,20 +201,35 @@ export function CrmBoard({
     }
   };
 
-  // Revertir el último movimiento a su etapa anterior. Lleva el monto/motivo que
-  // el lead tenía ANTES del movimiento: volver a Ganado tras des-ganar (que borra
-  // el monto) necesita reponerlo o el server lo rechaza.
+  // Revertir el último movimiento a su etapa anterior (ventana del toast, 5s).
+  // No deja huella en el historial: un movimiento deshecho al instante es un
+  // mis-click, no historia. Lleva el monto/motivo previos para reponerlos si el
+  // movimiento los borró (des-ganar).
   const undoMove = () => {
     if (!undoInfo) return;
     const { id, from, monto, motivo } = undoInfo;
     setUndoInfo(null);
     setLocalStage((m) => ({ ...m, [id]: from }));
     startTransition(async () => {
-      try { await setLeadStageAction(id, from, { monto, motivo }); }
+      try { await undoStageMoveAction(id, from, { monto, motivo }); }
       catch { setLocalStage((m) => { const n = { ...m }; delete n[id]; return n; }); }
       router.refresh();
     });
   };
+
+  // Refresh al volver a la pestaña/ventana (throttled): los cambios hechos en la
+  // ficha (restaurar, editar) se reflejan en el tablero sin F5.
+  useEffect(() => {
+    let last = 0;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - last > 15_000) { last = now; router.refresh(); }
+    };
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.removeEventListener('focus', onVisible); document.removeEventListener('visibilitychange', onVisible); };
+  }, [router]);
 
   // El toast se autodescarta a los 5s.
   useEffect(() => {

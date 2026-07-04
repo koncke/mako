@@ -22,7 +22,7 @@ import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { guardOnboarding } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
-import { CobranzaPlanCard } from './CobranzaPlanCard';
+import { DealDetailsCard } from './DealDetailsCard';
 import { LeadDetailBody, BackButton } from './LeadDetailBody';
 import { OrigenCard } from '../lead-view/OrigenCard';
 import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
@@ -145,7 +145,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             {
               key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,
               content: esVenta || tienePlan ? (
-                <CobranzaPlanCard lead={lead} pagos={pagos} editable={false} />
+                <DealDetailsCard lead={lead} pagos={pagos} editable={false} />
               ) : (
                 <section style={card}>
                   <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>

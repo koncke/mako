@@ -388,6 +388,34 @@ const REVERTIBLES = new Set([
   'Nombre', 'Email', 'Teléfono', 'Empresa',
 ]);
 
+/**
+ * Deshace un movimiento de etapa RECIÉN hecho (toast de 5s del tablero): revierte
+ * la etapa y BORRA el rastro del movimiento en el historial — un movimiento
+ * deshecho al instante no es historia, es un mis-click. Pasada la ventana del
+ * toast, lo que corresponde es "Restaurar" desde el historial (ese sí audita).
+ */
+export async function undoStageMoveAction(
+  id: number,
+  from: string,
+  opts?: { monto?: number | null; motivo?: string | null },
+): Promise<void> {
+  await setPipelineStage(id, from, { monto: opts?.monto ?? null, motivo: opts?.motivo ?? null });
+  try {
+    // Ventana corta: solo lo que este movimiento acaba de escribir.
+    const desde = new Date(Date.now() - 90_000).toISOString();
+    const { error } = await (await getTenantDb())
+      .from('lead_audit')
+      .delete()
+      .eq('lead_id', id)
+      .gte('created_at', desde);
+    if (error) console.error('[undo] limpiar rastro falló:', error.message);
+  } catch { /* si falla, queda la historia — el undo igual se aplicó */ }
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/leads');
+  revalidatePath(`/leads/${id}`);
+  revalidatePath('/general');
+}
+
 /** Historial de cambios de un lead, con autor resuelto (nombre + foto). */
 export async function getLeadAuditAction(id: number): Promise<LeadAuditRowFull[]> {
   const rows = await getLeadAudit(id);

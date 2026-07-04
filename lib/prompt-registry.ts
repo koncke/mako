@@ -63,6 +63,7 @@ import {
   MAKO_CTX_CHART_DEFAULT,
   MAKO_CTX_WHATSAPP_DEFAULT,
   CONTRACT_EXTRACT_DEFAULT,
+  RECEIPT_EXTRACT_DEFAULT,
 } from './prompt-defaults';
 
 export type PromptSource = 'persona' | 'modo' | 'fase' | 'override';
@@ -380,9 +381,15 @@ export const REGISTRY: Group[] = [
       },
       {
         key: 'contracts.extract_payment_plan.user', source: 'override',
-        label: 'Extractor de plan de pagos del contrato', kind: 'user', dynamic: false, variables: [], scope: 'full', sensitive: true,
+        label: 'Extractor del contrato (pagos + Deal Details)', kind: 'user', dynamic: false, variables: [], scope: 'full', sensitive: true,
         default: CONTRACT_EXTRACT_DEFAULT,
-        context: 'Lee un contrato (PDF o imagen) y saca el plan de pagos (total USD, duración, fechas, cuotas) en JSON, para autocompletar el form del CRM. Conservá la forma EXACTA del JSON o el autollenado del CRM se rompe.',
+        context: 'Lee un contrato (PDF o imagen) y saca el plan de pagos (total USD, duración, fechas, cuotas) más las secciones del Deal Details (datos fiscales, servicio, promesa, obligaciones), resumidas en lenguaje simple, en JSON. Solo rellena campos VACÍOS del lead; nunca pisa lo cargado. Conservá la forma EXACTA del JSON o el autollenado del CRM se rompe.',
+      },
+      {
+        key: 'contracts.extract_receipt.user', source: 'override',
+        label: 'Extractor de comprobantes de pago', kind: 'user', dynamic: false, variables: [], scope: 'full', sensitive: true,
+        default: RECEIPT_EXTRACT_DEFAULT,
+        context: 'Lee un comprobante de pago (imagen o PDF) y saca monto en USD, fecha y hora en JSON, para prellenar el pop-up de "Marcar pagada" de una cuota. Conservá la forma EXACTA del JSON o el prellenado se rompe.',
       },
     ],
   },
