@@ -60,7 +60,10 @@ export const STAGE_LAYOUT: Record<string, Pick<Stage, 'band' | 'col' | 'bg' | 'f
 export const NEW_STAGE_PALETTE = ['#3B6FB0', '#C8870C', '#0E8E7E', '#6A4BD8', '#C7417B', '#B5630A', '#2E7DBE', '#8A6D3B', '#4F5BD5', '#9D4EDD'];
 export const NEW_STAGE_TONES: StageTone[] = ['info', 'accent', 'teal', 'violet', 'rose', 'orange', 'sky', 'taupe', 'indigo', 'magenta'];
 
-export const NUTRI_KEYS = ['noshow', 'nutri', 'nopaga', 'manual', 'postagenda', 'postreunion'];
+// Nutriciones NEGATIVAS (cambian la etapa; con deadline y desenlace posible). La
+// nutrición POSITIVA (post-agenda / post-reunión) ya NO es etapa: es derivada
+// (ver nutricionPositivaDe). Se deja 'noshow' legacy por compatibilidad.
+export const NUTRI_KEYS = ['noshow_r1', 'noshow_r2', 'noshow_r3', 'nutri', 'nopaga', 'manual', 'reunion_excepcional', 'nocompro', 'noshow'];
 
 // ── Transiciones del funnel (grafo etapa → etapa) ───────────────────────────
 // Editable en la tab "Funnel". Definen, para cada etapa, los pasos posibles
@@ -155,8 +158,14 @@ export const DEFAULT_PIPELINE: Stage[] = DEFAULT_STAGES.filter((s) => s.band ===
 
 /** Etapas de nutrición que no están en DEFAULT_STAGES (generadas por tipo). */
 const NUTRI_EXTRA: Record<string, Stage> = {
-  nocompro:    { key: 'nocompro',    label: 'Nutrición - No Compró',    dot: '#C7417B', tone: 'rose', band: 'nutricion' },
-  nutridiaria: { key: 'nutridiaria', label: 'Nutrición diaria (grupo)', dot: '#1FA855', tone: 'teal', band: 'nutricion' },
+  nocompro:    { key: 'nocompro',    label: 'Nutrición - No Compró',    dot: '#C7417B', tone: 'rose',   band: 'nutricion' },
+  nutridiaria: { key: 'nutridiaria', label: 'Nutrición diaria (grupo)', dot: '#1FA855', tone: 'teal',   band: 'nutricion' },
+  // Nutrición NEGATIVA: No Show separado por reunión (R1/R2/R3).
+  noshow_r1:   { key: 'noshow_r1',   label: 'Nutrición No Show R1',     dot: '#E8762B', tone: 'orange', band: 'nutricion' },
+  noshow_r2:   { key: 'noshow_r2',   label: 'Nutrición No Show R2',     dot: '#E8762B', tone: 'orange', band: 'nutricion' },
+  noshow_r3:   { key: 'noshow_r3',   label: 'Nutrición No Show R3',     dot: '#E8762B', tone: 'orange', band: 'nutricion' },
+  // Reunión excepcional: intento extra tras no pagar (nutrición especial).
+  reunion_excepcional: { key: 'reunion_excepcional', label: 'Reunión excepcional', dot: '#6A4BD8', tone: 'violet', band: 'nutricion' },
 };
 
 /**
@@ -230,18 +239,35 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
         nut(p.key, 'nutridiaria', 'Nutrición diaria', 'tiempo', next ? { to: next.key, label: 'Llega al evento' } : undefined, { auto: true });
         transitions.push({ from: p.key, to: 'noresp', label: 'Se va del grupo', category: 'perdida', trigger: 'tiempo' });
         break;
-      case 'reunion':
-        // Post Agenda = nutrición PREVIA a la reunión (para que asista). Corre
-        // sola; no es un resultado posterior que el humano elija (auto).
-        nut(p.key, 'postagenda', 'Post Agenda', 'tiempo', { to: p.key, label: 'Asiste' }, { auto: true });
-        nut(p.key, 'noshow', 'No-show', 'asistencia', firstMeeting ? { to: p.key, label: 'Reagenda' } : undefined, asist(p.key, false));
-        if (next && next.kind === 'reunion') nut(p.key, 'postreunion', 'Post Reunión', 'manual', { to: next.key, label: 'Agenda siguiente' }, asist(p.key, true));
-        else if (next && (next.kind === 'pago' || next.kind === 'cierre')) nut(p.key, 'nocompro', 'Asistió, no compró', 'manual', { to: next.key, label: 'Compra luego' }, asist(p.key, true));
+      case 'reunion': {
+        // Nutrición POSITIVA (post-agenda / post-reunión) NO es etapa: es una
+        // ventana derivada mientras el lead avanza (ver nutricionPositivaDe). Acá
+        // solo se generan las nutriciones NEGATIVAS (el lead NO avanzó).
+        const mi = meetings.findIndex((m) => m.key === p.key);
+        const rn = Math.min(mi + 1, 3);
+        // No Show separado por reunión: R1 / R2 / R3.
+        nut(p.key, `noshow_r${rn}`, `No Show R${rn}`, 'asistencia', firstMeeting ? { to: p.key, label: 'Reagenda' } : undefined, asist(p.key, false));
+        if (next && (next.kind === 'pago' || next.kind === 'cierre')) nut(p.key, 'nocompro', 'Asistió, no compró', 'manual', { to: next.key, label: 'Compra luego' }, asist(p.key, true));
         transitions.push({ from: p.key, to: 'perdido', label: 'Se perdió', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
         transitions.push({ from: p.key, to: 'descal', label: 'No califica', category: 'perdida', trigger: 'manual', ...asist(p.key, true) });
         break;
+      }
       case 'pago':
         nut(p.key, 'nopaga', 'No paga aún', 'pago', { to: p.key, label: 'Paga' });
+        // Reunión excepcional: intento extra tras no pagar (nutrición ESPECIAL,
+        // no avanza el pipeline). Desde "No paga aún" → reunión extra; de ahí sale
+        // a No Show R3 (no asiste), de vuelta al pago (retoma) o a Perdido.
+        if (!sup.has(`nopaga>reunion_excepcional`)) {
+          const re = lib('reunion_excepcional');
+          if (re) {
+            place(re, 'nutricion');
+            transitions.push({ from: 'nopaga', to: 'reunion_excepcional', label: 'Reunión excepcional', category: 'nutricion', trigger: 'manual' });
+            const ns3 = lib('noshow_r3');
+            if (ns3) { place(ns3, 'nutricion'); transitions.push({ from: 'reunion_excepcional', to: 'noshow_r3', label: 'No Show R3', category: 'nutricion', trigger: 'asistencia' }); }
+            transitions.push({ from: 'reunion_excepcional', to: p.key, label: 'Retoma el pago', category: 'avanza', trigger: 'manual' });
+            transitions.push({ from: 'reunion_excepcional', to: 'perdido', label: 'Se perdió', category: 'perdida', trigger: 'manual' });
+          }
+        }
         break;
     }
   });
@@ -319,7 +345,9 @@ export const CHIP: Record<StageTone, ChipColor> = {
 };
 
 export function stageMeta(stages: Stage[], key: string): Stage {
-  return stages.find((s) => s.key === key) || stages[0];
+  // Cae a las libs para resolver el label de keys legacy (noshow/postagenda/…)
+  // que el funnel ya no genera, en vez de mostrar la 1ª etapa (mal etiquetado).
+  return stages.find((s) => s.key === key) || DEFAULT_STAGES.find((s) => s.key === key) || NUTRI_EXTRA[key] || stages[0];
 }
 
 // Subconjunto de Lead que necesita la derivación (evita acoplar al tipo completo).
@@ -347,8 +375,12 @@ export function deriveStageKey(l: StageDerivable): string {
     case 'no_responde': return 'noresp';
   }
   // estado_lead === 'abierto'
-  if (l.asistio_j1 === false) return 'noshow';
-  if (l.fecha_junta_2) return l.asistio_j2 === true ? 'facturando' : 'agendaj2';
+  if (l.asistio_j1 === false) return 'noshow_r1';
+  if (l.fecha_junta_2) {
+    if (l.asistio_j2 === true) return 'facturando';
+    if (l.asistio_j2 === false) return 'noshow_r2';
+    return 'agendaj2';
+  }
   if (l.fecha_agenda || l.fecha_junta_1) return 'agenda';
   if (l.nutricion_realizada) return 'nutri';
   return 'lead';
