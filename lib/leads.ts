@@ -1153,7 +1153,20 @@ export async function saveLeadRespuestas(
     .map((x) => ({ q: x.question!.trim(), a: x.answer!.trim() }));
   if (!respuestas.length) return;
   try {
-    const { error } = await (await getTenantDb())
+    const db = await getTenantDb();
+    // Idempotencia (backfill / reintentos del webhook): no duplicar si ya hay una
+    // fila para el mismo (lead, reunión, evento).
+    if (eventoInicio) {
+      const { data: ya } = await db
+        .from('lead_respuestas')
+        .select('id')
+        .eq('lead_id', leadId)
+        .eq('reunion', reunion)
+        .eq('evento_inicio', eventoInicio)
+        .limit(1);
+      if (ya && ya.length) return;
+    }
+    const { error } = await db
       .from('lead_respuestas')
       .insert({ lead_id: leadId, reunion, respuestas, evento_inicio: eventoInicio });
     if (error) console.error(`[lead_respuestas] insert falló: ${error.message}`);

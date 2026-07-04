@@ -22,8 +22,11 @@ import { resolve } from 'node:path';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-import { upsertLeadFromCalendly } from '../lib/leads';
+import { upsertLeadFromCalendly, saveLeadRespuestas } from '../lib/leads';
 import { isoToFechaTijuana, extractAnswer } from '../lib/calendly';
+
+// R1 vs R2 por el nombre del evento de Calendly (para las respuestas exactas).
+const ES_R2 = /r2|reuni[oó]n 2|junta 2|seguimiento/i;
 
 const API = 'https://api.calendly.com';
 const MIN_START_TIME = '2025-12-01T00:00:00Z';
@@ -172,7 +175,7 @@ async function main() {
           continue;
         }
 
-        const { created } = await upsertLeadFromCalendly(
+        const { created, lead } = await upsertLeadFromCalendly(
           {
             email,
             nombre,
@@ -196,6 +199,13 @@ async function main() {
             fechaCreacion: inv.created_at ?? ev.start_time,
           },
         );
+        // Guardar las respuestas EXACTAS del formulario de Calendly (preguntas
+        // tal cual) en lead_respuestas — así la ficha no cae al fallback canónico.
+        // Idempotente por (lead, reunión, evento).
+        if (inv.questions_and_answers?.length) {
+          const reunion = ES_R2.test(ev.name ?? '') ? 'R2' : 'R1';
+          await saveLeadRespuestas(lead.id, reunion, inv.questions_and_answers, ev.start_time);
+        }
         if (created) {
           creados++;
           console.log(`  + ${nombre} <${email}> J1=${fechaJ1}`);
