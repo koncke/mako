@@ -1124,6 +1124,61 @@ export async function getVslEngagementMap(
   return map;
 }
 
+// ── Respuestas del form de Calendly POR REUNIÓN (migración 0062) ────────────
+// R1 y R2 tienen formularios propios: se guarda el set crudo por reunión y la
+// ficha muestra el más reciente de cada una. Las columnas respuesta_* del lead
+// quedan como fallback legacy para R1 (leads anteriores a la tabla).
+
+export type RespuestaQA = { q: string; a: string };
+
+export async function saveLeadRespuestas(
+  leadId: number,
+  reunion: 'R1' | 'R2',
+  qa: Array<{ question?: string; answer?: string }> | undefined | null,
+  eventoInicio: string | null,
+): Promise<void> {
+  const respuestas: RespuestaQA[] = (qa ?? [])
+    .filter((x) => x?.question?.trim() && x?.answer?.trim())
+    .map((x) => ({ q: x.question!.trim(), a: x.answer!.trim() }));
+  if (!respuestas.length) return;
+  try {
+    const { error } = await (await getTenantDb())
+      .from('lead_respuestas')
+      .insert({ lead_id: leadId, reunion, respuestas, evento_inicio: eventoInicio });
+    if (error) console.error(`[lead_respuestas] insert falló: ${error.message}`);
+  } catch (e) {
+    console.error('[lead_respuestas] excepción', e);
+  }
+}
+
+/** Último set de respuestas por reunión. R1 cae a las columnas legacy si no hay fila. */
+export async function getLeadRespuestas(lead: Lead): Promise<{ R1: RespuestaQA[]; R2: RespuestaQA[] }> {
+  const out: { R1: RespuestaQA[]; R2: RespuestaQA[] } = { R1: [], R2: [] };
+  try {
+    const { data } = await (await getTenantDb())
+      .from('lead_respuestas')
+      .select('reunion, respuestas, created_at')
+      .eq('lead_id', lead.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    for (const r of (data ?? []) as Array<{ reunion: 'R1' | 'R2'; respuestas: RespuestaQA[] }>) {
+      if (!out[r.reunion].length && Array.isArray(r.respuestas)) out[r.reunion] = r.respuestas;
+    }
+  } catch { /* fallback legacy abajo */ }
+  if (!out.R1.length) {
+    const legacy: Array<[string, string | null]> = [
+      ['¿Qué quiere lograr?', lead.respuesta_objetivo],
+      ['¿Puede invertir?', lead.respuesta_inversion],
+      ['¿Cuántos colaboradores?', lead.respuesta_colaboradores],
+      ['¿Factura +$20M MXN?', lead.respuesta_facturacion],
+      ['¿Alguien más decide?', lead.respuesta_decisor],
+      ['¿Cuándo quiere empezar?', lead.respuesta_cuando_empezar],
+    ];
+    out.R1 = legacy.filter(([, a]) => a?.trim()).map(([q, a]) => ({ q, a: a! }));
+  }
+  return out;
+}
+
 // ── Timeline de comportamiento por lead (tab Tracking) ──────────────────────
 // Merge cronológico de landing_visits + vsl_events del visitor: cada visita a
 // la landing (con URL si la manda el beacon nuevo), cada play del VSL y los

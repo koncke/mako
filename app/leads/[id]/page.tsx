@@ -15,6 +15,7 @@ import {
   getVslEngagement,
   getVisitasLandingMap,
   getTrackingEvents,
+  getLeadRespuestas,
 } from '@/lib/leads';
 import { deriveStageKey, stageMeta, CHIP, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
 import { getPagosByLead } from '@/lib/pagos';
@@ -29,7 +30,6 @@ import { OrigenCard } from '../lead-view/OrigenCard';
 import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
-import { RespuestasCard } from '../lead-view/RespuestasCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { InsightsCard } from '../lead-view/InsightsCard';
@@ -60,6 +60,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
     getLeadInsights(idNum),
     getTrackingEvents(lead.visitor_id),
   ]);
+  const respuestas = await getLeadRespuestas(lead);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campanaResuelta = resolverNombreCampana(lead.utm_campaign, campMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
@@ -144,7 +145,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                 </>
               ),
             },
-            { key: 'reuniones', label: 'Meetings', content: <><ReunionesCard lead={lead} /><RespuestasCard lead={lead} /></> },
+            { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} /> },
             { key: 'insights', label: 'Insights', badge: insights.length, content: <InsightsCard insights={insights} /> },
             {
               key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,

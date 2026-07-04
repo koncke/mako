@@ -19,7 +19,6 @@ import { OrigenCard } from './lead-view/OrigenCard';
 import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
-import { RespuestasCard } from './lead-view/RespuestasCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
 import { InsightsCard } from './lead-view/InsightsCard';
@@ -39,7 +38,7 @@ function IconX() {
 }
 
 export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; onClose: () => void; initialTab?: string }) {
-  const { lead, stages, pagos, vslEng, campana, visitas, insights, tracking } = data;
+  const { lead, stages, pagos, vslEng, campana, visitas, insights, tracking, respuestas } = data;
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -158,7 +157,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
             tabs={[
               { key: 'resumen', label: 'Overview', content: tabResumen },
               { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} /><TrackingTimelineCard eventos={tracking} /></> },
-              { key: 'reuniones', label: 'Meetings', content: <><ReunionesCard lead={lead} /><RespuestasCard lead={lead} /></> },
+              { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} /> },
               { key: 'insights', label: 'Insights', content: <InsightsCard insights={insights} />, badge: insights.length },
               { key: 'cobranza', label: 'Deal Details', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },
               { key: 'actividad', label: 'Change History', content: <AuditHistory leadId={lead.id} stages={stages} /> },

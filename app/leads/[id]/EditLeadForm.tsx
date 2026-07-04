@@ -393,4 +393,3 @@ function MotivoSugerencias({ value, onChange }: { value: string; onChange: (v: s
   );
 }
 
-// RespuestasCard vive ahora en ../lead-view/RespuestasCard (compartida con el modal).

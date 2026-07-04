@@ -38,6 +38,7 @@ import {
   getVslEngagementMap,
   getVslEngagement,
   getTrackingEvents,
+  getLeadRespuestas,
   logLeadChanges,
   logLeadEvent,
   getLeadAudit,
@@ -47,6 +48,7 @@ import {
   type Lead,
   type VslEngagement,
   type TrackingEvent,
+  type RespuestaQA,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { missingForStage } from '@/lib/stage-requirements';
@@ -117,6 +119,7 @@ export type LeadFullData = {
   visitas: { total_visitas: number; dias_distintos: number };
   insights: LeadInsightRow[];
   tracking: TrackingEvent[];
+  respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
 };
 
 /**
@@ -136,10 +139,11 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getLeadInsights(id),
     getTrackingEvents(lead.visitor_id),
   ]);
+  const respuestas = await getLeadRespuestas(lead);
   const stages = stagesRaw.length ? stagesRaw : DEFAULT_STAGES;
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
-  return { lead, stages, pagos, vslEng, campana, visitas, insights, tracking };
+  return { lead, stages, pagos, vslEng, campana, visitas, insights, tracking, respuestas };
 }
 
 /** Cuota explícita del plan (modelo simple: monto + fecha). */

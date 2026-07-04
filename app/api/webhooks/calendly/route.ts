@@ -25,6 +25,7 @@ import {
   findLeadByContacto,
   setFechaJunta2,
   cancelarJuntaEnLead,
+  saveLeadRespuestas,
 } from '@/lib/leads';
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { hoyEnTijuana } from '@/lib/date-utils';
@@ -106,6 +107,9 @@ export async function POST(request: NextRequest) {
           if (lead) {
             // NUNCA crear desde una J2: solo seteamos fecha_junta_2 del lead existente.
             await setFechaJunta2(lead.id, fechaJ2);
+            // El form de la R2 tiene sus propias respuestas: se guardan POR reunión
+            // (antes se descartaban — solo existían columnas para el set de R1).
+            await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
             console.log(`[webhook:calendly] J2 → lead id=${lead.id} email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2} ms=${ms}`);
             return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
           }
@@ -207,6 +211,10 @@ export async function POST(request: NextRequest) {
           respuesta_decisor,
           visitor_id,
         });
+
+        // Set de respuestas de la R1 por reunión (las columnas del lead quedan
+        // como legacy/compat; la ficha lee lead_respuestas primero).
+        await saveLeadRespuestas(lead.id, 'R1', qa, fechaJ1);
 
         console.log(
           `[webhook:calendly] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} email=${email} fecha_j1=${fechaJ1} utm_campaign=${utm_campaign ?? '—'} ms=${ms}`,
