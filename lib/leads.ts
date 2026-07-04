@@ -248,6 +248,9 @@ export async function createLead(input: LeadCreateInput): Promise<Lead> {
       nombre: input.nombre.trim(),
       email: input.email?.trim() || null,
       telefono: input.telefono?.trim() || null,
+      // Sin esto el lead manual nunca matchea su chat de WhatsApp ni el
+      // instant form / Calendly (la llave de match es telefono_normalizado).
+      telefono_normalizado: normalizarTelefono(input.telefono),
       empresa: input.empresa?.trim() || null,
       fecha_agenda: input.fecha_agenda || null,
       fecha_junta_1: input.fecha_junta_1 || null,

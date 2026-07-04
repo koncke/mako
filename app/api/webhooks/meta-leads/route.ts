@@ -20,6 +20,7 @@
 import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { upsertLeadFromMeta } from '@/lib/leads';
+import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 
 export const dynamic = 'force-dynamic';
@@ -198,6 +199,12 @@ export async function POST(request: NextRequest) {
         `[webhook:meta-leads] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} leadgen=${leadgenId} ad=${graphLead.ad_name ?? '—'} ms=${Date.now() - tStart}`,
       );
       results.push({ leadgen_id: leadgenId, status: created ? 'created' : 'updated', lead_id: lead.id });
+
+      // Alta del chat: contacto + conversación en Chatwoot para que el 100% de
+      // los leads tenga su hilo de WhatsApp desde el día cero (silencioso).
+      if (created && lead.telefono) {
+        await ensureContactoWhatsapp(lead.nombre, lead.telefono);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[webhook:meta-leads] error procesando leadgen=${leadgenId}: ${message}`);

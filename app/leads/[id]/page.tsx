@@ -31,6 +31,7 @@ import { InfoPrincipalCard } from '../lead-view/InfoPrincipalCard';
 import { AuditHistory } from '../lead-view/AuditHistory';
 import { ComportamientoCard } from '../lead-view/ComportamientoCard';
 import { ReunionesCard } from '../lead-view/ReunionesCard';
+import { ChatCard } from '../lead-view/ChatCard';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { InsightsCard } from '../lead-view/InsightsCard';
 import { getLeadInsights } from '../actions';
@@ -146,6 +147,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
               ),
             },
             { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} /> },
+            { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
             { key: 'insights', label: 'Insights', badge: insights.length, content: <InsightsCard insights={insights} /> },
             {
               key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,

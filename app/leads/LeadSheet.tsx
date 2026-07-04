@@ -20,6 +20,7 @@ import { InfoPrincipalCard } from './lead-view/InfoPrincipalCard';
 import { AuditHistory } from './lead-view/AuditHistory';
 import { ComportamientoCard } from './lead-view/ComportamientoCard';
 import { ReunionesCard } from './lead-view/ReunionesCard';
+import { ChatCard } from './lead-view/ChatCard';
 import { TrackingTimelineCard } from './lead-view/TrackingTimelineCard';
 import { InsightsCard } from './lead-view/InsightsCard';
 import { DealDetailsCard } from './[id]/DealDetailsCard';
@@ -158,6 +159,7 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
               { key: 'resumen', label: 'Overview', content: tabResumen },
               { key: 'comportamiento', label: 'Tracking', content: <><OrigenCard lead={lead} vslEng={vslEng} campana={campana} /><ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct} /><TrackingTimelineCard eventos={tracking} /></> },
               { key: 'reuniones', label: 'Meetings', content: <ReunionesCard lead={lead} respuestas={respuestas} /> },
+              { key: 'chat', label: 'Chat', content: <ChatCard leadId={lead.id} /> },
               { key: 'insights', label: 'Insights', content: <InsightsCard insights={insights} />, badge: insights.length },
               { key: 'cobranza', label: 'Deal Details', content: tabCobranza, badge: pagos.filter((p) => !p.pagado).length },
               { key: 'actividad', label: 'Change History', content: <AuditHistory leadId={lead.id} stages={stages} /> },

@@ -54,6 +54,7 @@ import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
 import { missingForStage } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
+import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb } from '@/lib/workspace';
 
@@ -278,6 +279,9 @@ export async function createLeadAction(formData: FormData): Promise<void> {
     fecha_agenda: emptyToNullable(formData.get('fecha_agenda')),
     fecha_junta_1: emptyToNullable(formData.get('fecha_junta_1')),
   });
+  // Alta del chat: contacto + conversación en Chatwoot (silencioso) para que
+  // todo lead con teléfono tenga su hilo de WhatsApp desde el día cero.
+  if (created.telefono) await ensureContactoWhatsapp(created.nombre, created.telefono);
   bust(TAG.leads);
   revalidatePath('/leads');
   redirect(`/leads/${created.id}`);

@@ -249,6 +249,9 @@ function WhatsAppInner() {
   const [soloVentana, setSoloVentana] = useState(false);
   const [selId, setSelId] = useState<string | null>(null);
   const selIdRef = useRef<string | null>(null);
+  // ?lead=<id> sin chat vinculado: aviso en vez de caer al primer chat de la
+  // lista (antes abría el chat de OTRA persona, p.ej. el de Mauricio).
+  const [leadSinChat, setLeadSinChat] = useState<number | null>(null);
   const msgScrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
   // Cache de mensajes por chat → reabrir un chat es instantáneo (no se ve el
@@ -375,7 +378,7 @@ function WhatsAppInner() {
         return;
       }
       // ?lead=<id>: abrir el chat del contacto matcheado a ese lead del CRM
-      // (deep-link desde la ficha del lead). Si no hay chat, se queda como está.
+      // (deep-link desde la ficha del lead).
       const leadParam = Number(searchParamsWA.get('lead'));
       if (Number.isFinite(leadParam) && leadParam > 0) {
         const c = contactos.find((x) => x.leadId === leadParam);
@@ -383,9 +386,25 @@ function WhatsAppInner() {
           lastSearchRef.current = s;
           setView('chats');
           setSelId(c.id);
+          setLeadSinChat(null);
           return;
         }
+        // Sin chat vinculado: NO caer al primer chat (era el bug de abrir el
+        // chat de otra persona) — mostrar el aviso y no seleccionar nada.
+        if (contactos.length) {
+          lastSearchRef.current = s;
+          setView('chats');
+          setLeadSinChat(leadParam);
+          return;
+        }
+        return; // los contactos aún no cargaron: se reintenta cuando lleguen
       }
+    }
+    // Si el chat del lead aparece después (contacto recién creado), abrirlo.
+    if (leadSinChat != null) {
+      const c = contactos.find((x) => x.leadId === leadSinChat);
+      if (c) { setLeadSinChat(null); setSelId(c.id); }
+      return;
     }
     if (selId == null && contactos.length) setSelId(contactos[0].id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -935,7 +954,13 @@ function WhatsAppInner() {
 
           {/* HILO */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-            {!sel && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px' }}>Elegí una conversación</div>}
+            {!sel && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px', padding: '0 28px', textAlign: 'center', lineHeight: 1.5 }}>
+                {leadSinChat != null
+                  ? 'Este lead todavía no tiene chat de WhatsApp vinculado. Cuando tenga teléfono con conversación, se abre acá solo.'
+                  : 'Elegí una conversación'}
+              </div>
+            )}
             {sel && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>

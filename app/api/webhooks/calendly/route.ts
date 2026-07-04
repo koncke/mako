@@ -28,6 +28,7 @@ import {
   saveLeadRespuestas,
 } from '@/lib/leads';
 import { enqueueJ2SinMatch } from '@/lib/review-queue';
+import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 
@@ -215,6 +216,12 @@ export async function POST(request: NextRequest) {
         // Set de respuestas de la R1 por reunión (las columnas del lead quedan
         // como legacy/compat; la ficha lee lead_respuestas primero).
         await saveLeadRespuestas(lead.id, 'R1', qa, fechaJ1);
+
+        // Alta del chat: contacto + conversación en Chatwoot (silencioso) para
+        // que el lead nuevo tenga su hilo de WhatsApp desde el día cero.
+        if (created && lead.telefono) {
+          await ensureContactoWhatsapp(lead.nombre, lead.telefono);
+        }
 
         console.log(
           `[webhook:calendly] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} email=${email} fecha_j1=${fechaJ1} utm_campaign=${utm_campaign ?? '—'} ms=${ms}`,

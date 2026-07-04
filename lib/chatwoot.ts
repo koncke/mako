@@ -425,6 +425,54 @@ export async function sendToContact(contactId: number, content: string): Promise
   }
 }
 
+// ── Alta automática de contacto para leads nuevos ────────────────────────────
+// Cuando entra un lead con teléfono le creamos el contacto en Chatwoot y una
+// conversación (vacía) en el inbox de WhatsApp. Así el 100% de los leads tiene
+// su chat en /whatsapp aunque nadie haya escrito, y el deep-link de la ficha
+// nunca cae en el chat de otra persona. Silencioso por diseño: un fallo acá
+// jamás debe romper el alta del lead.
+export async function ensureContactoWhatsapp(
+  nombre: string,
+  telefono: string | null | undefined,
+): Promise<number | null> {
+  try {
+    const tel = normalizarTel(telefono ?? '');
+    if (tel.replace(/\D/g, '').length < 8) return null;
+    const c = await cfg();
+    const contactId = await buscarOCrearContacto(c, tel, nombre);
+    const convs = await contactConversaciones(c, contactId).catch(() => [] as ContactConv[]);
+    if (!convs.some((cv) => cv.inboxId === c.inbox)) {
+      await crearConversacion(c, contactId);
+    }
+    return contactId;
+  } catch (err) {
+    console.error(`[chatwoot] ensureContactoWhatsapp falló: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+// contactId de Chatwoot para un teléfono, matcheando por últimos 10 dígitos
+// (igual que el inbox de la app: absorbe variantes de país tipo 52 vs 521).
+export async function contactoIdPorTelefono(telefono: string): Promise<number | null> {
+  try {
+    const digits = (telefono || '').replace(/\D/g, '');
+    if (digits.length < 8) return null;
+    const q = digits.slice(-10);
+    const c = await cfg();
+    const r = await cwFetch<ContactsResp>(
+      `${c.apiBase}/contacts/search?q=${encodeURIComponent(q)}`,
+      { method: 'GET' },
+      c.token,
+    );
+    const p = r.payload;
+    const list: Contacto[] = Array.isArray(p) ? p : (p?.contacts ?? p?.results ?? []);
+    const found = list.find((x) => (x.phone_number ?? '').replace(/\D/g, '').slice(-10) === q);
+    return found?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Envía texto LIBRE a un teléfono (crea/reusa contacto + conversación). Solo llega
 // dentro de la ventana de 24h; fuera de ella Chatwoot/Meta lo rechaza y devuelve
 // { ok: false } (el caller lo trata como "ventana cerrada"). Se usa para mandarle
