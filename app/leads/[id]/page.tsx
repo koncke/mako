@@ -164,7 +164,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
             {
               key: 'cobranza', label: 'Deal Details', badge: cuotasPendientes,
               content: esVenta || tienePlan ? (
-                <DealDetailsCard lead={lead} pagos={pagos} editable={false} />
+                <DealDetailsCard lead={lead} pagos={pagos} editable={true} />
               ) : (
                 <section style={card}>
                   <div style={{ ...sectLabel, marginBottom: 10 }}>Deal Details</div>

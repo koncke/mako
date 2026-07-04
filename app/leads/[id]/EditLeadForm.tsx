@@ -270,7 +270,10 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
           </div>
         </section>
       )}
-      <DealDetailsCard lead={lead} pagos={pagos} />
+      {/* Sin botón "Editar deal" acá (evita el doble Editar): las secciones del
+          deal se editan desde la tab Deal Details; acá se edita el Cierre (monto)
+          y Marcar pagada sigue disponible. */}
+      <DealDetailsCard lead={lead} pagos={pagos} editable={false} />
     </>
   ) : (
     <section style={card}>

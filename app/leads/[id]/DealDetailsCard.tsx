@@ -205,6 +205,13 @@ export function DealDetailsCard({ lead, pagos, editable = true }: { lead: Lead; 
   const [verContrato, setVerContrato] = useState(false);
   const [verFiscal, setVerFiscal] = useState(false);
   const [modal, setModal] = useState<{ tipo: 'pagar' | 'comprobante'; pago: Pago } | null>(null);
+  // Toast de deshacer tras marcar una cuota como pagada (ventana de 5s).
+  const [undoPago, setUndoPago] = useState<Pago | null>(null);
+  useEffect(() => {
+    if (!undoPago) return;
+    const t = setTimeout(() => setUndoPago(null), 5000);
+    return () => clearTimeout(t);
+  }, [undoPago]);
 
   // Contrato: nombre optimista tras subir uno nuevo (hasta el refresh).
   const [contratoSubido, setContratoSubido] = useState<string | null>(null);
@@ -387,6 +394,13 @@ export function DealDetailsCard({ lead, pagos, editable = true }: { lead: Lead; 
   const diff = Math.round((sumaTodas - montoCierre) * 100) / 100;
   const cuadra = Math.abs(diff) < 0.5;
 
+  // Alarma "datos sin completar": un lead GANADO debería tener el deal cargado.
+  // Se completa releyendo el contrato / documento fiscal / comprobante con IA.
+  const algo = (o: Record<string, unknown> | null | undefined): boolean =>
+    !!o && Object.values(o).some((v) => (Array.isArray(v) ? v.length > 0 : !!(v && String(v).trim())));
+  const dealIncompleto = lead.estado_lead === 'ganado' && !d &&
+    !algo(lead.deal_fiscal) && !algo(lead.deal_servicio) && !algo(lead.deal_promesa) && !algo(lead.deal_obligaciones);
+
   const barraAcciones = editable && (
     d ? (
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
@@ -404,6 +418,12 @@ export function DealDetailsCard({ lead, pagos, editable = true }: { lead: Lead; 
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {barraAcciones}
       {feedback && <div style={bannerStyle(feedback.kind)}>{feedback.msg}</div>}
+      {dealIncompleto && (
+        <div style={{ ...bannerStyle('warn'), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <span>Este deal está ganado pero le faltan datos. Completalos releyendo el contrato, el documento fiscal o el comprobante con IA.</span>
+          {editable && <button type="button" style={{ ...primaryBtn, padding: '8px 14px' }} onClick={enterEdit}>Completar con IA</button>}
+        </div>
+      )}
 
       {/* 1 · PAGOS */}
       <section style={card}>
@@ -494,12 +514,12 @@ export function DealDetailsCard({ lead, pagos, editable = true }: { lead: Lead; 
                             {p.comprobante_path && (
                               <button type="button" style={{ ...linkBtn, color: 'var(--primary)', fontWeight: 600 }} onClick={() => setModal({ tipo: 'comprobante', pago: p })}>Ver comprobante</button>
                             )}
-                            {editable && (
-                              <button type="button" style={{ ...linkBtn, opacity: pending ? 0.5 : 1 }} disabled={pending} onClick={() => deshacerPago(p)}>deshacer</button>
-                            )}
+                            {/* Deshacer/Marcar pagada NO dependen de "Editar": son
+                                acciones operativas, disponibles siempre. */}
+                            <button type="button" style={{ ...linkBtn, opacity: pending ? 0.5 : 1 }} disabled={pending} onClick={() => deshacerPago(p)}>deshacer</button>
                           </>
                         ) : (
-                          editable && <button type="button" style={goodBtn} onClick={() => setModal({ tipo: 'pagar', pago: p })}>Marcar pagada</button>
+                          <button type="button" style={goodBtn} onClick={() => setModal({ tipo: 'pagar', pago: p })}>Marcar pagada</button>
                         )}
                       </div>
                     </div>
@@ -710,11 +730,19 @@ export function DealDetailsCard({ lead, pagos, editable = true }: { lead: Lead; 
           pago={modal.pago}
           leadId={lead.id}
           onClose={() => setModal(null)}
-          onDone={(msg) => { setModal(null); setFeedback({ kind: 'ok', msg }); router.refresh(); }}
+          onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setUndoPago(p); router.refresh(); }}
         />
       )}
       {modal?.tipo === 'comprobante' && (
         <ComprobanteModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} />
+      )}
+
+      {/* Toast de deshacer (5s) tras marcar una cuota como pagada. */}
+      {undoPago && (
+        <div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 90, display: 'flex', alignItems: 'center', gap: 14, background: 'var(--ink)', color: '#F3F5F8', borderRadius: 12, padding: '11px 16px', boxShadow: '0 12px 40px rgba(18,21,27,.32)', fontFamily: SANS, fontSize: 13.5 }}>
+          <span>{etiquetaCuota(undoPago.numero)} marcada como pagada.</span>
+          <button type="button" onClick={() => { const p = undoPago; setUndoPago(null); deshacerPago(p); }} style={{ background: 'transparent', border: 'none', color: '#8FD0FF', fontWeight: 700, cursor: 'pointer', fontFamily: SANS, fontSize: 13.5 }}>Deshacer</button>
+        </div>
       )}
     </div>
   );
