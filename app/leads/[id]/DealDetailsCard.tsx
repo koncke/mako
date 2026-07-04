@@ -13,7 +13,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Dropdown } from '@/app/components/Dropdown';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead } from '@/lib/leads';
@@ -46,6 +46,7 @@ const chipGood: CSSProperties = { fontSize: 13.5, color: 'var(--good)', backgrou
 const grid2: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 };
 const hintStyle: CSSProperties = { display: 'block', fontSize: 11.5, marginTop: 5, color: 'var(--faint)' };
 const mini: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' };
+const miniLabel: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' };
 const modalH3: CSSProperties = { margin: '0 0 4px', fontSize: 17, fontWeight: 600, color: 'var(--ink)' };
 const modalSub: CSSProperties = { fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.5 };
 
@@ -153,6 +154,7 @@ function Modal({ onClose, width = 440, children }: { onClose: () => void; width?
 // ── Borradores del modo edición ──────────────────────────────────────────────
 type DraftCuota = { key: number; id: number | null; numero: number | null; monto: string; fecha: string; pagado: boolean; fecha_pago: string | null };
 type Drafts = {
+  monto: string; fechaCierre: string; fechaInicioServicio: string;
   razon: string; idFiscal: string; domicilio: string; correo: string; facturadoPor: string;
   queEs: string; fechaInicio: string; fechaTermino: string; duracion: string; frecuencia: string; modalidad: string; sesiones: string;
   resultado: string; garantia: string; obCliente: string; obPrestador: string;
@@ -161,14 +163,16 @@ type Drafts = {
 type ExtractResp = {
   error?: string; contrato_nombre?: string | null; total_usd?: number | null; duracion_meses?: number | null;
   cuotas?: Array<{ monto?: number | null; fecha?: string | null }>;
-  deal_fiscal?: { razon?: string | null; id_fiscal?: string | null; domicilio?: string | null; correo?: string | null } | null;
-  deal_servicio?: { que_es?: string | null; fecha_inicio?: string | null; fecha_termino?: string | null; duracion?: string | null; frecuencia?: string | null; modalidad?: string | null; sesiones?: string | null } | null;
-  deal_promesa?: { resultado?: string | null; garantia?: string | null } | null;
-  deal_obligaciones?: { cliente?: string[]; prestador?: string[] } | null;
+  fiscal?: { razon?: string | null; id_fiscal?: string | null; domicilio?: string | null; correo?: string | null } | null;
+  servicio?: { que_es?: string | null; fecha_inicio?: string | null; fecha_termino?: string | null; duracion?: string | null; frecuencia?: string | null; modalidad?: string | null; sesiones?: string | null } | null;
+  promesa?: { resultado?: string | null; garantia?: string | null } | null;
+  obligaciones?: { cliente?: string[]; prestador?: string[] } | null;
+  asumido?: string[];
 };
 
 function buildDraft(lead: Lead, pagos: Pago[]): Drafts {
   return {
+    monto: lead.monto_cierre_usd != null ? String(lead.monto_cierre_usd) : '', fechaCierre: lead.fecha_cierre ?? '', fechaInicioServicio: lead.fecha_inicio_servicio ?? '',
     razon: lead.deal_fiscal?.razon ?? '', idFiscal: lead.deal_fiscal?.id_fiscal ?? '', domicilio: lead.deal_fiscal?.domicilio ?? '', correo: lead.deal_fiscal?.correo ?? '',
     facturadoPor: lead.facturado_por_id != null ? String(lead.facturado_por_id) : '',
     queEs: lead.deal_servicio?.que_es ?? '', fechaInicio: lead.deal_servicio?.fecha_inicio ?? '', fechaTermino: lead.deal_servicio?.fecha_termino ?? '',
@@ -186,6 +190,7 @@ export type DealDetailsHandle = { save: () => Promise<void> };
 export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos: Pago[]; editing?: boolean }>(
   function DealDetailsCard({ lead, pagos, editing = false }, ref) {
   const router = useRouter();
+  const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
 
@@ -232,6 +237,9 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
         deal_promesa: { resultado: t(draft.resultado), garantia: t(draft.garantia) },
         deal_obligaciones: { cliente: lineas(draft.obCliente), prestador: lineas(draft.obPrestador) },
         facturado_por_id: draft.facturadoPor ? Number(draft.facturadoPor) : null,
+        monto_cierre_usd: draft.monto.trim() ? (parseFloat(draft.monto) || null) : null,
+        fecha_cierre: draft.fechaCierre || null,
+        fecha_inicio_servicio: draft.fechaInicioServicio || null,
       });
       if (draft.cuotasDirty) {
         await saveCuotasAction(lead.id, draft.cuotas.map((c) => ({ monto: parseFloat(c.monto) || 0, fecha: c.fecha || null, pagado: c.pagado })));
@@ -249,7 +257,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
   const cobrado = cuotasVista.filter((c) => c.pagado).reduce((s, c) => s + c.monto, 0);
   const total = cuotasVista.reduce((s, c) => s + c.monto, 0);
   const pend = total - cobrado;
-  const montoCierre = lead.monto_cierre_usd ?? 0;
+  const montoCierre = d ? (parseFloat(d.monto) || 0) : (lead.monto_cierre_usd ?? 0);
   const totalMostrar = total > 0 ? total : montoCierre;
   const pct = total > 0 ? Math.min(100, Math.round((cobrado / total) * 100)) : 0;
   const hayVencida = cuotasVista.some((c) => !c.pagado && c.fecha && diasHasta(c.fecha) < 0);
@@ -270,11 +278,11 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
     const rellenado: string[] = [];
     const marca = (l: string) => { if (!rellenado.includes(l)) rellenado.push(l); };
     const setIf = (k: keyof Drafts, val: string | null | undefined, label: string) => { if (val && !String(next[k]).trim()) { (next[k] as string) = val; marca(label); } };
-    setIf('razon', j.deal_fiscal?.razon, 'datos fiscales'); setIf('idFiscal', j.deal_fiscal?.id_fiscal, 'datos fiscales'); setIf('domicilio', j.deal_fiscal?.domicilio, 'datos fiscales'); setIf('correo', j.deal_fiscal?.correo, 'datos fiscales');
-    setIf('queEs', j.deal_servicio?.que_es, 'servicio'); setIf('fechaInicio', j.deal_servicio?.fecha_inicio, 'servicio'); setIf('fechaTermino', j.deal_servicio?.fecha_termino, 'servicio'); setIf('duracion', j.deal_servicio?.duracion, 'servicio'); setIf('frecuencia', j.deal_servicio?.frecuencia, 'servicio'); setIf('modalidad', j.deal_servicio?.modalidad, 'servicio'); setIf('sesiones', j.deal_servicio?.sesiones, 'servicio');
-    setIf('resultado', j.deal_promesa?.resultado, 'promesa'); setIf('garantia', j.deal_promesa?.garantia, 'promesa');
-    if (j.deal_obligaciones?.cliente?.length && !next.obCliente.trim()) { next.obCliente = j.deal_obligaciones.cliente.join('\n'); marca('obligaciones'); }
-    if (j.deal_obligaciones?.prestador?.length && !next.obPrestador.trim()) { next.obPrestador = j.deal_obligaciones.prestador.join('\n'); marca('obligaciones'); }
+    setIf('razon', j.fiscal?.razon, 'datos fiscales'); setIf('idFiscal', j.fiscal?.id_fiscal, 'datos fiscales'); setIf('domicilio', j.fiscal?.domicilio, 'datos fiscales'); setIf('correo', j.fiscal?.correo, 'datos fiscales');
+    setIf('queEs', j.servicio?.que_es, 'servicio'); setIf('fechaInicio', j.servicio?.fecha_inicio, 'servicio'); setIf('fechaTermino', j.servicio?.fecha_termino, 'servicio'); setIf('duracion', j.servicio?.duracion, 'servicio'); setIf('frecuencia', j.servicio?.frecuencia, 'servicio'); setIf('modalidad', j.servicio?.modalidad, 'servicio'); setIf('sesiones', j.servicio?.sesiones, 'servicio');
+    setIf('resultado', j.promesa?.resultado, 'promesa'); setIf('garantia', j.promesa?.garantia, 'promesa');
+    if (j.obligaciones?.cliente?.length && !next.obCliente.trim()) { next.obCliente = j.obligaciones.cliente.join('\n'); marca('obligaciones'); }
+    if (j.obligaciones?.prestador?.length && !next.obPrestador.trim()) { next.obPrestador = j.obligaciones.prestador.join('\n'); marca('obligaciones'); }
     const extraidas = (j.cuotas ?? []).filter((c) => Number(c?.monto) > 0);
     const hayCuotasCargadas = next.cuotas.some((c) => !c.pagado && (parseFloat(c.monto) || 0) > 0);
     if (extraidas.length > 0 && !hayCuotasCargadas) {
@@ -285,16 +293,20 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
     return rellenado;
   };
 
-  const subirContrato = async (file: File) => {
+  // file omitido → relee el contrato YA cargado del lead (Completar con IA).
+  const subirContrato = async (file?: File) => {
     setFeedback(null); setExtrayendo(true);
     try {
-      const fd = new FormData(); fd.append('file', file); fd.append('leadId', String(lead.id));
+      const fd = new FormData();
+      if (file) fd.append('file', file);
+      fd.append('leadId', String(lead.id));
       const r = await fetch('/api/extract-contract', { method: 'POST', body: fd });
       const j: ExtractResp = await r.json();
       if (j.error) throw new Error(j.error);
       if (j.contrato_nombre) setContratoSubido(j.contrato_nombre);
       const rellenado = aplicarExtraccion(j);
-      setFeedback({ kind: 'ok', msg: rellenado.length ? `Contrato leído. Se completó (solo lo vacío): ${rellenado.join(', ')}. Revisá y Guardá cambios.` : 'Contrato leído: no había campos vacíos para completar.' });
+      const asum = j.asumido?.length ? ` Asumido por defecto: ${j.asumido.join(', ')}.` : '';
+      setFeedback({ kind: 'ok', msg: rellenado.length ? `Contrato leído. Se completó (solo lo vacío): ${rellenado.join(', ')}.${asum} Revisá y Guardá cambios.` : `Contrato leído: no había campos vacíos para completar.${asum}` });
     } catch (err) {
       setFeedback({ kind: 'err', msg: `No se pudo leer el contrato: ${err instanceof Error ? err.message : String(err)}` });
     } finally { setExtrayendo(false); if (fileRef.current) fileRef.current.value = ''; }
@@ -323,6 +335,17 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
     });
   };
 
+  // "Completar con IA" desde la vista abre la edición con ?ia=1 → corre la
+  // extracción del contrato ya cargado apenas monta el editor (una sola vez).
+  const iaRan = useRef(false);
+  useEffect(() => {
+    if (d && !iaRan.current && sp.get('ia') === '1' && (lead.contrato_path || contratoSubido)) {
+      iaRan.current = true;
+      void subirContrato();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d]);
+
   const identSel = lead.facturado_por_id != null ? identidades?.find((i) => i.id === lead.facturado_por_id) : undefined;
   const facturadoPorTexto = lead.facturado_por_id == null ? '—' : identSel ? `${identSel.nombre}${identSel.id_fiscal ? ` · ${identSel.id_fiscal}` : ''}` : identidades === null ? 'Cargando…' : '—';
 
@@ -331,19 +354,22 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
       {feedback && <div style={bannerStyle(feedback.kind)}>{feedback.msg}</div>}
       {dealIncompleto && (
         <div style={{ ...bannerStyle('warn'), display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <span>Este deal está ganado pero le faltan datos. Entrá a <b>Editar</b> y usá <b>Completar con IA</b> (contrato) o subí el documento fiscal.</span>
-          <Link href="?edit=1&tab=cobranza" style={{ ...primaryBtn, padding: '8px 14px', textDecoration: 'none' }}>Editar y completar</Link>
+          <span>Este deal está ganado pero le faltan datos. Completalos con el contrato, el documento fiscal o a mano.</span>
+          {/* Vista: "Completar con IA" abre la edición y corre la extracción sola (ia=1). */}
+          <Link href="?edit=1&tab=cobranza&ia=1" style={{ ...primaryBtn, padding: '8px 14px', textDecoration: 'none' }}>✦ Completar con IA</Link>
         </div>
       )}
 
-      {/* En edición: acciones de IA arriba (rellenan todas las secciones vacías). */}
+      {/* En edición: acciones de IA. "Completar con IA" relee el contrato ya
+          cargado (o pide uno si no hay); "Subir otro" reemplaza el contrato. */}
       {d && (
         <div style={{ ...mini, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirContrato(f); }} />
-          <button type="button" style={{ ...outlineBtn, opacity: extrayendo ? 0.6 : 1 }} onClick={() => fileRef.current?.click()} disabled={extrayendo}>
+          <button type="button" style={{ ...outlineBtn, opacity: extrayendo ? 0.6 : 1 }} onClick={() => (tieneContrato ? void subirContrato() : fileRef.current?.click())} disabled={extrayendo}>
             {extrayendo ? 'Leyendo contrato…' : '✦ Completar con IA (contrato)'}
           </button>
-          <span style={{ fontSize: 12, color: 'var(--faint)' }}>Lee el contrato y completa Servicio, Promesa, Obligaciones y Datos fiscales (solo lo vacío).</span>
+          {tieneContrato && <button type="button" style={ghostBtn} onClick={() => fileRef.current?.click()} disabled={extrayendo}>Subir otro contrato</button>}
+          <span style={{ fontSize: 12, color: 'var(--faint)' }}>{tieneContrato ? 'Relee el contrato cargado y completa Servicio, Promesa, Obligaciones y Datos fiscales (solo lo vacío).' : 'Subí el contrato y completa las secciones solas.'}</span>
         </div>
       )}
 
@@ -369,15 +395,28 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
         </div>
         {total > 0 && <div style={{ height: 8, borderRadius: 999, background: 'var(--border)', marginTop: 12, overflow: 'hidden' }}><div style={{ width: `${pct}%`, height: '100%', background: 'var(--good)', transition: 'width .3s' }} /></div>}
 
-        {/* Contrato */}
+        {/* Cierre (monto + fechas) — ahora DENTRO de Pagos (solo edición). */}
+        {d && (
+          <div style={{ ...mini, marginTop: 16 }}>
+            <div style={{ ...miniLabel, marginBottom: 10 }}>Cierre</div>
+            <div style={grid2}>
+              <Field label="Monto del cierre (USD)"><input className="lead-field" type="number" min={0} step="0.01" value={d.monto} onChange={(e) => upd({ monto: e.target.value })} /></Field>
+              <Field label="Fecha de cierre"><input className="lead-field" type="date" value={d.fechaCierre} onChange={(e) => upd({ fechaCierre: e.target.value })} /></Field>
+              <Field label="Inicio de servicio (opcional)"><input className="lead-field" type="date" value={d.fechaInicioServicio} onChange={(e) => upd({ fechaInicioServicio: e.target.value })} /></Field>
+            </div>
+          </div>
+        )}
+
+        {/* Contrato — con su propio botón para subir/reemplazar (en edición). */}
         <div style={docstrip}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{contratoNombre ?? 'Sin contrato cargado'}</div>
-            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{tieneContrato ? 'El contrato ya está cargado.' : 'Subí el contrato en Editar → Completar con IA.'}</div>
+            <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{tieneContrato ? 'El contrato ya está cargado.' : 'Subí el contrato (PDF o foto).'}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {tieneContrato && <button type="button" style={ghostBtn} onClick={() => setVerContrato((v) => !v)}>{verContrato ? 'Cerrar contrato' : 'Ver contrato'}</button>}
             {tieneContrato && <a href={`/api/contract?leadId=${lead.id}`} style={{ ...ghostBtn, textDecoration: 'none', display: 'inline-block' }}>Descargar</a>}
+            {d && <button type="button" style={{ ...outlineBtn, opacity: extrayendo ? 0.6 : 1 }} onClick={() => fileRef.current?.click()} disabled={extrayendo}>{extrayendo ? 'Leyendo…' : tieneContrato ? 'Reemplazar contrato' : 'Subir contrato'}</button>}
           </div>
         </div>
         {verContrato && tieneContrato && <DocViewer src={`/api/doc?leadId=${lead.id}&kind=contrato`} nombre={contratoNombre ?? 'Contrato'} onClose={() => setVerContrato(false)} />}

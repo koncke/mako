@@ -680,10 +680,12 @@ export type LeadEditorInput = {
   asistio_j2: boolean | null;
   calificado: boolean | null;
   motivo_perdida: string | null;
-  monto_cierre_usd: number | null;
-  fecha_cierre: string | null;
+  // Cierre: lo edita el DealDetailsCard (dentro de Pagos). Opcionales acá: si no
+  // vienen, saveLeadEditorAction NO los toca (el card los guarda por su cuenta).
+  monto_cierre_usd?: number | null;
+  fecha_cierre?: string | null;
+  fecha_inicio_servicio?: string | null;
   fecha_confirmacion: string | null;
-  fecha_inicio_servicio: string | null;
   closer: string | null;
   setter: string | null;
   fathom_links: FathomLink[];
@@ -701,22 +703,24 @@ export async function saveLeadEditorAction(id: number, p: LeadEditorInput): Prom
   const estado = terminalEstadoFor(p.stage);
   const esGanado = estado === 'ganado';
   const esLost = estado === 'perdido' || estado === 'descalificado';
-  // Backstop server-side: Ganado sin monto positivo cuenta $0 en Revenue. El form
-  // ya lo valida en el cliente; esto lo garantiza para cualquier caller.
-  if (esGanado && !(Number(p.monto_cierre_usd) > 0)) {
+  // Backstop: Ganado sin monto positivo cuenta $0. Solo si el caller ENVÍA el
+  // monto (el editor de la ficha ya no lo manda: lo maneja el DealDetailsCard).
+  if (esGanado && p.monto_cierre_usd !== undefined && !(Number(p.monto_cierre_usd) > 0)) {
     throw new Error('Para Ganado, el monto de cierre debe ser un número positivo.');
   }
-  await updateLead(id, {
+  const upd: Parameters<typeof updateLead>[1] = {
     nombre: p.nombre ?? undefined, email: p.email, telefono: p.telefono, empresa: p.empresa,
     fecha_agenda: p.fecha_agenda, fecha_junta_1: p.fecha_junta_1, fecha_junta_2: p.fecha_junta_2,
     asistio_j1: p.asistio_j1, asistio_j2: p.asistio_j2, calificado: p.calificado,
     estado_lead: estado,
     motivo_perdida: esLost ? p.motivo_perdida : null,
-    monto_cierre_usd: esGanado ? p.monto_cierre_usd : null,
-    fecha_cierre: esGanado ? p.fecha_cierre : null,
     fecha_confirmacion: p.fecha_confirmacion,
-    fecha_inicio_servicio: esGanado ? p.fecha_inicio_servicio : null,
-  });
+  };
+  // El Cierre solo se toca si el caller lo mandó (ver LeadEditorInput).
+  if (p.monto_cierre_usd !== undefined) upd.monto_cierre_usd = esGanado ? p.monto_cierre_usd : null;
+  if (p.fecha_cierre !== undefined) upd.fecha_cierre = esGanado ? p.fecha_cierre : null;
+  if (p.fecha_inicio_servicio !== undefined) upd.fecha_inicio_servicio = esGanado ? p.fecha_inicio_servicio : null;
+  await updateLead(id, upd);
   await saveLeadMeta(id, { closer: p.closer, setter: p.setter, fathom_links: p.fathom_links });
   await setBoardStageOverride(id, p.stage, p.deadline);
   const after = await getLead(id).catch(() => null);

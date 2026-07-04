@@ -55,10 +55,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   const [calificado, setCalificado] = useState<TriState>(lead.calificado);
 
   const [motivo, setMotivo] = useState(lead.motivo_perdida ?? '');
-  const [monto, setMonto] = useState<string>(lead.monto_cierre_usd?.toString() ?? '');
-  const [fechaCierre, setFechaCierre] = useState(lead.fecha_cierre ?? '');
   const [fechaConfirmacion, setFechaConfirmacion] = useState(lead.fecha_confirmacion ?? '');
-  const [fechaInicioServicio, setFechaInicioServicio] = useState(lead.fecha_inicio_servicio ?? '');
 
   const [closer, setCloser] = useState(lead.closer ?? '');
   const [setter, setSetter] = useState(lead.setter ?? '');
@@ -93,8 +90,6 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
     setFeedback(null);
     if (!nombre.trim()) { setFeedback({ kind: 'err', msg: 'El nombre es obligatorio.' }); return; }
     if (isManual && !deadline) { setFeedback({ kind: 'err', msg: 'Para "Nutrición - Manual" tenés que poner una fecha límite.' }); return; }
-    // Un lead en Ganado necesita un monto positivo para poder guardarse.
-    if (isGanado && !(parseFloat(monto) > 0)) { setFeedback({ kind: 'err', msg: 'Para Ganado, el monto de cierre debe ser un número positivo.' }); return; }
 
     const payload: LeadEditorInput = {
       stage,
@@ -110,10 +105,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
       asistio_j2: asistioJ2,
       calificado,
       motivo_perdida: motivo.trim() || null,
-      monto_cierre_usd: monto ? parseFloat(monto) : null,
-      fecha_cierre: fechaCierre || null,
       fecha_confirmacion: fechaConfirmacion || null,
-      fecha_inicio_servicio: fechaInicioServicio || null,
       closer: closer.trim() || null,
       setter: setter.trim() || null,
       fathom_links: fathom.filter((f) => f.url.trim() || f.label.trim()),
@@ -138,9 +130,6 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
     dif('Asistió R2', lead.asistio_j2, payload.asistio_j2);
     dif('Confirmación de pago', lead.fecha_confirmacion, payload.fecha_confirmacion);
     dif('Motivo', lead.motivo_perdida, payload.motivo_perdida);
-    dif('Monto de cierre', lead.monto_cierre_usd, payload.monto_cierre_usd);
-    dif('Fecha de cierre', lead.fecha_cierre, payload.fecha_cierre);
-    dif('Inicio de servicio', lead.fecha_inicio_servicio, payload.fecha_inicio_servicio);
     dif('Closer', lead.closer, payload.closer);
     dif('Setter', lead.setter, payload.setter);
     dif('Deadline de nutrición', lead.nutricion_manual_deadline, payload.deadline);
@@ -170,9 +159,10 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
     setConfirmSave(null);
     startTransition(async () => {
       try {
-        await saveLeadEditorAction(lead.id, payload);
-        // Guardar también las secciones del deal (mismo botón).
+        // El deal (incl. el Cierre: monto/fecha) se guarda PRIMERO; así el update
+        // de estado de saveLeadEditorAction ve el monto fresco (invariante ganado).
         await dealRef.current?.save();
+        await saveLeadEditorAction(lead.id, payload);
         router.refresh();
         // Al confirmar, volver a la tab donde estaba el usuario.
         if (onDone) onDone();
@@ -276,16 +266,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
 
   const tabCobranzaEdit = (isGanado || stage === 'facturando' || pagos.length > 0) ? (
     <>
-      {isGanado && (
-        <section style={card}>
-          <div style={{ ...sectLabel, marginBottom: 16 }}>Cierre</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            <Field label="Monto del cierre (USD)" required><input className="lead-field" type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} /></Field>
-            <Field label="Fecha de cierre"><input className="lead-field" type="date" value={fechaCierre} onChange={(e) => setFechaCierre(e.target.value)} /></Field>
-            <Field label="Fecha inicio de servicio (opcional)"><input className="lead-field" type="date" value={fechaInicioServicio} onChange={(e) => setFechaInicioServicio(e.target.value)} /></Field>
-          </div>
-        </section>
-      )}
+      {/* El Cierre (monto/fecha) vive DENTRO de Pagos en el DealDetailsCard. */}
       {/* Un solo modo de edición: acá el deal se edita inline (editing) y se
           guarda con el mismo "Guardar cambios" (vía dealRef). Sin botón propio. */}
       <DealDetailsCard ref={dealRef} lead={lead} pagos={pagos} editing />

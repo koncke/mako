@@ -26,43 +26,53 @@ export async function POST(req: NextRequest) {
   try { form = await req.formData(); } catch { return Response.json({ error: 'form inválido' }, { status: 400 }); }
   const file = form.get('file') as File | null;
   const leadId = Number(form.get('leadId'));
-  if (!file || typeof file.arrayBuffer !== 'function') return Response.json({ error: 'falta el archivo' }, { status: 400 });
 
-  const buf = Buffer.from(await file.arrayBuffer());
-  if (buf.length > MAX_BYTES) return Response.json({ error: `archivo muy grande (${(buf.length / 1048576).toFixed(1)} MB > 20 MB)` }, { status: 400 });
-  const mime = file.type || 'application/octet-stream';
-  const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
-
-  // Guardar el archivo en Storage y registrarlo en el lead.
+  const supabase = (await getTenantDb());
+  let buf: Buffer;
+  let mime: string;
+  let nombreArchivo: string;
   let contrato_nombre: string | null = null;
-  if (Number.isFinite(leadId) && leadId > 0) {
-    try {
-      const supabase = (await getTenantDb());
-      // Storage NO se scopea por workspace (getTenantDb solo envuelve .from(table)).
-      // Verificamos que el lead sea del workspace del caller ANTES de escribir, y
-      // prefijamos el path con el workspace_id para evitar pisar contratos ajenos.
-      const { data: leadRow } = await supabase.from('leads').select('id').eq('id', leadId).maybeSingle();
-      const ws = await getWorkspaceActual();
-      if (leadRow?.id && ws != null) {
-        const safe = (file.name || 'contrato').replace(/[^\w.\-]+/g, '_').slice(-80);
-        const path = `${ws}/${leadId}/${Date.now()}_${safe}`;
-        const { error: upErr } = await supabase.storage.from('contratos').upload(path, buf, { contentType: mime, upsert: true });
-        if (!upErr) {
-          contrato_nombre = file.name || safe;
-          await supabase.from('leads').update({ contrato_path: path, contrato_nombre }).eq('id', leadId);
-        } else {
-          console.warn('[extract-contract] storage:', upErr.message);
+
+  if (file && typeof file.arrayBuffer === 'function') {
+    // Camino A: subieron un archivo nuevo → guardarlo y usarlo.
+    buf = Buffer.from(await file.arrayBuffer());
+    if (buf.length > MAX_BYTES) return Response.json({ error: `archivo muy grande (${(buf.length / 1048576).toFixed(1)} MB > 20 MB)` }, { status: 400 });
+    mime = file.type || 'application/octet-stream';
+    nombreArchivo = file.name || 'contrato';
+    if (Number.isFinite(leadId) && leadId > 0) {
+      try {
+        const { data: leadRow } = await supabase.from('leads').select('id').eq('id', leadId).maybeSingle();
+        const ws = await getWorkspaceActual();
+        if (leadRow?.id && ws != null) {
+          const safe = nombreArchivo.replace(/[^\w.\-]+/g, '_').slice(-80);
+          const path = `${ws}/${leadId}/${Date.now()}_${safe}`;
+          const { error: upErr } = await supabase.storage.from('contratos').upload(path, buf, { contentType: mime, upsert: true });
+          if (!upErr) { contrato_nombre = nombreArchivo; await supabase.from('leads').update({ contrato_path: path, contrato_nombre }).eq('id', leadId); }
+          else console.warn('[extract-contract] storage:', upErr.message);
         }
-      }
-    } catch (e) { console.warn('[extract-contract] storage falló:', e instanceof Error ? e.message : String(e)); }
+      } catch (e) { console.warn('[extract-contract] storage falló:', e instanceof Error ? e.message : String(e)); }
+    }
+  } else {
+    // Camino B: sin archivo → releer el contrato YA cargado del lead (Completar con IA).
+    if (!Number.isFinite(leadId) || leadId <= 0) return Response.json({ error: 'falta el archivo' }, { status: 400 });
+    const { data: leadRow } = await supabase.from('leads').select('id, contrato_path, contrato_nombre').eq('id', leadId).maybeSingle();
+    const cp = (leadRow as { contrato_path?: string | null; contrato_nombre?: string | null } | null)?.contrato_path;
+    if (!cp) return Response.json({ error: 'no hay contrato cargado para releer' }, { status: 400 });
+    const { data: blob, error: dlErr } = await supabase.storage.from('contratos').download(cp);
+    if (dlErr || !blob) return Response.json({ error: `no se pudo leer el contrato guardado: ${dlErr?.message ?? ''}` }, { status: 500 });
+    buf = Buffer.from(await blob.arrayBuffer());
+    mime = blob.type || (cp.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+    nombreArchivo = (leadRow as { contrato_nombre?: string | null }).contrato_nombre ?? 'contrato.pdf';
+    contrato_nombre = nombreArchivo;
   }
+  const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
 
   const prompt = await getPromptText('contracts.extract_payment_plan.user', CONTRACT_EXTRACT_DEFAULT);
 
   // PDF → documento; imagen → visión.
-  const isPdf = mime.includes('pdf') || (file.name || '').toLowerCase().endsWith('.pdf');
+  const isPdf = mime.includes('pdf') || nombreArchivo.toLowerCase().endsWith('.pdf');
   const content = isPdf
-    ? [{ type: 'text', text: prompt }, { type: 'file', file: { filename: file.name || 'contrato.pdf', file_data: dataUrl } }]
+    ? [{ type: 'text', text: prompt }, { type: 'file', file: { filename: nombreArchivo.toLowerCase().endsWith('.pdf') ? nombreArchivo : 'contrato.pdf', file_data: dataUrl } }]
     : [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } }];
 
   try {
@@ -76,13 +86,18 @@ export async function POST(req: NextRequest) {
     let parsed: Record<string, unknown> = {};
     try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta' }, { status: 502 }); }
 
-    // Autollenado del lead: SOLO campos vacíos (fill-if-empty, nunca pisar).
-    if (Number.isFinite(leadId) && leadId > 0) {
-      try { await rellenarLeadSiVacio(leadId, parsed); }
-      catch (e) { console.warn('[extract-contract] autollenado falló:', e instanceof Error ? e.message : String(e)); }
+    const servicio = (parsed.servicio ?? {}) as Record<string, unknown>;
+    const asumido: string[] = [];
+    // Defaults: modalidad → Online; frecuencia → 1 vez por semana; término = inicio + duración.
+    if (!txt(servicio.modalidad)) { servicio.modalidad = 'Online'; asumido.push('modalidad: Online'); }
+    if (!txt(servicio.frecuencia)) { servicio.frecuencia = '1 vez por semana'; asumido.push('frecuencia: 1 vez por semana'); }
+    if (!txt(servicio.fecha_termino)) {
+      const term = calcTermino(txt(servicio.fecha_inicio) ?? txt(parsed.fecha_inicio), txt(servicio.duracion), parsed.duracion_meses);
+      if (term) { servicio.fecha_termino = term; asumido.push('fecha de término (calculada)'); }
     }
 
-    // Devolvemos TODO lo extraído para que la UI muestre qué encontró la IA.
+    // NO se guarda nada en el lead: la UI llena el borrador y guarda con "Guardar
+    // cambios" (así los datos aparecen al toque y no se persisten sin confirmar).
     return Response.json({
       total_usd: parsed.total_usd ?? null,
       duracion_meses: parsed.duracion_meses ?? null,
@@ -91,10 +106,11 @@ export async function POST(req: NextRequest) {
       cuotas: Array.isArray(parsed.cuotas) ? parsed.cuotas : [],
       empresa: parsed.empresa ?? null,
       fiscal: parsed.fiscal ?? null,
-      servicio: parsed.servicio ?? null,
+      servicio,
       promesa: parsed.promesa ?? null,
       obligaciones: parsed.obligaciones ?? null,
       nota: parsed.nota ?? null,
+      asumido,
       contrato_nombre,
     });
   } catch (err) {
@@ -102,69 +118,16 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Fill-if-empty: completa en el lead SOLO lo que esté vacío. Lo cargado a mano
-// (o por una extracción anterior) NO se pisa jamás.
-// ─────────────────────────────────────────────────────────────────────────────
+const txt = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
-type Json = Record<string, unknown>;
-
-const texto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
-const vacio = (v: unknown): boolean => v == null || (typeof v === 'string' && !v.trim());
-const lista = (v: unknown): string[] =>
-  Array.isArray(v) ? v.map((x) => (typeof x === 'string' ? x.trim() : '')).filter(Boolean) : [];
-
-// Merge por campo de una sección jsonb: conserva TODO lo existente (incluidos
-// campos ajenos como doc_path/doc_nombre) y solo llena los declarados vacíos.
-function mergeSeccion(actual: unknown, extraido: unknown, campos: string[]): Json | null {
-  if (!extraido || typeof extraido !== 'object') return null;
-  const base: Json = { ...((actual as Json | null) ?? {}) };
-  let cambio = false;
-  for (const c of campos) {
-    const nuevo = texto((extraido as Json)[c]);
-    if (vacio(base[c]) && nuevo) { base[c] = nuevo; cambio = true; }
-  }
-  return cambio ? base : null;
-}
-
-async function rellenarLeadSiVacio(leadId: number, parsed: Json): Promise<void> {
-  const supabase = (await getTenantDb());
-  const { data: lead } = await supabase
-    .from('leads')
-    .select('empresa, deal_fiscal, deal_servicio, deal_promesa, deal_obligaciones')
-    .eq('id', leadId)
-    .maybeSingle();
-  if (!lead) return; // lead de otro workspace (o inexistente) → no tocar nada
-
-  const upd: Json = {};
-
-  // empresa (vive en otras tabs del lead): la completa el contrato si falta.
-  const empresaNueva = texto(parsed.empresa) ?? texto((parsed.fiscal as Json | null)?.razon);
-  if (vacio(lead.empresa) && empresaNueva) upd.empresa = empresaNueva;
-
-  const fiscal = mergeSeccion(lead.deal_fiscal, parsed.fiscal, ['razon', 'id_fiscal', 'domicilio', 'correo']);
-  if (fiscal) upd.deal_fiscal = fiscal;
-
-  const servicio = mergeSeccion(lead.deal_servicio, parsed.servicio, ['que_es', 'fecha_inicio', 'fecha_termino', 'duracion', 'frecuencia', 'modalidad', 'sesiones']);
-  if (servicio) upd.deal_servicio = servicio;
-
-  const promesa = mergeSeccion(lead.deal_promesa, parsed.promesa, ['resultado', 'garantia']);
-  if (promesa) upd.deal_promesa = promesa;
-
-  // Obligaciones: listas — solo se llenan si la lista actual está vacía.
-  const oblExt = (parsed.obligaciones ?? null) as Json | null;
-  if (oblExt && typeof oblExt === 'object') {
-    const oblAct = ((lead.deal_obligaciones as Json | null) ?? {});
-    const nueva: Json = { ...oblAct };
-    let cambio = false;
-    for (const lado of ['cliente', 'prestador'] as const) {
-      const extraida = lista(oblExt[lado]);
-      if (lista(oblAct[lado]).length === 0 && extraida.length > 0) { nueva[lado] = extraida; cambio = true; }
-    }
-    if (cambio) upd.deal_obligaciones = nueva;
-  }
-
-  if (Object.keys(upd).length === 0) return;
-  const { error } = await supabase.from('leads').update(upd).eq('id', leadId);
-  if (error) throw new Error(error.message);
+// fecha_inicio (YYYY-MM-DD) + duración (meses, de duracion_meses o texto tipo
+// "3 meses") → fecha_termino calculada. null si no hay datos suficientes.
+function calcTermino(inicio: string | null, duracionTxt: string | null, duracionMeses: unknown): string | null {
+  if (!inicio || !/^\d{4}-\d{2}-\d{2}/.test(inicio)) return null;
+  let meses: number | null = typeof duracionMeses === 'number' && Number.isFinite(duracionMeses) ? duracionMeses : null;
+  if (meses == null && duracionTxt) { const m = duracionTxt.match(/(\d+)\s*mes/i); if (m) meses = Number(m[1]); }
+  if (meses == null || meses <= 0) return null;
+  const [y, mo, d] = inicio.slice(0, 10).split('-').map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1 + meses, Math.min(d, 28)));
+  return dt.toISOString().slice(0, 10);
 }

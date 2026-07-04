@@ -121,6 +121,10 @@ export type DealSectionsInput = {
   deal_promesa?: Lead['deal_promesa'];
   deal_obligaciones?: Lead['deal_obligaciones'];
   facturado_por_id?: number | null;
+  // Cierre (vive dentro de Pagos): monto, fecha de cierre, inicio de servicio.
+  monto_cierre_usd?: number | null;
+  fecha_cierre?: string | null;
+  fecha_inicio_servicio?: string | null;
 };
 
 /**
@@ -135,6 +139,9 @@ export async function saveDealSectionsAction(leadId: number, patch: DealSections
   if (patch.deal_promesa !== undefined) { upd.deal_promesa = patch.deal_promesa; tocadas.push('promesa'); }
   if (patch.deal_obligaciones !== undefined) { upd.deal_obligaciones = patch.deal_obligaciones; tocadas.push('obligaciones'); }
   if (patch.facturado_por_id !== undefined) { upd.facturado_por_id = patch.facturado_por_id; tocadas.push('facturado por'); }
+  if (patch.monto_cierre_usd !== undefined) { upd.monto_cierre_usd = patch.monto_cierre_usd; tocadas.push('monto de cierre'); }
+  if (patch.fecha_cierre !== undefined) { upd.fecha_cierre = patch.fecha_cierre; tocadas.push('fecha de cierre'); }
+  if (patch.fecha_inicio_servicio !== undefined) { upd.fecha_inicio_servicio = patch.fecha_inicio_servicio; tocadas.push('inicio de servicio'); }
   if (Object.keys(upd).length === 0) return;
 
   const { error } = await (await getTenantDb()).from('leads').update(upd).eq('id', leadId);
