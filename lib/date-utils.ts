@@ -93,6 +93,19 @@ export function primerDiaDelMesDeFecha(fecha: string): string {
 }
 
 /**
+ * Devuelve el ÚLTIMO día del mes que contiene la fecha dada (YYYY-MM-DD).
+ * Trabaja en UTC: el día 0 del mes siguiente es el último del mes actual.
+ */
+export function finDeMesDeFecha(fecha: string): string {
+  const [y, m] = fecha.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m, 0));
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+/**
  * Devuelve el LUNES de la semana actual en zona Tijuana, formato 'YYYY-MM-DD'.
  * Si hoy es lunes, devuelve hoy.
  */

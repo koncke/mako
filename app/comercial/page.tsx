@@ -37,7 +37,7 @@ import {
   type FunnelLeadItem,
   type SCLLeadItem,
 } from '@/lib/queries';
-import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns } from '@/lib/pagos';
+import { getOutstandingDetalle, getRevenueBreakdowns, type OutstandingLead, type RevenueBreakdowns, type RevItem } from '@/lib/pagos';
 import { RevenueKpis, type RevCard } from './RevenueKpis';
 import { DesgloseTrigger, type DesgloseData, type DesgloseItem } from '../_components/Desglose';
 import { ChartIA, MakoButton } from '../_components/ChartIA';
@@ -49,6 +49,7 @@ import {
   hoyEnTijuana,
   esFechaValida,
   primerDiaDelMesDeFecha,
+  finDeMesDeFecha,
   lunesDeFecha,
   fmtDDMMYYYY,
   diasAntes,
@@ -156,13 +157,26 @@ export default async function ComercialPage({
   const revDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
   const revHasta = filtroActivo ? hastaParam! : ayerReal;
 
+  // Ventana de Outstanding — mira hacia ADELANTE ("lo que falta cobrar"). El
+  // filtro capa `hasta` a hoy (correcto para Sold/Cash pasados), pero las cuotas
+  // que vencen MÁS ADELANTE del mismo mes también entran en "lo que vence este
+  // mes": por eso el tope se extiende al fin de mes de `hasta`. "Máximo" / sin
+  // filtro → sin ventana = pipeline completo (incluye cuotas de meses futuros).
+  const FECHA_OP_INICIO = '2025-11-01';
+  const outEsTotal = !filtroActivo || desdeParam! <= FECHA_OP_INICIO;
+  const outDesde = outEsTotal ? null : desdeParam!;
+  const outHasta = outEsTotal ? null : finDeMesDeFecha(hastaParam!);
+  const outSub = outEsTotal
+    ? 'cuotas por cobrar · todo el pipeline'
+    : `cuotas que vencen · ${fmtDDMMYYYY(outDesde!)} → ${fmtDDMMYYYY(outHasta!)}`;
+
   let semanales: CohorteSemana[] = [];
   let mensuales: CohorteMes[] = [];
   let scl: SCL | null = null;
   let maduras: ResumenComercialMaduras | null = null;
   let tramos: TramosSCL | null = null;
   let revenue: RevenuePeriod | null = null;
-  let outstanding: { items: OutstandingLead[]; total: number } = { items: [], total: 0 };
+  let outstanding: { items: OutstandingLead[]; total: number; cuotas: RevItem[] } = { items: [], total: 0, cuotas: [] };
   let cac: CACAcumulado | null = null;
   let breakdowns: RevenueBreakdowns = { sold: [], cash: [], outstanding: [] };
   let funnelLeads: FunnelMadurasLeads | null = null;
@@ -179,7 +193,7 @@ export default async function ComercialPage({
       getResumenComercialMaduras(rangoDesde, rangoHasta),
       getTramosSCL(),
       getRevenuePeriod(revDesde, revHasta),
-      getOutstandingDetalle(hoyReal, rangoDesde, rangoHasta),
+      getOutstandingDetalle(hoyReal, outDesde, outHasta),
       getCACAcumulado(),
       getRevenueBreakdowns(revDesde, revHasta),
       getFunnelMadurasLeads(rangoDesde, rangoHasta),
@@ -260,7 +274,7 @@ export default async function ComercialPage({
         <ErrorCard message={errorMsg} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sect-gap)' }}>
-          {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} />}
+          {revenue && <RevenueSection revenue={revenue} outstanding={outstanding} breakdowns={breakdowns} outSub={outSub} />}
 
           {revenueMensual.length > 0 && (
             <section style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 'var(--card-pad)' }}>
@@ -323,13 +337,17 @@ function RevenueSection({
   revenue,
   outstanding,
   breakdowns,
+  outSub,
 }: {
   revenue: RevenuePeriod;
-  outstanding: { items: OutstandingLead[]; total: number };
+  outstanding: { items: OutstandingLead[]; total: number; cuotas: RevItem[] };
   breakdowns: RevenueBreakdowns;
+  outSub: string;
 }) {
   const cash = revenue.cash_collected_usd;
-  const out = revenue.outstanding_usd;
+  // Outstanding del período: mismo número, desglose y tabla, todos de
+  // getOutstandingDetalle (ventana forward-looking), para que siempre coincidan.
+  const out = outstanding.total;
   const totalRef = cash + out;
   const pctCash = totalRef > 0 ? Math.round((cash / totalRef) * 100) : 0;
   const pctOut = 100 - pctCash;
@@ -364,7 +382,7 @@ function RevenueSection({
         cards={[
           { key: 'sold', label: 'Sold Revenue', value: fmtUSD(revenue.sold_revenue_usd), color: 'var(--accent)', sub: `${revenue.cierres_en_periodo} cierre${revenue.cierres_en_periodo === 1 ? '' : 's'} en el período`, fechaLabel: 'cierre', items: breakdowns.sold },
           { key: 'cash', label: 'Cash Collected', value: fmtUSD(cash), color: 'var(--good)', sub: `incluye cuotas previas · ${revenue.primeros_pagos_en_periodo} primeros pagos`, fechaLabel: 'pago', items: breakdowns.cash },
-          { key: 'out', label: 'Outstanding', value: fmtUSD(out), color: 'var(--bad)', sub: 'cuotas por cobrar (vencen desde el inicio del rango)', fechaLabel: 'vence', items: breakdowns.outstanding },
+          { key: 'out', label: 'Outstanding', value: fmtUSD(out), color: 'var(--bad)', sub: outSub, fechaLabel: 'vence', items: outstanding.cuotas },
         ] satisfies RevCard[]}
       />
 

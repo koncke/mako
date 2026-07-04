@@ -390,16 +390,21 @@ export type OutstandingLead = {
 /**
  * Detalle nominal del outstanding (Fase 13): un renglón por lead con cuotas
  * pendientes. La suma de pendiente_usd iguala getOutstandingTotal().
+ *
+ * Devuelve además `cuotas`: un renglón POR CUOTA sin pagar dentro de la ventana
+ * (para el desglose del KPI "Outstanding" del pop-up), ordenadas por
+ * vencimiento. Así el número, el desglose y la tabla "a quién cobrarle" salen
+ * TODOS de la misma query y quedan siempre coherentes entre sí.
  */
 export const getOutstandingDetalle = cachedRead('getOutstandingDetalle', _getOutstandingDetalle, { tags: [TAG.pagos], revalidate: TTL.user });
 async function _getOutstandingDetalle(
   hoy: string = new Date().toISOString().slice(0, 10),
-  // Rango opcional (filtro de fecha de Comercial): si viene, solo cuenta deals
-  // CERRADOS dentro de [desde, hasta] — igual que Revenue sold/cash. Sin rango,
-  // es el outstanding total a hoy.
+  // Ventana opcional (filtro de fecha de Comercial): Outstanding mira hacia
+  // ADELANTE, así que acota por VENCIMIENTO (fecha_esperada) de las cuotas sin
+  // pagar dentro de [desde, hasta]. Sin ventana, es el pipeline completo a hoy.
   desde: string | null = null,
   hasta: string | null = null,
-): Promise<{ items: OutstandingLead[]; total: number }> {
+): Promise<{ items: OutstandingLead[]; total: number; cuotas: RevItem[] }> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('pagos')
@@ -426,12 +431,14 @@ async function _getOutstandingDetalle(
   const [hy, hm, hd] = hoy.split('-').map(Number);
   const hoyUTC = Date.UTC(hy, hm - 1, hd);
   const items: OutstandingLead[] = [];
+  const cuotas: RevItem[] = [];
+  const cuotaLabel = (n: number) => (n === 0 ? 'cobro inicial' : `cuota ${n}`);
 
   for (const [leadId, rows] of porLead) {
     let noPagados = rows.filter((r) => !r.pagado);
     // Filtro de fecha de Comercial: "lo que se está por cobrar en el intervalo"
-    // = cuotas SIN pagar cuyo VENCIMIENTO (fecha_esperada) cae dentro del rango.
-    // Sin rango, es el outstanding total a hoy.
+    // = cuotas SIN pagar cuyo VENCIMIENTO (fecha_esperada) cae dentro de la
+    // ventana. Sin ventana, es el outstanding total a hoy.
     if (desde && hasta) {
       noPagados = noPagados.filter((r) => r.fecha_esperada && r.fecha_esperada >= desde && r.fecha_esperada <= hasta);
     }
@@ -439,6 +446,7 @@ async function _getOutstandingDetalle(
     if (pendiente <= 0) continue;
     const cobrado = rows.filter((r) => r.pagado).reduce((s, r) => s + Number(r.monto_usd), 0);
     const rel = Array.isArray(rows[0].leads) ? rows[0].leads[0] : rows[0].leads;
+    const nombre = rel?.nombre ?? `Lead #${leadId}`;
     const fechaCierre = rel?.fecha_cierre ?? null;
     const conFecha = noPagados.filter((r) => r.fecha_esperada).sort((a, b) => (a.fecha_esperada! < b.fecha_esperada! ? -1 : 1));
     const prox = conFecha[0] ?? noPagados[0];
@@ -449,7 +457,7 @@ async function _getOutstandingDetalle(
     }
     items.push({
       lead_id: leadId,
-      lead_nombre: rel?.nombre ?? `Lead #${leadId}`,
+      lead_nombre: nombre,
       vendido_usd: rel?.monto_cierre_usd ?? null,
       cobrado_usd: cobrado,
       pendiente_usd: pendiente,
@@ -457,11 +465,16 @@ async function _getOutstandingDetalle(
       dias_desde_cierre: dias,
       fecha_cierre: fechaCierre,
     });
+    for (const r of noPagados) {
+      cuotas.push({ nombre, monto: Number(r.monto_usd), fecha: r.fecha_esperada, detalle: cuotaLabel(r.numero), leadId });
+    }
   }
 
   items.sort((a, b) => b.pendiente_usd - a.pendiente_usd);
+  // Desglose por cuota: la que vence primero, arriba (fechas nulas al final).
+  cuotas.sort((a, b) => (a.fecha && b.fecha ? (a.fecha < b.fecha ? -1 : 1) : a.fecha ? -1 : 1));
   const total = items.reduce((s, i) => s + i.pendiente_usd, 0);
-  return { items, total };
+  return { items, total, cuotas };
 }
 
 export type CuotaPendiente = {
