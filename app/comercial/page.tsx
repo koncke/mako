@@ -45,10 +45,8 @@ import { RevenueMensualChart } from './RevenueMensualChart';
 import { fmtUSD, fmtNum } from '@/lib/format';
 import { GraphicsTabs } from '../_components/GraphicsTabs';
 import {
-  ayerEnTijuana,
   hoyEnTijuana,
   esFechaValida,
-  primerDiaDelMesDeFecha,
   finDeMesDeFecha,
   lunesDeFecha,
   fmtDDMMYYYY,
@@ -137,7 +135,6 @@ export default async function ComercialPage({
 }) {
   await requireRolWs([]);
   const hoyReal = hoyEnTijuana();
-  const ayerReal = ayerEnTijuana();
 
   // Filtro global (Fase C): el rango acota las cohortes y el período de Revenue.
   const params = await searchParams;
@@ -153,19 +150,18 @@ export default async function ComercialPage({
   const rangoDesde = filtroActivo ? desdeParam! : null;
   const rangoHasta = filtroActivo ? hastaParam! : null;
 
-  // Período de Revenue: rango elegido o mes en curso (mismo patrón que /revenue).
-  const revDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
-  const revHasta = filtroActivo ? hastaParam! : ayerReal;
+  // Período de Revenue: rango elegido o, por defecto, ÚLTIMOS 30 DÍAS (como Meta;
+  // ya no "todo el periodo", que mezclaba mes en curso con cuotas de meses futuros).
+  const revDesde = filtroActivo ? desdeParam! : diasAntes(hoyReal, 29);
+  const revHasta = filtroActivo ? hastaParam! : hoyReal;
 
-  // Ventana de Outstanding — mira hacia ADELANTE ("lo que falta cobrar"). El
-  // filtro capa `hasta` a hoy (correcto para Sold/Cash pasados), pero las cuotas
-  // que vencen MÁS ADELANTE del mismo mes también entran en "lo que vence este
-  // mes": por eso el tope se extiende al fin de mes de `hasta`. "Máximo" / sin
-  // filtro → sin ventana = pipeline completo (incluye cuotas de meses futuros).
+  // Ventana de Outstanding — mira hacia ADELANTE ("lo que falta cobrar"), acotada
+  // al fin de mes de `hasta` para no traer cuotas de meses lejanos. SOLO "Máximo"
+  // (histórico completo) trae el pipeline entero sin tope.
   const FECHA_OP_INICIO = '2025-11-01';
-  const outEsTotal = !filtroActivo || desdeParam! <= FECHA_OP_INICIO;
-  const outDesde = outEsTotal ? null : desdeParam!;
-  const outHasta = outEsTotal ? null : finDeMesDeFecha(hastaParam!);
+  const outEsTotal = filtroActivo && desdeParam! <= FECHA_OP_INICIO;
+  const outDesde = outEsTotal ? null : revDesde;
+  const outHasta = outEsTotal ? null : finDeMesDeFecha(revHasta);
   const outSub = outEsTotal
     ? 'cuotas por cobrar · todo el pipeline'
     : `cuotas que vencen · ${fmtDDMMYYYY(outDesde!)} → ${fmtDDMMYYYY(outHasta!)}`;

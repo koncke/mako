@@ -50,7 +50,7 @@ export function FechaFiltro({ hoyReal }: { hoyReal: string }) {
     setOpen(false);
   };
 
-  const etiqueta = !activo ? 'Todo el periodo' : presetActivo ? presetActivo.label : `${fmtCorta(desdeUrl)} – ${fmtCorta(hastaUrl)}`;
+  const etiqueta = !activo ? 'Últimos 30 días' : presetActivo ? presetActivo.label : `${fmtCorta(desdeUrl)} – ${fmtCorta(hastaUrl)}`;
   const customValido = !!(customDesde && customHasta && customDesde <= customHasta);
 
   const dateInput: CSSProperties = { flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none' };

@@ -27,7 +27,7 @@ import {
   ayerEnTijuana,
   hoyEnTijuana,
   esFechaValida,
-  primerDiaDelMesDeFecha,
+  diasAntes,
   fmtDDMMYYYY,
 } from '@/lib/date-utils';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
@@ -98,8 +98,9 @@ export default async function Page({
     desdeParam <= hastaParam &&
     hastaParam <= hoyReal;
 
-  const rangoDesde = filtroActivo ? desdeParam! : primerDiaDelMesDeFecha(ayerReal);
-  const rangoHasta = filtroActivo ? hastaParam! : ayerReal;
+  // Default (sin filtro): últimos 30 días, como Meta (no "todo el periodo").
+  const rangoDesde = filtroActivo ? desdeParam! : diasAntes(hoyReal, 29);
+  const rangoHasta = filtroActivo ? hastaParam! : hoyReal;
 
   let mkt: MarketingWindow | null = null;
   let funnel: FunnelMes | null = null;
@@ -216,6 +217,13 @@ function KpisEstrella({
   const cacReal = revenue?.cac_usd ?? mkt.cac;
   const roasCash = revenue?.roas_cash ?? null;
   const roasSold = revenue?.roas_sold ?? null;
+  // A inicio de período puede haber GASTO pero todavía sin cierres/cobros: eso no
+  // es "0.00x" (retorno cero) sino "aún sin datos". Solo cuando no hay gasto → "—".
+  const SIN = 'aún sin datos';
+  const cacTxt = cacReal !== null ? fmtUSD(cacReal, 0) : (spend > 0 ? SIN : '—');
+  const roasCashTxt = spend <= 0 ? '—' : (roasCash && roasCash > 0 ? fmtX(roasCash) : SIN);
+  const roasSoldTxt = spend <= 0 ? '—' : (roasSold && roasSold > 0 ? fmtX(roasSold) : SIN);
+  const chico = (t: string): CSSProperties | undefined => (t === SIN ? { fontSize: 15, fontWeight: 600, color: 'var(--faint)' } : undefined);
 
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
@@ -234,22 +242,25 @@ function KpisEstrella({
       <KpiCard
         topColor="var(--border-strong)"
         label="CAC real"
-        valor={cacReal !== null ? fmtUSD(cacReal, 0) : '—'}
+        valor={cacTxt}
         valorColor="var(--ink)"
+        valorStyle={chico(cacTxt)}
         sub="Spend ÷ cierres del período"
       />
       <KpiCard
-        topColor={roasCash !== null ? 'var(--good)' : 'var(--border-strong)'}
+        topColor={roasCash && roasCash > 0 ? 'var(--good)' : 'var(--border-strong)'}
         label="ROAS cash"
-        valor={fmtX(roasCash)}
-        valorColor={roasCash !== null ? 'var(--good)' : 'var(--ink)'}
+        valor={roasCashTxt}
+        valorColor={roasCash && roasCash > 0 ? 'var(--good)' : 'var(--ink)'}
+        valorStyle={chico(roasCashTxt)}
         sub="Cash ÷ Spend · lo que entró"
       />
       <KpiCard
         topColor="var(--border-strong)"
         label="ROAS sold"
-        valor={fmtX(roasSold)}
+        valor={roasSoldTxt}
         valorColor="var(--ink)"
+        valorStyle={chico(roasSoldTxt)}
         sub="Sold ÷ Spend · comprometido"
       />
     </section>
@@ -261,6 +272,7 @@ function KpiCard({
   label,
   valor,
   valorColor,
+  valorStyle,
   chip,
   sub,
 }: {
@@ -268,6 +280,7 @@ function KpiCard({
   label: string;
   valor: string;
   valorColor: string;
+  valorStyle?: CSSProperties;
   chip?: string | null;
   sub: string;
 }) {
@@ -275,7 +288,7 @@ function KpiCard({
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 'var(--card-pad)', borderTop: `3px solid ${topColor}` }}>
       <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 18 }}>{label}</div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600, fontSize: 44, lineHeight: 0.9, letterSpacing: '-0.03em', color: valorColor, fontVariantNumeric: 'tabular-nums' }}>{valor}</span>
+        <span style={{ fontWeight: 600, fontSize: 44, lineHeight: 0.9, letterSpacing: '-0.03em', color: valorColor, fontVariantNumeric: 'tabular-nums', ...valorStyle }}>{valor}</span>
         {chip && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 13, fontWeight: 600, padding: '4px 10px', borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)' }}>{chip}</span>
         )}
