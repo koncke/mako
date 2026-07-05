@@ -5,7 +5,6 @@
 // El editor de prompts de MaKo se movió a "Contexto de MaKo".
 
 import { Icon } from '../_components/icons';
-import { ConfigTabs } from '../_components/ConfigTabs';
 import { ConfigInnerTabs } from './ConfigInnerTabs';
 import { requireRolWs } from '@/lib/tab-access';
 
@@ -20,9 +19,8 @@ export default async function ConfiguracionesPage() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="config" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Notificaciones, identidades fiscales, integraciones, funnel y onboarding en un solo lugar.</p>
+      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Notificaciones, identidades fiscales, teléfonos y el resto de los ajustes en un solo lugar.</p>
       <div style={{ maxWidth: 720 }}>
-        <ConfigTabs />
         <ConfigInnerTabs />
       </div>
     </main>

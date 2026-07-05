@@ -102,11 +102,16 @@ export function ChatCard({ leadId }: { leadId: number }) {
     return (
       <section style={card}>
         <div style={{ ...sectLabel, marginBottom: 10 }}>Chat de WhatsApp</div>
-        <p style={{ fontSize: 14, color: 'var(--faint)' }}>
+        <p style={{ fontSize: 14, color: 'var(--faint)', margin: '0 0 14px' }}>
           {estado.fase === 'error'
             ? 'No se pudo cargar el chat. Reintentá en un momento.'
-            : 'Todavía no hay chat de WhatsApp para este número. Los leads nuevos ya entran con su chat creado; a este podés escribirle desde WhatsApp y el hilo aparece acá.'}
+            : 'Todavía no hay chat de WhatsApp para este número. Abrí WhatsApp para escribirle: el hilo aparece acá.'}
         </p>
+        {estado.fase === 'sin-chat' && (
+          <Link href={`/whatsapp?lead=${leadId}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 10, border: 'none', background: '#1FA855', color: '#fff', fontSize: 13.5, fontWeight: 700, textDecoration: 'none' }}>
+            <span aria-hidden>💬</span> Escribir por WhatsApp →
+          </Link>
+        )}
       </section>
     );
   }

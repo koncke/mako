@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const destino = new URL('/configuraciones', url.origin);
+  const destino = new URL('/integraciones', url.origin);
   const fail = (motivo: string) => { destino.searchParams.set('gcal', motivo); return NextResponse.redirect(destino); };
 
   if (!(await esWorkspaceDueno())) return fail('no-permitido');
