@@ -24,8 +24,25 @@ import {
   comprometerInscripciones,
   procesarEnvios,
 } from '@/lib/nutricion';
+import { listarWorkspaces, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
+
+// Corre `fn` por cada workspace ACTIVO (cada uno scopeado por runWithWorkspace,
+// así getTenantDb/getSecuenciasActivas resuelven las secuencias de ESE cliente).
+// Antes el cron corría una sola vez en el contexto del dueño → la nutrición de
+// los clientes nunca se ejecutaba.
+async function porWorkspace<T>(fn: () => Promise<T>): Promise<Array<{ ws: number; ok: boolean; r?: T; error?: string }>> {
+  let wss: Array<{ id: number; estado?: string }>;
+  try { wss = (await listarWorkspaces()).filter((w) => w.estado === 'activo'); }
+  catch { wss = [{ id: OWNER_WS }]; }
+  const out: Array<{ ws: number; ok: boolean; r?: T; error?: string }> = [];
+  for (const w of wss) {
+    try { out.push({ ws: w.id, ok: true, r: await runWithWorkspace(w.id, fn) }); }
+    catch (e) { out.push({ ws: w.id, ok: false, error: e instanceof Error ? e.message : String(e) }); }
+  }
+  return out;
+}
 
 function checkAuth(request: NextRequest): Response | null {
   const cronSecret = process.env.CRON_SECRET;
@@ -53,28 +70,19 @@ export async function GET(request: NextRequest) {
 
   try {
     if (!commit) {
-      const [inscribiria, enviaria] = await Promise.all([
-        planificarInscripciones(),
-        planificarEnvios(),
-      ]);
-      return Response.json({
-        ok: true,
-        modo: 'dry-run',
-        inscribiria_count: inscribiria.length,
-        enviaria_count: enviaria.length,
-        inscribiria,
-        enviaria,
+      const workspaces = await porWorkspace(async () => {
+        const [inscribiria, enviaria] = await Promise.all([planificarInscripciones(), planificarEnvios()]);
+        return { inscribiria_count: inscribiria.length, enviaria_count: enviaria.length };
       });
+      return Response.json({ ok: true, modo: 'dry-run', workspaces });
     }
 
-    const inscriptas = await comprometerInscripciones();
-    const proc = await procesarEnvios({ ignorarVentana: url.searchParams.get('ignorar_ventana') === '1' });
-    return Response.json({
-      ok: true,
-      modo: sendEnabled ? 'commit (envío real)' : 'commit (simulado)',
-      inscriptas,
-      ...proc,
+    const workspaces = await porWorkspace(async () => {
+      const inscriptas = await comprometerInscripciones();
+      const proc = await procesarEnvios({ ignorarVentana: url.searchParams.get('ignorar_ventana') === '1' });
+      return { inscriptas, ...proc };
     });
+    return Response.json({ ok: true, modo: sendEnabled ? 'commit (envío real)' : 'commit (simulado)', workspaces });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[cron:nutricion] error: ${msg}`);
