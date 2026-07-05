@@ -12,6 +12,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { setSetting } from '@/lib/settings';
 import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
 import { hoyEnTijuana } from '@/lib/date-utils';
+import { seedNutricionTemplates } from '@/lib/nutricion-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,6 +63,8 @@ export async function POST(req: NextRequest) {
           await runWithWorkspace(ws.id, async () => {
             await setEstadoOnboarding(estadoInicial('pending'));
             await setSetting('objetivo_desde', hoyEnTijuana());
+            // MaKo deja la nutrición lista sin config manual (gateada por el flag de envío).
+            await seedNutricionTemplates();
           });
         } catch (e) {
           console.error('[admin/workspaces] seed onboarding falló (no fatal):', e);

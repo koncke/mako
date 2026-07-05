@@ -18,6 +18,7 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { getSetting, setSetting } from '@/lib/settings';
 import { saveFunnel } from '@/lib/leads';
 import { FUNNEL_TEMPLATES } from '@/lib/pipeline';
+import { seedNutricionTemplates } from '@/lib/nutricion-templates';
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getEstadoOnboarding, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
 
@@ -170,6 +171,9 @@ export async function POST(req: NextRequest) {
         const tpl = FUNNEL_TEMPLATES.find((t) => t.id === body.templateId);
         if (!tpl) return NextResponse.json({ ok: false, error: 'plantilla inválida' }, { status: 400 });
         await saveFunnel(tpl.pipeline, []);
+        // Red de seguridad: dejar la nutrición seedeada (idempotente) por si el
+        // alta no la creó. No pisa lo que el cliente ya tenga.
+        try { await seedNutricionTemplates(); } catch (e) { console.error('[onboarding] seed nutrición falló (no fatal):', e); }
         return NextResponse.json({ ok: true });
       }
 
