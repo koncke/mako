@@ -15,9 +15,11 @@
 
 export type StepId =
   | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
-  | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'monto' | 'plan' | 'motivo' | 'setter'
-  | 'telefono' | 'empresa' | 'dealDetalle';
+  | 'fechaJ2' | 'asistenciaR2' | 'fathomR2' | 'r2Respuestas'
+  | 'monto' | 'plan' | 'motivo' | 'setter' | 'closer'
+  | 'telefono' | 'empresa'
+  | 'dealServicio' | 'dealPromesa' | 'dealFiscal' | 'dealObligaciones' | 'dealFiscalDoc'
+  | 'comprobante';
 
 export type Step = { id: StepId; label: string };
 
@@ -31,12 +33,22 @@ export interface StageReqValues {
   hasFathomUrl?: boolean;
   monto?: number | null;
   motivo?: string | null;
+  /** Datos operativos (higiene): se exigen SIEMPRE en la ficha, nunca gatean mover. */
   setter?: string | null;
-  /** Contacto: se exigen una vez que el lead entró al pipeline activo (agenda+). */
+  closer?: string | null;
   telefono?: string | null;
   empresa?: string | null;
-  /** Deal Details (servicio + facturación) cargado. Solo se exige en ganado. */
-  dealCompleto?: boolean;
+  /** Deal Details desglosado (ganado). true = presente, false = falta, undefined = no evaluar. */
+  dealServicioOk?: boolean;
+  dealPromesaOk?: boolean;
+  dealFiscalOk?: boolean;
+  dealObligacionesOk?: boolean;
+  dealFiscalDocOk?: boolean;
+  /** Cuotas ya pagadas SIN comprobante subido (del caller que tiene los pagos). */
+  comprobantesFaltantes?: number;
+  /** ¿Hubo R2? + ¿tiene respuestas del formulario de Calendly R2? */
+  tieneR2?: boolean;
+  r2RespuestasOk?: boolean;
   /** undefined = el caller no sabe si hay plan (no se exige); boolean = se exige. */
   tienePlan?: boolean;
   /** Hoy en ISO (YYYY-MM-DD). Si falta, las fechas se asumen pasadas (estricto). */
@@ -68,64 +80,70 @@ const NIVEL: Record<string, number> = {
 export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   const steps: Step[] = [];
 
-  // Salidas: solo motivo, específico según el desenlace (perdido vs descalificado).
-  // Manual: solo setter (el flujo del Kanban pide motivo+deadline aparte).
+  // Salidas terminales: perdido/descal piden motivo; noresp no pide nada.
   if (stageKey === 'perdido' || stageKey === 'descal') {
     if (!v.motivo?.trim()) {
       steps.push({ id: 'motivo', label: stageKey === 'perdido' ? 'Motivo de la pérdida' : 'Motivo de la descalificación' });
     }
     return steps;
   }
-  if (stageKey === 'manual') {
-    if (!v.setter?.trim()) steps.push({ id: 'setter', label: 'Setter asignado' });
-    return steps;
-  }
+  if (stageKey === 'noresp') return steps;
 
   const nivel = NIVEL[stageKey] ?? 0;
-  if (nivel === 0) return steps; // lead / nutriciones: sin requisitos
-
   const hayFathom = !!v.hasFathomUrl || !!v.fathomOmitido;
 
-  // ── Nivel 1: R1 agendada ──
-  if (!v.sinR1) {
-    if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
+  // ── Reunión / venta (acumulativo por nivel) ──
+  if (nivel >= 1) {
+    // ── Nivel 1: R1 agendada ──
+    if (!v.sinR1) {
+      if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
 
-    // ── Nivel 2: R1 completa (la fecha ya pasó, o la etapa destino implica que ocurrió) ──
-    const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
-    if (r1DebeEstarCompleta) {
-      if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
-      // Calificado: crucial para Meta CAPI. Solo aplica si asistió (o está por marcarse).
-      if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
-      if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
+      // ── Nivel 2: R1 completa (la fecha ya pasó, o la etapa lo implica) ──
+      const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
+      if (r1DebeEstarCompleta) {
+        if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
+        if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
+        if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
+        // Closer: quien corrió la R1.
+        if (v.asistioJ1 !== false && v.closer !== undefined && !v.closer?.trim()) steps.push({ id: 'closer', label: 'Closer asignado' });
+      }
     }
-  }
 
-  // ── Niveles 3-4: R2 (no aplican si no hubo R1 o se declaró sin R2) ──
-  if (!v.sinR1 && !v.sinR2) {
-    if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
+    // ── Niveles 3-4: R2 ──
+    if (!v.sinR1 && !v.sinR2) {
+      if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
 
-    const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
-    if (r2DebeEstarCompleta && v.fechaJ2) {
-      if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
-      if (v.asistioJ2 !== false && !hayFathom) {
-        // El set de links es único; si ya se pidió por R1 no se duplica el paso.
-        if (!steps.some((s) => s.id === 'fathomR1')) steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
+      const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
+      if (r2DebeEstarCompleta && v.fechaJ2) {
+        if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
+        if (v.asistioJ2 !== false && !hayFathom && !steps.some((s) => s.id === 'fathomR1')) {
+          steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
+        }
+      }
+    }
+
+    // ── Nivel 5: venta — Deal Details COMPLETO ──
+    if (nivel >= 5) {
+      if (!(Number(v.monto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
+      if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
+      if (v.dealServicioOk === false) steps.push({ id: 'dealServicio', label: 'Servicio del cierre' });
+      if (v.dealPromesaOk === false) steps.push({ id: 'dealPromesa', label: 'Promesa del cierre' });
+      if (v.dealFiscalOk === false) steps.push({ id: 'dealFiscal', label: 'Datos fiscales del cliente' });
+      if (v.dealFiscalDocOk === false) steps.push({ id: 'dealFiscalDoc', label: 'Documento fiscal del cliente' });
+      if (v.dealObligacionesOk === false) steps.push({ id: 'dealObligaciones', label: 'Obligaciones del cierre' });
+      if (v.comprobantesFaltantes && v.comprobantesFaltantes > 0) {
+        steps.push({ id: 'comprobante', label: v.comprobantesFaltantes === 1 ? 'Comprobante de pago' : `Comprobantes de pago (${v.comprobantesFaltantes})` });
       }
     }
   }
 
-  // ── Nivel 5: venta ──
-  if (nivel >= 5) {
-    if (!(Number(v.monto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
-    if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
-    // Detalle del cierre: qué se vendió + a quién se factura (Deal Details).
-    if (v.dealCompleto === false) steps.push({ id: 'dealDetalle', label: 'Detalle del cierre (servicio y facturación)' });
-    // Empresa: se necesita para facturar el cierre.
-    if (v.empresa !== undefined && !v.empresa?.trim()) steps.push({ id: 'empresa', label: 'Empresa' });
-  }
+  // ── Respuestas del formulario de Calendly R2 (si hubo R2) ──
+  if (v.tieneR2 && v.r2RespuestasOk === false) steps.push({ id: 'r2Respuestas', label: 'Respuestas de Calendly (R2)' });
 
-  // ── Higiene de contacto (agenda en adelante): teléfono para poder llamar ──
-  // Va al final: primero lo de la reunión/venta, después completar el contacto.
+  // ── Higiene (SIEMPRE, cualquier etapa activa/nutrición) — nunca gatea mover ──
+  // Setter: cualquier lead que ya se está trabajando (no el 'lead' crudo del form).
+  if (stageKey !== 'lead' && v.setter !== undefined && !v.setter?.trim()) steps.push({ id: 'setter', label: 'Setter asignado' });
+  if (v.empresa !== undefined && !v.empresa?.trim()) steps.push({ id: 'empresa', label: 'Empresa' });
   if (v.telefono !== undefined && !v.telefono?.trim()) steps.push({ id: 'telefono', label: 'Teléfono de contacto' });
 
   return steps;

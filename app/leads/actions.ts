@@ -157,7 +157,8 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
   const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0);
-  const faltantes = faltantesDeLead(lead, pagos.length > 0);
+  const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
+  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0 });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
@@ -203,7 +204,7 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     hasFathomUrl: (d.fathom ?? before?.fathom_links ?? []).some((f) => f.url?.trim()),
     monto: d.monto ?? before?.monto_cierre_usd ?? null,
     motivo: d.motivo ?? before?.motivo_perdida ?? null,
-    setter: d.setter ?? before?.setter ?? null,
+    // Higiene (setter/closer/empresa/deal/comprobante) NO gatea el movimiento.
     tienePlan: to === 'ganado' ? (!!d.plan || !!d.cuotas?.length || pagosExistentes.length > 0) : undefined,
     hoyISO: hoyEnTijuana(),
     // La excepción vale si se declara AHORA o si ya quedó persistida en el lead.

@@ -122,7 +122,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
     calificado: lead.calificado,
     hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
-    monto: lead.monto, motivo: lead.motivo, setter: lead.setter,
+    monto: lead.monto, motivo: lead.motivo,
+    // Higiene (setter/closer/empresa/deal/comprobante/R2) NO gatea el movimiento:
+    // se muestra en "Datos sin marcar" y se completa en Editar, no en el wizard.
     tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
     hoyISO,
     sinR1: lead.sinR1, sinR2: lead.sinR2, fathomOmitido: lead.fathomOmitido,

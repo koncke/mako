@@ -98,7 +98,8 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   const tienePlan = pagos.length > 0 || !!lead.cobro_inicial_usd || (lead.total_cuotas ?? 0) > 0;
 
   // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir).
-  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined);
+  const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
+  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0 });
   // Si solo faltan datos estáticos (tel/empresa/detalle) no hay wizard: se editan.
   const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;

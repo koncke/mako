@@ -1413,12 +1413,15 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
  * fathom_omitido). Fuente única para la ficha, el badge del Kanban y el worklist.
  * Solo pide lo POSIBLE de conseguir (el Fathom de una reunión futura no cuenta).
  */
-export function faltantesDeLead(lead: Lead, tienePlan?: boolean): Step[] {
+export function faltantesDeLead(
+  lead: Lead,
+  tienePlan?: boolean,
+  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean },
+): Step[] {
   const stage = (lead.pipeline_stage && lead.pipeline_stage.trim()) ? lead.pipeline_stage : deriveStageKey(lead);
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
-  // Deal Details "completo" = qué se vendió (servicio) + a quién se factura
-  // (razón social). Con eso alcanza para no marcar el cierre como incompleto.
-  const dealCompleto = !!(lead.deal_servicio?.que_es?.trim()) && !!(lead.deal_fiscal?.razon?.trim());
+  const oblig = lead.deal_obligaciones;
+  const tieneR2 = !!lead.fecha_junta_2 || lead.asistio_j2 != null;
   return stepsForStage(stage, {
     fechaJ1: lead.fecha_junta_1,
     asistioJ1: lead.asistio_j1,
@@ -1429,9 +1432,18 @@ export function faltantesDeLead(lead: Lead, tienePlan?: boolean): Step[] {
     monto: lead.monto_cierre_usd,
     motivo: lead.motivo_perdida,
     setter: lead.setter,
+    closer: lead.closer,
     telefono: lead.telefono,
     empresa: lead.empresa,
-    dealCompleto,
+    // Deal Details desglosado (solo se evalúa en ganado).
+    dealServicioOk: !!(lead.deal_servicio?.que_es?.trim()),
+    dealPromesaOk: !!(lead.deal_promesa?.resultado?.trim()),
+    dealFiscalOk: !!(lead.deal_fiscal?.razon?.trim()),
+    dealFiscalDocOk: !!(lead.deal_fiscal?.doc_path?.trim()),
+    dealObligacionesOk: !!((oblig?.cliente?.length ?? 0) > 0 || (oblig?.prestador?.length ?? 0) > 0),
+    comprobantesFaltantes: extra?.comprobantesFaltantes,
+    tieneR2,
+    r2RespuestasOk: extra?.r2RespuestasOk,
     tienePlan,
     hoyISO: hoyEnTijuana(),
     sinR1: !!lead.sin_r1,
