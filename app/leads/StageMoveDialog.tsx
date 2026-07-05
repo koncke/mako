@@ -35,6 +35,10 @@ export type MoveLeadInfo = {
   monto: number | null;
   motivo: string | null;
   setter: string | null;
+  // Higiene (se piden en "Completar datos", no al mover de etapa).
+  closer?: string | null;
+  empresa?: string | null;
+  telefono?: string | null;
   tienePlan?: boolean;
   // Excepciones ya declaradas (persistidas en el lead): el wizard no re-pregunta
   // lo que ya se eximió una vez (cierre sin R1/R2, reunión sin grabar).
@@ -44,14 +48,15 @@ export type MoveLeadInfo = {
 };
 
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
-  return { id: l.id, name: l.name, fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2, asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado, fathom: l.fathom, monto: l.monto || null, motivo: l.motivo || null, setter: l.setter || null };
+  return { id: l.id, name: l.name, fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2, asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado, fathom: l.fathom, monto: l.monto || null, motivo: l.motivo || null, setter: l.setter || null, closer: l.closer || null, empresa: l.company || null, telefono: l.phone || null };
 }
 
 type PasoId =
   | 'auto'
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
-  | 'monto' | 'plan' | 'motivo' | 'motivoDetalle' | 'resumen';
+  | 'monto' | 'plan' | 'motivo' | 'motivoDetalle'
+  | 'setter' | 'closer' | 'empresa' | 'telefono' | 'resumen';
 
 // Pasos de datos de reunión que la búsqueda automática puede resolver.
 const AUTO_RESOLUBLES: PasoId[] = ['fechaJ1', 'asistenciaR1', 'fathomR1', 'fechaJ2', 'asistenciaR2', 'fathomR2'];
@@ -72,7 +77,7 @@ function BigChoice({ options, value, onPick }: { options: Array<{ v: string; lab
   );
 }
 
-export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }: {
+export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, completarDatos = false, equipo = [] }: {
   lead: MoveLeadInfo;
   stages: Stage[];
   move: StageMoveTarget;
@@ -80,6 +85,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
   onClose: () => void;
   /** Título contextual del header (default "Mover a <etapa>"): p.ej. "Completar datos" cuando el destino es la etapa actual. */
   titulo?: string;
+  /** "Completar datos" (Solucionar): el wizard también pide higiene (setter/closer/empresa/teléfono). */
+  completarDatos?: boolean;
+  /** Miembros del equipo para los desplegables de setter/closer. */
+  equipo?: Array<{ nombre: string; email: string }>;
 }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -105,6 +114,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
   const [motivo, setMotivo] = useState(lead.motivo ?? '');
   const [motivoDetalle, setMotivoDetalle] = useState('');
   const [cuotas, setCuotas] = useState<Array<{ monto: string; fecha: string }>>([{ monto: '', fecha: hoyISO }]);
+  // Higiene (solo se piden en "Completar datos").
+  const [setter, setSetter] = useState(lead.setter ?? '');
+  const [closer, setCloser] = useState(lead.closer ?? '');
+  const [empresa, setEmpresa] = useState(lead.empresa ?? '');
+  const [telefono, setTelefono] = useState(lead.telefono ?? '');
   const esDescal = to === 'descal';
   const motivoFinal = [motivo.trim(), motivoDetalle.trim()].filter(Boolean).join(' — ');
 
@@ -123,8 +137,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     calificado: lead.calificado,
     hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
     monto: lead.monto, motivo: lead.motivo,
-    // Higiene (setter/closer/empresa/deal/comprobante/R2) NO gatea el movimiento:
-    // se muestra en "Datos sin marcar" y se completa en Editar, no en el wizard.
+    // Higiene: solo se pide en "Completar datos" (Solucionar), NUNCA al mover de
+    // etapa. El resto (deal/comprobante/R2) se completa en Deal Details/Meetings.
+    ...(completarDatos ? { setter: lead.setter, closer: lead.closer, empresa: lead.empresa, telefono: lead.telefono } : {}),
     tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
     hoyISO,
     sinR1: lead.sinR1, sinR2: lead.sinR2, fathomOmitido: lead.fathomOmitido,
@@ -162,6 +177,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
     if (requeridos.has('monto')) p.push('monto');
     if (requeridos.has('plan')) p.push('plan');
     if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
+    // Higiene (Completar datos): setter/closer/empresa/teléfono al final.
+    if (requeridos.has('setter')) p.push('setter');
+    if (requeridos.has('closer')) p.push('closer');
+    if (requeridos.has('empresa')) p.push('empresa');
+    if (requeridos.has('telefono')) p.push('telefono');
     p.push('resumen');
     // Lo que la búsqueda automática ya resolvió no se vuelve a preguntar.
     const filtrados = p.filter((id) => id === 'resumen' || !resueltos.has(id));
@@ -201,6 +221,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       case 'plan': return cuotasCuadran;
       case 'motivo': return !!motivo.trim();
       case 'motivoDetalle': return !!motivoDetalle.trim();
+      case 'setter': return !!setter.trim();
+      case 'closer': return !!closer.trim();
+      case 'empresa': return !!empresa.trim();
+      case 'telefono': return !!telefono.trim();
       default: return true;
     }
   })();
@@ -239,6 +263,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
           ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
           ...(pide('monto') ? { monto: totalMonto || null } : {}),
           ...(pide('motivo') ? { motivo: motivoFinal || null } : {}),
+          ...(pide('setter') ? { setter: setter.trim() || null } : {}),
+          ...(pide('closer') ? { closer: closer.trim() || null } : {}),
+          ...(pide('empresa') ? { empresa: empresa.trim() || null } : {}),
+          ...(pide('telefono') ? { telefono: telefono.trim() || null } : {}),
           ...(cuotasPayload.length ? { cuotas: cuotasPayload } : {}),
           sinR1Motivo: huboR1 === false ? motivoNoR1.trim() : null,
           sinR2Motivo: huboR1 !== false && huboR2 === false ? motivoNoR2.trim() : null,
@@ -402,6 +430,35 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       sub = motivo.trim() ? `Categoría: ${motivo.trim()}. Agregá el detalle concreto.` : 'Agregá el detalle concreto.';
       cuerpo = <textarea value={motivoDetalle} onChange={(e) => setMotivoDetalle(e.target.value)} placeholder={esDescal ? 'Ej: factura menos de X, no tiene equipo a cargo…' : 'Ej: le pareció caro vs. la competencia, se enfrió tras la R2…'} autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
       break;
+    case 'setter':
+    case 'closer': {
+      const val = paso === 'setter' ? setter : closer;
+      const set = paso === 'setter' ? setSetter : setCloser;
+      pregunta = paso === 'setter' ? '¿Quién es el Setter?' : '¿Quién es el Closer?';
+      sub = paso === 'setter' ? 'El que agendó la reunión.' : 'El que corrió la llamada de venta.';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {equipo.length > 0 && (
+            <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {equipo.map((m) => {
+                const active = val.trim() === m.nombre || val.trim() === m.email;
+                return <button key={m.email} type="button" onClick={() => set(m.nombre)} style={{ minWidth: 130, padding: '11px 16px', borderRadius: 12, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{m.nombre}</button>;
+              })}
+            </div>
+          )}
+          <input value={val} onChange={(e) => set(e.target.value)} placeholder={equipo.length ? 'o escribí otro nombre…' : 'Nombre'} autoFocus={equipo.length === 0} style={{ ...compInput, maxWidth: 320, margin: '0 auto', textAlign: 'left' }} />
+        </div>
+      );
+      break;
+    }
+    case 'empresa':
+      pregunta = '¿Cuál es la empresa del lead?';
+      cuerpo = <input value={empresa} onChange={(e) => setEmpresa(e.target.value)} placeholder="Nombre de la empresa" autoFocus style={{ ...compInput, maxWidth: 320, margin: '0 auto', textAlign: 'left' }} />;
+      break;
+    case 'telefono':
+      pregunta = '¿Cuál es el teléfono de contacto?';
+      cuerpo = <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+52 …" type="tel" autoFocus style={{ ...compInput, maxWidth: 320, margin: '0 auto', textAlign: 'left' }} />;
+      break;
     case 'plan':
       pregunta = '¿Cómo se van a cobrar las cuotas?';
       sub = `Las cuotas tienen que sumar el monto de cierre (${totalMonto ? '$' + totalMonto.toLocaleString('en-US') : 'definilo en el paso anterior'}).`;
@@ -445,6 +502,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo }:
       if (pide('monto')) filas.push(['Monto de cierre', totalMonto ? `$${totalMonto.toLocaleString('en-US')}` : '—']);
       if (pide('plan')) filas.push(['Cuotas', `${cuotas.filter((c) => parseFloat(c.monto) > 0).length} (suman $${sumaCuotas.toLocaleString('en-US')})`]);
       if (pide('motivo')) filas.push([esDescal ? 'Motivo de descalificación' : 'Motivo de pérdida', motivoFinal || '—']);
+      if (pide('setter')) filas.push(['Setter', setter.trim() || '—']);
+      if (pide('closer')) filas.push(['Closer', closer.trim() || '—']);
+      if (pide('empresa')) filas.push(['Empresa', empresa.trim() || '—']);
+      if (pide('telefono')) filas.push(['Teléfono', telefono.trim() || '—']);
       pregunta = filas.length ? 'Revisá y confirmá' : 'Confirmá el movimiento';
       cuerpo = filas.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

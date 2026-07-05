@@ -9,7 +9,7 @@
 // en sesión (no se persisten en esta iteración).
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   useEffect,
   useMemo,
@@ -109,6 +109,8 @@ export type CrmMarcar = {
   tipo: 'A' | 'B' | 'C' | 'M';   // A=¿asistió J1?  B=tuvo J1, falta J2/resolución  C=¿asistió J2?  M=nutrición manual vencida
   /** true = solo faltan datos estáticos (tel/empresa/detalle): se editan, no wizard. */
   soloEdit?: boolean;
+  /** Dónde resolver: wizard, Deal Details (cobranza), Meetings, o Editar. */
+  solTab?: 'wizard' | 'cobranza' | 'reuniones' | 'edit';
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
@@ -141,6 +143,8 @@ export function CrmBoard({
   hoy: string;
 }) {
   const router = useRouter();
+  const sp = useSearchParams();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
   const [view, setView] = useState<'kanban' | 'table'>('kanban');
@@ -148,7 +152,17 @@ export function CrmBoard({
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('todos');
   const [originFilter, setOriginFilter] = useState('todos');
-  const [showSinMarcar, setShowSinMarcar] = useState(false);
+  // ?pendientes=1 mantiene el worklist abierto: al volver de una ficha (Solucionar)
+  // se restaura la vista de "Datos sin marcar" con su scroll (restauración de Next).
+  const [showSinMarcar, setShowSinMarcar] = useState(sp.get('pendientes') === '1');
+  const toggleSinMarcar = () => {
+    const abrir = !showSinMarcar;
+    setShowSinMarcar(abrir);
+    const params = new URLSearchParams(sp.toString());
+    if (abrir) params.set('pendientes', '1'); else params.delete('pendientes');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [stageMove, setStageMove] = useState<{ leadId: number; move: StageMoveTarget } | null>(null);   // pop-up chico de completar movimiento
   const [localStage, setLocalStage] = useState<Record<number, string>>({});
@@ -317,14 +331,16 @@ export function CrmBoard({
     else persistStage(id, stageKey, from, tr);
   };
 
-  // "Solucionar" un dato sin marcar: si son datos de reunión/venta, abre EL MISMO
-  // wizard de la ficha (etapa actual, con autollenado). Si solo faltan datos
-  // estáticos (tel/empresa/detalle del cierre), no hay wizard: se va a Editar.
+  // "Solucionar" un dato sin marcar → rutea a la ficha, a la superficie correcta
+  // (wizard / Deal Details / Meetings / Editar). Preserva ?pendientes=1 para que
+  // "Volver" restaure la vista del worklist con su scroll.
   const solucionarMarcar = (leadId: number) => {
-    const lead = leads.find((l) => l.id === leadId);
-    if (!lead) return;
-    if (marcar.find((m) => m.leadId === leadId)?.soloEdit) { router.push(`/leads/${leadId}?edit=1`); return; }
-    openStageMove(lead, { to: effStage(lead) });
+    const solTab = marcar.find((m) => m.leadId === leadId)?.solTab ?? 'wizard';
+    const q = solTab === 'wizard' ? 'solucionar=1'
+      : solTab === 'cobranza' ? 'edit=1&tab=cobranza&ia=1'
+      : solTab === 'reuniones' ? 'edit=1&tab=reuniones'
+      : 'edit=1';
+    router.push(`/leads/${leadId}?${q}`);
   };
 
   // "Nutrición - Manual" desde el worklist: pide MOTIVO antes de guardar.
@@ -547,7 +563,7 @@ export function CrmBoard({
         {/* Acciones */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
           <Link href="/funnel" title="Editar el funnel (etapas y flechas)" style={{ ...gearBtn, textDecoration: 'none' }}>✎ Funnel</Link>
-          <button onClick={() => setShowSinMarcar((v) => !v)} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
+          <button onClick={toggleSinMarcar} style={sinMarcarBtnStyle}>{sinMarcarBtnLabel}</button>
         </div>
       </div>
 

@@ -155,14 +155,28 @@ export function missingForStage(stageKey: string, v: StageReqValues): string[] {
 }
 
 /**
- * Steps que el wizard "Solucionar" (StageMoveDialog) sabe resolver paso a paso.
- * El resto (teléfono, empresa, detalle del cierre, setter) son datos estáticos
- * de ficha: se completan en "Editar", no con el asistente de movimiento.
+ * Steps que el wizard "Solucionar" (StageMoveDialog en modo "Completar datos")
+ * sabe resolver paso a paso: reunión/venta + higiene (setter/closer/empresa/tel).
+ * El resto (Deal Details, comprobante, respuestas R2) se completa en su tab.
  */
 export const WIZARD_STEP_IDS: ReadonlySet<StepId> = new Set<StepId>([
   'fechaJ1', 'asistenciaR1', 'calificado', 'fathomR1',
   'fechaJ2', 'asistenciaR2', 'fathomR2', 'monto', 'plan', 'motivo',
+  'setter', 'closer', 'empresa', 'telefono',
 ]);
 
-/** ¿Hay al menos un dato que el wizard pueda resolver? (si no, se va a Editar). */
+/** ¿Hay al menos un dato que el wizard pueda resolver? (si no, se va a la tab). */
 export const hayPasoDeWizard = (steps: Step[]): boolean => steps.some((s) => WIZARD_STEP_IDS.has(s.id));
+
+/** Steps que se completan en una tab de la ficha (no en el wizard) y en cuál. */
+const STEP_TAB: Partial<Record<StepId, 'cobranza' | 'reuniones'>> = {
+  dealServicio: 'cobranza', dealPromesa: 'cobranza', dealFiscal: 'cobranza',
+  dealFiscalDoc: 'cobranza', dealObligaciones: 'cobranza', comprobante: 'cobranza',
+  r2Respuestas: 'reuniones',
+};
+
+/** La tab de Editar donde se resuelve el primer step no-wizard (o null si todo es wizard). */
+export function tabDeSolucion(steps: Step[]): 'cobranza' | 'reuniones' | null {
+  for (const s of steps) { const t = STEP_TAB[s.id]; if (t) return t; }
+  return null;
+}

@@ -88,6 +88,7 @@ export default async function LeadsPage() {
     message: p.mensaje,
     tipo: p.tipo,
     soloEdit: p.soloEdit,
+    solTab: p.solTab,
   }));
 
   return (

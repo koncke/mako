@@ -13,11 +13,13 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
-import { hayPasoDeWizard, type Step } from '@/lib/stage-requirements';
+import { hayPasoDeWizard, tabDeSolucion, type Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
+import type { MiembroEquipo } from '../actions';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { EditLeadForm } from './EditLeadForm';
 import { LeadTabs, type LeadTabDef } from '../lead-view/LeadTabs';
+import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
 import { Dropdown } from '@/app/components/Dropdown';
 
@@ -42,7 +44,7 @@ export function BackButton() {
   );
 }
 
-export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [] }: {
+export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, initialSolucionar, tabs, nombre, empresa, createdISO, stageLabel, chipTone, faltantes = [], equipo = [] }: {
   lead: Lead;
   stages: Stage[];
   pagos: Pago[];
@@ -61,6 +63,8 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   chipTone: keyof typeof CHIP;
   /** Datos sin marcar de la etapa actual (badge + Solucionar). */
   faltantes?: Step[];
+  /** Equipo del workspace (para los desplegables de setter/closer del wizard). */
+  equipo?: MiembroEquipo[];
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -90,10 +94,23 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     monto: lead.monto_cierre_usd ?? null,
     motivo: lead.motivo_perdida,
     setter: lead.setter ?? null,
+    closer: lead.closer ?? null,
+    empresa: lead.empresa ?? null,
+    telefono: lead.telefono ?? null,
     tienePlan: pagos.length > 0,
     sinR1: !!lead.sin_r1,
     sinR2: !!lead.sin_r2,
     fathomOmitido: !!lead.fathom_omitido,
+  };
+
+  // Solucionar unificado: con dato de reunión/venta/higiene → wizard "Completar
+  // datos"; si solo falta Deal Details / comprobante / respuestas R2 → a su tab.
+  const solucionar = () => {
+    if (hayPasoDeWizard(faltantes)) { setMoveTo(currentStage); return; }
+    const t = tabDeSolucion(faltantes);
+    if (t === 'cobranza') { router.push(`${pathname}?edit=1&tab=cobranza&ia=1`); return; }
+    if (t === 'reuniones') { router.push(`${pathname}?edit=1&tab=reuniones`); return; }
+    setEditing(true);
   };
 
   const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
@@ -127,15 +144,13 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 9 }}>
           <span style={{ display: 'inline-block', fontSize: 13, fontWeight: 600, padding: '5px 12px', borderRadius: 999, background: chip.bg, color: chip.fg, border: '1px solid ' + chip.bd }}>{stageLabel}</span>
-          {/* Advertencia roja a la altura del nombre + Solucionar/Completar. */}
+          {/* Indicador rojo a la altura del nombre; el botón Solucionar vive en el
+              cuadro "Datos sin marcar" (abajo, en todas las tabs). */}
           {faltantes.length > 0 && (
-            <>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>
-                <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
-                {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar
-              </span>
-              <button type="button" onClick={() => (soloEdit ? setEditing(true) : setMoveTo(currentStage))} style={{ padding: '5px 12px', borderRadius: 999, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{soloEdit ? 'Completar' : 'Solucionar'}</button>
-            </>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, padding: '5px 11px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', border: '1px solid #EBBFBC' }}>
+              <span aria-hidden style={{ width: 8, height: 8, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
+              {faltantes.length} dato{faltantes.length === 1 ? '' : 's'} sin marcar
+            </span>
           )}
         </div>
         <h1 style={{ fontSize: 'clamp(28px,6vw,42px)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.05, margin: 0 }}>{nombre}</h1>
@@ -152,6 +167,13 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
   return (
     <div>
       {header}
+      {/* Datos sin marcar: ARRIBA de las tabs → visible en TODAS (solo en lectura;
+          en edición el EditLeadForm muestra su propio banner). */}
+      {!editing && faltantes.length > 0 && (
+        <div style={{ marginBottom: 18 }}>
+          <DatosSinMarcarCard faltantes={faltantes} onSolucionar={solucionar} nota="Completá estos datos para tener la ficha al día." />
+        </div>
+      )}
       {editing ? (
         <EditLeadForm
           lead={lead}
@@ -172,6 +194,8 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           stages={stages}
           move={{ to: moveTo }}
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
+          completarDatos={moveTo === currentStage}
+          equipo={equipo}
           onClose={() => setMoveTo(null)}
           onDone={() => { setMoveTo(null); router.refresh(); }}
         />

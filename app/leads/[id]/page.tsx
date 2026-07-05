@@ -35,7 +35,6 @@ import { ChatCard } from '../lead-view/ChatCard';
 import { GeneratedInsightCard } from '../lead-view/GeneratedInsightCard';
 import { getUltimoInsightGenerado, faltantesParaInsights } from '@/lib/lead-insights';
 import { faltantesDeLead } from '@/lib/leads';
-import { hayPasoDeWizard } from '@/lib/stage-requirements';
 import { TrackingTimelineCard } from '../lead-view/TrackingTimelineCard';
 import { getLeadInsights, getEquipoAction } from '../actions';
 
@@ -100,8 +99,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
   // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir).
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
   const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0 });
-  // Si solo faltan datos estáticos (tel/empresa/detalle) no hay wizard: se editan.
-  const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
   // Nutrición positiva (derivada): el lead avanza y está en su ventana informativa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
@@ -125,6 +122,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
           stageLabel={sm?.label ?? lead.estado_lead}
           chipTone={sm?.tone ?? 'neutral'}
           faltantes={faltantes}
+          equipo={equipo}
           tabs={[
             {
               key: 'resumen', label: 'Overview',
@@ -134,22 +132,6 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
                     <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
                       <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
                       <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>El lead está avanzando — sigue en su etapa, no es una nutrición aparte. Ventana informativa hasta la {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} del <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'es hoy' : `faltan ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}). Si no avanza, recién ahí pasa a una nutrición negativa.</p>
-                    </section>
-                  )}
-                  {faltantes.length > 0 && (
-                    <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)' }}>
-                      <div style={{ ...sectLabel, color: 'var(--bad)', marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                        <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
-                        Datos sin marcar
-                      </div>
-                      <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: '0 0 10px' }}>{soloEdit
-                        ? <>Faltan datos de la ficha. Tocá <b>Editar</b> (arriba a la derecha) para cargarlos.</>
-                        : <>Faltan datos posibles de conseguir para esta etapa. Tocá <b>Solucionar</b> (arriba, al lado del nombre) para completarlos con el asistente.</>}</p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {faltantes.map((f) => (
-                          <span key={f.id} style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' }}>{f.label}</span>
-                        ))}
-                      </div>
                     </section>
                   )}
                   <InfoPrincipalCard

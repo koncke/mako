@@ -11,7 +11,8 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { CHIP, deriveStageKey, stageMeta, nutricionPositivaDe, type Stage } from '@/lib/pipeline';
-import { hayPasoDeWizard } from '@/lib/stage-requirements';
+import { hayPasoDeWizard, tabDeSolucion } from '@/lib/stage-requirements';
+import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import { buildJourney } from '@/lib/journey';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { deleteLeadInlineAction, type LeadFullData } from './actions';
@@ -104,12 +105,15 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
     });
   };
 
-  // "Datos sin marcar" arriba del overview. Si hay algún dato que el wizard sabe
-  // resolver, "Solucionar" abre el asistente en la ficha; si solo faltan datos
-  // estáticos (teléfono/empresa/detalle del cierre), lleva directo a "Editar".
-  const soloEdit = faltantes.length > 0 && !hayPasoDeWizard(faltantes);
-  const solucionarHref = `/leads/${lead.id}?${soloEdit ? 'edit=1' : 'solucionar=1'}`;
-  const chipFalta: CSSProperties = { fontSize: 12.5, fontWeight: 600, color: 'var(--bad)', background: 'var(--surface)', border: '1px solid #EBBFBC', borderRadius: 999, padding: '4px 11px' };
+  // "Datos sin marcar" (arriba de TODAS las tabs). Solucionar rutea a la ficha:
+  // reunión/venta/higiene → wizard (?solucionar=1); Deal Details/comprobante →
+  // Cobranza; respuestas R2 → Meetings.
+  const tab = tabDeSolucion(faltantes);
+  const solucionarHref = hayPasoDeWizard(faltantes)
+    ? `/leads/${lead.id}?solucionar=1`
+    : tab === 'cobranza' ? `/leads/${lead.id}?edit=1&tab=cobranza&ia=1`
+    : tab === 'reuniones' ? `/leads/${lead.id}?edit=1&tab=reuniones`
+    : `/leads/${lead.id}?edit=1`;
   // Nutrición positiva (derivada): el lead avanza dentro de su etapa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));
 
@@ -119,21 +123,6 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
         <section style={{ ...card, borderColor: '#BFE6CD', background: 'var(--good-bg)' }}>
           <div style={{ ...sectLabel, color: 'var(--good)', marginBottom: 6 }}>🌱 Nutrición {nutriPos.tipo === 'post-agenda' ? 'Post Agenda' : 'Post Reunión R1'}</div>
           <p style={{ fontSize: 13.5, color: 'var(--ink)', margin: 0, lineHeight: 1.5 }}>El lead está avanzando — sigue en su etapa. Ventana informativa hasta la {nutriPos.tipo === 'post-agenda' ? 'Reunión 1' : 'Reunión 2'} del <b>{fmtDDMMYYYY(nutriPos.hasta)}</b> ({nutriPos.dias === 0 ? 'es hoy' : `faltan ${nutriPos.dias} día${nutriPos.dias === 1 ? '' : 's'}`}).</p>
-        </section>
-      )}
-      {faltantes.length > 0 && (
-        <section style={{ ...card, borderColor: 'var(--bad)', background: 'var(--bad-bg)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
-            <div style={{ ...sectLabel, color: 'var(--bad)', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ width: 9, height: 9, borderRadius: 999, background: 'var(--bad)', animation: 'blinkRed 1.4s infinite' }} />
-              Datos sin marcar
-            </div>
-            <Link href={solucionarHref} style={{ padding: '6px 14px', borderRadius: 999, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 12.5, fontWeight: 700, textDecoration: 'none', fontFamily: SANS }}>{soloEdit ? 'Completar →' : 'Solucionar →'}</Link>
-          </div>
-          <p style={{ fontSize: 13, color: 'var(--ink)', margin: '0 0 10px', lineHeight: 1.45 }}>Faltan datos que la etapa actual necesita. {soloEdit ? 'Tocá Completar para cargarlos.' : 'Tocá Solucionar y MaKo te guía para completarlos.'}</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {faltantes.map((f) => <span key={f.id} style={chipFalta}>{f.label}</span>)}
-          </div>
         </section>
       )}
       <InfoPrincipalCard leadId={lead.id} nombre={lead.nombre} empresa={lead.empresa} email={lead.email} telefono={lead.telefono} direccion={lead.deal_fiscal?.domicilio ?? null} />
@@ -184,6 +173,12 @@ export function LeadSheet({ data, onClose, initialTab }: { data: LeadFullData; o
 
         {/* tabs + cuerpo scrolleable */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 clamp(16px,4vw,28px) clamp(14px,4vw,20px)' }}>
+          {/* Datos sin marcar: arriba de las tabs → visible en TODAS. */}
+          {faltantes.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <DatosSinMarcarCard faltantes={faltantes} label="Solucionar →" onSolucionar={() => router.push(solucionarHref)} nota="Completá estos datos para tener la ficha al día." />
+            </div>
+          )}
           <LeadTabs
             initial={initialTab}
             tabs={[

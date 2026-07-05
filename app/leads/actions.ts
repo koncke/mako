@@ -174,6 +174,9 @@ export type StageMoveData = {
   monto?: number | null;
   motivo?: string | null;
   setter?: string | null;
+  closer?: string | null;
+  empresa?: string | null;
+  telefono?: string | null;
   asistioJ1?: boolean | null;
   asistioJ2?: boolean | null;
   calificado?: boolean | null;
@@ -236,13 +239,16 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     if (flagErr) console.error(`[leads] persistir excepciones falló: ${flagErr.message}`);
   }
 
-  // 1) Fechas/fathom/motivo/setter — solo lo que vino.
+  // 1) Fechas/fathom/motivo/setter/closer/empresa/teléfono — solo lo que vino.
   const meta: LeadMetaInput = {};
   if (d.fechaJ1 !== undefined) meta.fecha_junta_1 = d.fechaJ1;
   if (d.fechaJ2 !== undefined) meta.fecha_junta_2 = d.fechaJ2;
   if (d.fathom !== undefined) meta.fathom_links = d.fathom;
   if (d.motivo !== undefined) meta.motivo_perdida = d.motivo;
   if (d.setter !== undefined) meta.setter = d.setter;
+  if (d.closer !== undefined) meta.closer = d.closer;
+  if (d.empresa !== undefined) meta.empresa = d.empresa;
+  if (d.telefono !== undefined) meta.telefono = d.telefono;
   if (Object.keys(meta).length) await saveLeadMeta(id, meta);
 
   // 2) Asistencias + calificado por updateLead (invariantes + CAPI: marcar

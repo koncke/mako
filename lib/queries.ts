@@ -20,7 +20,7 @@ import {
   type EstadoLead,
   type EstadoMadurez,
 } from './leads';
-import { hayPasoDeWizard } from './stage-requirements';
+import { hayPasoDeWizard, tabDeSolucion } from './stage-requirements';
 
 export type MarketingWindow = {
   // Rango
@@ -1943,6 +1943,8 @@ export type PendienteItem = {
   /** true = lo que falta son datos estáticos (tel/empresa/detalle): se editan,
    *  no se resuelven con el wizard. El worklist manda a Editar en vez de Solucionar. */
   soloEdit: boolean;
+  /** Dónde resolver los faltantes: wizard, Deal Details (cobranza), Meetings, o Editar. */
+  solTab: 'wizard' | 'cobranza' | 'reuniones' | 'edit';
 };
 
 export type Pendientes = {
@@ -2014,6 +2016,7 @@ async function _getPendientesDeMarcar(
           mensaje: `Venció hace ${diasVencida} día${diasVencida === 1 ? '' : 's'} (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse — definí qué hacer ahora`,
           fecha: l.nutricion_manual_deadline,
           soloEdit: false,
+          solTab: 'wizard',
         });
       }
       continue;
@@ -2022,6 +2025,7 @@ async function _getPendientesDeMarcar(
     const faltan = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id) });
     if (faltan.length === 0) continue;
     const fecha = (l.fecha_junta_2 && l.fecha_junta_2 < hoy) ? l.fecha_junta_2 : (l.fecha_junta_1 ?? l.fecha_agenda ?? hoy);
+    const solTab: PendienteItem['solTab'] = hayPasoDeWizard(faltan) ? 'wizard' : (tabDeSolucion(faltan) ?? 'edit');
     items.push({
       lead_id: l.id,
       lead_nombre: l.nombre,
@@ -2029,6 +2033,7 @@ async function _getPendientesDeMarcar(
       mensaje: `Faltan: ${faltan.map((f) => f.label).join(' · ')}`,
       fecha,
       soloEdit: !hayPasoDeWizard(faltan),
+      solTab,
     });
   }
 
