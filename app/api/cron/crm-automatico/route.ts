@@ -10,14 +10,14 @@
 //   - ?commit=1         → fuerza el commit a mano (para probar la máquina).
 //   - CRM_AUTO_ENABLED=true → el cron programado aplica de verdad.
 //
-// La FASE DE APLICACIÓN (mover el lead + resolver Fathom/WhatsApp + red de
-// confirmación no-cerrable) se cablea en el siguiente paso; hasta entonces el
-// commit reporta el plan sin ejecutarlo. Auth: Bearer ${CRON_SECRET}.
+// En commit MaKo APLICA: mueve el lead + resuelve Fathom/WhatsApp + deja las
+// confirmaciones (modal bloqueante en /leads). En dry-run solo reporta el plan.
+// Auth: Bearer ${CRON_SECRET}.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
-import { evaluarAutoTodos } from '@/lib/crm-auto';
+import { evaluarAutoTodos, aplicarAutoTodos } from '@/lib/crm-auto';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -31,14 +31,22 @@ export async function GET(request: NextRequest) {
   const commit = enabled || url.searchParams.get('commit') === '1';
 
   try {
+    if (commit) {
+      const res = await aplicarAutoTodos();
+      const auto = res.reduce((a, e) => a + (e.auto ?? 0), 0);
+      const confirmaciones = res.reduce((a, e) => a + (e.confirmaciones ?? 0), 0);
+      return Response.json({
+        ok: true,
+        modo: enabled ? 'commit (env CRM_AUTO_ENABLED)' : 'commit (?commit=1)',
+        aplicadas_auto: auto,
+        confirmaciones_creadas: confirmaciones,
+        workspaces: res,
+      });
+    }
+
     const evals = await evaluarAutoTodos();
     const total = evals.reduce((a, e) => a + (e.acciones?.length ?? 0), 0);
-    return Response.json({
-      ok: true,
-      modo: commit ? 'commit (aplicación aún no cableada — reporta el plan)' : 'dry-run',
-      acciones_total: total,
-      workspaces: evals,
-    });
+    return Response.json({ ok: true, modo: 'dry-run', acciones_total: total, workspaces: evals });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[cron:crm-automatico] error: ${msg}`);

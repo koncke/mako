@@ -4,6 +4,7 @@ import './globals.css';
 import { Sidebar } from './_components/Sidebar';
 import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
+import { MakoConfirmGate } from './_components/MakoConfirmGate';
 
 export const metadata: Metadata = {
   title: 'Marketing OS — Mauricio Bustos',
@@ -50,6 +51,9 @@ export default function RootLayout({
               <Suspense fallback={null}>
                 <ImpersonationBanner />
               </Suspense>
+              {/* Modal bloqueante: MaKo pide confirmar los cambios automáticos del
+                  CRM al entrar a /leads. usePathname (no necesita Suspense). */}
+              <MakoConfirmGate />
               {children}
             </div>
           </div>
