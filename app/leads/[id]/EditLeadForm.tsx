@@ -74,6 +74,17 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   };
   const [fathom, setFathom] = useState<FathomLink[]>(lead.fathom_links ?? []);
   const [deadline, setDeadline] = useState(lead.nutricion_manual_deadline ?? '');
+  // Fathom en DOS slots fijos (R1/R2), una llamada de venta cada uno → no se
+  // pueden cargar 2 links en la misma reunión (era el bug de Rosina).
+  const fathomUrlDe = (re: RegExp) => fathom.find((f) => re.test(f.label ?? ''))?.url ?? '';
+  const r1Url = fathomUrlDe(/reuni[oó]n\s*1|\bR1\b|junta\s*1/i);
+  const r2Url = fathomUrlDe(/reuni[oó]n\s*2|\bR2\b|junta\s*2/i);
+  const buildFathom = (u1: string, u2: string): FathomLink[] => {
+    const out: FathomLink[] = [];
+    if (u1.trim()) out.push({ label: 'Reunión 1', url: u1.trim() });
+    if (u2.trim()) out.push({ label: 'Reunión 2', url: u2.trim() });
+    return out;
+  };
 
   const sm = stageMeta(stages, stage);
   const band: StageBand = sm?.band ?? 'pipeline';
@@ -96,8 +107,6 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   const handleFechaJ1 = (v: string) => { setFechaJ1(v); if (!v) { setAsistioJ1(null); setCalificado(null); } };
   const handleAsistioJ1 = (v: TriState) => { setAsistioJ1(v); if (v !== true) setCalificado(null); };
   const handleFechaJ2 = (v: string) => { setFechaJ2(v); if (!v) setAsistioJ2(null); };
-  const setFathomAt = (i: number, field: 'label' | 'url', v: string) =>
-    setFathom((arr) => arr.map((f, fi) => (fi === i ? { ...f, [field]: v } : f)));
 
   const guardar = () => {
     setFeedback(null);
@@ -259,18 +268,14 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
         </section>
       )}
 
-      {/* FATHOM */}
+      {/* FATHOM — dos slots fijos (R1/R2): una llamada de VENTA por reunión. */}
       {(reachedMeeting || fathom.length > 0 || !!closer) && (
         <section style={card}>
-          <div style={{ ...sectLabel, marginBottom: 14 }}>Links de Fathom</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {fathom.map((f, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <input aria-label="Etiqueta" className="lead-field" value={f.label} onChange={(e) => setFathomAt(i, 'label', e.target.value)} placeholder="Llamada" style={{ flex: 'none', width: 130 }} />
-                <input aria-label="URL de Fathom" className="lead-field" value={f.url} onChange={(e) => setFathomAt(i, 'url', e.target.value)} placeholder="https://fathom.video/…" style={{ flex: 1, minWidth: 200 }} />
-              </div>
-            ))}
-            <button type="button" onClick={() => setFathom((arr) => [...arr, { label: '', url: '' }])} style={{ padding: 10, borderRadius: 10, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: 13.5, fontWeight: 500, cursor: 'pointer', fontFamily: SANS }}>+ Agregar otro link</button>
+          <div style={{ ...sectLabel, marginBottom: 6 }}>Links de Fathom (llamadas de venta)</div>
+          <p style={{ fontSize: 12.5, color: 'var(--faint)', margin: '0 0 14px' }}>Un link por reunión. Tienen que ser las llamadas de VENTA (R1/R2), no las de entrega de servicio.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label="Reunión 1"><input className="lead-field" value={r1Url} onChange={(e) => setFathom(buildFathom(e.target.value, r2Url))} placeholder="https://fathom.video/…" /></Field>
+            <Field label="Reunión 2"><input className="lead-field" value={r2Url} onChange={(e) => setFathom(buildFathom(r1Url, e.target.value))} placeholder="https://fathom.video/…" /></Field>
           </div>
         </section>
       )}
