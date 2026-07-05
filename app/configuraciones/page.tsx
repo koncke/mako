@@ -49,9 +49,7 @@ export default async function ConfiguracionesPage() {
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
       </header>
       <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Notificaciones, identidades fiscales, teléfonos y el resto de los ajustes en un solo lugar.</p>
-      <div style={{ maxWidth: 720 }}>
-        <ConfigInnerTabs funnelPanel={funnelPanel} onboardingPanel={onboardingPanel} equipoPanel={equipoPanel} />
-      </div>
+      <ConfigInnerTabs funnelPanel={funnelPanel} onboardingPanel={onboardingPanel} equipoPanel={equipoPanel} />
     </main>
   );
 }
