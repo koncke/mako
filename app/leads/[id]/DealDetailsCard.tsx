@@ -173,7 +173,8 @@ type ExtractResp = {
 function buildDraft(lead: Lead, pagos: Pago[]): Drafts {
   return {
     monto: lead.monto_cierre_usd != null ? String(lead.monto_cierre_usd) : '', fechaCierre: lead.fecha_cierre ?? '', fechaInicioServicio: lead.fecha_inicio_servicio ?? '',
-    razon: lead.deal_fiscal?.razon ?? '', idFiscal: lead.deal_fiscal?.id_fiscal ?? '', domicilio: lead.deal_fiscal?.domicilio ?? '', correo: lead.deal_fiscal?.correo ?? '',
+    // Correo de facturación: por defecto el email del lead (salvo que se cargue otro).
+    razon: lead.deal_fiscal?.razon ?? '', idFiscal: lead.deal_fiscal?.id_fiscal ?? '', domicilio: lead.deal_fiscal?.domicilio ?? '', correo: lead.deal_fiscal?.correo || lead.email || '',
     facturadoPor: lead.facturado_por_id != null ? String(lead.facturado_por_id) : '',
     queEs: lead.deal_servicio?.que_es ?? '', fechaInicio: lead.deal_servicio?.fecha_inicio ?? '', fechaTermino: lead.deal_servicio?.fecha_termino ?? '',
     duracion: lead.deal_servicio?.duracion ?? '', frecuencia: lead.deal_servicio?.frecuencia ?? '', modalidad: lead.deal_servicio?.modalidad ?? '', sesiones: lead.deal_servicio?.sesiones ?? '',
@@ -268,8 +269,16 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
   const diff = Math.round((sumaTodas - montoCierre) * 100) / 100;
   const cuadra = Math.abs(diff) < 0.5;
 
-  const algo = (o: Record<string, unknown> | null | undefined): boolean => !!o && Object.values(o).some((v) => (Array.isArray(v) ? v.length > 0 : !!(v && String(v).trim())));
-  const dealIncompleto = !editing && lead.estado_lead === 'ganado' && !algo(lead.deal_fiscal) && !algo(lead.deal_servicio) && !algo(lead.deal_promesa) && !algo(lead.deal_obligaciones);
+  // Deal "incompleto" = a un ganado le FALTA alguna sección clave (servicio,
+  // promesa, datos fiscales u obligaciones). Antes solo si estaban TODAS vacías;
+  // ahora salta el botón "Completar con IA" si falta cualquiera.
+  const oblig = lead.deal_obligaciones;
+  const dealIncompleto = !editing && lead.estado_lead === 'ganado' && (
+    !lead.deal_servicio?.que_es?.trim() ||
+    !lead.deal_promesa?.resultado?.trim() ||
+    !lead.deal_fiscal?.razon?.trim() ||
+    !((oblig?.cliente?.length ?? 0) > 0 || (oblig?.prestador?.length ?? 0) > 0)
+  );
 
   // ── Contrato / doc fiscal: leer con IA (rellena SOLO lo vacío) ──
   const aplicarExtraccion = (j: ExtractResp): string[] => {
@@ -527,7 +536,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
             <KvCard k="Razón fiscal / nombre" v={lead.deal_fiscal?.razon} />
             <KvCard k="Identificación fiscal" v={lead.deal_fiscal?.id_fiscal} />
             <KvCard k="Domicilio fiscal" v={lead.deal_fiscal?.domicilio} />
-            <KvCard k="Correo de facturación" v={lead.deal_fiscal?.correo} />
+            <KvCard k="Correo de facturación" v={lead.deal_fiscal?.correo || lead.email} />
           </div>
         )}
 
