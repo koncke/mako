@@ -47,7 +47,21 @@ async function eventosCalendly(email: string | null): Promise<EventoCalendly[]> 
   }
 }
 
-type AnalisisReunion = { tipo: string | null; started_at: string | null; share_url: string | null; call_url: string | null };
+type AnalisisReunion = { tipo: string | null; started_at: string | null; share_url: string | null; call_url: string | null; category: string | null };
+
+const DIA = 86400000;
+const urlDe = (a: AnalisisReunion) => (a.share_url || a.call_url || '');
+/** Llamada de VENTA más cercana a una fecha objetivo (agenda de Calendly), dentro
+ *  de una ventana de ±4 días. Ignora las ya usadas. undefined si no hay match. */
+function ventaCercaDe(calls: AnalisisReunion[], targetISO: string | undefined, usados: Set<string>): AnalisisReunion | undefined {
+  if (!targetISO) return undefined;
+  const t = new Date(targetISO.slice(0, 10) + 'T00:00:00Z').getTime();
+  return calls
+    .filter((a) => a.started_at && !usados.has(urlDe(a)))
+    .map((a) => ({ a, d: Math.abs(new Date(a.started_at as string).getTime() - t) }))
+    .filter((x) => x.d <= 4 * DIA)
+    .sort((x, y) => x.d - y.d)[0]?.a;
+}
 
 export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReuniones> {
   const supabase = (await getTenantDb());
@@ -56,7 +70,7 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
     eventosCalendly(lead.email),
     supabase
       .from('closing_analyses')
-      .select('tipo, started_at, share_url, call_url')
+      .select('tipo, started_at, share_url, call_url, category')
       .eq('lead_id', lead.id)
       .not('started_at', 'is', null)
       .order('started_at', { ascending: true })
@@ -74,10 +88,23 @@ export async function buscarReunionesAutomatico(lead: Lead): Promise<AutoReunion
   const calJ1 = eventos.find((e) => !ES_R2.test(e.name ?? ''));
   const calJ2 = eventos.find((e) => ES_R2.test(e.name ?? ''));
 
-  // Fathom (grabaciones matcheadas): por tipo si el análisis lo trae; si no,
-  // la más vieja es R1 y la siguiente R2.
-  const anaR1 = analisisRes.find((a) => a.tipo === 'R1') ?? (analisisRes[0]?.tipo == null ? analisisRes[0] : undefined);
-  const anaR2 = analisisRes.find((a) => a.tipo === 'R2') ?? (analisisRes[1]?.tipo == null ? analisisRes[1] : undefined);
+  // Fathom (grabaciones matcheadas) → SOLO llamadas de VENTA. La entrega de
+  // servicio / coaching también matchea por email pero NO es R1/R2; el análisis
+  // de Closing Analyst ya la separa (transcript-aware) → acá filtramos por eso.
+  // Prioridad para asignar cada reunión:
+  //   1) tipo explícito (R1/R2 que decidió Claude leyendo la llamada)
+  //   2) la venta más cercana a la fecha de la agenda de Calendly (±4 días)
+  //   3) orden por fecha entre ventas (la más vieja = R1, la siguiente = R2)
+  const ventas = analisisRes.filter((a) => a.category === 'venta');
+  const usados = new Set<string>();
+  const anaR1 = ventas.find((a) => a.tipo === 'R1')
+    ?? ventaCercaDe(ventas, calJ1?.start_time, usados)
+    ?? ventas[0];
+  if (anaR1) usados.add(urlDe(anaR1));
+  const anaR2 = ventas.find((a) => a.tipo === 'R2' && !usados.has(urlDe(a)))
+    ?? ventaCercaDe(ventas, calJ2?.start_time, usados)
+    ?? ventas.find((a) => !usados.has(urlDe(a)));
+  if (anaR2) usados.add(urlDe(anaR2));
 
   // Google Calendar (3ra fuente): eventos con el email del lead, por nombre.
   const gcalJ1 = gcalEventos.find((e) => !ES_R2.test(e.summary ?? ''));
