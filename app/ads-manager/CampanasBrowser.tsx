@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { MakoStar, MakoWord } from '../_components/MakoBrand';
+import { TIPO_DE_CAMBIO_USD_MXN, mxnAUsd } from '@/lib/config';
 import type { SenalRecon, ReconVeredicto, RitmoEstado } from '@/lib/queries';
 import {
   colorDeSemaforo, bgDeSemaforo, explicarIssueEs,
@@ -58,7 +59,6 @@ const fmtUSD = (n: number | null | undefined, d?: number) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: dec, minimumFractionDigits: dec }).format(n);
 };
 const fmtNum = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('es-MX').format(Math.round(n)));
-const fmtMXN0 = (n: number | null | undefined) => (n === null || n === undefined || !Number.isFinite(n) ? '—' : new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(n));
 
 type Perf = { spend_usd: number; impressions: number; link_clicks: number; leads: number; agendas: number; cierres: number; cash_usd: number };
 const emptyPerf = (): Perf => ({ spend_usd: 0, impressions: 0, link_clicks: 0, leads: 0, agendas: 0, cierres: 0, cash_usd: 0 });
@@ -580,7 +580,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
       )}
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 4 }}>
-        Estado en vivo de Meta + rendimiento del rango cruzado con cierres/cash del CRM. Presupuesto en MXN (como Meta). Las escrituras requieren un token con permiso de administración.
+        Estado en vivo de Meta + rendimiento del rango cruzado con cierres/cash del CRM. Presupuesto y gasto en USD (convertidos de la moneda de la cuenta al tipo de cambio actual). Las escrituras requieren un token con permiso de administración.
       </footer>
 
       {toast && (
@@ -699,23 +699,24 @@ function BudgetCell({ r, budgetMxn, editing, writing, onStart, onCancel, onSave 
     <button type="button" onClick={(e) => { stop(e); onStart(); }} disabled={writing} title="Editar presupuesto"
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', border: '1px solid transparent', borderRadius: 8, padding: '4px 8px', cursor: writing ? 'default' : 'pointer', color: 'var(--ink)', font: 'inherit', fontVariantNumeric: 'tabular-nums' }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}>
-      {budgetMxn != null ? `${fmtMXN0(budgetMxn)}/día` : '—'}<span style={{ fontSize: 11, color: 'var(--faint)' }}>✎</span>
+      {budgetMxn != null ? `${fmtUSD(mxnAUsd(budgetMxn), 0)}/día` : '—'}<span style={{ fontSize: 11, color: 'var(--faint)' }}>✎</span>
     </button>
   );
 }
 
 function BudgetEditor({ mxn, onSave, onCancel }: { mxn: number | null; onSave: (mxn: number) => void; onCancel: () => void }) {
-  const [v, setV] = useState(mxn != null ? String(Math.round(mxn)) : '');
+  // Se edita en USD; Meta espera MXN (moneda de la cuenta) → se convierte al guardar.
+  const [v, setV] = useState(mxn != null ? String(Math.round(mxnAUsd(mxn))) : '');
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
-  const save = () => { const n = Number(v); if (Number.isFinite(n) && n > 0) onSave(n); };
+  const save = () => { const usd = Number(v); if (Number.isFinite(usd) && usd > 0) onSave(Math.round(usd * TIPO_DE_CAMBIO_USD_MXN)); };
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
       <span style={{ color: 'var(--faint)', fontSize: 13 }}>$</span>
       <input ref={ref} value={v} onChange={(e) => setV(e.target.value.replace(/[^\d]/g, ''))}
         onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); }}
         inputMode="numeric" style={{ width: 78, padding: '5px 8px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13, outline: 'none', textAlign: 'right' }} />
-      <span style={{ color: 'var(--faint)', fontSize: 12 }}>MXN/día</span>
+      <span style={{ color: 'var(--faint)', fontSize: 12 }}>USD/día</span>
       <button type="button" onClick={save} style={{ border: 'none', background: 'var(--good)', color: '#fff', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✓</button>
       <button type="button" onClick={onCancel} style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 7, width: 26, height: 26, cursor: 'pointer', fontSize: 13 }}>✕</button>
     </span>
