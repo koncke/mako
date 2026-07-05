@@ -16,6 +16,7 @@ import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, type StageMoveCuota } from './actions';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -94,8 +95,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   titulo?: string;
   /** "Completar datos" (Solucionar): el wizard también pide higiene (setter/closer/empresa/teléfono). */
   completarDatos?: boolean;
-  /** Miembros del equipo para los desplegables de setter/closer. */
-  equipo?: Array<{ nombre: string; email: string }>;
+  /** Miembros del equipo para los desplegables de setter/closer (con foto). */
+  equipo?: Array<{ nombre: string; email: string; foto_url?: string | null }>;
   /** Lista autoritativa de datos faltantes (del caller). Si viene, el wizard la
    *  usa para saber qué pedir (incluye Deal Details / documentos / respuestas R2)
    *  en vez de re-derivarla — así resuelve TODO en una sola pasada. */
@@ -551,14 +552,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       const set = paso === 'setter' ? setSetter : setCloser;
       pregunta = paso === 'setter' ? '¿Quién es el Setter?' : '¿Quién es el Closer?';
       sub = paso === 'setter' ? 'El que agendó la reunión. Elegilo de tu equipo.' : 'El que corrió la llamada de venta. Elegilo de tu equipo.';
-      // Setter/Closer SIEMPRE seleccionable del equipo del workspace — nunca texto
-      // libre (dato sensible, tiene que existir en Configuraciones › Equipo).
+      // Setter/Closer SIEMPRE un desplegable del equipo del workspace (con foto) —
+      // nunca texto libre (dato sensible, vive en Configuraciones › Equipo).
+      const opts: DropdownOption[] = [
+        { value: '', label: 'Sin asignar' },
+        ...equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null })),
+      ];
+      if (val.trim() && !equipo.some((m) => m.nombre === val.trim())) opts.push({ value: val.trim(), label: val.trim(), sub: 'fuera del equipo', avatar: null });
       cuerpo = equipo.length > 0 ? (
-        <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {equipo.map((m) => {
-            const active = val.trim() === m.nombre || val.trim() === m.email;
-            return <button key={m.email} type="button" onClick={() => set(active ? '' : m.nombre)} style={{ minWidth: 130, padding: '11px 16px', borderRadius: 12, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{m.nombre}</button>;
-          })}
+        <div style={{ maxWidth: 340, margin: '0 auto' }}>
+          <Dropdown value={val} options={opts} onChange={set} placeholder="Elegí del equipo…" width="100%" ariaLabel={paso === 'setter' ? 'Setter' : 'Closer'} />
         </div>
       ) : (
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: '16px 18px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5, textAlign: 'left' }}>

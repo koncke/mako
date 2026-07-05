@@ -67,9 +67,9 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
   // para no perderlo, marcado "fuera del equipo".
   const equipoOpts = (current: string): DropdownOption[] => {
     const opts: DropdownOption[] = [{ value: '', label: 'Sin asignar' }];
-    for (const m of equipo) opts.push({ value: m.nombre, label: m.nombre });
+    for (const m of equipo) opts.push({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null });
     const cur = current.trim();
-    if (cur && !equipo.some((m) => m.nombre === cur)) opts.push({ value: cur, label: cur, sub: 'fuera del equipo' });
+    if (cur && !equipo.some((m) => m.nombre === cur)) opts.push({ value: cur, label: cur, sub: 'fuera del equipo', avatar: null });
     return opts;
   };
   const [fathom, setFathom] = useState<FathomLink[]>(lead.fathom_links ?? []);
