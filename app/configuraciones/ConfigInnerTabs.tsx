@@ -53,9 +53,6 @@ export function ConfigInnerTabs({ funnelPanel, onboardingPanel, equipoPanel }: {
   const tabBtn = (on: boolean): CSSProperties => ({ ...base, fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)', background: 'none', border: 'none', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer' });
 
   const activo = TABS.find((t) => t.key === tab);
-  // Los paneles anchos (Funnel/Onboarding/Equipo) usan TODO el ancho; los
-  // formularios simples se capean para que los inputs no queden gigantes.
-  const anchoPanel = (tab === 'funnel' || tab === 'onboarding' || tab === 'equipo') ? undefined : 760;
 
   return (
     <div>
@@ -67,7 +64,8 @@ export function ConfigInnerTabs({ funnelPanel, onboardingPanel, equipoPanel }: {
           <Link key={l.href} href={l.href} style={{ ...base, fontWeight: 500, color: 'var(--dim)' }}>{l.label} <span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>↗</span></Link>
         ))}
       </div>
-      <div style={{ maxWidth: anchoPanel }}>{activo?.panel}</div>
+      {/* TODO a full width (paneles anchos y formularios por igual). */}
+      {activo?.panel}
     </div>
   );
 }
