@@ -601,7 +601,7 @@ export async function processCandidate(
  * FIJADO (así aparecen en getLeadInsights). Salta las que ya están analizadas
  * para ese lead. Liviano: barre metadata y solo baja transcript de las del lead.
  */
-export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; yaEstaban: number }> {
+export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; relinkeadas: number; yaEstaban: number }> {
   const supabase = (await getTenantDb());
   const { data: lr, error } = await supabase
     .from('leads')
@@ -622,6 +622,24 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
   const emailNorm = (lead.email ?? '').trim().toLowerCase();
   const shareSet = new Set(((row.fathom_links as Array<{ url?: string }> | null) ?? []).map((f) => normUrl(f.url ?? '')).filter(Boolean));
 
+  let relinkeadas = 0;
+  // Paso 0 — RE-LINK DIRECTO (sin Fathom): análisis que YA existen en Closing
+  // Analyst y matchean por email del invitado o por el share_url cargado en el
+  // lead, pero están linkeados a otro lead (o a ninguno) → linkearlos a este.
+  // Resuelve el caso "la llamada ya está en Closing Analyst pero el insight no la ve".
+  const { data: caRows } = await supabase
+    .from('closing_analyses')
+    .select('recording_id, lead_id, invitee_email, share_url, status');
+  for (const r of ((caRows ?? []) as Array<{ recording_id: number; lead_id: number | null; invitee_email: string | null; share_url: string | null; status: string }>)) {
+    if (r.status === 'error' || r.lead_id === lead.id) continue;
+    const emailOk = !!emailNorm && (r.invitee_email ?? '').trim().toLowerCase() === emailNorm;
+    const urlOk = !!r.share_url && shareSet.has(normUrl(r.share_url));
+    if (emailOk || urlOk) {
+      await supabase.from('closing_analyses').update({ lead_id: lead.id, lead_nombre: lead.nombre, lead_empresa: lead.empresa }).eq('recording_id', r.recording_id);
+      relinkeadas++;
+    }
+  }
+
   const [meetings, done] = await Promise.all([
     fetchAllMeetings({ includeSummary: false }),
     supabase.from('closing_analyses').select('recording_id, lead_id, status'),
@@ -640,14 +658,24 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
   let yaEstaban = 0;
   for (const meta of mias) {
     const prev = doneByRec.get(meta.recording_id);
-    if (prev && prev.lead_id === lead.id && prev.status !== 'error' && prev.status !== 'pendiente') { yaEstaban++; continue; }
+    const resuelta = prev && prev.status !== 'error' && prev.status !== 'pendiente';
+    if (resuelta && prev!.lead_id === lead.id) { yaEstaban++; continue; }
+    if (resuelta) {
+      // La llamada YA está analizada en Closing Analyst pero linkeada a otro lead
+      // (o a ninguno): re-linkear al lead actual SIN re-analizar (barato, sin Claude).
+      await supabase.from('closing_analyses')
+        .update({ lead_id: lead.id, lead_nombre: lead.nombre, lead_empresa: lead.empresa })
+        .eq('recording_id', meta.recording_id);
+      relinkeadas++;
+      continue;
+    }
     let m: FathomMeeting = meta;
     try { m = await fetchMeetingContent(meta); } catch { /* seguimos con la metadata */ }
     const res = await analyzeMeeting(m, lead);
     if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis)); analizadas++; }
     else await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
   }
-  return { encontradas: mias.length, analizadas, yaEstaban };
+  return { encontradas: mias.length, analizadas, relinkeadas, yaEstaban };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

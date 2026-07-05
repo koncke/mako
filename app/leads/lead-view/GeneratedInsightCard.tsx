@@ -14,8 +14,9 @@ import { deriveStageKey, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { LeadInsightGen } from '@/lib/lead-insights';
 import type { Step } from '@/lib/stage-requirements';
-import { generateLeadInsightAction, analizarLlamadaLeadAction } from '../insights-actions';
+import { generateLeadInsightAction, analizarLlamadaLeadAction, leadTieneLlamadaAction } from '../insights-actions';
 import { StageMoveDialog, type MoveLeadInfo } from '../StageMoveDialog';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -57,6 +58,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
   const [wizard, setWizard] = useState(false);
   // Loader de acciones progresivas del botón "Analizar la llamada".
   const [fase, setFase] = useState<string | null>(null);
+  const [confirmAnalizar, setConfirmAnalizar] = useState(false);
 
   // Adopción de props tras router.refresh() (patrón prev-key).
   const fpProps = `${inicial?.id ?? 0}|${faltantesIniciales.map((f) => f.id).join(',')}`;
@@ -86,21 +88,30 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
     });
   };
 
-  // Sin llamada analizada pero con Fathom: analiza la llamada (Fathom → closing)
-  // y encadena la generación del insight, mostrando cada acción en progreso.
-  const analizarYGenerar = () => {
+  // Proceso completo con loader progresivo (analizar/re-linkear la llamada →
+  // generar el insight). El análisis real corre en analizarLlamadaLeadAction.
+  const correrAnalisis = async () => {
+    setFase('Se están extrayendo los datos de Fathom…');
+    const an = await analizarLlamadaLeadAction(lead.id);
+    if (!an.ok) { setError(an.motivo); setFase(null); return; }
+    setFase('Se están generando los insights del lead…');
+    const res = await generateLeadInsightAction(lead.id);
+    setFase(null);
+    if (res.ok) { setInsight(res.insight); setFaltantes([]); router.refresh(); }
+    else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); router.refresh(); }
+  };
+
+  // Antes de arrancar: si la llamada NO está en Closing Analyst, pedir CONFIRMACIÓN.
+  const pedirAnalisis = () => {
     setError(null);
     startTransition(async () => {
-      setFase('Extrayendo los datos de Fathom y analizando el closing…');
-      const an = await analizarLlamadaLeadAction(lead.id);
-      if (!an.ok) { setError(an.motivo); setFase(null); return; }
-      setFase('Generando los insights del lead…');
-      const res = await generateLeadInsightAction(lead.id);
-      setFase(null);
-      if (res.ok) { setInsight(res.insight); setFaltantes([]); router.refresh(); }
-      else { if (res.faltantes?.length) setFaltantes(res.faltantes); setError(res.motivo); router.refresh(); }
+      setFase('Buscando la llamada en Closing Analyst…');
+      const tiene = await leadTieneLlamadaAction(lead.id);
+      if (tiene) { await correrAnalisis(); }
+      else { setFase(null); setConfirmAnalizar(true); }
     });
   };
+  const confirmarYAnalizar = () => { setConfirmAnalizar(false); setError(null); startTransition(() => { void correrAnalisis(); }); };
 
   const btn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: pending ? 'default' : 'pointer', fontFamily: SANS, opacity: pending ? 0.65 : 1 };
   const btnSec: CSSProperties = { ...btn, background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border-strong)' };
@@ -157,7 +168,7 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
               </div>
             </div>
             {tieneFathom
-              ? <button type="button" onClick={analizarYGenerar} disabled={pending} style={btn}>✦ Analizar la llamada</button>
+              ? <button type="button" onClick={pedirAnalisis} disabled={pending} style={btn}>✦ Analizar la llamada</button>
               : <button type="button" onClick={() => setWizard(true)} style={btnSec}>Cargar link de Fathom</button>}
           </div>
         )}
@@ -259,6 +270,17 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
           titulo="Completar datos"
           onClose={() => setWizard(false)}
           onDone={() => { setWizard(false); setFaltantes([]); router.refresh(); generar(); }}
+        />
+      )}
+
+      {confirmAnalizar && (
+        <ConfirmDialog
+          title="Analizar la llamada"
+          message={<>Este lead <b>no tiene su llamada analizada</b> en Closing Analyst. Voy a extraer los datos de Fathom, analizar el closing y generar el insight. ¿Ejecutar el proceso?</>}
+          confirmLabel="Sí, ejecutar"
+          onConfirm={confirmarYAnalizar}
+          onCancel={() => setConfirmAnalizar(false)}
+          zIndex={120}
         />
       )}
     </>
