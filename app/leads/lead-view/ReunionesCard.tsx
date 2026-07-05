@@ -140,13 +140,19 @@ export function ReunionesCard({ lead, respuestas, equipo = [], closerDetectado }
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-        {/* Closer: si está vacío pero Fathom detectó uno, lo mostramos como sugerencia. */}
-        <Persona label="Closer" nombre={lead.closer || closerDetectado || null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
-        <Persona label="Setter" nombre={lead.setter ?? null} equipo={equipo} />
-        {lead.fecha_confirmacion && (
-          <div><span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span><div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', marginTop: 3 }}>{fmtDDMMYYYY(lead.fecha_confirmacion)}</div></div>
-        )}
+      {/* Closer · Setter · Confirmación en recuadros que llegan hasta el ancho. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10, marginTop: 16 }}>
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+          {/* Closer: si está vacío pero Fathom detectó uno, lo mostramos como sugerencia. */}
+          <Persona label="Closer" nombre={lead.closer || closerDetectado || null} equipo={equipo} hint={closerDetectado && !lead.closer ? `${closerDetectado} (de Fathom)` : undefined} />
+        </div>
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+          <Persona label="Setter" nombre={lead.setter ?? null} equipo={equipo} />
+        </div>
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+          <span style={{ fontSize: 11.5, color: 'var(--dim)' }}>Confirmación de pago</span>
+          <div style={{ fontSize: 14, fontWeight: 600, color: lead.fecha_confirmacion ? 'var(--ink)' : 'var(--faint)', marginTop: 3 }}>{lead.fecha_confirmacion ? fmtDDMMYYYY(lead.fecha_confirmacion) : '—'}</div>
+        </div>
       </div>
     </section>
   );
