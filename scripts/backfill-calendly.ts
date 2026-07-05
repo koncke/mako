@@ -5,9 +5,11 @@
 // UTM. Completa cohortes viejas (campaña de diciembre) y hace posible que el
 // objetivo (Fase 14) cuente cierres reales.
 //
-// Uso:
-//   npx tsx scripts/backfill-calendly.ts --dry      (simula, no escribe)
-//   npx tsx scripts/backfill-calendly.ts            (escribe en producción)
+// Uso (el flag --conditions=react-server neutraliza `server-only` fuera de Next):
+//   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/backfill-calendly.ts --dry
+//   NODE_OPTIONS="--conditions=react-server" npx tsx scripts/backfill-calendly.ts
+// Token: usa CALENDLY_API_TOKEN; si no está, cae a CALENDLY_WEBHOOK_SIGNING_KEY
+// (en esta cuenta el mismo PAT sirve para la API REST y para el webhook).
 //
 // Reglas de no-destrucción (vía upsertLeadFromCalendly con soloCompletarVacios):
 //   - Lead existente: solo completa campos VACÍOS. Nunca pisa datos cargados
@@ -24,6 +26,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { upsertLeadFromCalendly, saveLeadRespuestas } from '../lib/leads';
 import { isoToFechaTijuana, extractAnswer } from '../lib/calendly';
+import { runWithWorkspace, OWNER_WS } from '../lib/workspace';
 
 // R1 vs R2 por el nombre del evento de Calendly (para las respuestas exactas).
 const ES_R2 = /r2|reuni[oó]n 2|junta 2|seguimiento/i;
@@ -50,8 +53,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 function token(): string {
-  const t = process.env.CALENDLY_API_TOKEN;
-  if (!t) throw new Error('Falta CALENDLY_API_TOKEN en .env.local');
+  const t = process.env.CALENDLY_API_TOKEN || process.env.CALENDLY_WEBHOOK_SIGNING_KEY;
+  if (!t) throw new Error('Falta CALENDLY_API_TOKEN (o CALENDLY_WEBHOOK_SIGNING_KEY) en .env.local');
   return t;
 }
 
@@ -231,7 +234,9 @@ async function main() {
   process.exit(errores.length > 0 ? 1 : 0);
 }
 
-main().catch((err) => {
+// Sin request (script) no hay cookies: fijamos el workspace del dueño para que
+// getTenantDb() escriba en el workspace correcto sin llamar a cookies().
+runWithWorkspace(OWNER_WS, () => main()).catch((err) => {
   console.error('Fatal:', err);
   process.exit(1);
 });
