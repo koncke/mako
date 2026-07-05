@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
-  CATEGORY, TRIGGER, BAND_LABEL, generateFunnel, FUNNEL_TEMPLATES,
+  CATEGORY, TRIGGER, BAND_LABEL, generateFunnel, FUNNEL_TEMPLATES, AUTO_REGLAS,
   type Stage, type StageBand, type StageKind, type FunnelTransition, type TransitionTrigger,
 } from '@/lib/pipeline';
 import { saveFunnelAction } from '../leads/actions';
@@ -270,9 +270,38 @@ export function FunnelEditor({
       {/* leyenda auto/manual */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '12px 2px 0', fontSize: 12, color: 'var(--dim)' }}>
         <span><b style={{ color: '#3B6D11' }}>⚡ Auto</b> avanza solo (ya cableado)</span>
-        <span><b style={{ color: '#2E7DBE' }}>◐ Auto*</b> automatizable (falta webhook)</span>
+        <span><b style={{ color: '#2E7DBE' }}>◐ Auto*</b> lo mueve MaKo (CRM automático)</span>
         <span><b style={{ color: '#8A6D3B' }}>✋ Vos</b> requiere que marques cómo quedó</span>
       </div>
+
+      {/* AUTOMATIZACIONES DE MAKO — qué mueve un lead solo y cuándo */}
+      <section style={{ marginTop: 26 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--primary)' }} />
+          <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: 'var(--ink)' }}>Automatizaciones de MaKo</h2>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#B5630A', background: 'rgba(217,119,6,.12)', padding: '2px 8px', borderRadius: 999 }}>en observación</span>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 12px 18px', maxWidth: 720, lineHeight: 1.5 }}>
+          MaKo mueve el lead solo cuando se cumplen estas condiciones. En los que marcan <b style={{ color: '#B5630A', fontWeight: 600 }}>confirma</b> te pide un OK al entrar al CRM (por si se equivocó); los <b style={{ color: '#3B6D11', fontWeight: 600 }}>automático</b> los aplica sin preguntar. Todo queda en el historial. Hoy calcula los movimientos sin tocar nada; se prenden cuando lo decidas.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(322px, 1fr))', gap: 10 }}>
+          {AUTO_REGLAS.map((r) => (
+            <div key={r.id} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: '13px 15px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'rgba(47,111,237,.1)', padding: '2px 7px', borderRadius: 6 }}>{r.id}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{r.titulo}</span>
+                <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: r.confirmar ? '#B5630A' : '#3B6D11', background: r.confirmar ? 'rgba(217,119,6,.12)' : 'rgba(59,109,17,.12)' }}>{r.confirmar ? 'confirma' : 'automático'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', fontSize: 12.5, marginBottom: 6 }}>
+                <span style={{ fontWeight: 600, color: 'var(--dim)' }}>{r.desde}</span>
+                <span style={{ color: 'var(--faint)' }}>→</span>
+                <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{r.hacia}</span>
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45 }}>{r.senal}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* EDITOR DE ACTIVO */}
       <section style={{ marginTop: 24 }}>
