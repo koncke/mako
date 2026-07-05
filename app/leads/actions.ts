@@ -350,6 +350,13 @@ export async function marcarPagoAction(
   fechaPago: string | null,
 ): Promise<void> {
   await marcarPago(pagoId, pagado, fechaPago);
+  // Queda registrado en Change History (marcar y desmarcar).
+  await logLeadEvent(
+    leadId,
+    pagado ? 'Pago registrado' : 'Pago desmarcado',
+    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : 'Cuota desmarcada',
+    await autorActual(),
+  );
   bust(TAG.pagos, TAG.leads);
   revalidatePath(`/leads/${leadId}`);
   revalidatePath('/comercial');

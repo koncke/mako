@@ -205,8 +205,9 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
   const [verContrato, setVerContrato] = useState(false);
   const [verFiscal, setVerFiscal] = useState(false);
   const [modal, setModal] = useState<{ tipo: 'pagar' | 'comprobante'; pago: Pago } | null>(null);
-  const [undoPago, setUndoPago] = useState<Pago | null>(null);
-  useEffect(() => { if (!undoPago) return; const t = setTimeout(() => setUndoPago(null), 5000); return () => clearTimeout(t); }, [undoPago]);
+  // Toast de 5s de deshacer, tanto al MARCAR como al DESMARCAR una cuota.
+  const [pagoToast, setPagoToast] = useState<{ pago: Pago; accion: 'marcada' | 'desmarcada' } | null>(null);
+  useEffect(() => { if (!pagoToast) return; const t = setTimeout(() => setPagoToast(null), 5000); return () => clearTimeout(t); }, [pagoToast]);
 
   const [contratoSubido, setContratoSubido] = useState<string | null>(null);
   const [extrayendo, setExtrayendo] = useState(false);
@@ -336,11 +337,26 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
     } finally { setSubiendoFiscal(false); if (fiscalRef.current) fiscalRef.current.value = ''; }
   };
 
-  const deshacerPago = (p: Pago) => {
+  // Desmarcar una cuota pagada (botón "deshacer" de la cuota): muestra el toast de
+  // 5s para RE-marcar con la fecha original (así no se pierde como pasó antes).
+  const desmarcarPago = (p: Pago) => {
     setFeedback(null);
     startTransition(async () => {
-      try { await marcarPagoAction(p.id, lead.id, false, null); router.refresh(); }
+      try { await marcarPagoAction(p.id, lead.id, false, null); setPagoToast({ pago: p, accion: 'desmarcada' }); router.refresh(); }
       catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
+    });
+  };
+  // Deshacer desde el toast: si se marcó → desmarcar; si se desmarcó → re-marcar
+  // con la fecha/hora originales. No re-dispara otro toast.
+  const undoPagoToast = (p: Pago, accion: 'marcada' | 'desmarcada') => {
+    setPagoToast(null);
+    setFeedback(null);
+    startTransition(async () => {
+      try {
+        if (accion === 'marcada') await marcarPagoAction(p.id, lead.id, false, null);
+        else await marcarPagoManualAction(p.id, lead.id, { fecha: p.fecha_pago ?? new Date().toISOString().slice(0, 10), hora: p.pago_hora ?? null });
+        router.refresh();
+      } catch (err) { setFeedback({ kind: 'err', msg: err instanceof Error ? err.message : String(err) }); }
     });
   };
 
@@ -455,7 +471,7 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
                       {p.pagado ? (
                         <>
                           {p.comprobante_path && <button type="button" style={{ ...linkBtn, color: 'var(--primary)', fontWeight: 600 }} onClick={() => setModal({ tipo: 'comprobante', pago: p })}>Ver comprobante</button>}
-                          <button type="button" style={{ ...linkBtn, opacity: pending ? 0.5 : 1 }} disabled={pending} onClick={() => deshacerPago(p)}>deshacer</button>
+                          <button type="button" style={{ ...linkBtn, opacity: pending ? 0.5 : 1 }} disabled={pending} onClick={() => desmarcarPago(p)}>deshacer</button>
                         </>
                       ) : (
                         <button type="button" style={goodBtn} onClick={() => setModal({ tipo: 'pagar', pago: p })}>Marcar pagada</button>
@@ -626,14 +642,14 @@ export const DealDetailsCard = forwardRef<DealDetailsHandle, { lead: Lead; pagos
       </section>
 
       {modal?.tipo === 'pagar' && (
-        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setUndoPago(p); router.refresh(); }} />
+        <PayModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} onDone={(msg) => { const p = modal.pago; setModal(null); setFeedback({ kind: 'ok', msg }); setPagoToast({ pago: p, accion: 'marcada' }); router.refresh(); }} />
       )}
       {modal?.tipo === 'comprobante' && <ComprobanteModal pago={modal.pago} leadId={lead.id} onClose={() => setModal(null)} />}
 
-      {undoPago && (
+      {pagoToast && (
         <div style={{ position: 'fixed', left: '50%', bottom: 24, transform: 'translateX(-50%)', zIndex: 90, display: 'flex', alignItems: 'center', gap: 14, background: 'var(--ink)', color: '#F3F5F8', borderRadius: 12, padding: '11px 16px', boxShadow: '0 12px 40px rgba(18,21,27,.32)', fontFamily: SANS, fontSize: 13.5 }}>
-          <span>{etiquetaCuota(undoPago.numero)} marcada como pagada.</span>
-          <button type="button" onClick={() => { const p = undoPago; setUndoPago(null); deshacerPago(p); }} style={{ background: 'transparent', border: 'none', color: '#8FD0FF', fontWeight: 700, cursor: 'pointer', fontFamily: SANS, fontSize: 13.5 }}>Deshacer</button>
+          <span>{etiquetaCuota(pagoToast.pago.numero)} {pagoToast.accion === 'marcada' ? 'marcada como pagada.' : 'desmarcada.'}</span>
+          <button type="button" onClick={() => undoPagoToast(pagoToast.pago, pagoToast.accion)} style={{ background: 'transparent', border: 'none', color: '#8FD0FF', fontWeight: 700, cursor: 'pointer', fontFamily: SANS, fontSize: 13.5 }}>Deshacer</button>
         </div>
       )}
     </div>
