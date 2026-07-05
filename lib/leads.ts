@@ -37,6 +37,8 @@ export type Lead = {
   fecha_agenda: string | null;        // YYYY-MM-DD
   fecha_junta_1: string | null;
   fecha_junta_2: string | null;
+  junta_1_at: string | null;          // ISO con hora (Calendly start_time) — precisión del No Show
+  junta_2_at: string | null;
 
   asistio_j1: boolean | null;
   asistio_j2: boolean | null;
@@ -112,6 +114,11 @@ export type Lead = {
   sin_r1?: boolean | null;          // cierre sin Reunión 1
   sin_r2?: boolean | null;          // cierre sin Reunión 2
   fathom_omitido?: boolean | null;  // la reunión no se grabó
+
+  // Omisiones/excepciones del wizard "Solucionar" (migración 0069).
+  deal_fiscal_doc_omitido?: boolean | null;  // no se sube el documento fiscal del cliente
+  comprobante_omitido?: boolean | null;      // no se suben los comprobantes de pago
+  r2_agenda_externa_motivo?: string | null;  // la R2 se agendó fuera de Calendly (motivo) → satisface respuestas R2
 
   // Contrato subido (migración 0029): archivo en Storage + nombre original.
   contrato_nombre?: string | null;
@@ -614,11 +621,11 @@ export async function findLeadByContacto(
  * Setea SOLO fecha_junta_2 en un lead (J2 entrante de Calendly, Fase 10).
  * Nunca toca otros campos.
  */
-export async function setFechaJunta2(leadId: number, fechaJ2: string): Promise<void> {
+export async function setFechaJunta2(leadId: number, fechaJ2: string, juntaAtIso?: string | null): Promise<void> {
   const supabase = (await getTenantDb());
   const { error } = await supabase
     .from('leads')
-    .update({ fecha_junta_2: fechaJ2 })
+    .update({ fecha_junta_2: fechaJ2, ...(juntaAtIso ? { junta_2_at: juntaAtIso } : {}) })
     .eq('id', leadId);
   if (error) throw new Error(`Error seteando fecha_junta_2 en lead ${leadId}: ${error.message}`);
 }
@@ -827,6 +834,7 @@ export async function upsertLeadFromCalendly(
     nombre: string;
     fecha_agenda: string;
     fecha_junta_1: string;
+    junta_1_at?: string | null;         // ISO con hora del start_time de Calendly
     empresa?: string | null;
     telefono?: string | null;
     utm_source?: string | null;
@@ -889,6 +897,7 @@ export async function upsertLeadFromCalendly(
     email: emailNorm,
     fecha_agenda: input.fecha_agenda,
     fecha_junta_1: input.fecha_junta_1,
+    ...(input.junta_1_at ? { junta_1_at: input.junta_1_at } : {}),
     empresa: input.empresa?.trim() || null,
     telefono: input.telefono?.trim() || null,
     ...(telNorm ? { telefono_normalizado: telNorm } : {}),
@@ -913,6 +922,7 @@ export async function upsertLeadFromCalendly(
       setIfEmpty('empresa', input.empresa?.trim() || null);
       setIfEmpty('fecha_agenda', input.fecha_agenda);
       setIfEmpty('fecha_junta_1', input.fecha_junta_1);
+      setIfEmpty('junta_1_at', input.junta_1_at);
       setIfEmpty('utm_source', input.utm_source);
       setIfEmpty('utm_medium', input.utm_medium);
       setIfEmpty('utm_campaign', input.utm_campaign);
@@ -1439,11 +1449,14 @@ export function faltantesDeLead(
     dealServicioOk: !!(lead.deal_servicio?.que_es?.trim()),
     dealPromesaOk: !!(lead.deal_promesa?.resultado?.trim()),
     dealFiscalOk: !!(lead.deal_fiscal?.razon?.trim()),
-    dealFiscalDocOk: !!(lead.deal_fiscal?.doc_path?.trim()),
+    // Documento fiscal: presente O declarado omitido (no se vuelve a exigir).
+    dealFiscalDocOk: !!(lead.deal_fiscal?.doc_path?.trim()) || !!lead.deal_fiscal_doc_omitido,
     dealObligacionesOk: !!((oblig?.cliente?.length ?? 0) > 0 || (oblig?.prestador?.length ?? 0) > 0),
-    comprobantesFaltantes: extra?.comprobantesFaltantes,
+    // Comprobantes: si se declararon omitidos, no faltan.
+    comprobantesFaltantes: lead.comprobante_omitido ? 0 : extra?.comprobantesFaltantes,
     tieneR2,
-    r2RespuestasOk: extra?.r2RespuestasOk,
+    // Respuestas R2: las de Calendly O el motivo de haberse agendado fuera de Calendly.
+    r2RespuestasOk: (extra?.r2RespuestasOk ?? false) || !!lead.r2_agenda_externa_motivo?.trim(),
     tienePlan,
     hoyISO: hoyEnTijuana(),
     sinR1: !!lead.sin_r1,

@@ -13,7 +13,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { deriveStageKey, CHIP, type Stage } from '@/lib/pipeline';
 import type { Lead, FathomLink } from '@/lib/leads';
-import { hayPasoDeWizard, tabDeSolucion, type Step } from '@/lib/stage-requirements';
+import { hayPasoDeWizard, type Step } from '@/lib/stage-requirements';
 import type { Pago } from '@/lib/pagos';
 import type { MiembroEquipo } from '../actions';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
@@ -108,17 +108,14 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     sinR1: !!lead.sin_r1,
     sinR2: !!lead.sin_r2,
     fathomOmitido: !!lead.fathom_omitido,
+    email: lead.email ?? null,
+    tieneContrato: !!lead.contrato_path,
   };
 
-  // Solucionar unificado: con dato de reunión/venta/higiene → wizard "Completar
-  // datos"; si solo falta Deal Details / comprobante / respuestas R2 → a su tab.
-  const solucionar = () => {
-    if (hayPasoDeWizard(faltantes)) { setMoveTo(currentStage); return; }
-    const t = tabDeSolucion(faltantes);
-    if (t === 'cobranza') { router.push(`${pathname}?edit=1&tab=cobranza&ia=1`); return; }
-    if (t === 'reuniones') { router.push(`${pathname}?edit=1&tab=reuniones`); return; }
-    setEditing(true);
-  };
+  // Solucionar (pasada única): SIEMPRE abre el wizard con TODO lo faltante
+  // (reuniones + venta + higiene + Deal Details + documentos + respuestas R2).
+  // Ya no deriva a ninguna tab ni queda mudo.
+  const solucionar = () => { setMoveTo(currentStage); };
 
   const editarBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
@@ -203,6 +200,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           move={{ to: moveTo }}
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           completarDatos={moveTo === currentStage}
+          faltantes={moveTo === currentStage ? faltantes : undefined}
           equipo={equipo}
           onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
           onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}

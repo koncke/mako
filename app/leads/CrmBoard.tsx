@@ -37,6 +37,8 @@ import {
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
+import type { Step } from '@/lib/stage-requirements';
+import type { MiembroEquipo } from './actions';
 import { WizardShell, wizardInput } from './WizardShell';
 import { sectionForStage } from './edit-logic';
 import { missingForStage } from '@/lib/stage-requirements';
@@ -111,6 +113,8 @@ export type CrmMarcar = {
   soloEdit?: boolean;
   /** Dónde resolver: wizard, Deal Details (cobranza), Meetings, o Editar. */
   solTab?: 'wizard' | 'cobranza' | 'reuniones' | 'edit';
+  /** Lista exacta de datos faltantes (para el wizard in-place, pasada única). */
+  faltantes?: Step[];
 };
 
 const fmt = (n: number) => '$' + n.toLocaleString('en-US');
@@ -132,6 +136,7 @@ export function CrmBoard({
   total,
   errorMsg,
   hoy,
+  equipo = [],
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -141,6 +146,7 @@ export function CrmBoard({
   total: number;
   errorMsg: string | null;
   hoy: string;
+  equipo?: MiembroEquipo[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -331,16 +337,13 @@ export function CrmBoard({
     else persistStage(id, stageKey, from, tr);
   };
 
-  // "Solucionar" un dato sin marcar → rutea a la ficha, a la superficie correcta
-  // (wizard / Deal Details / Meetings / Editar). Preserva ?pendientes=1 para que
-  // "Volver" restaure la vista del worklist con su scroll.
+  // "Solucionar" un dato sin marcar → abre el wizard IN-PLACE (pop-up), sin salir
+  // del kanban. La pasada única resuelve TODO (reuniones/venta/higiene + Deal
+  // Details + documentos + respuestas R2). El paso final ofrece ver la ficha o salir.
   const solucionarMarcar = (leadId: number) => {
-    const solTab = marcar.find((m) => m.leadId === leadId)?.solTab ?? 'wizard';
-    const q = solTab === 'wizard' ? 'solucionar=1'
-      : solTab === 'cobranza' ? 'edit=1&tab=cobranza&ia=1'
-      : solTab === 'reuniones' ? 'edit=1&tab=reuniones'
-      : 'edit=1';
-    router.push(`/leads/${leadId}?${q}`);
+    const l = leads.find((x) => x.id === leadId);
+    if (!l) { router.push(`/leads/${leadId}?solucionar=1`); return; }
+    openStageMove(l, { to: effStage(l) });
   };
 
   // "Nutrición - Manual" desde el worklist: pide MOTIVO antes de guardar.
@@ -636,12 +639,18 @@ export function CrmBoard({
         const l = leads.find((x) => x.id === stageMove.leadId);
         if (!l) return null;
         const from = effStage(l);
+        const esCompletar = stageMove.move.to === from;
+        const faltantesLead = esCompletar ? marcar.find((m) => m.leadId === l.id)?.faltantes : undefined;
         return (
           <StageMoveDialog
             lead={leadToMoveInfo(l)}
             stages={stages}
             move={stageMove.move}
-            titulo={stageMove.move.to === from ? 'Completar datos' : undefined}
+            titulo={esCompletar ? 'Completar datos' : undefined}
+            completarDatos={esCompletar}
+            faltantes={faltantesLead}
+            equipo={equipo}
+            onVerDetalle={esCompletar ? () => router.push(`/leads/${l.id}`) : undefined}
             onClose={() => setStageMove(null)}
             onDone={() => {
               setStageMove(null);

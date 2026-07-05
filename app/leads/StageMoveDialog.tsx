@@ -11,7 +11,7 @@
 
 import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { stageMeta, type Stage } from '@/lib/pipeline';
-import { stepsForStage } from '@/lib/stage-requirements';
+import { stepsForStage, type Step } from '@/lib/stage-requirements';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, type StageMoveCuota } from './actions';
 import { autoReunionesAction } from './auto-actions';
@@ -45,6 +45,9 @@ export type MoveLeadInfo = {
   sinR1?: boolean;
   sinR2?: boolean;
   fathomOmitido?: boolean;
+  // Deal Details / documentos (para prefill + saber si hay contrato que leer).
+  email?: string | null;
+  tieneContrato?: boolean;
 };
 
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
@@ -56,7 +59,11 @@ type PasoId =
   | 'huboR1' | 'motivoNoR1' | 'fechaJ1' | 'asistenciaR1' | 'calificado' | 'fathomR1'
   | 'huboR2' | 'motivoNoR2' | 'fechaJ2' | 'asistenciaR2' | 'fathomR2'
   | 'monto' | 'plan' | 'motivo' | 'motivoDetalle'
-  | 'setter' | 'closer' | 'empresa' | 'telefono' | 'resumen';
+  | 'setter' | 'closer' | 'empresa' | 'telefono'
+  // Deal Details + documentos + Calendly R2 (pasada única del "Solucionar").
+  | 'dealAuto' | 'dealServicio' | 'dealPromesa' | 'dealFiscal' | 'dealObligaciones'
+  | 'dealFiscalDoc' | 'comprobante' | 'r2Motivo'
+  | 'resumen' | 'finalizo';
 
 // Pasos de datos de reunión que la búsqueda automática puede resolver.
 const AUTO_RESOLUBLES: PasoId[] = ['fechaJ1', 'asistenciaR1', 'fathomR1', 'fechaJ2', 'asistenciaR2', 'fathomR2'];
@@ -77,7 +84,7 @@ function BigChoice({ options, value, onPick }: { options: Array<{ v: string; lab
   );
 }
 
-export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, completarDatos = false, equipo = [] }: {
+export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, completarDatos = false, equipo = [], faltantes, onVerDetalle }: {
   lead: MoveLeadInfo;
   stages: Stage[];
   move: StageMoveTarget;
@@ -89,6 +96,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   completarDatos?: boolean;
   /** Miembros del equipo para los desplegables de setter/closer. */
   equipo?: Array<{ nombre: string; email: string }>;
+  /** Lista autoritativa de datos faltantes (del caller). Si viene, el wizard la
+   *  usa para saber qué pedir (incluye Deal Details / documentos / respuestas R2)
+   *  en vez de re-derivarla — así resuelve TODO en una sola pasada. */
+  faltantes?: Step[];
+  /** Paso final "¿Ver detalle o salir?" (kanban): si viene, navega a la ficha. */
+  onVerDetalle?: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
@@ -119,6 +132,21 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [closer, setCloser] = useState(lead.closer ?? '');
   const [empresa, setEmpresa] = useState(lead.empresa ?? '');
   const [telefono, setTelefono] = useState(lead.telefono ?? '');
+  // Deal Details + documentos + Calendly R2 (pasada única de "Solucionar").
+  const [dealServicio, setDealServicio] = useState('');
+  const [dealPromesa, setDealPromesa] = useState('');
+  const [dealFiscalRazon, setDealFiscalRazon] = useState('');
+  const [dealFiscalId, setDealFiscalId] = useState('');
+  const [dealFiscalDom, setDealFiscalDom] = useState('');
+  const [dealFiscalCorreo, setDealFiscalCorreo] = useState(lead.email ?? '');
+  const [obCliente, setObCliente] = useState('');
+  const [obPrestador, setObPrestador] = useState('');
+  const [fiscalDocOmitido, setFiscalDocOmitido] = useState(false);
+  const [comprobanteOmitido, setComprobanteOmitido] = useState(false);
+  const [r2Motivo, setR2Motivo] = useState('');
+  const [dealBusy, setDealBusy] = useState(false);
+  const [dealReporte, setDealReporte] = useState<string[] | null>(null);
+  const [guardado, setGuardado] = useState(false); // tras confirmar → paso final ver/salir
   const esDescal = to === 'descal';
   const motivoFinal = [motivo.trim(), motivoDetalle.trim()].filter(Boolean).join(' — ');
 
@@ -131,19 +159,23 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
   // Pasos que la etapa destino EXIGE con lo que el lead ya tiene (se calcula
   // UNA vez al montar — lazy useState, no depende de las respuestas del wizard).
-  const [requeridos] = useState(() => new Set(stepsForStage(to, {
-    fechaJ1: lead.fechaJ1, fechaJ2: lead.fechaJ2,
-    asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
-    calificado: lead.calificado,
-    hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
-    monto: lead.monto, motivo: lead.motivo,
-    // Higiene: solo se pide en "Completar datos" (Solucionar), NUNCA al mover de
-    // etapa. El resto (deal/comprobante/R2) se completa en Deal Details/Meetings.
-    ...(completarDatos ? { setter: lead.setter, closer: lead.closer, empresa: lead.empresa, telefono: lead.telefono } : {}),
-    tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
-    hoyISO,
-    sinR1: lead.sinR1, sinR2: lead.sinR2, fathomOmitido: lead.fathomOmitido,
-  }).map((s) => s.id)));
+  // "Solucionar" pasa la lista autoritativa `faltantes` (incluye Deal Details,
+  // documentos y respuestas R2) para resolver TODO en una sola pasada.
+  const [requeridos] = useState(() => {
+    if (faltantes) return new Set(faltantes.map((s) => s.id));
+    return new Set(stepsForStage(to, {
+      fechaJ1: lead.fechaJ1, fechaJ2: lead.fechaJ2,
+      asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
+      calificado: lead.calificado,
+      hasFathomUrl: lead.fathom.some((f) => f.url?.trim()),
+      monto: lead.monto, motivo: lead.motivo,
+      // Higiene: solo se pide en "Completar datos" (Solucionar), NUNCA al mover de etapa.
+      ...(completarDatos ? { setter: lead.setter, closer: lead.closer, empresa: lead.empresa, telefono: lead.telefono } : {}),
+      tienePlan: to === 'ganado' ? (lead.tienePlan ?? false) : undefined,
+      hoyISO,
+      sinR1: lead.sinR1, sinR2: lead.sinR2, fathomOmitido: lead.fathomOmitido,
+    }).map((s) => s.id));
+  });
 
   // ── Flujo DINÁMICO: la lista de pasos visibles depende de las respuestas ──
   const pasos = useMemo<PasoId[]>(() => {
@@ -182,6 +214,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     if (requeridos.has('closer')) p.push('closer');
     if (requeridos.has('empresa')) p.push('empresa');
     if (requeridos.has('telefono')) p.push('telefono');
+    // Deal Details (automático con IA del contrato o a mano), documentos y R2.
+    const necesitaDeal = requeridos.has('dealServicio') || requeridos.has('dealPromesa') || requeridos.has('dealFiscal') || requeridos.has('dealObligaciones');
+    if (necesitaDeal) p.push('dealAuto');
+    if (requeridos.has('dealServicio')) p.push('dealServicio');
+    if (requeridos.has('dealPromesa')) p.push('dealPromesa');
+    if (requeridos.has('dealFiscal')) p.push('dealFiscal');
+    if (requeridos.has('dealObligaciones')) p.push('dealObligaciones');
+    if (requeridos.has('dealFiscalDoc')) p.push('dealFiscalDoc');
+    if (requeridos.has('comprobante')) p.push('comprobante');
+    if (requeridos.has('r2Respuestas')) p.push('r2Motivo');
     p.push('resumen');
     // Lo que la búsqueda automática ya resolvió no se vuelve a preguntar.
     const filtrados = p.filter((id) => id === 'resumen' || !resueltos.has(id));
@@ -226,6 +268,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'closer': return equipo.length === 0 || !!closer.trim();
       case 'empresa': return !!empresa.trim();
       case 'telefono': return !!telefono.trim();
+      case 'dealAuto': return true; // buscar con IA es opcional; se puede seguir a mano
+      case 'dealServicio': return !!dealServicio.trim();
+      case 'dealPromesa': return !!dealPromesa.trim();
+      case 'dealFiscal': return !!dealFiscalRazon.trim();
+      case 'dealObligaciones': return !!obCliente.trim() || !!obPrestador.trim();
+      case 'dealFiscalDoc': return fiscalDocOmitido; // subir marca resuelto (se salta); omitir habilita
+      case 'comprobante': return comprobanteOmitido;
+      case 'r2Motivo': return !!r2Motivo.trim();
       default: return true;
     }
   })();
@@ -268,12 +318,22 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           ...(pide('closer') ? { closer: closer.trim() || null } : {}),
           ...(pide('empresa') ? { empresa: empresa.trim() || null } : {}),
           ...(pide('telefono') ? { telefono: telefono.trim() || null } : {}),
+          // Deal Details / documentos / respuestas R2 (pasada única).
+          ...(pide('dealServicio') && dealServicio.trim() ? { dealServicio: dealServicio.trim() } : {}),
+          ...(pide('dealPromesa') && dealPromesa.trim() ? { dealPromesa: dealPromesa.trim() } : {}),
+          ...(pide('dealFiscal') && dealFiscalRazon.trim() ? { dealFiscal: { razon: dealFiscalRazon.trim(), id_fiscal: dealFiscalId.trim() || null, domicilio: dealFiscalDom.trim() || null, correo: dealFiscalCorreo.trim() || null } } : {}),
+          ...(pide('dealObligaciones') && (obCliente.trim() || obPrestador.trim()) ? { dealObligaciones: { cliente: obCliente.split('\n').map((s) => s.trim()).filter(Boolean), prestador: obPrestador.split('\n').map((s) => s.trim()).filter(Boolean) } } : {}),
+          ...(fiscalDocOmitido ? { dealFiscalDocOmitido: true } : {}),
+          ...(comprobanteOmitido ? { comprobanteOmitido: true } : {}),
+          ...(pide('r2Motivo') && r2Motivo.trim() ? { r2AgendaExternaMotivo: r2Motivo.trim() } : {}),
           ...(cuotasPayload.length ? { cuotas: cuotasPayload } : {}),
           sinR1Motivo: huboR1 === false ? motivoNoR1.trim() : null,
           sinR2Motivo: huboR1 !== false && huboR2 === false ? motivoNoR2.trim() : null,
           fathomOmitido,
         });
-        onDone();
+        // Solucionar (completar datos) → paso final "¿Ver detalle o salir?".
+        // Mover de etapa (drag-drop) → cierra directo (mantiene el toast de undo).
+        if (completarDatos) setGuardado(true); else onDone();
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }
@@ -291,6 +351,60 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const boolStep = (value: boolean | null, set: (v: boolean) => void, si: string, no: string) => (
     <BigChoice value={value == null ? null : String(value)} onPick={(v) => set(v === 'true')} options={[{ v: 'true', label: si }, { v: 'false', label: no }]} />
   );
+
+  // Deal auto: lee el contrato (el ya cargado o uno que se suba) y completa las
+  // secciones vacías. Reusa /api/extract-contract (el mismo de Deal Details).
+  const buscarDealAuto = async (file?: File) => {
+    setDealBusy(true); setErr(null);
+    try {
+      const fd = new FormData();
+      if (file) fd.append('file', file);
+      fd.append('leadId', String(lead.id));
+      const r = await fetch('/api/extract-contract', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j.error) { setErr(j.error); return; }
+      const ok = new Set(resueltos);
+      const rell: string[] = [];
+      if (j.servicio?.que_es && !dealServicio.trim()) { setDealServicio(j.servicio.que_es); ok.add('dealServicio'); rell.push('servicio'); }
+      if (j.promesa?.resultado && !dealPromesa.trim()) { setDealPromesa(j.promesa.resultado); ok.add('dealPromesa'); rell.push('promesa'); }
+      if (j.fiscal?.razon && !dealFiscalRazon.trim()) {
+        setDealFiscalRazon(j.fiscal.razon);
+        if (j.fiscal.id_fiscal) setDealFiscalId(j.fiscal.id_fiscal);
+        if (j.fiscal.domicilio) setDealFiscalDom(j.fiscal.domicilio);
+        if (j.fiscal.correo) setDealFiscalCorreo((c) => c || j.fiscal.correo);
+        ok.add('dealFiscal'); rell.push('datos fiscales');
+      }
+      if ((j.obligaciones?.cliente?.length || j.obligaciones?.prestador?.length) && !obCliente.trim() && !obPrestador.trim()) {
+        setObCliente((j.obligaciones.cliente ?? []).join('\n'));
+        setObPrestador((j.obligaciones.prestador ?? []).join('\n'));
+        ok.add('dealObligaciones'); rell.push('obligaciones');
+      }
+      setResueltos(ok);
+      setDealReporte(rell.length ? rell.map((x) => `Se completó: ${x}`) : ['El contrato no aportó datos nuevos para completar. Cargá a mano.']);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally { setDealBusy(false); }
+  };
+
+  // Documento fiscal del cliente: subir (lo lee /api/extract-deal-fiscal y guarda
+  // doc_path server-side → satisface el requisito) o se omite en el paso.
+  const subirFiscalDoc = async (file: File) => {
+    setDealBusy(true); setErr(null);
+    try {
+      const fd = new FormData(); fd.append('file', file); fd.append('leadId', String(lead.id));
+      const r = await fetch('/api/extract-deal-fiscal', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j.error) { setErr(j.error); return; }
+      if (j.razon && !dealFiscalRazon.trim()) setDealFiscalRazon(j.razon);
+      if (j.id_fiscal && !dealFiscalId.trim()) setDealFiscalId(j.id_fiscal);
+      if (j.domicilio && !dealFiscalDom.trim()) setDealFiscalDom(j.domicilio);
+      if (j.correo) setDealFiscalCorreo((c) => c || j.correo);
+      const ok = new Set(resueltos); ok.add('dealFiscalDoc'); if (j.razon) ok.add('dealFiscal'); setResueltos(ok);
+      setFiscalDocOmitido(false); // ya está resuelto: el flujo salta este paso
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally { setDealBusy(false); }
+  };
 
   // Aplica lo encontrado por la búsqueda automática y marca resuelto lo que
   // ya no hay que preguntar (calificado y monto siempre quedan en manos humanas).
@@ -461,6 +575,88 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       pregunta = '¿Cuál es el teléfono de contacto?';
       cuerpo = <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="+52 …" type="tel" autoFocus style={{ ...compInput, maxWidth: 320, margin: '0 auto', textAlign: 'left' }} />;
       break;
+    case 'dealAuto':
+      pregunta = '¿Completamos el cierre con el contrato?';
+      sub = 'MaKo lee el contrato y llena servicio, promesa, datos fiscales y obligaciones. Después revisás lo que falte.';
+      cuerpo = dealReporte ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, textAlign: 'left' }}>
+          {dealReporte.map((l, i) => (
+            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'baseline', fontSize: 13.5, padding: '9px 13px', background: 'var(--surface-2)', borderRadius: 10 }}><span>✓</span><span style={{ color: 'var(--ink)' }}>{l}</span></div>
+          ))}
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 4 }}>Seguí con «Siguiente»: solo se pregunta lo que faltó.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          {lead.tieneContrato ? (
+            <button type="button" disabled={dealBusy} onClick={() => void buscarDealAuto()} style={{ minWidth: 220, padding: '13px 22px', borderRadius: 12, border: 'none', background: 'var(--ink)', color: '#F3F5F8', fontSize: 14.5, fontWeight: 700, cursor: dealBusy ? 'default' : 'pointer', fontFamily: SANS, opacity: dealBusy ? 0.7 : 1 }}>{dealBusy ? 'Leyendo contrato…' : '✦ Completar con IA (contrato cargado)'}</button>
+          ) : (
+            <label style={{ minWidth: 220, padding: '13px 22px', borderRadius: 12, background: 'var(--ink)', color: '#F3F5F8', fontSize: 14.5, fontWeight: 700, cursor: dealBusy ? 'default' : 'pointer', fontFamily: SANS, textAlign: 'center', opacity: dealBusy ? 0.7 : 1 }}>
+              {dealBusy ? 'Leyendo contrato…' : '✦ Subir contrato y completar'}
+              <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} disabled={dealBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void buscarDealAuto(f); }} />
+            </label>
+          )}
+          <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>O tocá «Siguiente» para cargarlo a mano.</div>
+        </div>
+      );
+      break;
+    case 'dealServicio':
+      pregunta = '¿Qué es el servicio que se cerró?';
+      sub = 'En una o dos frases: qué se entrega.';
+      cuerpo = <textarea value={dealServicio} onChange={(e) => setDealServicio(e.target.value)} placeholder="Ej: Programa de 3 meses de consultoría comercial 1:1 + implementación de CRM." autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
+      break;
+    case 'dealPromesa':
+      pregunta = '¿Qué resultado se prometió?';
+      cuerpo = <textarea value={dealPromesa} onChange={(e) => setDealPromesa(e.target.value)} placeholder="Ej: Duplicar reuniones agendadas en 90 días." autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
+      break;
+    case 'dealFiscal':
+      pregunta = 'Datos fiscales del cliente (a facturar)';
+      sub = 'La razón fiscal es lo mínimo; el resto ayuda pero es opcional.';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input value={dealFiscalRazon} onChange={(e) => setDealFiscalRazon(e.target.value)} placeholder="Razón fiscal / nombre *" autoFocus style={{ ...compInput, textAlign: 'left' }} />
+          <input value={dealFiscalId} onChange={(e) => setDealFiscalId(e.target.value)} placeholder="Identificación fiscal (RFC/CUIT/NIT…)" style={{ ...compInput, textAlign: 'left' }} />
+          <input value={dealFiscalDom} onChange={(e) => setDealFiscalDom(e.target.value)} placeholder="Domicilio fiscal" style={{ ...compInput, textAlign: 'left' }} />
+          <input value={dealFiscalCorreo} onChange={(e) => setDealFiscalCorreo(e.target.value)} placeholder="Correo de facturación" type="email" style={{ ...compInput, textAlign: 'left' }} />
+        </div>
+      );
+      break;
+    case 'dealObligaciones':
+      pregunta = 'Obligaciones del cierre';
+      sub = 'Una por línea. Al menos una alcanza para marcarlo.';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left' }}>
+          <div><div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 5 }}>Del cliente</div><textarea value={obCliente} onChange={(e) => setObCliente(e.target.value)} placeholder="Ej: Enviar accesos&#10;Asistir a las sesiones" autoFocus style={{ ...compInput, minHeight: 72, textAlign: 'left', lineHeight: 1.5 }} /></div>
+          <div><div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 5 }}>Del prestador</div><textarea value={obPrestador} onChange={(e) => setObPrestador(e.target.value)} placeholder="Ej: Entregar el plan en 7 días&#10;Soporte por WhatsApp" style={{ ...compInput, minHeight: 72, textAlign: 'left', lineHeight: 1.5 }} /></div>
+        </div>
+      );
+      break;
+    case 'dealFiscalDoc':
+      pregunta = 'Documento fiscal del cliente';
+      sub = 'Subí la constancia/RFC/CUIT (MaKo lee los datos). Si no lo tenés, podés omitirlo.';
+      cuerpo = (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <label style={{ minWidth: 220, padding: '13px 22px', borderRadius: 12, background: 'var(--ink)', color: '#F3F5F8', fontSize: 14.5, fontWeight: 700, cursor: dealBusy ? 'default' : 'pointer', fontFamily: SANS, textAlign: 'center', opacity: dealBusy ? 0.7 : 1 }}>
+            {dealBusy ? 'Leyendo documento…' : '⇪ Subir documento fiscal'}
+            <input type="file" accept=".pdf,image/*" style={{ display: 'none' }} disabled={dealBusy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirFiscalDoc(f); }} />
+          </label>
+          <button type="button" onClick={() => setFiscalDocOmitido(true)} style={{ padding: '10px 18px', borderRadius: 11, border: '1px solid ' + (fiscalDocOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: fiscalDocOmitido ? 'var(--warn-bg)' : 'transparent', color: fiscalDocOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{fiscalDocOmitido ? 'Se omite ✓' : 'No lo tengo (omitir)'}</button>
+        </div>
+      );
+      break;
+    case 'comprobante':
+      pregunta = 'Comprobante de pago';
+      sub = 'El comprobante de cada cuota se sube al marcarla como pagada, en Deal Details. Acá podés omitir el aviso.';
+      cuerpo = (
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <button type="button" onClick={() => setComprobanteOmitido(true)} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid ' + (comprobanteOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: comprobanteOmitido ? 'var(--warn-bg)' : 'transparent', color: comprobanteOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{comprobanteOmitido ? 'Se omite ✓' : 'Omitir por ahora'}</button>
+        </div>
+      );
+      break;
+    case 'r2Motivo':
+      pregunta = '¿Por qué se agendó la R2 fuera de Calendly?';
+      sub = 'No encontramos las respuestas de Calendly de la R2. Si se agendó por otro lado, contanos por qué (así no lo pedimos más).';
+      cuerpo = <textarea value={r2Motivo} onChange={(e) => setR2Motivo(e.target.value)} placeholder="Ej: se coordinó por WhatsApp, se reprogramó a mano, reunión interna…" autoFocus style={{ ...compInput, minHeight: 90, textAlign: 'left', lineHeight: 1.5 }} />;
+      break;
     case 'plan':
       pregunta = '¿Cómo se van a cobrar las cuotas?';
       sub = `Las cuotas tienen que sumar el monto de cierre (${totalMonto ? '$' + totalMonto.toLocaleString('en-US') : 'definilo en el paso anterior'}).`;
@@ -523,6 +719,24 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }
 
   const enResumen = paso === 'resumen';
+
+  // Paso final tras guardar (P8): ver detalle o salir. No re-cierra solo.
+  if (guardado) {
+    return (
+      <div onClick={onDone} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '30px clamp(20px,6vw,40px)', textAlign: 'center' }}>
+          <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 14 }}>✦ MAKO</div>
+          <div aria-hidden style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--good-bg)', color: 'var(--good)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 700, marginBottom: 12 }}>✓</div>
+          <h3 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', fontFamily: SANS }}>Datos actualizados</h3>
+          <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 20px' }}>Guardamos todo lo que cargaste para {lead.name}.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            {onVerDetalle && <button type="button" onClick={onVerDetalle} style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>Ver detalle →</button>}
+            <button type="button" onClick={onDone} style={{ padding: '12px 24px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{onVerDetalle ? '← Salir' : 'Listo'}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>

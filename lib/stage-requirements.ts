@@ -156,16 +156,21 @@ export function missingForStage(stageKey: string, v: StageReqValues): string[] {
 
 /**
  * Steps que el wizard "Solucionar" (StageMoveDialog en modo "Completar datos")
- * sabe resolver paso a paso: reunión/venta + higiene (setter/closer/empresa/tel).
- * El resto (Deal Details, comprobante, respuestas R2) se completa en su tab.
+ * resuelve en UNA sola pasada: reunión/venta + higiene + Deal Details (manual o
+ * con IA) + documento fiscal (subir/omitir) + comprobante (omitir) + Respuestas
+ * de Calendly R2 (búsqueda automática o motivo de agenda externa). Ya NO se
+ * deriva a ninguna tab: TODO se completa en el wizard.
  */
 export const WIZARD_STEP_IDS: ReadonlySet<StepId> = new Set<StepId>([
   'fechaJ1', 'asistenciaR1', 'calificado', 'fathomR1',
   'fechaJ2', 'asistenciaR2', 'fathomR2', 'monto', 'plan', 'motivo',
   'setter', 'closer', 'empresa', 'telefono',
+  'dealServicio', 'dealPromesa', 'dealFiscal', 'dealObligaciones', 'dealFiscalDoc',
+  'comprobante', 'r2Respuestas',
 ]);
 
-/** ¿Hay al menos un dato que el wizard pueda resolver? (si no, se va a la tab). */
+/** ¿Hay al menos un dato que el wizard pueda resolver? Con la pasada única, es
+ *  true siempre que haya faltantes (el wizard sabe resolver todos los tipos). */
 export const hayPasoDeWizard = (steps: Step[]): boolean => steps.some((s) => WIZARD_STEP_IDS.has(s.id));
 
 /** Steps que se completan en una tab de la ficha (no en el wizard) y en cuál. */

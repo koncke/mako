@@ -20,7 +20,7 @@ import {
   type EstadoLead,
   type EstadoMadurez,
 } from './leads';
-import { hayPasoDeWizard, tabDeSolucion } from './stage-requirements';
+import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
 
 export type MarketingWindow = {
   // Rango
@@ -1945,6 +1945,8 @@ export type PendienteItem = {
   soloEdit: boolean;
   /** Dónde resolver los faltantes: wizard, Deal Details (cobranza), Meetings, o Editar. */
   solTab: 'wizard' | 'cobranza' | 'reuniones' | 'edit';
+  /** Lista exacta de datos faltantes (para abrir el wizard in-place con TODO). */
+  faltantes: Step[];
 };
 
 export type Pendientes = {
@@ -2017,6 +2019,7 @@ async function _getPendientesDeMarcar(
           fecha: l.nutricion_manual_deadline,
           soloEdit: false,
           solTab: 'wizard',
+          faltantes: [],
         });
       }
       continue;
@@ -2034,6 +2037,7 @@ async function _getPendientesDeMarcar(
       fecha,
       soloEdit: !hayPasoDeWizard(faltan),
       solTab,
+      faltantes: faltan,
     });
   }
 

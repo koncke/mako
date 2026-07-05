@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
           const lead = await findLeadByContacto(emailJ2, telefonoJ2);
           if (lead) {
             // NUNCA crear desde una J2: solo seteamos fecha_junta_2 del lead existente.
-            await setFechaJunta2(lead.id, fechaJ2);
+            await setFechaJunta2(lead.id, fechaJ2, startTimeIso);
             // El form de la R2 tiene sus propias respuestas: se guardan POR reunión
             // (antes se descartaban — solo existían columnas para el set de R1).
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
@@ -198,6 +198,7 @@ export async function POST(request: NextRequest) {
           nombre,
           fecha_agenda: fechaAgenda,
           fecha_junta_1: fechaJ1,
+          junta_1_at: startTimeIso,   // ISO con hora → No Show preciso (crm-auto T1)
           empresa,
           telefono,
           utm_source,

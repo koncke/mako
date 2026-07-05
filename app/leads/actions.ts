@@ -188,6 +188,16 @@ export type StageMoveData = {
   sinR2Motivo?: string | null;
   /** La reunión no se grabó: el link de Fathom no se exige. */
   fathomOmitido?: boolean;
+  // ── Deal Details desde el wizard (una sola pasada) ──
+  dealServicio?: string | null;   // deal_servicio.que_es
+  dealPromesa?: string | null;    // deal_promesa.resultado
+  dealFiscal?: { razon?: string | null; id_fiscal?: string | null; domicilio?: string | null; correo?: string | null } | null;
+  dealObligaciones?: { cliente?: string[]; prestador?: string[] } | null;
+  /** Omisión de documento fiscal / comprobantes (no se vuelven a pedir). */
+  dealFiscalDocOmitido?: boolean;
+  comprobanteOmitido?: boolean;
+  /** La R2 se agendó fuera de Calendly: motivo (satisface respuestas R2). */
+  r2AgendaExternaMotivo?: string | null;
 };
 
 /**
@@ -273,7 +283,46 @@ export async function completeStageMoveAction(id: number, to: string, d: StageMo
     await savePlanPagos(id, d.plan);
   }
 
-  // 4) Mover (updateLead sincroniza estado primero; override solo si OK).
+  // 4) Deal Details + omisiones + motivo de agenda externa (wizard "una pasada").
+  //    Merge con lo existente para no pisar doc_path ni campos ya cargados.
+  const dealUpd: Record<string, unknown> = {};
+  if (d.dealServicio !== undefined) {
+    dealUpd.deal_servicio = { ...(before?.deal_servicio ?? {}), que_es: d.dealServicio?.trim() || null };
+  }
+  if (d.dealPromesa !== undefined) {
+    dealUpd.deal_promesa = { ...(before?.deal_promesa ?? {}), resultado: d.dealPromesa?.trim() || null };
+  }
+  if (d.dealFiscal !== undefined) {
+    dealUpd.deal_fiscal = {
+      ...(before?.deal_fiscal ?? {}),
+      razon: d.dealFiscal?.razon?.trim() || before?.deal_fiscal?.razon || null,
+      id_fiscal: d.dealFiscal?.id_fiscal?.trim() || before?.deal_fiscal?.id_fiscal || null,
+      domicilio: d.dealFiscal?.domicilio?.trim() || before?.deal_fiscal?.domicilio || null,
+      correo: d.dealFiscal?.correo?.trim() || before?.deal_fiscal?.correo || null,
+    };
+  }
+  if (d.dealObligaciones !== undefined) {
+    dealUpd.deal_obligaciones = { cliente: d.dealObligaciones?.cliente ?? [], prestador: d.dealObligaciones?.prestador ?? [] };
+  }
+  if (Object.keys(dealUpd).length) {
+    const { error: dealErr } = await (await getTenantDb()).from('leads').update(dealUpd).eq('id', id);
+    if (dealErr) console.error(`[leads] guardar deal falló: ${dealErr.message}`);
+  }
+  // Omisiones/motivo (columnas de la migración 0069): update APARTE para que, si
+  // la migración todavía no corrió, no tumbe el guardado del deal de arriba.
+  const omisiones: Record<string, unknown> = {};
+  if (d.dealFiscalDocOmitido) omisiones.deal_fiscal_doc_omitido = true;
+  if (d.comprobanteOmitido) omisiones.comprobante_omitido = true;
+  if (d.r2AgendaExternaMotivo?.trim()) {
+    omisiones.r2_agenda_externa_motivo = d.r2AgendaExternaMotivo.trim();
+    await logLeadEvent(id, 'Agendada fuera de Calendly', `R2 · ${d.r2AgendaExternaMotivo.trim()}`, autor);
+  }
+  if (Object.keys(omisiones).length) {
+    const { error: omErr } = await (await getTenantDb()).from('leads').update(omisiones).eq('id', id);
+    if (omErr) console.error(`[leads] guardar omisiones (¿falta migración 0069?): ${omErr.message}`);
+  }
+
+  // 5) Mover (updateLead sincroniza estado primero; override solo si OK).
   await setPipelineStage(id, to, { monto: d.monto ?? null, motivo: d.motivo ?? null });
 
   const after = await getLead(id).catch(() => null);

@@ -28,7 +28,7 @@ import { crearConfirmacion, existeConfirmacion, type CrearConfirmacionInput } fr
 
 // Umbrales del motor. Por ahora fijos; se harán configurables desde la tab Funnel
 // (funnel_config) para que cada negocio ajuste sus tiempos.
-export const AUTO_UMBRALES = { diasLeadSinAgenda: 2, diasReactivacion: 30 };
+export const AUTO_UMBRALES = { diasLeadSinAgenda: 2, diasReactivacion: 30, horasPostReunion: 3 };
 
 export type AutoReglaId = 'T1' | 'T2' | 'T3' | 'T6';
 
@@ -53,6 +53,8 @@ export type AutoLead = {
   fecha_agenda: string | null;
   fecha_junta_1: string | null;
   fecha_junta_2: string | null;
+  junta_1_at: string | null;
+  junta_2_at: string | null;
   asistio_j1: boolean | null;
   asistio_j2: boolean | null;
   nutricion_realizada?: boolean;
@@ -78,21 +80,28 @@ function diasEntre(hoyISO: string, isoAntes: string | null): number {
  * es seguro (la grabación de Fathom aparece después de la llamada). Al persistir
  * junta_1_at/junta_2_at con hora se podrá afinar al "3 h después" exacto.
  */
-export function planLeadAuto(l: AutoLead, hoyISO: string): AutoAccion[] {
+export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.now()): AutoAccion[] {
   const out: AutoAccion[] = [];
   const nombre = l.nombre?.trim() || `Lead ${l.id}`;
   const hoy = hoyISO.slice(0, 10);
   const stage = pipelineStageOf(l);
 
+  // ¿La reunión ya pasó lo suficiente para revisar Fathom? Con hora exacta
+  // (junta_*_at) dispara a las N horas EXACTAS después; sin ella (leads viejos),
+  // cuando el día de la reunión ya pasó.
+  const reunionPasada = (fechaAt: string | null, fecha: string | null): boolean =>
+    fechaAt ? nowMs >= Date.parse(fechaAt) + AUTO_UMBRALES.horasPostReunion * 3600000
+            : !!fecha && fecha.slice(0, 10) < hoy;
+
   if (l.estado_lead === 'abierto') {
     // T1 — reunión pasada sin asistencia marcada → revisar Fathom.
     const r1 = l.fecha_junta_1 ?? l.fecha_agenda;
-    if (l.asistio_j1 == null && r1 && r1.slice(0, 10) < hoy) {
+    if (l.asistio_j1 == null && reunionPasada(l.junta_1_at, r1)) {
       out.push({
         regla: 'T1', tipo: 'reunion_check', leadId: l.id, lead: nombre, which: 'j1', resolver: 'fathom', confirmar: true,
-        descripcion: `R1 del ${r1.slice(0, 10)} sin marcar → buscar grabación en Fathom: si aparece asistió (marca todo), si no No Show R1`,
+        descripcion: `R1 del ${r1?.slice(0, 10) ?? l.junta_1_at?.slice(0, 10) ?? 'la fecha agendada'} sin marcar → buscar grabación en Fathom: si aparece asistió (marca todo), si no No Show R1`,
       });
-    } else if (l.asistio_j1 === true && l.fecha_junta_2 && l.asistio_j2 == null && l.fecha_junta_2.slice(0, 10) < hoy) {
+    } else if (l.asistio_j1 === true && l.fecha_junta_2 && l.asistio_j2 == null && reunionPasada(l.junta_2_at, l.fecha_junta_2)) {
       out.push({
         regla: 'T1', tipo: 'reunion_check', leadId: l.id, lead: nombre, which: 'j2', resolver: 'fathom', confirmar: true,
         descripcion: `R2 del ${l.fecha_junta_2.slice(0, 10)} sin marcar → buscar grabación en Fathom: si aparece asistió → Facturando, si no No Show R2`,
@@ -135,7 +144,7 @@ export function planLeadAuto(l: AutoLead, hoyISO: string): AutoAccion[] {
 }
 
 const AUTO_COLS =
-  'id, nombre, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada, nutricion_manual_deadline, created_at, updated_at';
+  'id, nombre, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, junta_1_at, junta_2_at, asistio_j1, asistio_j2, nutricion_realizada, nutricion_manual_deadline, created_at, updated_at';
 
 export type AutoEvalWs = { acciones: AutoAccion[]; totalLeads: number; porRegla: Record<string, number> };
 
@@ -145,7 +154,8 @@ export async function evaluarAutoWorkspace(hoyISO: string = hoyEnTijuana()): Pro
   const { data, error } = await supabase.from('leads').select(AUTO_COLS);
   if (error) throw new Error(`crm-auto evaluar: ${error.message}`);
   const leads = (data ?? []) as AutoLead[];
-  const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO));
+  const nowMs = Date.now();
+  const acciones = leads.flatMap((l) => planLeadAuto(l, hoyISO, nowMs));
   const porRegla = acciones.reduce<Record<string, number>>((a, x) => { a[x.regla] = (a[x.regla] ?? 0) + 1; return a; }, {});
   return { acciones, totalLeads: leads.length, porRegla };
 }
