@@ -12,6 +12,7 @@ import { useEffect, useState, useTransition, type CSSProperties, type ReactNode 
 import { useRouter } from 'next/navigation';
 import { stageMeta, type Stage } from '@/lib/pipeline';
 import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -75,6 +76,8 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
   const [loading, setLoading] = useState(true);
   const [subTab, setSubTab] = useState<'status' | 'info'>('status');
   const [revertErr, setRevertErr] = useState<string | null>(null);
+  // Confirmación antes de deshacer/restaurar (nunca se revierte de un click seco).
+  const [confirmRevert, setConfirmRevert] = useState<{ createdAt: string; reciente: boolean } | null>(null);
   const [now, setNow] = useState(0); // Date.now() de la última carga (para "Deshacer" vs "Restaurar")
   const [auditLeadId, setAuditLeadId] = useState(leadId);
   if (auditLeadId !== leadId) { setAuditLeadId(leadId); setLoading(true); setErr(false); }
@@ -92,6 +95,16 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       .catch(() => { if (alive) setErr(true); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
+  }, [leadId]);
+
+  // Refrescar al volver a la pestaña/ventana: si el usuario completó datos en el
+  // wizard y vuelve al historial, ve el cambio al instante (no "en unos minutos").
+  useEffect(() => {
+    const onFocus = () => { if (document.visibilityState !== 'hidden') cargar(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => { window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadId]);
 
   const esStatus = (r: LeadAuditRowFull) => STATUS_FIELDS.has(r.campo);
@@ -175,11 +188,15 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {grupos.map((g) => {
+        {grupos.map((g, gi) => {
           const head = g[0];
-          const revertible = g.some((r) => r.revertible && r.valor_anterior !== r.valor_nuevo);
+          const revertibleBase = g.some((r) => r.revertible && r.valor_anterior !== r.valor_nuevo);
+          // STATUS solo se deshace de a uno, empezando por el ÚLTIMO (grupos viene
+          // ordenado más-reciente-primero → solo el índice 0 muestra el botón).
+          // INFORMACIÓN sí se puede revertir campo por campo, en cualquier orden.
+          const revertible = revertibleBase && (subTab === 'info' || gi === 0);
           // "Deshacer" para cambios recientes (<10 min); pasado eso, "Restaurar".
-          // Ambos revierten y quedan auditados; solo cambia la palabra.
+          // Ambos revierten Y borran el rastro (un cambio deshecho no es historia).
           const reciente = now > 0 && now - new Date(head.created_at).getTime() < 10 * 60_000;
           return (
             <div key={head.id} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '9px 14px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap' }}>
@@ -193,7 +210,7 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
               </span>
               <Autor row={head} />
               {revertible && (
-                <button type="button" onClick={() => deshacer(head.created_at)} disabled={pending} title={reciente ? 'Deshacer este movimiento' : 'Volver al estado anterior (queda registrado en el historial)'} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ {reciente ? 'Deshacer' : 'Restaurar'}</button>
+                <button type="button" onClick={() => setConfirmRevert({ createdAt: head.created_at, reciente })} disabled={pending} title={reciente ? 'Deshacer este movimiento (borra el rastro del historial)' : 'Volver al estado anterior (borra el rastro del historial)'} style={{ flex: 'none', padding: '5px 11px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.5 : 1 }}>↶ {reciente ? 'Deshacer' : 'Restaurar'}</button>
               )}
             </div>
           );
@@ -204,6 +221,17 @@ export function AuditHistory({ leadId, stages }: { leadId: number; stages?: Stag
           </div>
         )}
       </div>
+
+      {confirmRevert && (
+        <ConfirmDialog
+          title={confirmRevert.reciente ? 'Deshacer este movimiento' : 'Restaurar al estado anterior'}
+          message={<>Se van a revertir los valores de este cambio y <b>se va a borrar del historial</b> (no queda un registro nuevo). ¿Confirmás?</>}
+          confirmLabel={confirmRevert.reciente ? 'Sí, deshacer' : 'Sí, restaurar'}
+          onConfirm={() => { const c = confirmRevert; setConfirmRevert(null); deshacer(c.createdAt); }}
+          onCancel={() => setConfirmRevert(null)}
+          zIndex={120}
+        />
+      )}
     </section>
   );
 }

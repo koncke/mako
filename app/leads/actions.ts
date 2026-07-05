@@ -595,12 +595,20 @@ export async function revertAuditChangeAction(auditId: number, leadId: number): 
  * updateLead para que "cerro=true ⇒ monto" no se pise). Queda auditado.
  */
 export async function revertMoveAction(leadId: number, createdAt: string): Promise<void> {
-  const grupo = (await getLeadAudit(leadId)).filter(
+  const allAudit = await getLeadAudit(leadId);
+  const grupo = allAudit.filter(
     (r) => r.created_at === createdAt && REVERTIBLES.has(r.campo) && r.valor_anterior !== r.valor_nuevo,
   );
   if (!grupo.length) throw new Error('Ese movimiento no tiene cambios reversibles.');
 
-  const before = await getLead(leadId).catch(() => null);
+  // STATUS (Etapa/Estado) se deshace SOLO de a uno y empezando por el más
+  // reciente: para volver más atrás hay que deshacer antes los posteriores.
+  const STATUS = new Set(['Etapa', 'Estado']);
+  if (grupo.some((r) => STATUS.has(r.campo))) {
+    const ultimo = allAudit.filter((r) => STATUS.has(r.campo)).reduce((mx, r) => (r.created_at > mx ? r.created_at : mx), '');
+    if (ultimo && createdAt !== ultimo) throw new Error('Solo se puede deshacer el último cambio de estado. Volvé de a uno, empezando por el más reciente.');
+  }
+
   const bool = (s: string | null): boolean | null => (s === 'Sí' ? true : s === 'No' ? false : null);
 
   const upd: Parameters<typeof updateLead>[1] = {};
@@ -643,8 +651,13 @@ export async function revertMoveAction(leadId: number, createdAt: string): Promi
     if (error) throw new Error(error.message);
   }
 
-  const after = await getLead(leadId).catch(() => null);
-  await logLeadChanges(leadId, before, after, await autorActual());
+  // El deshacer/restaurar NO deja un cambio nuevo: se borra el rastro de ESTE
+  // movimiento del historial (un cambio deshecho no es historia — se restaura el
+  // estado previo y la acción desaparece).
+  try {
+    const { error } = await (await getTenantDb()).from('lead_audit').delete().eq('lead_id', leadId).eq('created_at', createdAt);
+    if (error) console.error('[revert] borrar rastro del historial falló:', error.message);
+  } catch { /* si falla, el revert igual se aplicó */ }
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/leads');
   revalidatePath(`/leads/${leadId}`);
