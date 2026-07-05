@@ -26,6 +26,10 @@
       "schedule": "0 15-23 * * *"
     },
     {
+      "path": "/api/cron/crm-automatico",
+      "schedule": "20 15-23 * * *"
+    },
+    {
       "path": "/api/cron/closing-sync",
       "schedule": "30 14 * * *"
     },

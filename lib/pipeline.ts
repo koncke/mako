@@ -63,7 +63,7 @@ export const NEW_STAGE_TONES: StageTone[] = ['info', 'accent', 'teal', 'violet',
 // Nutriciones NEGATIVAS (cambian la etapa; con deadline y desenlace posible). La
 // nutrición POSITIVA (post-agenda / post-reunión) ya NO es etapa: es derivada
 // (ver nutricionPositivaDe). Se deja 'noshow' legacy por compatibilidad.
-export const NUTRI_KEYS = ['noshow_r1', 'noshow_r2', 'noshow_r3', 'nutri', 'nopaga', 'manual', 'reunion_excepcional', 'nocompro', 'noshow'];
+export const NUTRI_KEYS = ['noshow_r1', 'noshow_r2', 'noshow_r3', 'nutri', 'nopaga', 'manual', 'reunion_excepcional', 'nocompro', 'reactivacion', 'noshow'];
 
 // ── Transiciones del funnel (grafo etapa → etapa) ───────────────────────────
 // Editable en la tab "Funnel". Definen, para cada etapa, los pasos posibles
@@ -136,6 +136,19 @@ export function transitionsFrom(transitions: FunnelTransition[], from: string): 
   return transitions.filter((t) => t.from === from);
 }
 
+// ── CRM automático — reglas de auto-transición (metadata legible) ────────────
+// El MOTOR vive en lib/crm-auto.ts (server). Acá solo la descripción para la tab
+// Funnel: qué mueve un lead solo, con qué señal, y si pide confirmación humana.
+export type AutoReglaMeta = { id: string; titulo: string; desde: string; senal: string; hacia: string; confirmar: boolean };
+export const AUTO_REGLAS: AutoReglaMeta[] = [
+  { id: 'T1', titulo: 'Detecta asistencia y No Show', desde: 'Agenda R1 / R2',        senal: 'unas horas después de la reunión busca la grabación en Fathom', hacia: 'Asistió (marca todo) · o No Show R1/R2',      confirmar: true },
+  { id: 'T2', titulo: 'Lead que no agenda',           desde: 'Lead (Instant form)',   senal: 'pasan los días sin agendar una reunión',                       hacia: 'Nutrición - No Agenda',                       confirmar: false },
+  { id: 'T3', titulo: 'Nutrición manual vencida',     desde: 'Nutrición - Manual',    senal: 'vence el plazo → revisa el chat de WhatsApp',                  hacia: 'No responde / Perdido · o Datos sin marcar',  confirmar: true },
+  { id: 'T4', titulo: 'Cierre de R2',                 desde: 'R2 asistida',           senal: 'Fathom detecta que confirmó que va a arrancar',                hacia: 'Facturando',                                  confirmar: true },
+  { id: 'T5', titulo: 'Completa datos sin marcar',    desde: 'Cualquier etapa',       senal: 'lee contrato · Calendly · Fathom · Calendar',                  hacia: 'Datos completados solos',                     confirmar: false },
+  { id: 'T6', titulo: 'Reactivación de fríos',        desde: 'No responde / Perdido', senal: 'lleva tiempo enfriado o vuelve a dar señales',                 hacia: 'Nutrición - Reactivación',                    confirmar: true },
+];
+
 /**
  * Categoría de una transición inferida por la banda de la etapa DESTINO:
  * pipeline→avanza · nutrición→nutricion · salidas→perdida. Así el usuario solo
@@ -166,6 +179,9 @@ const NUTRI_EXTRA: Record<string, Stage> = {
   noshow_r3:   { key: 'noshow_r3',   label: 'Nutrición No Show R3',     dot: '#E8762B', tone: 'orange', band: 'nutricion' },
   // Reunión excepcional: intento extra tras no pagar (nutrición especial).
   reunion_excepcional: { key: 'reunion_excepcional', label: 'Reunión excepcional', dot: '#6A4BD8', tone: 'violet', band: 'nutricion' },
+  // Reactivación: re-contacto de leads fríos (No responde / Perdido). MaKo decide
+  // cuándo caen acá; de acá pueden reagendar y volver al pipeline.
+  reactivacion: { key: 'reactivacion', label: 'Nutrición - Reactivación', dot: '#7A5AF0', tone: 'violet', band: 'nutricion' },
 };
 
 /**
@@ -274,6 +290,23 @@ export function generateFunnel(pipeline: Stage[], suppressed: string[] = []): { 
 
   // Perdido SÍ se nutre/recupera (a diferencia de Descalificado, terminal).
   if (firstMeeting && !sup.has(`perdido>${firstMeeting}`)) transitions.push({ from: 'perdido', to: firstMeeting, label: 'Recupera', category: 'avanza', trigger: 'manual' });
+
+  // Reactivación: re-contacto de leads fríos (No responde / Perdido). El motor del
+  // CRM automático los mueve acá por tiempo/re-engagement (ver lib/crm-auto.ts); de
+  // la reactivación pueden reagendar y volver a la 1ª reunión.
+  const reac = lib('reactivacion');
+  if (reac && firstMeeting) {
+    let usada = false;
+    (['noresp', 'perdido'] as const).forEach((from) => {
+      if (sup.has(`${from}>reactivacion`)) return;
+      place(reac, 'nutricion'); usada = true;
+      transitions.push({ from, to: 'reactivacion', label: 'Reactivar', category: 'nutricion', trigger: 'tiempo' });
+    });
+    if (usada) {
+      transitions.push({ from: 'reactivacion', to: firstMeeting, label: 'Reagenda', category: 'avanza', trigger: 'agenda' });
+      transitions.push({ from: 'reactivacion', to: 'noresp', label: 'No responde', category: 'perdida', trigger: 'tiempo' });
+    }
+  }
 
   return { stages, transitions };
 }
