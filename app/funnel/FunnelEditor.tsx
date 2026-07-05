@@ -87,9 +87,12 @@ function trigInfo(trg?: TransitionTrigger): { icon: string; label: string; c: st
 export function FunnelEditor({
   initialPipeline,
   initialSuppressed,
+  embedded = false,
 }: {
   initialPipeline: Stage[];
   initialSuppressed: string[];
+  /** Embebido dentro de /configuraciones: sin <main>/título propios. */
+  embedded?: boolean;
 }) {
   const [pipeline, setPipeline] = useState<Stage[]>(initialPipeline);
   const [suppressed, setSuppressed] = useState<string[]>(initialSuppressed);
@@ -202,15 +205,22 @@ export function FunnelEditor({
   const lossStages = stages.filter((s) => s.band === 'salidas');
   const suppressedNow = suppressed.filter((id) => { const [from, to] = id.split('>'); return pipeline.some((p) => p.key === from) && !pipeline.some((p) => p.key === to); });
 
+  const Cont = embedded ? 'div' : 'main';
   return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 90px', fontFamily: SANS }}>
+    <Cont style={embedded ? { fontFamily: SANS } : { flex: 1, minWidth: 0, padding: '34px 44px 90px', fontFamily: SANS }}>
       <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
-        <div>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Funnel</h1>
-          <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '10px 0 0', maxWidth: 660, lineHeight: 1.5 }}>
-            Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros — quitá la nutrición que no uses.
+        {embedded ? (
+          <p style={{ fontSize: 14, color: 'var(--dim)', margin: 0, maxWidth: 640, lineHeight: 1.5 }}>
+            Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros.
           </p>
-        </div>
+        ) : (
+          <div>
+            <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Funnel</h1>
+            <p style={{ fontSize: 14.5, color: 'var(--dim)', margin: '10px 0 0', maxWidth: 660, lineHeight: 1.5 }}>
+              Editás solo tu fila de <b style={{ color: 'var(--ink)', fontWeight: 600 }}>Activo</b> (cómo avanza un lead). La <b style={{ color: CATEGORY.nutricion.c, fontWeight: 600 }}>nutrición</b> y el descartado los generamos nosotros — quitá la nutrición que no uses.
+            </p>
+          </div>
+        )}
         <button onClick={() => setShowTemplates(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▦ Plantillas</button>
       </header>
 
@@ -420,7 +430,7 @@ export function FunnelEditor({
           <button type="button" onClick={() => setToast(null)} aria-label="cerrar" style={{ background: 'transparent', border: 'none', color: 'rgba(243,245,248,.6)', fontSize: 16, cursor: 'pointer', lineHeight: 1 }}>✕</button>
         </div>
       )}
-    </main>
+    </Cont>
   );
 }
 
