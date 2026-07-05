@@ -352,7 +352,7 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
         .from('closing_analyses')
         .select('tipo, started_at, score, outcome, summary, next_step, dims, objections')
         .eq('lead_id', lead.id)
-        .eq('status', 'done')
+        .eq('status', 'analizada')
         .order('started_at', { ascending: false })
         .limit(10)
         .then((r) => (r.data ?? []) as AnalisisRow[]),

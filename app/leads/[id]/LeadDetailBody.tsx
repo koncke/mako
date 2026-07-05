@@ -38,7 +38,14 @@ export function BackButton() {
   return (
     <button
       type="button"
-      onClick={() => { if (window.history.length > 1) router.back(); else router.push('/leads'); }}
+      onClick={() => {
+        // Si venís de un deep-link de acción (?solucionar / ?edit), router.back()
+        // puede re-caer en la MISMA URL con el param (y "no volver a ningún lado"):
+        // en ese caso vamos derecho al tablero. Si no, historial normal.
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('solucionar') || params.has('edit')) { router.push('/leads'); return; }
+        if (window.history.length > 1) router.back(); else router.push('/leads');
+      }}
       style={{ fontSize: 14, color: 'var(--dim)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: SANS }}
     >← Volver</button>
   );
@@ -181,6 +188,7 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           pagos={pagos}
           initialTab={TAB_EDITABLE[tab] ?? 'resumen'}
           faltantes={faltantes}
+          equipo={equipo}
           onDone={() => { salirEdicion(); router.refresh(); }}
           onCancel={salirEdicion}
         />
@@ -196,8 +204,8 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           completarDatos={moveTo === currentStage}
           equipo={equipo}
-          onClose={() => setMoveTo(null)}
-          onDone={() => { setMoveTo(null); router.refresh(); }}
+          onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
+          onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
         />
       )}
     </div>

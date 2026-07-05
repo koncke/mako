@@ -147,16 +147,10 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
           </div>
         )}
 
-        {/* Loader de acciones en progreso (analizar la llamada → generar insight). */}
-        {fase && (
-          <div style={{ ...mini, display: 'flex', alignItems: 'center', gap: 11 }}>
-            <span aria-hidden style={{ width: 16, height: 16, flex: 'none', borderRadius: '50%', border: '2px solid var(--border-strong)', borderTopColor: 'var(--primary)', animation: 'spin 0.8s linear infinite' }} />
-            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{fase}</span>
-          </div>
-        )}
-
-        {/* Gate: sin llamadas analizadas. Con Fathom → se analiza acá mismo; sin
-            Fathom → se pide cargar el link (Completar datos abre el wizard). */}
+        {/* Gate: sin llamadas analizadas linkeadas. Siempre se ofrece analizar/
+            re-linkear: MaKo busca la llamada en Closing Analyst y Fathom por email
+            o share_url (aunque el lead no tenga el link cargado). Si no la encuentra,
+            el error se muestra abajo (nunca queda en silencio). */}
         {!insight && !hayLlamadas && !faltantes.length && !fase && (
           <div style={{ ...mini, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
@@ -164,12 +158,13 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
               <div style={{ fontSize: 13, color: 'var(--dim)' }}>
                 {tieneFathom
                   ? 'Este lead tiene el link de Fathom pero su llamada todavía no está analizada. MaKo la analiza y genera el insight.'
-                  : 'Los insights se generan a partir de las llamadas de venta. Cargá el link de Fathom y MaKo la analiza.'}
+                  : 'MaKo busca la llamada en Closing Analyst y Fathom (por email o link) y la re-linkea a este lead. Si no la encuentra, cargá el link de Fathom.'}
               </div>
             </div>
-            {tieneFathom
-              ? <button type="button" onClick={pedirAnalisis} disabled={pending} style={btn}>✦ Analizar la llamada</button>
-              : <button type="button" onClick={() => setWizard(true)} style={btnSec}>Cargar link de Fathom</button>}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" onClick={pedirAnalisis} disabled={pending} style={btn}>✦ Analizar la llamada</button>
+              {!tieneFathom && <button type="button" onClick={() => setWizard(true)} style={btnSec}>Cargar link de Fathom</button>}
+            </div>
           </div>
         )}
 
@@ -178,7 +173,9 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
             Hay {llamadas.length} llamada{llamadas.length === 1 ? '' : 's'} analizada{llamadas.length === 1 ? '' : 's'}. Tocá <b>Generar</b> y MaKo devuelve la lectura comercial del lead.
           </p>
         )}
-        {error && !faltantes.length && hayLlamadas && <p style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 600, marginTop: 10, marginBottom: 0 }}>{error}</p>}
+        {/* Error SIEMPRE visible (antes solo se mostraba con llamadas: los fallos
+            del análisis/re-link quedaban invisibles). */}
+        {error && !faltantes.length && !fase && <p style={{ fontSize: 13.5, color: 'var(--bad)', fontWeight: 600, marginTop: 10, marginBottom: 0 }}>{error}</p>}
 
         {/* Análisis (diseño scaneble) */}
         {c && (
@@ -261,6 +258,18 @@ export function GeneratedInsightCard({ lead, stages, tienePlan, inicial, faltant
           </div>
         )}
       </section>
+
+      {/* Loader progresivo como pop-up (analizar/re-linkear → generar insight). */}
+      {fase && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div role="dialog" aria-modal="true" aria-live="polite" style={{ width: '100%', maxWidth: 420, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '28px 26px', textAlign: 'center' }}>
+            <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)', marginBottom: 16 }}>✦ MAKO</div>
+            <span aria-hidden style={{ display: 'inline-block', width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', animation: 'spin 0.8s linear infinite', marginBottom: 16 }} />
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.5 }}>{fase}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 8 }}>Puede tardar unos segundos. No cierres la ficha.</div>
+          </div>
+        </div>
+      )}
 
       {wizard && (
         <StageMoveDialog

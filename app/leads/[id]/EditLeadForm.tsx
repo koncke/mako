@@ -13,10 +13,12 @@ import { useRouter } from 'next/navigation';
 import { saveLeadEditorAction, deleteLeadAction, type LeadEditorInput } from '../actions';
 import { CHIP, stageMeta, deriveStageKey, type Stage, type StageBand } from '@/lib/pipeline';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { LeadTabs } from '../lead-view/LeadTabs';
 import { DealDetailsCard, type DealDetailsHandle } from './DealDetailsCard';
 import type { Lead, FathomLink } from '@/lib/leads';
 import type { Step } from '@/lib/stage-requirements';
+import type { MiembroEquipo } from '../actions';
 import type { Pago } from '@/lib/pagos';
 
 type TriState = boolean | null;
@@ -29,7 +31,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const btnGhost: CSSProperties = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: SANS };
 const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
-export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab, faltantes = [] }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string; faltantes?: Step[] }) {
+export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab, faltantes = [], equipo = [] }: { lead: Lead; stages: Stage[]; pagos: Pago[]; onDone?: () => void; onCancel?: () => void; initialTab?: string; faltantes?: Step[]; equipo?: MiembroEquipo[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
@@ -60,6 +62,16 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
 
   const [closer, setCloser] = useState(lead.closer ?? '');
   const [setter, setSetter] = useState(lead.setter ?? '');
+  // Setter/Closer = SIEMPRE seleccionable del equipo del workspace, nunca texto
+  // libre. Si el valor guardado no está en el equipo (dato viejo) se ofrece igual
+  // para no perderlo, marcado "fuera del equipo".
+  const equipoOpts = (current: string): DropdownOption[] => {
+    const opts: DropdownOption[] = [{ value: '', label: 'Sin asignar' }];
+    for (const m of equipo) opts.push({ value: m.nombre, label: m.nombre });
+    const cur = current.trim();
+    if (cur && !equipo.some((m) => m.nombre === cur)) opts.push({ value: cur, label: cur, sub: 'fuera del equipo' });
+    return opts;
+  };
   const [fathom, setFathom] = useState<FathomLink[]>(lead.fathom_links ?? []);
   const [deadline, setDeadline] = useState(lead.nutricion_manual_deadline ?? '');
 
@@ -218,7 +230,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
                 <Field label="Fecha de confirmación (opcional)" hint="Cuándo confirmó verbalmente el cierre (entre R2 y primer pago)."><input className="lead-field" type="date" value={fechaConfirmacion} onChange={(e) => setFechaConfirmacion(e.target.value)} /></Field>
               </>
             )}
-            <Field label="Closer asignado"><input className="lead-field" value={closer} onChange={(e) => setCloser(e.target.value)} placeholder="Nombre del closer…" /></Field>
+            <Field label="Closer asignado" hint={equipo.length === 0 ? 'Configurá tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={closer} options={equipoOpts(closer)} onChange={setCloser} placeholder="Elegí un closer…" width="100%" ariaLabel="Closer asignado" /></Field>
           </div>
         </section>
       )}
@@ -228,7 +240,7 @@ export function EditLeadForm({ lead, stages, pagos, onDone, onCancel, initialTab
         <section style={card}>
           <div style={{ ...sectLabel, marginBottom: 16 }}>Nutrición</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-            <Field label="Setter asignado"><input className="lead-field" value={setter} onChange={(e) => setSetter(e.target.value)} placeholder="Nombre del setter…" /></Field>
+            <Field label="Setter asignado" hint={equipo.length === 0 ? 'Configurá tu equipo en Configuraciones › Equipo.' : undefined}><Dropdown value={setter} options={equipoOpts(setter)} onChange={setSetter} placeholder="Elegí un setter…" width="100%" ariaLabel="Setter asignado" /></Field>
             {isManual && (
               <Field label="Fecha límite (deadline)" required hint="Si vence sin que el lead avance, vuelve a 'datos sin marcar' en rojo.">
                 <input className="lead-field" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />

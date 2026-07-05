@@ -221,8 +221,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       case 'plan': return cuotasCuadran;
       case 'motivo': return !!motivo.trim();
       case 'motivoDetalle': return !!motivoDetalle.trim();
-      case 'setter': return !!setter.trim();
-      case 'closer': return !!closer.trim();
+      // Sin equipo configurado no hay a quién seleccionar → se permite continuar.
+      case 'setter': return equipo.length === 0 || !!setter.trim();
+      case 'closer': return equipo.length === 0 || !!closer.trim();
       case 'empresa': return !!empresa.trim();
       case 'telefono': return !!telefono.trim();
       default: return true;
@@ -435,18 +436,19 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       const val = paso === 'setter' ? setter : closer;
       const set = paso === 'setter' ? setSetter : setCloser;
       pregunta = paso === 'setter' ? '¿Quién es el Setter?' : '¿Quién es el Closer?';
-      sub = paso === 'setter' ? 'El que agendó la reunión.' : 'El que corrió la llamada de venta.';
-      cuerpo = (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {equipo.length > 0 && (
-            <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'wrap' }}>
-              {equipo.map((m) => {
-                const active = val.trim() === m.nombre || val.trim() === m.email;
-                return <button key={m.email} type="button" onClick={() => set(m.nombre)} style={{ minWidth: 130, padding: '11px 16px', borderRadius: 12, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{m.nombre}</button>;
-              })}
-            </div>
-          )}
-          <input value={val} onChange={(e) => set(e.target.value)} placeholder={equipo.length ? 'o escribí otro nombre…' : 'Nombre'} autoFocus={equipo.length === 0} style={{ ...compInput, maxWidth: 320, margin: '0 auto', textAlign: 'left' }} />
+      sub = paso === 'setter' ? 'El que agendó la reunión. Elegilo de tu equipo.' : 'El que corrió la llamada de venta. Elegilo de tu equipo.';
+      // Setter/Closer SIEMPRE seleccionable del equipo del workspace — nunca texto
+      // libre (dato sensible, tiene que existir en Configuraciones › Equipo).
+      cuerpo = equipo.length > 0 ? (
+        <div style={{ display: 'flex', gap: 9, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {equipo.map((m) => {
+            const active = val.trim() === m.nombre || val.trim() === m.email;
+            return <button key={m.email} type="button" onClick={() => set(active ? '' : m.nombre)} style={{ minWidth: 130, padding: '11px 16px', borderRadius: 12, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), background: active ? 'var(--ink)' : 'var(--surface)', color: active ? '#F3F5F8' : 'var(--ink)', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{m.nombre}</button>;
+          })}
+        </div>
+      ) : (
+        <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: '16px 18px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5, textAlign: 'left' }}>
+          Todavía no tenés equipo configurado. Agregá a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos acá. Por ahora podés continuar sin asignar.
         </div>
       );
       break;

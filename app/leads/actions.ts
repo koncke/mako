@@ -59,7 +59,7 @@ import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { getUltimoInsightGenerado, faltantesParaInsights, type LeadInsightGen } from '@/lib/lead-insights';
 import type { Step } from '@/lib/stage-requirements';
 import { getSupabaseServer } from '@/lib/supabase';
-import { getTenantDb } from '@/lib/workspace';
+import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 
 /**
  * Autor para el historial: el email del usuario logueado (se resuelve a nombre y
@@ -103,7 +103,7 @@ export async function getLeadInsights(leadId: number): Promise<LeadInsightRow[]>
       .from('closing_analyses')
       .select('recording_id, share_url, started_at, tipo, score, outcome, outcome_tone, summary, next_step, dims, objections, closer, duration_min')
       .eq('lead_id', leadId)
-      .eq('status', 'done')
+      .eq('status', 'analizada')
       .order('started_at', { ascending: false })
       .limit(10);
     if (error) return [];
@@ -438,16 +438,24 @@ export type MiembroEquipo = { nombre: string; email: string; foto_url: string | 
 
 /**
  * Equipo del workspace (closers/setters) con su foto, para mostrarla junto al
- * nombre en Meetings. Excluye admins (no son closer/setter) y suspendidos.
+ * nombre en Meetings y para los desplegables de Setter/Closer del wizard.
+ * AISLAMIENTO: la tabla `usuarios` NO es tenant-scoped por el proxy (no está en
+ * TENANT_TABLES), así que el filtro por workspace_id es EXPLÍCITO y obligatorio —
+ * jamás debe devolver miembros de otros workspaces. Excluye admins de agencia
+ * (rol='admin', no son closer/setter) y suspendidos. Fail-closed: un admin sin
+ * impersonar (ws null) no tiene un equipo concreto → [].
  */
 export async function getEquipoAction(): Promise<MiembroEquipo[]> {
   try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return [];
     const { data } = await getSupabaseServer()
       .from('usuarios')
-      .select('nombre, email, foto_url, rol, estado')
+      .select('nombre, email, foto_url, rol, estado, workspace_id')
+      .eq('workspace_id', ws)
       .neq('estado', 'suspendido');
-    return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string }>)
-      .filter((u) => u.rol !== 'admin' && (u.nombre?.trim() || u.email))
+    return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
+      .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email))
       .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: u.foto_url ?? null }));
   } catch {
     return [];
