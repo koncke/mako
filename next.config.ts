@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
     // inbox (route /api/whatsapp/.../attachments cap a 16MB).
     proxyClientMaxBodySize: '20mb',
   },
+  // /vsl/mako-cs sirve tal cual el HTML exportado de Claude Design (bundle
+  // autocontenido en public/vsl-assets). No es una page de Next a propósito:
+  // así el archivo queda byte-a-byte igual al original.
+  async rewrites() {
+    return [
+      { source: '/vsl/mako-cs', destination: '/vsl-assets/mako-cs.html' },
+    ];
+  },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca
   // script-src/style-src (eso requiere nonces + testeo en browser), pero corta
   // clickjacking, sniffing, fuga de referrer, plugins y base-tag injection.
