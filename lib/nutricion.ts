@@ -17,8 +17,12 @@ import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
+import { getInstanciaRow } from '@/lib/evolution';
+import { esLeadCliente, enviarYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
 
 export type CanalNutricion = 'email' | 'whatsapp';
+
+export type ProveedorWa = 'oficial' | 'no_oficial';
 
 export type PasoSecuencia = {
   orden: number;
@@ -27,7 +31,8 @@ export type PasoSecuencia = {
   asunto: string | null;
   preheader?: string | null;                  // email: texto de vista previa (preheader)
   cuerpo: string;
-  template_wa: string | null;                 // nombre del template aprobado (WhatsApp)
+  proveedor?: ProveedorWa;                     // whatsapp: 'oficial' (plantilla/Chatwoot) | 'no_oficial' (Evolution)
+  template_wa: string | null;                 // nombre del template aprobado (WhatsApp oficial)
   template_categoria?: 'marketing' | 'utility' | 'authentication';
   template_idioma?: string;                   // ej. 'es_MX'
   template_param?: string;                    // clave del body que recibe el nombre (default 'nombre')
@@ -156,6 +161,7 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[]): Pro
       asunto: typeof p.asunto === 'string' ? p.asunto : null,
       preheader: typeof p.preheader === 'string' ? p.preheader : null,
       cuerpo: typeof p.cuerpo === 'string' ? p.cuerpo : '',
+      proveedor: p.proveedor === 'no_oficial' ? 'no_oficial' : 'oficial',
       template_wa: p.template_wa ?? null,
       template_categoria: p.template_categoria,
       template_idioma: p.template_idioma ?? 'es_MX',
@@ -510,6 +516,7 @@ export type ResultadoProceso = {
   enviados: number;
   simulados: number;
   omitidos: number;
+  borradores: number;
   fallos: number;
   detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
 };
@@ -524,15 +531,18 @@ export type ResultadoProceso = {
 //     prueba de la máquina, el ?commit=1 histórico).
 // Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
 export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean }): Promise<ResultadoProceso> {
-  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, fallos: 0, detalle: [] };
-  const [waOn, emailOn, sandbox, remitente] = await Promise.all([
+  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, borradores: 0, fallos: 0, detalle: [] };
+  const [waOn, emailOn, sandbox, remitente, instEvo] = await Promise.all([
     envioWhatsappHabilitado(),
     envioEmailHabilitado(),
     remitenteEsSandbox(),
     getEmailFrom(),
+    getInstanciaRow(),
   ]);
   // Firma del footer de los emails = display name del remitente DEL WORKSPACE.
   const fromNameWs = displayNameDe(remitente);
+  // ¿El número no oficial (Evolution) está conectado? (para los pasos proveedor='no_oficial')
+  const evoConectado = instEvo?.estado === 'conectado';
 
   if (!opts?.ignorarVentana && !dentroDeVentana()) {
     return { ...res, saltado: 'fuera-de-ventana-horaria' };
@@ -603,7 +613,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       }
 
       const lead = leadMap.get(insc.lead_id);
-      let estado: 'enviado' | 'simulado' | 'omitido' | 'fallo' = 'simulado';
+      let estado: 'enviado' | 'simulado' | 'omitido' | 'borrador' | 'fallo' = 'simulado';
       let nota: string | undefined;
       let proveedorId: string | null = null;
       // terminal = la condición no se resuelve reintentando (opt-out, sin email):
@@ -618,6 +628,32 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
       if (canalApagado) {
         estado = 'omitido';
         nota = `canal ${paso.canal} apagado`;
+      } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {
+        // Canal EMPRESA (no oficial, Evolution). Regla dura del PDF: a leads
+        // CALIENTES nunca automático directo → borrador para el setter; a CLIENTES
+        // (ya pagaron, riesgo bajo) → envío automático con anti-ban.
+        const cuerpoNO = aplicarVariables(paso.cuerpo, valoresVariablesLead(lead ?? {}));
+        if (!lead?.telefono) {
+          estado = 'fallo'; nota = 'lead sin teléfono'; backoffHoras = 24;
+        } else if (!evoConectado) {
+          estado = 'fallo'; nota = 'WhatsApp de empresa no conectado'; backoffHoras = 24;
+        } else if (await esLeadCliente(lead.id)) {
+          const r = await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id });
+          estado = r.ok ? 'enviado' : 'fallo';
+          if (!r.ok) nota = r.error;
+        } else if (await tieneBorradorNutriPendiente(lead.id)) {
+          // Ya hay un borrador de nutrición pendiente para este lead → NO apilamos
+          // otro y NO avanzamos: la cadencia espera a que el setter lo mande o
+          // descarte. Reintentamos en 6h (no en cada corrida).
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'borrador pendiente' });
+          await supabase.from('nutricion_inscripciones')
+            .update({ proximo_envio_at: enHorasISO(6), updated_at: ahoraISO() }).eq('id', insc.id);
+          continue;
+        } else {
+          // Lead caliente → BORRADOR (el setter lo manda con 1 clic).
+          await crearBorrador({ leadId: lead.id, telefono: lead.telefono, texto: cuerpoNO, origen: 'nutricion', secuenciaId: insc.secuencia_id, paso: insc.paso_actual + 1, inscripcionId: insc.id });
+          estado = 'borrador';
+        }
       } else if (waOn && paso.canal === 'whatsapp') {
         if (!lead?.telefono) {
           estado = 'fallo';
@@ -728,6 +764,7 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
 
       if (estado === 'enviado') res.enviados += 1;
       else if (estado === 'omitido') res.omitidos += 1;
+      else if (estado === 'borrador') res.borradores += 1;
       else res.simulados += 1;
       res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
     }

@@ -47,6 +47,9 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit): Promise<E
       ...init,
       headers: { apikey: KEY, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
       cache: 'no-store',
+      // Tope de 30s: cubre el 'delay' de tipeo de sendText (~≤11s) y evita que
+      // un Evolution colgado bloquee el cron hasta el maxDuration.
+      signal: AbortSignal.timeout(30000),
     });
     const text = await res.text();
     let body: unknown = text;
@@ -236,6 +239,28 @@ export async function desconectar(): Promise<{ ok: boolean; error?: string }> {
   await upsertInstancia({ estado: 'desconectado', numero: null, perfil_nombre: null, instance_id: null });
   // Idempotente: borrar algo que ya no existe (404) es el resultado deseado.
   return del.ok || del.status === 404 ? { ok: true } : { ok: false, error: del.error };
+}
+
+// ── Envío de texto (anti-ban: "escribiendo…" proporcional al texto) ──────────
+export type EnvioResult = { ok: true; id: string; chatJid: string } | { ok: false; error: string };
+
+// Envía un texto libre por el número no oficial del workspace. El `delay` hace
+// que Evolution muestre "escribiendo…" ese tiempo antes de soltar el mensaje
+// (nativo) — proporcional al largo + jitter, para no parecer un bot.
+export async function enviarTexto(telefono: string, texto: string): Promise<EnvioResult> {
+  const ws = await wsEstricto();
+  const instance = instanceNameDeWs(ws);
+  const num = (telefono || '').replace(/\D/g, '');
+  if (!num) return { ok: false, error: 'teléfono inválido' };
+  if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  const base = Math.min(1500 + texto.length * 45, 9000);
+  const delay = Math.round(base * (0.8 + Math.random() * 0.4)); // ±20% jitter
+  const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
+    `/message/sendText/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ number: num, text: texto, delay }) },
+  );
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

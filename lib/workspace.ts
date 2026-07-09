@@ -45,7 +45,7 @@ const TENANT_TABLES = new Set<string>([
   'experimentos', 'landing_visits', 'lead_audit', 'leads', 'marketing_metrics_daily',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_confirmaciones', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'retros', 'review_queue', 'script_analyses', 'script_drafts',
-  'tarea_categorias', 'vsl_events', 'wa_mensajes', 'whatsapp_template_drafts', 'workspace_telefonos',
+  'tarea_categorias', 'vsl_events', 'wa_borradores', 'wa_mensajes', 'whatsapp_template_drafts', 'workspace_telefonos',
 ]);
 
 // Resolución desde cookies (memoizada por request). Solo se llama FUERA de

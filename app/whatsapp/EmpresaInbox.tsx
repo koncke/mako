@@ -15,8 +15,10 @@ type Conv = {
   ultimoEntrante: boolean; total: number;
 };
 type Msg = { id: number; fromMe: boolean; tipo: string | null; texto: string | null; mediaUrl: string | null; mediaMime: string | null; fecha: string | null };
+type Borr = { id: number; leadId: number | null; telefono: string; texto: string; origen: string; leadNombre: string | null; createdAt: string };
 
 async function jget<T>(url: string): Promise<T> { const r = await fetch(url, { cache: 'no-store' }); return r.json() as Promise<T>; }
+async function jpost<T>(url: string, body: unknown): Promise<T> { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json() as Promise<T>; }
 
 function fmtHora(iso: string | null): string {
   if (!iso) return '';
@@ -41,6 +43,12 @@ export function EmpresaInbox() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [errMsgs, setErrMsgs] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [borradores, setBorradores] = useState<Borr[]>([]);
+  const [showBorr, setShowBorr] = useState(false);
+  const [borrBusy, setBorrBusy] = useState<number | null>(null);
+  const [borrErr, setBorrErr] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<string | null>(null);   // chat objetivo (anti-race del poll)
   const stickRef = useRef(true);                 // ¿el user está pegado al fondo?
@@ -55,6 +63,34 @@ export function EmpresaInbox() {
   }, []);
 
   useEffect(() => { void loadConvs(); const t = setInterval(() => void loadConvs(), 15000); return () => clearInterval(t); }, [loadConvs]);
+
+  const loadBorr = useCallback(async () => {
+    const j = await jget<{ ok: boolean; borradores: Borr[] }>('/api/whatsapp/evolution/borradores');
+    if (j.ok) setBorradores(j.borradores);
+  }, []);
+  useEffect(() => { void loadBorr(); const t = setInterval(() => void loadBorr(), 20000); return () => clearInterval(t); }, [loadBorr]);
+
+  async function accionBorrador(id: number, action: 'enviar' | 'descartar') {
+    setBorrBusy(id); setBorrErr(null);
+    try {
+      const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/borradores', { id, action });
+      if (j.ok) {
+        await loadBorr();
+        if (action === 'enviar') { await loadConvs(); if (selRef.current) await loadMsgs(selRef.current); }
+      } else setBorrErr(j.error || 'No se pudo completar');
+    } finally { setBorrBusy(null); }
+  }
+
+  async function enviarManual() {
+    const sc = convs.find((c) => c.chatJid === sel);
+    if (!sc || !draft.trim()) return;
+    setSending(true);
+    try {
+      const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/mensajes', { telefono: sc.telefono, chat: sc.chatJid, texto: draft.trim() });
+      if (j.ok) { setDraft(''); stickRef.current = true; await loadMsgs(sc.chatJid); }
+      else setErrMsgs(j.error || 'No se pudo enviar');
+    } finally { setSending(false); }
+  }
 
   const loadMsgs = useCallback(async (chat: string) => {
     setLoadingMsgs(true);
@@ -96,7 +132,12 @@ export function EmpresaInbox() {
     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '340px 1fr', gap: '16px' }}>
       {/* LISTA */}
       <div style={card}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Número de empresa · no oficial</div>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Empresa · no oficial</span>
+          {borradores.length > 0 && (
+            <button onClick={() => setShowBorr(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }} title="Mensajes que MaKo dejó listos para que los mandes con 1 clic">📝 {borradores.length} borrador{borradores.length > 1 ? 'es' : ''}</button>
+          )}
+        </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
           {loadingConvs && convs.length === 0 && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
           {!loadingConvs && convs.length === 0 && !err && (
@@ -160,12 +201,47 @@ export function EmpresaInbox() {
                 </div>
               ))}
             </div>
-            <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', fontSize: '12px', color: 'var(--faint)', lineHeight: 1.5 }}>
-              Este historial es el espejo del número no oficial. Responder desde acá con anti-baneo llega en F2.3 — por ahora se contesta desde el celular de la empresa.
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
+              <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarManual(); } }}
+                placeholder="Escribí un mensaje… (sale por el número de empresa, con anti-baneo)" rows={1}
+                style={{ flex: 1, minHeight: '40px', maxHeight: '120px', resize: 'none', padding: '10px 14px', borderRadius: '21px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.35, outline: 'none' }} />
+              <button onClick={() => void enviarManual()} disabled={sending || !draft.trim()} title="Enviar por el número de empresa"
+                style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending || !draft.trim() ? 'default' : 'pointer', opacity: sending || !draft.trim() ? 0.5 : 1, fontSize: '17px' }}>➤</button>
             </div>
           </>
         )}
       </div>
+
+      {/* Panel de borradores: mensajes listos para mandar con 1 clic (leads calientes) */}
+      {showBorr && (
+        <div onClick={() => setShowBorr(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '560px', maxHeight: '85vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>Borradores por enviar</div>
+              <button onClick={() => setShowBorr(false)} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '14px', lineHeight: 1.5 }}>A leads calientes el sistema no manda solo (anti-baneo). Revisá y enviá con 1 clic — o descartá.</div>
+            {borrErr && <div style={{ marginBottom: '12px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '12.5px' }}>{borrErr}</div>}
+            {borradores.length === 0 && <div style={{ color: 'var(--faint)', fontSize: '13px', padding: '10px 0' }}>No hay borradores pendientes.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {borradores.map((b) => (
+                <div key={b.id} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px', background: 'var(--surface-2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)' }}>{b.leadNombre || b.telefono}</span>
+                    <span style={{ fontSize: '11px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace" }}>{b.origen}</span>
+                  </div>
+                  <div style={{ fontSize: '13.5px', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap', marginBottom: '10px' }}>{b.texto}</div>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button onClick={() => void accionBorrador(b.id, 'descartar')} disabled={borrBusy === b.id} style={{ padding: '7px 14px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Descartar</button>
+                    <button onClick={() => void accionBorrador(b.id, 'enviar')} disabled={borrBusy === b.id} style={{ padding: '7px 16px', borderRadius: '9px', border: 'none', background: 'var(--wa)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: borrBusy === b.id ? 0.6 : 1 }}>{borrBusy === b.id ? 'Enviando…' : 'Enviar ✓'}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
