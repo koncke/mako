@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../_components/icons';
+import { VozGuia } from '../_components/VozGuia';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos (espejo de lib/email-marketing.ts)
@@ -168,6 +169,7 @@ export function EmailApp() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <VozGuia />
           {dom?.conectado && (
             <button onClick={() => void toggleEnvio()} title={dom.envioHabilitado ? 'El motor manda emails reales — clic para pausar' : 'Los envíos se registran como simulado — clic para activar'} aria-pressed={dom.envioHabilitado}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 14px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (dom.envioHabilitado ? 'var(--good)' : 'var(--border-strong)'), background: dom.envioHabilitado ? 'var(--good-bg)' : 'var(--surface)', color: dom.envioHabilitado ? 'var(--good)' : 'var(--dim)' }}>

@@ -55,6 +55,7 @@ import {
   CAMPAIGN_ADJUST_SYSTEM_TEMPLATE,
   CAMPAIGN_ADJUST_USER_TEMPLATE,
 } from './campaign-structurer';
+import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE } from './nutricion-generator';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -250,6 +251,27 @@ export const REGISTRY: Group[] = [
         variables: [v('objetivo', 'objetivo de la plantilla'), v('etapa', 'etapa del lead a la que apunta'), v('contexto', 'perfil del negocio')], scope: 'full', sensitive: false,
         default: WA_ADVISOR_TEMPLATE_USER_TEMPLATE,
         context: 'Le pasa a MaKo el objetivo y la etapa para redactar la plantilla, y le pide el JSON con name/category/body/footer/variables. Mantené el esquema del JSON.',
+      },
+    ],
+  },
+  {
+    group: 'Nutrición — voz del negocio (MaKo)',
+    icon: '🗣️',
+    blurb: 'MaKo aprende cómo comunica el cliente (de sus anuncios + el perfil de marca) para escribir la nutrición en su voz. Esta guía de voz se destila una vez y se puede editar.',
+    entries: [
+      {
+        key: 'nutri.voz.system', source: 'override',
+        label: 'Destilador de voz (system)', kind: 'system', dynamic: false,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: NUTRI_VOZ_SYSTEM_TEMPLATE,
+        context: 'Pone a MaKo a destilar una "guía de voz" (tono, vocabulario, muletillas, qué nunca hace, ejemplos) a partir del perfil de marca y las transcripciones de los anuncios del cliente. Priorizá la fidelidad al estilo real por sobre el marketing genérico.',
+      },
+      {
+        key: 'nutri.voz.user', source: 'override',
+        label: 'Materia prima de la voz (user)', kind: 'user', dynamic: true,
+        variables: [v('marca', 'perfil de marca declarado (tono/frase/qué-nunca/valores)'), v('transcripts', 'transcripciones literales de los anuncios del cliente')], scope: 'static-only', sensitive: true,
+        default: NUTRI_VOZ_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la marca declarada y las transcripciones de los ads (texto literal). No borres los slots {{marca}}/{{transcripts}}.',
       },
     ],
   },
