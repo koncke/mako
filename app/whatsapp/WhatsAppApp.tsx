@@ -23,6 +23,7 @@ import { Icon } from '../_components/icons';
 import { PlantillasPanel } from './PlantillasPanel';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EvolutionConnect } from './EvolutionConnect';
+import { EmpresaInbox } from './EmpresaInbox';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
@@ -240,6 +241,9 @@ export function WhatsAppApp() {
 
 function WhatsAppInner() {
   const [view, setView] = useState<View>('chats');
+  // Canal del inbox de Conversaciones: 'oficial' (Chatwoot/Bot) o 'empresa'
+  // (no oficial/Evolution, leído del espejo en nuestra DB).
+  const [canal, setCanal] = useState<'oficial' | 'empresa'>('oficial');
 
   // Contactos + estado de no-leídos viven en el provider global (un solo poller,
   // corre en toda la app). Acá los consumimos.
@@ -918,8 +922,19 @@ function WhatsAppInner() {
         </div>
       </header>
 
-      {/* ============= CONVERSACIONES ============= */}
+      {/* Toggle de canal del inbox (oficial Chatwoot / empresa no-oficial) */}
       {isChats && (
+        <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px', marginBottom: '14px' }}>
+          <button onClick={() => setCanal('oficial')} style={canal === 'oficial' ? tabActive : tabIdle}>🤖 Bot oficial</button>
+          <button onClick={() => setCanal('empresa')} style={canal === 'empresa' ? tabActive : tabIdle}>👤 Empresa</button>
+        </div>
+      )}
+
+      {/* ============= CONVERSACIONES — EMPRESA (no oficial, espejo en DB) ============= */}
+      {isChats && canal === 'empresa' && <EmpresaInbox />}
+
+      {/* ============= CONVERSACIONES — BOT OFICIAL (Chatwoot) ============= */}
+      {isChats && canal === 'oficial' && (
         <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '330px 1fr 344px', gap: '16px' }}>
           {/* LISTA */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>

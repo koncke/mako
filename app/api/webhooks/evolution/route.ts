@@ -11,9 +11,18 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
+import { runWithWorkspace } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
+import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 
 export const dynamic = 'force-dynamic';
+
+// Resuelve el workspace dueño de una instancia (sin sesión → sin scope).
+async function wsDeInstancia(instance: string): Promise<number | null> {
+  const { data } = await getSupabaseServer()
+    .from('evolution_instancias').select('workspace_id').eq('instance_name', instance).maybeSingle();
+  return (data as { workspace_id?: number } | null)?.workspace_id ?? null;
+}
 
 type EvEvent = {
   event?: string;
@@ -78,11 +87,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (evento === 'messages.upsert') {
-      // F2.2: espejo de mensajes + descarga de multimedia. Por ahora solo
-      // registramos actividad para no perder el hilo.
-      await supabase.from('evolution_instancias')
-        .update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
-      return Response.json({ ok: true, deferred: 'messages.upsert (F2.2)' });
+      // Espejo total: resolvemos el workspace y guardamos cada mensaje dentro de
+      // su scope (getTenantDb estampa workspace_id). data puede ser un mensaje o
+      // { messages: [...] } según versión — normalizamos ambos.
+      const ws = await wsDeInstancia(instance);
+      if (ws == null) return Response.json({ ok: true, ignored: 'instancia sin workspace' });
+      const d = body.data as Record<string, unknown> | undefined;
+      const mensajes = Array.isArray((d as { messages?: unknown[] })?.messages)
+        ? (d as { messages: Record<string, unknown>[] }).messages
+        : (d ? [d] : []);
+      await runWithWorkspace(ws, async () => {
+        for (const m of mensajes) {
+          try { await guardarMensajeUpsert(instance, m); } catch (e) { console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }
+        }
+        await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
+      });
+      return Response.json({ ok: true, guardados: mensajes.length });
     }
 
     return Response.json({ ok: true, ignored: evento || 'sin evento' });
