@@ -8,12 +8,14 @@
 
 import type { NextRequest } from 'next/server';
 import { getCampaignBasics, addAdsetToCampaign, metaErrorEnvelope } from '@/lib/meta-ads-create';
+import { guardAdsDueno } from '@/lib/ads-guard';
 import type { AdSetSpec } from '@/lib/campaign-types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
+  const no = await guardAdsDueno(); if (no) return no;
   const campaignId = req.nextUrl.searchParams.get('campaign_id') ?? '';
   if (!/^\d+$/.test(campaignId)) return Response.json({ ok: false, error: 'campaign_id inválido' }, { status: 400 });
   try {
@@ -26,6 +28,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const no = await guardAdsDueno(); if (no) return no;
   let body: { campaign_id?: string; adset?: AdSetSpec };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const campaignId = String(body.campaign_id ?? '');
