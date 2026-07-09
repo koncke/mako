@@ -41,7 +41,7 @@ export function runWithWorkspace<T>(ws: number | null, fn: () => T): T {
 // (settings.ts, leads.ts, credenciales.ts) por su semántica de key/singleton.
 const TENANT_TABLES = new Set<string>([
   'ad_transcripts', 'adset_budget_daily', 'anthropic_usage', 'chart_chats', 'chart_sessions',
-  'closing_analyses', 'email_broadcast_envios', 'email_broadcasts', 'experimento_tareas',
+  'closing_analyses', 'email_broadcast_envios', 'email_broadcasts', 'evolution_instancias', 'experimento_tareas',
   'experimentos', 'landing_visits', 'lead_audit', 'leads', 'marketing_metrics_daily',
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_confirmaciones', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'retros', 'review_queue', 'script_analyses', 'script_drafts',

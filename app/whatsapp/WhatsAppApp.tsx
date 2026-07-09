@@ -22,6 +22,7 @@ import { MakoChat } from '../_components/MakoChat';
 import { Icon } from '../_components/icons';
 import { PlantillasPanel } from './PlantillasPanel';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
+import { EvolutionConnect } from './EvolutionConnect';
 import { useNotifications, type Contacto } from '../_components/NotificationsProvider';
 
 // Modal de detalle/edición del lead — el MISMO del CRM (LeadDetail vía wrapper).
@@ -905,9 +906,10 @@ function WhatsAppInner() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '7px' }}>
             <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="whatsapp" size={34} /></span>
             <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>WhatsApp</h1>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: '12.5px', fontWeight: 600 }}>
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>Chatwoot conectado
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: '12.5px', fontWeight: 600 }} title="Número oficial (Cloud API de Meta) — recibe el tráfico frío de los anuncios">
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>Bot oficial
             </span>
+            <EvolutionConnect />
           </div>
         </div>
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
