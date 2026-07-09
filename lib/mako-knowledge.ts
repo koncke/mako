@@ -5,12 +5,19 @@
 // Cada entrada pertenece a un CURSO (agrupador por autor/metodología) y tiene un
 // ÁREA de aplicación ('mensajes' | 'ads' | 'general'): el conocimiento se enchufa
 // donde corresponde (los mensajes de WhatsApp usan area='mensajes', etc.).
-// Re-embebe SOLO cuando cambia el cuerpo (editar título/categoría/activo no).
-// Resiliente: si no hay conocimiento o falla el embedding, search devuelve []
-// y MaKo se comporta exactamente como hoy.
+//
+// Multi-tenant (mig 0071): mako_knowledge está en TENANT_TABLES.
+//  - GESTIÓN (list/create/update/delete/…) via getTenantDb → cada cliente ve y
+//    edita SOLO lo suyo (cierra el leak + el IDOR destructivo que había antes).
+//  - RAG (search/listActiveByArea) via getSupabaseServer + filtro EXPLÍCITO a
+//    [workspace propio, dueño] → el método CURADO de la agencia (filas del dueño)
+//    se sirve read-only a la IA de todos, y encima cada cliente suma lo suyo.
+// Re-embebe SOLO cuando cambia el cuerpo. Resiliente: si no hay conocimiento o
+// falla el embedding, search devuelve [] y MaKo se comporta como hoy.
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
 import { embed, cosine, hashText } from './embeddings';
 
 export type EstadoIndex = 'indexado' | 'pendiente' | 'error';
@@ -24,14 +31,20 @@ export type KnowledgeEntry = {
 
 const COLS = 'id, titulo, categoria, cuerpo, curso, autor, area, fuente, activo, estado, error, created_at, updated_at';
 
+/** Workspaces que el RAG puede leer: el propio + el dueño (método curado de la agencia). */
+async function wsParaRag(): Promise<number[]> {
+  const ws = (await getWorkspaceActual()) ?? OWNER_WS;
+  return ws === OWNER_WS ? [OWNER_WS] : [ws, OWNER_WS];
+}
+
 async function getById(id: number): Promise<KnowledgeEntry | null> {
-  const { data } = await getSupabaseServer().from('mako_knowledge').select(COLS).eq('id', id).maybeSingle();
+  const { data } = await (await getTenantDb()).from('mako_knowledge').select(COLS).eq('id', id).maybeSingle();
   return (data as KnowledgeEntry) ?? null;
 }
 
-/** Embebe el cuerpo y marca estado indexado/error. No lanza. */
+/** Embebe el cuerpo y marca estado indexado/error. No lanza. Scopeado al workspace. */
 async function embedRow(id: number, cuerpo: string): Promise<void> {
-  const sb = getSupabaseServer();
+  const sb = await getTenantDb();
   try {
     const v = await embed(cuerpo);
     await sb.from('mako_knowledge').update({ embedding: v, content_hash: hashText(cuerpo), estado: 'indexado', error: null, updated_at: new Date().toISOString() }).eq('id', id);
@@ -41,7 +54,7 @@ async function embedRow(id: number, cuerpo: string): Promise<void> {
 }
 
 export async function listKnowledge(): Promise<KnowledgeEntry[]> {
-  const { data, error } = await getSupabaseServer().from('mako_knowledge').select(COLS).order('updated_at', { ascending: false });
+  const { data, error } = await (await getTenantDb()).from('mako_knowledge').select(COLS).order('updated_at', { ascending: false });
   if (error) throw new Error(`listKnowledge: ${error.message}`);
   return (data ?? []) as KnowledgeEntry[];
 }
@@ -49,7 +62,7 @@ export async function listKnowledge(): Promise<KnowledgeEntry[]> {
 export type NewKnowledge = { titulo: string; categoria?: string | null; cuerpo: string; curso?: string | null; autor?: string | null; area?: string; fuente?: string; activo?: boolean };
 
 export async function createKnowledge(input: NewKnowledge): Promise<KnowledgeEntry | null> {
-  const { data, error } = await getSupabaseServer()
+  const { data, error } = await (await getTenantDb())
     .from('mako_knowledge')
     .insert({
       titulo: input.titulo, categoria: input.categoria ?? null, cuerpo: input.cuerpo,
@@ -68,7 +81,7 @@ export type PatchKnowledge = { titulo?: string; categoria?: string | null; cuerp
 
 export async function updateKnowledge(id: number, fields: PatchKnowledge): Promise<KnowledgeEntry | null> {
   const current = await getById(id);
-  if (!current) return null;
+  if (!current) return null; // no existe o es de otro workspace → no se toca
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (fields.titulo !== undefined) patch.titulo = fields.titulo;
   if (fields.categoria !== undefined) patch.categoria = fields.categoria;
@@ -80,7 +93,7 @@ export async function updateKnowledge(id: number, fields: PatchKnowledge): Promi
   const cuerpoCambia = fields.cuerpo !== undefined && fields.cuerpo !== current.cuerpo;
   if (fields.cuerpo !== undefined) patch.cuerpo = fields.cuerpo;
   if (cuerpoCambia) patch.estado = 'pendiente';
-  const { error } = await getSupabaseServer().from('mako_knowledge').update(patch).eq('id', id);
+  const { error } = await (await getTenantDb()).from('mako_knowledge').update(patch).eq('id', id);
   if (error) throw new Error(`updateKnowledge: ${error.message}`);
   // Re-embeber SOLO si cambió el cuerpo.
   if (cuerpoCambia && (fields.cuerpo ?? '').trim()) await embedRow(id, fields.cuerpo!);
@@ -88,7 +101,7 @@ export async function updateKnowledge(id: number, fields: PatchKnowledge): Promi
 }
 
 export async function deleteKnowledge(id: number): Promise<void> {
-  const { error } = await getSupabaseServer().from('mako_knowledge').delete().eq('id', id);
+  const { error } = await (await getTenantDb()).from('mako_knowledge').delete().eq('id', id);
   if (error) throw new Error(`deleteKnowledge: ${error.message}`);
 }
 
@@ -99,21 +112,22 @@ export async function reindexKnowledge(id: number): Promise<KnowledgeEntry | nul
   return getById(id);
 }
 
-/** Activar/desactivar todas las entradas de un curso de un tirón. */
+/** Activar/desactivar todas las entradas de un curso de un tirón (del workspace). */
 export async function setCursoActivo(curso: string, activo: boolean): Promise<void> {
-  const { error } = await getSupabaseServer().from('mako_knowledge').update({ activo, updated_at: new Date().toISOString() }).eq('curso', curso);
+  const { error } = await (await getTenantDb()).from('mako_knowledge').update({ activo, updated_at: new Date().toISOString() }).eq('curso', curso);
   if (error) throw new Error(`setCursoActivo: ${error.message}`);
 }
 
-/** ¿Ya existe al menos una entrada de este curso? (para no re-sembrar). */
+/** ¿Ya existe al menos una entrada de este curso en el workspace? (para no re-sembrar). */
 export async function cursoExiste(curso: string): Promise<boolean> {
-  const { count, error } = await getSupabaseServer().from('mako_knowledge').select('id', { count: 'exact', head: true }).eq('curso', curso);
+  const { count, error } = await (await getTenantDb()).from('mako_knowledge').select('id', { count: 'exact', head: true }).eq('curso', curso);
   if (error) return false;
   return (count ?? 0) > 0;
 }
 
 /**
- * Top-k entradas activas más relevantes a la consulta (coseno).
+ * Top-k entradas activas más relevantes a la consulta (coseno). Lee el conocimiento
+ * del workspace propio + el método curado del dueño (RAG compartido, read-only).
  * opts.area filtra por área de aplicación (ej. 'mensajes' para WhatsApp).
  */
 export async function searchKnowledge(
@@ -127,6 +141,7 @@ export async function searchKnowledge(
     let sel = getSupabaseServer()
       .from('mako_knowledge')
       .select('titulo, categoria, cuerpo, area, embedding')
+      .in('workspace_id', await wsParaRag())
       .eq('activo', true)
       .not('embedding', 'is', null);
     if (opts.area) sel = sel.eq('area', opts.area);
@@ -143,12 +158,13 @@ export async function searchKnowledge(
   }
 }
 
-/** Todas las entradas ACTIVAS de un área (para inyectar una metodología completa,
- *  no solo el top-k). Ordenadas por id (orden de carga del curso). */
+/** Todas las entradas ACTIVAS de un área (workspace propio + método curado del dueño),
+ *  para inyectar una metodología completa. Ordenadas por id (orden de carga del curso). */
 export async function listActiveKnowledgeByArea(area: string): Promise<Array<{ titulo: string; categoria: string | null; cuerpo: string }>> {
   const { data, error } = await getSupabaseServer()
     .from('mako_knowledge')
     .select('titulo, categoria, cuerpo')
+    .in('workspace_id', await wsParaRag())
     .eq('activo', true)
     .eq('area', area)
     .order('id', { ascending: true });
