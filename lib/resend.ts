@@ -12,23 +12,59 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import { credWs } from './credenciales';
+import { getSetting } from './settings';
 
-const ENDPOINT = 'https://api.resend.com/emails';
+const API_BASE = 'https://api.resend.com';
+const ENDPOINT = `${API_BASE}/emails`;
 
-// Flag de envío real (igual que NUTRICION_SEND_ENABLED para WhatsApp).
-export const EMAIL_SEND_ENABLED = process.env.EMAIL_SEND_ENABLED === 'true';
-// Remitente verificado en Resend. onboarding@resend.dev es el sandbox de Resend
-// (solo entrega al dueño de la cuenta) hasta verificar el dominio propio.
-export const EMAIL_FROM = process.env.RESEND_FROM || 'Mauricio Bustos <onboarding@resend.dev>';
+// Remitente sandbox de Resend: solo entrega al dueño de la cuenta.
+const SANDBOX_FROM = 'Mauricio Bustos <onboarding@resend.dev>';
 
-export async function resendConfigurado(): Promise<boolean> {
-  return !!(await credWs('RESEND_API_KEY'));
+// ── Config por workspace (Opción A: cuenta única de MaKo) ────────────────────
+// La API key es LA DE MAKO (env global) para todos los workspaces — cada cliente
+// solo verifica SU dominio dentro de esa cuenta. credWs primero: si un cliente
+// grande carga su propia RESEND_API_KEY en credenciales, esa gana (Opción B).
+// Excepción deliberada al aislamiento de credWs (que jamás da env a un cliente):
+// acá el fallback compartido es el modelo de negocio, no un leak.
+// OJO Opción B a medias: el webhook de eventos valida UN solo signing secret
+// (el de la cuenta de MaKo) — un cliente con key propia pierde tracking de
+// abiertos/clics/rebotes hasta soportar secrets por workspace (pendiente F2).
+async function resendKey(): Promise<string | null> {
+  const propia = await credWs('RESEND_API_KEY');
+  if (propia) return propia;
+  const compartida = process.env.RESEND_API_KEY;
+  return compartida && compartida.trim() ? compartida : null;
 }
 
-// true si el remitente sigue siendo el sandbox de Resend (resend.dev), que NO
-// entrega a terceros. Sirve de preflight antes de un envío real.
-export function remitenteEsSandbox(): boolean {
-  return /@resend\.dev>?\s*$/i.test(EMAIL_FROM) || !process.env.RESEND_FROM;
+/** Remitente del workspace actual: setting resend_from → credencial → sandbox. */
+export async function getEmailFrom(): Promise<string> {
+  const setting = await getSetting('resend_from');
+  if (setting && setting.trim()) return setting.trim();
+  const cred = await credWs('RESEND_FROM'); // dueño → env RESEND_FROM; cliente → su fila
+  if (cred && cred.trim()) return cred.trim();
+  return SANDBOX_FROM;
+}
+
+export async function resendConfigurado(): Promise<boolean> {
+  return !!(await resendKey());
+}
+
+// true si el remitente del workspace sigue siendo el sandbox (resend.dev), que
+// NO entrega a terceros. Sirve de preflight antes de un envío real.
+export async function remitenteEsSandbox(): Promise<boolean> {
+  return /@resend\.dev>?\s*$/i.test(await getEmailFrom());
+}
+
+/** Email "conectado" para este workspace: hay key y el remitente no es sandbox. */
+export async function emailConectado(): Promise<boolean> {
+  const [key, sandbox] = await Promise.all([resendKey(), remitenteEsSandbox()]);
+  return !!key && !sandbox;
+}
+
+/** Display name de un remitente "Nombre <email>" (o '' si no tiene). */
+export function displayNameDe(remitente: string): string {
+  const m = remitente.match(/^(.*?)\s*</);
+  return m ? m[1].trim().replace(/^"|"$/g, '') : '';
 }
 
 // URL base del dashboard (para armar links absolutos en emails que salen del cron,
@@ -72,14 +108,14 @@ export type SendEmailParams = {
   scheduledAt?: string; // ISO 8601 o lenguaje natural ("in 1 hour")
 };
 
-// Envía un email por Resend. NO chequea EMAIL_SEND_ENABLED — eso lo decide el
-// caller (el motor de nutrición / broadcasts), igual que sendWhatsappTemplate.
+// Envía un email por Resend. NO chequea el flag de envío del workspace — eso lo
+// decide el caller (el motor de nutrición / broadcasts), igual que sendWhatsappTemplate.
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
-  const key = await credWs('RESEND_API_KEY');
+  const key = await resendKey();
   if (!key) return { ok: false, error: 'RESEND_API_KEY no configurada' };
 
   const payload: Record<string, unknown> = {
-    from: params.from || EMAIL_FROM,
+    from: params.from || (await getEmailFrom()),
     to: params.to,
     subject: params.subject,
     html: params.html,
@@ -155,11 +191,13 @@ export type RenderEmailParams = {
   bodyText: string;        // cuerpo en texto plano, variables ya resueltas
   preheader?: string;      // texto de vista previa (oculto en el cuerpo)
   unsubscribeUrl?: string; // link de baja para el footer
-  fromName?: string;       // firma del footer
+  fromName?: string;       // firma del footer (display name del remitente del ws)
 };
 
 export function renderEmailHtml(params: RenderEmailParams): string {
-  const fromName = params.fromName || 'Mauricio Bustos';
+  // La firma sale del remitente DEL WORKSPACE (nada hardcodeado del dueño: los
+  // emails de un cliente van firmados por su negocio, no por Mauricio).
+  const fromName = params.fromName?.trim() || '';
   const preheader = params.preheader
     ? `<span style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">${escapeHtml(params.preheader)}</span>`
     : '';
@@ -178,14 +216,127 @@ ${preheader}
         ${bodyToHtml(params.bodyText)}
       </td></tr>
       <tr><td style="padding:18px 32px 26px;font-family:'Helvetica Neue',Arial,sans-serif;color:#6B675C;font-size:13px;line-height:1.5;border-top:1px solid #E7E3D9;">
-        <div style="font-weight:600;color:#1A1813;">${escapeHtml(fromName)}</div>
-        <div style="color:#A39E91;margin-top:2px;">Negocio que Escala™</div>
+        ${fromName ? `<div style="font-weight:600;color:#1A1813;">${escapeHtml(fromName)}</div>` : ''}
         ${unsub ? `<div style="margin-top:12px;font-size:12px;color:#A39E91;">Si no querés recibir más estos correos, ${unsub}.</div>` : ''}
       </td></tr>
     </table>
   </td></tr>
 </table>
 </body></html>`;
+}
+
+// ── API de Domains (onboarding de dominio por workspace) ─────────────────────
+// POST /domains crea el dominio en la cuenta de MaKo y devuelve los registros
+// DNS (DKIM/SPF) que el cliente carga en su proveedor. GET /domains/{id} da el
+// estado; POST /domains/{id}/verify dispara la verificación.
+
+export type ResendDnsRecord = {
+  record: string;            // 'DKIM' | 'SPF' | ...
+  name: string;              // host del registro
+  type: string;              // 'TXT' | 'MX' | 'CNAME'
+  value: string;
+  ttl?: string;
+  priority?: number;
+  status?: string;           // 'not_started' | 'pending' | 'verified' | 'failure'
+};
+
+export type ResendDomain = {
+  id: string;
+  name: string;
+  status: string;            // 'not_started' | 'pending' | 'verified' | 'failure' | 'temporary_failure'
+  region?: string;
+  records: ResendDnsRecord[];
+};
+
+export type DomainResult = { ok: true; domain: ResendDomain } | { ok: false; error: string };
+
+async function resendFetch(path: string, init?: RequestInit): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const key = await resendKey();
+  if (!key) return { ok: false, status: 0, body: { message: 'RESEND_API_KEY no configurada' } };
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      cache: 'no-store',
+    });
+    const text = await res.text();
+    let body: unknown = text;
+    try { body = text ? JSON.parse(text) : {}; } catch { /* deja texto */ }
+    return { ok: res.ok, status: res.status, body };
+  } catch (err) {
+    return { ok: false, status: 0, body: { message: err instanceof Error ? err.message : String(err) } };
+  }
+}
+
+function errMsg(body: unknown, fallback: string): string {
+  if (typeof body === 'object' && body && 'message' in body) return String((body as { message?: unknown }).message);
+  return typeof body === 'string' && body ? body.slice(0, 200) : fallback;
+}
+
+function parseDomain(body: unknown): ResendDomain | null {
+  if (typeof body !== 'object' || !body || !('id' in body)) return null;
+  const d = body as { id?: unknown; name?: unknown; status?: unknown; region?: unknown; records?: unknown };
+  return {
+    id: String(d.id ?? ''),
+    name: String(d.name ?? ''),
+    status: String(d.status ?? 'pending'),
+    region: d.region ? String(d.region) : undefined,
+    records: Array.isArray(d.records) ? (d.records as ResendDnsRecord[]) : [],
+  };
+}
+
+const REGIONES_VALIDAS = new Set(['us-east-1', 'eu-west-1', 'sa-east-1', 'ap-northeast-1']);
+
+// Crea el dominio. Si ya existe en la cuenta (ej: re-conectar en la prueba E2E),
+// lo busca en la lista y lo devuelve — idempotente para el onboarding. El caller
+// (route de dominio) valida la TITULARIDAD por workspace antes de adoptarlo.
+// El fallback por lista corre ante cualquier 4xx (no dependemos del wording del
+// mensaje de error de Resend).
+export async function createResendDomain(name: string, region = 'sa-east-1'): Promise<DomainResult> {
+  const reg = REGIONES_VALIDAS.has(region) ? region : 'sa-east-1';
+  const r = await resendFetch('/domains', { method: 'POST', body: JSON.stringify({ name, region: reg }) });
+  if (r.ok) {
+    const d = parseDomain(r.body);
+    return d ? { ok: true, domain: d } : { ok: false, error: 'Resend no devolvió el dominio' };
+  }
+  // 4xx → puede ser "ya existe": buscarlo por nombre en la cuenta.
+  if (r.status >= 400 && r.status < 500) {
+    const lista = await listResendDomains();
+    if (lista.ok) {
+      const existente = lista.domains.find((d) => d.name.toLowerCase() === name.toLowerCase());
+      if (existente) return getResendDomain(existente.id);
+    }
+  }
+  return { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+}
+
+export async function getResendDomain(id: string): Promise<DomainResult> {
+  const r = await resendFetch(`/domains/${encodeURIComponent(id)}`);
+  if (!r.ok) return { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+  const d = parseDomain(r.body);
+  return d ? { ok: true, domain: d } : { ok: false, error: 'respuesta inválida de Resend' };
+}
+
+// Dispara la verificación (Resend revisa los DNS). El estado nuevo se lee con
+// getResendDomain — la verificación puede tardar minutos.
+export async function verifyResendDomain(id: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await resendFetch(`/domains/${encodeURIComponent(id)}/verify`, { method: 'POST' });
+  return r.ok ? { ok: true } : { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+}
+
+export async function listResendDomains(): Promise<{ ok: true; domains: Array<{ id: string; name: string; status: string }> } | { ok: false; error: string }> {
+  const r = await resendFetch('/domains');
+  if (!r.ok) return { ok: false, error: errMsg(r.body, `Resend ${r.status}`) };
+  const data = typeof r.body === 'object' && r.body && 'data' in r.body ? (r.body as { data?: unknown }).data : null;
+  const arr = Array.isArray(data) ? data : [];
+  return {
+    ok: true,
+    domains: arr.map((d) => ({
+      id: String((d as { id?: unknown }).id ?? ''),
+      name: String((d as { name?: unknown }).name ?? ''),
+      status: String((d as { status?: unknown }).status ?? ''),
+    })),
+  };
 }
 
 // ── Verificación de firma del webhook (Svix, el que usa Resend) ───────────────

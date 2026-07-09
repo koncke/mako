@@ -3,8 +3,11 @@
 // =============================================================================
 // Email Marketing — secuencias por etapa (motor de nutrición) + broadcasts.
 // Data-driven: lee/escribe vía /api/email/*. Las secuencias de email viven en
-// nutricion_secuencias (pasos canal='email'); el envío real sale por Resend
-// detrás de EMAIL_SEND_ENABLED. Los broadcasts son envíos puntuales a un segmento.
+// nutricion_secuencias (pasos canal='email'); el envío real sale por Resend y
+// se habilita POR WORKSPACE con el toggle "Envío real" (setting
+// envio_email_enabled, lib/envio-flags.ts — el dueño hereda EMAIL_SEND_ENABLED
+// del env si no tiene setting). El dominio de envío se configura acá mismo
+// (mini-onboarding DominioSetup). Broadcasts = envíos puntuales a un segmento.
 // =============================================================================
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
@@ -31,6 +34,11 @@ type Broadcast = {
   total_destinatarios: number; created_at: string; enviados: number; abiertos: number; clics: number;
 };
 type Segmento = { value: string; label: string; descripcion: string };
+type DnsRecord = { record: string; name: string; type: string; value: string; ttl?: string; priority?: number; status?: string };
+type DomState = {
+  conectado: boolean; envioHabilitado: boolean; sandbox: boolean; resendConfigurado: boolean;
+  dominio: string | null; remitente: string; estadoDominio: string | null; records: DnsRecord[];
+};
 
 type View = 'sequences' | 'broadcasts';
 
@@ -95,6 +103,24 @@ export function EmailApp() {
   const [segmentos, setSegmentos] = useState<Segmento[]>([]);
   const [segCounts, setSegCounts] = useState<Record<string, number>>({});
 
+  const [dom, setDom] = useState<DomState | null>(null);
+  const [showDom, setShowDom] = useState(false);
+
+  const aplicarDom = useCallback((d: DomState) => {
+    setDom(d);
+    setSendEnabled(d.envioHabilitado);
+    setResendOk(d.resendConfigurado);
+  }, []);
+
+  const loadDominio = useCallback(async () => {
+    const j = await apiGet<{ ok: boolean; error?: string } & DomState>('/api/email/dominio');
+    if (j.ok) { aplicarDom(j); return; }
+    // 403 = setter/closer (la config es admin-only): sin ruido, la tab funciona
+    // igual. Cualquier otro error sí se muestra — si no, el admin pierde el
+    // setup y el toggle sin enterarse.
+    if (!/admin/i.test(j.error ?? '')) setError(j.error || 'No se pudo cargar la config del dominio');
+  }, [aplicarDom]);
+
   // ── carga inicial ──────────────────────────────────────────────────────────
   const loadSecuencias = useCallback(async () => {
     const j = await apiGet<{ ok: boolean; error?: string; kpis: Kpi[]; secuencias: Secuencia[]; etapas: Opcion[]; triggers: Opcion[]; sendEnabled: boolean; resendConfigurado: boolean }>('/api/email/secuencias');
@@ -111,11 +137,17 @@ export function EmailApp() {
   useEffect(() => {
     (async () => {
       setLoading(true); setError(null);
-      try { await Promise.all([loadSecuencias(), loadBroadcasts()]); }
+      try { await Promise.all([loadSecuencias(), loadBroadcasts(), loadDominio()]); }
       catch (e) { setError(e instanceof Error ? e.message : String(e)); }
       finally { setLoading(false); }
     })();
-  }, [loadSecuencias, loadBroadcasts]);
+  }, [loadSecuencias, loadBroadcasts, loadDominio]);
+
+  async function toggleEnvio() {
+    if (!dom) return;
+    const j = await apiSend<{ ok: boolean; error?: string } & DomState>('/api/email/dominio', 'POST', { action: 'envio', on: !dom.envioHabilitado });
+    if (j.ok) aplicarDom(j);
+  }
 
   const etapaColor = useCallback((k: string) => etapas.find((e) => e.value === k)?.color ?? '#6A4BD8', [etapas]);
 
@@ -135,18 +167,44 @@ export function EmailApp() {
             Secuencias y broadcasts por email a tus leads en <strong style={{ color: 'var(--ink)' }}>Nutrición</strong>.
           </div>
         </div>
-        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
-          <button onClick={() => setView('sequences')} aria-pressed={isSeq} style={isSeq ? tabActive : tabIdle}>Secuencias</button>
-          <button onClick={() => setView('broadcasts')} aria-pressed={!isSeq} style={!isSeq ? tabActive : tabIdle}>Broadcasts</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {dom?.conectado && (
+            <button onClick={() => void toggleEnvio()} title={dom.envioHabilitado ? 'El motor manda emails reales — clic para pausar' : 'Los envíos se registran como simulado — clic para activar'} aria-pressed={dom.envioHabilitado}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 14px', borderRadius: '999px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, border: '1px solid ' + (dom.envioHabilitado ? 'var(--good)' : 'var(--border-strong)'), background: dom.envioHabilitado ? 'var(--good-bg)' : 'var(--surface)', color: dom.envioHabilitado ? 'var(--good)' : 'var(--dim)' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: dom.envioHabilitado ? 'var(--good)' : 'var(--faint)' }} />
+              Envío real: {dom.envioHabilitado ? 'ON' : 'OFF'}
+            </button>
+          )}
+          {dom?.conectado && (
+            <button onClick={() => setShowDom(true)} style={{ ...btnGhost, padding: '8px 14px', fontSize: '12.5px' }}>⚙ Dominio de envío</button>
+          )}
+          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
+            <button onClick={() => setView('sequences')} aria-pressed={isSeq} style={isSeq ? tabActive : tabIdle}>Secuencias</button>
+            <button onClick={() => setView('broadcasts')} aria-pressed={!isSeq} style={!isSeq ? tabActive : tabIdle}>Broadcasts</button>
+          </div>
         </div>
       </header>
 
-      {/* Aviso de estado del envío */}
-      {!loading && !error && (!resendOk || !sendEnabled) && (
+      {/* Mini-onboarding: sin dominio verificado ni remitente propio, la tab pide la configuración acá mismo */}
+      {!loading && dom && !dom.conectado && (
+        <DominioSetup dom={dom} onUpdate={aplicarDom} />
+      )}
+
+      {/* Config del dominio accesible siempre (cambiar remitente / re-verificar / desconectar) */}
+      {showDom && dom && (
+        <div onClick={() => setShowDom(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <DominioSetup dom={dom} onUpdate={aplicarDom} onClose={() => setShowDom(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Aviso de estado del envío (cuando el dominio ya está conectado) */}
+      {!loading && !error && dom?.conectado && (!resendOk || !sendEnabled) && (
         <div style={{ marginBottom: '14px', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px', lineHeight: 1.5 }}>
           {!resendOk
-            ? 'Resend no está configurado (falta RESEND_API_KEY). Los envíos quedan en modo simulado.'
-            : 'Envío real apagado (EMAIL_SEND_ENABLED=false): podés escribir y probar todo, pero los envíos automáticos se registran como simulado y no salen de verdad. Activá EMAIL_SEND_ENABLED y las secuencias para mandar.'}
+            ? 'Resend no está configurado (falta la API key). Los envíos quedan en modo simulado.'
+            : 'Envío real apagado: podés escribir y probar todo, pero los envíos automáticos se registran como simulado y no salen de verdad. Activalo con el botón "Envío real" de arriba cuando estés listo.'}
         </div>
       )}
       {error && (
@@ -367,7 +425,7 @@ function SequencesView(props: {
                 <button onClick={addPaso} style={{ flex: 1, textAlign: 'left', padding: '14px', borderRadius: '11px', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>+ Agregar email a la secuencia</button>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '14px', paddingLeft: '50px', lineHeight: 1.5 }}>
-                La secuencia se dispara sola cuando un lead entra a la cohorte del trigger. El envío real sale por Resend con <code style={{ fontFamily: "'Geist Mono', monospace" }}>EMAIL_SEND_ENABLED=true</code> y la secuencia <strong>activa</strong>.
+                La secuencia se dispara sola cuando un lead entra a la cohorte del trigger. El envío real sale por Resend con el <strong>Envío real en ON</strong> (botón de arriba) y la secuencia <strong>activa</strong>.
               </div>
             </div>
           </>
@@ -635,7 +693,7 @@ function BroadcastEditor(props: {
           <div style={{ marginTop: '14px', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)' }}>
             <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>¿Enviar a {count.toLocaleString('en-US')} leads ahora?</div>
             <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginTop: '4px', lineHeight: 1.5 }}>
-              {sendEnabled ? 'Esto manda emails reales por Resend. No se puede deshacer.' : 'EMAIL_SEND_ENABLED está apagado: se registrará como simulado (no sale de verdad).'}
+              {sendEnabled ? 'Esto manda emails reales por Resend. No se puede deshacer.' : 'El envío real está apagado: se registrará como simulado (no sale de verdad).'}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
               <button onClick={() => setConfirmSend(false)} disabled={busy} style={btnGhost}>Cancelar</button>
@@ -644,6 +702,162 @@ function BroadcastEditor(props: {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// DOMINIO DE ENVÍO — mini-onboarding de la tab (Opción A: cuenta única de MaKo)
+// ═════════════════════════════════════════════════════════════════════════════
+// Pasos: (1) el admin escribe su dominio → se da de alta en Resend; (2) carga
+// los registros DNS que devuelve Resend en su proveedor (tabla con copiar);
+// (3) "Verificar" + polling hasta 'verified'; (4) elige el remitente. Mientras
+// no esté conectado, la tab funciona en modo simulado.
+function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d: DomState) => void; onClose?: () => void }) {
+  const [dominioInput, setDominioInput] = useState('');
+  const [local, setLocal] = useState('hola');
+  const [nombre, setNombre] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState<number | null>(null);
+
+  const verificado = dom.estadoDominio === 'verified';
+  const paso: 1 | 2 | 3 = !dom.dominio ? 1 : !verificado ? 2 : 3;
+
+  // Polling del estado mientras el dominio espera verificación. Con `busy` en
+  // las deps, el intervalo se corta durante una acción → un poll viejo no puede
+  // pisar la respuesta fresca de verificar/remitente (race).
+  useEffect(() => {
+    if (paso !== 2 || busy) return;
+    const t = setInterval(() => {
+      void (async () => {
+        const j = await apiGet<{ ok: boolean } & DomState>('/api/email/dominio');
+        if (j.ok) onUpdate(j);
+      })();
+    }, 10000);
+    return () => clearInterval(t);
+  }, [paso, busy, onUpdate]);
+
+  async function accion(body: Record<string, unknown>) {
+    setBusy(true); setErr(null);
+    try {
+      const j = await apiSend<{ ok: boolean; error?: string } & DomState>('/api/email/dominio', 'POST', body);
+      if (!j.ok) throw new Error(j.error || 'No se pudo completar');
+      onUpdate(j);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function copiar(texto: string, i: number) {
+    try { await navigator.clipboard.writeText(texto); setCopiado(i); setTimeout(() => setCopiado(null), 1500); } catch { /* sin clipboard */ }
+  }
+
+  const pasoDot = (n: number, activo: boolean, hecho: boolean) => (
+    <span style={{ width: '26px', height: '26px', flex: 'none', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '12.5px', fontWeight: 700, fontFamily: "'Geist Mono', monospace", background: hecho ? 'var(--good-bg)' : activo ? 'rgba(200,135,12,.12)' : 'var(--surface-2)', border: '1px solid ' + (hecho ? 'var(--good)' : activo ? 'rgba(200,135,12,.4)' : 'var(--border-strong)'), color: hecho ? 'var(--good)' : activo ? '#9A6A09' : 'var(--faint)' }}>{hecho ? '✓' : n}</span>
+  );
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px', marginBottom: '18px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+        <div>
+          <div style={{ fontSize: '19px', fontWeight: 600, color: 'var(--ink)' }}>Configurá tu dominio de envío</div>
+          <div style={{ fontSize: '13.5px', color: 'var(--dim)', marginTop: '4px', lineHeight: 1.5, maxWidth: '560px' }}>
+            Para que tus emails salgan a nombre de <strong style={{ color: 'var(--ink)' }}>tu negocio</strong> (y lleguen a la bandeja de entrada, no a spam), hay que verificar tu dominio. Se hace una sola vez.
+          </div>
+        </div>
+        {onClose && <button onClick={onClose} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: '20px', color: 'var(--faint)', cursor: 'pointer' }}>✕</button>}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '18px' }}>
+        {/* Paso 1 — dominio */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          {pasoDot(1, paso === 1, paso > 1)}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: paso >= 1 ? 'var(--ink)' : 'var(--faint)' }}>Tu dominio</div>
+            {paso === 1 ? (
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <input value={dominioInput} onChange={(e) => setDominioInput(e.target.value)} placeholder="minegocio.com (sin https:// ni @)" autoFocus
+                  onKeyDown={(e) => { if (e.key === 'Enter' && dominioInput.trim()) void accion({ action: 'crear', dominio: dominioInput }); }}
+                  style={{ padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', outline: 'none', flex: 1, minWidth: '240px' }} />
+                <button onClick={() => void accion({ action: 'crear', dominio: dominioInput })} disabled={busy || !dominioInput.trim()}
+                  style={{ ...btnPrimary, opacity: busy || !dominioInput.trim() ? 0.6 : 1 }}>{busy ? 'Agregando…' : 'Agregar dominio'}</button>
+              </div>
+            ) : (
+              <div style={{ fontSize: '13.5px', color: 'var(--dim)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <code style={{ fontFamily: "'Geist Mono', monospace", color: 'var(--ink)' }}>{dom.dominio}</code>
+                <button onClick={() => { if (window.confirm('¿Quitar este dominio de la configuración? (no se borra de Resend)')) void accion({ action: 'desconectar' }); }} style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'Geist', sans-serif" }}>cambiar</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Paso 2 — DNS + verificación */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          {pasoDot(2, paso === 2, paso > 2)}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: paso >= 2 ? 'var(--ink)' : 'var(--faint)' }}>Cargá estos registros en el DNS de tu dominio</div>
+            {paso === 2 && (
+              <>
+                <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginTop: '4px', lineHeight: 1.5 }}>
+                  En el panel donde administrás el dominio (Cloudflare, GoDaddy, SiteGround…), agregá estos registros tal cual. Después tocá <strong>Verificar</strong> — puede tardar unos minutos en propagar.
+                </div>
+                <div style={{ marginTop: '10px', border: '1px solid var(--border)', borderRadius: '11px', overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '70px 1.2fr 2fr 70px 70px', gap: '10px', padding: '9px 12px', background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', fontFamily: "'Geist Mono', monospace", fontSize: '10px', letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--dim)' }}>
+                    <span>Tipo</span><span>Host</span><span>Valor</span><span>Prior.</span><span></span>
+                  </div>
+                  {dom.records.map((r, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '70px 1.2fr 2fr 70px 70px', gap: '10px', padding: '10px 12px', borderBottom: i < dom.records.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center', fontSize: '12.5px' }}>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", fontWeight: 600, color: 'var(--ink)' }}>{r.type}</span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", color: 'var(--ink)', wordBreak: 'break-all' }}>{r.name}</span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", color: 'var(--dim)', wordBreak: 'break-all', fontSize: '11.5px' }}>{r.value.length > 60 ? r.value.slice(0, 60) + '…' : r.value}</span>
+                      <span style={{ fontFamily: "'Geist Mono', monospace", color: 'var(--dim)' }}>{r.priority ?? '—'}</span>
+                      <button onClick={() => void copiar(r.value, i)} style={{ padding: '4px 8px', borderRadius: '7px', border: '1px solid var(--border-strong)', background: copiado === i ? 'var(--good-bg)' : 'var(--surface)', color: copiado === i ? 'var(--good)' : 'var(--dim)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>{copiado === i ? '✓' : 'Copiar'}</button>
+                    </div>
+                  ))}
+                  {dom.records.length === 0 && <div style={{ padding: '12px', fontSize: '12.5px', color: 'var(--faint)' }}>Cargando registros…</div>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <button onClick={() => void accion({ action: 'verificar' })} disabled={busy} style={{ ...btnPrimary, opacity: busy ? 0.6 : 1 }}>{busy ? 'Verificando…' : 'Ya los cargué → Verificar'}</button>
+                  <span style={{ fontSize: '12px', color: dom.estadoDominio === 'failure' ? 'var(--bad)' : 'var(--faint)' }}>
+                    Estado: <strong>{dom.estadoDominio ?? 'pendiente'}</strong> · se re-chequea solo cada 10s
+                  </span>
+                </div>
+              </>
+            )}
+            {paso > 2 && <div style={{ fontSize: '13px', color: 'var(--good)', marginTop: '3px', fontWeight: 600 }}>Dominio verificado ✓</div>}
+          </div>
+        </div>
+
+        {/* Paso 3 — remitente */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          {pasoDot(3, paso === 3 && dom.sandbox, paso === 3 && !dom.sandbox)}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: paso >= 3 ? 'var(--ink)' : 'var(--faint)' }}>El remitente que van a ver tus leads</div>
+            {paso === 3 && (
+              <>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre (ej: Mauricio Bustos)"
+                    style={{ padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', outline: 'none', minWidth: '200px' }} />
+                  <div style={{ display: 'inline-flex', alignItems: 'center', border: '1px solid var(--border-strong)', borderRadius: '9px', background: 'var(--surface-2)', overflow: 'hidden' }}>
+                    <input value={local} onChange={(e) => setLocal(e.target.value)} placeholder="hola" style={{ padding: '9px 4px 9px 12px', border: 'none', background: 'transparent', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '13.5px', outline: 'none', width: '110px', textAlign: 'right' }} />
+                    <span style={{ padding: '9px 12px 9px 2px', fontFamily: "'Geist Mono', monospace", fontSize: '13.5px', color: 'var(--dim)' }}>@{dom.dominio}</span>
+                  </div>
+                  <button onClick={() => void accion({ action: 'remitente', local, nombre })} disabled={busy || !nombre.trim() || !local.trim()}
+                    style={{ ...btnAccent, opacity: busy || !nombre.trim() || !local.trim() ? 0.6 : 1 }}>{busy ? 'Guardando…' : 'Guardar remitente'}</button>
+                </div>
+                {!dom.sandbox && <div style={{ fontSize: '12.5px', color: 'var(--good)', marginTop: '8px', fontWeight: 600 }}>Remitente actual: {dom.remitente} ✓ — ¡listo! Ya podés activar el envío real.</div>}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {err && <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{err}</div>}
+      {!dom.resendConfigurado && (
+        <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px' }}>
+          Falta la API key de Resend en el servidor — avisale a tu administrador de MaKo.
+        </div>
+      )}
     </div>
   );
 }

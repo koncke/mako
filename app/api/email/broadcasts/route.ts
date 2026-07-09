@@ -14,10 +14,20 @@ import {
   getBroadcasts, crearBroadcast, actualizarBroadcast, eliminarBroadcast,
   enviarBroadcast, enviarBroadcastPrueba, SEGMENTOS, contarTodosSegmentos, esSegmentoValido,
 } from '@/lib/email-marketing';
+import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+// Enviar/programar dispara emails a leads: misma regla que la config (solo el
+// admin del workspace), aunque el resto de la tab sea visible para el setter.
+async function soloAdmin(): Promise<Response | null> {
+  if ((await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ ok: false, error: 'Solo el admin puede enviar o programar broadcasts.' }, { status: 403 });
+  }
+  return null;
+}
 
 export async function GET() {
   try {
@@ -49,6 +59,8 @@ export async function PATCH(req: NextRequest) {
 
   try {
     if (body.action === 'enviar') {
+      const g = await soloAdmin();
+      if (g) return g;
       const res = await enviarBroadcast(id);
       if (!res.ok) return Response.json({ ...res, ok: false, error: res.error ?? 'no se pudo enviar' }, { status: 400 });
       return Response.json({ ...res, ok: true });
@@ -61,6 +73,8 @@ export async function PATCH(req: NextRequest) {
       return Response.json({ ok: true });
     }
     if (body.action === 'programar') {
+      const g = await soloAdmin();
+      if (g) return g;
       const at = String(body.programado_at ?? '');
       if (!at || Number.isNaN(Date.parse(at))) return Response.json({ ok: false, error: 'fecha de programación inválida' }, { status: 400 });
       await actualizarBroadcast(id, { programado_at: at, estado: 'programado' });

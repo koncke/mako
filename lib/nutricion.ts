@@ -15,7 +15,8 @@ import { getTenantDb } from '@/lib/workspace';
 import { getVslEngagementMap } from '@/lib/leads';
 import { sendWhatsappTemplate } from '@/lib/chatwoot';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, EMAIL_SEND_ENABLED, remitenteEsSandbox } from '@/lib/resend';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
+import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -48,9 +49,9 @@ export const UMBRAL_VSL_PCT = 50;
 const VENTANA_DIAS = 30;
 
 // ── Rate-limiter / anti-baneo de WhatsApp (defaults conservadores; override por env) ──
-// El envío REAL por WhatsApp solo ocurre con NUTRICION_SEND_ENABLED=true; si no, se simula.
-const SEND_ENABLED = process.env.NUTRICION_SEND_ENABLED === 'true';
-const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles
+// El envío REAL de cada canal se decide POR WORKSPACE (lib/envio-flags.ts): un
+// canal apagado marca sus pasos como 'omitido' (avanza sin enviar ni contar).
+const MAX_POR_DIA = Number(process.env.NUTRICION_MAX_POR_DIA ?? '40');        // tope en 24h móviles (por workspace)
 const MAX_POR_CORRIDA = Number(process.env.NUTRICION_MAX_POR_CORRIDA ?? '6'); // tope por corrida del cron
 const HS_MIN_ENTRE_MSGS = 20;     // no mandar 2 mensajes al mismo lead en <20h
 const TZ_OFFSET_MX = -6;          // ventana horaria evaluada en hora de México
@@ -472,12 +473,14 @@ function dentroDeVentana(): boolean {
   return hLocal >= VENTANA_INICIO && hLocal < VENTANA_FIN;
 }
 
+// Tope diario: cuenta SOLO envíos reales — una corrida de prueba (?commit=1,
+// simulados) no debe consumir el presupuesto anti-baneo del workspace.
 async function enviosUltimas24h(): Promise<number> {
   const supabase = (await getTenantDb());
   const { count, error } = await supabase
     .from('nutricion_envios')
     .select('id', { count: 'exact', head: true })
-    .in('estado', ['enviado', 'simulado'])
+    .eq('estado', 'enviado')
     .gte('created_at', haceHorasISO(24));
   if (error) throw new Error(`enviosUltimas24h: ${error.message}`);
   return count ?? 0;
@@ -506,17 +509,30 @@ export type ResultadoProceso = {
   saltado?: string;
   enviados: number;
   simulados: number;
+  omitidos: number;
   fallos: number;
   detalle: Array<{ lead_id: number; canal: string; estado: string; nota?: string }>;
 };
 
 // Procesa los envíos vencidos con rate-limiting anti-baneo: ventana horaria,
-// tope diario (24h móviles), tope por corrida y guard de 20h por lead. Envía de
-// verdad por WhatsApp solo si NUTRICION_SEND_ENABLED=true y el paso tiene
-// template aprobado; si no, registra el avance como 'simulado'. Un 'fallo' NO
-// avanza el paso (se reintenta en la próxima corrida).
-export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promise<ResultadoProceso> {
-  const res: ResultadoProceso = { enviados: 0, simulados: 0, fallos: 0, detalle: [] };
+// tope diario (24h móviles), tope por corrida y guard de 20h por lead.
+// El envío REAL de cada canal se decide por workspace (envio-flags):
+//   · canal habilitado  → envío real (WhatsApp exige template aprobado).
+//   · canal apagado     → 'omitido': avanza el paso SIN enviar y sin contar en
+//     KPIs/guard/tope — el cliente eligió no usar ese canal y la cadencia sigue.
+//   · opts.simularApagados → los canales apagados se marcan 'simulado' (modo
+//     prueba de la máquina, el ?commit=1 histórico).
+// Un 'fallo' NO avanza el paso (se reintenta), salvo condición terminal.
+export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularApagados?: boolean }): Promise<ResultadoProceso> {
+  const res: ResultadoProceso = { enviados: 0, simulados: 0, omitidos: 0, fallos: 0, detalle: [] };
+  const [waOn, emailOn, sandbox, remitente] = await Promise.all([
+    envioWhatsappHabilitado(),
+    envioEmailHabilitado(),
+    remitenteEsSandbox(),
+    getEmailFrom(),
+  ]);
+  // Firma del footer de los emails = display name del remitente DEL WORKSPACE.
+  const fromNameWs = displayNameDe(remitente);
 
   if (!opts?.ignorarVentana && !dentroDeVentana()) {
     return { ...res, saltado: 'fuera-de-ventana-horaria' };
@@ -529,156 +545,194 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean }): Promi
   const secuencias = await getSecuenciasActivas();
   const porId = new Map(secuencias.map((s) => [s.id, s]));
 
-  // Traemos más de `cupo` por si algunos se saltan por el guard por-lead.
-  const { data: dueRaw, error } = await supabase
-    .from('nutricion_inscripciones')
-    .select('id, lead_id, secuencia_id, paso_actual')
-    .eq('estado', 'activa')
-    .lte('proximo_envio_at', ahoraISO())
-    .order('proximo_envio_at', { ascending: true })
-    .limit(cupo * 3);
-  if (error) throw new Error(`procesarEnvios: ${error.message}`);
-  const due = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number }>;
-  if (due.length === 0) return res;
+  // Cola PAGINADA: los 'omitido'/'saltado' no consumen cupo, así que una sola
+  // ventana de cupo*3 podía llenarse de filas sin envío real y postergar los
+  // envíos de verdad. Iteramos lotes (dedup por id de inscripción) hasta llenar
+  // el cupo o drenar la cola de vencidas.
+  const LOTE = cupo * 3;
+  const vistos = new Set<number>();
+  let rondas = 0;
 
-  const leadIds = [...new Set(due.map((d) => d.lead_id))];
-  const { data: leadsData } = await supabase
-    .from('leads')
-    .select('id, nombre, telefono, empresa, email, email_opt_out')
-    .in('id', leadIds);
-  const leadMap = new Map(
-    ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null }>).map((l) => [l.id, l]),
-  );
-  // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
-  const conEnvioReciente = await leadsConEnvioReciente(leadIds);
+  while (res.enviados + res.simulados < cupo && rondas < 6) {
+    rondas += 1;
+    const { data: dueRaw, error } = await supabase
+      .from('nutricion_inscripciones')
+      .select('id, lead_id, secuencia_id, paso_actual')
+      .eq('estado', 'activa')
+      .lte('proximo_envio_at', ahoraISO())
+      .order('proximo_envio_at', { ascending: true })
+      .limit(LOTE);
+    if (error) throw new Error(`procesarEnvios: ${error.message}`);
+    const fetched = (dueRaw ?? []) as Array<{ id: number; lead_id: number; secuencia_id: number; paso_actual: number }>;
+    const due = fetched.filter((d) => !vistos.has(d.id));
+    if (due.length === 0) break;
+    for (const d of due) vistos.add(d.id);
 
-  for (const insc of due) {
-    if (res.enviados + res.simulados >= cupo) break;
+    const leadIds = [...new Set(due.map((d) => d.lead_id))];
+    const { data: leadsData } = await supabase
+      .from('leads')
+      .select('id, nombre, telefono, empresa, email, email_opt_out')
+      .in('id', leadIds);
+    const leadMap = new Map(
+      ((leadsData ?? []) as Array<{ id: number; nombre: string | null; telefono: string | null; empresa: string | null; email: string | null; email_opt_out: boolean | null }>).map((l) => [l.id, l]),
+    );
+    // Ventana anti-baneo de 20h resuelta en batch (no 2 counts por lead en el loop).
+    const conEnvioReciente = await leadsConEnvioReciente(leadIds);
 
-    const sec = porId.get(insc.secuencia_id);
-    const paso = sec?.pasos[insc.paso_actual];
-    if (!sec || !paso) {
-      await supabase
-        .from('nutricion_inscripciones')
-        .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() })
-        .eq('id', insc.id);
-      continue;
-    }
+    for (const insc of due) {
+      if (res.enviados + res.simulados >= cupo) break;
 
-    if (conEnvioReciente.has(insc.lead_id)) {
-      res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
-      continue; // no avanzar; se reintenta en otra corrida
-    }
-
-    const lead = leadMap.get(insc.lead_id);
-    let estado: 'enviado' | 'simulado' | 'fallo' = 'simulado';
-    let nota: string | undefined;
-    let proveedorId: string | null = null;
-    // terminal = la condición no se resuelve reintentando (opt-out, sin email):
-    // se cierra la inscripción en vez de dejarla reintentando para siempre.
-    let terminal = false;
-
-    if (SEND_ENABLED && paso.canal === 'whatsapp') {
-      if (!lead?.telefono) {
-        estado = 'fallo';
-        nota = 'lead sin teléfono';
-      } else if (!paso.template_wa) {
-        estado = 'fallo';
-        nota = 'paso sin template_wa';
-      } else {
-        const r = await sendWhatsappTemplate({
-          phone: lead.telefono,
-          name: lead.nombre ?? '',
-          content: paso.cuerpo,
-          template: {
-            name: paso.template_wa,
-            category: paso.template_categoria ?? 'marketing',
-            language: paso.template_idioma ?? 'es_MX',
-            // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
-            // la plantilla usa las que necesite.
-            bodyParams: valoresVariablesLead(lead),
-          },
-        });
-        estado = r.ok ? 'enviado' : 'fallo';
-        if (!r.ok) nota = r.error;
-      }
-    } else if (EMAIL_SEND_ENABLED && paso.canal === 'email') {
-      if (lead?.email_opt_out) {
-        estado = 'fallo'; terminal = true;
-        nota = 'lead dado de baja del email';
-      } else if (!lead?.email) {
-        estado = 'fallo'; terminal = true;
-        nota = 'lead sin email';
-      } else if (remitenteEsSandbox()) {
-        // Remitente sandbox (resend.dev) NO entrega a terceros: abortamos con un
-        // error claro en vez de quemar el paso. No es terminal (se resuelve al
-        // configurar RESEND_FROM con un dominio verificado).
-        estado = 'fallo';
-        nota = 'remitente sandbox: configurá RESEND_FROM con un dominio verificado';
-      } else {
-        const vars = valoresVariablesLead(lead);
-        const cuerpo = aplicarVariables(paso.cuerpo, vars);
-        const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
-        const unsubUrl = buildUnsubscribeUrl(insc.lead_id);
-        const r = await sendEmail({
-          to: lead.email,
-          subject: asunto,
-          html: renderEmailHtml({
-            subject: asunto,
-            bodyText: cuerpo,
-            preheader: aplicarVariables(paso.preheader ?? '', vars) || undefined,
-            unsubscribeUrl: unsubUrl,
-          }),
-          text: cuerpo,
-          headers: unsubUrl ? { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined,
-          tags: [{ name: 'tipo', value: 'nutricion' }, { name: 'secuencia_id', value: String(insc.secuencia_id) }],
-        });
-        estado = r.ok ? 'enviado' : 'fallo';
-        if (r.ok) proveedorId = r.id; else nota = r.error;
-      }
-    }
-    // Si el canal no tiene envío real habilitado → 'simulado' (avanza el paso sin mandar).
-
-    await supabase.from('nutricion_envios').insert({
-      inscripcion_id: insc.id,
-      lead_id: insc.lead_id,
-      secuencia_id: insc.secuencia_id,
-      paso: insc.paso_actual + 1,
-      canal: paso.canal,
-      estado,
-      destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
-      asunto: paso.asunto,
-      proveedor_id: proveedorId,
-    });
-
-    if (estado === 'fallo') {
-      res.fallos += 1;
-      res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, nota });
-      if (terminal) {
-        // Condición permanente (opt-out / sin email): cerramos la inscripción para
-        // que no se reintente eternamente y no acumule filas 'fallo' por corrida.
+      const sec = porId.get(insc.secuencia_id);
+      const paso = sec?.pasos[insc.paso_actual];
+      if (!sec || !paso) {
         await supabase
           .from('nutricion_inscripciones')
-          .update({ estado: 'cancelada', proximo_envio_at: null, updated_at: ahoraISO() })
+          .update({ estado: 'completada', proximo_envio_at: null, updated_at: ahoraISO() })
           .eq('id', insc.id);
+        continue;
       }
-      continue; // fallo transitorio → se reintenta; terminal → ya se cerró arriba
+
+      // ¿El canal de este paso está apagado para el workspace? → va directo a
+      // 'omitido' (no envía nada), así que el guard de 20h no aplica.
+      const canalApagado = !opts?.simularApagados
+        && ((paso.canal === 'whatsapp' && !waOn) || (paso.canal === 'email' && !emailOn));
+
+      if (!canalApagado && conEnvioReciente.has(insc.lead_id)) {
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'msg <20h' });
+        continue; // no avanzar; se reintenta en otra corrida
+      }
+
+      const lead = leadMap.get(insc.lead_id);
+      let estado: 'enviado' | 'simulado' | 'omitido' | 'fallo' = 'simulado';
+      let nota: string | undefined;
+      let proveedorId: string | null = null;
+      // terminal = la condición no se resuelve reintentando (opt-out, sin email):
+      // se cierra la inscripción en vez de dejarla reintentando para siempre.
+      let terminal = false;
+      // Horas hasta el próximo intento de un fallo NO terminal. Sin backoff, una
+      // inscripción fallada conserva el proximo_envio_at MÁS viejo y monopoliza
+      // la cabeza del ORDER BY para siempre (starvation + una fila de fallo por
+      // corrida). 4h para fallos transitorios; 24h para los casi-permanentes.
+      let backoffHoras = 4;
+
+      if (canalApagado) {
+        estado = 'omitido';
+        nota = `canal ${paso.canal} apagado`;
+      } else if (waOn && paso.canal === 'whatsapp') {
+        if (!lead?.telefono) {
+          estado = 'fallo';
+          nota = 'lead sin teléfono';
+          backoffHoras = 24; // casi-permanente: 1 reintento/día por si le cargan el teléfono
+        } else if (!paso.template_wa) {
+          estado = 'fallo';
+          nota = 'paso sin template_wa';
+          backoffHoras = 24; // error de config: 1 reintento/día hasta que lo arreglen
+        } else {
+          const r = await sendWhatsappTemplate({
+            phone: lead.telefono,
+            name: lead.nombre ?? '',
+            content: paso.cuerpo,
+            template: {
+              name: paso.template_wa,
+              category: paso.template_categoria ?? 'marketing',
+              language: paso.template_idioma ?? 'es_MX',
+              // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
+              // la plantilla usa las que necesite.
+              bodyParams: valoresVariablesLead(lead),
+            },
+          });
+          estado = r.ok ? 'enviado' : 'fallo';
+          if (!r.ok) nota = r.error;
+        }
+      } else if (emailOn && paso.canal === 'email') {
+        if (lead?.email_opt_out) {
+          estado = 'fallo'; terminal = true;
+          nota = 'lead dado de baja del email';
+        } else if (!lead?.email) {
+          estado = 'fallo'; terminal = true;
+          nota = 'lead sin email';
+        } else if (sandbox) {
+          // Remitente sandbox (resend.dev) NO entrega a terceros: abortamos con un
+          // error claro en vez de quemar el paso. Se resuelve al verificar dominio.
+          estado = 'fallo';
+          nota = 'remitente sandbox: verificá tu dominio de envío';
+          backoffHoras = 24; // config pendiente: 1 reintento/día
+        } else {
+          const vars = valoresVariablesLead(lead);
+          const cuerpo = aplicarVariables(paso.cuerpo, vars);
+          const asunto = aplicarVariables(paso.asunto ?? '', vars) || '(sin asunto)';
+          const unsubUrl = buildUnsubscribeUrl(insc.lead_id);
+          const r = await sendEmail({
+            to: lead.email,
+            subject: asunto,
+            html: renderEmailHtml({
+              subject: asunto,
+              bodyText: cuerpo,
+              preheader: aplicarVariables(paso.preheader ?? '', vars) || undefined,
+              unsubscribeUrl: unsubUrl,
+              fromName: fromNameWs,
+            }),
+            text: cuerpo,
+            headers: unsubUrl ? { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined,
+            tags: [{ name: 'tipo', value: 'nutricion' }, { name: 'secuencia_id', value: String(insc.secuencia_id) }],
+          });
+          estado = r.ok ? 'enviado' : 'fallo';
+          if (r.ok) proveedorId = r.id; else nota = r.error;
+        }
+      }
+      // (con simularApagados, un paso de canal apagado cae acá como 'simulado')
+
+      await supabase.from('nutricion_envios').insert({
+        inscripcion_id: insc.id,
+        lead_id: insc.lead_id,
+        secuencia_id: insc.secuencia_id,
+        paso: insc.paso_actual + 1,
+        canal: paso.canal,
+        estado,
+        destino: paso.canal === 'whatsapp' ? lead?.telefono ?? null : lead?.email ?? null,
+        asunto: paso.asunto,
+        proveedor_id: proveedorId,
+      });
+
+      if (estado === 'fallo') {
+        res.fallos += 1;
+        res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, nota });
+        if (terminal) {
+          // Condición permanente (opt-out / sin email): cerramos la inscripción para
+          // que no se reintente eternamente y no acumule filas 'fallo' por corrida.
+          await supabase
+            .from('nutricion_inscripciones')
+            .update({ estado: 'cancelada', proximo_envio_at: null, updated_at: ahoraISO() })
+            .eq('id', insc.id);
+        } else {
+          // Backoff: corre el próximo intento para que la fila no bloquee la
+          // cola ni genere una fila de 'fallo' por corrida.
+          await supabase
+            .from('nutricion_inscripciones')
+            .update({ proximo_envio_at: enHorasISO(backoffHoras), updated_at: ahoraISO() })
+            .eq('id', insc.id);
+        }
+        continue;
+      }
+
+      const siguiente = sec.pasos[insc.paso_actual + 1];
+      await supabase
+        .from('nutricion_inscripciones')
+        .update({
+          paso_actual: insc.paso_actual + 1,
+          proximo_envio_at: siguiente ? enHorasISO(siguiente.delay_horas) : null,
+          estado: siguiente ? 'activa' : 'completada',
+          updated_at: ahoraISO(),
+        })
+        .eq('id', insc.id);
+
+      if (estado === 'enviado') res.enviados += 1;
+      else if (estado === 'omitido') res.omitidos += 1;
+      else res.simulados += 1;
+      res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado, ...(nota ? { nota } : {}) });
     }
 
-    const siguiente = sec.pasos[insc.paso_actual + 1];
-    await supabase
-      .from('nutricion_inscripciones')
-      .update({
-        paso_actual: insc.paso_actual + 1,
-        proximo_envio_at: siguiente ? enHorasISO(siguiente.delay_horas) : null,
-        estado: siguiente ? 'activa' : 'completada',
-        updated_at: ahoraISO(),
-      })
-      .eq('id', insc.id);
-
-    if (estado === 'enviado') res.enviados += 1;
-    else res.simulados += 1;
-    res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado });
+    if (fetched.length < LOTE) break; // cola drenada: no quedan más vencidas
   }
 
   return res;

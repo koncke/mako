@@ -6,13 +6,15 @@
 // Acá viven, además, los broadcasts (envíos puntuales a un segmento) y los KPIs
 // que alimentan la tab /email.
 //
-// El envío real queda detrás de EMAIL_SEND_ENABLED (igual que el resto): si está
-// apagado, los broadcasts se registran 'simulado' y no se manda nada.
+// El envío real queda detrás del flag POR WORKSPACE (lib/envio-flags.ts): si
+// está apagado, los broadcasts se registran 'simulado' y no se manda nada.
 
 import { getTenantDb } from '@/lib/workspace';
+import { getSupabaseServer } from '@/lib/supabase';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
-import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, EMAIL_SEND_ENABLED, remitenteEsSandbox } from '@/lib/resend';
+import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, getEmailFrom, displayNameDe } from '@/lib/resend';
+import { envioEmailHabilitado } from '@/lib/envio-flags';
 
 const ahoraISO = () => new Date().toISOString();
 const haceDiasISO = (d: number) => new Date(Date.now() - d * 86400 * 1000).toISOString();
@@ -348,7 +350,7 @@ export async function enviarBroadcastPrueba(id: number, emailPrueba: string): Pr
   const r = await sendEmail({
     to: emailPrueba,
     subject: `[PRUEBA] ${asunto}`,
-    html: renderEmailHtml({ subject: asunto, bodyText: aplicarVariables(b.cuerpo, vars), preheader: aplicarVariables(b.preheader ?? '', vars) || undefined }),
+    html: renderEmailHtml({ subject: asunto, bodyText: aplicarVariables(b.cuerpo, vars), preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, fromName: displayNameDe(await getEmailFrom()) }),
     text: aplicarVariables(b.cuerpo, vars),
     tags: [{ name: 'tipo', value: 'broadcast-prueba' }],
   });
@@ -391,27 +393,53 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   const b = data as { id: number; asunto: string; preheader: string | null; cuerpo: string; segmento: string; estado: string };
   if (b.estado === 'enviado') return vacio('el broadcast ya fue enviado');
 
-  // Preflight: si el envío real está activo pero el remitente sigue siendo sandbox,
-  // no mandamos (Resend rechazaría a terceros). No marcamos enviado.
-  if (EMAIL_SEND_ENABLED && remitenteEsSandbox()) {
-    return vacio('remitente sandbox: configurá RESEND_FROM con un dominio verificado antes de enviar');
+  // Flag de envío real DEL WORKSPACE + preflight de remitente: si el envío está
+  // activo pero el remitente sigue siendo sandbox, no mandamos (Resend
+  // rechazaría a terceros). No marcamos enviado.
+  const emailOn = await envioEmailHabilitado();
+  if (emailOn && (await remitenteEsSandbox())) {
+    return vacio('remitente sandbox: verificá tu dominio de envío antes de enviar');
   }
 
   const todos = await leadsDeSegmento(b.segmento);
   if (todos.length === 0) return vacio('el segmento no tiene destinatarios con email');
   const truncado = todos.length > MAX_DESTINATARIOS;
-  const destinatarios = todos.slice(0, MAX_DESTINATARIOS);
+  const candidatos = todos.slice(0, MAX_DESTINATARIOS);
+
+  // REANUDABLE: si el broadcast quedó 'enviando' (timeout de una corrida
+  // anterior, rate-limit), los leads ya registrados no se re-envían.
+  const { data: yaRows } = await supabase
+    .from('email_broadcast_envios').select('lead_id').eq('broadcast_id', id);
+  const yaRegistrados = new Set(((yaRows ?? []) as Array<{ lead_id: number | null }>).map((r) => r.lead_id).filter((x): x is number => x != null));
+  const destinatarios = candidatos.filter((l) => !yaRegistrados.has(l.id));
+
   const recientes = await leadsContactadosRecientemente();
+  const fromNameWs = displayNameDe(await getEmailFrom());
 
   await supabase.from('email_broadcasts').update({ estado: 'enviando', updated_at: ahoraISO() }).eq('id', id);
 
-  const res: ResultadoBroadcast = { ok: true, enviados: 0, simulados: 0, fallos: 0, saltados: 0, total: destinatarios.length, truncado };
-  const filas: Array<Record<string, unknown>> = [];
+  const res: ResultadoBroadcast = { ok: true, enviados: 0, simulados: 0, fallos: 0, saltados: 0, total: candidatos.length, truncado };
+  let filas: Array<Record<string, unknown>> = [];
+  const flush = async () => {
+    if (!filas.length) return;
+    await supabase.from('email_broadcast_envios').insert(filas);
+    filas = [];
+  };
+
+  // Presupuesto de tiempo: los serverless cortan a los ~300s. Persistimos el
+  // progreso cada CHUNK y salimos ANTES del límite dejando 'enviando' — la
+  // próxima corrida (cron o botón) reanuda desde donde quedó.
+  const tInicio = Date.now();
+  const TIEMPO_MAX_MS = 240_000;
+  const CHUNK = 100;
+  let completo = true;
 
   for (const lead of destinatarios) {
+    if (Date.now() - tInicio > TIEMPO_MAX_MS) { completo = false; break; }
     if (recientes.has(lead.id)) {
       res.saltados += 1;
       filas.push({ broadcast_id: id, lead_id: lead.id, destino: lead.email, estado: 'saltado', error: 'contacto reciente (<20h)' });
+      if (filas.length >= CHUNK) await flush();
       continue;
     }
     const vars = valoresVariablesLead(lead);
@@ -423,32 +451,48 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
     let proveedorId: string | null = null;
     let errMsg: string | null = null;
 
-    if (EMAIL_SEND_ENABLED) {
+    if (emailOn) {
       const r = await sendEmail({
         to: lead.email,
         subject: asunto,
-        html: renderEmailHtml({ subject: asunto, bodyText: cuerpo, preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, unsubscribeUrl: unsubUrl }),
+        html: renderEmailHtml({ subject: asunto, bodyText: cuerpo, preheader: aplicarVariables(b.preheader ?? '', vars) || undefined, unsubscribeUrl: unsubUrl, fromName: fromNameWs }),
         text: cuerpo,
         headers: { 'List-Unsubscribe': `<${unsubUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
         tags: [{ name: 'tipo', value: 'broadcast' }, { name: 'broadcast_id', value: String(id) }],
       });
       if (r.ok) { estado = 'enviado'; proveedorId = r.id; res.enviados += 1; }
-      else { estado = 'fallo'; errMsg = r.error; res.fallos += 1; }
+      else if (/rate|429|too many/i.test(r.error)) {
+        // Rate limit de Resend: NO registrar este lead (se reintenta en la
+        // reanudación) y cortar la corrida acá.
+        completo = false;
+        break;
+      } else { estado = 'fallo'; errMsg = r.error; res.fallos += 1; }
     } else {
       res.simulados += 1;
     }
 
     filas.push({ broadcast_id: id, lead_id: lead.id, destino: lead.email, estado, proveedor_id: proveedorId, error: errMsg });
+    if (filas.length >= CHUNK) await flush();
+  }
+  await flush();
+
+  if (!completo) {
+    // Quedó a medias: se mantiene 'enviando' y la próxima corrida reanuda.
+    await supabase.from('email_broadcasts').update({ updated_at: ahoraISO() }).eq('id', id);
+    return { ...res, ok: true, error: 'parcial: se reanuda en la próxima corrida' };
   }
 
-  for (let i = 0; i < filas.length; i += 500) {
-    await supabase.from('email_broadcast_envios').insert(filas.slice(i, i + 500));
-  }
+  // Total real de destinatarios que recibieron (histórico + esta corrida, sin saltados).
+  const { count: totalRecibieron } = await supabase
+    .from('email_broadcast_envios')
+    .select('id', { count: 'exact', head: true })
+    .eq('broadcast_id', id)
+    .in('estado', ['enviado', 'simulado']);
 
   await supabase.from('email_broadcasts').update({
     estado: 'enviado',
     enviado_at: ahoraISO(),
-    total_destinatarios: res.enviados + res.simulados, // los que efectivamente recibieron (no saltados)
+    total_destinatarios: totalRecibieron ?? res.enviados + res.simulados,
     updated_at: ahoraISO(),
   }).eq('id', id);
 
@@ -456,24 +500,33 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
 }
 
 // Procesa los broadcasts programados que ya vencieron (lo llama el cron).
+// También reanuda los que quedaron atascados en 'enviando' (timeout/rate-limit
+// de una corrida anterior) con más de 10 minutos sin actividad.
 export async function procesarBroadcastsProgramados(): Promise<{ procesados: number; detalle: ResultadoBroadcast[] }> {
   const supabase = (await getTenantDb());
-  const { data, error } = await supabase
-    .from('email_broadcasts')
-    .select('id')
-    .eq('estado', 'programado')
-    .lte('programado_at', ahoraISO());
-  if (error) throw new Error(`procesarBroadcastsProgramados: ${error.message}`);
-  const ids = ((data ?? []) as Array<{ id: number }>).map((r) => r.id);
+  const hace10min = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const [prog, stuck] = await Promise.all([
+    supabase.from('email_broadcasts').select('id').eq('estado', 'programado').lte('programado_at', ahoraISO()),
+    supabase.from('email_broadcasts').select('id').eq('estado', 'enviando').lt('updated_at', hace10min),
+  ]);
+  if (prog.error) throw new Error(`procesarBroadcastsProgramados: ${prog.error.message}`);
+  const ids = [...new Set([
+    ...((prog.data ?? []) as Array<{ id: number }>).map((r) => r.id),
+    ...((stuck.data ?? []) as Array<{ id: number }>).map((r) => r.id),
+  ])];
   const detalle: ResultadoBroadcast[] = [];
   for (const id of ids) detalle.push(await enviarBroadcast(id));
   return { procesados: ids.length, detalle };
 }
 
 // ── Webhook de Resend: marca abierto/clic/rebote por proveedor_id ─────────────
-// Busca el envío en los dos orígenes (nutrición + broadcasts) y actualiza.
+// DELIBERADAMENTE SIN SCOPE de workspace (getSupabaseServer, no getTenantDb):
+// el webhook llega sin sesión (getTenantDb colapsaría al dueño y los eventos de
+// los emails de un CLIENTE jamás matchearían). El proveedor_id es el id del
+// email en Resend — único global — así que buscar cross-workspace es correcto
+// y no filtra datos: solo estampa timestamps en la fila dueña de ese id.
 export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic', whenISO: string): Promise<boolean> {
-  const supabase = (await getTenantDb());
+  const supabase = getSupabaseServer();
   const col = tipo === 'abierto' ? 'abierto_at' : 'clic_at';
   let tocado = false;
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
@@ -488,9 +541,11 @@ export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | '
   return tocado;
 }
 
-// Rebote/queja → además de loguear, da de baja al lead (supresión).
+// Rebote/queja → además de loguear, da de baja al lead (supresión). Igual que
+// marcarEventoEmail: sin scope, el proveedor_id identifica la fila exacta y el
+// update de leads va por PK global.
 export async function suprimirPorRebote(proveedorId: string): Promise<void> {
-  const supabase = (await getTenantDb());
+  const supabase = getSupabaseServer();
   // Encontrar el lead por el proveedor_id en cualquiera de los dos logs.
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
     const { data } = await supabase.from(tabla).select('lead_id').eq('proveedor_id', proveedorId).limit(1);

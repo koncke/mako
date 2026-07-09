@@ -13,7 +13,9 @@ import {
   getEmailKpis, getEmailSecuencias, crearEmailSecuencia, actualizarMetaEmailSecuencia,
   ETAPAS, TRIGGERS,
 } from '@/lib/email-marketing';
-import { EMAIL_SEND_ENABLED, resendConfigurado } from '@/lib/resend';
+import { resendConfigurado, emailConectado } from '@/lib/resend';
+import { envioEmailHabilitado } from '@/lib/envio-flags';
+import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +23,10 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function GET() {
   try {
-    const [kpis, secuencias, resendOk] = await Promise.all([getEmailKpis(), getEmailSecuencias(), resendConfigurado()]);
-    return Response.json({ ok: true, kpis, secuencias, etapas: ETAPAS, triggers: TRIGGERS, sendEnabled: EMAIL_SEND_ENABLED, resendConfigurado: resendOk });
+    const [kpis, secuencias, resendOk, sendEnabled, conectado] = await Promise.all([
+      getEmailKpis(), getEmailSecuencias(), resendConfigurado(), envioEmailHabilitado(), emailConectado(),
+    ]);
+    return Response.json({ ok: true, kpis, secuencias, etapas: ETAPAS, triggers: TRIGGERS, sendEnabled, resendConfigurado: resendOk, conectado });
   } catch (e) {
     console.error(`[api:email/secuencias GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
@@ -62,6 +66,10 @@ export async function PATCH(req: NextRequest) {
       });
     }
     if (typeof body.activa === 'boolean') {
+      // Activar una secuencia dispara envíos a leads → solo el admin del workspace.
+      if (body.activa && (await getRolWsEfectivo()) !== 'admin') {
+        return Response.json({ ok: false, error: 'Solo el admin puede activar secuencias.' }, { status: 403 });
+      }
       await setSecuenciaActiva(id, body.activa);
     }
     return Response.json({ ok: true });

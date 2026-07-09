@@ -26,7 +26,9 @@ export const dynamic = 'force-dynamic';
 
 // Servicios que el CLIENTE conecta en su wizard. Infra de la agencia (anthropic,
 // openai, supabase, google, telegram) NO se le pide al cliente — es global.
-const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'email', 'fathom', 'panda', 'youtube', 'calendly']);
+// 'email' NO está: con la cuenta única de Resend (Opción A) el cliente no carga
+// API key — verifica su dominio desde el mini-onboarding de la tab /email.
+const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'fathom', 'panda', 'youtube', 'calendly']);
 /** Core del cliente: sin esto el dashboard no tiene datos → obligatorios. */
 const SERVICIOS_REQUERIDOS = ['meta', 'whatsapp'];
 
