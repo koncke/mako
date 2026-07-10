@@ -25,6 +25,56 @@ function IconMail() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="m3.5 7 8.5 6 8.5-6" /></svg>;
 }
 
+// #8: enviar un WhatsApp por el número NO oficial (Evolution) a este lead, con
+// confirmación + advertencia de baneo. Manual = directo (la regla anti-ban del
+// motor es solo para lo automático); sale con demora "humana".
+function EnviarNoOficial({ leadId, nombre, telefono }: { leadId: number; nombre: string; telefono: string }) {
+  const [open, setOpen] = useState(false);
+  const [texto, setTexto] = useState('');
+  const [sending, setSending] = useState(false);
+  const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
+
+  async function enviar() {
+    const t = texto.trim();
+    if (!t) return;
+    setSending(true); setMsg(null);
+    try {
+      const r = await fetch('/api/whatsapp/evolution/mensajes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefono, texto: t, leadId }) });
+      const j = (await r.json()) as { ok: boolean; error?: string };
+      if (j.ok) { setMsg({ t: 'ok', x: 'Enviado por el número no oficial.' }); setTexto(''); }
+      else setMsg({ t: 'err', x: j.error || 'No se pudo enviar.' });
+    } catch (e) { setMsg({ t: 'err', x: e instanceof Error ? e.message : String(e) }); }
+    finally { setSending(false); }
+  }
+
+  const btn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--wa, #1c8a54)', cursor: 'pointer', flex: 'none' };
+  return (
+    <>
+      <button type="button" onClick={() => { setOpen(true); setMsg(null); }} aria-label="Enviar WhatsApp no oficial" title="Enviar por WhatsApp no oficial (Evolution)" style={btn}><IconWhatsApp /></button>
+      {open && (
+        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 16, padding: 22, fontFamily: SANS }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>WhatsApp no oficial</div>
+              <button onClick={() => setOpen(false)} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 12 }}>Para <b style={{ color: 'var(--ink)' }}>{nombre}</b> · {telefono}</div>
+            <div style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: 12.5, lineHeight: 1.45, marginBottom: 12 }}>
+              ⚠️ El número no oficial (por QR) tiene riesgo de baneo. Usalo con criterio, nunca en masa. Sale como si lo escribieras vos, con demora anti-ban.
+            </div>
+            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={4} placeholder="Escribí el mensaje…" style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, lineHeight: 1.5, outline: 'none', resize: 'vertical' }} />
+            {msg && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: msg.t === 'ok' ? 'var(--good)' : 'var(--bad)' }}>{msg.x}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+              <button onClick={() => setOpen(false)} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Cerrar</button>
+              <button onClick={() => void enviar()} disabled={sending || !texto.trim()} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--wa, #1c8a54)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', opacity: sending || !texto.trim() ? 0.5 : 1 }}>{sending ? 'Enviando…' : 'Enviar por no oficial'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Row({ label, value, copyKey, copied, onCopy, extra }: {
   label: string; value: string | null; copyKey: string; copied: string;
   onCopy: (text: string, key: string) => void; extra?: ReactNode;
@@ -78,7 +128,10 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
         <Row label="Empresa" value={empresa} copyKey="empresa" copied={copied} onCopy={copy} />
         <Row
           label="Teléfono" value={telefono && telefono !== '—' ? telefono : null} copyKey="tel" copied={copied} onCopy={copy}
-          extra={<Link href={`/whatsapp?lead=${leadId}`} aria-label="Abrir chat de WhatsApp" title="Abrir chat de WhatsApp" style={iconLink}><IconWhatsApp /></Link>}
+          extra={<span style={{ display: 'inline-flex', gap: 6 }}>
+            <Link href={`/whatsapp?lead=${leadId}`} aria-label="Abrir chat de WhatsApp oficial" title="Abrir chat de WhatsApp oficial" style={iconLink}><IconWhatsApp /></Link>
+            {telefono && telefono !== '—' && <EnviarNoOficial leadId={leadId} nombre={nombre} telefono={telefono} />}
+          </span>}
         />
         <Row
           label="Email" value={email} copyKey="email" copied={copied} onCopy={copy}

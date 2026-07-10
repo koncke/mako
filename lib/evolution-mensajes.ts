@@ -188,22 +188,48 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
   }
   const convs = [...porChat.values()];
   // Enriquecer con empresa + etapa del funnel (tarjeta de lead, filtro por etapa,
-  // contexto de MaKo). Misma derivación que el inbox oficial (lib/wa-etapas).
+  // contexto de MaKo). Misma derivación que el inbox oficial (lib/wa-etapas). Un
+  // lead marcado a mano en 'Nutrición - Manual' (pipeline_stage='manual') se
+  // muestra con esa etapa, tenga o no mensajes.
   const leadIds = [...new Set(convs.map((c) => c.leadId).filter((x): x is number => x != null))];
   if (leadIds.length) {
     const { data: leads } = await supabase
       .from('leads')
-      .select('id, empresa, fecha_primer_pago, fecha_confirmacion, cerro, asistio_j1, asistio_j2, fecha_junta_2, fecha_agenda, visitor_id, meta_lead_id')
+      .select('id, empresa, pipeline_stage, fecha_primer_pago, fecha_confirmacion, cerro, asistio_j1, asistio_j2, fecha_junta_2, fecha_agenda, visitor_id, meta_lead_id')
       .in('id', leadIds);
-    const porId = new Map(((leads ?? []) as Array<{ id: number; empresa: string | null } & LeadEtapaFields>).map((l) => [l.id, l]));
+    const porId = new Map(((leads ?? []) as Array<{ id: number; empresa: string | null; pipeline_stage: string | null } & LeadEtapaFields>).map((l) => [l.id, l]));
     for (const c of convs) {
       if (!c.leadId) continue;
       const l = porId.get(c.leadId);
       if (!l) continue;
       c.empresa = l.empresa ?? null;
-      const et = derivarEtapa(l);
-      c.etapaKey = et.key; c.etapaLabel = et.label;
+      if (l.pipeline_stage === 'manual') { c.etapaKey = 'manual'; c.etapaLabel = 'Nutrición - Manual'; }
+      else { const et = derivarEtapa(l); c.etapaKey = et.key; c.etapaLabel = et.label; }
     }
+  }
+
+  // #9: sumar los leads en 'Nutrición - Manual' que TODAVÍA no tienen mensajes,
+  // como conversaciones placeholder — así se les puede escribir desde el inbox.
+  const idsConConv = new Set(convs.map((c) => c.leadId).filter((x): x is number => x != null));
+  const jidsConConv = new Set(convs.map((c) => c.chatJid));
+  const { data: manuales } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, telefono_normalizado')
+    .eq('pipeline_stage', 'manual')
+    .not('telefono_normalizado', 'is', null)
+    .limit(300);
+  for (const l of (manuales ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; telefono_normalizado: string | null }>) {
+    if (idsConConv.has(l.id)) continue;
+    const tel = (l.telefono_normalizado || '').replace(/\D/g, '');
+    if (!tel) continue;
+    const jid = `${tel}@s.whatsapp.net`;
+    if (jidsConConv.has(jid)) continue;
+    jidsConConv.add(jid);
+    convs.push({
+      chatJid: jid, telefono: tel, nombre: l.nombre || tel, leadId: l.id,
+      empresa: l.empresa ?? null, etapaKey: 'manual', etapaLabel: 'Nutrición - Manual',
+      ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0,
+    });
   }
   return convs;
 }

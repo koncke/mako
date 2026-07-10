@@ -11,6 +11,7 @@ import type { CSSProperties } from 'react';
 export const ETAPA_COLOR: Record<string, string> = {
   cliente: '#1D9E75', 'por-cobrar': '#C7417B', 'no-show': '#B5630A', j2: '#4F5BD5',
   'post-j1': '#6A4BD8', agendo: '#9D4EDD', 'vio-vsl': '#185FA5', form: '#888780', abierto: '#888780',
+  manual: '#D8843C', // Nutrición - Manual (override del CRM)
 };
 
 export function etapaChip(key: string | null, label: string | null): { style: CSSProperties; dot: CSSProperties; label: string } | null {
