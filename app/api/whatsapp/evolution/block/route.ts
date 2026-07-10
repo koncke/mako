@@ -6,17 +6,27 @@
 
 import type { NextRequest } from 'next/server';
 import { bloquearContacto, desbloquearContacto, ocultarContacto, mostrarContacto } from '@/lib/evolution-block';
+import { sincronizarChat, borrarChat } from '@/lib/evolution-mensajes';
 import { getUsuarioActual } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function POST(req: NextRequest) {
-  let body: { telefono?: string; action?: string; leadId?: number | null; motivo?: string };
+  let body: { telefono?: string; action?: string; leadId?: number | null; motivo?: string; chat?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const telefono = String(body.telefono ?? '');
   if (!telefono.replace(/\D/g, '')) return Response.json({ ok: false, error: 'teléfono inválido' }, { status: 400 });
+  const chatJid = String(body.chat ?? '') || `${telefono.replace(/\D/g, '')}@s.whatsapp.net`;
   try {
+    if (body.action === 'sync-chat') {
+      const r = await sincronizarChat(chatJid);
+      return Response.json({ ok: true, ...r });
+    }
+    if (body.action === 'clear-chat') {
+      const n = await borrarChat(chatJid);
+      return Response.json({ ok: true, borrados: n });
+    }
     if (body.action === 'block') {
       const sesion = await getUsuarioActual().catch(() => null);
       await bloquearContacto(telefono, { leadId: body.leadId ?? null, motivo: body.motivo, por: sesion?.email });

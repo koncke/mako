@@ -16,7 +16,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
-import { SendArrow, IconSmiley, IconClip, IconMic, IconEye, IconEyeOff, IconDoc, IconBan, IconDraft } from './_shared/composer-icons';
+import { SendArrow, IconSmiley, IconClip, IconMic, IconEye, IconEyeOff, IconDoc, IconBan, IconDraft, IconRefresh } from './_shared/composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './_shared/VoiceRecorder';
 import { Avatar } from './_shared/Avatar';
 import { Ticks } from './_shared/Ticks';
@@ -120,6 +120,7 @@ export function EmpresaInbox() {
   const [blockMotivo, setBlockMotivo] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [hiding, setHiding] = useState(false);
+  const [chatBusy, setChatBusy] = useState<'sync' | 'clear' | null>(null); // sync/borrar por-chat
   const [ocultarConfirm, setOcultarConfirm] = useState(false); // modal de confirmación de ocultar
   const [verOcultos, setVerOcultos] = useState(false); // vista "ver ocultos" para desocultar
   const [search, setSearch] = useState('');
@@ -231,15 +232,17 @@ export function EmpresaInbox() {
     setSendErr(null);              // el error de envío no se arrastra entre chats
     leidoAlAbrirRef.current = sel ? (leidoMap[sel] ?? 0) : 0; // "leído hasta" ANTES de marcarlo (para el divisor)
     setUnreadAnchorId(null);
-    if (!sel) { setMsgs([]); return; }
+    setErrMsgs(null);
+    // En la vista de OCULTOS no cargamos el hilo: mostramos solo la tarjeta mínima
+    // (foto/nombre/número + botón mostrar). El historial queda oculto.
+    if (!sel || verOcultos) { setMsgs([]); return; }
     stickRef.current = true;       // al abrir un chat, arrancamos pegados al fondo
     setMsgs(msgsCache.get(sel) ?? []); // pinta el cache al instante (sin spinner) y refresca
-    setErrMsgs(null);
     void loadMsgs(sel);
     const t = setInterval(() => void loadMsgs(sel), 8000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel, loadMsgs]);
+  }, [sel, loadMsgs, verOcultos]);
 
   // Marcar el chat abierto como LEÍDO al instante (sin esperar el poll de 15s):
   // espeja lo que hace el provider en localStorage → el punto verde se limpia ya.
@@ -373,6 +376,32 @@ export function EmpresaInbox() {
     } finally { setBlocking(false); }
   }
 
+  // Sincronizar SOLO este chat (traer su historial de Evolution al espejo).
+  async function sincronizarEsteChat() {
+    const sc = findConv(sel);
+    if (!sc) return;
+    setChatBusy('sync'); setSendErr(null);
+    try {
+      const j = await jpost<{ ok: boolean; mensajes?: number; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'sync-chat' });
+      if (j.ok) { await loadConvs(); if (selRef.current) await loadMsgs(selRef.current); }
+      else setSendErr(j.error || 'No se pudo sincronizar el chat.');
+    } catch { setSendErr('No se pudo sincronizar el chat.'); }
+    finally { setChatBusy(null); }
+  }
+  // Borrar SOLO este chat del espejo (empezar de 0 en esta conversación).
+  async function borrarEsteChat() {
+    const sc = findConv(sel);
+    if (!sc) return;
+    if (!window.confirm(`¿Borrar el historial guardado de ${sc.nombre}? (Solo el espejo de la app; no toca tu WhatsApp. Podés volver a sincronizarlo.)`)) return;
+    setChatBusy('clear'); setSendErr(null);
+    try {
+      const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'clear-chat' });
+      if (j.ok) { setMsgs([]); await loadConvs(); }
+      else setSendErr(j.error || 'No se pudo borrar el chat.');
+    } catch { setSendErr('No se pudo borrar el chat.'); }
+    finally { setChatBusy(null); }
+  }
+
   // Ocultar (o mostrar) la conversación del inbox y de MaKo. No corta el envío.
   // La confirmación de ocultar la maneja el modal (ocultarConfirm).
   async function toggleOculto(ocultar: boolean) {
@@ -474,6 +503,15 @@ export function EmpresaInbox() {
       <div style={{ ...card, borderTop: '3px solid var(--wa-noof)' }}>
         {!selConv ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: '14px', padding: '0 28px', textAlign: 'center', lineHeight: 1.5 }}>Elegí una conversación</div>
+        ) : verOcultos ? (
+          /* Contacto oculto: NO mostramos el historial, solo foto/nombre/número + mostrar. */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '28px', textAlign: 'center' }}>
+            <Avatar telefono={selConv.telefono} name={selConv.nombre} size={72} />
+            <div style={{ fontWeight: 600, fontSize: '17px', color: 'var(--ink)' }}>{selConv.nombre}</div>
+            {selConv.telefono && <div style={{ fontSize: '13px', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{selConv.telefono}</div>}
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', maxWidth: '320px', lineHeight: 1.5, marginTop: '4px' }}>Conversación oculta. Su historial no se muestra ni MaKo lo lee.</div>
+            <button onClick={() => void toggleOculto(false)} disabled={hiding} style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', marginTop: '6px', padding: '10px 18px', borderRadius: '10px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : <><IconEye size={16} /> Mostrar contacto</>}</button>
+          </div>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
@@ -635,6 +673,13 @@ export function EmpresaInbox() {
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: hiding ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : verOcultos ? <><IconEye size={15} /> Mostrar contacto</> : <><IconEyeOff size={15} /> Ocultar contacto</>}</button>
                 <button onClick={() => (selConv.bloqueado ? void setBloqueo(false) : (setBlockMotivo(''), setBlockModalOpen(true)))} disabled={blocking}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (selConv.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: selConv.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : selConv.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
+                {/* Por-chat: traer/borrar SOLO esta conversación (no todas). */}
+                {!verOcultos && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => void sincronizarEsteChat()} disabled={chatBusy !== null} title="Traer el historial de este chat desde WhatsApp" style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px', padding: '8px 10px', borderRadius: '9px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: chatBusy ? 0.6 : 1 }}>{chatBusy === 'sync' ? 'Trayendo…' : <><IconRefresh size={13} /> Sincronizar</>}</button>
+                    <button onClick={() => void borrarEsteChat()} disabled={chatBusy !== null} title="Borrar el historial guardado de este chat (empezar de 0 acá)" style={{ flex: 1, padding: '8px 10px', borderRadius: '9px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: chatBusy ? 0.6 : 1 }}>{chatBusy === 'clear' ? 'Borrando…' : 'Borrar historial'}</button>
+                  </div>
+                )}
               </div>
             )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>

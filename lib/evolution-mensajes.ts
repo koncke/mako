@@ -165,7 +165,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     media_path: mediaPath,
     media_mime: mediaPath ? mediaMime : null,
     status: fromMe ? 'sent' : null, // ticks: salientes arrancan en 'enviado'
-    push_name: data.pushName ?? null,
+    push_name: fromMe ? null : (data.pushName ?? null), // el push_name de un saliente es NUESTRO ('Você'/nuestro perfil), no el del contacto
     lead_id: leadId,
     wa_timestamp: tsToISO(data.messageTimestamp),
     raw: data as unknown as Record<string, unknown>,
@@ -232,13 +232,18 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   // evita el "Sin mensajes" cuando el jid del listado no coincide con el guardado.
   // rows viene desc → la 1ª fila por número es la más reciente → su chat_jid es el
   // representante (el que usa el hilo).
+  // El push_name de un SALIENTE es el nuestro ('Você'/nuestro perfil), no el del
+  // contacto → solo usamos push_name de ENTRANTES y nunca el literal 'Você'.
+  const nombreDe = (r: { push_name: string | null; from_me: boolean }): string | null =>
+    (!r.from_me && r.push_name && r.push_name !== 'Você') ? r.push_name : null;
+  const jidNombre = (jid: string) => jid.replace(/@.*/, '');
   const porChat = new Map<string, WaConversacion>();
   for (const r of rows) {
     const k = claveTel(r.telefono, r.chat_jid);
     const prev = porChat.get(k);
     if (!prev) {
       porChat.set(k, {
-        chatJid: r.chat_jid, telefono: r.telefono, nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
+        chatJid: r.chat_jid, telefono: r.telefono, nombre: nombreDe(r) || r.telefono || jidNombre(r.chat_jid),
         leadId: r.lead_id, empresa: null, etapaKey: null, etapaLabel: null,
         ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
         ultimoEntrante: !r.from_me, total: 1, bloqueado: false,
@@ -247,7 +252,9 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
       prev.total += 1;
       if (!prev.leadId && r.lead_id) prev.leadId = r.lead_id;
       if (!prev.telefono && r.telefono) prev.telefono = r.telefono;
-      if ((prev.nombre === prev.telefono || prev.nombre === prev.chatJid.replace(/@.*/, '')) && r.push_name) prev.nombre = r.push_name;
+      // Completar el nombre con un push_name de ENTRANTE si el que tenemos es solo el número/jid.
+      const pn = nombreDe(r);
+      if (pn && (prev.nombre === prev.telefono || prev.nombre === jidNombre(prev.chatJid) || prev.nombre === 'Você')) prev.nombre = pn;
     }
   }
   const convs = [...porChat.values()];
@@ -280,7 +287,7 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
       // Si el "nombre" quedó como el teléfono/jid (p.ej. saliente propio sin
       // push_name), usamos el nombre del CRM (así un lead buscado no se ve como
       // un número tras escribirle). Si hay push_name real, lo respetamos.
-      if (l.nombre && (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, ''))) c.nombre = l.nombre;
+      if (l.nombre && (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você')) c.nombre = l.nombre;
       if (l.pipeline_stage === 'manual') { c.etapaKey = 'manual'; c.etapaLabel = 'Nutrición - Manual'; }
       else { const et = derivarEtapa(l); c.etapaKey = et.key; c.etapaLabel = et.label; }
     }
@@ -349,7 +356,7 @@ export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
     if (porChat.has(k)) continue; // rows vienen desc → el primero es el último mensaje
     porChat.set(k, {
       chatJid: r.chat_jid,
-      nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
+      nombre: (!r.from_me && r.push_name && r.push_name !== 'Você') ? r.push_name : (r.telefono || r.chat_jid.replace(/@.*/, '')),
       ultimaFecha: r.wa_timestamp,
       ultimoEntrante: !r.from_me,
     });
@@ -398,10 +405,11 @@ export type WaMensaje = {
   mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null;
 };
 
-// Mensajes de un chat (asc) con URLs firmadas para la multimedia. Matchea por
-// TELÉFONO (últimos 10 dígitos) además del jid exacto: así el hilo aparece aunque
-// Evolution haya guardado los mensajes bajo un jid distinto del que muestra el
-// listado (9 de AR, @lid, sufijo de device) — antes daba "Sin mensajes".
+// Mensajes de un chat (asc) con URLs firmadas para la multimedia. Lee SOLO del
+// espejo (nuestra DB): NO trae en vivo de Evolution. Así, tras "empezar de 0" o
+// en un chat no sincronizado, el hilo muestra únicamente lo capturado por el
+// webhook / lo que sincronizaste — no vuelca todo el historial de Evolution.
+// Matchea por TELÉFONO (últimos 10 díg.) además del jid exacto (tolera 9/@lid).
 export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<WaMensaje[]> {
   const supabase = await getTenantDb();
   const last10 = (normalizarTelefono(jidToNumero(chatJid)) || '').replace(/\D/g, '').slice(-10);
@@ -411,27 +419,11 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
     .neq('tipo', 'evento')   // no ensuciamos el hilo con reacciones/protocolo
     .order('wa_timestamp', { ascending: true })
     .limit(limite);
-  // chat_jid puede traer chars raros para PostgREST .or → sólo lo usamos en el .or
-  // si es "simple"; si no, caemos al match por teléfono (o jid exacto).
   const jidSimple = /^[A-Za-z0-9@._:-]+$/.test(chatJid);
   if (last10.length >= 8 && jidSimple) sel = sel.or(`chat_jid.eq.${chatJid},telefono.like.%${last10}%`);
   else if (last10.length >= 8) sel = sel.like('telefono', `%${last10}%`);
   else sel = sel.eq('chat_jid', chatJid);
-
-  // En paralelo: espejo (DB, con media firmada) + LIVE de Evolution por el jid del
-  // número + LIVE por el @lid del número (los entrantes de contactos NO agendados
-  // caen bajo ese alias → así aparecen en el mismo hilo). El espejo es autoritativo
-  // (media + ticks); lo live rellena huecos. Dedup por wa_message_id.
-  const traerLid = (async (): Promise<EvRecord[]> => {
-    const lid = await fetchLidDeNumero(last10 || jidToNumero(chatJid) || '').catch(() => null);
-    return lid && lid !== chatJid ? fetchMensajesEvolution(lid, limite).catch(() => [] as EvRecord[]) : [];
-  })();
-  const [{ data }, liveNum, liveLid] = await Promise.all([
-    sel,
-    fetchMensajesEvolution(chatJid, limite).catch(() => [] as EvRecord[]),
-    traerLid,
-  ]);
-  const liveRecords = [...liveNum, ...liveLid];
+  const { data } = await sel;
   const rows = (data ?? []) as Array<{ id: number; wa_message_id: string | null; chat_jid: string; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
 
   // Firmar TODA la media del espejo en UN solo batch (createSignedUrls), con
@@ -462,18 +454,6 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
       mediaUrl: media, mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status,
     };
     if (r.wa_message_id) porWaId.set(r.wa_message_id, m); else sinId.push(m);
-  }
-  for (const rec of liveRecords) {
-    const waId = rec.key?.id;
-    if (!waId || porWaId.has(waId)) continue; // ya está en el espejo → no duplicar
-    const c = extraerContenido(rec as UpsertData);
-    if (c.tipo === 'evento' || c.tipo === 'otro') continue;
-    porWaId.set(waId, {
-      id: -Math.abs(hashStr(waId)) - 1, // negativo → no choca con ids reales del espejo
-      fromMe: !!rec.key?.fromMe, tipo: c.tipo, texto: c.texto,
-      mediaUrl: esTipoMedia(c.tipo) ? proxyMedia(waId, rec.key?.remoteJid || chatJid, !!rec.key?.fromMe) : null,
-      mediaMime: c.mediaMime, fecha: tsToISO(rec.messageTimestamp), status: statusDeRecord(rec),
-    });
   }
   return [...porWaId.values(), ...sinId].sort((a, b) => (Date.parse(a.fecha ?? '') || 0) - (Date.parse(b.fecha ?? '') || 0));
 }
@@ -520,7 +500,7 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
         instance_name: instance, chat_jid: chatJid, telefono,
         wa_message_id: key.id, from_me: !!key.fromMe, tipo: c.tipo, texto: c.texto,
         media_path: null, media_mime: c.mediaMime, status: statusDeRecord(rec),
-        push_name: rec.pushName ?? null, lead_id: leadId,
+        push_name: key.fromMe ? null : (rec.pushName ?? null), lead_id: leadId,
         wa_timestamp: tsToISO(rec.messageTimestamp), raw: rec as unknown as Record<string, unknown>,
       });
     }
@@ -539,5 +519,48 @@ export async function borrarEspejoNoOficial(): Promise<number> {
   return count ?? 0;
 }
 
-// Hash estable string → int (para ids sintéticos de mensajes live).
-function hashStr(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
+// ── Por-chat (sincronizar / borrar SOLO una conversación) ────────────────────
+// Sincroniza UN chat: trae su historial de Evolution (por el número y por su @lid)
+// al espejo, canonicalizado al número. Para "traer este chat" sin traer todos.
+export async function sincronizarChat(chatJid: string): Promise<{ mensajes: number }> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !chatJid) return { mensajes: 0 };
+  const instance = instanceNameDeWs(ws);
+  const supabase = await getTenantDb();
+  const num = jidToNumero(chatJid) || '';
+  const telefono = normalizarTelefono(num);
+  const lid = await fetchLidDeNumero(telefono || num).catch(() => null);
+  const jids = [...new Set([chatJid, lid].filter((x): x is string => !!x))];
+  const recs: EvRecord[] = [];
+  for (const jid of jids) recs.push(...(await fetchMensajesEvolution(jid, 100).catch(() => [] as EvRecord[])));
+  if (!recs.length) return { mensajes: 0 };
+  let canon = chatJid;
+  for (const rec of recs) { const cj = jidCanonico(rec.key); if (cj && !cj.endsWith('@lid')) { canon = cj; break; } }
+  const leadId = telefono ? await matchLeadPorTelefono(telefono) : null;
+  const filas: Record<string, unknown>[] = [];
+  const vistos = new Set<string>();
+  for (const rec of recs) {
+    const key = rec.key;
+    if (!key?.id || vistos.has(key.id)) continue;
+    vistos.add(key.id);
+    const c = extraerContenido(rec as UpsertData);
+    if (c.tipo === 'evento' || c.tipo === 'otro') continue;
+    filas.push({
+      instance_name: instance, chat_jid: canon, telefono, wa_message_id: key.id,
+      from_me: !!key.fromMe, tipo: c.tipo, texto: c.texto, media_path: null, media_mime: c.mediaMime,
+      status: statusDeRecord(rec), push_name: key.fromMe ? null : (rec.pushName ?? null), lead_id: leadId,
+      wa_timestamp: tsToISO(rec.messageTimestamp), raw: rec as unknown as Record<string, unknown>,
+    });
+  }
+  if (filas.length) await supabase.from('wa_mensajes').upsert(filas, { onConflict: 'workspace_id,wa_message_id', ignoreDuplicates: true });
+  return { mensajes: filas.length };
+}
+
+// Borra el espejo de UNA conversación (por teléfono últimos-10, o jid exacto).
+export async function borrarChat(chatJid: string): Promise<number> {
+  const supabase = await getTenantDb();
+  const last10 = (normalizarTelefono(jidToNumero(chatJid)) || '').replace(/\D/g, '').slice(-10);
+  const del = supabase.from('wa_mensajes').delete({ count: 'exact' });
+  const { count } = await (last10.length >= 8 ? del.like('telefono', `%${last10}%`) : del.eq('chat_jid', chatJid));
+  return count ?? 0;
+}
