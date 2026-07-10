@@ -390,6 +390,67 @@ export async function fetchProfilePic(telefono: string): Promise<string | null> 
   return r.ok ? (r.data.profilePictureUrl ?? null) : null;
 }
 
+// ── Lectura EN VIVO desde Evolution (no depende del webhook) ─────────────────
+// El espejo en DB se llena SOLO con el webhook; si no está registrado, el inbox
+// sale vacío aunque Evolution SÍ tenga los mensajes. Estas funciones leen directo
+// del store de Evolution (findMessages/findChats) para mostrar la conversación
+// real con o sin webhook. Best-effort: [] ante cualquier fallo (NUNCA lanzan, así
+// el inbox del admin sin impersonar o un Evolution caído no rompen la lectura).
+
+// Record crudo de un mensaje de Evolution (mismo shape que el messages.upsert del
+// webhook → se parsea con el mismo extraerContenido). OJO: findMessages NO trae la
+// media en base64, sólo metadata (tipo/caption); los bytes los llena el webhook.
+export type EvRecord = {
+  key?: { id?: string; fromMe?: boolean; remoteJid?: string };
+  pushName?: string; message?: Record<string, unknown>; messageType?: string;
+  messageTimestamp?: number | string; MessageUpdate?: Array<{ status?: string }>;
+};
+
+// Mensajes de un chat, del más viejo al más nuevo (Evolution los da desc → los
+// invertimos). limite = tamaño de página (en findMessages, `offset` es el take).
+export async function fetchMensajesEvolution(chatJid: string, limite = 300): Promise<EvRecord[]> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !evolutionConfigurado() || !chatJid) return [];
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(
+    `/chat/findMessages/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: chatJid } }, page: 1, offset: limite }) },
+  );
+  if (!r.ok) return [];
+  const d = r.data as { messages?: { records?: EvRecord[] } } | EvRecord[];
+  const records = Array.isArray(d) ? d : (d?.messages?.records ?? []);
+  return Array.isArray(records) ? records.slice().reverse() : []; // desc → asc
+}
+
+export type EvChat = { remoteJid?: string; pushName?: string; profilePicUrl?: string | null; unreadCount?: number; updatedAt?: string; lastMessage?: EvRecord };
+
+// Lista de chats del store de Evolution (los que tienen al menos un mensaje).
+export async function fetchChatsEvolution(): Promise<EvChat[]> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !evolutionConfigurado()) return [];
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<EvChat[] | { chats?: EvChat[] }>(
+    `/chat/findChats/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({}) },
+  );
+  if (!r.ok) return [];
+  const d = r.data;
+  const arr = Array.isArray(d) ? d : ((d as { chats?: EvChat[] } | null)?.chats ?? []);
+  return Array.isArray(arr) ? arr : [];
+}
+
+// Estado (tick) de un record de Evolution → nuestro status (0-5 de Baileys / string).
+export function statusDeRecord(rec: EvRecord): string | null {
+  const s = rec.MessageUpdate?.[rec.MessageUpdate.length - 1]?.status;
+  if (!s) return rec.key?.fromMe ? 'sent' : null;
+  const up = String(s).toUpperCase();
+  if (up.includes('READ')) return 'read';
+  if (up.includes('DELIV')) return 'delivered';
+  if (up.includes('SERVER') || up.includes('SENT')) return 'sent';
+  if (up.includes('ERROR') || up.includes('FAIL')) return 'failed';
+  return rec.key?.fromMe ? 'sent' : null;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 // '5216863996369@s.whatsapp.net' → '5216863996369'
 export function jidToNumero(jid: string | null): string | null {

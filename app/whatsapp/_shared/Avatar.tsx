@@ -49,8 +49,10 @@ export function Avatar({ telefono, name, size = 38 }: { telefono: string | null;
   // Mismos tokens que el avatar del inbox oficial (paridad de diseño).
   const box: CSSProperties = { width: size, height: size, flex: 'none', borderRadius: '50%', background: 'var(--surface-2)', color: 'var(--ink)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.37, overflow: 'hidden' };
   if (src && src !== failedSrc) {
+    // referrerPolicy="no-referrer": las URLs del CDN de WhatsApp (pps.whatsapp.net)
+    // devuelven 403 si el navegador manda el Referer de nuestro dominio.
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={name} onError={() => setFailedSrc(src)} style={{ ...box, objectFit: 'cover' }} />;
+    return <img src={src} alt={name} referrerPolicy="no-referrer" onError={() => setFailedSrc(src)} style={{ ...box, objectFit: 'cover' }} />;
   }
   return <div style={box}>{initials(name)}</div>;
 }

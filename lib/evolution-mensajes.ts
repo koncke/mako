@@ -10,7 +10,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { OWNER_WS } from '@/lib/auth-session';
-import { jidToNumero } from '@/lib/evolution';
+import { jidToNumero, fetchMensajesEvolution, fetchChatsEvolution, statusDeRecord, type EvRecord } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
@@ -161,6 +161,26 @@ function claveTel(tel: string | null, jid: string): string {
   return d.length >= 8 ? d : jid;
 }
 
+// Resuelve leadId por teléfono (últimos 10 díg.) para las convs que aún no lo
+// tienen (chats traídos en vivo, o salientes sin lead_id), en UNA query acotada.
+// Así el enriquecido (empresa/etapa/nombre) también cubre las convs live.
+async function resolverLeadIdsPorTelefono(supabase: Awaited<ReturnType<typeof getTenantDb>>, convs: WaConversacion[]): Promise<void> {
+  const sinLead = convs.filter((c) => !c.leadId && c.telefono);
+  const phones = [...new Set(sinLead.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter((p) => p.length >= 8))].slice(0, 50);
+  if (!phones.length) return;
+  const conds = phones.map((p) => `telefono_normalizado.like.%${p}%`).join(',');
+  const { data } = await supabase.from('leads').select('id, telefono_normalizado').or(conds).limit(300);
+  const porTel = new Map<string, number>();
+  for (const l of (data ?? []) as Array<{ id: number; telefono_normalizado: string | null }>) {
+    const t10 = (l.telefono_normalizado || '').replace(/\D/g, '').slice(-10);
+    if (t10 && !porTel.has(t10)) porTel.set(t10, l.id);
+  }
+  for (const c of sinLead) {
+    const id = porTel.get((c.telefono || '').replace(/\D/g, '').slice(-10));
+    if (id) c.leadId = id;
+  }
+}
+
 export type WaConversacion = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
   empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
@@ -205,6 +225,37 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     }
   }
   const convs = [...porChat.values()];
+
+  // Descubrir chats que el espejo todavía NO tiene (webhook sin registrar) leyendo
+  // EN VIVO de Evolution: así aparecen las conversaciones reales — entrantes
+  // incluidos — aunque el webhook nunca haya poblado la DB. Best-effort.
+  const liveChats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
+  if (liveChats.length) {
+    const yaTel = new Set(convs.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter(Boolean));
+    for (const ch of liveChats) {
+      const jid = ch.remoteJid || '';
+      if (!jid || jid.endsWith('@g.us') || jid.startsWith('status@')) continue;
+      const digits = (normalizarTelefono(jidToNumero(jid)) || jidToNumero(jid) || '').replace(/\D/g, '');
+      const t10 = digits.slice(-10);
+      if (t10 && yaTel.has(t10)) continue; // ya está por el espejo
+      const lm = ch.lastMessage;
+      const cont = lm ? extraerContenido(lm as UpsertData) : null;
+      convs.push({
+        chatJid: jid, telefono: digits || null,
+        nombre: ch.pushName || digits || jid.replace(/@.*/, ''),
+        leadId: null, empresa: null, etapaKey: null, etapaLabel: null,
+        ultimoTexto: cont?.texto ?? null, ultimoTipo: cont?.tipo ?? (lm ? 'text' : null),
+        ultimaFecha: lm ? tsToISO(lm.messageTimestamp) : (ch.updatedAt ?? null),
+        ultimoEntrante: lm ? !lm.key?.fromMe : false, total: 1, bloqueado: false,
+      });
+      if (t10) yaTel.add(t10);
+    }
+  }
+
+  // Resolver leadId por teléfono para las convs sin lead (live/salientes) → el
+  // enriquecido de abajo les pone empresa/etapa/nombre del CRM.
+  await resolverLeadIdsPorTelefono(supabase, convs);
+
   // Enriquecer con empresa + etapa del funnel (tarjeta de lead, filtro por etapa,
   // contexto de MaKo). Misma derivación que el inbox oficial (lib/wa-etapas). Un
   // lead marcado a mano en 'Nutrición - Manual' (pipeline_stage='manual') se
@@ -338,7 +389,7 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
   const last10 = (normalizarTelefono(jidToNumero(chatJid)) || '').replace(/\D/g, '').slice(-10);
   let sel = supabase
     .from('wa_mensajes')
-    .select('id, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status')
+    .select('id, wa_message_id, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status')
     .neq('tipo', 'evento')   // no ensuciamos el hilo con reacciones/protocolo
     .order('wa_timestamp', { ascending: true })
     .limit(limite);
@@ -348,13 +399,15 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
   if (last10.length >= 8 && jidSimple) sel = sel.or(`chat_jid.eq.${chatJid},telefono.like.%${last10}%`);
   else if (last10.length >= 8) sel = sel.like('telefono', `%${last10}%`);
   else sel = sel.eq('chat_jid', chatJid);
-  const { data } = await sel;
-  const rows = (data ?? []) as Array<{ id: number; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
 
-  // Firmar TODA la media en UN solo batch (createSignedUrls), con timeout y
-  // fail-open. Antes se firmaba en un loop secuencial con await: si el storage
-  // se colgaba, el request nunca respondía y el hilo quedaba "Cargando…" eterno.
-  // Ahora, si el storage falla/tarda, servimos el hilo SIN media en vez de colgar.
+  // En paralelo: espejo (DB, con media firmada) + LIVE de Evolution (para que el
+  // hilo aparezca aunque el webhook no haya poblado el espejo). El espejo es la
+  // fuente autoritativa (tiene la media y los ticks); lo live rellena huecos.
+  const [{ data }, liveRecords] = await Promise.all([sel, fetchMensajesEvolution(chatJid, limite).catch(() => [] as EvRecord[])]);
+  const rows = (data ?? []) as Array<{ id: number; wa_message_id: string | null; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
+
+  // Firmar TODA la media del espejo en UN solo batch (createSignedUrls), con
+  // timeout y fail-open (antes un loop secuencial colgaba el request → "Cargando…").
   const paths = rows.map((r) => r.media_path).filter((p): p is string => !!p);
   const urlPorPath = new Map<string, string>();
   if (paths.length) {
@@ -365,9 +418,33 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
       for (const s of signed ?? []) if (s.path && s.signedUrl) urlPorPath.set(s.path, s.signedUrl);
     } catch { /* storage caído/lento → hilo sin media, nunca colgamos el request */ }
   }
-  return rows.map((r) => ({
-    id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto,
-    mediaUrl: r.media_path ? (urlPorPath.get(r.media_path) ?? null) : null,
-    mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status,
-  }));
+
+  // Merge por wa_message_id: el espejo GANA (tiene media firmada + status). Lo
+  // live sólo agrega mensajes que el espejo todavía no tiene (sin webhook).
+  const porWaId = new Map<string, WaMensaje>();
+  const sinId: WaMensaje[] = [];
+  for (const r of rows) {
+    const m: WaMensaje = {
+      id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto,
+      mediaUrl: r.media_path ? (urlPorPath.get(r.media_path) ?? null) : null,
+      mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status,
+    };
+    if (r.wa_message_id) porWaId.set(r.wa_message_id, m); else sinId.push(m);
+  }
+  for (const rec of liveRecords) {
+    const waId = rec.key?.id;
+    if (!waId || porWaId.has(waId)) continue; // ya está en el espejo → no duplicar
+    const c = extraerContenido(rec as UpsertData);
+    if (c.tipo === 'evento' || c.tipo === 'otro') continue;
+    porWaId.set(waId, {
+      id: -Math.abs(hashStr(waId)) - 1, // negativo → no choca con ids reales del espejo
+      fromMe: !!rec.key?.fromMe, tipo: c.tipo, texto: c.texto,
+      mediaUrl: null, mediaMime: c.mediaMime, fecha: tsToISO(rec.messageTimestamp),
+      status: statusDeRecord(rec),
+    });
+  }
+  return [...porWaId.values(), ...sinId].sort((a, b) => (Date.parse(a.fecha ?? '') || 0) - (Date.parse(b.fecha ?? '') || 0));
 }
+
+// Hash estable string → int (para ids sintéticos de mensajes live).
+function hashStr(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return h; }
