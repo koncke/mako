@@ -65,6 +65,7 @@ interface Paso {
   delay_horas: number;
   asunto: string | null;
   cuerpo: string;
+  proveedor?: 'oficial' | 'no_oficial'; // WhatsApp: oficial (plantilla Meta) | no_oficial (Evolution). Preservar en {...p}.
   template_wa: string | null;
   template_categoria?: string;
   template_idioma?: string;
@@ -813,7 +814,10 @@ function WhatsAppInner() {
   function pickTemplatePaso(i: number, name: string) {
     const tpl = templates.find((t) => t.name === name);
     if (!tpl) { patchPaso(i, { template_wa: name || null }); return; }
+    // Elegir una plantilla aprobada implica canal OFICIAL (Meta): fija proveedor
+    // para no dejar un paso contradictorio (no_oficial + plantilla).
     patchPaso(i, {
+      proveedor: 'oficial',
       template_wa: tpl.name,
       cuerpo: tpl.body,
       template_categoria: tpl.category,
@@ -824,7 +828,7 @@ function WhatsAppInner() {
   function addPaso() {
     setEditPasos((prev) => [
       ...(prev ?? []),
-      { orden: (prev?.length ?? 0) + 1, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '', template_wa: null, template_param: 'nombre' },
+      { orden: (prev?.length ?? 0) + 1, canal: 'whatsapp', delay_horas: 24, asunto: null, cuerpo: '', proveedor: 'oficial', template_wa: null, template_param: 'nombre' },
     ]);
   }
 
@@ -1315,6 +1319,7 @@ function WhatsAppInner() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
                               <span style={{ padding: '5px 10px', borderRadius: '8px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", fontSize: '12px' }}>{fmtDelay(st.delay_horas)}</span>
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--good)', fontWeight: 600 }}>⚡ {st.canal === 'whatsapp' ? 'WhatsApp' : st.canal}</span>
+                              {st.canal === 'whatsapp' && st.proveedor === 'no_oficial' && <span style={{ padding: '2px 8px', borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', fontSize: '11px', fontWeight: 600 }}>no oficial</span>}
                               {st.template_wa && <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11.5px', color: 'var(--dim)' }}>{st.template_wa}</span>}
                             </div>
                             <div style={{ width: '100%', padding: '12px 14px', borderRadius: '11px', border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: '14px', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{st.cuerpo}</div>

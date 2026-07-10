@@ -7,6 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getSecuenciasConStats, setSecuenciaActiva, setSecuenciaPasos, type PasoSecuencia } from '@/lib/nutricion';
+import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  // Config de secuencias = solo admin del workspace (igual que /api/email/secuencias
+  // y /api/mako/nutricion). Antes cualquier miembro autenticado podía reescribir pasos.
+  if ((await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
+  }
   let body: { id?: unknown; activa?: unknown; pasos?: unknown };
   try {
     body = await req.json();

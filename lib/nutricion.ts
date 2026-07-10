@@ -19,6 +19,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow } from '@/lib/evolution';
 import { esLeadCliente, enviarYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
+import { estadoDraftPorNombre } from '@/lib/meta-templates';
 
 export type CanalNutricion = 'email' | 'whatsapp';
 
@@ -664,21 +665,45 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           nota = 'paso sin template_wa';
           backoffHoras = 24; // error de config: 1 reintento/día hasta que lo arreglen
         } else {
-          const r = await sendWhatsappTemplate({
-            phone: lead.telefono,
-            name: lead.nombre ?? '',
-            content: paso.cuerpo,
-            template: {
-              name: paso.template_wa,
-              category: paso.template_categoria ?? 'marketing',
-              language: paso.template_idioma ?? 'es_MX',
-              // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
-              // la plantilla usa las que necesite.
-              bodyParams: valoresVariablesLead(lead),
-            },
-          });
-          estado = r.ok ? 'enviado' : 'fallo';
-          if (!r.ok) nota = r.error;
+          // Guard de aprobación: si la plantilla es NUESTRA (borrador de la app)
+          // pero Meta aún no la aprobó (pending) o la rechazó, NO la mandamos.
+          // Si la mandáramos, Chatwoot acepta el POST y Meta la rechaza async →
+          // quedaría contada como 'enviado' sin llegar nunca. Plantillas legacy
+          // sin borrador en la app (estadoDraftPorNombre=null) NO se bloquean.
+          // FALLA CERRADO: si no podemos verificar el estado (error de DB), NO
+          // enviamos (backoff corto) en vez de arriesgar el phantom-send.
+          let bloqueo: { nota: string; horas: number } | null = null;
+          try {
+            const stTpl = await estadoDraftPorNombre(paso.template_wa, paso.template_idioma ?? 'es_MX');
+            if (stTpl && stTpl !== 'approved') {
+              bloqueo = stTpl === 'rejected'
+                ? { nota: 'plantilla rechazada por Meta', horas: 24 }               // permanente hasta re-editar
+                : { nota: 'plantilla aún no aprobada por Meta', horas: 1 };          // Meta aprueba en minutos → recheck en 1h
+            }
+          } catch {
+            bloqueo = { nota: 'no pude verificar el estado de la plantilla', horas: 1 }; // fail-closed transitorio
+          }
+          if (bloqueo) {
+            estado = 'fallo';
+            nota = bloqueo.nota;
+            backoffHoras = bloqueo.horas;
+          } else {
+            const r = await sendWhatsappTemplate({
+              phone: lead.telefono,
+              name: lead.nombre ?? '',
+              content: paso.cuerpo,
+              template: {
+                name: paso.template_wa,
+                category: paso.template_categoria ?? 'marketing',
+                language: paso.template_idioma ?? 'es_MX',
+                // Rellena TODAS las variables del catálogo (nombre, apellido, empresa…);
+                // la plantilla usa las que necesite.
+                bodyParams: valoresVariablesLead(lead),
+              },
+            });
+            estado = r.ok ? 'enviado' : 'fallo';
+            if (!r.ok) nota = r.error;
+          }
         }
       } else if (emailOn && paso.canal === 'email') {
         if (lead?.email_opt_out) {

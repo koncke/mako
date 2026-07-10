@@ -169,7 +169,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin texto ni markdown alrededor)
 Un objeto por paso, en el MISMO orden y con el MISMO canal que recibiste. Para email incluí asunto + preheader + cuerpo; para whatsapp solo cuerpo. No agregues ni quites pasos.`;
 
 // Glosa de cada cohorte para que MaKo sepa a quién le escribe (además de la etapa).
-const COHORTE_GLOSS: Record<string, string> = {
+export const COHORTE_GLOSS: Record<string, string> = {
   instant_form_sin_agenda: 'Dejó sus datos en el formulario/anuncio pero todavía no agendó la llamada.',
   no_show_j1: 'Tenía agendada la primera reunión (R1) y no se presentó.',
   no_show_j2: 'Tenía agendada la segunda reunión (R2) y no se presentó; estaba cerca de decidir.',

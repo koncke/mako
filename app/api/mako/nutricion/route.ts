@@ -12,6 +12,8 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getSecuenciasConStats, type PasoSecuencia } from '@/lib/nutricion';
 import { generarSecuencia, aplicarSecuencia } from '@/lib/nutricion-generator';
+import { plantillaDesdePaso, estadoPlantillasSecuencia } from '@/lib/nutricion-plantillas';
+import { integracionConectada } from '@/lib/credenciales';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -44,7 +46,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const g = await guard();
   if (g) return g;
-  let body: { action?: string; secuenciaId?: number; pasos?: PasoSecuencia[] };
+  let body: { action?: string; secuenciaId?: number; orden?: number; pasos?: PasoSecuencia[] };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -60,6 +62,21 @@ export async function POST(req: NextRequest) {
       if (!Array.isArray(body.pasos)) return Response.json({ ok: false, error: 'faltan los pasos a guardar' }, { status: 400 });
       await aplicarSecuencia(secuenciaId, body.pasos);
       return Response.json({ ok: true });
+    }
+    if (body.action === 'plantilla') {
+      // MaKo convierte el copy del paso WA oficial en plantilla Meta y la manda a aprobar.
+      if (!(await integracionConectada('whatsapp'))) {
+        return Response.json({ ok: false, error: 'Conectá WhatsApp (Meta) primero para mandar plantillas a aprobar.' }, { status: 400 });
+      }
+      const orden = Number(body.orden);
+      if (!Number.isFinite(orden)) return Response.json({ ok: false, error: 'orden inválido' }, { status: 400 });
+      const r = await plantillaDesdePaso(secuenciaId, orden);
+      if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 400 });
+      return Response.json({ ok: true, name: r.name, status: r.status, nota: r.nota });
+    }
+    if (body.action === 'estado-plantillas') {
+      const estados = await estadoPlantillasSecuencia(secuenciaId);
+      return Response.json({ ok: true, estados });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {

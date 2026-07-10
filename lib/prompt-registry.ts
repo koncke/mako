@@ -56,6 +56,7 @@ import {
   CAMPAIGN_ADJUST_USER_TEMPLATE,
 } from './campaign-structurer';
 import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE, NUTRI_GEN_SYSTEM_TEMPLATE, NUTRI_GEN_USER_TEMPLATE } from './nutricion-generator';
+import { NUTRI_PLANTILLA_SYSTEM_TEMPLATE, NUTRI_PLANTILLA_USER_TEMPLATE } from './nutricion-plantillas';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -293,6 +294,27 @@ export const REGISTRY: Group[] = [
         variables: [v('nombre', 'nombre de la secuencia'), v('contexto', 'cohorte / a quién le escribe'), v('pasos', 'pasos actuales en JSON con [placeholders]')], scope: 'static-only', sensitive: false,
         default: NUTRI_GEN_USER_TEMPLATE,
         context: 'Le pasa a MaKo la secuencia y sus pasos. No borres los slots {{nombre}}/{{contexto}}/{{pasos}} ni el formato JSON de salida exigido.',
+      },
+    ],
+  },
+  {
+    group: 'Nutrición — plantilla WhatsApp para Meta (MaKo)',
+    icon: '📩',
+    blurb: 'MaKo convierte el copy de un paso de WhatsApp oficial en una plantilla aprobable por Meta (reabridora, sin links ni corchetes) y la manda a aprobar. El copy con el link se envía cuando el lead responde.',
+    entries: [
+      {
+        key: 'nutri.plantilla.system', source: 'override',
+        label: 'Conversión a plantilla Meta (system)', kind: 'system', dynamic: true,
+        variables: [v('metodologia', 'metodología de mensajes (RAG)'), v('metaRules', 'reglas de plantillas de Meta'), v('voz', 'guía de voz del negocio'), v('vars', 'variables de lead disponibles')], scope: 'static-only', sensitive: false,
+        default: NUTRI_PLANTILLA_SYSTEM_TEMPLATE,
+        context: 'Convierte un mensaje de nutrición en una plantilla WhatsApp Meta-safe: sin links ni [corchetes], solo variables nombradas del catálogo, CTA que invita a responder. No borres los slots {{metodologia}}/{{metaRules}}/{{voz}}/{{vars}}.',
+      },
+      {
+        key: 'nutri.plantilla.user', source: 'override',
+        label: 'Mensaje a convertir (user)', kind: 'user', dynamic: true,
+        variables: [v('objetivo', 'cohorte / a quién apunta'), v('copy', 'el copy del paso a convertir')], scope: 'static-only', sensitive: false,
+        default: NUTRI_PLANTILLA_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el copy del paso y el cohorte. No borres los slots {{objetivo}}/{{copy}} ni el formato JSON de salida.',
       },
     ],
   },

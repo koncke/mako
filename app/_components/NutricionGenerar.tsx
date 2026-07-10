@@ -32,6 +32,18 @@ const btnDark: CSSProperties = { padding: '9px 16px', borderRadius: '10px', bord
 const btnAccent: CSSProperties = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent-soft)', color: '#171511', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer' };
 const inp: CSSProperties = { width: '100%', padding: '9px 11px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', lineHeight: 1.5, outline: 'none' };
 const chip = (bg: string, color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', padding: '2px 9px', borderRadius: 999, background: bg, color, fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' });
+const segBtn = (active: boolean): CSSProperties => ({ padding: '5px 11px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '11.5px', fontWeight: 600, background: active ? 'var(--ink)' : 'transparent', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
+
+// Estado de la plantilla oficial de un paso (espeja meta-templates status).
+const ESTADO_TPL: Record<string, { label: string; color: string; bg: string }> = {
+  sin_enviar: { label: 'Sin enviar a Meta', color: 'var(--dim)', bg: 'var(--surface-2)' },
+  borrador: { label: 'Borrador', color: 'var(--dim)', bg: 'var(--surface-2)' },
+  pending: { label: 'En revisión', color: 'var(--warn)', bg: 'var(--warn-bg)' },
+  approved: { label: 'Aprobada ✓', color: 'var(--good)', bg: 'var(--good-bg)' },
+  rejected: { label: 'Rechazada', color: 'var(--bad)', bg: 'var(--bad-bg)' },
+  paused: { label: 'Pausada', color: 'var(--dim)', bg: 'var(--surface-2)' },
+  disabled: { label: 'Deshabilitada', color: 'var(--dim)', bg: 'var(--surface-2)' },
+};
 
 function fmtDelay(h: number): string {
   if (h <= 1) return 'al toque';
@@ -50,6 +62,8 @@ export function NutricionGenerar() {
   const [verAntes, setVerAntes] = useState<number | null>(null);
   const [busy, setBusy] = useState<number | 'apply' | null>(null);
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
+  const [estados, setEstados] = useState<Record<number, string>>({}); // orden → status plantilla
+  const [submitting, setSubmitting] = useState<number | null>(null);   // orden en envío a Meta
 
   const load = useCallback(async () => {
     try {
@@ -70,8 +84,43 @@ export function NutricionGenerar() {
       const j = await jpost<{ ok: boolean; error?: string; pasos: Paso[]; previos: Paso[] }>('/api/mako/nutricion', { action: 'generar', secuenciaId: sec.id });
       if (!j.ok) throw new Error(j.error || 'No se pudo generar');
       setSel(sec); setDraft(j.pasos); setPrevios(j.previos); setVerAntes(null);
+      void cargarEstados(sec.id);
     } catch (e) { setMsg({ t: 'err', x: e instanceof Error ? e.message : String(e) }); }
     finally { setBusy(null); }
+  }
+
+  async function cargarEstados(secId: number) {
+    try {
+      const j = await jpost<{ ok: boolean; estados: Array<{ orden: number; status: string }> }>('/api/mako/nutricion', { action: 'estado-plantillas', secuenciaId: secId });
+      if (j.ok) { const m: Record<number, string> = {}; for (const e of j.estados) m[e.orden] = e.status; setEstados(m); }
+    } catch { /* silencioso: sin estados el chip queda "sin enviar" */ }
+  }
+
+  function setProv(i: number, val: 'oficial' | 'no_oficial') {
+    // no_oficial (Evolution) manda el texto tal cual → limpiamos la plantilla oficial.
+    const orden = draft[i]?.orden;
+    setDraft((prev) => prev.map((p, idx) => (idx === i ? { ...p, proveedor: val, ...(val === 'no_oficial' ? { template_wa: null } : {}) } : p)));
+    // Al alternar canal el estado de la plantilla anterior deja de aplicar: reseteamos
+    // el chip para que no muestre "Aprobada ✓" sobre un paso que ya no tiene plantilla.
+    if (orden != null) setEstados((prev) => { const n = { ...prev }; delete n[orden]; return n; });
+  }
+
+  // Guarda el copy actual y manda ese paso a aprobar como plantilla de Meta.
+  async function mandarAMeta(orden: number) {
+    if (!sel) return;
+    setSubmitting(orden); setMsg(null);
+    try {
+      // Persistir primero: la plantilla se arma con el copy que estás viendo.
+      const save = await jpost<{ ok: boolean; error?: string }>('/api/mako/nutricion', { action: 'aplicar', secuenciaId: sel.id, pasos: draft });
+      if (!save.ok) throw new Error(save.error || 'No se pudo guardar antes de enviar.');
+      const j = await jpost<{ ok: boolean; error?: string; name?: string; status?: string; nota?: string }>('/api/mako/nutricion', { action: 'plantilla', secuenciaId: sel.id, orden });
+      if (!j.ok) throw new Error(j.error || 'No se pudo enviar a Meta.');
+      // El paso quedó enlazado a la plantilla (template_wa) en el backend: reflejarlo local.
+      setDraft((prev) => prev.map((p) => (p.orden === orden ? { ...p, proveedor: 'oficial', template_wa: j.name ?? p.template_wa } : p)));
+      setMsg({ t: 'ok', x: j.nota || 'Plantilla enviada a Meta.' });
+      await cargarEstados(sel.id);
+    } catch (e) { setMsg({ t: 'err', x: e instanceof Error ? e.message : String(e) }); }
+    finally { setSubmitting(null); }
   }
 
   async function aplicar() {
@@ -92,6 +141,9 @@ export function NutricionGenerar() {
   }
 
   if (!visible) return null;
+  // Bloqueo global de acciones: generar/aplicar y el submit a Meta no deben cruzarse
+  // (dos escrituras concurrentes, o regenerar el draft en medio de un submit).
+  const ocupado = busy !== null || submitting !== null;
 
   return (
     <>
@@ -129,7 +181,7 @@ export function NutricionGenerar() {
                           <div style={{ fontSize: '12px', color: 'var(--faint)', marginTop: '2px' }}>{s.pasos.length} {s.pasos.length === 1 ? 'mensaje' : 'mensajes'} · {s.etapa}{s.enviados ? ` · ${s.enviados} enviados` : ''}</div>
                         </div>
                         {!s.activa && <span style={chip('var(--surface-2)', 'var(--dim)')}>pausada</span>}
-                        <button onClick={() => void generar(s)} disabled={busy !== null} style={{ ...btnAccent, opacity: busy !== null ? 0.6 : 1 }}>
+                        <button onClick={() => void generar(s)} disabled={ocupado} style={{ ...btnAccent, opacity: ocupado ? 0.6 : 1 }}>
                           {busy === s.id ? 'Escribiendo…' : '✨ MaKo la escribe'}
                         </button>
                       </div>
@@ -171,9 +223,35 @@ export function NutricionGenerar() {
                         </>
                       )}
                       <textarea value={p.cuerpo} onChange={(e) => editPaso(i, 'cuerpo', e.target.value)} rows={p.canal === 'email' ? 5 : 3} style={{ ...inp, resize: 'vertical' }} />
-                      {p.canal === 'whatsapp' && p.proveedor !== 'no_oficial' && p.template_wa && (
-                        <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--warn)', lineHeight: 1.45 }}>
-                          ⚠️ Este paso usa una plantilla de WhatsApp aprobada por Meta («{p.template_wa}»): hoy se envía esa plantilla. Este texto queda como base para actualizarla en Meta (próximo hito).
+
+                      {p.canal === 'whatsapp' && (
+                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '11.5px', color: 'var(--faint)' }}>Se manda por:</span>
+                            <div style={{ display: 'inline-flex', border: '1px solid var(--border-strong)', borderRadius: '8px', overflow: 'hidden' }}>
+                              <button onClick={() => setProv(i, 'oficial')} style={segBtn(p.proveedor !== 'no_oficial')}>Oficial (Meta)</button>
+                              <button onClick={() => setProv(i, 'no_oficial')} style={segBtn(p.proveedor === 'no_oficial')}>No oficial</button>
+                            </div>
+                          </div>
+
+                          {p.proveedor === 'no_oficial' ? (
+                            <div style={{ fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.45 }}>
+                              Se manda tal cual por tu número no oficial (Evolution), con el anti-ban. A leads calientes queda como borrador para que un humano lo mande con un clic.
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                {(() => { const c = ESTADO_TPL[estados[p.orden]] ?? ESTADO_TPL.sin_enviar; return <span style={chip(c.bg, c.color)}>{c.label}</span>; })()}
+                                <button onClick={() => void mandarAMeta(p.orden)} disabled={ocupado || estados[p.orden] === 'pending' || estados[p.orden] === 'approved'}
+                                  style={{ ...btnGhost, padding: '5px 11px', fontSize: '11.5px', opacity: (ocupado || estados[p.orden] === 'pending' || estados[p.orden] === 'approved') ? 0.5 : 1 }}>
+                                  {submitting === p.orden ? 'Enviando…' : estados[p.orden] === 'rejected' ? '↻ Reenviar a Meta' : '📩 Mandar a aprobar en Meta'}
+                                </button>
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--faint)', lineHeight: 1.4 }}>
+                                La plantilla oficial reabre la conversación (sin links). El link se manda cuando el lead responde. No se envía a leads hasta que Meta la aprueba.
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -181,10 +259,10 @@ export function NutricionGenerar() {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '18px' }}>
-                  <button onClick={() => { setSel(null); setMsg(null); setVerAntes(null); }} style={btnGhost}>← Volver</button>
+                  <button onClick={() => { setSel(null); setMsg(null); setVerAntes(null); }} disabled={ocupado} style={{ ...btnGhost, opacity: ocupado ? 0.6 : 1 }}>← Volver</button>
                   <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => void generar(sel)} disabled={busy !== null} style={{ ...btnGhost, opacity: busy !== null ? 0.6 : 1 }}>{busy === sel.id ? 'Reescribiendo…' : '↻ Reescribir'}</button>
-                    <button onClick={() => void aplicar()} disabled={busy !== null} style={{ ...btnDark, opacity: busy !== null ? 0.6 : 1 }}>{busy === 'apply' ? 'Guardando…' : 'Aprobar y guardar'}</button>
+                    <button onClick={() => void generar(sel)} disabled={ocupado} style={{ ...btnGhost, opacity: ocupado ? 0.6 : 1 }}>{busy === sel.id ? 'Reescribiendo…' : '↻ Reescribir'}</button>
+                    <button onClick={() => void aplicar()} disabled={ocupado} style={{ ...btnDark, opacity: ocupado ? 0.6 : 1 }}>{busy === 'apply' ? 'Guardando…' : 'Aprobar y guardar'}</button>
                   </div>
                 </div>
               </>

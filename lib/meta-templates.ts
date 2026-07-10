@@ -90,6 +90,27 @@ export async function getDraft(id: number): Promise<TemplateDraft | null> {
   return data ? rowToDraft(data as DraftRow) : null;
 }
 
+/**
+ * Status del borrador con ese name+idioma (scopeado por workspace), o null si NO
+ * hay borrador para ese nombre (plantilla legacy creada fuera de la app). Lo usa
+ * el motor de nutrición para NO mandar (y contar como 'enviado') una plantilla que
+ * Meta todavía no aprobó. IMPORTANTE: en error de DB LANZA (no devuelve null): el
+ * llamador debe fallar CERRADO (no enviar) ante la duda — un null equivocado
+ * dejaría pasar justo el phantom-send que este guard evita.
+ */
+export async function estadoDraftPorNombre(name: string, language = 'es_MX'): Promise<TemplateStatus | null> {
+  if (!name) return null;
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase
+    .from('whatsapp_template_drafts')
+    .select('status')
+    .eq('name', name)
+    .eq('language', language)
+    .maybeSingle();
+  if (error) throw new Error(`estadoDraftPorNombre: ${error.message}`);
+  return data ? (data as { status: TemplateStatus }).status : null;
+}
+
 // Crea o actualiza un borrador. No toca el status si ya existe (eso lo manejan
 // submit / setDraftStatus) salvo que se pida explícito.
 export async function upsertDraft(d: TemplateDraft): Promise<TemplateDraft> {
