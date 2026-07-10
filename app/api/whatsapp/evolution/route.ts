@@ -15,6 +15,7 @@ import {
   conectar, estadoEnVivo, refrescarQr, desconectar, getInstanciaRow, evolutionConfigurado,
   estadoWebhook, repararWebhook,
 } from '@/lib/evolution';
+import { sincronizarDesdeEvolution } from '@/lib/evolution-mensajes';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +84,11 @@ export async function POST(req: NextRequest) {
     if (body.action === 'reparar-webhook') {
       const r = await repararWebhook();
       return Response.json({ ok: r.ok, estado: r.estado, error: r.error });
+    }
+    if (body.action === 'sincronizar') {
+      // "Sincronizar todo": trae los chats de Evolution al espejo a pedido.
+      const r = await sincronizarDesdeEvolution();
+      return Response.json({ ok: true, ...r });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {

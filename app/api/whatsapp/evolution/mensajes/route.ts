@@ -11,7 +11,7 @@
 import type { NextRequest } from 'next/server';
 import { getConversacionesNoOficial, getResumenNoOficial, getMensajesDeChat, buscarLeadsComoPlaceholders } from '@/lib/evolution-mensajes';
 import { enviarYEspejar, enviarMediaYEspejar, enviarAudioYEspejar } from '@/lib/evolution-envio';
-import { jidToNumero, fetchProfilePic } from '@/lib/evolution';
+import { jidToNumero, fetchProfilePic, fetchMediaBase64 } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +23,17 @@ export async function GET(req: NextRequest) {
   const avatar = req.nextUrl.searchParams.get('avatar');
   const resumen = req.nextUrl.searchParams.get('resumen');
   const buscar = req.nextUrl.searchParams.get('buscar');
+  const media = req.nextUrl.searchParams.get('media');
   try {
+    if (media) {
+      // Proxy de media: baja el base64 del mensaje desde Evolution y lo sirve
+      // (así imágenes/audios/PDF se ven aunque no estén bajados al bucket).
+      const r = await fetchMediaBase64(chat ?? '', media, req.nextUrl.searchParams.get('fromMe') === '1');
+      if (!r) return new Response('media no disponible', { status: 404 });
+      return new Response(Buffer.from(r.base64, 'base64'), {
+        headers: { 'Content-Type': r.mimetype || 'application/octet-stream', 'Cache-Control': 'private, max-age=3600' },
+      });
+    }
     if (avatar) {
       const url = await fetchProfilePic(avatar);
       return Response.json({ ok: true, url });

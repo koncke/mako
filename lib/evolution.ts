@@ -439,6 +439,22 @@ export async function fetchChatsEvolution(): Promise<EvChat[]> {
   return Array.isArray(arr) ? arr : [];
 }
 
+// Bytes de la media de un mensaje (findMessages NO trae base64 → se pide aparte).
+// POST /chat/getBase64FromMediaMessage. Best-effort: null si falla. Scopeado al ws.
+export async function fetchMediaBase64(chatJid: string, waMessageId: string, fromMe: boolean): Promise<{ base64: string; mimetype: string } | null> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !waMessageId || !evolutionConfigurado()) return null;
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<{ base64?: string; mimetype?: string; message?: { base64?: string } }>(
+    `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ message: { key: { id: waMessageId, remoteJid: chatJid, fromMe } }, convertToMp4: false }) },
+  );
+  if (!r.ok) return null;
+  const b64 = r.data?.base64 || r.data?.message?.base64;
+  if (!b64) return null;
+  return { base64: soloB64(b64), mimetype: r.data?.mimetype || 'application/octet-stream' };
+}
+
 // Estado (tick) de un record de Evolution → nuestro status (0-5 de Baileys / string).
 export function statusDeRecord(rec: EvRecord): string | null {
   const s = rec.MessageUpdate?.[rec.MessageUpdate.length - 1]?.status;

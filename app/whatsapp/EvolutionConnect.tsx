@@ -57,6 +57,8 @@ export function EvolutionConnect() {
   const [caido, setCaido] = useState(false); // Evolution no responde tras varios intentos
   const [wh, setWh] = useState<WhEstado | null>(null); // salud del espejo de mensajes
   const [reparando, setReparando] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -125,6 +127,16 @@ export function EvolutionConnect() {
       if (!body.ok && body.error) setErr(body.error);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setReparando(false); }
+  }
+
+  async function sincronizar() {
+    setSincronizando(true); setSyncMsg(null); setErr(null);
+    try {
+      const { body } = await apiPost<{ ok: boolean; chats?: number; mensajes?: number; error?: string }>('/api/whatsapp/evolution', { action: 'sincronizar' });
+      if (!body.ok) throw new Error(body.error || 'No se pudo sincronizar');
+      setSyncMsg(`Listo: ${body.chats ?? 0} chats · ${body.mensajes ?? 0} mensajes traídos.`);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setSincronizando(false); }
   }
 
   function cerrar() {
@@ -199,7 +211,16 @@ export function EvolutionConnect() {
                   </div>
                 )}
 
-                <button onClick={() => void desconectar()} disabled={busy} style={{ marginTop: '18px', padding: '9px 16px', borderRadius: '10px', border: '1px solid var(--bad)', background: 'var(--surface)', color: 'var(--bad)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>{busy ? '…' : 'Desconectar'}</button>
+                {/* Sincronizar todo: trae los chats/mensajes de Evolution al espejo
+                    A PEDIDO (el inbox no vuelca la agenda entera solo). */}
+                <div style={{ marginTop: '16px', padding: '11px 13px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', textAlign: 'left' }}>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink)' }}>Sincronizar conversaciones</div>
+                  <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Trae al inbox los chats que ya tenés en este número. El inbox no baja toda la agenda solo — solo lo que sincronizás o lo que entra/sale desde acá.</div>
+                  <button onClick={() => void sincronizar()} disabled={sincronizando} style={{ marginTop: '10px', padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : '🔄 Sincronizar todo'}</button>
+                  {syncMsg && <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--good)', fontWeight: 600 }}>{syncMsg}</div>}
+                </div>
+
+                <button onClick={() => void desconectar()} disabled={busy} style={{ marginTop: '16px', padding: '9px 16px', borderRadius: '10px', border: '1px solid var(--bad)', background: 'var(--surface)', color: 'var(--bad)', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>{busy ? '…' : 'Desconectar'}</button>
               </div>
             ) : caido ? (
               <div>
