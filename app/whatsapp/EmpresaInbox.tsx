@@ -12,6 +12,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
+import { SendArrow, IconSmiley, IconClip, IconMic, IconTrash, iconComposerBtn } from './_shared/composer-icons';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -30,6 +31,19 @@ type Borr = { id: number; leadId: number | null; telefono: string; texto: string
 async function jget<T>(url: string): Promise<T> { const r = await fetch(url, { cache: 'no-store' }); return r.json() as Promise<T>; }
 async function jpost<T>(url: string, body: unknown): Promise<T> { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json() as Promise<T>; }
 
+// Cache a NIVEL MÓDULO: sobrevive el desmontaje del componente (toggle de canal o
+// navegación entre tabs) → al volver, la lista y el hilo aparecen al instante y se
+// refrescan en 2º plano, sin recargar todo con spinner. (El oficial logra esto con
+// un provider en el layout; acá alcanza con módulo-scope porque el JS no se recarga.)
+let convsCache: Conv[] = [];
+const msgsCache = new Map<string, Msg[]>();
+function cacheMsgs(chat: string, m: Msg[]) {
+  if (msgsCache.has(chat)) msgsCache.delete(chat);
+  msgsCache.set(chat, m);
+  while (msgsCache.size > 40) { const k = msgsCache.keys().next().value; if (k === undefined) break; msgsCache.delete(k); }
+}
+const DRAFTS_KEY = 'mako-wa-empresa-drafts';
+
 function fmtHora(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso); if (Number.isNaN(d.getTime())) return '';
@@ -42,20 +56,21 @@ function fmtDia(iso: string | null): string {
 }
 function preview(c: Conv): string {
   if (c.ultimoTexto) return c.ultimoTexto;
-  switch (c.ultimoTipo) { case 'image': return '📷 Foto'; case 'audio': return '🎙 Audio'; case 'video': return '🎬 Video'; case 'document': return '📄 Documento'; case 'sticker': return '🎨 Sticker'; default: return '—'; }
+  switch (c.ultimoTipo) { case 'image': return 'Foto'; case 'audio': return 'Nota de voz'; case 'video': return 'Video'; case 'document': return 'Documento'; case 'sticker': return 'Sticker'; default: return '—'; }
 }
 
-const iconBtn: CSSProperties = { flex: 'none', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
-
 export function EmpresaInbox() {
-  const [convs, setConvs] = useState<Conv[]>([]);
+  const [convs, setConvs] = useState<Conv[]>(convsCache);
   const [sel, setSel] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [loadingConvs, setLoadingConvs] = useState(true);
+  const [loadingConvs, setLoadingConvs] = useState(convsCache.length === 0);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [errMsgs, setErrMsgs] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { const raw = localStorage.getItem(DRAFTS_KEY); return raw ? (JSON.parse(raw) as Record<string, string>) : {}; } catch { return {}; }
+  });
   const [sending, setSending] = useState(false);
   const [borradores, setBorradores] = useState<Borr[]>([]);
   const [showBorr, setShowBorr] = useState(false);
@@ -73,14 +88,33 @@ export function EmpresaInbox() {
   const selRef = useRef<string | null>(null);   // chat objetivo (anti-race del poll)
   const stickRef = useRef(true);                 // ¿el user está pegado al fondo?
 
+  // Borrador POR CHAT, persistido en localStorage (como el oficial): cambiar de chat
+  // o de tab NO pierde lo escrito, y recargar la página tampoco. `draft` es derivado.
+  useEffect(() => { try { localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts)); } catch { /* quota/priv */ } }, [drafts]);
+  const draft = sel ? (drafts[sel] ?? '') : '';
+  const setDraft = useCallback((v: string | ((prev: string) => string)) => {
+    if (!sel) return;
+    setDrafts((d) => {
+      const prev = d[sel] ?? '';
+      const next = typeof v === 'function' ? v(prev) : v;
+      if (!next) { const { [sel]: _omit, ...rest } = d; return rest; }
+      return { ...d, [sel]: next };
+    });
+  }, [sel]);
+
   const loadConvs = useCallback(async () => {
     try {
       const j = await jget<{ ok: boolean; error?: string; conversaciones: Conv[] }>('/api/whatsapp/evolution/mensajes');
       if (!j.ok) throw new Error(j.error || 'No se pudieron cargar las conversaciones');
+      convsCache = j.conversaciones;
       setConvs(j.conversaciones); setErr(null);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setLoadingConvs(false); }
   }, []);
+
+  // Auto-abrir la conversación más reciente al entrar (#1) — sin pisar una elección
+  // manual (solo si no hay nada seleccionado).
+  useEffect(() => { if (sel == null && convs.length) setSel(convs[0].chatJid); }, [convs, sel]);
 
   useEffect(() => { void loadConvs(); const t = setInterval(() => void loadConvs(), 15000); return () => clearInterval(t); }, [loadConvs]);
 
@@ -188,7 +222,9 @@ export function EmpresaInbox() {
       // estrenan URL.
       setMsgs((prev) => {
         const urlPorId = new Map(prev.filter((m) => m.mediaUrl).map((m) => [m.id, m.mediaUrl] as const));
-        return j.mensajes.map((m) => (m.mediaUrl && urlPorId.has(m.id) ? { ...m, mediaUrl: urlPorId.get(m.id)! } : m));
+        const merged = j.mensajes.map((m) => (m.mediaUrl && urlPorId.has(m.id) ? { ...m, mediaUrl: urlPorId.get(m.id)! } : m));
+        cacheMsgs(chat, merged); // instant re-open la próxima vez (#4)
+        return merged;
       });
     } catch { if (selRef.current === chat) setErrMsgs('Error de red al cargar los mensajes'); }
     finally { if (selRef.current === chat) setLoadingMsgs(false); }
@@ -198,7 +234,8 @@ export function EmpresaInbox() {
     selRef.current = sel;
     if (!sel) { setMsgs([]); return; }
     stickRef.current = true;       // al abrir un chat, arrancamos pegados al fondo
-    setMsgs([]); setErrMsgs(null);
+    setMsgs(msgsCache.get(sel) ?? []); // pinta el cache al instante (sin spinner) y refresca
+    setErrMsgs(null);
     void loadMsgs(sel);
     const t = setInterval(() => void loadMsgs(sel), 8000);
     return () => clearInterval(t);
@@ -211,6 +248,13 @@ export function EmpresaInbox() {
 
   const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' };
   const selConv = convs.find((c) => c.chatJid === sel) ?? null;
+  // Orden: los chats con borrador sin enviar arriba (como WhatsApp), luego por recencia.
+  const convsOrdenados = [...convs].sort((a, b) => {
+    const da = (drafts[a.chatJid] ?? '').trim() ? 1 : 0;
+    const db = (drafts[b.chatJid] ?? '').trim() ? 1 : 0;
+    if (da !== db) return db - da;
+    return (b.ultimaFecha ?? '').localeCompare(a.ultimaFecha ?? '');
+  });
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '340px 1fr 344px', gap: '16px' }}>
@@ -228,8 +272,9 @@ export function EmpresaInbox() {
             <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13px', lineHeight: 1.5 }}>Todavía no hay mensajes en el número no oficial. Conectá el número (chip API no Oficial, arriba) y las conversaciones van a aparecer acá a medida que entren.</div>
           )}
           {err && <div style={{ margin: '10px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '12.5px' }}>{err}</div>}
-          {convs.map((c) => {
+          {convsOrdenados.map((c) => {
             const active = c.chatJid === sel;
+            const borr = (drafts[c.chatJid] ?? '').trim();
             return (
               <div key={c.chatJid} role="button" tabIndex={0} onClick={() => setSel(c.chatJid)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(c.chatJid); } }}
@@ -240,7 +285,9 @@ export function EmpresaInbox() {
                     <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre}</span>
                     <span style={{ fontSize: '11px', color: 'var(--faint)', flex: 'none' }}>{fmtDia(c.ultimaFecha)}</span>
                   </div>
-                  <div style={{ fontSize: '12.5px', color: c.ultimoEntrante ? 'var(--ink)' : 'var(--faint)', fontWeight: c.ultimoEntrante ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.ultimoEntrante ? '' : '↩ '}{preview(c)}</div>
+                  <div style={{ fontSize: '12.5px', color: borr || c.ultimoEntrante ? 'var(--ink)' : 'var(--faint)', fontWeight: c.ultimoEntrante ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {borr ? <><span style={{ color: 'var(--bad)', fontWeight: 600 }}>Borrador:</span> {borr}</> : <>{c.ultimoEntrante ? '' : '↩ '}{preview(c)}</>}
+                  </div>
                 </div>
                 {c.leadId && <span title="Lead del CRM" style={{ width: '7px', height: '7px', flex: 'none', borderRadius: '50%', background: 'var(--accent)' }} />}
               </div>
@@ -293,26 +340,26 @@ export function EmpresaInbox() {
               )}
               {recording ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button onClick={cancelarGrabacion} title="Cancelar" style={{ ...iconBtn, color: 'var(--bad)' }}>✕</button>
+                  <button onClick={cancelarGrabacion} title="Cancelar" style={{ ...iconComposerBtn, color: 'var(--bad)' }}><IconTrash /></button>
                   <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--bad)', fontSize: '14px', fontWeight: 600 }}>
                     <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--bad)' }} />
                     Grabando… {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}
                   </div>
-                  <button onClick={() => void enviarGrabacion()} disabled={sending} title="Enviar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', fontSize: '17px', opacity: sending ? 0.6 : 1 }}>➤</button>
+                  <button onClick={() => void enviarGrabacion()} disabled={sending} title="Enviar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.6 : 1 }}><SendArrow /></button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
-                  <button onClick={() => setShowEmoji((v) => !v)} title="Emoji" style={iconBtn}>😀</button>
-                  <button onClick={() => fileInput.current?.click()} disabled={sending} title="Adjuntar archivo" style={iconBtn}>📎</button>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px' }}>
+                  <button onClick={() => setShowEmoji((v) => !v)} title="Emoji" style={{ ...iconComposerBtn, color: showEmoji ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>
+                  <button onClick={() => fileInput.current?.click()} disabled={sending} title="Adjuntar archivo" style={iconComposerBtn}><IconClip /></button>
                   <input ref={fileInput} type="file" onChange={onPickFile} style={{ display: 'none' }} accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" />
                   <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarManual(); } }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void enviarManual(); } }}
                     placeholder="Escribí un mensaje… (sale por el número no oficial, con anti-baneo)" rows={1}
                     style={{ flex: 1, minHeight: '40px', maxHeight: '120px', resize: 'none', padding: '10px 14px', borderRadius: '21px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.35, outline: 'none' }} />
                   {draft.trim() ? (
-                    <button onClick={() => void enviarManual()} disabled={sending} title="Enviar" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.5 : 1, fontSize: '17px' }}>➤</button>
+                    <button onClick={() => void enviarManual()} disabled={sending} title="Enviar" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
                   ) : (
-                    <button onClick={() => void iniciarGrabacion()} disabled={sending} title="Grabar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', fontSize: '17px', opacity: sending ? 0.6 : 1 }}>🎤</button>
+                    <button onClick={() => void iniciarGrabacion()} disabled={sending} title="Grabar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.6 : 1 }}><IconMic /></button>
                   )}
                 </div>
               )}
