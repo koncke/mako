@@ -915,7 +915,7 @@ function WhatsAppInner() {
             <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="whatsapp" size={34} /></span>
             <h1 style={{ fontWeight: 600, fontSize: '40px', letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>WhatsApp</h1>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '5px 11px', borderRadius: '999px', background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: '12.5px', fontWeight: 600 }} title="Número oficial (Cloud API de Meta) — recibe el tráfico frío de los anuncios">
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>Bot oficial
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--good)' }}></span>API Oficial
             </span>
             <EvolutionConnect />
           </div>
@@ -929,8 +929,8 @@ function WhatsAppInner() {
       {/* Toggle de canal del inbox (oficial Chatwoot / empresa no-oficial) */}
       {isChats && (
         <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px', marginBottom: '14px' }}>
-          <button onClick={() => setCanal('oficial')} style={canal === 'oficial' ? tabActive : tabIdle}>🤖 Bot oficial</button>
-          <button onClick={() => setCanal('empresa')} style={canal === 'empresa' ? tabActive : tabIdle}>👤 Empresa</button>
+          <button onClick={() => setCanal('oficial')} style={canal === 'oficial' ? tabActive : tabIdle}>🤖 API Oficial</button>
+          <button onClick={() => setCanal('empresa')} style={canal === 'empresa' ? tabActive : tabIdle}>👤 API no Oficial</button>
         </div>
       )}
 

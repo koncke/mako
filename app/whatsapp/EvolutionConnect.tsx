@@ -124,9 +124,9 @@ export function EvolutionConnect() {
   return (
     <>
       <button onClick={() => { setOpen(true); if (!conectado) void abrir(); }} style={chipStyle}
-        title={conectado ? `WhatsApp de empresa conectado${numero ? ` (${numero})` : ''}` : 'Conectar el WhatsApp de empresa (no oficial)'}>
+        title={conectado ? `WhatsApp no oficial conectado${numero ? ` (${numero})` : ''}` : 'Conectar el WhatsApp no oficial (API no Oficial)'}>
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: conectado ? 'var(--good)' : 'var(--faint)' }} />
-        {conectado ? `Empresa conectada${numero ? ` · ${numero}` : ''}` : 'Empresa: conectar'}
+        {conectado ? `API no Oficial conectada${numero ? ` · ${numero}` : ''}` : 'API no Oficial: conectar'}
       </button>
 
       {open && (

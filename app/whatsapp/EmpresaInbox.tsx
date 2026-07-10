@@ -133,7 +133,7 @@ export function EmpresaInbox() {
       {/* LISTA */}
       <div style={card}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Empresa · no oficial</span>
+          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>API no Oficial</span>
           {borradores.length > 0 && (
             <button onClick={() => setShowBorr(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }} title="Mensajes que MaKo dejó listos para que los mandes con 1 clic">📝 {borradores.length} borrador{borradores.length > 1 ? 'es' : ''}</button>
           )}
@@ -141,7 +141,7 @@ export function EmpresaInbox() {
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
           {loadingConvs && convs.length === 0 && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
           {!loadingConvs && convs.length === 0 && !err && (
-            <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13px', lineHeight: 1.5 }}>Todavía no hay mensajes en el número de empresa. Conectá el número (chip Empresa, arriba) y las conversaciones van a aparecer acá a medida que entren.</div>
+            <div style={{ padding: '18px', color: 'var(--faint)', fontSize: '13px', lineHeight: 1.5 }}>Todavía no hay mensajes en el número no oficial. Conectá el número (chip API no Oficial, arriba) y las conversaciones van a aparecer acá a medida que entren.</div>
           )}
           {err && <div style={{ margin: '10px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '12.5px' }}>{err}</div>}
           {convs.map((c) => {
