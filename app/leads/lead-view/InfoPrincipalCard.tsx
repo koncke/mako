@@ -108,6 +108,21 @@ function Row({ label, value, copyKey, copied, onCopy, extra }: {
   );
 }
 
+// Foto de perfil de WhatsApp del lead (proxy no oficial por teléfono) con
+// fallback a iniciales. Same-origin (no problema de Referer/CSP).
+function LeadFoto({ telefono, nombre }: { telefono: string | null; nombre: string }) {
+  const digits = (telefono || '').replace(/\D/g, '');
+  const [failed, setFailed] = useState(false);
+  const box: CSSProperties = { width: 46, height: 46, flex: 'none', borderRadius: '50%', background: 'var(--surface-2)', color: 'var(--ink)', border: '1px solid var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, overflow: 'hidden' };
+  const partes = (nombre || '?').trim().split(/\s+/).filter(Boolean);
+  const ini = (partes.length >= 2 ? `${partes[0][0]}${partes[1][0]}` : (nombre || '?').slice(0, 1)).toUpperCase();
+  if (digits && !failed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={`/api/whatsapp/evolution/mensajes?avatarimg=${digits}`} alt="" onError={() => setFailed(true)} style={{ ...box, objectFit: 'cover' }} />;
+  }
+  return <div style={box}>{ini}</div>;
+}
+
 export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, direccion, cohorte }: {
   leadId: number; nombre: string; empresa: string | null; email: string | null; telefono: string | null;
   direccion?: string | null;
@@ -121,7 +136,10 @@ export function InfoPrincipalCard({ leadId, nombre, empresa, email, telefono, di
   const iconLink: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--primary)', flex: 'none', textDecoration: 'none' };
   return (
     <section style={card}>
-      <div style={{ ...sectLabel, marginBottom: 14 }}>Información principal</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <LeadFoto telefono={telefono} nombre={nombre} />
+        <div style={sectLabel}>Información principal</div>
+      </div>
       {/* 2×2 fijo (nombre|empresa / teléfono|email) — nunca 3 arriba y 1 abajo. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '16px 24px' }}>
         <Row label="Nombre" value={nombre} copyKey="nombre" copied={copied} onCopy={copy} />
