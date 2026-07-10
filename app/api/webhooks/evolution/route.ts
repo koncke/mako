@@ -11,7 +11,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { runWithWorkspace } from '@/lib/workspace';
+import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 
@@ -38,6 +38,18 @@ function mapEstado(state: string | undefined): string {
     case 'close': case 'closed': return 'desconectado';
     default: return 'conectando';
   }
+}
+
+// Estado de entrega de un mensaje (Baileys/Evolution) → nuestros ticks.
+// Baileys: 0=ERROR 1=PENDING 2=SERVER_ACK 3=DELIVERY_ACK 4=READ 5=PLAYED; Evolution
+// puede mandarlo como número o como el enum en texto.
+function mapMsgStatus(s: unknown): string | null {
+  const v = String(s ?? '').toUpperCase();
+  if (v === 'READ' || v === 'PLAYED' || v === '4' || v === '5') return 'read';
+  if (v === 'DELIVERY_ACK' || v === 'DELIVERED' || v === '3') return 'delivered';
+  if (v === 'SERVER_ACK' || v === 'SENT' || v === '2') return 'sent';
+  if (v === 'ERROR' || v === 'FAILED' || v === '0') return 'failed';
+  return null; // PENDING/1 u otros → no tocamos
 }
 
 export async function POST(req: NextRequest) {
@@ -103,6 +115,26 @@ export async function POST(req: NextRequest) {
         await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
       });
       return Response.json({ ok: true, guardados: mensajes.length });
+    }
+
+    if (evento === 'messages.update') {
+      // Estado de entrega de nuestros salientes (ticks). data puede ser un update
+      // o un array de updates según versión — normalizamos.
+      const ws = await wsDeInstancia(instance);
+      if (ws == null) return Response.json({ ok: true, ignored: 'instancia sin workspace' });
+      const d = body.data as Record<string, unknown> | Record<string, unknown>[] | undefined;
+      const updates = Array.isArray(d) ? d : (d ? [d] : []);
+      let n = 0;
+      for (const u of updates) {
+        const msgId = (u.keyId as string) || ((u.key as { id?: string } | undefined)?.id) || (u.messageId as string) || null;
+        const st = mapMsgStatus((u.status as unknown) ?? (u.update as { status?: unknown } | undefined)?.status);
+        if (!msgId || !st) continue;
+        await runWithWorkspace(ws, async () => {
+          await (await getTenantDb()).from('wa_mensajes').update({ status: st }).eq('wa_message_id', msgId).eq('from_me', true);
+        });
+        n += 1;
+      }
+      return Response.json({ ok: true, actualizados: n });
     }
 
     return Response.json({ ok: true, ignored: evento || 'sin evento' });

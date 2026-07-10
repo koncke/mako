@@ -15,6 +15,7 @@ import { EmojiPicker } from './EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, iconComposerBtn } from './_shared/composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './_shared/VoiceRecorder';
 import { Avatar } from './_shared/Avatar';
+import { Ticks } from './_shared/Ticks';
 import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
 
@@ -27,9 +28,9 @@ type Conv = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
   empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
-  ultimoEntrante: boolean; total: number;
+  ultimoEntrante: boolean; total: number; bloqueado: boolean;
 };
-type Msg = { id: number; fromMe: boolean; tipo: string | null; texto: string | null; mediaUrl: string | null; mediaMime: string | null; fecha: string | null };
+type Msg = { id: number; fromMe: boolean; tipo: string | null; texto: string | null; mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null };
 type Borr = { id: number; leadId: number | null; telefono: string; texto: string; origen: string; leadNombre: string | null; createdAt: string };
 
 async function jget<T>(url: string): Promise<T> { const r = await fetch(url, { cache: 'no-store' }); return r.json() as Promise<T>; }
@@ -81,6 +82,7 @@ export function EmpresaInbox() {
   const [borrBusy, setBorrBusy] = useState<number | null>(null);
   const [borrErr, setBorrErr] = useState<string | null>(null);
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null); // abre la ficha del CRM
+  const [blocking, setBlocking] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState('todas');
@@ -145,6 +147,22 @@ export function EmpresaInbox() {
       if (j.ok) { setDraft(''); stickRef.current = true; await loadMsgs(sc.chatJid); }
       else setErrMsgs(j.error || 'No se pudo enviar');
     } finally { setSending(false); }
+  }
+
+  async function toggleBloqueo() {
+    const sc = convs.find((c) => c.chatJid === sel);
+    if (!sc?.telefono) return;
+    const bloq = sc.bloqueado;
+    if (!bloq && !window.confirm(`¿Bloquear a ${sc.nombre}? No le vas a poder escribir por el no oficial y el motor tampoco le manda.`)) return;
+    setBlocking(true);
+    try {
+      const j = await jpost<{ ok: boolean; error?: string; bloqueado: boolean }>('/api/whatsapp/evolution/block', { telefono: sc.telefono, action: bloq ? 'unblock' : 'block', leadId: sc.leadId });
+      if (j.ok) {
+        const upd = (arr: Conv[]) => arr.map((c) => (c.chatJid === sc.chatJid ? { ...c, bloqueado: j.bloqueado } : c));
+        setConvs((prev) => upd(prev));
+        convsCache = upd(convsCache);
+      } else setErrMsgs(j.error || 'No se pudo cambiar el bloqueo.');
+    } finally { setBlocking(false); }
   }
 
   // Envío de media (archivo o nota de voz) por multipart. tipo='audio' para voz;
@@ -329,7 +347,7 @@ export function EmpresaInbox() {
                     {m.mediaUrl && m.tipo === 'document' && <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ fontSize: '13px', color: 'var(--accent)' }}>📄 {m.texto || 'Documento'}</a>}
                     {!m.mediaUrl && (m.tipo === 'image' || m.tipo === 'audio' || m.tipo === 'video' || m.tipo === 'document') && <span style={{ fontSize: '13px', color: 'var(--faint)', fontStyle: 'italic' }}>📎 {m.texto || m.tipo} (no disponible)</span>}
                     {m.texto && m.tipo !== 'document' && <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto}</div>}
-                    <div style={{ fontSize: '10.5px', color: 'var(--faint)', marginTop: '3px', textAlign: 'right' }}>{fmtHora(m.fecha)}</div>
+                    <div style={{ fontSize: '10.5px', color: 'var(--faint)', marginTop: '3px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>{fmtHora(m.fecha)}{m.fromMe && <Ticks status={m.status} />}</div>
                   </div>
                 </div>
               ))}
@@ -380,6 +398,10 @@ export function EmpresaInbox() {
               <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : (
               <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
+            )}
+            {selConv.bloqueado && <div style={{ marginTop: '12px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}>Contacto bloqueado</div>}
+            {selConv.telefono && (
+              <button onClick={() => void toggleBloqueo()} disabled={blocking} style={{ marginTop: '12px', width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (selConv.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: selConv.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : selConv.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
             )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
             <WhatsAppAdvisor

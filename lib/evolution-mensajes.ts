@@ -15,6 +15,7 @@ import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
+import { telefonosBloqueados } from '@/lib/evolution-block';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
@@ -103,9 +104,9 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
 
   const supabase = await getTenantDb();
   const { data: existente } = await supabase
-    .from('wa_mensajes').select('id, media_path, texto, lead_id')
+    .from('wa_mensajes').select('id, media_path, texto, lead_id, status')
     .eq('wa_message_id', key.id).maybeSingle();
-  const prev = existente as { id: number; media_path: string | null; texto: string | null; lead_id: number | null } | null;
+  const prev = existente as { id: number; media_path: string | null; texto: string | null; lead_id: number | null; status: string | null } | null;
 
   // Match de lead solo si hace falta (no lo teníamos aún).
   const leadId = prev?.lead_id ?? (telefono ? await matchLeadPorTelefono(telefono) : null);
@@ -123,6 +124,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     if (!prev.media_path && mediaPath) { patch.media_path = mediaPath; patch.media_mime = mediaMime; }
     if (!prev.texto && texto) patch.texto = texto;
     if (!prev.lead_id && leadId) patch.lead_id = leadId;
+    if (fromMe && !prev.status) patch.status = 'sent'; // saliente sin estado → al menos 'enviado' (ticks)
     if (Object.keys(patch).length) await supabase.from('wa_mensajes').update(patch).eq('id', prev.id);
     return; // ya existía → no re-pausar nutrición
   }
@@ -137,6 +139,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     texto,
     media_path: mediaPath,
     media_mime: mediaPath ? mediaMime : null,
+    status: fromMe ? 'sent' : null, // ticks: salientes arrancan en 'enviado'
     push_name: data.pushName ?? null,
     lead_id: leadId,
     wa_timestamp: tsToISO(data.messageTimestamp),
@@ -155,7 +158,7 @@ export type WaConversacion = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
   empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
-  ultimoEntrante: boolean; total: number;
+  ultimoEntrante: boolean; total: number; bloqueado: boolean;
 };
 
 // Conversaciones del canal no oficial: agrupa wa_mensajes por chat (en JS, como
@@ -178,7 +181,7 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
         chatJid: r.chat_jid, telefono: r.telefono, nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
         leadId: r.lead_id, empresa: null, etapaKey: null, etapaLabel: null,
         ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
-        ultimoEntrante: !r.from_me, total: 1,
+        ultimoEntrante: !r.from_me, total: 1, bloqueado: false,
       });
     } else {
       prev.total += 1;
@@ -228,15 +231,19 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     convs.push({
       chatJid: jid, telefono: tel, nombre: l.nombre || tel, leadId: l.id,
       empresa: l.empresa ?? null, etapaKey: 'manual', etapaLabel: 'Nutrición - Manual',
-      ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0,
+      ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0, bloqueado: false,
     });
   }
+
+  // Marcar contactos bloqueados (una sola query).
+  const bloq = await telefonosBloqueados();
+  if (bloq.size) for (const c of convs) if (c.telefono && bloq.has(c.telefono.replace(/\D/g, ''))) c.bloqueado = true;
   return convs;
 }
 
 export type WaMensaje = {
   id: number; fromMe: boolean; tipo: string | null; texto: string | null;
-  mediaUrl: string | null; mediaMime: string | null; fecha: string | null;
+  mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null;
 };
 
 // Mensajes de un chat (asc) con URLs firmadas para la multimedia.
@@ -244,12 +251,12 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
   const supabase = await getTenantDb();
   const { data } = await supabase
     .from('wa_mensajes')
-    .select('id, from_me, tipo, texto, media_path, media_mime, wa_timestamp')
+    .select('id, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status')
     .eq('chat_jid', chatJid)
     .neq('tipo', 'evento')   // no ensuciamos el hilo con reacciones/protocolo
     .order('wa_timestamp', { ascending: true })
     .limit(limite);
-  const rows = (data ?? []) as Array<{ id: number; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null }>;
+  const rows = (data ?? []) as Array<{ id: number; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
 
   // Firmar las media en un solo batch de llamadas.
   const out: WaMensaje[] = [];
@@ -259,7 +266,7 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
       const { data: signed } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(r.media_path, 3600);
       mediaUrl = signed?.signedUrl ?? null;
     }
-    out.push({ id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto, mediaUrl, mediaMime: r.media_mime, fecha: r.wa_timestamp });
+    out.push({ id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto, mediaUrl, mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status });
   }
   return out;
 }

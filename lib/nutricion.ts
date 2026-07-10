@@ -19,6 +19,7 @@ import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox, ge
 import { envioEmailHabilitado, envioWhatsappHabilitado } from '@/lib/envio-flags';
 import { getInstanciaRow } from '@/lib/evolution';
 import { esLeadCliente, enviarYEspejar, crearBorrador, tieneBorradorNutriPendiente } from '@/lib/evolution-envio';
+import { estaBloqueado } from '@/lib/evolution-block';
 import { estadoDraftPorNombre } from '@/lib/meta-templates';
 
 export type CanalNutricion = 'email' | 'whatsapp';
@@ -638,6 +639,8 @@ export async function procesarEnvios(opts?: { ignorarVentana?: boolean; simularA
           estado = 'fallo'; nota = 'lead sin teléfono'; backoffHoras = 24;
         } else if (!evoConectado) {
           estado = 'fallo'; nota = 'WhatsApp de empresa no conectado'; backoffHoras = 24;
+        } else if (await estaBloqueado(lead.telefono)) {
+          estado = 'omitido'; nota = 'contacto bloqueado'; // no le mandamos por el no oficial
         } else if (await esLeadCliente(lead.id)) {
           const r = await enviarYEspejar({ telefono: lead.telefono, texto: cuerpoNO, leadId: lead.id });
           estado = r.ok ? 'enviado' : 'fallo';

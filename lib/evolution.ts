@@ -72,8 +72,8 @@ function webhookUrl(): string {
   return `${APP_BASE_URL}/api/webhooks/evolution${qs}`;
 }
 
-// Eventos que nos importan (F2.1: conexión + QR; F2.2 sumará mensajes).
-const EVENTOS_WEBHOOK = ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT'];
+// Eventos que nos importan (conexión + QR + mensajes + estado de entrega/ticks).
+const EVENTOS_WEBHOOK = ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE'];
 
 // Configura (best-effort en la conexión) el webhook de la instancia hacia nuestra
 // app. Sin secret configurado NO registramos el webhook (registraría un endpoint
