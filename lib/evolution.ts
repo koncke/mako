@@ -422,6 +422,24 @@ export async function fetchMensajesEvolution(chatJid: string, limite = 300): Pro
   return Array.isArray(records) ? records.slice().reverse() : []; // desc → asc
 }
 
+// Resuelve el @lid asociado a un número (WhatsApp direcciona a los contactos no
+// agendados por ese alias). POST /chat/whatsappNumbers → [{ jid, exists, lid }].
+// Sólo funciona si Evolution ya "aprendió" el mapeo. null si no hay. Best-effort.
+export async function fetchLidDeNumero(telefono: string): Promise<string | null> {
+  const num = (telefono || '').replace(/\D/g, '');
+  const ws = await getWorkspaceActual();
+  if (ws == null || !num || !evolutionConfigurado()) return null;
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<Array<{ jid?: string; lid?: string | null; exists?: boolean }>>(
+    `/chat/whatsappNumbers/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ numbers: [num] }) },
+  );
+  if (!r.ok || !Array.isArray(r.data)) return null;
+  const lid = r.data[0]?.lid;
+  if (!lid) return null;
+  return lid.includes('@lid') ? lid : `${lid.replace(/\D/g, '')}@lid`;
+}
+
 export type EvChat = { remoteJid?: string; pushName?: string; profilePicUrl?: string | null; unreadCount?: number; updatedAt?: string; lastMessage?: EvRecord };
 
 // Lista de chats del store de Evolution (los que tienen al menos un mensaje).

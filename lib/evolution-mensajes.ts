@@ -10,7 +10,7 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { OWNER_WS } from '@/lib/auth-session';
-import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution, fetchChatsEvolution, statusDeRecord, type EvRecord } from '@/lib/evolution';
+import { jidToNumero, instanceNameDeWs, fetchMensajesEvolution, fetchChatsEvolution, fetchLidDeNumero, statusDeRecord, type EvRecord } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
@@ -19,13 +19,31 @@ import { telefonosBloqueados, telefonosOcultos } from '@/lib/evolution-block';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
-  key?: { remoteJid?: string; fromMe?: boolean; id?: string };
+  key?: { remoteJid?: string; fromMe?: boolean; id?: string; remoteJidAlt?: string; senderPn?: string; addressingMode?: string };
   pushName?: string;
   message?: Record<string, unknown> & { base64?: string };
   messageType?: string;
   messageTimestamp?: number | string;
   base64?: string;
 };
+
+// JID canónico del chat: WhatsApp direcciona a los contactos NO agendados (Android)
+// por un alias "@lid" (ej. 70781665022126@lid) en vez del número. El número real
+// viene en key.remoteJidAlt / key.senderPn. Canonicalizamos al número para que el
+// entrante caiga en la MISMA conversación que el saliente (si no, se parte en dos).
+function jidCanonico(key: UpsertData['key']): string | null {
+  const jid = key?.remoteJid;
+  if (!jid) return null;
+  if (jid.endsWith('@lid')) {
+    const alt = key?.remoteJidAlt || key?.senderPn;
+    if (alt) {
+      if (alt.includes('@')) return alt;
+      const d = alt.replace(/\D/g, '');
+      if (d) return `${d}@s.whatsapp.net`;
+    }
+  }
+  return jid;
+}
 
 type Contenido = { tipo: string; texto: string | null; mediaMime: string | null; mediaBase64: string | null; ext: string };
 
@@ -94,7 +112,9 @@ async function matchLeadPorTelefono(telNorm: string): Promise<number | null> {
 export async function guardarMensajeUpsert(instance: string, data: UpsertData): Promise<void> {
   const key = data.key;
   if (!key?.remoteJid || !key?.id) return;
-  const chatJid = key.remoteJid;
+  // Canonicalizar @lid → número real (si Baileys mandó el alt) para que el
+  // entrante caiga en la conversación del número, no en un hilo @lid aparte.
+  const chatJid = jidCanonico(key) ?? key.remoteJid;
   // Ignoramos grupos y estados (además de groupsIgnore en Evolution).
   if (chatJid.endsWith('@g.us') || chatJid.startsWith('status@')) return;
 
@@ -393,10 +413,20 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
   else if (last10.length >= 8) sel = sel.like('telefono', `%${last10}%`);
   else sel = sel.eq('chat_jid', chatJid);
 
-  // En paralelo: espejo (DB, con media firmada) + LIVE de Evolution (para que el
-  // hilo aparezca aunque el webhook no haya poblado el espejo). El espejo es la
-  // fuente autoritativa (tiene la media y los ticks); lo live rellena huecos.
-  const [{ data }, liveRecords] = await Promise.all([sel, fetchMensajesEvolution(chatJid, limite).catch(() => [] as EvRecord[])]);
+  // En paralelo: espejo (DB, con media firmada) + LIVE de Evolution por el jid del
+  // número + LIVE por el @lid del número (los entrantes de contactos NO agendados
+  // caen bajo ese alias → así aparecen en el mismo hilo). El espejo es autoritativo
+  // (media + ticks); lo live rellena huecos. Dedup por wa_message_id.
+  const traerLid = (async (): Promise<EvRecord[]> => {
+    const lid = await fetchLidDeNumero(last10 || jidToNumero(chatJid) || '').catch(() => null);
+    return lid && lid !== chatJid ? fetchMensajesEvolution(lid, limite).catch(() => [] as EvRecord[]) : [];
+  })();
+  const [{ data }, liveNum, liveLid] = await Promise.all([
+    sel,
+    fetchMensajesEvolution(chatJid, limite).catch(() => [] as EvRecord[]),
+    traerLid,
+  ]);
+  const liveRecords = [...liveNum, ...liveLid];
   const rows = (data ?? []) as Array<{ id: number; wa_message_id: string | null; chat_jid: string; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
 
   // Firmar TODA la media del espejo en UN solo batch (createSignedUrls), con
