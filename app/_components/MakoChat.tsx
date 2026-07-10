@@ -58,8 +58,12 @@ function Markdown({ text }: { text: string }) {
 
 export function MakoChat({
   chartKey, titulo, contexto = '', sugerencias = [], chart, initialSessionId, sidebar = false,
+  endpoint = '/api/chart-insights',
 }: {
   chartKey: string; titulo: string; contexto?: string; sugerencias?: string[]; chart?: ReactNode; initialSessionId?: number; sidebar?: boolean;
+  // Ruta del backend de chat. Default = insights por gráfico; el "doer" pasa
+  // '/api/mako-doer' (mismo contrato, pero MaKo corre con herramientas).
+  endpoint?: string;
 }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionId, setSessionId] = useState<number | null>(initialSessionId ?? null);
@@ -76,7 +80,7 @@ export function MakoChat({
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
 
   const refrescarSesiones = async () => {
-    const j = await fetch(`/api/chart-insights?chartKey=${encodeURIComponent(chartKey)}`).then((r) => r.json());
+    const j = await fetch(`${endpoint}?chartKey=${encodeURIComponent(chartKey)}`).then((r) => r.json());
     setSessions(j.sessions ?? []);
     return (j.sessions ?? []) as Session[];
   };
@@ -88,14 +92,14 @@ export function MakoChat({
       try {
         if (initialSessionId) {
           const [mRes, sRes] = await Promise.all([
-            fetch(`/api/chart-insights?sessionId=${initialSessionId}`).then((r) => r.json()),
-            fetch(`/api/chart-insights?chartKey=${encodeURIComponent(chartKey)}`).then((r) => r.json()),
+            fetch(`${endpoint}?sessionId=${initialSessionId}`).then((r) => r.json()),
+            fetch(`${endpoint}?chartKey=${encodeURIComponent(chartKey)}`).then((r) => r.json()),
           ]);
           if (!alive) return;
           setMessages(mRes.messages ?? []); setSessions(sRes.sessions ?? []); setSessionId(initialSessionId);
         } else {
           setPensando(true);
-          const j = await fetch('/api/chart-insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open', chartKey, titulo, contexto }) }).then((r) => r.json());
+          const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'open', chartKey, titulo, contexto }) }).then((r) => r.json());
           if (!alive) return;
           if (j.error) setErr(j.error); else { setSessions(j.sessions ?? []); setSessionId(j.session?.id ?? null); setMessages(j.messages ?? []); }
         }
@@ -111,7 +115,7 @@ export function MakoChat({
     if (pensando) return;
     setPensando(true); setErr(null); setVerChats(false); setMessages([]);
     try {
-      const j = await fetch('/api/chart-insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'new', chartKey, titulo, contexto }) }).then((r) => r.json());
+      const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'new', chartKey, titulo, contexto }) }).then((r) => r.json());
       if (j.error) setErr(j.error); else { setSessions(j.sessions ?? []); setSessionId(j.session?.id ?? null); setMessages(j.messages ?? []); }
     } catch (e) { setErr(String(e)); } finally { setPensando(false); }
   };
@@ -121,13 +125,13 @@ export function MakoChat({
     if (id === sessionId) return;
     setPensando(true); setErr(null);
     try {
-      const j = await fetch(`/api/chart-insights?sessionId=${id}`).then((r) => r.json());
+      const j = await fetch(`${endpoint}?sessionId=${id}`).then((r) => r.json());
       if (j.error) setErr(j.error); else { setMessages(j.messages ?? []); setSessionId(id); }
     } catch (e) { setErr(String(e)); } finally { setPensando(false); }
   };
 
   const accion = async (a: 'pin' | 'archive' | 'delete' | 'rename', id: number, extra: { valor?: boolean; titulo?: string } = {}) => {
-    await fetch('/api/chart-insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, sessionId: id, ...extra }) });
+    await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a, sessionId: id, ...extra }) });
     const lista = await refrescarSesiones();
     if (a === 'delete' && id === sessionId) {
       const otra = lista[0];
@@ -142,7 +146,7 @@ export function MakoChat({
     setMessages((m) => [...m, { role: 'user', content: txt }]);
     setPensando(true); setErr(null);
     try {
-      const j = await fetch('/api/chart-insights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', sessionId, mensaje: txt }) }).then((r) => r.json());
+      const j = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', sessionId, mensaje: txt }) }).then((r) => r.json());
       if (j.error) setErr(j.error); else { setMessages(j.messages ?? []); refrescarSesiones(); }
     } catch (e) { setErr(String(e)); } finally { setPensando(false); }
   };

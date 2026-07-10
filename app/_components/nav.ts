@@ -68,6 +68,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     key: 'tools', label: 'Tools', icon: 'tools', items: [
+      { key: 'mako-doer', label: 'MaKo Doer', href: '/mako-doer', icon: 'mako', rolesWs: ['closer', 'setter'], match: starts('/mako-doer') },
       { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'pen', match: starts('/ads-writer') },
       { key: 'vsl-writer', label: 'VSL Writer', href: '/vsl-writer', icon: 'pen', comingSoon: true, match: starts('/vsl-writer') },
       { key: 'landing-writer', label: 'Landing Writer', href: '/landing-writer', icon: 'pen', comingSoon: true, match: starts('/landing-writer') },
