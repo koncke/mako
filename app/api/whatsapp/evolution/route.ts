@@ -13,6 +13,7 @@ import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import {
   conectar, estadoEnVivo, refrescarQr, desconectar, getInstanciaRow, evolutionConfigurado,
+  estadoWebhook, repararWebhook,
 } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
@@ -73,6 +74,15 @@ export async function POST(req: NextRequest) {
       const r = await desconectar();
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
       return Response.json({ ok: true });
+    }
+    if (body.action === 'webhook-estado') {
+      // Salud del espejo de mensajes (webhook Evolution → app).
+      const s = await estadoWebhook();
+      return Response.json({ ok: true, ...s });
+    }
+    if (body.action === 'reparar-webhook') {
+      const r = await repararWebhook();
+      return Response.json({ ok: r.ok, estado: r.estado, error: r.error });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {

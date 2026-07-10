@@ -75,18 +75,20 @@ function webhookUrl(): string {
 // Eventos que nos importan (F2.1: conexión + QR; F2.2 sumará mensajes).
 const EVENTOS_WEBHOOK = ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT'];
 
-// Configura (best-effort) el webhook de la instancia hacia nuestra app. No es
-// fatal: el webhook solo da tiempo real en prod; la UI igual pollea el estado.
-// Sin secret configurado NO registramos el webhook (registraría un endpoint sin
-// auth end-to-end; con el fail-closed del route, además, esos eventos darían 401).
-async function setWebhook(instance: string): Promise<void> {
-  if (!WEBHOOK_SECRET) return;
-  await evFetch(`/webhook/set/${encodeURIComponent(instance)}`, {
+// Configura (best-effort en la conexión) el webhook de la instancia hacia nuestra
+// app. Sin secret configurado NO registramos el webhook (registraría un endpoint
+// sin auth end-to-end; con el fail-closed del route, además, esos eventos darían
+// 401). Devuelve el resultado para que "reparar" pueda superficiar el error (antes
+// era void → si fallaba, la conexión quedaba "ok" pero el espejo muerto en silencio).
+async function setWebhook(instance: string): Promise<{ ok: boolean; error?: string }> {
+  if (!WEBHOOK_SECRET) return { ok: false, error: 'Falta EVOLUTION_WEBHOOK_SECRET en el servidor.' };
+  const r = await evFetch(`/webhook/set/${encodeURIComponent(instance)}`, {
     method: 'POST',
     body: JSON.stringify({
       webhook: { enabled: true, url: webhookUrl(), byEvents: false, base64: true, events: EVENTOS_WEBHOOK },
     }),
   });
+  return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
 // Ajustes anti-baneo / de comportamiento humano (PDF): no leer recibos de forma
@@ -239,6 +241,72 @@ export async function desconectar(): Promise<{ ok: boolean; error?: string }> {
   await upsertInstancia({ estado: 'desconectado', numero: null, perfil_nombre: null, instance_id: null });
   // Idempotente: borrar algo que ya no existe (404) es el resultado deseado.
   return del.ok || del.status === 404 ? { ok: true } : { ok: false, error: del.error };
+}
+
+// ── Salud del "espejo de mensajes" (webhook) ─────────────────────────────────
+// El síntoma clásico: WhatsApp CONECTA pero no aparece ningún chat, porque el
+// webhook (Evolution → app) nunca se registró o apunta a otro deploy. Esto lo
+// hace VISIBLE y reparable en vez de un fallo silencioso.
+//   ok            → webhook activo Y el receiver responde 200 a nuestro secret.
+//   sin_secret    → falta EVOLUTION_WEBHOOK_SECRET en ESTE server (no se puede activar).
+//   secret_prod   → el deploy (APP_BASE_URL) rechaza nuestro secret (401): env de Vercel
+//                   desalineado — NO lo arregla "reparar", hay que corregir Vercel.
+//   url_distinta  → APP_BASE_URL no responde donde debería (dominio mal / caído).
+//   no_registrado → el receiver acepta el secret, pero el webhook no está puesto en la
+//                   instancia (o sin MESSAGES_UPSERT) → "reparar" lo registra y funciona.
+//   error         → Evolution no respondió.
+export type WebhookEstado = 'ok' | 'sin_secret' | 'secret_prod' | 'no_registrado' | 'url_distinta' | 'error';
+export type WebhookSalud = { estado: WebhookEstado; urlActual: string | null; urlEsperada: string };
+
+const sinQuery = (u: string) => u.split('?')[0];
+
+// Verificación REAL de extremo a extremo: pingeamos NUESTRO propio receiver con el
+// secret actual. Detecta lo que la comparación interna no ve — drift de secret entre
+// deploys, o APP_BASE_URL apuntando a un dominio que no sirve esta app. El receiver
+// responde 200 a un evento benigno con secret válido, 401 si el secret no coincide.
+async function pingReceiver(url: string): Promise<number> {
+  try {
+    const r = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event: 'webhook.health', instance: '__health__' }),
+      signal: AbortSignal.timeout(6000),
+    });
+    return r.status;
+  } catch { return 0; }
+}
+
+export async function estadoWebhook(): Promise<WebhookSalud> {
+  const ws = await wsEstricto();
+  const instance = instanceNameDeWs(ws);
+  const esperada = webhookUrl();
+  if (!WEBHOOK_SECRET) return { estado: 'sin_secret', urlActual: null, urlEsperada: esperada };
+
+  // 1) ¿El deploy en APP_BASE_URL acepta nuestro secret? (test real de reachability)
+  //    Si esto falla, "reparar" no sirve: el problema está en el env de Vercel.
+  const ping = await pingReceiver(esperada);
+  if (ping === 401) return { estado: 'secret_prod', urlActual: null, urlEsperada: esperada };
+  if (ping !== 200) return { estado: 'url_distinta', urlActual: null, urlEsperada: esperada };
+
+  // 2) El receiver está OK; ahora chequeamos que el webhook esté puesto en la instancia.
+  const r = await evFetch<{ enabled?: boolean; url?: string; events?: string[] } | null>(`/webhook/find/${encodeURIComponent(instance)}`);
+  if (!r.ok) return { estado: 'error', urlActual: null, urlEsperada: esperada };
+  const cfg = r.data;
+  if (!cfg || !cfg.enabled || !cfg.url) return { estado: 'no_registrado', urlActual: cfg?.url ?? null, urlEsperada: esperada };
+  if (sinQuery(cfg.url) !== sinQuery(esperada)) return { estado: 'no_registrado', urlActual: cfg.url, urlEsperada: esperada };
+  const events = (cfg.events ?? []).map((e) => String(e).toUpperCase());
+  if (!events.includes('MESSAGES_UPSERT')) return { estado: 'no_registrado', urlActual: cfg.url, urlEsperada: esperada };
+  return { estado: 'ok', urlActual: cfg.url, urlEsperada: esperada };
+}
+
+// (Re)registra el webhook y verifica que quedó. Lo usa el botón "Reparar espejo".
+export async function repararWebhook(): Promise<{ ok: boolean; estado: WebhookEstado; error?: string }> {
+  const ws = await wsEstricto();
+  const instance = instanceNameDeWs(ws);
+  if (!WEBHOOK_SECRET) return { ok: false, estado: 'sin_secret', error: 'Falta EVOLUTION_WEBHOOK_SECRET en el servidor. Configuralo en Vercel y volvé a intentar.' };
+  const set = await setWebhook(instance);
+  if (!set.ok) return { ok: false, estado: 'error', error: set.error };
+  const v = await estadoWebhook();
+  return { ok: v.estado === 'ok', estado: v.estado, error: v.estado === 'ok' ? undefined : 'El webhook se registró pero la verificación no dio OK.' };
 }
 
 // ── Envío de texto (anti-ban: "escribiendo…" proporcional al texto) ──────────
