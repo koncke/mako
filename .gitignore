@@ -51,3 +51,6 @@ scripts/_closing_rids.json
 
 # graphify knowledge graph (generado por-dev: pipx install graphifyy && graphify update .)
 graphify-out/
+
+# hook local de graphify (always-on por-maquina; requiere graphify en PATH)
+.claude/settings.local.json

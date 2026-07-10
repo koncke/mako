@@ -71,7 +71,7 @@ function ChipEstadoUsuario({ estado }: { estado: Usuario['estado'] }) {
 // AdminView
 // =============================================================================
 export function AdminView() {
-  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy'>('clientes');
+  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy' | 'grafo'>('clientes');
 
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -107,7 +107,7 @@ export function AdminView() {
     </header>
   );
 
-  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy'): CSSProperties => ({
+  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy' | 'grafo'): CSSProperties => ({
     padding: '10px 2px', marginRight: 26, background: 'transparent', border: 'none', cursor: 'pointer',
     fontFamily: SANS, fontSize: 15, fontWeight: tab === id ? 600 : 500,
     color: tab === id ? 'var(--ink)' : 'var(--dim)',
@@ -119,6 +119,7 @@ export function AdminView() {
       <button style={tabBtn('clientes')} onClick={() => setTab('clientes')}>Clientes</button>
       <button style={tabBtn('superadmins')} onClick={() => setTab('superadmins')}>Super Admins</button>
       <button style={tabBtn('copy')} onClick={() => setTab('copy')}>MaKo</button>
+      <button style={tabBtn('grafo')} onClick={() => setTab('grafo')}>Grafo</button>
     </div>
   );
 
@@ -146,13 +147,30 @@ export function AdminView() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       {header}
-      <div style={{ maxWidth: 980, marginTop: 18 }}>
+      <div style={{ maxWidth: tab === 'grafo' ? '100%' : 980, marginTop: 18 }}>
         {tabs}
         {tab === 'clientes' && <TabClientes workspaces={workspaces} usuarios={usuarios} recargar={cargar} />}
         {tab === 'superadmins' && <TabSuperAdmins usuarios={usuarios} sesion={sesion} recargar={cargar} />}
         {tab === 'copy' && <TabCopywriting />}
+        {tab === 'grafo' && <TabGrafo />}
       </div>
     </main>
+  );
+}
+
+// =============================================================================
+// TAB — Grafo del código (graphify)
+// =============================================================================
+function TabGrafo() {
+  return (
+    <div>
+      <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: '0 0 12px', maxWidth: 720 }}>
+        Grafo de arquitectura de la app (funciones, llamadas cross-file, imports) generado por graphify. Zoom con la rueda, arrastrá los nodos; cada color es una comunidad. Es una vista de desarrollo: se genera en local con <code style={{ fontFamily: MONO, fontSize: 12 }}>graphify update .</code>.
+      </p>
+      <div style={{ ...card, padding: 0, overflow: 'hidden', height: '76vh' }}>
+        <iframe src="/api/admin/graph" title="Grafo del código" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+      </div>
+    </div>
   );
 }
 
