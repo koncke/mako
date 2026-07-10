@@ -147,7 +147,7 @@ export function AdminView() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
       {header}
-      <div style={{ maxWidth: tab === 'grafo' ? '100%' : 980, marginTop: 18 }}>
+      <div style={{ maxWidth: 980, marginTop: 18 }}>
         {tabs}
         {tab === 'clientes' && <TabClientes workspaces={workspaces} usuarios={usuarios} recargar={cargar} />}
         {tab === 'superadmins' && <TabSuperAdmins usuarios={usuarios} sesion={sesion} recargar={cargar} />}
@@ -163,13 +163,13 @@ export function AdminView() {
 // =============================================================================
 function TabGrafo() {
   return (
-    <div>
-      <p style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, margin: '0 0 12px', maxWidth: 720 }}>
-        Grafo de arquitectura de la app (funciones, llamadas cross-file, imports) generado por graphify. Zoom con la rueda, arrastrá los nodos; cada color es una comunidad. Es una vista de desarrollo: se genera en local con <code style={{ fontFamily: MONO, fontSize: 12 }}>graphify update .</code>.
+    <div style={card}>
+      <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 620 }}>
+        Grafo de arquitectura de la app —funciones, llamadas cross-file, imports— generado por graphify. Se abre a pantalla completa en una pestaña nueva: zoom con la rueda, arrastrá los nodos, cada color es una comunidad. Es una vista de desarrollo; el grafo se refresca con <code style={{ fontFamily: MONO, fontSize: 12.5 }}>graphify update .</code>.
       </p>
-      <div style={{ ...card, padding: 0, overflow: 'hidden', height: '76vh' }}>
-        <iframe src="/api/admin/graph" title="Grafo del código" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
-      </div>
+      <button onClick={() => window.open('/api/admin/graph', '_blank', 'noopener')} style={{ ...btnDark, fontSize: 14, padding: '11px 20px' }}>
+        Abrir el grafo ↗
+      </button>
     </div>
   );
 }

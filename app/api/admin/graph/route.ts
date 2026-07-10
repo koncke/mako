@@ -1,11 +1,15 @@
 // =============================================================================
 // GET /api/admin/graph — sirve el grafo de código (graphify) al panel de admin
 // =============================================================================
-// El grafo (graphify-out/graph.html) es un artefacto de DEV generado por
-// graphify: NO se commitea (rutas absolutas + peso), así que existe en local
-// pero no en el deploy. Acá lo servimos gateado a super-admin; si no está,
-// devolvemos una página que explica cómo generarlo. Lo consume la tab "Grafo"
-// de AdminView vía iframe.
+// Se sirve como PÁGINA (se abre en pestaña nueva, no en iframe: la CSP global
+// frame-ancestors 'none' bloquea el embedding, y a pantalla completa se ve mejor).
+// Fuentes, en orden:
+//   1) graphify-out/graph.html — grafo FRESCO local (gitignored; solo en dev).
+//   2) ./graph.html — SNAPSHOT committeado junto a esta ruta (viaja al deploy;
+//      incluido en el bundle serverless vía import.meta.url). Refrescarlo:
+//      `graphify update . && graphify cluster-only . --no-label`, copiar
+//      graphify-out/graph.html acá y commitear.
+// Gateado a super-admin (getSesionAdmin).
 // =============================================================================
 
 import { readFileSync } from 'node:fs';
@@ -16,22 +20,27 @@ export const dynamic = 'force-dynamic';
 
 const NOT_FOUND = `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="light dark"></head>
 <body style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:44px;color:#5B6472;background:#F4F6F9">
-  <h2 style="color:#12151B;margin:0 0 10px;font-weight:600">Grafo no generado en este entorno</h2>
-  <p style="max-width:60ch;line-height:1.6">El grafo del código es un artefacto de desarrollo (no se versiona). Se ve corriendo la app en local, después de generarlo con graphify:</p>
+  <h2 style="color:#12151B;margin:0 0 10px;font-weight:600">Grafo no disponible</h2>
+  <p style="max-width:62ch;line-height:1.6">No se encontró el grafo. Regeneralo con graphify y actualizá el snapshot:</p>
   <pre style="background:#fff;border:1px solid #EAECF1;border-radius:10px;padding:14px 16px;font-size:13px;overflow:auto">graphify update .
-graphify cluster-only . --no-label</pre>
-  <p style="max-width:60ch;line-height:1.6">Eso deja <code style="background:#EAECF1;border-radius:5px;padding:1px 6px">graphify-out/graph.html</code>, que esta pestaña sirve.
-  Instalar graphify una vez: <code style="background:#EAECF1;border-radius:5px;padding:1px 6px">uv tool install graphifyy</code>.</p>
+graphify cluster-only . --no-label
+copy graphify-out\\graph.html app\\api\\admin\\graph\\graph.html</pre>
 </body></html>`;
+
+function loadGraphHtml(): string | null {
+  // 1) Grafo fresco local (dev) — no existe en el deploy (gitignored).
+  try { return readFileSync(join(process.cwd(), 'graphify-out', 'graph.html'), 'utf8'); } catch { /* sin grafo local */ }
+  // 2) Snapshot committeado (viaja al deploy).
+  try { return readFileSync(new URL('./graph.html', import.meta.url), 'utf8'); } catch { /* sin snapshot */ }
+  return null;
+}
 
 export async function GET() {
   const sesion = await getSesionAdmin();
   if (!sesion) return new Response('No autorizado', { status: 403 });
 
-  try {
-    const html = readFileSync(join(process.cwd(), 'graphify-out', 'graph.html'), 'utf8');
-    return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
-  } catch {
-    return new Response(NOT_FOUND, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
-  }
+  const html = loadGraphHtml();
+  return new Response(html ?? NOT_FOUND, {
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+  });
 }
