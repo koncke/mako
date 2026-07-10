@@ -48,3 +48,6 @@ Mejoras_v3_MauricioBustos.pdf
 scripts/_closing_work/
 scripts/_closing_work_out/
 scripts/_closing_rids.json
+
+# graphify knowledge graph (generado por-dev: pipx install graphifyy && graphify update .)
+graphify-out/
