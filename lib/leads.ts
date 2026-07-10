@@ -14,6 +14,7 @@ import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, derive
 import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
+import { actualizarEtiquetaLead } from './evolution-labels';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -435,6 +436,10 @@ export async function updateLead(
       console.error('[updateLead] error firing QualifiedLead CAPI event:', err);
     }
   }
+
+  // Auto-etiqueta de WhatsApp: si cambió la etapa derivada del lead, ajustamos la
+  // etiqueta en el número (best-effort, no bloquea). Solo si hay mapeo configurado.
+  void actualizarEtiquetaLead(id).catch(() => {});
 
   return data as Lead;
 }
@@ -1365,6 +1370,7 @@ export async function setPipelineStage(
     .update(patch)
     .eq('id', id);
   if (error) throw new Error(`Error moviendo lead ${id} a ${stageKey}: ${error.message}`);
+  void actualizarEtiquetaLead(id).catch(() => {}); // etiqueta WA por etapa (best-effort; cubre 'manual')
 }
 
 /** Campos editables desde la ficha del rediseño (Closer/Setter/Fathom/motivo/fechas). */

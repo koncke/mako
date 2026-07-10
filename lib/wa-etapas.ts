@@ -24,6 +24,19 @@ export function etapaChip(key: string | null, label: string | null): { style: CS
   };
 }
 
+// Etapas del funnel (para mapear a etiquetas de WhatsApp en /configuraciones).
+export const ETAPAS_FUNNEL: Array<{ key: string; label: string }> = [
+  { key: 'cliente', label: 'Cliente' },
+  { key: 'por-cobrar', label: 'Por cobrar' },
+  { key: 'j2', label: 'En R2' },
+  { key: 'post-j1', label: 'Post R1' },
+  { key: 'no-show', label: 'No-show' },
+  { key: 'agendo', label: 'Agendó' },
+  { key: 'vio-vsl', label: 'Vio VSL' },
+  { key: 'form', label: 'Form' },
+  { key: 'abierto', label: 'Abierto' },
+];
+
 // Campos del lead que necesita la derivación (subconjunto de la fila de leads).
 export type LeadEtapaFields = {
   fecha_primer_pago?: string | null; fecha_confirmacion?: string | null; cerro?: boolean | null;

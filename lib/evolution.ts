@@ -72,8 +72,14 @@ function webhookUrl(): string {
   return `${APP_BASE_URL}/api/webhooks/evolution${qs}`;
 }
 
-// Eventos que nos importan (conexión + QR + mensajes + estado de entrega/ticks).
-const EVENTOS_WEBHOOK = ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE'];
+// Eventos que nos importan: conexión/QR + mensajes (nuevo/estado/borrado/editado)
+// + contactos (nombre/foto) + etiquetas (catálogo + asociación).
+const EVENTOS_WEBHOOK = [
+  'QRCODE_UPDATED', 'CONNECTION_UPDATE',
+  'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'MESSAGES_DELETE', 'MESSAGES_EDITED',
+  'CONTACTS_UPSERT', 'CONTACTS_UPDATE',
+  'LABELS_EDIT', 'LABELS_ASSOCIATION',
+];
 
 // Configura (best-effort en la conexión) el webhook de la instancia hacia nuestra
 // app. Sin secret configurado NO registramos el webhook (registraría un endpoint
@@ -456,6 +462,31 @@ export async function fetchLidDeNumero(telefono: string): Promise<string | null>
   const lid = r.data[0]?.lid;
   if (!lid) return null;
   return lid.includes('@lid') ? lid : `${lid.replace(/\D/g, '')}@lid`;
+}
+
+// ── Etiquetas (labels) de WhatsApp Business ──────────────────────────────────
+// No se pueden CREAR por API (se crean en el celular y llegan por labels.edit);
+// sólo se listan y se asignan/quitan a un número. Best-effort.
+export type EvLabel = { id: string; name: string | null; color: number | null };
+export async function listarLabelsEvolution(): Promise<EvLabel[]> {
+  const ws = await getWorkspaceActual();
+  if (ws == null || !evolutionConfigurado()) return [];
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<Array<{ id?: string; labelId?: string; name?: string; color?: number | string }>>(`/label/findLabels/${encodeURIComponent(instance)}`);
+  if (!r.ok || !Array.isArray(r.data)) return [];
+  return r.data.map((l) => ({ id: String(l.id ?? l.labelId ?? ''), name: l.name ?? null, color: l.color != null ? Number(l.color) : null })).filter((l) => l.id);
+}
+
+// Asigna/quita una etiqueta a un número. action: 'add' | 'remove'. Best-effort.
+export async function asignarLabel(telefono: string, labelId: string, action: 'add' | 'remove'): Promise<boolean> {
+  const num = (telefono || '').replace(/\D/g, '');
+  const ws = await getWorkspaceActual();
+  if (ws == null || !num || !labelId || !evolutionConfigurado()) return false;
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch(`/label/handleLabel/${encodeURIComponent(instance)}`, {
+    method: 'POST', body: JSON.stringify({ number: num, labelId, action }),
+  });
+  return r.ok;
 }
 
 export type EvChat = { remoteJid?: string; pushName?: string; profilePicUrl?: string | null; unreadCount?: number; updatedAt?: string; lastMessage?: EvRecord };

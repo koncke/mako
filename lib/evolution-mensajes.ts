@@ -16,6 +16,7 @@ import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
 import { telefonosBloqueados, telefonosOcultos } from '@/lib/evolution-block';
+import { getNombresContacto } from '@/lib/evolution-contactos';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
@@ -290,6 +291,16 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
       if (l.nombre && (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você')) c.nombre = l.nombre;
       if (l.pipeline_stage === 'manual') { c.etapaKey = 'manual'; c.etapaLabel = 'Nutrición - Manual'; }
       else { const et = derivarEtapa(l); c.etapaKey = et.key; c.etapaLabel = et.label; }
+    }
+  }
+
+  // Nombre del contacto de WhatsApp (evolution_contactos, del evento contacts.upsert)
+  // para las convs que quedaron solo con el número (sin lead ni push_name entrante).
+  const nombresContacto = await getNombresContacto();
+  if (nombresContacto.size) for (const c of convs) {
+    if (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você') {
+      const n = nombresContacto.get((c.telefono || '').replace(/\D/g, '').slice(-10));
+      if (n) c.nombre = n;
     }
   }
 

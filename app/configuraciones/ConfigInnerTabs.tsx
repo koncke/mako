@@ -14,10 +14,11 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
 import { TelefonosPanel } from './TelefonosPanel';
+import { EtiquetasWhatsAppPanel } from './EtiquetasWhatsAppPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'telefonos' | 'funnel' | 'onboarding' | 'equipo';
+type TabKey = 'notif' | 'fiscal' | 'telefonos' | 'etiquetas' | 'funnel' | 'onboarding' | 'equipo';
 
 export function ConfigInnerTabs({ funnelPanel, onboardingPanel, equipoPanel }: {
   /** Paneles server-rendered embebidos (data cargada en page.tsx). */
@@ -40,6 +41,7 @@ export function ConfigInnerTabs({ funnelPanel, onboardingPanel, equipoPanel }: {
     { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel /> },
     { key: 'fiscal', label: 'Identidades fiscales', panel: <IdentidadesFiscalesPanel /> },
     { key: 'telefonos', label: 'Teléfonos', panel: <TelefonosPanel /> },
+    { key: 'etiquetas', label: 'Etiquetas WhatsApp', panel: <EtiquetasWhatsAppPanel /> },
     { key: 'funnel', label: 'Funnel', panel: funnelPanel },
     { key: 'onboarding', label: 'Onboarding', panel: onboardingPanel },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },

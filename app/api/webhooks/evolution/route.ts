@@ -14,6 +14,8 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
+import { upsertContacto } from '@/lib/evolution-contactos';
+import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,6 +138,73 @@ export async function POST(req: NextRequest) {
         n += 1;
       }
       return Response.json({ ok: true, actualizados: n });
+    }
+
+    if (evento === 'contacts.upsert' || evento === 'contacts.update') {
+      // Nombre + foto del contacto → evolution_contactos (para la lista/avatares).
+      const ws = await wsDeInstancia(instance);
+      if (ws == null) return Response.json({ ok: true, ignored: 'sin workspace' });
+      const d = body.data as Record<string, unknown> | undefined;
+      const arr = Array.isArray((d as { contacts?: unknown[] })?.contacts)
+        ? (d as { contacts: Record<string, unknown>[] }).contacts
+        : (Array.isArray(d) ? (d as unknown as Record<string, unknown>[]) : (d ? [d] : []));
+      await runWithWorkspace(ws, async () => {
+        for (const cc of arr) {
+          const jid = (cc.remoteJid as string) || (cc.id as string) || '';
+          const nombre = (cc.pushName as string) || (cc.name as string) || (cc.verifiedName as string) || null;
+          const foto = (cc.profilePicUrl as string) || (cc.profilePictureUrl as string) || null;
+          try { await upsertContacto(jid, nombre, foto); } catch { /* no fatal */ }
+        }
+      });
+      return Response.json({ ok: true, contactos: arr.length });
+    }
+
+    if (evento === 'messages.delete') {
+      // Reflejar el borrado en el espejo (el humano borró en WhatsApp).
+      const ws = await wsDeInstancia(instance);
+      if (ws == null) return Response.json({ ok: true, ignored: 'sin workspace' });
+      const d = body.data as Record<string, unknown> | Record<string, unknown>[] | undefined;
+      const items = Array.isArray(d) ? d : (d ? [d] : []);
+      await runWithWorkspace(ws, async () => {
+        for (const it of items) {
+          const id = ((it.key as { id?: string } | undefined)?.id) || (it.id as string) || (it.keyId as string) || null;
+          if (!id) continue;
+          await (await getTenantDb()).from('wa_mensajes').update({ texto: 'Mensaje eliminado', tipo: 'text', media_path: null, media_mime: null }).eq('wa_message_id', id);
+        }
+      });
+      return Response.json({ ok: true });
+    }
+
+    if (evento === 'messages.edited') {
+      // Reflejar la edición: nuevo texto del mensaje.
+      const ws = await wsDeInstancia(instance);
+      if (ws == null) return Response.json({ ok: true, ignored: 'sin workspace' });
+      const d = body.data as Record<string, unknown> | undefined;
+      const key = (d?.key as { id?: string } | undefined);
+      const id = key?.id || (d?.keyId as string) || null;
+      const msg = (d?.editedMessage as Record<string, unknown> | undefined) || (d?.message as Record<string, unknown> | undefined) || {};
+      const nuevo = (msg.conversation as string) || ((msg.extendedTextMessage as { text?: string } | undefined)?.text) || null;
+      if (id && nuevo) {
+        await runWithWorkspace(ws, async () => {
+          await (await getTenantDb()).from('wa_mensajes').update({ texto: nuevo }).eq('wa_message_id', id);
+        });
+      }
+      return Response.json({ ok: true });
+    }
+
+    if (evento === 'labels.edit') {
+      // Catálogo de etiquetas del número (creada/renombrada/borrada en el celular).
+      const ws = await wsDeInstancia(instance);
+      if (ws == null) return Response.json({ ok: true, ignored: 'sin workspace' });
+      const d = body.data as { id?: string; name?: string; color?: number; deleted?: boolean } | undefined;
+      const labelId = String(d?.id ?? '');
+      if (labelId) {
+        await runWithWorkspace(ws, async () => {
+          if (d?.deleted) await borrarLabelCatalogo(labelId);
+          else await upsertLabelCatalogo(labelId, d?.name ?? null, d?.color ?? null);
+        });
+      }
+      return Response.json({ ok: true });
     }
 
     return Response.json({ ok: true, ignored: evento || 'sin evento' });
