@@ -108,13 +108,14 @@ export async function POST(req: NextRequest) {
       const mensajes = Array.isArray((d as { messages?: unknown[] })?.messages)
         ? (d as { messages: Record<string, unknown>[] }).messages
         : (d ? [d] : []);
+      const errores: string[] = [];
       await runWithWorkspace(ws, async () => {
         for (const m of mensajes) {
-          try { await guardarMensajeUpsert(instance, m); } catch (e) { console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }
+          try { await guardarMensajeUpsert(instance, m); } catch (e) { const msg = e instanceof Error ? e.message : String(e); errores.push(msg); console.error(`[webhook:evolution] guardar msg: ${msg}`); }
         }
         await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
       });
-      return Response.json({ ok: true, guardados: mensajes.length });
+      return Response.json({ ok: true, ws, guardados: mensajes.length - errores.length, errores });
     }
 
     if (evento === 'messages.update') {
