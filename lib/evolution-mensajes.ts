@@ -241,6 +241,33 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
   return convs;
 }
 
+// Resumen liviano para el polling GLOBAL de notificaciones (corre en toda la app
+// cada ~12s): solo lo mínimo para detectar mensajes nuevos entrantes y el badge —
+// una única query, SIN enriquecer con leads/etapas/bloqueos/placeholders. Para el
+// inbox completo (con toda esa info) está getConversacionesNoOficial().
+export type WaResumen = { chatJid: string; nombre: string; ultimaFecha: string | null; ultimoEntrante: boolean };
+export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
+  const supabase = await getTenantDb();
+  const { data } = await supabase
+    .from('wa_mensajes')
+    .select('chat_jid, telefono, push_name, from_me, wa_timestamp')
+    .neq('tipo', 'evento')
+    .order('wa_timestamp', { ascending: false })
+    .limit(limite);
+  const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean; wa_timestamp: string | null }>;
+  const porChat = new Map<string, WaResumen>();
+  for (const r of rows) {
+    if (porChat.has(r.chat_jid)) continue; // rows vienen desc → el primero es el último mensaje
+    porChat.set(r.chat_jid, {
+      chatJid: r.chat_jid,
+      nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
+      ultimaFecha: r.wa_timestamp,
+      ultimoEntrante: !r.from_me,
+    });
+  }
+  return [...porChat.values()];
+}
+
 export type WaMensaje = {
   id: number; fromMe: boolean; tipo: string | null; texto: string | null;
   mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null;

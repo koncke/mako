@@ -248,7 +248,7 @@ function WhatsAppInner() {
 
   // Contactos + estado de no-leídos viven en el provider global (un solo poller,
   // corre en toda la app). Acá los consumimos.
-  const { contactos, setContactos, loadingConvs, setOpenChat, marcarLeido } = useNotifications();
+  const { contactos, setContactos, loadingConvs, setOpenChat, marcarLeido, noOficialUnread } = useNotifications();
   const searchParamsWA = useSearchParams();
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState<string>('todas');
@@ -356,6 +356,12 @@ function WhatsAppInner() {
   // Al salir de /whatsapp, ningún chat queda "abierto" → el provider vuelve a
   // notificar TODOS los contactos (sin esto, el último chat abierto se silencia).
   useEffect(() => () => setOpenChat(null), [setOpenChat]);
+
+  // Deep-link ?canal=empresa (desde el pop-up del canal no oficial) → abrir el
+  // inbox no oficial en la sección Conversaciones.
+  useEffect(() => {
+    if (searchParamsWA.get('canal') === 'empresa') { setView('chats'); setCanal('empresa'); }
+  }, [searchParamsWA]);
 
   // Reloj para el contador de la ventana de 24h (cada 30s alcanza).
   useEffect(() => {
@@ -905,6 +911,8 @@ function WhatsAppInner() {
 
   const tabActive: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 600, background: 'var(--ink)', color: 'var(--on-sidebar)' };
   const tabIdle: CSSProperties = { padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13.5px', fontWeight: 500, background: 'transparent', color: 'var(--dim)' };
+  const oficialUnread = contactos.reduce((s, c) => s + c.sinLeer, 0);
+  const badgeCanal: CSSProperties = { minWidth: '18px', height: '18px', padding: '0 5px', borderRadius: '999px', background: 'var(--bad)', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 };
   const chipBtn = (active: boolean): CSSProperties => ({ padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border)'), background: active ? 'var(--ink)' : 'var(--surface-2)', color: active ? 'var(--on-sidebar)' : 'var(--dim)' });
 
   return (
@@ -929,8 +937,8 @@ function WhatsAppInner() {
       {/* Toggle de canal del inbox (oficial Chatwoot / empresa no-oficial) */}
       {isChats && (
         <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px', marginBottom: '14px' }}>
-          <button onClick={() => setCanal('oficial')} style={canal === 'oficial' ? tabActive : tabIdle}>🤖 API Oficial</button>
-          <button onClick={() => setCanal('empresa')} style={canal === 'empresa' ? tabActive : tabIdle}>👤 API no Oficial</button>
+          <button onClick={() => setCanal('oficial')} style={{ ...(canal === 'oficial' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>🤖 API Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}</button>
+          <button onClick={() => setCanal('empresa')} style={{ ...(canal === 'empresa' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>👤 API no Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}</button>
         </div>
       )}
 

@@ -18,6 +18,7 @@ import { Avatar } from './_shared/Avatar';
 import { Ticks } from './_shared/Ticks';
 import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
+import { useNotifications } from '../_components/NotificationsProvider';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -65,6 +66,7 @@ function preview(c: Conv): string {
 }
 
 export function EmpresaInbox() {
+  const { setOpenChatNoOficial } = useNotifications();
   const [convs, setConvs] = useState<Conv[]>(convsCache);
   const [sel, setSel] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -90,6 +92,11 @@ export function EmpresaInbox() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<string | null>(null);   // chat objetivo (anti-race del poll)
   const stickRef = useRef(true);                 // ¿el user está pegado al fondo?
+  // Ref al setter (identidad inestable del provider) → usarlo en el efecto de
+  // selección y en el cleanup de desmontaje sin re-suscribir en cada re-render.
+  const setOpenNoOfRef = useRef(setOpenChatNoOficial);
+  setOpenNoOfRef.current = setOpenChatNoOficial;
+  useEffect(() => () => setOpenNoOfRef.current(null), []);
 
   // Borrador POR CHAT, persistido en localStorage (como el oficial): cambiar de chat
   // o de tab NO pierde lo escrito, y recargar la página tampoco. `draft` es derivado.
@@ -233,6 +240,9 @@ export function EmpresaInbox() {
 
   useEffect(() => {
     selRef.current = sel;
+    // Avisar al provider qué chat está abierto → no notifica ese chat y lo marca
+    // leído (baja el badge del sidebar). Al desmontar/cerrar, se libera.
+    setOpenNoOfRef.current(sel);
     if (!sel) { setMsgs([]); return; }
     stickRef.current = true;       // al abrir un chat, arrancamos pegados al fondo
     setMsgs(msgsCache.get(sel) ?? []); // pinta el cache al instante (sin spinner) y refresca

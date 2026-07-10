@@ -47,6 +47,10 @@ interface NotifCtx {
   setOpenChat: (id: string | null) => void;
   marcarLeido: (gid: string, sendContactId: number) => void;
   goToChat: (gid: string) => void;
+  // Canal NO oficial (Evolution):
+  noOficialUnread: number;
+  marcarLeidoNoOficial: (chatJid: string) => void;
+  setOpenChatNoOficial: (chatJid: string | null) => void;
 }
 
 const Ctx = createContext<NotifCtx | null>(null);
@@ -174,13 +178,33 @@ function tieneSinLeer(c: Contacto, leido: Map<string, number>): boolean {
   return c.ultimoEntrante && c.ultimaActividad > (leido.get(c.id) ?? 0);
 }
 
+// Igual, para el canal NO oficial (Evolution): "leído hasta" por chatJid, en su
+// propia key (la actividad es un ms de Date.parse de la última fecha del chat).
+const EMPRESA_LEIDO_KEY = 'mako-wa-empresa-leido';
+function cargarLeidoEmpresa(): Map<string, number> {
+  try {
+    const raw = localStorage.getItem(EMPRESA_LEIDO_KEY);
+    return raw ? new Map(Object.entries(JSON.parse(raw) as Record<string, number>)) : new Map();
+  } catch { return new Map(); }
+}
+function guardarLeidoEmpresa(m: Map<string, number>) {
+  try { localStorage.setItem(EMPRESA_LEIDO_KEY, JSON.stringify(Object.fromEntries(m))); } catch { /* sin storage */ }
+}
+type ConvNoOf = { chatJid: string; nombre: string; ultimaFecha: string | null; ultimoEntrante: boolean };
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '';
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingConvs, setLoadingConvs] = useState(true);
-  const [toast, setToast] = useState<{ gid: string; nombre: string; avatar: string | null } | null>(null);
+  const [toast, setToast] = useState<{ gid: string; nombre: string; avatar: string | null; canal?: 'empresa' } | null>(null);
   const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string; motivo?: string } | null>(null);
+  const [noOficialUnread, setNoOficialUnread] = useState(0);
+  const noOfSnapRef = useRef<Map<string, number>>(new Map());   // chatJid → última actividad (ms) vista
+  const noOfLeidoRef = useRef<Map<string, number>>(new Map());  // chatJid → leído hasta (ms)
+  const noOfConvsRef = useRef<ConvNoOf[]>([]);                  // última lista (para recomputar unread)
+  const noOfOpenRef = useRef<string | null>(null);             // chat no-oficial abierto (no notificar ni contar)
+  const noOfBaselineRef = useRef(false);
 
   const openChatRef = useRef<string | null>(null);
   const activitySnapRef = useRef<Map<string, number>>(new Map());
@@ -198,7 +222,41 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   pathRef.current = pathname;
   contactosRef.current = contactos;
 
-  const unreadTotal = contactos.reduce((s, c) => s + c.sinLeer, 0);
+  const unreadTotal = contactos.reduce((s, c) => s + c.sinLeer, 0) + noOficialUnread;
+
+  const recomputeNoOf = () => {
+    let u = 0;
+    const open = noOfOpenRef.current;
+    for (const c of noOfConvsRef.current) {
+      if (c.chatJid === open) continue; // el chat abierto nunca cuenta como no leído
+      const ts = c.ultimaFecha ? Date.parse(c.ultimaFecha) : 0;
+      if (c.ultimoEntrante && ts > (noOfLeidoRef.current.get(c.chatJid) ?? 0)) u += 1;
+    }
+    setNoOficialUnread(u);
+  };
+  const marcarLeidoNoOficial = (chatJid: string) => {
+    const ts = noOfSnapRef.current.get(chatJid) ?? Date.now();
+    noOfLeidoRef.current.set(chatJid, ts);
+    guardarLeidoEmpresa(noOfLeidoRef.current);
+    recomputeNoOf();
+  };
+  // EmpresaInbox nos dice qué chat no-oficial está abierto → no notificamos ese
+  // chat (ref propia, aislada del openChatRef del oficial) y lo damos por leído.
+  const setOpenChatNoOficial = (chatJid: string | null) => {
+    noOfOpenRef.current = chatJid;
+    if (chatJid) {
+      const ts = noOfSnapRef.current.get(chatJid) ?? Date.now();
+      noOfLeidoRef.current.set(chatJid, ts);
+      guardarLeidoEmpresa(noOfLeidoRef.current);
+    }
+    recomputeNoOf();
+  };
+  const goToChatNoOficial = (chatJid: string) => {
+    setToast(null);
+    noOfLeidoRef.current.set(chatJid, noOfSnapRef.current.get(chatJid) ?? Date.now());
+    guardarLeidoEmpresa(noOfLeidoRef.current);
+    router.push(`/whatsapp?canal=empresa&n=${Date.now()}`);
+  };
 
   const setOpenChat = (id: string | null) => { openChatRef.current = id; };
   const marcarLeido = (gid: string, sendContactId: number) => {
@@ -342,12 +400,65 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(iv);
   }, []);
 
+  // Polling del canal NO oficial (Evolution) cada 12s: mismo toast + sonido +
+  // badge que el oficial, para mensajes nuevos entrantes. Aislado del poll oficial.
+  useEffect(() => {
+    const tick = async () => {
+      if (pathRef.current.startsWith('/login')) return;
+      try {
+        const r = await fetch('/api/whatsapp/evolution/mensajes?resumen=1');
+        const j = await r.json();
+        if (!j.ok || !Array.isArray(j.conversaciones)) return;
+        const convs = j.conversaciones as ConvNoOf[];
+        noOfConvsRef.current = convs;
+        const snap = noOfSnapRef.current;
+        const leido = noOfLeidoRef.current;
+        if (!noOfBaselineRef.current) {
+          // Primera vez: sembrar snapshot + "todo leído" (no spamear chats viejos).
+          const stored = cargarLeidoEmpresa();
+          for (const c of convs) {
+            const ts = c.ultimaFecha ? Date.parse(c.ultimaFecha) : 0;
+            snap.set(c.chatJid, ts);
+            if (!stored.has(c.chatJid)) stored.set(c.chatJid, ts);
+          }
+          noOfLeidoRef.current = stored;
+          guardarLeidoEmpresa(stored);
+          noOfBaselineRef.current = true;
+          recomputeNoOf();
+          return;
+        }
+        const openId = noOfOpenRef.current;
+        let entrante: ConvNoOf | null = null;
+        for (const c of convs) {
+          const ts = c.ultimaFecha ? Date.parse(c.ultimaFecha) : 0;
+          const prev = snap.get(c.chatJid);
+          const subio = prev != null && ts > prev;
+          snap.set(c.chatJid, ts);
+          if (c.chatJid === openId) { leido.set(c.chatJid, ts); guardarLeidoEmpresa(leido); }
+          if (subio && c.ultimoEntrante && c.chatJid !== openId) {
+            if (!entrante || ts > (entrante.ultimaFecha ? Date.parse(entrante.ultimaFecha) : 0)) entrante = c;
+          }
+        }
+        if (entrante) {
+          playBeep();
+          setToast({ gid: entrante.chatJid, nombre: entrante.nombre, avatar: null, canal: 'empresa' });
+          if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+        }
+        recomputeNoOf();
+      } catch { /* ignore */ }
+    };
+    void tick();
+    const iv = setInterval(() => void tick(), 12000);
+    return () => clearInterval(iv);
+  }, []);
+
   return (
-    <Ctx.Provider value={{ contactos, setContactos, unreadTotal, loadingConvs, openChatRef, setOpenChat, marcarLeido, goToChat }}>
+    <Ctx.Provider value={{ contactos, setContactos, unreadTotal, loadingConvs, openChatRef, setOpenChat, marcarLeido, goToChat, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial }}>
       {children}
       {toast && (
         <button
-          onClick={() => goToChat(toast.gid)}
+          onClick={() => (toast.canal === 'empresa' ? goToChatNoOficial(toast.gid) : goToChat(toast.gid))}
           style={{
             position: 'fixed', top: 18, right: 18, zIndex: 2000, maxWidth: 340,
             display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px',
