@@ -52,7 +52,7 @@ import {
   type RespuestaQA,
 } from '@/lib/leads';
 import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
-import { missingForStage } from '@/lib/stage-requirements';
+import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
@@ -156,9 +156,9 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const campana = resolverNombreCampana(lead.utm_campaign, campMap);
   const adNombre = resolverNombreAd(lead.meta_ad_id ?? null, lead.meta_ad_name ?? null, adMap);
   const visitas = visitasMap.get(lead.visitor_id ?? '') ?? { total_visitas: 0, dias_distintos: 0 };
-  const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0);
+  const faltantesInsight = faltantesParaInsights(lead, pagos.length > 0, stages);
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0 });
+  const faltantes = faltantesDeLead(lead, pagos.length > 0, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
   const closerDetectado = insights.find((i) => i.closer?.trim())?.closer ?? null;
   return { lead, stages, pagos, vslEng, campana, adNombre, visitas, insights, tracking, respuestas, insightGen, faltantesInsight, faltantes, equipo, closerDetectado };
 }
@@ -208,7 +208,9 @@ export type StageMoveData = {
 export async function completeStageMoveAction(id: number, to: string, d: StageMoveData): Promise<void> {
   const before = await getLead(id).catch(() => null);
   const pagosExistentes = to === 'ganado' ? await getPagosByLead(id).catch(() => []) : [];
+  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
   const faltan = missingForStage(to, {
+    ...funnelReqInfo(stagesMove, to),
     fechaJ1: d.fechaJ1 ?? before?.fecha_junta_1 ?? null,
     fechaJ2: d.fechaJ2 ?? before?.fecha_junta_2 ?? null,
     asistioJ1: d.asistioJ1 ?? before?.asistio_j1 ?? null,
@@ -449,7 +451,9 @@ export async function setLeadStageAction(
   // pasó, monto para Ganado, motivo para perdidos). La UI ya lo exige; esto lo
   // garantiza para cualquier caller (MaKo, API). Se evalúa con el dato de la
   // move o el ya cargado en el lead.
+  const stagesMove = await getPipelineStages().catch(() => DEFAULT_STAGES);
   const faltanMove = missingForStage(stageKey, {
+    ...funnelReqInfo(stagesMove, stageKey),
     fechaJ1: before?.fecha_junta_1 ?? null,
     fechaJ2: before?.fecha_junta_2 ?? null,
     asistioJ1: opts?.asistio_j1 ?? before?.asistio_j1 ?? null,

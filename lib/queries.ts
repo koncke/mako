@@ -16,6 +16,7 @@ import {
   getVslEngagementMap,
   estadoMadurezLead,
   faltantesDeLead,
+  getPipelineStages,
   type Lead,
   type EstadoLead,
   type EstadoMadurez,
@@ -2001,6 +2002,8 @@ async function _getPendientesDeMarcar(
   // Leads con respuestas del formulario de Calendly R2 (para el requisito r2Respuestas).
   const { data: respRows } = await supabase.from('lead_respuestas').select('lead_id, reunion').eq('reunion', 'R2');
   const conR2Resp = new Set((respRows ?? []).map((r) => (r as { lead_id: number }).lead_id));
+  // Funnel del workspace (una vez): requisitos correctos para funnels no-default.
+  const funnelPipeline = await getPipelineStages().catch(() => undefined);
 
   const items: PendienteItem[] = [];
 
@@ -2025,7 +2028,7 @@ async function _getPendientesDeMarcar(
       continue;
     }
     // Resto: el motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
-    const faltan = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id) });
+    const faltan = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
     if (faltan.length === 0) continue;
     const fecha = (l.fecha_junta_2 && l.fecha_junta_2 < hoy) ? l.fecha_junta_2 : (l.fecha_junta_1 ?? l.fecha_agenda ?? hoy);
     const solTab: PendienteItem['solTab'] = hayPasoDeWizard(faltan) ? 'wizard' : (tabDeSolucion(faltan) ?? 'edit');

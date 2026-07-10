@@ -58,13 +58,18 @@ export interface StageReqValues {
   sinR2?: boolean;
   /** La reunión no se grabó: no se exige el link de Fathom. */
   fathomOmitido?: boolean;
+  /** Funnel del workspace (para funnels no-default). Si faltan, se asume el funnel
+   *  high-ticket DEFAULT: 2 reuniones y venta = etapa 'ganado'. */
+  nivel?: number;         // override del nivel de requisitos de la etapa
+  numReuniones?: number;  // reuniones del funnel (gatea R1/R2)
+  esVenta?: boolean;      // la etapa exige datos de venta (monto + Deal Details)
 }
 
 /** ¿La fecha ya pasó? Sin hoyISO asumimos que sí (comportamiento estricto). */
 const yaPaso = (fecha: string | null | undefined, hoyISO: string | null | undefined) =>
   !!fecha && (!hoyISO || fecha.slice(0, 10) < hoyISO);
 
-/** Nivel de la cadena canónica que exige cada etapa destino. */
+/** Nivel de la cadena canónica que exige cada etapa destino (funnel high-ticket default). */
 const NIVEL: Record<string, number> = {
   // 1 = R1 agendada · 2 = R1 completa · 3 = R2 agendada · 4 = R2 completa · 5 = venta
   agenda: 1,
@@ -72,6 +77,28 @@ const NIVEL: Record<string, number> = {
   facturando: 4,
   ganado: 5,
 };
+
+export type PipelineStageLite = { key: string; kind?: string };
+
+/**
+ * Deriva del funnel del WORKSPACE (su fila de "Activo") el nivel de requisitos de
+ * una etapa, cuántas reuniones tiene el funnel y si la etapa exige datos de venta.
+ * Para el funnel DEFAULT devuelve EXACTAMENTE lo que codificaba NIVEL (2 reuniones,
+ * venta = 'ganado'); para funnels de 1 reunión / sin reunión / con etapas custom,
+ * lo correcto (así el worklist "Datos sin marcar" no pide una R2 que no existe ni
+ * deja de validar las etapas custom). Etapas fuera del pipeline (nutrición/salidas)
+ * → nivel 0 (solo higiene), igual que antes.
+ */
+export function funnelReqInfo(pipeline: PipelineStageLite[], stageKey: string): { nivel: number; numReuniones: number; esVenta: boolean } {
+  const reuniones = pipeline.filter((s) => s.kind === 'reunion');
+  const numReuniones = reuniones.length;
+  const s = pipeline.find((p) => p.key === stageKey);
+  if (!s) return { nivel: NIVEL[stageKey] ?? 0, numReuniones, esVenta: stageKey === 'ganado' };
+  if (s.kind === 'reunion') return { nivel: 2 * reuniones.findIndex((r) => r.key === stageKey) + 1, numReuniones, esVenta: false };
+  if (s.kind === 'pago') return { nivel: 2 * numReuniones, numReuniones, esVenta: false };
+  if (s.kind === 'cierre') return { nivel: 2 * numReuniones + 1, numReuniones, esVenta: true };
+  return { nivel: 0, numReuniones, esVenta: false };
+}
 
 /**
  * Pasos FALTANTES (en orden de wizard) para poder mover un lead a `stageKey`.
@@ -89,51 +116,52 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   }
   if (stageKey === 'noresp') return steps;
 
-  const nivel = NIVEL[stageKey] ?? 0;
+  // Nivel/venta del funnel: si el caller pasa la info del funnel del workspace, la
+  // usamos; si no, caemos al funnel DEFAULT (NIVEL + 2 reuniones + venta='ganado').
+  const nivel = v.nivel ?? NIVEL[stageKey] ?? 0;
+  const mTotal = v.numReuniones ?? 2;
+  const esVenta = v.esVenta ?? (nivel >= 5);
   const hayFathom = !!v.hasFathomUrl || !!v.fathomOmitido;
 
-  // ── Reunión / venta (acumulativo por nivel) ──
-  if (nivel >= 1) {
-    // ── Nivel 1: R1 agendada ──
-    if (!v.sinR1) {
-      if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
+  // ── Reunión 1 (solo si el funnel tiene al menos 1 reunión) ──
+  if (nivel >= 1 && mTotal >= 1 && !v.sinR1) {
+    if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
 
-      // ── Nivel 2: R1 completa (la fecha ya pasó, o la etapa lo implica) ──
-      const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
-      if (r1DebeEstarCompleta) {
-        if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
-        if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
-        if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
-        // Closer: quien corrió la R1.
-        if (v.asistioJ1 !== false && v.closer !== undefined && !v.closer?.trim()) steps.push({ id: 'closer', label: 'Closer asignado' });
+    // ── R1 completa (la fecha ya pasó, o la etapa lo implica) ──
+    const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
+    if (r1DebeEstarCompleta) {
+      if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
+      if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
+      if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
+      // Closer: quien corrió la R1.
+      if (v.asistioJ1 !== false && v.closer !== undefined && !v.closer?.trim()) steps.push({ id: 'closer', label: 'Closer asignado' });
+    }
+  }
+
+  // ── Reunión 2 (solo si el funnel tiene 2 reuniones) ──
+  if (nivel >= 1 && mTotal >= 2 && !v.sinR1 && !v.sinR2) {
+    if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
+
+    const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
+    if (r2DebeEstarCompleta && v.fechaJ2) {
+      if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
+      if (v.asistioJ2 !== false && !hayFathom && !steps.some((s) => s.id === 'fathomR1')) {
+        steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
       }
     }
+  }
 
-    // ── Niveles 3-4: R2 ──
-    if (!v.sinR1 && !v.sinR2) {
-      if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
-
-      const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
-      if (r2DebeEstarCompleta && v.fechaJ2) {
-        if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
-        if (v.asistioJ2 !== false && !hayFathom && !steps.some((s) => s.id === 'fathomR1')) {
-          steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
-        }
-      }
-    }
-
-    // ── Nivel 5: venta — Deal Details COMPLETO ──
-    if (nivel >= 5) {
-      if (!(Number(v.monto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
-      if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
-      if (v.dealServicioOk === false) steps.push({ id: 'dealServicio', label: 'Servicio del cierre' });
-      if (v.dealPromesaOk === false) steps.push({ id: 'dealPromesa', label: 'Promesa del cierre' });
-      if (v.dealFiscalOk === false) steps.push({ id: 'dealFiscal', label: 'Datos fiscales del cliente' });
-      if (v.dealFiscalDocOk === false) steps.push({ id: 'dealFiscalDoc', label: 'Documento fiscal del cliente' });
-      if (v.dealObligacionesOk === false) steps.push({ id: 'dealObligaciones', label: 'Obligaciones del cierre' });
-      if (v.comprobantesFaltantes && v.comprobantesFaltantes > 0) {
-        steps.push({ id: 'comprobante', label: v.comprobantesFaltantes === 1 ? 'Comprobante de pago' : `Comprobantes de pago (${v.comprobantesFaltantes})` });
-      }
+  // ── Venta — Deal Details COMPLETO (etapa de cierre del funnel) ──
+  if (esVenta) {
+    if (!(Number(v.monto) > 0)) steps.push({ id: 'monto', label: 'Monto de cierre' });
+    if (v.tienePlan === false) steps.push({ id: 'plan', label: 'Plan de pagos' });
+    if (v.dealServicioOk === false) steps.push({ id: 'dealServicio', label: 'Servicio del cierre' });
+    if (v.dealPromesaOk === false) steps.push({ id: 'dealPromesa', label: 'Promesa del cierre' });
+    if (v.dealFiscalOk === false) steps.push({ id: 'dealFiscal', label: 'Datos fiscales del cliente' });
+    if (v.dealFiscalDocOk === false) steps.push({ id: 'dealFiscalDoc', label: 'Documento fiscal del cliente' });
+    if (v.dealObligacionesOk === false) steps.push({ id: 'dealObligaciones', label: 'Obligaciones del cierre' });
+    if (v.comprobantesFaltantes && v.comprobantesFaltantes > 0) {
+      steps.push({ id: 'comprobante', label: v.comprobantesFaltantes === 1 ? 'Comprobante de pago' : `Comprobantes de pago (${v.comprobantesFaltantes})` });
     }
   }
 

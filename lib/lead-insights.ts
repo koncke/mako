@@ -86,8 +86,8 @@ const NO_INSIGHTS: ReadonlySet<Step['id']> = new Set<Step['id']>([
   'setter', 'closer', 'telefono', 'empresa', 'r2Respuestas', 'comprobante',
   'dealServicio', 'dealPromesa', 'dealFiscal', 'dealObligaciones', 'dealFiscalDoc',
 ]);
-export function faltantesParaInsights(lead: Lead, tienePlan: boolean): Step[] {
-  return faltantesDeLead(lead, tienePlan).filter((s) => !NO_INSIGHTS.has(s.id));
+export function faltantesParaInsights(lead: Lead, tienePlan: boolean, pipeline?: import('./pipeline').Stage[]): Step[] {
+  return faltantesDeLead(lead, tienePlan, { pipeline }).filter((s) => !NO_INSIGHTS.has(s.id));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

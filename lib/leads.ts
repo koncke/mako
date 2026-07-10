@@ -11,7 +11,7 @@ import { OWNER_WS } from './auth-session';
 import { sendMetaCAPIEvent } from './meta-capi';
 import type { Stage, FunnelTransition } from './pipeline';
 import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey } from './pipeline';
-import { stepsForStage, type Step } from './stage-requirements';
+import { stepsForStage, funnelReqInfo, type Step } from './stage-requirements';
 import { hoyEnTijuana } from './date-utils';
 import { cachedRead, TAG, TTL } from './cache';
 
@@ -1426,9 +1426,12 @@ export async function saveLeadMeta(id: number, meta: LeadMetaInput): Promise<voi
 export function faltantesDeLead(
   lead: Lead,
   tienePlan?: boolean,
-  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean },
+  extra?: { comprobantesFaltantes?: number; r2RespuestasOk?: boolean; pipeline?: Stage[] },
 ): Step[] {
   const stage = (lead.pipeline_stage && lead.pipeline_stage.trim()) ? lead.pipeline_stage : deriveStageKey(lead);
+  // Si el caller pasa el funnel del workspace, derivamos nivel/reuniones/venta de
+  // SU pipeline (funnels no-default); si no, stepsForStage cae al funnel default.
+  const info = extra?.pipeline ? funnelReqInfo(extra.pipeline, stage) : undefined;
   const links = ((lead.fathom_links ?? []) as FathomLink[]).filter((f) => f.url);
   const oblig = lead.deal_obligaciones;
   const tieneR2 = !!lead.fecha_junta_2 || lead.asistio_j2 != null;
@@ -1462,6 +1465,9 @@ export function faltantesDeLead(
     sinR1: !!lead.sin_r1,
     sinR2: !!lead.sin_r2,
     fathomOmitido: !!lead.fathom_omitido,
+    nivel: info?.nivel,
+    numReuniones: info?.numReuniones,
+    esVenta: info?.esVenta,
   });
 }
 

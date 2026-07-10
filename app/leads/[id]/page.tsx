@@ -98,7 +98,7 @@ export default async function LeadDetailPage({ params, searchParams }: { params:
 
   // "Datos sin marcar": todo lo que la etapa actual adeuda (posible de conseguir).
   const comprobantesFaltantes = pagos.filter((p) => p.pagado && !p.comprobante_path).length;
-  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0 });
+  const faltantes = faltantesDeLead(lead, pagos.length > 0 ? true : undefined, { comprobantesFaltantes, r2RespuestasOk: respuestas.R2.length > 0, pipeline: stages });
   const cuotasPendientes = pagos.filter((p) => !p.pagado).length;
   // Nutrición positiva (derivada): el lead avanza y está en su ventana informativa.
   const nutriPos = nutricionPositivaDe(lead, new Date().toISOString().slice(0, 10));

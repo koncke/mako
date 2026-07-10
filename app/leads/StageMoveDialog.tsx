@@ -11,7 +11,7 @@
 
 import { useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { stageMeta, type Stage } from '@/lib/pipeline';
-import { stepsForStage, type Step } from '@/lib/stage-requirements';
+import { stepsForStage, funnelReqInfo, type Step } from '@/lib/stage-requirements';
 import type { FathomLink } from '@/lib/leads';
 import { completeStageMoveAction, type StageMoveCuota } from './actions';
 import { autoReunionesAction } from './auto-actions';
@@ -165,6 +165,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [requeridos] = useState(() => {
     if (faltantes) return new Set(faltantes.map((s) => s.id));
     return new Set(stepsForStage(to, {
+      ...funnelReqInfo(stages, to),
       fechaJ1: lead.fechaJ1, fechaJ2: lead.fechaJ2,
       asistioJ1: move.asistioJ1 ?? lead.asistioJ1, asistioJ2: move.asistioJ2 ?? lead.asistioJ2,
       calificado: lead.calificado,

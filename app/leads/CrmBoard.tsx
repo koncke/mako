@@ -41,7 +41,7 @@ import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
 import { WizardShell, wizardInput } from './WizardShell';
 import { sectionForStage } from './edit-logic';
-import { missingForStage } from '@/lib/stage-requirements';
+import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { Dropdown } from '../components/Dropdown';
 import { openCalendlyFor, calendlyUrlFor } from './calendly-widget';
 import { Icon } from '../_components/icons';
@@ -296,6 +296,7 @@ export function CrmBoard({
   // faltante (bloquea) o cuando la etapa tiene una sección que completar (motivo,
   // plan de pagos, nutrición). El resto de etapas se mueven en silencio.
   const missingForLead = (l: CrmLead, key: string) => missingForStage(key, {
+    ...funnelReqInfo(stages, key),
     fechaJ1: l.fechaJ1, fechaJ2: l.fechaJ2,
     asistioJ1: l.asistioJ1, asistioJ2: l.asistioJ2, calificado: l.calificado,
     hasFathomUrl: l.fathom.some((f) => f.url?.trim()),
