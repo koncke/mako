@@ -60,6 +60,8 @@ export function EvolutionConnect() {
   const [reparando, setReparando] = useState(false);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [pedirSync, setPedirSync] = useState(false); // pop-up "¿sincronizar?" al recién conectar
+  const [borrando, setBorrando] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -87,6 +89,8 @@ export function EvolutionConnect() {
           const { body } = await apiPost<{ ok: boolean; estado: Estado; numero: string | null }>('/api/whatsapp/evolution', { action: 'estado' });
           if (body.ok && body.estado !== 'error') {
             fallos = 0; setCaido(false);
+            // Transición a conectado (recién escaneó el QR) → preguntar si sincronizar.
+            if (body.estado === 'conectado' && estadoRef.current !== 'conectado') setPedirSync(true);
             setEstado(body.estado);
             if (body.numero) setNumero(body.numero);
           } else if (++fallos >= MAX_FALLOS) { setCaido(true); }
@@ -138,6 +142,17 @@ export function EvolutionConnect() {
       setSyncMsg(`Listo: ${body.chats ?? 0} chats · ${body.mensajes ?? 0} mensajes traídos.`);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setSincronizando(false); }
+  }
+
+  async function borrarChats() {
+    if (!window.confirm('¿Borrar TODOS los chats guardados del WhatsApp no oficial? Empezás de 0. (No afecta tu WhatsApp; solo el espejo guardado en la app.)')) return;
+    setBorrando(true); setSyncMsg(null); setErr(null);
+    try {
+      const { body } = await apiPost<{ ok: boolean; borrados?: number; error?: string }>('/api/whatsapp/evolution', { action: 'borrar-chats' });
+      if (!body.ok) throw new Error(body.error || 'No se pudo borrar');
+      setSyncMsg(`Listo: se borraron ${body.borrados ?? 0} mensajes guardados. Empezás de 0.`);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setBorrando(false); }
   }
 
   function cerrar() {
@@ -196,15 +211,29 @@ export function EvolutionConnect() {
 
             {conectado ? (
               <div>
-                <div style={{ fontSize: '40px' }}>✅</div>
+                <div style={{ width: '46px', height: '46px', margin: '0 auto', borderRadius: '50%', background: 'var(--good-bg)', color: 'var(--good)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 6.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </div>
                 <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--good)', marginTop: '6px' }}>Conectado</div>
                 {numero && <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px', fontFamily: "'Geist Mono', monospace" }}>{numero}</div>}
 
+                {/* Recién conectó → preguntar si querés traer las conversaciones. */}
+                {pedirSync && (
+                  <div style={{ marginTop: '14px', padding: '13px', borderRadius: '10px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', textAlign: 'left' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>¿Traés tus conversaciones ahora?</div>
+                    <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Podés sincronizar los chats que ya tenés en este número, o empezar limpio y que se vayan sumando a medida que escribís/recibís.</div>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                      <button onClick={() => { setPedirSync(false); void sincronizar(); }} disabled={sincronizando} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sí, sincronizar</>}</button>
+                      <button onClick={() => setPedirSync(false)} style={{ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer' }}>No, empezar limpio</button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Salud del espejo de mensajes: sin esto, "conectado" pero los chats no aparecen. */}
-                {wh === 'ok' && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--good)', fontWeight: 600 }}>Espejo de mensajes: activo ✅</div>}
+                {wh === 'ok' && <div style={{ marginTop: '12px', fontSize: '12.5px', color: 'var(--good)', fontWeight: 600 }}>Espejo de mensajes: activo</div>}
                 {wh && wh !== 'ok' && (
                   <div style={{ marginTop: '14px', padding: '11px 13px', borderRadius: '10px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', textAlign: 'left' }}>
-                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--warn)' }}>⚠️ El espejo de mensajes no está activo</div>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--warn)' }}>El espejo de mensajes no está activo</div>
                     <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>{MIRROR_MSG[wh]}</div>
                     {REPARABLE.includes(wh) && (
                       <button onClick={() => void repararMirror()} disabled={reparando} style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: reparando ? 0.6 : 1 }}>{reparando ? 'Reparando…' : <><IconWrench size={13} /> Reparar espejo</>}</button>
@@ -217,7 +246,10 @@ export function EvolutionConnect() {
                 <div style={{ marginTop: '16px', padding: '11px 13px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', textAlign: 'left' }}>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--ink)' }}>Sincronizar conversaciones</div>
                   <div style={{ fontSize: '12px', color: 'var(--dim)', lineHeight: 1.45, marginTop: '3px' }}>Trae al inbox los chats que ya tenés en este número. El inbox no baja toda la agenda solo — solo lo que sincronizás o lo que entra/sale desde acá.</div>
-                  <button onClick={() => void sincronizar()} disabled={sincronizando} style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sincronizar todo</>}</button>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
+                    <button onClick={() => void sincronizar()} disabled={sincronizando} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: sincronizando ? 0.6 : 1 }}>{sincronizando ? 'Sincronizando…' : <><IconRefresh size={14} /> Sincronizar todo</>}</button>
+                    <button onClick={() => void borrarChats()} disabled={borrando} style={{ padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', opacity: borrando ? 0.6 : 1 }}>{borrando ? 'Borrando…' : 'Empezar de 0'}</button>
+                  </div>
                   {syncMsg && <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--good)', fontWeight: 600 }}>{syncMsg}</div>}
                 </div>
 

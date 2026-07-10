@@ -246,41 +246,13 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   }
   const convs = [...porChat.values()];
 
-  // Conversaciones EN VIVO de Evolution (las que tienen mensajes = "te escribieron
-  // o les escribiste"). Canonicalizamos el @lid → número (con el último mensaje)
-  // para que el ENTRANTE de un contacto no agendado caiga en la MISMA fila que el
-  // saliente, sin el chat duplicado. Un @lid sin número resoluble se muestra con
-  // su pushName (para no perder el entrante). Esto es lo que hace aparecer los
-  // mensajes nuevos sin depender del webhook.
-  const liveChats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
-  if (liveChats.length) {
-    const yaTel = new Set(convs.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter(Boolean));
-    const yaJid = new Set(convs.map((c) => c.chatJid));
-    for (const ch of liveChats) {
-      const rawJid = ch.remoteJid || '';
-      if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
-      // Canonicalizar con el último mensaje (trae remoteJidAlt/senderPn del contacto).
-      const jid = jidCanonico(ch.lastMessage?.key ?? { remoteJid: rawJid }) ?? rawJid;
-      const digits = (normalizarTelefono(jidToNumero(jid)) || jidToNumero(jid) || '').replace(/\D/g, '');
-      const t10 = digits.slice(-10);
-      if (jid.endsWith('@lid')) { if (yaJid.has(jid)) continue; } // @lid sin número: dedup por jid
-      else if (t10 && yaTel.has(t10)) continue;                    // número: dedup por teléfono
-      const lm = ch.lastMessage;
-      const cont = lm ? extraerContenido(lm as UpsertData) : null;
-      convs.push({
-        chatJid: jid, telefono: jid.endsWith('@lid') ? null : (digits || null),
-        nombre: ch.pushName || digits || jid.replace(/@.*/, ''),
-        leadId: null, empresa: null, etapaKey: null, etapaLabel: null,
-        ultimoTexto: cont?.texto ?? null, ultimoTipo: cont?.tipo ?? (lm ? 'text' : null),
-        ultimaFecha: lm ? tsToISO(lm.messageTimestamp) : (ch.updatedAt ?? null),
-        ultimoEntrante: lm ? !lm.key?.fromMe : false, total: 1, bloqueado: false,
-      });
-      if (jid.endsWith('@lid')) yaJid.add(jid); else if (t10) yaTel.add(t10);
-    }
-  }
+  // El inbox lista SOLO desde el espejo (nuestra DB): NO llama a Evolution en cada
+  // poll (así el uso normal no "duplica" trabajo ni interfiere). Los chats se
+  // traen al espejo A PEDIDO con "Sincronizar todo" (sincronizarDesdeEvolution),
+  // y en tiempo real por el webhook. + placeholders de Nutrición-Manual.
 
-  // Resolver leadId por teléfono para las convs sin lead (live/salientes) → el
-  // enriquecido de abajo les pone empresa/etapa/nombre del CRM.
+  // Resolver leadId por teléfono para las convs sin lead (salientes sin lead_id)
+  // → el enriquecido de abajo les pone empresa/etapa/nombre del CRM.
   await resolverLeadIdsPorTelefono(supabase, convs);
 
   // Enriquecer con empresa + etapa del funnel (tarjeta de lead, filtro por etapa,
@@ -508,9 +480,11 @@ function proxyMedia(waId: string | null, jid: string, fromMe: boolean): string |
 }
 
 // Sincroniza a pedido ("Sincronizar todo"): trae los chats de Evolution al espejo
-// (texto/metadata; la media se sirve por el proxy). Salta @lid (duplican al número
-// real), grupos, status y broadcast. Bulk por chat (1 match de lead + 1 upsert)
-// para no timeoutear; ignoreDuplicates = no pisa lo que ya capturó el webhook.
+// (texto/metadata; la media se sirve por el proxy). Canonicaliza @lid→número
+// (busca el remoteJidAlt en cualquier mensaje del chat) → los ENTRANTES de
+// contactos no agendados quedan bajo el número, no en un chat @lid aparte. Salta
+// grupos/status/broadcast. Bulk por chat (1 match de lead + 1 upsert) para no
+// timeoutear; ignoreDuplicates = no pisa lo que ya capturó el webhook.
 export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mensajes: number }> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { chats: 0, mensajes: 0 };
@@ -518,13 +492,17 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
   const supabase = await getTenantDb();
   const chats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
   let nChat = 0, nMsg = 0;
-  for (const ch of chats.slice(0, 80)) {
-    const jid = ch.remoteJid || '';
-    if (!jid || jid.endsWith('@g.us') || jid.endsWith('@lid') || jid.startsWith('status@') || jid.includes('broadcast')) continue;
-    const recs = await fetchMensajesEvolution(jid, 60).catch(() => [] as EvRecord[]);
+  for (const ch of chats.slice(0, 100)) {
+    const rawJid = ch.remoteJid || '';
+    if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
+    const recs = await fetchMensajesEvolution(rawJid, 60).catch(() => [] as EvRecord[]);
     if (!recs.length) continue;
+    // Canonical del chat: el número real de CUALQUIER mensaje (remoteJidAlt/senderPn).
+    let chatJid = rawJid;
+    for (const rec of recs) { const cj = jidCanonico(rec.key); if (cj && !cj.endsWith('@lid')) { chatJid = cj; break; } }
+    if (chatJid.endsWith('@g.us') || chatJid.startsWith('status@') || chatJid.includes('broadcast')) continue;
     nChat += 1;
-    const telefono = normalizarTelefono(jidToNumero(jid));
+    const telefono = normalizarTelefono(jidToNumero(chatJid));
     const leadId = telefono ? await matchLeadPorTelefono(telefono) : null;
     const filas: Record<string, unknown>[] = [];
     for (const rec of recs) {
@@ -533,7 +511,7 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
       const c = extraerContenido(rec as UpsertData);
       if (c.tipo === 'evento' || c.tipo === 'otro') continue;
       filas.push({
-        instance_name: instance, chat_jid: jid, telefono,
+        instance_name: instance, chat_jid: chatJid, telefono,
         wa_message_id: key.id, from_me: !!key.fromMe, tipo: c.tipo, texto: c.texto,
         media_path: null, media_mime: c.mediaMime, status: statusDeRecord(rec),
         push_name: rec.pushName ?? null, lead_id: leadId,
@@ -546,6 +524,13 @@ export async function sincronizarDesdeEvolution(): Promise<{ chats: number; mens
     }
   }
   return { chats: nChat, mensajes: nMsg };
+}
+
+// Borra TODO el espejo de mensajes no oficial del workspace (empezar de 0). Scopeado.
+export async function borrarEspejoNoOficial(): Promise<number> {
+  const supabase = await getTenantDb();
+  const { count } = await supabase.from('wa_mensajes').delete({ count: 'exact' }).gte('id', 0);
+  return count ?? 0;
 }
 
 // Hash estable string → int (para ids sintéticos de mensajes live).

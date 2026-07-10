@@ -133,14 +133,17 @@ const avatarStyle: CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px',
 };
 
-// Foto de perfil del contacto (Chatwoot) con fallback a iniciales si no hay
-// URL o si la imagen no carga.
-function Avatar({ src, name }: { src: string | null; name: string }) {
-  const [failed, setFailed] = useState(false);
-  if (src && !failed) {
+// Foto de perfil del contacto: primero la de Chatwoot; si no hay o falla, la de
+// WhatsApp (proxy del no oficial por teléfono); si tampoco, iniciales.
+function Avatar({ src, name, telefono }: { src: string | null; name: string; telefono?: string | null }) {
+  const digits = (telefono || '').replace(/\D/g, '');
+  const candidatos = [src, digits ? `/api/whatsapp/evolution/mensajes?avatarimg=${digits}` : null].filter(Boolean) as string[];
+  const [idx, setIdx] = useState(0);
+  const url = candidatos[idx] ?? null;
+  if (url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={name} onError={() => setFailed(true)} style={{ ...avatarStyle, objectFit: 'cover' }} />
+      <img src={url} alt={name} referrerPolicy="no-referrer" onError={() => setIdx((i) => i + 1)} style={{ ...avatarStyle, objectFit: 'cover' }} />
     );
   }
   return <div style={avatarStyle}>{initials(name)}</div>;
@@ -972,7 +975,7 @@ function WhatsAppInner() {
                 const chip = etapaChip(c.etapaKey, c.etapaLabel);
                 return (
                   <div key={c.id} onClick={() => setSelId(c.id)} style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent') }}>
-                    <Avatar src={c.avatar} name={c.contacto} />
+                    <Avatar src={c.avatar} name={c.contacto} telefono={c.telefono} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '8px' }}>
                         <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.contacto}</span>
@@ -1011,7 +1014,7 @@ function WhatsAppInner() {
                     title={sel.leadId ? 'Ver detalle del lead' : undefined}
                     style={{ display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0, cursor: sel.leadId ? 'pointer' : 'default' }}
                   >
-                    <Avatar src={sel.avatar} name={sel.contacto} />
+                    <Avatar src={sel.avatar} name={sel.contacto} telefono={sel.telefono} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: '15.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.contacto}</div>
                       <div style={{ fontSize: '12px', color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{sel.telefono ?? '—'}</div>

@@ -15,7 +15,7 @@ import {
   conectar, estadoEnVivo, refrescarQr, desconectar, getInstanciaRow, evolutionConfigurado,
   estadoWebhook, repararWebhook,
 } from '@/lib/evolution';
-import { sincronizarDesdeEvolution } from '@/lib/evolution-mensajes';
+import { sincronizarDesdeEvolution, borrarEspejoNoOficial } from '@/lib/evolution-mensajes';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +89,11 @@ export async function POST(req: NextRequest) {
       // "Sincronizar todo": trae los chats de Evolution al espejo a pedido.
       const r = await sincronizarDesdeEvolution();
       return Response.json({ ok: true, ...r });
+    }
+    if (body.action === 'borrar-chats') {
+      // Empezar de 0: borra el espejo de mensajes no oficial del workspace.
+      const n = await borrarEspejoNoOficial();
+      return Response.json({ ok: true, borrados: n });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {
