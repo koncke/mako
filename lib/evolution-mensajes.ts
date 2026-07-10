@@ -145,11 +145,16 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     if (!prev.texto && texto) patch.texto = texto;
     if (!prev.lead_id && leadId) patch.lead_id = leadId;
     if (fromMe && !prev.status) patch.status = 'sent'; // saliente sin estado → al menos 'enviado' (ticks)
-    if (Object.keys(patch).length) await supabase.from('wa_mensajes').update(patch).eq('id', prev.id);
+    if (Object.keys(patch).length) {
+      const { error } = await supabase.from('wa_mensajes').update(patch).eq('id', prev.id);
+      if (error) throw new Error(`update wa_mensajes: ${error.message}`);
+    }
     return; // ya existía → no re-pausar nutrición
   }
 
-  await supabase.from('wa_mensajes').insert({
+  // OJO: supabase-js NO tira excepción en error → hay que chequear .error a mano
+  // (si no, el fallo — p.ej. FK de workspace_id — pasa en SILENCIO y no se guarda).
+  const { error: insErr } = await supabase.from('wa_mensajes').insert({
     instance_name: instance,
     chat_jid: chatJid,
     telefono,
@@ -165,6 +170,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
     wa_timestamp: tsToISO(data.messageTimestamp),
     raw: data as unknown as Record<string, unknown>,
   });
+  if (insErr) throw new Error(`insert wa_mensajes: ${insErr.message}`);
 
   // El lead RESPONDIÓ (mensaje entrante REAL, no reacción/protocolo) → pausar su
   // nutrición, como el webhook de Chatwoot. Solo en el insert (no re-entregas).
