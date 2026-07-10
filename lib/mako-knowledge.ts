@@ -22,6 +22,11 @@ import { embed, cosine, hashText } from './embeddings';
 
 export type EstadoIndex = 'indexado' | 'pendiente' | 'error';
 export type KnowledgeArea = 'mensajes' | 'ads' | 'general';
+
+// Área reservada al "swipe" de ejemplos: es material de REFERENCIA (few-shot), no
+// metodología curada. Se retira del RAG general (searchKnowledge sin área) para no
+// contaminar a los consumidores que asumen que todo lo que traen es método.
+export const AREA_EJEMPLOS = 'ejemplos';
 export type KnowledgeEntry = {
   id: number; titulo: string; categoria: string | null; cuerpo: string;
   curso: string | null; autor: string | null; area: string; fuente: string;
@@ -145,6 +150,7 @@ export async function searchKnowledge(
       .eq('activo', true)
       .not('embedding', 'is', null);
     if (opts.area) sel = sel.eq('area', opts.area);
+    else sel = sel.neq('area', AREA_EJEMPLOS); // el swipe solo se sirve pidiéndolo por área
     const { data, error } = await sel;
     if (error || !data || data.length === 0) return [];
     const qv = await embed(q);
