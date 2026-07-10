@@ -168,6 +168,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
 // ── Lectura para el inbox ────────────────────────────────────────────────────
 export type WaConversacion = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
+  empresa: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
   ultimoEntrante: boolean; total: number;
 };
@@ -190,7 +191,7 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     if (!prev) {
       porChat.set(r.chat_jid, {
         chatJid: r.chat_jid, telefono: r.telefono, nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
-        leadId: r.lead_id, ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
+        leadId: r.lead_id, empresa: null, ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
         ultimoEntrante: !r.from_me, total: 1,
       });
     } else {
@@ -199,7 +200,15 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
       if (prev.nombre === prev.chatJid.replace(/@.*/, '') && r.push_name) prev.nombre = r.push_name;
     }
   }
-  return [...porChat.values()];
+  const convs = [...porChat.values()];
+  // Enriquecer con la empresa del lead (tarjeta de lead + contexto de MaKo).
+  const leadIds = [...new Set(convs.map((c) => c.leadId).filter((x): x is number => x != null))];
+  if (leadIds.length) {
+    const { data: leads } = await supabase.from('leads').select('id, empresa').in('id', leadIds);
+    const empresaPorId = new Map(((leads ?? []) as Array<{ id: number; empresa: string | null }>).map((l) => [l.id, l.empresa]));
+    for (const c of convs) if (c.leadId) c.empresa = empresaPorId.get(c.leadId) ?? null;
+  }
+  return convs;
 }
 
 export type WaMensaje = {

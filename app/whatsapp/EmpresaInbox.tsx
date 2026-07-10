@@ -8,9 +8,18 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { WhatsAppAdvisor } from './WhatsAppAdvisor';
+
+// La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
+const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
+// Atajos: idénticos a los del inbox oficial (se pasan al panel de MaKo).
+const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te comparto el video de nuevo'];
 
 type Conv = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
+  empresa: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
   ultimoEntrante: boolean; total: number;
 };
@@ -49,6 +58,7 @@ export function EmpresaInbox() {
   const [showBorr, setShowBorr] = useState(false);
   const [borrBusy, setBorrBusy] = useState<number | null>(null);
   const [borrErr, setBorrErr] = useState<string | null>(null);
+  const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null); // abre la ficha del CRM
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<string | null>(null);   // chat objetivo (anti-race del poll)
   const stickRef = useRef(true);                 // ¿el user está pegado al fondo?
@@ -129,7 +139,7 @@ export function EmpresaInbox() {
   const selConv = convs.find((c) => c.chatJid === sel) ?? null;
 
   return (
-    <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '340px 1fr', gap: '16px' }}>
+    <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '340px 1fr 344px', gap: '16px' }}>
       {/* LISTA */}
       <div style={card}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
@@ -212,6 +222,39 @@ export function EmpresaInbox() {
           </>
         )}
       </div>
+
+      {/* CONTEXTO — tarjeta del lead + panel de MaKo (mismo componente que el oficial) */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', minHeight: 0, overflowY: 'auto', padding: '18px' }}>
+        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: '12px' }}>Lead</div>
+        {selConv ? (
+          <>
+            {selConv.leadId ? (
+              <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{selConv.nombre}</button>
+            ) : (
+              <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{selConv.nombre}</div>
+            )}
+            <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px' }}>{selConv.empresa ?? 'Sin empresa registrada'}</div>
+            {selConv.leadId ? (
+              <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
+            ) : (
+              <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
+            )}
+            <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
+            <WhatsAppAdvisor
+              grupo={{ id: selConv.chatJid, contacto: selConv.nombre, empresa: selConv.empresa, etapaLabel: null }}
+              mensajes={msgs.map((m) => ({ saliente: m.fromMe, texto: m.texto }))}
+              ventanaAbierta={true}
+              onUsar={(t) => setDraft((d) => (d.trim() ? `${d.replace(/\s+$/, '')}\n\n${t}` : t))}
+              onRedactarPlantilla={() => {}}
+              quickTemplates={QUICK}
+            />
+          </>
+        ) : (
+          <div style={{ fontSize: '12.5px', color: 'var(--faint)', lineHeight: 1.5 }}>Elegí una conversación para que MaKo te sugiera qué escribir.</div>
+        )}
+      </div>
+
+      {detalleLeadId != null && <LeadEditModal leadId={detalleLeadId} onClose={() => setDetalleLeadId(null)} />}
 
       {/* Panel de borradores: mensajes listos para mandar con 1 clic (leads calientes) */}
       {showBorr && (
