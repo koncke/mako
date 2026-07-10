@@ -55,7 +55,7 @@ import {
   CAMPAIGN_ADJUST_SYSTEM_TEMPLATE,
   CAMPAIGN_ADJUST_USER_TEMPLATE,
 } from './campaign-structurer';
-import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE } from './nutricion-generator';
+import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE, NUTRI_GEN_SYSTEM_TEMPLATE, NUTRI_GEN_USER_TEMPLATE } from './nutricion-generator';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -272,6 +272,27 @@ export const REGISTRY: Group[] = [
         variables: [v('marca', 'perfil de marca declarado (tono/frase/qué-nunca/valores)'), v('transcripts', 'transcripciones literales de los anuncios del cliente')], scope: 'static-only', sensitive: true,
         default: NUTRI_VOZ_USER_TEMPLATE,
         context: 'Le pasa a MaKo la marca declarada y las transcripciones de los ads (texto literal). No borres los slots {{marca}}/{{transcripts}}.',
+      },
+    ],
+  },
+  {
+    group: 'Nutrición — generador (MaKo escribe la secuencia)',
+    icon: '✍️',
+    blurb: 'MaKo escribe el copy de cada secuencia de nutrición en la voz del negocio, aplicando la metodología de copywriting y los ejemplos cargados. Devuelve un borrador para revisar y aprobar.',
+    entries: [
+      {
+        key: 'nutri.gen.system', source: 'override',
+        label: 'Generador de nutrición (system)', kind: 'system', dynamic: true,
+        variables: [v('voz', 'guía de voz destilada del negocio'), v('metodologia', 'metodología de copywriting (RAG área mensajes)'), v('ejemplos', 'ejemplos swipe de referencia')], scope: 'static-only', sensitive: false,
+        default: NUTRI_GEN_SYSTEM_TEMPLATE,
+        context: 'Pone a MaKo a reescribir el copy de una secuencia respetando canal/orden/tiempos y solo cambiando el texto. No borres los slots {{voz}}/{{metodologia}}/{{ejemplos}} ni las reglas de placeholders ([tu link de agenda] se deja literal).',
+      },
+      {
+        key: 'nutri.gen.user', source: 'override',
+        label: 'Secuencia a escribir (user)', kind: 'user', dynamic: true,
+        variables: [v('nombre', 'nombre de la secuencia'), v('contexto', 'cohorte / a quién le escribe'), v('pasos', 'pasos actuales en JSON con [placeholders]')], scope: 'static-only', sensitive: false,
+        default: NUTRI_GEN_USER_TEMPLATE,
+        context: 'Le pasa a MaKo la secuencia y sus pasos. No borres los slots {{nombre}}/{{contexto}}/{{pasos}} ni el formato JSON de salida exigido.',
       },
     ],
   },
