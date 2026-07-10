@@ -1,7 +1,7 @@
-import { ComingSoon } from '../_components/ComingSoon';
 import { requireRolWs } from '@/lib/tab-access';
+import { AdsWriterApp } from './AdsWriterApp';
 
 export default async function AdsWriterPage() {
   await requireRolWs([]);
-  return <ComingSoon title="Ads Writer" icon="pen" />;
+  return <AdsWriterApp />;
 }

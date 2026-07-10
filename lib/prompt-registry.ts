@@ -55,6 +55,12 @@ import {
   CAMPAIGN_ADJUST_SYSTEM_TEMPLATE,
   CAMPAIGN_ADJUST_USER_TEMPLATE,
 } from './campaign-structurer';
+import {
+  AD_COPY_SUGGEST_SYSTEM_TEMPLATE,
+  AD_COPY_SUGGEST_USER_TEMPLATE,
+  AD_COPY_ADJUST_SYSTEM_TEMPLATE,
+  AD_COPY_ADJUST_USER_TEMPLATE,
+} from './ad-copy';
 import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE, NUTRI_GEN_SYSTEM_TEMPLATE, NUTRI_GEN_USER_TEMPLATE } from './nutricion-generator';
 import { NUTRI_PLANTILLA_SYSTEM_TEMPLATE, NUTRI_PLANTILLA_USER_TEMPLATE } from './nutricion-plantillas';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
@@ -476,6 +482,41 @@ export const REGISTRY: Group[] = [
         label: 'Extractor de comprobantes de pago', kind: 'user', dynamic: false, variables: [], scope: 'full', sensitive: true,
         default: RECEIPT_EXTRACT_DEFAULT,
         context: 'Lee un comprobante de pago (imagen o PDF) y saca monto en USD, fecha y hora en JSON, para prellenar el pop-up de "Marcar pagada" de una cuota. Conservá la forma EXACTA del JSON o el prellenado se rompe.',
+      },
+    ],
+  },
+  {
+    group: 'Ads Writer (copy de anuncios)',
+    icon: '✍️',
+    blurb: 'MaKo escribe variantes de copy de anuncios de Meta aterrizadas en los datos reales del negocio (oferta, avatar, funnel, ganadores), cada una con un ángulo distinto. El copy sale en español mexicano; la voz de MaKo va solo en la nota.',
+    entries: [
+      {
+        key: 'ads_writer.suggest.system', source: 'override',
+        label: 'Escribir copy de anuncios (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: AD_COPY_SUGGEST_SYSTEM_TEMPLATE,
+        context: 'Pone a MaKo a escribir variantes de copy de anuncios de Meta a partir del pedido y el brief del negocio. Define las reglas de copy y de idioma (español mexicano en el anuncio, voz rioplatense solo en la nota). No borres el slot {{jsonShape}} ni cambies el esquema del JSON o la pantalla deja de poder mostrar las variantes.',
+      },
+      {
+        key: 'ads_writer.suggest.user', source: 'override',
+        label: 'Pedido + contexto del negocio (user)', kind: 'user', dynamic: true,
+        variables: [v('prompt', 'lo que pidió el usuario'), v('contexto', 'brief del negocio: funnel + perfil + KPIs + ganadores')], scope: 'full', sensitive: false,
+        default: AD_COPY_SUGGEST_USER_TEMPLATE,
+        context: 'Le pasa a MaKo el pedido del usuario y el contexto real del negocio. Conservá los slots {{prompt}}/{{contexto}} y el pedido final del JSON.',
+      },
+      {
+        key: 'ads_writer.adjust.system', source: 'override',
+        label: 'Ajuste de copy (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: AD_COPY_ADJUST_SYSTEM_TEMPLATE,
+        context: 'Cuando el usuario pide un cambio a variantes ya escritas, MaKo aplica SOLO lo pedido y conserva el resto, manteniendo las reglas de copy e idioma. Conservá el slot {{jsonShape}} y el esquema del JSON.',
+      },
+      {
+        key: 'ads_writer.adjust.user', source: 'override',
+        label: 'Variantes actuales + cambio pedido (user)', kind: 'user', dynamic: true,
+        variables: [v('setActual', 'las variantes actuales en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'brief del negocio')], scope: 'full', sensitive: false,
+        default: AD_COPY_ADJUST_USER_TEMPLATE,
+        context: 'Le pasa a MaKo las variantes actuales y el cambio pedido. Mantené los slots {{setActual}}/{{instruccion}}/{{contexto}} y el pedido de devolver el JSON completo.',
       },
     ],
   },
