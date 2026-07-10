@@ -16,7 +16,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
-import { SendArrow, IconSmiley, IconClip, IconMic } from './_shared/composer-icons';
+import { SendArrow, IconSmiley, IconClip, IconMic, IconEye, IconEyeOff, IconDoc, IconBan, IconDraft } from './_shared/composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './_shared/VoiceRecorder';
 import { Avatar } from './_shared/Avatar';
 import { Ticks } from './_shared/Ticks';
@@ -120,6 +120,7 @@ export function EmpresaInbox() {
   const [blockMotivo, setBlockMotivo] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [hiding, setHiding] = useState(false);
+  const [ocultarConfirm, setOcultarConfirm] = useState(false); // modal de confirmación de ocultar
   const [verOcultos, setVerOcultos] = useState(false); // vista "ver ocultos" para desocultar
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState('todas');
@@ -373,16 +374,18 @@ export function EmpresaInbox() {
   }
 
   // Ocultar (o mostrar) la conversación del inbox y de MaKo. No corta el envío.
+  // La confirmación de ocultar la maneja el modal (ocultarConfirm).
   async function toggleOculto(ocultar: boolean) {
     const sc = findConv(sel);
     if (!sc?.telefono) return;
-    if (ocultar && !window.confirm(`¿Ocultar a ${sc.nombre}? No se va a ver en el inbox ni MaKo la va a leer. Podés mostrarla de nuevo desde «Ver ocultos».`)) return;
+    setOcultarConfirm(false);
     setHiding(true); setSendErr(null);
     try {
       const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono, action: ocultar ? 'hide' : 'unhide', leadId: sc.leadId });
       if (j.ok) { setSel(null); await loadConvs(); } // sale/entra de la lista → deseleccionar y recargar
-      else setSendErr(j.error || 'No se pudo cambiar la visibilidad.');
-    } finally { setHiding(false); }
+      else setSendErr(j.error || 'No se pudo cambiar la visibilidad (¿corriste la migración 0076?).');
+    } catch (e) { setSendErr('No se pudo ocultar (' + (e instanceof Error ? e.message : 'error') + ').'); }
+    finally { setHiding(false); }
   }
 
   const selConv = findConv(sel);
@@ -417,8 +420,8 @@ export function EmpresaInbox() {
             <Dropdown value={filtroEtapa} onChange={setFiltroEtapa} width={158} ariaLabel="Filtrar por etapa" buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
               options={[{ value: 'todas', label: 'Todas las etapas' }, ...etapasPresentes.map(([k, label]) => ({ value: k, label, color: ETAPA_COLOR[k] }))]} />
             <button onClick={() => { setSel(null); setVerOcultos((v) => !v); }} title={verOcultos ? 'Volver al inbox' : 'Ver conversaciones ocultas (para mostrarlas de nuevo)'}
-              style={{ padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (verOcultos ? 'var(--ink)' : 'var(--border)'), background: verOcultos ? 'var(--ink)' : 'var(--surface-2)', color: verOcultos ? 'var(--on-sidebar)' : 'var(--dim)' }}>
-              {verOcultos ? '← Volver' : '🙈 Ocultos'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (verOcultos ? 'var(--ink)' : 'var(--border)'), background: verOcultos ? 'var(--ink)' : 'var(--surface-2)', color: verOcultos ? 'var(--on-sidebar)' : 'var(--dim)' }}>
+              {verOcultos ? '← Volver' : <><IconEyeOff size={14} /> Ocultos</>}
             </button>
           </div>
           {verOcultos && <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.4 }}>Conversaciones ocultas. Abrí una y tocá «Mostrar contacto» para devolverla al inbox.</div>}
@@ -427,7 +430,7 @@ export function EmpresaInbox() {
           {borradores.length > 0 && (
             <button onClick={() => setShowBorr(true)} title="Mensajes que MaKo dejó listos para que los mandes con 1 clic"
               style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', marginBottom: '6px', borderRadius: '12px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Geist', sans-serif", textAlign: 'left' }}>
-              📝 {borradores.length} borrador{borradores.length > 1 ? 'es' : ''} por enviar
+              <IconDraft /> {borradores.length} borrador{borradores.length > 1 ? 'es' : ''} por enviar
             </button>
           )}
           {loadingConvs && convs.length === 0 && <div style={{ padding: '18px', color: 'var(--dim)', fontSize: '13.5px' }}>Cargando…</div>}
@@ -526,18 +529,17 @@ export function EmpresaInbox() {
                       )}
                       {m.mediaUrl && m.tipo === 'audio' && <audio controls src={m.mediaUrl} style={{ width: '240px', marginBottom: m.texto ? '6px' : 0 }} />}
                       {m.mediaUrl && m.tipo === 'video' && <video controls src={m.mediaUrl} style={{ maxWidth: '240px', borderRadius: '10px', marginBottom: m.texto ? '6px' : 0, display: 'block' }} />}
-                      {m.mediaUrl && m.tipo === 'document' && (esPdf ? (
-                        <button onClick={() => setLightbox({ tipo: 'pdf', url: m.mediaUrl! })} title="Ver PDF" style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '9px 12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', cursor: 'pointer', maxWidth: '240px', marginBottom: m.texto ? '6px' : 0 }}>
-                          <span style={{ fontSize: '20px', flex: 'none' }}>📄</span>
+                      {m.mediaUrl && m.tipo === 'document' && (
+                        // Se abre en pestaña nueva (no iframe: X-Frame-Options bloquea el embed).
+                        <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '9px 12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--surface-2)', textDecoration: 'none', maxWidth: '240px', marginBottom: m.texto ? '6px' : 0 }}>
+                          <span style={{ flex: 'none', color: 'var(--dim)' }}><IconDoc size={22} /></span>
                           <span style={{ minWidth: 0, textAlign: 'left' }}>
-                            <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>{m.texto || 'Documento PDF'}</span>
-                            <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--primary)' }}>Ver previsualización</span>
+                            <span style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.texto || (esPdf ? 'Documento PDF' : 'Documento')}</span>
+                            <span style={{ display: 'block', fontSize: '11.5px', color: 'var(--primary)' }}>Abrir en pestaña nueva</span>
                           </span>
-                        </button>
-                      ) : (
-                        <a href={m.mediaUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--primary)', textDecoration: 'none', marginBottom: m.texto ? '6px' : 0 }}>📎 {m.texto || 'Abrir archivo'}</a>
-                      ))}
-                      {!m.mediaUrl && esMedia && <span style={{ display: 'block', fontSize: '13px', color: 'var(--faint)', fontStyle: 'italic', marginBottom: m.texto ? '6px' : 0 }}>📎 {m.texto || m.tipo} (no disponible)</span>}
+                        </a>
+                      )}
+                      {!m.mediaUrl && esMedia && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '13px', color: 'var(--faint)', fontStyle: 'italic', marginBottom: m.texto ? '6px' : 0 }}><IconClip /> {m.texto || m.tipo} (no disponible)</span>}
                       {m.texto && m.tipo !== 'document' && <div style={{ fontSize: '14px', lineHeight: 1.45, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{m.texto}</div>}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: mine ? 'flex-end' : 'flex-start', gap: '5px', marginTop: '3px' }}>
                         <span style={{ fontSize: '10.5px', color: 'var(--faint)' }}>{fmtHora(m.fecha)}</span>
@@ -558,7 +560,7 @@ export function EmpresaInbox() {
             )}
             {sendErr && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: '12.5px', borderTop: '1px solid var(--border)' }}>{sendErr}</div>}
             {selConv.bloqueado ? (
-              <div style={{ padding: '16px', borderTop: '1px solid var(--border)', textAlign: 'center', fontSize: '13px', color: 'var(--dim)' }}>⛔ Contacto bloqueado. <button onClick={() => void setBloqueo(false)} disabled={blocking} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Desbloquear</button> para volver a escribir.</div>
+              <div style={{ padding: '16px', borderTop: '1px solid var(--border)', fontSize: '13px', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', flexWrap: 'wrap' }}><IconBan size={14} /> Contacto bloqueado. <button onClick={() => void setBloqueo(false)} disabled={blocking} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Desbloquear</button> para volver a escribir.</div>
             ) : voz.recording ? (
               <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
                 <VoiceRecorderBar paused={voz.paused} secs={voz.secs} sending={sending}
@@ -578,7 +580,7 @@ export function EmpresaInbox() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={adjuntoPreview} alt={adjunto.name} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }} />
                     ) : (
-                      <div style={{ width: '48px', height: '48px', flex: 'none', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{adjunto.type.startsWith('audio/') ? '🎵' : adjunto.type.startsWith('video/') ? '🎬' : '📄'}</div>
+                      <div style={{ width: '48px', height: '48px', flex: 'none', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--dim)' }}><IconDoc size={22} /></div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '13px', color: 'var(--ink)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adjunto.name}</div>
@@ -624,13 +626,13 @@ export function EmpresaInbox() {
             ) : (
               <Link href="/leads" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Buscar en CRM →</Link>
             )}
-            {selConv.bloqueado && <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}>⛔ Contacto bloqueado</div>}
+            {selConv.bloqueado && <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}><IconBan size={14} /> Contacto bloqueado</div>}
             {selConv.telefono && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
                 {/* Ocultar: saca la conversación del inbox y de MaKo (para chats
                     personales). En la vista de ocultos, el botón la muestra de nuevo. */}
-                <button onClick={() => void toggleOculto(!verOcultos)} disabled={hiding}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: hiding ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : verOcultos ? '👁 Mostrar contacto' : '🙈 Ocultar contacto'}</button>
+                <button onClick={() => (verOcultos ? void toggleOculto(false) : setOcultarConfirm(true))} disabled={hiding}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: hiding ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : verOcultos ? <><IconEye size={15} /> Mostrar contacto</> : <><IconEyeOff size={15} /> Ocultar contacto</>}</button>
                 <button onClick={() => (selConv.bloqueado ? void setBloqueo(false) : (setBlockMotivo(''), setBlockModalOpen(true)))} disabled={blocking}
                   style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (selConv.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: selConv.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : selConv.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
               </div>
@@ -652,21 +654,27 @@ export function EmpresaInbox() {
 
       {detalleLeadId != null && <LeadEditModal leadId={detalleLeadId} onClose={() => setDetalleLeadId(null)} />}
 
-      {/* Lightbox de previsualización (imagen / PDF), idéntico al oficial */}
-      {lightbox && (
+      {/* Lightbox de imagen (los PDF/documentos se abren en pestaña nueva: los
+          iframes están bloqueados por X-Frame-Options del sitio). */}
+      {lightbox && lightbox.tipo === 'image' && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2500, padding: '28px' }}>
-          <button onClick={() => setLightbox(null)} title="Cerrar" style={{ position: 'absolute', top: '18px', right: '18px', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: '20px', cursor: 'pointer' }}>✕</button>
-          {lightbox.tipo === 'image' ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={lightbox.url} alt="adjunto" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: '8px', objectFit: 'contain' }} />
-          ) : (
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '90vw', height: '88vh', maxWidth: '900px', background: 'var(--surface)', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              {/* La URL ya sirve el PDF (proxy ?media= o URL firmada) → directo, sin
-                  re-envolver en /api/whatsapp/file (eso causaba "conexión rechazada"). */}
-              <iframe src={lightbox.url} title="PDF" style={{ flex: 1, width: '100%', border: 'none' }} />
-              <a href={lightbox.url} target="_blank" rel="noreferrer" style={{ padding: '10px 14px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}>Abrir / descargar en pestaña nueva →</a>
+          <button onClick={() => setLightbox(null)} title="Cerrar" aria-label="Cerrar" style={{ position: 'absolute', top: '18px', right: '18px', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.14)', color: '#fff', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox.url} alt="adjunto" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: '8px', objectFit: 'contain' }} />
+        </div>
+      )}
+
+      {/* Modal de confirmación de ocultar */}
+      {ocultarConfirm && selConv && (
+        <div onClick={() => setOcultarConfirm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, padding: '24px' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '420px', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '6px' }}><span style={{ color: 'var(--dim)' }}><IconEyeOff size={18} /></span><div style={{ fontSize: '17px', fontWeight: 600, color: 'var(--ink)' }}>Ocultar a {selConv.nombre}</div></div>
+            <div style={{ fontSize: '12.5px', color: 'var(--dim)', marginBottom: '16px', lineHeight: 1.5 }}>La conversación no se va a ver en el inbox ni MaKo la va a leer (para chats personales). No corta el envío. Podés mostrarla de nuevo desde «Ocultos».</div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setOcultarConfirm(false)} style={{ padding: '8px 16px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={() => void toggleOculto(true)} disabled={hiding} style={{ padding: '8px 18px', borderRadius: '9px', border: 'none', background: 'var(--ink)', color: 'var(--on-sidebar)', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: hiding ? 0.6 : 1 }}>{hiding ? 'Ocultando…' : 'Ocultar'}</button>
             </div>
-          )}
+          </div>
         </div>
       )}
 

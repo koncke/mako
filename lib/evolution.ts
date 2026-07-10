@@ -387,7 +387,25 @@ export async function fetchProfilePic(telefono: string): Promise<string | null> 
     `/chat/fetchProfilePictureUrl/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ number: num }) },
   );
-  return r.ok ? (r.data.profilePictureUrl ?? null) : null;
+  if (r.ok && r.data.profilePictureUrl) return r.data.profilePictureUrl;
+  // Fallback: el profilePicUrl CACHEADO de findContacts (lo que muestra la UI de
+  // Evolution). fetchProfilePictureUrl (en vivo) devuelve null seguido si el
+  // contacto no está agendado; el cache suele tenerla igual.
+  return fetchContactoPicUrl(num);
+}
+
+// Foto de perfil cacheada (tabla Contact de Evolution) vía findContacts. Best-effort.
+export async function fetchContactoPicUrl(telefono: string): Promise<string | null> {
+  const num = (telefono || '').replace(/\D/g, '');
+  const ws = await getWorkspaceActual();
+  if (ws == null || !num || !evolutionConfigurado()) return null;
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<Array<{ remoteJid?: string; profilePicUrl?: string | null }>>(
+    `/chat/findContacts/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: { remoteJid: `${num}@s.whatsapp.net` } }) },
+  );
+  if (!r.ok || !Array.isArray(r.data)) return null;
+  return r.data.find((c) => c.profilePicUrl)?.profilePicUrl ?? null;
 }
 
 // ── Lectura EN VIVO desde Evolution (no depende del webhook) ─────────────────

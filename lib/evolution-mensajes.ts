@@ -246,14 +246,41 @@ export async function getConversacionesNoOficial(limite = 600, incluirOcultos = 
   }
   const convs = [...porChat.values()];
 
-  // El inbox lista SOLO conversaciones reales (las que están en el espejo: te
-  // escribieron o les escribiste, + placeholders de Nutrición-Manual). NO se
-  // vuelca automáticamente toda la agenda/historial de Evolution — eso sólo pasa
-  // con "Sincronizar todo" (sincronizarDesdeEvolution), que trae los chats al
-  // espejo a pedido. Así no aparecen números sueltos ni el @lid duplicado.
+  // Conversaciones EN VIVO de Evolution (las que tienen mensajes = "te escribieron
+  // o les escribiste"). Canonicalizamos el @lid → número (con el último mensaje)
+  // para que el ENTRANTE de un contacto no agendado caiga en la MISMA fila que el
+  // saliente, sin el chat duplicado. Un @lid sin número resoluble se muestra con
+  // su pushName (para no perder el entrante). Esto es lo que hace aparecer los
+  // mensajes nuevos sin depender del webhook.
+  const liveChats = await fetchChatsEvolution().catch(() => [] as Awaited<ReturnType<typeof fetchChatsEvolution>>);
+  if (liveChats.length) {
+    const yaTel = new Set(convs.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter(Boolean));
+    const yaJid = new Set(convs.map((c) => c.chatJid));
+    for (const ch of liveChats) {
+      const rawJid = ch.remoteJid || '';
+      if (!rawJid || rawJid.endsWith('@g.us') || rawJid.startsWith('status@') || rawJid.includes('broadcast')) continue;
+      // Canonicalizar con el último mensaje (trae remoteJidAlt/senderPn del contacto).
+      const jid = jidCanonico(ch.lastMessage?.key ?? { remoteJid: rawJid }) ?? rawJid;
+      const digits = (normalizarTelefono(jidToNumero(jid)) || jidToNumero(jid) || '').replace(/\D/g, '');
+      const t10 = digits.slice(-10);
+      if (jid.endsWith('@lid')) { if (yaJid.has(jid)) continue; } // @lid sin número: dedup por jid
+      else if (t10 && yaTel.has(t10)) continue;                    // número: dedup por teléfono
+      const lm = ch.lastMessage;
+      const cont = lm ? extraerContenido(lm as UpsertData) : null;
+      convs.push({
+        chatJid: jid, telefono: jid.endsWith('@lid') ? null : (digits || null),
+        nombre: ch.pushName || digits || jid.replace(/@.*/, ''),
+        leadId: null, empresa: null, etapaKey: null, etapaLabel: null,
+        ultimoTexto: cont?.texto ?? null, ultimoTipo: cont?.tipo ?? (lm ? 'text' : null),
+        ultimaFecha: lm ? tsToISO(lm.messageTimestamp) : (ch.updatedAt ?? null),
+        ultimoEntrante: lm ? !lm.key?.fromMe : false, total: 1, bloqueado: false,
+      });
+      if (jid.endsWith('@lid')) yaJid.add(jid); else if (t10) yaTel.add(t10);
+    }
+  }
 
-  // Resolver leadId por teléfono para las convs sin lead (salientes viejos sin
-  // lead_id) → el enriquecido de abajo les pone empresa/etapa/nombre del CRM.
+  // Resolver leadId por teléfono para las convs sin lead (live/salientes) → el
+  // enriquecido de abajo les pone empresa/etapa/nombre del CRM.
   await resolverLeadIdsPorTelefono(supabase, convs);
 
   // Enriquecer con empresa + etapa del funnel (tarjeta de lead, filtro por etapa,
