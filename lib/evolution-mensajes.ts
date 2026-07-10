@@ -198,14 +198,18 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
   if (leadIds.length) {
     const { data: leads } = await supabase
       .from('leads')
-      .select('id, empresa, pipeline_stage, fecha_primer_pago, fecha_confirmacion, cerro, asistio_j1, asistio_j2, fecha_junta_2, fecha_agenda, visitor_id, meta_lead_id')
+      .select('id, nombre, empresa, pipeline_stage, fecha_primer_pago, fecha_confirmacion, cerro, asistio_j1, asistio_j2, fecha_junta_2, fecha_agenda, visitor_id, meta_lead_id')
       .in('id', leadIds);
-    const porId = new Map(((leads ?? []) as Array<{ id: number; empresa: string | null; pipeline_stage: string | null } & LeadEtapaFields>).map((l) => [l.id, l]));
+    const porId = new Map(((leads ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; pipeline_stage: string | null } & LeadEtapaFields>).map((l) => [l.id, l]));
     for (const c of convs) {
       if (!c.leadId) continue;
       const l = porId.get(c.leadId);
       if (!l) continue;
       c.empresa = l.empresa ?? null;
+      // Si el "nombre" quedó como el teléfono/jid (p.ej. saliente propio sin
+      // push_name), usamos el nombre del CRM (así un lead buscado no se ve como
+      // un número tras escribirle). Si hay push_name real, lo respetamos.
+      if (l.nombre && (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, ''))) c.nombre = l.nombre;
       if (l.pipeline_stage === 'manual') { c.etapaKey = 'manual'; c.etapaLabel = 'Nutrición - Manual'; }
       else { const et = derivarEtapa(l); c.etapaKey = et.key; c.etapaLabel = et.label; }
     }
@@ -268,6 +272,42 @@ export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
   return [...porChat.values()];
 }
 
+// Búsqueda server-side de CUALQUIER lead del CRM (con teléfono) como
+// conversación placeholder, para poder "traerlo" al inbox y escribirle aunque
+// nunca haya habido mensajes. Habilita el buscador del inbox no oficial (#2):
+// el usuario tipea un nombre/empresa/teléfono y el lead aparece; al escribirle,
+// enviarYEspejar materializa el chat real. Scopeado por getTenantDb.
+export async function buscarLeadsComoPlaceholders(q: string, limite = 25): Promise<WaConversacion[]> {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const supabase = await getTenantDb();
+  // Sanitizar para el filtro .or de PostgREST (las comas/paréntesis separan condiciones).
+  const limpio = term.replace(/[(),%*]/g, ' ').trim();
+  if (!limpio) return [];
+  const digits = term.replace(/\D/g, '');
+  const conds = [`nombre.ilike.%${limpio}%`, `empresa.ilike.%${limpio}%`];
+  if (digits.length >= 4) conds.push(`telefono_normalizado.like.%${digits}%`);
+  const { data } = await supabase
+    .from('leads')
+    .select('id, nombre, empresa, telefono_normalizado, pipeline_stage, fecha_primer_pago, fecha_confirmacion, cerro, asistio_j1, asistio_j2, fecha_junta_2, fecha_agenda, visitor_id, meta_lead_id')
+    .not('telefono_normalizado', 'is', null)
+    .or(conds.join(','))
+    .limit(limite);
+  const rows = (data ?? []) as Array<{ id: number; nombre: string | null; empresa: string | null; telefono_normalizado: string | null; pipeline_stage: string | null } & LeadEtapaFields>;
+  const out: WaConversacion[] = [];
+  for (const l of rows) {
+    const tel = (l.telefono_normalizado || '').replace(/\D/g, '');
+    if (!tel) continue;
+    const et = l.pipeline_stage === 'manual' ? { key: 'manual', label: 'Nutrición - Manual' } : derivarEtapa(l);
+    out.push({
+      chatJid: `${tel}@s.whatsapp.net`, telefono: tel, nombre: l.nombre || tel, leadId: l.id,
+      empresa: l.empresa ?? null, etapaKey: et.key, etapaLabel: et.label,
+      ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0, bloqueado: false,
+    });
+  }
+  return out;
+}
+
 export type WaMensaje = {
   id: number; fromMe: boolean; tipo: string | null; texto: string | null;
   mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null;
@@ -285,15 +325,23 @@ export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<
     .limit(limite);
   const rows = (data ?? []) as Array<{ id: number; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
 
-  // Firmar las media en un solo batch de llamadas.
-  const out: WaMensaje[] = [];
-  for (const r of rows) {
-    let mediaUrl: string | null = null;
-    if (r.media_path) {
-      const { data: signed } = await supabase.storage.from(MEDIA_BUCKET).createSignedUrl(r.media_path, 3600);
-      mediaUrl = signed?.signedUrl ?? null;
-    }
-    out.push({ id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto, mediaUrl, mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status });
+  // Firmar TODA la media en UN solo batch (createSignedUrls), con timeout y
+  // fail-open. Antes se firmaba en un loop secuencial con await: si el storage
+  // se colgaba, el request nunca respondía y el hilo quedaba "Cargando…" eterno.
+  // Ahora, si el storage falla/tarda, servimos el hilo SIN media en vez de colgar.
+  const paths = rows.map((r) => r.media_path).filter((p): p is string => !!p);
+  const urlPorPath = new Map<string, string>();
+  if (paths.length) {
+    try {
+      const firmar = supabase.storage.from(MEDIA_BUCKET).createSignedUrls(paths, 3600);
+      const guard = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('storage timeout')), 8000));
+      const { data: signed } = await Promise.race([firmar, guard]) as Awaited<typeof firmar>;
+      for (const s of signed ?? []) if (s.path && s.signedUrl) urlPorPath.set(s.path, s.signedUrl);
+    } catch { /* storage caído/lento → hilo sin media, nunca colgamos el request */ }
   }
-  return out;
+  return rows.map((r) => ({
+    id: r.id, fromMe: r.from_me, tipo: r.tipo, texto: r.texto,
+    mediaUrl: r.media_path ? (urlPorPath.get(r.media_path) ?? null) : null,
+    mediaMime: r.media_mime, fecha: r.wa_timestamp, status: r.status,
+  }));
 }

@@ -37,7 +37,7 @@ export async function tieneBorradorNutriPendiente(leadId: number): Promise<boole
 
 // Envía un texto por el no oficial y espeja el saliente en wa_mensajes (para que
 // aparezca en el hilo). Devuelve el id del mensaje o el error.
-export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null }): Promise<{ ok: boolean; error?: string }> {
+export async function enviarYEspejar(params: { telefono: string; texto: string; leadId?: number | null; chatJid?: string | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
   const r = await enviarTexto(params.telefono, params.texto);
   if (!r.ok) return { ok: false, error: r.error };
   // Espejo del saliente SOLO si Evolution devolvió el id real: así el eco del
@@ -58,7 +58,7 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
       raw: { local: true },
     }, { onConflict: 'workspace_id,wa_message_id', ignoreDuplicates: true }); // si ya llegó el eco del webhook, gana esa fila (más rica)
   }
-  return { ok: true };
+  return { ok: true, chatJid: r.chatJid };
 }
 
 // Envía media (imagen/documento/video) por el no oficial y espeja el saliente en
@@ -66,7 +66,7 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
 export async function enviarMediaYEspejar(params: {
   telefono: string; media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' };
   caption?: string; leadId?: number | null;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
   const r = await enviarMedia(params.telefono, params.media, params.caption);
   if (!r.ok) return { ok: false, error: r.error };
   if (r.id) {
@@ -82,11 +82,11 @@ export async function enviarMediaYEspejar(params: {
       // primero, la actualizamos para que la media se vea igual.
     }, { onConflict: 'workspace_id,wa_message_id' });
   }
-  return { ok: true };
+  return { ok: true, chatJid: r.chatJid };
 }
 
 // Envía una nota de voz por el no oficial y la espeja como tipo='audio'.
-export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null }): Promise<{ ok: boolean; error?: string }> {
+export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null }): Promise<{ ok: boolean; error?: string; chatJid?: string }> {
   const r = await enviarAudio(params.telefono, params.base64);
   if (!r.ok) return { ok: false, error: r.error };
   if (r.id) {
@@ -103,7 +103,7 @@ export async function enviarAudioYEspejar(params: { telefono: string; base64: st
       // primero, la actualizamos para que la media se vea igual.
     }, { onConflict: 'workspace_id,wa_message_id' });
   }
-  return { ok: true };
+  return { ok: true, chatJid: r.chatJid };
 }
 
 // ── Cola de borradores ────────────────────────────────────────────────────────

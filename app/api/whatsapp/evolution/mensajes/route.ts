@@ -9,7 +9,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getConversacionesNoOficial, getResumenNoOficial, getMensajesDeChat } from '@/lib/evolution-mensajes';
+import { getConversacionesNoOficial, getResumenNoOficial, getMensajesDeChat, buscarLeadsComoPlaceholders } from '@/lib/evolution-mensajes';
 import { enviarYEspejar, enviarMediaYEspejar, enviarAudioYEspejar } from '@/lib/evolution-envio';
 import { jidToNumero, fetchProfilePic } from '@/lib/evolution';
 
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
   const chat = req.nextUrl.searchParams.get('chat');
   const avatar = req.nextUrl.searchParams.get('avatar');
   const resumen = req.nextUrl.searchParams.get('resumen');
+  const buscar = req.nextUrl.searchParams.get('buscar');
   try {
     if (avatar) {
       const url = await fetchProfilePic(avatar);
@@ -30,6 +31,11 @@ export async function GET(req: NextRequest) {
     if (chat) {
       const mensajes = await getMensajesDeChat(chat);
       return Response.json({ ok: true, mensajes });
+    }
+    if (buscar) {
+      // Buscar cualquier lead del CRM para traerlo al inbox (#2).
+      const conversaciones = await buscarLeadsComoPlaceholders(buscar);
+      return Response.json({ ok: true, conversaciones });
     }
     if (resumen) {
       // Fast-path del polling global de notificaciones (una sola query, sin enriquecer).
@@ -52,16 +58,16 @@ export async function POST(req: NextRequest) {
   const ct = req.headers.get('content-type') || '';
   if (ct.includes('multipart/form-data')) return postMedia(req);
 
-  let body: { chat?: string; telefono?: string; texto?: string };
+  let body: { chat?: string; telefono?: string; texto?: string; leadId?: number | null };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const texto = String(body.texto ?? '').trim();
   const telefono = String(body.telefono ?? '').replace(/\D/g, '') || jidToNumero(body.chat ?? null) || '';
   if (!texto) return Response.json({ ok: false, error: 'texto vacío' }, { status: 400 });
   if (!telefono) return Response.json({ ok: false, error: 'destino inválido' }, { status: 400 });
   try {
-    const r = await enviarYEspejar({ telefono, texto, chatJid: body.chat ?? null });
+    const r = await enviarYEspejar({ telefono, texto, chatJid: body.chat ?? null, leadId: body.leadId ?? null });
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, chatJid: r.chatJid ?? null });
   } catch (e) {
     console.error(`[api:whatsapp/evolution/mensajes POST] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });
@@ -89,13 +95,13 @@ async function postMedia(req: NextRequest): Promise<Response> {
     if (tipo === 'audio' || mimetype.startsWith('audio/')) {
       const r = await enviarAudioYEspejar({ telefono, base64, mimetype, leadId });
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, chatJid: r.chatJid ?? null });
     }
     const mediaTipo: 'image' | 'video' | 'document' =
       mimetype.startsWith('image/') ? 'image' : mimetype.startsWith('video/') ? 'video' : 'document';
     const r = await enviarMediaYEspejar({ telefono, media: { base64, mimetype, fileName: file.name || 'archivo', tipo: mediaTipo }, caption, leadId });
     if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 502 });
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, chatJid: r.chatJid ?? null });
   } catch (e) {
     console.error(`[api:whatsapp/evolution/mensajes POST media] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

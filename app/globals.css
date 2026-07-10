@@ -49,6 +49,10 @@
   --wa: #1E9E57;
   --wa-bubble: #DDF3E4;
   --auto-bubble: #FBEFCF;
+  /* Acento del canal NO oficial (Evolution): índigo, para distinguirlo del
+     verde oficial sin romper la paridad de diseño (cinta + chip + burbuja). */
+  --wa-noof: #5B6BD6;
+  --wa-noof-bubble: #E7E9FB;
 
   /* ── Alias de compatibilidad ──
      Las pantallas heredadas (revenue, pendientes, ficha y alta de lead) usan
