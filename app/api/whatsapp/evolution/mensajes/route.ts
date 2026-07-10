@@ -11,7 +11,7 @@
 import type { NextRequest } from 'next/server';
 import { getConversacionesNoOficial, getMensajesDeChat } from '@/lib/evolution-mensajes';
 import { enviarYEspejar, enviarMediaYEspejar, enviarAudioYEspejar } from '@/lib/evolution-envio';
-import { jidToNumero } from '@/lib/evolution';
+import { jidToNumero, fetchProfilePic } from '@/lib/evolution';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,12 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function GET(req: NextRequest) {
   const chat = req.nextUrl.searchParams.get('chat');
+  const avatar = req.nextUrl.searchParams.get('avatar');
   try {
+    if (avatar) {
+      const url = await fetchProfilePic(avatar);
+      return Response.json({ ok: true, url });
+    }
     if (chat) {
       const mensajes = await getMensajesDeChat(chat);
       return Response.json({ ok: true, mensajes });

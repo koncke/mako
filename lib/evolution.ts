@@ -376,6 +376,20 @@ export async function enviarAudio(telefono: string, base64: string): Promise<Env
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
 }
 
+// Foto de perfil de WhatsApp de un número (URL efímera del CDN, o null si no tiene
+// / es privada / no está en WhatsApp). Best-effort: no lanza.
+export async function fetchProfilePic(telefono: string): Promise<string | null> {
+  const num = (telefono || '').replace(/\D/g, '');
+  if (!num) return null;
+  const ws = await wsEstricto();
+  const instance = instanceNameDeWs(ws);
+  const r = await evFetch<{ profilePictureUrl?: string | null }>(
+    `/chat/fetchProfilePictureUrl/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ number: num }) },
+  );
+  return r.ok ? (r.data.profilePictureUrl ?? null) : null;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 // '5216863996369@s.whatsapp.net' → '5216863996369'
 export function jidToNumero(jid: string | null): string | null {

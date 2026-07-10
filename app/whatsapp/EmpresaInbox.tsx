@@ -14,6 +14,7 @@ import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
 import { SendArrow, IconSmiley, IconClip, IconMic, iconComposerBtn } from './_shared/composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './_shared/VoiceRecorder';
+import { Avatar } from './_shared/Avatar';
 import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
 
@@ -279,7 +280,7 @@ export function EmpresaInbox() {
               <div key={c.chatJid} role="button" tabIndex={0} onClick={() => setSel(c.chatJid)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSel(c.chatJid); } }}
                 style={{ display: 'flex', gap: '11px', padding: '11px 12px', borderRadius: '12px', cursor: 'pointer', background: active ? 'var(--surface-2)' : 'transparent', border: '1px solid ' + (active ? 'var(--border-strong)' : 'transparent'), alignItems: 'center' }}>
-                <div style={{ width: '38px', height: '38px', flex: 'none', borderRadius: '50%', background: 'var(--wa-bubble)', color: 'var(--wa)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '14px' }}>{(c.nombre[0] || '·').toUpperCase()}</div>
+                <Avatar telefono={c.telefono} name={c.nombre} size={38} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px' }}>
                     <span style={{ fontWeight: 600, fontSize: '13.5px', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre}</span>
@@ -303,6 +304,7 @@ export function EmpresaInbox() {
         ) : (
           <>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Avatar telefono={selConv.telefono} name={selConv.nombre} size={36} />
               <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{selConv.nombre}</div>
               {selConv.telefono && <span style={{ fontSize: '12.5px', color: 'var(--faint)', fontFamily: "'Geist Mono', monospace" }}>{selConv.telefono}</span>}
               <span style={{ marginLeft: 'auto', fontSize: '11.5px', color: 'var(--wa)', fontWeight: 600 }}>no oficial</span>
