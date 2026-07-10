@@ -154,6 +154,13 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
 }
 
 // ── Lectura para el inbox ────────────────────────────────────────────────────
+// Clave de agrupación de una conversación: los últimos 10 dígitos del teléfono
+// (robusto ante variaciones del jid); si no hay teléfono, el jid crudo.
+function claveTel(tel: string | null, jid: string): string {
+  const d = (tel || '').replace(/\D/g, '').slice(-10);
+  return d.length >= 8 ? d : jid;
+}
+
 export type WaConversacion = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
   empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
@@ -173,11 +180,18 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     .limit(limite);
   const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; texto: string | null; tipo: string | null; from_me: boolean; wa_timestamp: string | null; lead_id: number | null }>;
 
+  // Agrupamos por TELÉFONO (últimos 10 dígitos), NO por chat_jid exacto: Evolution
+  // guarda entrantes/salientes bajo jids que a veces difieren (9 de AR, @lid vs
+  // @s.whatsapp.net, sufijo de device). Agrupar por número junta el hilo real y
+  // evita el "Sin mensajes" cuando el jid del listado no coincide con el guardado.
+  // rows viene desc → la 1ª fila por número es la más reciente → su chat_jid es el
+  // representante (el que usa el hilo).
   const porChat = new Map<string, WaConversacion>();
   for (const r of rows) {
-    const prev = porChat.get(r.chat_jid);
+    const k = claveTel(r.telefono, r.chat_jid);
+    const prev = porChat.get(k);
     if (!prev) {
-      porChat.set(r.chat_jid, {
+      porChat.set(k, {
         chatJid: r.chat_jid, telefono: r.telefono, nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
         leadId: r.lead_id, empresa: null, etapaKey: null, etapaLabel: null,
         ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
@@ -186,7 +200,8 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     } else {
       prev.total += 1;
       if (!prev.leadId && r.lead_id) prev.leadId = r.lead_id;
-      if (prev.nombre === prev.chatJid.replace(/@.*/, '') && r.push_name) prev.nombre = r.push_name;
+      if (!prev.telefono && r.telefono) prev.telefono = r.telefono;
+      if ((prev.nombre === prev.telefono || prev.nombre === prev.chatJid.replace(/@.*/, '')) && r.push_name) prev.nombre = r.push_name;
     }
   }
   const convs = [...porChat.values()];
@@ -218,7 +233,7 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
   // #9: sumar los leads en 'Nutrición - Manual' que TODAVÍA no tienen mensajes,
   // como conversaciones placeholder — así se les puede escribir desde el inbox.
   const idsConConv = new Set(convs.map((c) => c.leadId).filter((x): x is number => x != null));
-  const jidsConConv = new Set(convs.map((c) => c.chatJid));
+  const telsConConv = new Set(convs.map((c) => (c.telefono || '').replace(/\D/g, '').slice(-10)).filter(Boolean));
   const { data: manuales } = await supabase
     .from('leads')
     .select('id, nombre, empresa, telefono_normalizado')
@@ -229,11 +244,11 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     if (idsConConv.has(l.id)) continue;
     const tel = (l.telefono_normalizado || '').replace(/\D/g, '');
     if (!tel) continue;
-    const jid = `${tel}@s.whatsapp.net`;
-    if (jidsConConv.has(jid)) continue;
-    jidsConConv.add(jid);
+    const t10 = tel.slice(-10);
+    if (t10 && telsConConv.has(t10)) continue;
+    telsConConv.add(t10);
     convs.push({
-      chatJid: jid, telefono: tel, nombre: l.nombre || tel, leadId: l.id,
+      chatJid: `${tel}@s.whatsapp.net`, telefono: tel, nombre: l.nombre || tel, leadId: l.id,
       empresa: l.empresa ?? null, etapaKey: 'manual', etapaLabel: 'Nutrición - Manual',
       ultimoTexto: null, ultimoTipo: null, ultimaFecha: null, ultimoEntrante: false, total: 0, bloqueado: false,
     });
@@ -261,8 +276,9 @@ export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
   const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean; wa_timestamp: string | null }>;
   const porChat = new Map<string, WaResumen>();
   for (const r of rows) {
-    if (porChat.has(r.chat_jid)) continue; // rows vienen desc → el primero es el último mensaje
-    porChat.set(r.chat_jid, {
+    const k = claveTel(r.telefono, r.chat_jid); // agrupar por teléfono (mismo criterio que el inbox)
+    if (porChat.has(k)) continue; // rows vienen desc → el primero es el último mensaje
+    porChat.set(k, {
       chatJid: r.chat_jid,
       nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
       ultimaFecha: r.wa_timestamp,
@@ -313,16 +329,26 @@ export type WaMensaje = {
   mediaUrl: string | null; mediaMime: string | null; fecha: string | null; status: string | null;
 };
 
-// Mensajes de un chat (asc) con URLs firmadas para la multimedia.
+// Mensajes de un chat (asc) con URLs firmadas para la multimedia. Matchea por
+// TELÉFONO (últimos 10 dígitos) además del jid exacto: así el hilo aparece aunque
+// Evolution haya guardado los mensajes bajo un jid distinto del que muestra el
+// listado (9 de AR, @lid, sufijo de device) — antes daba "Sin mensajes".
 export async function getMensajesDeChat(chatJid: string, limite = 300): Promise<WaMensaje[]> {
   const supabase = await getTenantDb();
-  const { data } = await supabase
+  const last10 = (normalizarTelefono(jidToNumero(chatJid)) || '').replace(/\D/g, '').slice(-10);
+  let sel = supabase
     .from('wa_mensajes')
     .select('id, from_me, tipo, texto, media_path, media_mime, wa_timestamp, status')
-    .eq('chat_jid', chatJid)
     .neq('tipo', 'evento')   // no ensuciamos el hilo con reacciones/protocolo
     .order('wa_timestamp', { ascending: true })
     .limit(limite);
+  // chat_jid puede traer chars raros para PostgREST .or → sólo lo usamos en el .or
+  // si es "simple"; si no, caemos al match por teléfono (o jid exacto).
+  const jidSimple = /^[A-Za-z0-9@._:-]+$/.test(chatJid);
+  if (last10.length >= 8 && jidSimple) sel = sel.or(`chat_jid.eq.${chatJid},telefono.like.%${last10}%`);
+  else if (last10.length >= 8) sel = sel.like('telefono', `%${last10}%`);
+  else sel = sel.eq('chat_jid', chatJid);
+  const { data } = await sel;
   const rows = (data ?? []) as Array<{ id: number; from_me: boolean; tipo: string | null; texto: string | null; media_path: string | null; media_mime: string | null; wa_timestamp: string | null; status: string | null }>;
 
   // Firmar TODA la media en UN solo batch (createSignedUrls), con timeout y
