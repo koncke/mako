@@ -937,8 +937,8 @@ function WhatsAppInner() {
       {/* Toggle de canal del inbox (oficial Chatwoot / empresa no-oficial) */}
       {isChats && (
         <div style={{ display: 'inline-flex', alignSelf: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: '11px', padding: '4px', gap: '4px', marginBottom: '14px' }}>
-          <button onClick={() => setCanal('oficial')} style={{ ...(canal === 'oficial' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>🤖 API Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}</button>
-          <button onClick={() => setCanal('empresa')} style={{ ...(canal === 'empresa' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>👤 API no Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}</button>
+          <button onClick={() => setCanal('oficial')} style={{ ...(canal === 'oficial' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>API Oficial{oficialUnread > 0 && <span style={badgeCanal}>{oficialUnread}</span>}</button>
+          <button onClick={() => setCanal('empresa')} style={{ ...(canal === 'empresa' ? tabActive : tabIdle), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>API no Oficial{noOficialUnread > 0 && <span style={badgeCanal}>{noOficialUnread}</span>}</button>
         </div>
       )}
 
