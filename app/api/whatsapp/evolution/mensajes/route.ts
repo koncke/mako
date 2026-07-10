@@ -24,7 +24,21 @@ export async function GET(req: NextRequest) {
   const resumen = req.nextUrl.searchParams.get('resumen');
   const buscar = req.nextUrl.searchParams.get('buscar');
   const media = req.nextUrl.searchParams.get('media');
+  const avatarimg = req.nextUrl.searchParams.get('avatarimg');
   try {
+    if (avatarimg) {
+      // Proxy de la foto de perfil: la bajamos del CDN de WhatsApp del lado del
+      // servidor (el <img> directo daba 403 por Referer/expiración) y la servimos.
+      const url = await fetchProfilePic(avatarimg);
+      if (!url) return new Response('sin foto', { status: 404, headers: { 'Cache-Control': 'private, max-age=1800' } });
+      try {
+        const rp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!rp.ok) return new Response('no', { status: 404, headers: { 'Cache-Control': 'private, max-age=600' } });
+        return new Response(Buffer.from(await rp.arrayBuffer()), {
+          headers: { 'Content-Type': rp.headers.get('content-type') || 'image/jpeg', 'Cache-Control': 'private, max-age=3600' },
+        });
+      } catch { return new Response('no', { status: 404, headers: { 'Cache-Control': 'private, max-age=600' } }); }
+    }
     if (media) {
       // Proxy de media: baja el base64 del mensaje desde Evolution y lo sirve
       // (así imágenes/audios/PDF se ven aunque no estén bajados al bucket).
@@ -52,7 +66,7 @@ export async function GET(req: NextRequest) {
       const conversaciones = await getResumenNoOficial();
       return Response.json({ ok: true, conversaciones });
     }
-    const conversaciones = await getConversacionesNoOficial();
+    const conversaciones = await getConversacionesNoOficial(600, req.nextUrl.searchParams.get('ocultos') === '1');
     return Response.json({ ok: true, conversaciones });
   } catch (e) {
     console.error(`[api:whatsapp/evolution/mensajes] ${msg(e)}`);

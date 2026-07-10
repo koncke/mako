@@ -1,10 +1,11 @@
 // =============================================================================
-// API: bloquear/desbloquear un contacto del WhatsApp NO oficial (a nivel app/CRM).
-// POST { telefono, action:'block'|'unblock', leadId?, motivo? }. Scopeado por ws.
+// API: bloquear/ocultar un contacto del WhatsApp NO oficial (a nivel app/CRM).
+// POST { telefono, action:'block'|'unblock'|'hide'|'unhide', leadId?, motivo? }.
+// block corta el envío; hide solo lo saca del inbox/MaKo. Scopeado por ws.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { bloquearContacto, desbloquearContacto } from '@/lib/evolution-block';
+import { bloquearContacto, desbloquearContacto, ocultarContacto, mostrarContacto } from '@/lib/evolution-block';
 import { getUsuarioActual } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,15 @@ export async function POST(req: NextRequest) {
     if (body.action === 'unblock') {
       await desbloquearContacto(telefono);
       return Response.json({ ok: true, bloqueado: false });
+    }
+    if (body.action === 'hide') {
+      const sesion = await getUsuarioActual().catch(() => null);
+      await ocultarContacto(telefono, { leadId: body.leadId ?? null, por: sesion?.email });
+      return Response.json({ ok: true, oculto: true });
+    }
+    if (body.action === 'unhide') {
+      await mostrarContacto(telefono);
+      return Response.json({ ok: true, oculto: false });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
   } catch (e) {

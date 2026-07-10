@@ -15,7 +15,7 @@ import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
 import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
-import { telefonosBloqueados } from '@/lib/evolution-block';
+import { telefonosBloqueados, telefonosOcultos } from '@/lib/evolution-block';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
@@ -190,7 +190,7 @@ export type WaConversacion = {
 
 // Conversaciones del canal no oficial: agrupa wa_mensajes por chat (en JS, como
 // el inbox de Chatwoot). Trae los últimos N y arma un hilo por contacto.
-export async function getConversacionesNoOficial(limite = 600): Promise<WaConversacion[]> {
+export async function getConversacionesNoOficial(limite = 600, incluirOcultos = false): Promise<WaConversacion[]> {
   const supabase = await getTenantDb();
   const { data } = await supabase
     .from('wa_mensajes')
@@ -285,10 +285,21 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     });
   }
 
+  // Ocultos: por defecto los SACAMOS del inbox (y de MaKo). Con incluirOcultos
+  // (vista "ver ocultos") los dejamos para poder desocultarlos.
+  const ocultos = await telefonosOcultos();
+  let salida = convs;
+  if (ocultos.size) {
+    const estaOculto = (c: WaConversacion) => !!c.telefono && ocultos.has(c.telefono.replace(/\D/g, ''));
+    salida = incluirOcultos ? convs.filter(estaOculto) : convs.filter((c) => !estaOculto(c));
+  } else if (incluirOcultos) {
+    salida = []; // no hay ocultos → la vista "ver ocultos" queda vacía
+  }
+
   // Marcar contactos bloqueados (una sola query).
   const bloq = await telefonosBloqueados();
-  if (bloq.size) for (const c of convs) if (c.telefono && bloq.has(c.telefono.replace(/\D/g, ''))) c.bloqueado = true;
-  return convs;
+  if (bloq.size) for (const c of salida) if (c.telefono && bloq.has(c.telefono.replace(/\D/g, ''))) c.bloqueado = true;
+  return salida;
 }
 
 // Resumen liviano para el polling GLOBAL de notificaciones (corre en toda la app
@@ -305,8 +316,10 @@ export async function getResumenNoOficial(limite = 600): Promise<WaResumen[]> {
     .order('wa_timestamp', { ascending: false })
     .limit(limite);
   const rows = (data ?? []) as Array<{ chat_jid: string; telefono: string | null; push_name: string | null; from_me: boolean; wa_timestamp: string | null }>;
+  const ocultos = await telefonosOcultos(); // los ocultos no notifican
   const porChat = new Map<string, WaResumen>();
   for (const r of rows) {
+    if (ocultos.size && r.telefono && ocultos.has(r.telefono.replace(/\D/g, ''))) continue;
     const k = claveTel(r.telefono, r.chat_jid); // agrupar por teléfono (mismo criterio que el inbox)
     if (porChat.has(k)) continue; // rows vienen desc → el primero es el último mensaje
     porChat.set(k, {

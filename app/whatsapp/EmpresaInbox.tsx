@@ -119,6 +119,8 @@ export function EmpresaInbox() {
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [blockMotivo, setBlockMotivo] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [hiding, setHiding] = useState(false);
+  const [verOcultos, setVerOcultos] = useState(false); // vista "ver ocultos" para desocultar
   const [search, setSearch] = useState('');
   const [filtroEtapa, setFiltroEtapa] = useState('todas');
   const [lightbox, setLightbox] = useState<{ tipo: 'image' | 'pdf'; url: string } | null>(null);
@@ -160,14 +162,14 @@ export function EmpresaInbox() {
 
   const loadConvs = useCallback(async () => {
     try {
-      const j = await jget<{ ok: boolean; error?: string; conversaciones: Conv[] }>('/api/whatsapp/evolution/mensajes');
+      const j = await jget<{ ok: boolean; error?: string; conversaciones: Conv[] }>(`/api/whatsapp/evolution/mensajes${verOcultos ? '?ocultos=1' : ''}`);
       if (!j.ok) throw new Error(j.error || 'No se pudieron cargar las conversaciones');
-      convsCache = j.conversaciones;
+      if (!verOcultos) convsCache = j.conversaciones; // la vista normal alimenta el cache; la de ocultos no
       setConvs(j.conversaciones); setErr(null);
       setLeidoMap(leerLeido()); // refrescar marcadores de leído (los actualiza el provider)
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     finally { setLoadingConvs(false); }
-  }, []);
+  }, [verOcultos]);
 
   // Auto-abrir la conversación más reciente al entrar (#1) — sin pisar una elección
   // manual (solo si no hay nada seleccionado).
@@ -370,6 +372,19 @@ export function EmpresaInbox() {
     } finally { setBlocking(false); }
   }
 
+  // Ocultar (o mostrar) la conversación del inbox y de MaKo. No corta el envío.
+  async function toggleOculto(ocultar: boolean) {
+    const sc = findConv(sel);
+    if (!sc?.telefono) return;
+    if (ocultar && !window.confirm(`¿Ocultar a ${sc.nombre}? No se va a ver en el inbox ni MaKo la va a leer. Podés mostrarla de nuevo desde «Ver ocultos».`)) return;
+    setHiding(true); setSendErr(null);
+    try {
+      const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono, action: ocultar ? 'hide' : 'unhide', leadId: sc.leadId });
+      if (j.ok) { setSel(null); await loadConvs(); } // sale/entra de la lista → deseleccionar y recargar
+      else setSendErr(j.error || 'No se pudo cambiar la visibilidad.');
+    } finally { setHiding(false); }
+  }
+
   const selConv = findConv(sel);
   const q = search.trim().toLowerCase();
   // Etapas presentes para el filtro (de la lista real).
@@ -401,7 +416,12 @@ export function EmpresaInbox() {
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
             <Dropdown value={filtroEtapa} onChange={setFiltroEtapa} width={158} ariaLabel="Filtrar por etapa" buttonStyle={{ padding: '8px 11px', fontSize: 13 }}
               options={[{ value: 'todas', label: 'Todas las etapas' }, ...etapasPresentes.map(([k, label]) => ({ value: k, label, color: ETAPA_COLOR[k] }))]} />
+            <button onClick={() => { setSel(null); setVerOcultos((v) => !v); }} title={verOcultos ? 'Volver al inbox' : 'Ver conversaciones ocultas (para mostrarlas de nuevo)'}
+              style={{ padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '12px', fontWeight: 600, border: '1px solid ' + (verOcultos ? 'var(--ink)' : 'var(--border)'), background: verOcultos ? 'var(--ink)' : 'var(--surface-2)', color: verOcultos ? 'var(--on-sidebar)' : 'var(--dim)' }}>
+              {verOcultos ? '← Volver' : '🙈 Ocultos'}
+            </button>
           </div>
+          {verOcultos && <div style={{ marginTop: '8px', fontSize: '11.5px', color: 'var(--dim)', lineHeight: 1.4 }}>Conversaciones ocultas. Abrí una y tocá «Mostrar contacto» para devolverla al inbox.</div>}
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
           {borradores.length > 0 && (
@@ -606,8 +626,14 @@ export function EmpresaInbox() {
             )}
             {selConv.bloqueado && <div style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 600, color: 'var(--bad)' }}>⛔ Contacto bloqueado</div>}
             {selConv.telefono && (
-              <button onClick={() => (selConv.bloqueado ? void setBloqueo(false) : (setBlockMotivo(''), setBlockModalOpen(true)))} disabled={blocking}
-                style={{ marginTop: '12px', width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (selConv.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: selConv.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : selConv.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+                {/* Ocultar: saca la conversación del inbox y de MaKo (para chats
+                    personales). En la vista de ocultos, el botón la muestra de nuevo. */}
+                <button onClick={() => void toggleOculto(!verOcultos)} disabled={hiding}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: hiding ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', opacity: hiding ? 0.6 : 1 }}>{hiding ? '…' : verOcultos ? '👁 Mostrar contacto' : '🙈 Ocultar contacto'}</button>
+                <button onClick={() => (selConv.bloqueado ? void setBloqueo(false) : (setBlockMotivo(''), setBlockModalOpen(true)))} disabled={blocking}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '10px', cursor: blocking ? 'default' : 'pointer', fontFamily: "'Geist', sans-serif", fontSize: '13px', fontWeight: 600, border: '1px solid ' + (selConv.bloqueado ? 'var(--border-strong)' : 'var(--bad)'), background: 'var(--surface)', color: selConv.bloqueado ? 'var(--dim)' : 'var(--bad)', opacity: blocking ? 0.6 : 1 }}>{blocking ? '…' : selConv.bloqueado ? 'Desbloquear contacto' : 'Bloquear contacto'}</button>
+              </div>
             )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
             <WhatsAppAdvisor
@@ -635,7 +661,9 @@ export function EmpresaInbox() {
             <img src={lightbox.url} alt="adjunto" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', borderRadius: '8px', objectFit: 'contain' }} />
           ) : (
             <div onClick={(e) => e.stopPropagation()} style={{ width: '90vw', height: '88vh', maxWidth: '900px', background: 'var(--surface)', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <iframe src={`/api/whatsapp/file?url=${encodeURIComponent(lightbox.url)}`} title="PDF" style={{ flex: 1, width: '100%', border: 'none' }} />
+              {/* La URL ya sirve el PDF (proxy ?media= o URL firmada) → directo, sin
+                  re-envolver en /api/whatsapp/file (eso causaba "conexión rechazada"). */}
+              <iframe src={lightbox.url} title="PDF" style={{ flex: 1, width: '100%', border: 'none' }} />
               <a href={lightbox.url} target="_blank" rel="noreferrer" style={{ padding: '10px 14px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}>Abrir / descargar en pestaña nueva →</a>
             </div>
           )}
