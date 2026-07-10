@@ -13,8 +13,7 @@ import { OWNER_WS } from '@/lib/auth-session';
 import { jidToNumero } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
-
-const MEDIA_BUCKET = 'wa-media';
+import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
@@ -82,21 +81,6 @@ async function matchLeadPorTelefono(telNorm: string): Promise<number | null> {
   const last = telNorm.slice(-10);
   const suf = await supabase.from('leads').select('id').like('telefono_normalizado', `%${last}`).order('id').limit(1);
   return ((suf.data ?? []) as Array<{ id: number }>)[0]?.id ?? null;
-}
-
-// Sube la media a wa-media (path prefijado por workspace_id). Best-effort:
-// devuelve null si falla — el mensaje se guarda igual y el raw permite reintentar.
-async function subirMedia(ws: number, instance: string, msgId: string, base64: string, mime: string, ext: string): Promise<string | null> {
-  try {
-    const b64 = base64.includes(',') ? base64.split(',').pop()! : base64; // por si viene como data-URI
-    const buf = Buffer.from(b64, 'base64');
-    if (buf.length === 0 || buf.length > 25 * 1024 * 1024) return null; // vacío o >25MB → salteo
-    const safeId = msgId.replace(/[^a-zA-Z0-9_-]/g, '');
-    const path = `${ws}/${instance}/${safeId}.${ext}`;
-    const supabase = await getTenantDb();
-    const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buf, { contentType: mime, upsert: true });
-    return error ? null : path;
-  } catch { return null; }
 }
 
 // Guarda un messages.upsert. IDEMPOTENTE y no destructivo: Evolution reenvía el

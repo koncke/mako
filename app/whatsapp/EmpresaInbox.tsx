@@ -7,10 +7,11 @@
 // historial vive acá. Se muestra en la tab WhatsApp con el toggle de canal.
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ChangeEvent } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
+import { EmojiPicker } from './EmojiPicker';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -44,6 +45,8 @@ function preview(c: Conv): string {
   switch (c.ultimoTipo) { case 'image': return '📷 Foto'; case 'audio': return '🎙 Audio'; case 'video': return '🎬 Video'; case 'document': return '📄 Documento'; case 'sticker': return '🎨 Sticker'; default: return '—'; }
 }
 
+const iconBtn: CSSProperties = { flex: 'none', width: '38px', height: '38px', borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+
 export function EmpresaInbox() {
   const [convs, setConvs] = useState<Conv[]>([]);
   const [sel, setSel] = useState<string | null>(null);
@@ -59,6 +62,13 @@ export function EmpresaInbox() {
   const [borrBusy, setBorrBusy] = useState<number | null>(null);
   const [borrErr, setBorrErr] = useState<string | null>(null);
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null); // abre la ficha del CRM
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recSecs, setRecSecs] = useState(0);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+  const mediaRec = useRef<MediaRecorder | null>(null);
+  const recChunks = useRef<Blob[]>([]);
+  const recTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<string | null>(null);   // chat objetivo (anti-race del poll)
   const stickRef = useRef(true);                 // ¿el user está pegado al fondo?
@@ -100,6 +110,70 @@ export function EmpresaInbox() {
       if (j.ok) { setDraft(''); stickRef.current = true; await loadMsgs(sc.chatJid); }
       else setErrMsgs(j.error || 'No se pudo enviar');
     } finally { setSending(false); }
+  }
+
+  // Envío de media (archivo o nota de voz) por multipart. tipo='audio' para voz;
+  // '' → el backend infiere imagen/video/documento del mimetype.
+  async function enviarArchivo(blob: Blob, tipo: '' | 'audio', fileName: string) {
+    const sc = convs.find((c) => c.chatJid === sel);
+    if (!sc) return;
+    setSending(true); setErrMsgs(null);
+    try {
+      const fd = new FormData();
+      fd.append('chat', sc.chatJid);
+      if (sc.telefono) fd.append('telefono', sc.telefono);
+      if (sc.leadId) fd.append('leadId', String(sc.leadId));
+      fd.append('tipo', tipo);
+      fd.append('archivo', blob, fileName);
+      const r = await fetch('/api/whatsapp/evolution/mensajes', { method: 'POST', body: fd });
+      const j = (await r.json()) as { ok: boolean; error?: string };
+      if (j.ok) { stickRef.current = true; await loadMsgs(sc.chatJid); }
+      else setErrMsgs(j.error || 'No se pudo enviar el archivo');
+    } catch (e) { setErrMsgs(e instanceof Error ? e.message : String(e)); }
+    finally { setSending(false); }
+  }
+
+  async function onPickFile(e: ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 4 * 1024 * 1024) { setErrMsgs('Archivo muy grande (máx 4 MB).'); return; }
+    await enviarArchivo(f, '', f.name);
+  }
+
+  function pararTimer() { if (recTimer.current) { clearInterval(recTimer.current); recTimer.current = null; } }
+
+  async function iniciarGrabacion() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      recChunks.current = [];
+      rec.ondataavailable = (ev) => { if (ev.data.size) recChunks.current.push(ev.data); };
+      rec.start();
+      mediaRec.current = rec;
+      setRecording(true); setRecSecs(0);
+      recTimer.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
+    } catch { setErrMsgs('No pude acceder al micrófono. Revisá los permisos.'); }
+  }
+
+  async function enviarGrabacion() {
+    const rec = mediaRec.current;
+    if (!rec) return;
+    pararTimer(); setRecording(false);
+    const blob: Blob = await new Promise((resolve) => {
+      rec.onstop = () => { rec.stream.getTracks().forEach((t) => t.stop()); resolve(new Blob(recChunks.current, { type: rec.mimeType })); };
+      rec.stop();
+    });
+    mediaRec.current = null;
+    if (blob.size > 800) await enviarArchivo(blob, 'audio', 'nota-de-voz.webm');
+  }
+
+  function cancelarGrabacion() {
+    const rec = mediaRec.current;
+    pararTimer(); setRecording(false);
+    if (rec) { rec.onstop = () => rec.stream.getTracks().forEach((t) => t.stop()); try { rec.stop(); } catch { /* ya parado */ } }
+    mediaRec.current = null; recChunks.current = [];
   }
 
   const loadMsgs = useCallback(async (chat: string) => {
@@ -211,13 +285,37 @@ export function EmpresaInbox() {
                 </div>
               ))}
             </div>
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'flex-end', gap: '10px' }}>
-              <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarManual(); } }}
-                placeholder="Escribí un mensaje… (sale por el número de empresa, con anti-baneo)" rows={1}
-                style={{ flex: 1, minHeight: '40px', maxHeight: '120px', resize: 'none', padding: '10px 14px', borderRadius: '21px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.35, outline: 'none' }} />
-              <button onClick={() => void enviarManual()} disabled={sending || !draft.trim()} title="Enviar por el número de empresa"
-                style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending || !draft.trim() ? 'default' : 'pointer', opacity: sending || !draft.trim() ? 0.5 : 1, fontSize: '17px' }}>➤</button>
+            <div style={{ position: 'relative', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+              {showEmoji && (
+                <div style={{ position: 'absolute', bottom: '64px', left: '12px', zIndex: 20 }}>
+                  <EmojiPicker onPick={(em) => setDraft((d) => d + em)} onClose={() => setShowEmoji(false)} />
+                </div>
+              )}
+              {recording ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button onClick={cancelarGrabacion} title="Cancelar" style={{ ...iconBtn, color: 'var(--bad)' }}>✕</button>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--bad)', fontSize: '14px', fontWeight: 600 }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--bad)' }} />
+                    Grabando… {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}
+                  </div>
+                  <button onClick={() => void enviarGrabacion()} disabled={sending} title="Enviar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', fontSize: '17px', opacity: sending ? 0.6 : 1 }}>➤</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+                  <button onClick={() => setShowEmoji((v) => !v)} title="Emoji" style={iconBtn}>😀</button>
+                  <button onClick={() => fileInput.current?.click()} disabled={sending} title="Adjuntar archivo" style={iconBtn}>📎</button>
+                  <input ref={fileInput} type="file" onChange={onPickFile} style={{ display: 'none' }} accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx" />
+                  <textarea value={draft} onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarManual(); } }}
+                    placeholder="Escribí un mensaje… (sale por el número no oficial, con anti-baneo)" rows={1}
+                    style={{ flex: 1, minHeight: '40px', maxHeight: '120px', resize: 'none', padding: '10px 14px', borderRadius: '21px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', lineHeight: 1.35, outline: 'none' }} />
+                  {draft.trim() ? (
+                    <button onClick={() => void enviarManual()} disabled={sending} title="Enviar" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.5 : 1, fontSize: '17px' }}>➤</button>
+                  ) : (
+                    <button onClick={() => void iniciarGrabacion()} disabled={sending} title="Grabar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', fontSize: '17px', opacity: sending ? 0.6 : 1 }}>🎤</button>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}

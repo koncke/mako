@@ -331,6 +331,51 @@ export async function enviarTexto(telefono: string, texto: string): Promise<Envi
   return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
 }
 
+const soloB64 = (s: string): string => (s.includes(',') ? s.split(',').pop()! : s); // saca el prefijo data:*;base64,
+
+// Envía media (imagen/video/documento) por el no oficial. base64 PURO (sin prefijo
+// data:). document exige fileName. `delay` simula un envío humano (anti-ban).
+export async function enviarMedia(
+  telefono: string,
+  media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' },
+  caption?: string,
+): Promise<EnvioResult> {
+  const ws = await wsEstricto();
+  const instance = instanceNameDeWs(ws);
+  const num = (telefono || '').replace(/\D/g, '');
+  if (!num) return { ok: false, error: 'teléfono inválido' };
+  const media64 = soloB64(media.base64);
+  if (!media64) return { ok: false, error: 'archivo vacío' };
+  const delay = Math.round(Math.min(1200 + Math.floor(media64.length / 120), 6000) * (0.8 + Math.random() * 0.4));
+  const body: Record<string, unknown> = { number: num, mediatype: media.tipo, mimetype: media.mimetype, media: media64, delay };
+  if (media.fileName) body.fileName = media.fileName;
+  if (caption) body.caption = caption;
+  const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
+    `/message/sendMedia/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
+}
+
+// Envía una NOTA DE VOZ (PTT) por el no oficial. sendWhatsAppAudio (no sendMedia)
+// para que salga como nota de voz; el delay muestra "grabando audio…" nativo.
+export async function enviarAudio(telefono: string, base64: string): Promise<EnvioResult> {
+  const ws = await wsEstricto();
+  const instance = instanceNameDeWs(ws);
+  const num = (telefono || '').replace(/\D/g, '');
+  if (!num) return { ok: false, error: 'teléfono inválido' };
+  const audio64 = soloB64(base64);
+  if (!audio64) return { ok: false, error: 'audio vacío' };
+  const delay = Math.round(Math.min(2000 + Math.floor(audio64.length / 90), 8000) * (0.8 + Math.random() * 0.4));
+  const r = await evFetch<{ key?: { id?: string; remoteJid?: string } }>(
+    `/message/sendWhatsAppAudio/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ number: num, audio: audio64, delay, encoding: true }) },
+  );
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, id: r.data.key?.id ?? '', chatJid: r.data.key?.remoteJid ?? `${num}@s.whatsapp.net` };
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 // '5216863996369@s.whatsapp.net' → '5216863996369'
 export function jidToNumero(jid: string | null): string | null {

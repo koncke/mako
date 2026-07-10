@@ -8,7 +8,8 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
-import { enviarTexto } from '@/lib/evolution';
+import { enviarTexto, enviarMedia, enviarAudio } from '@/lib/evolution';
+import { subirMediaSaliente, extDeMime } from '@/lib/evolution-media';
 
 const ahoraISO = () => new Date().toISOString();
 
@@ -56,6 +57,51 @@ export async function enviarYEspejar(params: { telefono: string; texto: string; 
       wa_timestamp: ahoraISO(),
       raw: { local: true },
     }, { onConflict: 'workspace_id,wa_message_id', ignoreDuplicates: true }); // si ya llegó el eco del webhook, gana esa fila (más rica)
+  }
+  return { ok: true };
+}
+
+// Envía media (imagen/documento/video) por el no oficial y espeja el saliente en
+// wa_mensajes (sube el binario a wa-media). Mismo patrón de dedup por el eco del webhook.
+export async function enviarMediaYEspejar(params: {
+  telefono: string; media: { base64: string; mimetype: string; fileName?: string; tipo: 'image' | 'video' | 'document' };
+  caption?: string; leadId?: number | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  const r = await enviarMedia(params.telefono, params.media, params.caption);
+  if (!r.ok) return { ok: false, error: r.error };
+  if (r.id) {
+    const path = await subirMediaSaliente(r.id, params.media.base64, params.media.mimetype, extDeMime(params.media.mimetype));
+    const supabase = await getTenantDb();
+    await supabase.from('wa_mensajes').upsert({
+      instance_name: '', chat_jid: r.chatJid, telefono: (params.telefono || '').replace(/\D/g, '') || null,
+      wa_message_id: r.id, from_me: true, tipo: params.media.tipo,
+      texto: params.caption || null, media_path: path, media_mime: params.media.mimetype,
+      lead_id: params.leadId ?? null, wa_timestamp: ahoraISO(), raw: { local: true },
+      // NO ignoreDuplicates: nuestra fila (con el binario ya subido) es la
+      // autoritativa del saliente; si el eco del webhook (sin media) insertó
+      // primero, la actualizamos para que la media se vea igual.
+    }, { onConflict: 'workspace_id,wa_message_id' });
+  }
+  return { ok: true };
+}
+
+// Envía una nota de voz por el no oficial y la espeja como tipo='audio'.
+export async function enviarAudioYEspejar(params: { telefono: string; base64: string; mimetype?: string; leadId?: number | null }): Promise<{ ok: boolean; error?: string }> {
+  const r = await enviarAudio(params.telefono, params.base64);
+  if (!r.ok) return { ok: false, error: r.error };
+  if (r.id) {
+    const mime = params.mimetype || 'audio/ogg';
+    const path = await subirMediaSaliente(r.id, params.base64, mime, extDeMime(mime));
+    const supabase = await getTenantDb();
+    await supabase.from('wa_mensajes').upsert({
+      instance_name: '', chat_jid: r.chatJid, telefono: (params.telefono || '').replace(/\D/g, '') || null,
+      wa_message_id: r.id, from_me: true, tipo: 'audio',
+      texto: null, media_path: path, media_mime: mime,
+      lead_id: params.leadId ?? null, wa_timestamp: ahoraISO(), raw: { local: true },
+      // NO ignoreDuplicates: nuestra fila (con el binario ya subido) es la
+      // autoritativa del saliente; si el eco del webhook (sin media) insertó
+      // primero, la actualizamos para que la media se vea igual.
+    }, { onConflict: 'workspace_id,wa_message_id' });
   }
   return { ok: true };
 }
