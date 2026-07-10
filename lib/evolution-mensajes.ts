@@ -14,6 +14,7 @@ import { jidToNumero } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { MEDIA_BUCKET, subirMedia } from '@/lib/evolution-media';
+import { derivarEtapa, type LeadEtapaFields } from '@/lib/wa-etapas';
 
 // ── Parseo del payload de Evolution ──────────────────────────────────────────
 type UpsertData = {
@@ -152,7 +153,7 @@ export async function guardarMensajeUpsert(instance: string, data: UpsertData): 
 // ── Lectura para el inbox ────────────────────────────────────────────────────
 export type WaConversacion = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
-  empresa: string | null;
+  empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
   ultimoEntrante: boolean; total: number;
 };
@@ -175,7 +176,8 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     if (!prev) {
       porChat.set(r.chat_jid, {
         chatJid: r.chat_jid, telefono: r.telefono, nombre: r.push_name || r.telefono || r.chat_jid.replace(/@.*/, ''),
-        leadId: r.lead_id, empresa: null, ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
+        leadId: r.lead_id, empresa: null, etapaKey: null, etapaLabel: null,
+        ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
         ultimoEntrante: !r.from_me, total: 1,
       });
     } else {
@@ -185,12 +187,23 @@ export async function getConversacionesNoOficial(limite = 600): Promise<WaConver
     }
   }
   const convs = [...porChat.values()];
-  // Enriquecer con la empresa del lead (tarjeta de lead + contexto de MaKo).
+  // Enriquecer con empresa + etapa del funnel (tarjeta de lead, filtro por etapa,
+  // contexto de MaKo). Misma derivación que el inbox oficial (lib/wa-etapas).
   const leadIds = [...new Set(convs.map((c) => c.leadId).filter((x): x is number => x != null))];
   if (leadIds.length) {
-    const { data: leads } = await supabase.from('leads').select('id, empresa').in('id', leadIds);
-    const empresaPorId = new Map(((leads ?? []) as Array<{ id: number; empresa: string | null }>).map((l) => [l.id, l.empresa]));
-    for (const c of convs) if (c.leadId) c.empresa = empresaPorId.get(c.leadId) ?? null;
+    const { data: leads } = await supabase
+      .from('leads')
+      .select('id, empresa, fecha_primer_pago, fecha_confirmacion, cerro, asistio_j1, asistio_j2, fecha_junta_2, fecha_agenda, visitor_id, meta_lead_id')
+      .in('id', leadIds);
+    const porId = new Map(((leads ?? []) as Array<{ id: number; empresa: string | null } & LeadEtapaFields>).map((l) => [l.id, l]));
+    for (const c of convs) {
+      if (!c.leadId) continue;
+      const l = porId.get(c.leadId);
+      if (!l) continue;
+      c.empresa = l.empresa ?? null;
+      const et = derivarEtapa(l);
+      c.etapaKey = et.key; c.etapaLabel = et.label;
+    }
   }
   return convs;
 }

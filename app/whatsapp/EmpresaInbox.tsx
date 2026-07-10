@@ -12,7 +12,10 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { WhatsAppAdvisor } from './WhatsAppAdvisor';
 import { EmojiPicker } from './EmojiPicker';
-import { SendArrow, IconSmiley, IconClip, IconMic, IconTrash, iconComposerBtn } from './_shared/composer-icons';
+import { SendArrow, IconSmiley, IconClip, IconMic, iconComposerBtn } from './_shared/composer-icons';
+import { useVoiceRecorder, VoiceRecorderBar } from './_shared/VoiceRecorder';
+import { Dropdown } from '../components/Dropdown';
+import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -21,7 +24,7 @@ const QUICK = ['Reagendar tu Diagnóstico', 'Te paso el link de pago', 'Te compa
 
 type Conv = {
   chatJid: string; telefono: string | null; nombre: string; leadId: number | null;
-  empresa: string | null;
+  empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
   ultimoEntrante: boolean; total: number;
 };
@@ -78,12 +81,9 @@ export function EmpresaInbox() {
   const [borrErr, setBorrErr] = useState<string | null>(null);
   const [detalleLeadId, setDetalleLeadId] = useState<number | null>(null); // abre la ficha del CRM
   const [showEmoji, setShowEmoji] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [recSecs, setRecSecs] = useState(0);
+  const [search, setSearch] = useState('');
+  const [filtroEtapa, setFiltroEtapa] = useState('todas');
   const fileInput = useRef<HTMLInputElement | null>(null);
-  const mediaRec = useRef<MediaRecorder | null>(null);
-  const recChunks = useRef<Blob[]>([]);
-  const recTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const selRef = useRef<string | null>(null);   // chat objetivo (anti-race del poll)
   const stickRef = useRef(true);                 // ¿el user está pegado al fondo?
@@ -175,40 +175,22 @@ export function EmpresaInbox() {
     await enviarArchivo(f, '', f.name);
   }
 
-  function pararTimer() { if (recTimer.current) { clearInterval(recTimer.current); recTimer.current = null; } }
-
-  async function iniciarGrabacion() {
+  // Nota de voz con el grabador COMPARTIDO (idéntico al oficial). Transcodifica a
+  // MP3 (formato universal, reusa audio.ts del oficial) y lo manda como 'audio'.
+  const enviarAudioBlob = async (blob: Blob) => {
+    setSending(true);
+    let mp3: Blob;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      recChunks.current = [];
-      rec.ondataavailable = (ev) => { if (ev.data.size) recChunks.current.push(ev.data); };
-      rec.start();
-      mediaRec.current = rec;
-      setRecording(true); setRecSecs(0);
-      recTimer.current = setInterval(() => setRecSecs((s) => s + 1), 1000);
-    } catch { setErrMsgs('No pude acceder al micrófono. Revisá los permisos.'); }
-  }
-
-  async function enviarGrabacion() {
-    const rec = mediaRec.current;
-    if (!rec) return;
-    pararTimer(); setRecording(false);
-    const blob: Blob = await new Promise((resolve) => {
-      rec.onstop = () => { rec.stream.getTracks().forEach((t) => t.stop()); resolve(new Blob(recChunks.current, { type: rec.mimeType })); };
-      rec.stop();
-    });
-    mediaRec.current = null;
-    if (blob.size > 800) await enviarArchivo(blob, 'audio', 'nota-de-voz.webm');
-  }
-
-  function cancelarGrabacion() {
-    const rec = mediaRec.current;
-    pararTimer(); setRecording(false);
-    if (rec) { rec.onstop = () => rec.stream.getTracks().forEach((t) => t.stop()); try { rec.stop(); } catch { /* ya parado */ } }
-    mediaRec.current = null; recChunks.current = [];
-  }
+      const { blobToMp3 } = await import('./audio');
+      mp3 = await blobToMp3(blob);
+    } catch (e) {
+      setErrMsgs('No se pudo procesar el audio (' + (e instanceof Error ? e.message : 'error') + ').');
+      setSending(false);
+      return;
+    }
+    await enviarArchivo(mp3, 'audio', 'nota-de-voz.mp3');
+  };
+  const voz = useVoiceRecorder(enviarAudioBlob, setErrMsgs);
 
   const loadMsgs = useCallback(async (chat: string) => {
     setLoadingMsgs(true);
@@ -248,13 +230,22 @@ export function EmpresaInbox() {
 
   const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' };
   const selConv = convs.find((c) => c.chatJid === sel) ?? null;
-  // Orden: los chats con borrador sin enviar arriba (como WhatsApp), luego por recencia.
-  const convsOrdenados = [...convs].sort((a, b) => {
-    const da = (drafts[a.chatJid] ?? '').trim() ? 1 : 0;
-    const db = (drafts[b.chatJid] ?? '').trim() ? 1 : 0;
-    if (da !== db) return db - da;
-    return (b.ultimaFecha ?? '').localeCompare(a.ultimaFecha ?? '');
-  });
+  // Búsqueda + filtro por etapa (igual que el oficial), luego orden: chats con
+  // borrador sin enviar arriba, después por recencia.
+  const q = search.trim().toLowerCase();
+  const etapasPresentes = [...new Map(convs.filter((c) => c.etapaKey).map((c) => [c.etapaKey!, c.etapaLabel!] as const)).entries()];
+  const convsOrdenados = [...convs]
+    .filter((c) => {
+      if (filtroEtapa !== 'todas' && c.etapaKey !== filtroEtapa) return false;
+      if (q && !(c.nombre.toLowerCase().includes(q) || (c.empresa ?? '').toLowerCase().includes(q) || (c.telefono ?? '').includes(q))) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = (drafts[a.chatJid] ?? '').trim() ? 1 : 0;
+      const db = (drafts[b.chatJid] ?? '').trim() ? 1 : 0;
+      if (da !== db) return db - da;
+      return (b.ultimaFecha ?? '').localeCompare(a.ultimaFecha ?? '');
+    });
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '340px 1fr 344px', gap: '16px' }}>
@@ -264,6 +255,15 @@ export function EmpresaInbox() {
           <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: '10.5px', letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>API no Oficial</span>
           {borradores.length > 0 && (
             <button onClick={() => setShowBorr(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '999px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Geist', sans-serif" }} title="Mensajes que MaKo dejó listos para que los mandes con 1 clic">📝 {borradores.length} borrador{borradores.length > 1 ? 'es' : ''}</button>
+          )}
+        </div>
+        {/* Búsqueda + filtro por etapa (#3, mismo patrón que el oficial) */}
+        <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nombre, empresa o teléfono…"
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 11px', borderRadius: '9px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '13px', outline: 'none' }} />
+          {etapasPresentes.length > 0 && (
+            <Dropdown value={filtroEtapa} onChange={setFiltroEtapa} width="100%" ariaLabel="Filtrar por etapa"
+              options={[{ value: 'todas', label: 'Todas las etapas' }, ...etapasPresentes.map(([k, label]) => ({ value: k, label, color: ETAPA_COLOR[k] }))]} />
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px' }}>
@@ -338,15 +338,9 @@ export function EmpresaInbox() {
                   <EmojiPicker onPick={(em) => setDraft((d) => d + em)} onClose={() => setShowEmoji(false)} />
                 </div>
               )}
-              {recording ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <button onClick={cancelarGrabacion} title="Cancelar" style={{ ...iconComposerBtn, color: 'var(--bad)' }}><IconTrash /></button>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--bad)', fontSize: '14px', fontWeight: 600 }}>
-                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--bad)' }} />
-                    Grabando… {Math.floor(recSecs / 60)}:{String(recSecs % 60).padStart(2, '0')}
-                  </div>
-                  <button onClick={() => void enviarGrabacion()} disabled={sending} title="Enviar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.6 : 1 }}><SendArrow /></button>
-                </div>
+              {voz.recording ? (
+                <VoiceRecorderBar paused={voz.paused} secs={voz.secs} sending={sending}
+                  onCancel={() => voz.stop(true)} onTogglePause={voz.paused ? voz.resume : voz.pause} onSend={() => voz.stop(false)} />
               ) : (
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px' }}>
                   <button onClick={() => setShowEmoji((v) => !v)} title="Emoji" style={{ ...iconComposerBtn, color: showEmoji ? 'var(--primary)' : 'var(--dim)' }}><IconSmiley /></button>
@@ -359,7 +353,7 @@ export function EmpresaInbox() {
                   {draft.trim() ? (
                     <button onClick={() => void enviarManual()} disabled={sending} title="Enviar" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.5 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
                   ) : (
-                    <button onClick={() => void iniciarGrabacion()} disabled={sending} title="Grabar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.6 : 1 }}><IconMic /></button>
+                    <button onClick={() => void voz.start()} disabled={sending} title="Grabar nota de voz" style={{ flex: 'none', width: '42px', height: '42px', borderRadius: '50%', border: 'none', background: 'var(--wa)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', opacity: sending ? 0.6 : 1 }}><IconMic /></button>
                   )}
                 </div>
               )}
@@ -379,6 +373,7 @@ export function EmpresaInbox() {
               <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>{selConv.nombre}</div>
             )}
             <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '2px' }}>{selConv.empresa ?? 'Sin empresa registrada'}</div>
+            {etapaChip(selConv.etapaKey, selConv.etapaLabel) && (() => { const ch = etapaChip(selConv.etapaKey, selConv.etapaLabel)!; return <div style={{ marginTop: '8px' }}><span style={ch.style}><span style={ch.dot}></span>{ch.label}</span></div>; })()}
             {selConv.leadId ? (
               <button onClick={() => setDetalleLeadId(selConv.leadId!)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Ver detalle del lead →</button>
             ) : (
@@ -386,7 +381,7 @@ export function EmpresaInbox() {
             )}
             <div style={{ height: '1px', background: 'var(--border)', margin: '16px 0', flex: 'none' }}></div>
             <WhatsAppAdvisor
-              grupo={{ id: selConv.chatJid, contacto: selConv.nombre, empresa: selConv.empresa, etapaLabel: null }}
+              grupo={{ id: selConv.chatJid, contacto: selConv.nombre, empresa: selConv.empresa, etapaLabel: selConv.etapaLabel }}
               mensajes={msgs.map((m) => ({ saliente: m.fromMe, texto: m.texto }))}
               ventanaAbierta={true}
               onUsar={(t) => setDraft((d) => (d.trim() ? `${d.replace(/\s+$/, '')}\n\n${t}` : t))}
