@@ -1,16 +1,17 @@
 // =============================================================================
-// /todo — tablero kanban de ejecución (tareas por estado, con drag & drop)
+// /todo — role-aware
 // =============================================================================
-// La página SOLO lee (server component resiliente): trae tareas y categorías con
-// try/catch independientes. En local (sin Supabase) getSupabaseServer tira, así
-// que en desarrollo caemos a datos DEMO para poder ver e iterar el diseño; en
-// producción nunca corre. Toda la interacción (crear/editar/mover/borrar) vive
-// en TodoBoard ('use client') contra /api/todo con updates optimistas.
-// =============================================================================
+// Super-admin de la AGENCIA (sin impersonar) → su PLAN de ejecución (PlanBoard,
+// localStorage, privado). Cliente (o admin impersonando) → su tablero kanban de
+// tareas (TodoBoard, tenant-scoped por DB). Un mismo /todo, distinta vista por rol.
 
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
 import { guardOnboarding } from '@/lib/tab-access';
+import { getUsuarioActual } from '@/lib/auth';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { OWNER_WS } from '@/lib/auth-session';
 import { TodoBoard } from './TodoBoard';
+import { PlanBoard } from './PlanBoard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -18,16 +19,21 @@ export const revalidate = 0;
 const MONO = "'Geist Mono', monospace";
 
 export default async function TodoPage() {
+  // Super-admin sin impersonar (no tiene workspace de cliente activo) → su plan.
+  const sesion = await getUsuarioActual();
+  if (sesion?.rol === 'admin') {
+    const ws = await getWorkspaceActual();
+    if (ws == null || ws === OWNER_WS) return <PlanBoard />;
+  }
+
+  // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
   await guardOnboarding();
   let tareas: Tarea[] = [];
   let categorias: Categoria[] = [];
   let dbDown = false;
-
   try { tareas = await listTareas(); } catch { dbDown = true; }
   try { categorias = await listCategorias(); } catch { /* categorías arrancan vacías */ }
 
-  // En local (sin Supabase) mostramos datos DEMO para poder ver e iterar el
-  // diseño. En producción esto nunca corre (NODE_ENV === 'production').
   let demo = false;
   if (dbDown && process.env.NODE_ENV !== 'production') {
     const d = await import('@/app/experimentos/_demo');
@@ -43,7 +49,6 @@ export default async function TodoPage() {
           To-do · tablero de ejecución
         </div>
       </header>
-
       <TodoBoard tareas={tareas} categorias={categorias} demo={demo} />
     </main>
   );

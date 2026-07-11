@@ -24,6 +24,8 @@ export type NavItem = {
    * admin-cliente (y agencia). El enforcement real es server-side (lib/tab-access).
    */
   rolesWs?: RolWorkspace[];
+  /** Abre en pestaña nueva (rutas que sirven HTML directo, ej. el grafo). */
+  newTab?: boolean;
   match: (pathname: string) => boolean;
 };
 
@@ -51,6 +53,9 @@ export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', hre
 // marketing — solo gestión de clientes e integraciones.
 export const ADMIN_NAV: NavItem[] = [
   { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: starts('/admin') },
+  { key: 'plan', label: 'Plan', href: '/todo', icon: 'todo', match: starts('/todo') },
+  { key: 'mako-admin', label: 'MaKo', href: '/admin?tab=copy', icon: 'mako', match: () => false },
+  { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
 ];
 

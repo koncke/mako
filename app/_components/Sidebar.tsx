@@ -38,8 +38,8 @@ function NavLink({ item, active, badge, query, expanded, nested, onClick }: { it
     fontWeight: active ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden',
     ...(active ? { background: 'var(--sidebar-2)', boxShadow: expanded ? 'inset 3px 0 0 var(--accent-soft)' : 'none' } : {}),
   };
-  return (
-    <Link href={item.href + query} style={base} title={expanded ? undefined : item.label} onClick={onClick}>
+  const content = (
+    <>
       <span style={{ position: 'relative', display: 'flex' }}>
         <ItemIcon item={item} active={active} />
         {!expanded && item.badge && badge > 0 && (
@@ -51,7 +51,14 @@ function NavLink({ item, active, badge, query, expanded, nested, onClick }: { it
       {expanded && item.badge && badge > 0 && (
         <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: item.key === 'whatsapp' ? 'var(--good)' : 'var(--bad)', color: '#fff', ...(item.key === 'whatsapp' ? {} : { animation: 'pulseRed 1.6s infinite' }) }}>{badge}</span>
       )}
-    </Link>
+    </>
+  );
+  // Rutas que sirven HTML directo (ej. el grafo) abren en pestaña nueva.
+  if (item.newTab) {
+    return <a href={item.href} target="_blank" rel="noopener noreferrer" style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</a>;
+  }
+  return (
+    <Link href={item.href + query} style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</Link>
   );
 }
 

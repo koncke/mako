@@ -71,7 +71,7 @@ function ChipEstadoUsuario({ estado }: { estado: Usuario['estado'] }) {
 // AdminView
 // =============================================================================
 export function AdminView() {
-  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy' | 'grafo'>('clientes');
+  const [tab, setTab] = useState<'clientes' | 'superadmins' | 'copy'>('clientes');
 
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -99,6 +99,8 @@ export function AdminView() {
     }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+  // La tab MaKo (copy) ahora vive en la sidebar → se abre con /admin?tab=copy.
+  useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'copy') setTab('copy'); }, []);
 
   const header = (
     <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
@@ -107,7 +109,7 @@ export function AdminView() {
     </header>
   );
 
-  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy' | 'grafo'): CSSProperties => ({
+  const tabBtn = (id: 'clientes' | 'superadmins' | 'copy'): CSSProperties => ({
     padding: '10px 2px', marginRight: 26, background: 'transparent', border: 'none', cursor: 'pointer',
     fontFamily: SANS, fontSize: 15, fontWeight: tab === id ? 600 : 500,
     color: tab === id ? 'var(--ink)' : 'var(--dim)',
@@ -118,8 +120,6 @@ export function AdminView() {
     <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
       <button style={tabBtn('clientes')} onClick={() => setTab('clientes')}>Clientes</button>
       <button style={tabBtn('superadmins')} onClick={() => setTab('superadmins')}>Super Admins</button>
-      <button style={tabBtn('copy')} onClick={() => setTab('copy')}>MaKo</button>
-      <button style={tabBtn('grafo')} onClick={() => setTab('grafo')}>Grafo</button>
     </div>
   );
 
@@ -152,25 +152,8 @@ export function AdminView() {
         {tab === 'clientes' && <TabClientes workspaces={workspaces} usuarios={usuarios} recargar={cargar} />}
         {tab === 'superadmins' && <TabSuperAdmins usuarios={usuarios} sesion={sesion} recargar={cargar} />}
         {tab === 'copy' && <TabCopywriting />}
-        {tab === 'grafo' && <TabGrafo />}
       </div>
     </main>
-  );
-}
-
-// =============================================================================
-// TAB — Grafo del código (graphify)
-// =============================================================================
-function TabGrafo() {
-  return (
-    <div style={card}>
-      <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '0 0 16px', maxWidth: 620 }}>
-        Grafo de arquitectura de la app —funciones, llamadas cross-file, imports— generado por graphify. Se abre a pantalla completa en una pestaña nueva: zoom con la rueda, arrastrá los nodos, cada color es una comunidad. Es una vista de desarrollo; el grafo se refresca con <code style={{ fontFamily: MONO, fontSize: 12.5 }}>graphify update .</code>.
-      </p>
-      <button onClick={() => window.open('/api/admin/graph', '_blank', 'noopener')} style={{ ...btnDark, fontSize: 14, padding: '11px 20px' }}>
-        Abrir el grafo ↗
-      </button>
-    </div>
   );
 }
 
