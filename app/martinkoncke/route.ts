@@ -253,6 +253,7 @@ const HTML = `<!doctype html>
     <button class="btn ghost" id="toggleDone">Ocultar completadas</button>
     <button class="btn ghost" id="catBtn">Categorías</button>
     <button class="btn ghost" id="reset">Restaurar</button>
+    <button class="btn ghost" id="exportBtn">Exportar</button>
   </div>
 
   <div class="cat-panel" id="catPanel" hidden>
@@ -576,6 +577,18 @@ const HTML = `<!doctype html>
       toggleBtn.textContent="Ocultar completadas"; toggleBtn.classList.remove("active");
       refreshCatFilter(); render(); save();
     }
+  });
+
+  // Exportar: copia el board vivo (tareas + categorías) al portapapeles, para
+  // pasarlo una vez a código como fuente de verdad. Uso único.
+  document.getElementById("exportBtn").addEventListener("click",function(){
+    var data=JSON.stringify({tasks:tasks,cats:cats},null,2);
+    try{
+      navigator.clipboard.writeText(data).then(
+        function(){ saveEl.textContent="✓ copiado — pegáselo a Claude"; },
+        function(){ window.prompt("Copiá tu board y pegáselo a Claude:",data); }
+      );
+    }catch(e){ window.prompt("Copiá tu board y pegáselo a Claude:",data); }
   });
 
   // Categorías
