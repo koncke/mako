@@ -45,17 +45,23 @@ export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngra
   return (
     <>
       <WizardShell
-        titulo={`Priorizar · ${task.title.slice(0, 40)}`}
+        titulo="Priorizar tarea"
         total={steps.length} idx={idx}
         pregunta={preguntas[paso]} sub={subs[paso]}
         puedeAvanzar={puedeAvanzar} enUltimo={enUltimo} confirmLabel="Guardar y priorizar"
-        pending={pending} atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
-        bloqueante
+        pending={pending} atrasLabel="Atrás"
+        bloqueante hideAtras={idx === 0}
         onClose={() => { /* bloqueante: no cierra */ }}
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
         onSiguiente={() => setIdx((i) => Math.min(steps.length - 1, i + 1))}
         onConfirmar={guardar}
       >
+        {/* la tarea a la vista, para saber a qué se refiere */}
+        <div style={{ textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px', marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 5 }}>La tarea</div>
+          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{task.title || 'Sin título'}</div>
+          {task.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{task.detalle}</div>}
+        </div>
         {paso === 'deadline' && (
           <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} autoFocus
             style={{ ...wizardInput, maxWidth: 260, margin: '0 auto', display: 'block' }} />

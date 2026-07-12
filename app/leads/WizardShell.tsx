@@ -19,7 +19,7 @@ export const wizardInput: CSSProperties = { width: '100%', padding: '12px 15px',
 export function WizardShell({
   titulo, total, idx, pregunta, sub, children, error,
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
-  atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false,
+  atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   total: number; idx: number;
@@ -33,6 +33,7 @@ export function WizardShell({
   atrasLabel: string;        // "Cancelar" (primer paso) o "Atrás"
   onAtras: () => void; onSiguiente: () => void; onConfirmar: () => void; onClose: () => void;
   bloqueante?: boolean;      // true → no se puede cerrar (sin ✕, backdrop no cierra)
+  hideAtras?: boolean;       // true → oculta el botón izquierdo (sin Cancelar/Atrás)
 }) {
   return (
     <div onClick={bloqueante ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
@@ -62,7 +63,9 @@ export function WizardShell({
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <button onClick={onAtras} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← {atrasLabel}</button>
+          {hideAtras
+            ? <span />
+            : <button onClick={onAtras} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← {atrasLabel}</button>}
           {enUltimo ? (
             <button onClick={onConfirmar} disabled={pending || !puedeAvanzar} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: puedeAvanzar ? 'var(--primary)' : 'var(--border)', color: puedeAvanzar ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: puedeAvanzar && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : confirmLabel}</button>
           ) : (
