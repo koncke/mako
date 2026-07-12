@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as RME } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
@@ -17,8 +17,9 @@ import { PriorizarWizard } from './PriorizarWizard';
 import { MakoChecklistModal } from './MakoChecklist';
 import { DebateModal } from './DebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
+import { GuardianIcon } from './GuardianIcon';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, puedeSerAlta } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -58,26 +59,32 @@ export function BoardShell({ board }: { board: Board }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, wizardId, dismissed, topProjectId]);
 
-  const togglePrio = (id: string) => {
-    const t = tasks.find((x) => x.id === id);
-    if (t && !t.enPrioridad && !puedeSerAlta(t, topProjectId)) { doFlash('En prioridad solo entra el proyecto Objetivo Principal (o una emergencia)'); return; }
-    if (!board.toggleEnPrioridad(id)) doFlash(`En prioridad hay un máximo de ${MAX_PRIORIDAD} tareas`);
-  };
-
   // ── el perro guardián re-puntúa todo el plan (score 1-100 / 1-5) ──
-  const [repriorizando, setRepriorizando] = useState(false);
+  // Ya no hay botón: corre solo, "cada tanto" (gate por localStorage) en background.
+  const repriorizando = useRef(false);
   const rePriorizar = async () => {
-    if (repriorizando) return;
-    setRepriorizando(true);
+    if (repriorizando.current) return;
+    repriorizando.current = true;
     const proyectos = labels.map((l) => ({ id: l.id, nombre: l.name }));
     const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle, proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen }));
+    if (tareasIn.length < 2) { repriorizando.current = false; return; }
     try {
       const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proyectos, tareas: tareasIn }) }).then((r) => r.json());
-      if (j.ok) { board.applyGuardian(j.tareas || [], j.proyectos || []); doFlash('MaKo re-priorizó el plan'); }
-      else doFlash(j.error || 'MaKo no pudo re-priorizar ahora');
-    } catch { doFlash('MaKo no pudo re-priorizar ahora'); }
-    setRepriorizando(false);
+      if (j.ok) { board.applyGuardian(j.tareas || [], j.proyectos || []); doFlash('🛡️ MaKo re-priorizó el plan'); }
+    } catch { /* silencioso, es automático */ }
+    repriorizando.current = false;
   };
+  // Auto: la primera vez en +24h que se abre el board, MaKo re-prioriza en background.
+  useEffect(() => {
+    const KEY = 'mako_last_reprio';
+    let last = 0; try { last = Number(localStorage.getItem(KEY) || 0); } catch { /* no-op */ }
+    if (Date.now() - last > 24 * 3600 * 1000) {
+      try { localStorage.setItem(KEY, String(Date.now())); } catch { /* no-op */ }
+      const id = setTimeout(() => { void rePriorizar(); }, 1200);
+      return () => clearTimeout(id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
   // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
   const cerrarWizard = () => {
@@ -89,10 +96,13 @@ export function BoardShell({ board }: { board: Board }) {
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
-  const enPrio = tasks.filter((t) => t.enPrioridad && t.progress < 100);
-  const enPrioAll = tasks.filter((t) => t.enPrioridad);
-  const prioAvg = enPrioAll.length ? Math.round(enPrioAll.reduce((s, t) => s + t.progress, 0) / enPrioAll.length) : 0;
-  const prioHechas = enPrioAll.filter((t) => t.progress >= 100).length;
+  // "En prioridad" = AUTOMÁTICO: las 3 tareas de mayor score del Objetivo Principal
+  // (no lo elige el usuario). Sin proyecto top, cae a las 3 de mayor score del plan.
+  const enPrio = tasks
+    .filter((t) => t.progress < 100 && (topProjectId ? t.labels.includes(topProjectId) : true))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_PRIORIDAD);
+  const prioAvg = enPrio.length ? Math.round(enPrio.reduce((s, t) => s + t.progress, 0) / enPrio.length) : 0;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
@@ -117,33 +127,40 @@ export function BoardShell({ board }: { board: Board }) {
 
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 30px 14px', flexWrap: 'wrap' }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'wrap' }}>
+        {/* logo de MaKo + Plan */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+          <GuardianIcon size={26} />
+          <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, letterSpacing: '.12em', color: 'var(--accent)' }}>MAKO</span>
+          <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
+          <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>Plan</span>
+        </div>
+        {/* tabs */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
           {(['prioridades', 'kanban'] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v}</button>
           ))}
         </div>
+        {/* de acá para la derecha, todo alineado a la derecha */}
+        <span style={{ flex: 1 }} />
         {view === 'kanban'
           ? <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />
-          : <AvgChip avg={prioAvg} hechas={prioHechas} total={enPrioAll.length} label="en prioridad" />}
-        <button onClick={() => setNuevaTarea(true)} style={{ ...ghostBtn, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 }}>+ Nueva tarea</button>
+          : <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'kanban' && <>
-          <button onClick={rePriorizar} disabled={repriorizando} title="El perro guardián re-puntúa todo el plan" style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--primary-bg)', color: 'var(--primary)', borderColor: 'var(--primary-weak)', opacity: repriorizando ? 0.6 : 1 }}>🛡️ {repriorizando ? 'Priorizando…' : 'Re-priorizar'}</button>
           <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />{repo.labelPlural}</button>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: 1, minWidth: 120, maxWidth: 210, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
         </>}
-        <span style={{ flex: 1 }} />
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades'
-          ? <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onToggle={togglePrio} />
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onToggle={togglePrio} onWarn={setWizardId} />}
+          ? <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} />
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onWarn={setWizardId} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onToggle={togglePrio} onDebate={() => setDebateId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
-      {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con MaKo · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onDebate={() => setDebateId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
+      {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => setNuevaTarea(false)} />}
       {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
@@ -180,9 +197,6 @@ function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; t
 function LabelChip({ l }: { l: Label }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>{l.emoji} {l.name}</span>;
 }
-function StarPrioridad({ on, onClick, size = 15 }: { on: boolean; onClick: (e: RME) => void; size?: number }) {
-  return <button onClick={onClick} title="En prioridad" aria-pressed={on} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: size, lineHeight: 1, color: on ? 'var(--accent-soft, #C8870C)' : 'var(--faint)', padding: 2 }}>{on ? '★' : '☆'}</button>;
-}
 function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
 }
@@ -206,8 +220,8 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
 }
 
 // ── tarjeta (cuadrada, estilo CRM; la columna la decide el guardián, no se arrastra) ─
-function CardTile({ t, board, warn, onOpen, onToggle, onWarn }: {
-  t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
+function CardTile({ t, board, warn, onOpen, onWarn }: {
+  t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onWarn: (id: string) => void;
 }) {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
@@ -222,8 +236,6 @@ function CardTile({ t, board, warn, onOpen, onToggle, onWarn }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {chips.map((l) => <LabelChip key={l.id} l={l} />)}
         <OrigenChip origen={t.origen} />
-        <span style={{ flex: 1 }} />
-        <StarPrioridad on={t.enPrioridad} onClick={(e) => { e.stopPropagation(); onToggle(t.id); }} size={14} />
       </div>
       <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
       <span style={{ flex: 1 }} />
@@ -247,8 +259,8 @@ function CardTile({ t, board, warn, onOpen, onToggle, onWarn }: {
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, onOpen, onNew, onToggle, onWarn }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; onWarn: (id: string) => void;
 }) {
   const objetivo = topProjectId ? board.labelById(topProjectId) : null;
   return (
@@ -261,7 +273,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onToggle, onWarn }:
             <ColHeader p={p} count={items.length} onNew={onNew} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onToggle={onToggle} onWarn={onWarn} />)}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} />)}
             </div>
           </section>
         );
@@ -285,7 +297,7 @@ function ColHeader({ p, count, onNew, nota }: { p: Prio; count: number; onNew: (
 }
 
 // ── vista Prioridades (Objetivo Principal + máx 3 tareas, checklist desplegable) ─
-function Prioridades({ tasks, board, objetivo, onOpen, onToggle }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void; onToggle: (id: string) => void }) {
+function Prioridades({ tasks, board, objetivo, onOpen }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void }) {
   const [expand, setExpand] = useState<Set<string>>(new Set());
   const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   return (
@@ -298,34 +310,35 @@ function Prioridades({ tasks, board, objetivo, onOpen, onToggle }: { tasks: Boar
             <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4 }}>El norte de todo ahora. Lo que MaKo protege por encima del resto.</div>
           </div>
         )}
-        <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, textAlign: 'center' }}>⭐ En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
+        <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, textAlign: 'center' }}>🎯 En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
         {tasks.length === 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
-            <div style={{ fontSize: 14, maxWidth: 380, lineHeight: 1.5 }}>Marcá hasta {MAX_PRIORIDAD} tareas con la <span style={{ color: 'var(--accent-soft, #C8870C)' }}>★</span> para tener adelante lo poco que importa ahora.</div>
+            <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>MaKo pone acá, solo, las {MAX_PRIORIDAD} tareas de mayor prioridad del Objetivo Principal. Todavía no hay ninguna.</div>
           </div>
         )}
-        {tasks.slice().sort((a, b) => a.progress - b.progress).map((t) => {
+        {tasks.map((t) => {
           const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
           const clDone = t.checklist.filter((c) => c.done).length;
           const open = expand.has(t.id);
           return (
-            <div key={t.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', boxShadow: '0 1px 2px rgba(18,21,27,.05)' }}>
+            <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 {chips.map((l) => <LabelChip key={l.id} l={l} />)}
-                <span style={{ flex: 1 }} /><StarPrioridad on onClick={(e) => { e.stopPropagation(); onToggle(t.id); }} size={18} />
+                <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
               </div>
-              <div onClick={() => onOpen(t.id)} style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 12 : 14, cursor: 'pointer' }}>{t.title}</div>
+              <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 12 : 14 }}>{t.title}</div>
               {t.detalle && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.detalle}</div>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
                 <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
                 <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
-                {t.checklist.length > 0 && <button onClick={() => toggleExp(t.id)} style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{open ? '▾' : '▸'} checklist {clDone}/{t.checklist.length}</button>}
+                {t.checklist.length > 0 && <button onClick={(e) => { e.stopPropagation(); toggleExp(t.id); }} style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{open ? '▾' : '▸'} checklist {clDone}/{t.checklist.length}</button>}
               </div>
               {open && t.checklist.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
                   {t.checklist.map((c) => (
-                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '3px 0' }}>
-                      <button onClick={() => board.setChecklist(t.id, t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`)} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
+                    <label key={c.id} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '3px 0' }}>
+                      <button onClick={(e) => { e.stopPropagation(); board.setChecklist(t.id, t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`); }} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
                       <span style={{ fontSize: 13.5, color: c.done ? 'var(--faint)' : 'var(--ink)', textDecoration: c.done ? 'line-through' : 'none' }}>{c.text}</span>
                     </label>
                   ))}
@@ -393,8 +406,8 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-function TaskModal({ t, board, topProjectId, onToggle, onDebate, ask, onClose }: {
-  t: BoardTask; board: Board; topProjectId: string | null; onToggle: (id: string) => void; onDebate: () => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
+function TaskModal({ t, board, topProjectId, onDebate, ask, onClose }: {
+  t: BoardTask; board: Board; topProjectId: string | null; onDebate: () => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -472,7 +485,7 @@ function TaskModal({ t, board, topProjectId, onToggle, onDebate, ask, onClose }:
               </div>
               {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
               {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
-              <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700 }}>🛡️ Debatir con MaKo</button>
+              <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700 }}><GuardianIcon size={15} /> Debatir con el Perro Guardián</button>
             </div>
             <div><label style={rowLabel}>Avance · {cl.length > 0 ? t.progress : progShown}%{cl.length > 0 ? ' · por checklist' : ''}</label>
               {cl.length > 0
@@ -492,7 +505,6 @@ function TaskModal({ t, board, topProjectId, onToggle, onDebate, ask, onClose }:
               </div>
               {disponibles.length > 0 && <select value="" onChange={(e) => { if (e.target.value) board.setTaskLabels(t.id, board.repo.labelMode === 'single' ? [e.target.value] : [...t.labels, e.target.value], `Agregó ${board.labelById(e.target.value)?.name ?? ''}`); }} style={selStyle}><option value="">＋ {board.repo.labelSingular.toLowerCase()}</option>{disponibles.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}</select>}
             </div>
-            <button onClick={() => onToggle(t.id)} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: t.enPrioridad ? 'var(--primary-bg)' : 'var(--surface)', color: t.enPrioridad ? 'var(--primary)' : 'var(--dim)', fontWeight: 600 }}>{t.enPrioridad ? '★ En prioridad' : '☆ Poner en prioridad'}</button>
             <span style={{ flex: 1 }} />
             <button onClick={() => ask('¿Eliminar esta tarea?', () => { board.remove(t.id); onClose(); })} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
           </div>

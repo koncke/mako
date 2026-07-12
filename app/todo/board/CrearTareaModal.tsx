@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { type Prio, PLABEL, PCOLOR } from './types';
+import { GuardianIcon } from './GuardianIcon';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -41,9 +42,10 @@ export function CrearTareaModal({ onCrear, onClose }: {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '8vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: '82vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>🛡️ MAKO</span>
-          <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>nueva tarea · la prioriza el guardián</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <GuardianIcon size={20} />
+          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.12em', color: 'var(--accent)' }}>PERRO GUARDIÁN</span>
+          <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>nueva tarea · la prioriza</span>
           <span style={{ flex: 1 }} />
           <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
         </div>
