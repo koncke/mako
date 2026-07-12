@@ -96,9 +96,16 @@ const seedTasks = (): BoardTask[] => SEED.map((d) => {
     id: 't' + d[0], num: d[0], title: d[1], detalle: d[5], priority: d[3], progress: d[4],
     deadline: '', labels: [d[2]], checklist: [], enPrioridad: d[6],
     origen: esIA ? 'ia' as const : 'user' as const,
-    historial: [{ ts: SEED_TS, actor: esIA ? 'ia' : 'user', text: 'Creó la tarjeta' } as Hist],
+    historial: [{ id: 'seed' + d[0], ts: SEED_TS, actor: esIA ? 'ia' : 'user', text: 'Creó la tarjeta' } as Hist],
   };
 });
+
+// Asegura que cada entrada de historial tenga id (localStorage viejo puede no tenerlo).
+const normHist = (h: unknown[]): Hist[] => (Array.isArray(h) ? h : []).map((e) => {
+  const o = (e ?? {}) as Record<string, unknown>;
+  return { ...o, id: typeof o.id === 'string' && o.id ? o.id : 'h' + (Number(o.ts) || 0) } as Hist;
+});
+const normTask = (t: BoardTask): BoardTask => ({ ...t, historial: normHist(t.historial as unknown[]) });
 
 type OldV4 = { id: string; n: number; text: string; project: string; priority: Prio; prog?: number; detalle?: string; foco?: boolean; deadline?: string; checklist?: unknown; origen?: string; historial?: unknown };
 const fromV4 = (t: OldV4): BoardTask => ({
@@ -112,9 +119,9 @@ const fromV4 = (t: OldV4): BoardTask => ({
 function loadTasks(): BoardTask[] {
   try {
     const v5 = localStorage.getItem(K5);
-    if (v5) return JSON.parse(v5) as BoardTask[];
+    if (v5) return (JSON.parse(v5) as BoardTask[]).map(normTask);
     const v4 = localStorage.getItem(K4);
-    if (v4) return (JSON.parse(v4) as OldV4[]).map(fromV4);
+    if (v4) return (JSON.parse(v4) as OldV4[]).map(fromV4).map(normTask);
   } catch { /* seed */ }
   return seedTasks();
 }

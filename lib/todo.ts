@@ -16,7 +16,7 @@ export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
 export type Actor = 'user' | 'ia';
 export type ChecklistItem = { id: string; text: string; done: boolean };
 export type HistUndo = { field: string; prev: unknown };
-export type HistEntry = { ts: number; actor: Actor; text: string; undo?: HistUndo };
+export type HistEntry = { id: string; ts: number; actor: Actor; text: string; undo?: HistUndo };
 
 const origenActor = (o: OrigenTarea): Actor => (o === 'manual' ? 'user' : 'ia');
 
@@ -75,7 +75,8 @@ const histOk = (h: unknown): HistEntry[] =>
   Array.isArray(h)
     ? h.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
         .map((o) => {
-          const e: HistEntry = { ts: Number(o.ts) || 0, actor: o.actor === 'ia' ? 'ia' : 'user', text: String(o.text ?? '') };
+          const ts = Number(o.ts) || 0;
+          const e: HistEntry = { id: typeof o.id === 'string' && o.id ? o.id : 'h' + ts, ts, actor: o.actor === 'ia' ? 'ia' : 'user', text: String(o.text ?? '') };
           const u = o.undo as Record<string, unknown> | undefined;
           if (u && typeof u === 'object' && typeof u.field === 'string') e.undo = { field: u.field, prev: u.prev };
           return e;
@@ -148,7 +149,7 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     deadline: dateOk(input.deadline),
     categorias: catsOk(input.categorias),
     checklist: [] as ChecklistItem[],
-    historial: [{ ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
+    historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
     en_prioridad: false,
     origen,
     experimento_id: input.experimento_id ?? null,
@@ -181,7 +182,7 @@ export async function crearTareasDesde(
     deadline: null,
     categorias: [] as number[],
     checklist: [] as ChecklistItem[],
-    historial: [{ ts: Date.now(), actor: 'ia' as Actor, text: 'Creó la tarjeta' }] as HistEntry[],
+    historial: [{ id: 'h' + Date.now() + i, ts: Date.now(), actor: 'ia' as Actor, text: 'Creó la tarjeta' }] as HistEntry[],
     origen: origenOk(meta.origen),
     retro_id: meta.retro_id ?? null,
     experimento_id: meta.experimento_id ?? null,
@@ -221,13 +222,18 @@ export async function editarTarea(
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.prioridad != null) upd.prioridad = prioridadOk(patch.prioridad);
   // El estado se DERIVA del avance (el board /todo ya no muestra "Estado" aparte):
-  // 100→hecho (sella hecho_at), >0→en_curso, 0→por_hacer.
+  // 100→hecho, >0→en_curso, 0→por_hacer. hecho_at se sella SOLO en la transición
+  // a hecho — si ya estaba hecha, se preserva (no re-sellar en cada edición).
   if (patch.progreso != null) {
     const p = clampPct(patch.progreso);
     const est = estadoDeProgreso(p);
     upd.progreso = p;
     upd.estado = est;
-    upd.hecho_at = est === 'hecho' ? new Date().toISOString() : null;
+    if (est !== 'hecho') upd.hecho_at = null;
+    else {
+      const { data: cur } = await (await getTenantDb()).from('experimento_tareas').select('hecho_at').eq('id', id).single();
+      upd.hecho_at = (cur as { hecho_at?: string } | null)?.hecho_at ?? new Date().toISOString();
+    }
   }
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);

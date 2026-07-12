@@ -9,7 +9,7 @@ export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 export type Actor = 'user' | 'ia';
 export type Check = { id: string; text: string; done: boolean };
 export type UndoInfo = { field: string; prev: unknown };
-export type Hist = { ts: number; actor: Actor; text: string; undo?: UndoInfo };
+export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: UndoInfo };
 
 export type BoardTask = {
   id: string;
@@ -47,6 +47,7 @@ export const PLABEL: Record<Prio, string> = { alta: 'Alta', media: 'Media', baja
 export const PCOLOR: Record<Prio, string> = { alta: '#D0504A', media: '#C8870C', baja: '#1E9E57', futuro: '#98A0AC' };
 export const SWATCHES = ['#98A0AC', '#2F6FED', '#1E9E57', '#C8870C', '#D0504A', '#7C5CFB', '#0E9B8E', '#D6489B'];
 export const MAX_PRIORIDAD = 3; // vista "Prioridades": tope de tarjetas marcadas
+export const HIST_CAP = 80;     // tope de entradas del change history por tarea
 
 export const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 export const clampPct = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));

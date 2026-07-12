@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { useEffect, useState, type CSSProperties, type MouseEvent as RME, type DragEvent as RDragEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as RME, type DragEvent as RDragEvent } from 'react';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
@@ -37,12 +37,6 @@ export function BoardShell({ board }: { board: Board }) {
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   const doFlash = (m: string) => setFlash(m);
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 2600); return () => clearTimeout(t); }, [flash]);
-  useEffect(() => {
-    const active = openId || projMgr || confirm || wizardId;
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !wizardId) { setConfirm(null); setOpenId(null); setProjMgr(false); } };
-    document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
-  }, [openId, projMgr, confirm, wizardId]);
 
   // ── acciones que pueden gatillar el form bloqueante de Alta ──
   const abrirWizardSiHace = (t: BoardTask | null | undefined) => { if (t && altaIncompleta(t)) setWizardId(t.id); };
@@ -92,7 +86,7 @@ export function BoardShell({ board }: { board: Board }) {
           : <Kanban tasks={visibles} board={board} onOpen={setOpenId} onCreate={doCreate} onMove={doMoveTo} onToggle={togglePrio} onWarn={setWizardId} dragId={dragId} setDragId={setDragId} overPrio={overPrio} setOverPrio={setOverPrio} />}
       </div>
 
-      {openTask && <TaskModal t={openTask} board={board} onSetPriority={doMoveTo} onToggle={togglePrio} ask={ask} onClose={() => setOpenId(null)} />}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} onSetPriority={doMoveTo} onToggle={togglePrio} ask={ask} onClose={() => setOpenId(null)} />}
       {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         onSetDeadline={(d) => board.setDeadline(wizardTask.id, d, wizardTask.deadline)}
@@ -315,7 +309,7 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {t.historial.map((h) => (
-        <div key={h.ts} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
           <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {h.text}</div>
@@ -336,6 +330,24 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
   const [mako, setMako] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
   const [detalleDraft, setDetalleDraft] = useState(t.detalle);
+  const [progDraft, setProgDraft] = useState<number | null>(null);
+  const progShown = progDraft ?? t.progress;
+  const commitProg = () => { if (progDraft != null) board.setProgress(t.id, progDraft, t.progress); setProgDraft(null); };
+
+  // commit de título/detalle al DESMONTAR (Escape/cierre no dispara onBlur del textarea)
+  const tRef = useRef(t); tRef.current = t;
+  const tdRef = useRef(titleDraft); tdRef.current = titleDraft;
+  const ddRef = useRef(detalleDraft); ddRef.current = detalleDraft;
+  useEffect(() => () => {
+    board.setTitle(tRef.current.id, tdRef.current, tRef.current.title);
+    board.setDetalle(tRef.current.id, ddRef.current, tRef.current.detalle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Escape cierra la ficha, salvo que haya un submodal de MaKo abierto
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mako) onClose(); };
+    document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
+  }, [mako, onClose]);
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   const disponibles = board.labels.filter((l) => !t.labels.includes(l.id));
   const cl = t.checklist; const clDone = cl.filter((c) => c.done).length;
@@ -379,7 +391,7 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             <div><label style={rowLabel}>Prioridad</label><select value={t.priority} onChange={(e) => onSetPriority(t.id, e.target.value as Prio)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }}>{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select></div>
-            <div><label style={rowLabel}>Avance · {t.progress}%</label><input type="range" min={0} max={100} step={5} value={t.progress} onChange={(e) => board.setProgress(t.id, Number(e.target.value), t.progress)} style={{ width: '100%', accentColor: 'var(--primary)' }} /></div>
+            <div><label style={rowLabel}>Avance · {progShown}%</label><input type="range" min={0} max={100} step={5} value={progShown} onChange={(e) => setProgDraft(Number(e.target.value))} onMouseUp={commitProg} onKeyUp={commitProg} onTouchEnd={commitProg} style={{ width: '100%', accentColor: 'var(--primary)' }} /></div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
@@ -407,6 +419,10 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
 // ── editor de proyectos / categorías (con emoji picker) ─────────────────────────
 function ProjectsManager({ board, ask, onClose }: { board: Board; ask: (msg: string, onOk: () => void) => void; onClose: () => void }) {
   const { labels, repo } = board;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, maxHeight: '78vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

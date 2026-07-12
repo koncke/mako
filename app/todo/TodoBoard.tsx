@@ -37,8 +37,9 @@ export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[];
     labelMode: 'multi', labelSingular: 'Categoría', labelPlural: 'Categorías',
     createTask: async (d) => {
       if (demo) return d;
-      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority } });
-      if (!j.ok || !j.tarea) return d;
+      // origen preservado (al restaurar un borrado de una tarea de MaKo mantiene el ✦)
+      const j = await api({ action: 'crear', tarea: { titulo: d.title, prioridad: d.priority, origen: d.origen === 'ia' ? 'mako' : 'manual' } });
+      if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear');
       let t = j.tarea;
       // si la tarjeta ya traía contenido (p.ej. restaurar un borrado), aplicá el resto
       if (d.detalle || d.checklist.length || d.deadline || d.labels.length || d.enPrioridad || d.progress) {

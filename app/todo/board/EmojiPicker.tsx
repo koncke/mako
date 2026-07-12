@@ -27,10 +27,12 @@ export function EmojiPickerMini({ value, onPick }: { value: string; onPick: (e: 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    // capture + stopImmediatePropagation: el Escape cierra SOLO el picker, no el
+    // modal que lo contiene (que también escucha Escape en document).
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); setOpen(false); } };
     document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onEsc);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc); };
+    document.addEventListener('keydown', onEsc, true);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onEsc, true); };
   }, [open]);
   return (
     <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
