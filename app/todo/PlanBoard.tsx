@@ -3,36 +3,36 @@
 // =============================================================================
 // PlanBoard — plan de ejecución de MaKo (super-admin, en /todo)
 // =============================================================================
-// Board privado de Martín, estilo Trello/CRM adaptado al tema CLARO de la app.
-// COLUMNAS DINÁMICAS (agregar/renombrar/color/borrar) con drag & drop nativo (el
-// patrón del CRM). La PRIORIDAD es una etiqueta en la tarjeta (no la columna).
-// Proyectos editables (color+emoji). Detalle en MODAL con checklist. Toast de
-// guardado + deshacer 5s. Vista "Prioridades" = solo el Foco (★).
-// Persistencia: localStorage (mako_plan_v3*). El cliente verá el MISMO componente
-// cableado a la DB (próximo commit). Adjuntos → fase de Storage.
+// Board privado de Martín, estilo Trello/CRM (tema claro). Columnas = las 4
+// PRIORIDADES (fijas, no editables), a ancho completo. Drag & drop nativo (mueve
+// de prioridad). Proyectos editables (color+emoji). Detalle en MODAL con
+// checklist + Change history (con distinción usuario/IA). Eliminar con pop-up
+// propio (nunca confirm() del navegador). Toast de guardado + deshacer 5s.
+// Persistencia localStorage (mako_plan_v4; migra v3/v2). El cliente verá el
+// mismo diseño cableado a la DB (próximo commit).
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type MouseEvent as RME, type DragEvent as RDragEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode, type MouseEvent as RME } from 'react';
 import { useUndoToast, UndoToast } from '../_components/UndoToast';
 
 const MONO = "'Geist Mono', monospace";
 
 type Prio = 'alta' | 'media' | 'baja' | 'futuro';
+type Estado = 'abierto' | 'parcial' | 'hecho';
+type Actor = 'user' | 'ia';
 type Check = { id: string; text: string; done: boolean };
-type Task = { id: string; n: number; text: string; project: string; priority: Prio; col: string; prog: number; detalle: string; foco: boolean; deadline: string; checklist: Check[] };
-type Col = { id: string; name: string; color: string };
+type Hist = { ts: number; actor: Actor; text: string };
+type Task = { id: string; n: number; text: string; project: string; priority: Prio; status: Estado; prog: number; detalle: string; foco: boolean; deadline: string; checklist: Check[]; origen: Actor; historial: Hist[] };
 type Proj = { id: string; emoji: string; name: string; color: string };
+type Stored = Partial<Task> & { col?: string; status?: string };
 
 const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 const PLABEL: Record<Prio, string> = { alta: 'Alta', media: 'Media', baja: 'Baja', futuro: 'A futuro' };
 const PCOLOR: Record<Prio, string> = { alta: '#D0504A', media: '#C8870C', baja: '#1E9E57', futuro: '#98A0AC' };
+const ESTADOS: Estado[] = ['abierto', 'parcial', 'hecho'];
+const SLABEL: Record<Estado, string> = { hecho: 'Hecho', parcial: 'Parcial', abierto: 'Abierto' };
+const SCOLOR: Record<Estado, string> = { hecho: 'var(--good)', parcial: 'var(--warn)', abierto: 'var(--faint)' };
 const SWATCHES = ['#98A0AC', '#2F6FED', '#1E9E57', '#C8870C', '#D0504A', '#7C5CFB', '#0E9B8E', '#D6489B'];
-
-const COLS_DEFAULT: Col[] = [
-  { id: 'todo', name: 'Por hacer', color: '#98A0AC' },
-  { id: 'doing', name: 'En curso', color: '#2F6FED' },
-  { id: 'done', name: 'Hecho', color: '#1E9E57' },
-];
-const colFromStatus = (s: string) => (s === 'hecho' ? 'done' : s === 'parcial' ? 'doing' : 'todo');
+const statusFromCol: Record<string, Estado> = { done: 'hecho', doing: 'parcial', todo: 'abierto' };
 
 const PROJS_DEFAULT: Proj[] = [
   { id: 'doer', emoji: '🔴', name: 'Hacer MaKo DOER', color: '#D0504A' },
@@ -43,8 +43,8 @@ const PROJS_DEFAULT: Proj[] = [
   { id: 'ux', emoji: '✨', name: 'UX & Diseño', color: '#D6489B' },
 ];
 
-// [n, texto, proyecto, prioridad, status, prog, detalle, foco]  (status → col)
-type Row = [number, string, string, Prio, string, number, string, boolean];
+// [n, texto, proyecto, prioridad, estado, prog, detalle, foco]
+type Row = [number, string, string, Prio, Estado, number, string, boolean];
 const SEED: Row[] = [
   [42, 'Retro & Planning: la tab-cerebro', 'doer', 'alta', 'hecho', 100, 'Base hecha. Casa del programa DOER: reportes + plan, ligada a Experiments.', false],
   [55, 'Catálogo de fugas: que Retro detecte los patrones', 'doer', 'alta', 'abierto', 0, 'Catálogo (la IA juzga): escalar no-ganadores, gasto↑/resultados↓, poca variedad, huecos del funnel, escalado incorrecto, muchos cambios, cobranza recurrente. Metodología Recon (2 señales). Spec: docs/superpowers/specs/2026-07-10-retro-doer-accountability-design.md', true],
@@ -106,16 +106,29 @@ const SEED: Row[] = [
   [44, 'Administrador de Eventos', 'ux', 'baja', 'abierto', 0, '', false],
 ];
 
-const K_TASKS = 'mako_plan_v3', K_COLS = 'mako_plan_cols_v3', K_PROJS = 'mako_plan_projs_v3', K_UI = 'mako_plan_ui_v3', K_V2 = 'mako_plan_v2';
+const K4 = 'mako_plan_v4', K3 = 'mako_plan_v3', K2 = 'mako_plan_v2', K_PROJS = 'mako_plan_projs_v3', K_UI = 'mako_plan_ui_v3';
 const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 const clamp = (v: number) => Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0));
-const seedTasks = (): Task[] => SEED.map((d) => ({ id: 't' + d[0], n: d[0], text: d[1], project: d[2], priority: d[3], col: colFromStatus(d[4]), prog: d[5], detalle: d[6], foco: d[7], deadline: '', checklist: [] }));
-type V2Task = { id: string; n: number; text: string; project: string; priority: Prio; status: string; prog: number; detalle: string; foco: boolean; deadline: string };
-const migrateV2 = (arr: V2Task[]): Task[] => arr.map((t) => ({ id: t.id, n: t.n, text: t.text, project: t.project, priority: t.priority, col: colFromStatus(t.status), prog: t.prog, detalle: t.detalle, foco: t.foco, deadline: t.deadline || '', checklist: [] }));
+const seedTasks = (): Task[] => SEED.map((d) => ({ id: 't' + d[0], n: d[0], text: d[1], project: d[2], priority: d[3], status: d[4], prog: d[5], detalle: d[6], foco: d[7], deadline: '', checklist: [], origen: 'user', historial: [] }));
+const norm = (t: Stored): Task => ({
+  id: t.id ?? uid(), n: typeof t.n === 'number' ? t.n : 0, text: t.text ?? '', project: t.project ?? 'doer',
+  priority: (PRIOS as string[]).includes(t.priority ?? '') ? (t.priority as Prio) : 'media',
+  status: (ESTADOS as string[]).includes(t.status ?? '') ? (t.status as Estado) : (t.col ? statusFromCol[t.col] ?? 'abierto' : 'abierto'),
+  prog: clamp(t.prog ?? 0), detalle: t.detalle ?? '', foco: !!t.foco, deadline: t.deadline ?? '',
+  checklist: Array.isArray(t.checklist) ? t.checklist : [], origen: t.origen === 'ia' ? 'ia' : 'user',
+  historial: Array.isArray(t.historial) ? t.historial : [],
+});
+
+function relTime(ts: number, nowMs: number): string {
+  const s = Math.max(0, Math.round((nowMs - ts) / 1000));
+  if (s < 45) return 'hace unos segundos';
+  if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+  return `hace ${Math.round(s / 86400)} d`;
+}
 
 export function PlanBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [cols, setCols] = useState<Col[]>(COLS_DEFAULT);
   const [projs, setProjs] = useState<Proj[]>(PROJS_DEFAULT);
   const [view, setView] = useState<'prioridades' | 'kanban'>('prioridades');
   const [q, setQ] = useState('');
@@ -123,58 +136,60 @@ export function PlanBoard() {
   const [fPrio, setFPrio] = useState<Set<Prio>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
   const [projMgr, setProjMgr] = useState(false);
+  const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [overCol, setOverCol] = useState<string | null>(null);
+  const [overPrio, setOverPrio] = useState<Prio | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const { undo, show, clear } = useUndoToast();
 
   const projOf = (id: string) => projs.find((p) => p.id === id) ?? projs[0] ?? PROJS_DEFAULT[0];
+  const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(K_TASKS);
-      if (raw) setTasks(JSON.parse(raw) as Task[]);
-      else { const v2 = localStorage.getItem(K_V2); setTasks(v2 ? migrateV2(JSON.parse(v2) as V2Task[]) : seedTasks()); }
+      const raw = localStorage.getItem(K4) ?? localStorage.getItem(K3) ?? localStorage.getItem(K2);
+      const arr = raw ? (JSON.parse(raw) as Stored[]) : null;
+      setTasks(arr && Array.isArray(arr) ? arr.map(norm) : seedTasks());
     } catch { setTasks(seedTasks()); }
-    try { const c = localStorage.getItem(K_COLS); if (c) setCols(JSON.parse(c) as Col[]); } catch { /* default */ }
     try { const p = localStorage.getItem(K_PROJS); if (p) setProjs(JSON.parse(p) as Proj[]); } catch { /* default */ }
     try { const ui = JSON.parse(localStorage.getItem(K_UI) || '{}'); if (ui.view === 'prioridades' || ui.view === 'kanban') setView(ui.view); } catch { /* default */ }
     setHydrated(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
-  useEffect(() => { if (hydrated) try { localStorage.setItem(K_TASKS, JSON.stringify(tasks)); } catch { /* no-op */ } }, [tasks, hydrated]);
-  useEffect(() => { if (hydrated) try { localStorage.setItem(K_COLS, JSON.stringify(cols)); } catch { /* no-op */ } }, [cols, hydrated]);
+  useEffect(() => { if (hydrated) try { localStorage.setItem(K4, JSON.stringify(tasks)); } catch { /* no-op */ } }, [tasks, hydrated]);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(projs)); } catch { /* no-op */ } }, [projs, hydrated]);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_UI, JSON.stringify({ view })); } catch { /* no-op */ } }, [view, hydrated]);
   useEffect(() => {
-    if (!openId && !projMgr) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpenId(null); setProjMgr(false); } };
+    const active = openId || projMgr || confirm;
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setConfirm(null); setOpenId(null); setProjMgr(false); } };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
-  }, [openId, projMgr]);
+  }, [openId, projMgr, confirm]);
 
-  const patch = (id: string, f: Partial<Task>) => setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...f } : t)));
+  // patch + log opcional en el historial (actor 'user' por default).
+  const patch = (id: string, f: Partial<Task>, log?: string, actor: Actor = 'user') =>
+    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...f, historial: log ? [{ ts: Date.now(), actor, text: log }, ...t.historial] : t.historial } : t)));
   const remove = (id: string) => { const snap = tasks; setTasks((ts) => ts.filter((t) => t.id !== id)); setOpenId(null); show('Tarea eliminada', () => setTasks(snap)); };
-  const addTask = (text: string, col: string) => {
+  const addTask = (text: string, priority: Prio) => {
     const v = text.trim(); if (!v) return;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.n), 0);
-    setTasks((ts) => [{ id: 't' + Date.now(), n: maxN + 1, text: v, project: projs[0]?.id ?? 'doer', priority: 'media', col, prog: 0, detalle: '', foco: false, deadline: '', checklist: [] }, ...ts]);
+    setTasks((ts) => [{ id: 't' + Date.now(), n: maxN + 1, text: v, project: projs[0]?.id ?? 'doer', priority, status: 'abierto', prog: 0, detalle: '', foco: false, deadline: '', checklist: [], origen: 'user', historial: [{ ts: Date.now(), actor: 'user', text: 'Creó la tarjeta' }] }, ...ts]);
   };
-  const moveTo = (id: string, col: string) => {
-    const t = tasks.find((x) => x.id === id); if (!t || t.col === col) return;
-    const from = t.col; patch(id, { col });
-    const cn = cols.find((c) => c.id === col)?.name ?? col;
-    show(`"${t.text.slice(0, 30)}" → ${cn}`, () => patch(id, { col: from }));
+  const moveTo = (id: string, priority: Prio) => {
+    const t = tasks.find((x) => x.id === id); if (!t || t.priority === priority) return;
+    const from = t.priority; patch(id, { priority }, `Movió a ${PLABEL[priority]}`);
+    show(`"${t.text.slice(0, 28)}" → ${PLABEL[priority]}`, () => patch(id, { priority: from }, `Volvió a ${PLABEL[from]}`));
   };
 
   const nFilters = fProj.size + fPrio.size;
   const passes = (t: Task) => (!q || (t.text + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fProj.size === 0 || fProj.has(t.project)) && (fPrio.size === 0 || fPrio.has(t.priority));
-  const focos = tasks.filter((t) => t.foco && t.col !== 'done');
+  const focos = tasks.filter((t) => t.foco && t.status !== 'hecho');
   const openTask = tasks.find((t) => t.id === openId) ?? null;
 
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 12px', flexWrap: 'wrap' }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 30px 12px', flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600 }}>Plan de ejecución</div>
           <h1 style={{ fontSize: 25, fontWeight: 700, letterSpacing: '-0.02em', margin: '3px 0 0', color: 'var(--ink)' }}>Qué construir</h1>
@@ -186,24 +201,32 @@ export function PlanBoard() {
         </div>
         <span style={{ flex: 1 }} />
         {view === 'kanban' && <>
+          <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />Proyectos</button>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ width: 170, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu projs={projs} fProj={fProj} setFProj={setFProj} fPrio={fPrio} setFPrio={setFPrio} n={nFilters} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ width: 160, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <button onClick={() => setProjMgr(true)} style={ghostBtn}>Proyectos</button>
         </>}
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades'
           ? <Prioridades focos={focos} projOf={projOf} onOpen={setOpenId} patch={patch} />
-          : <Kanban tasks={tasks.filter(passes)} cols={cols} setCols={setCols} projOf={projOf} onOpen={setOpenId} onAdd={addTask} onMove={moveTo}
-              dragId={dragId} setDragId={setDragId} overCol={overCol} setOverCol={setOverCol} patch={patch} />}
+          : <Kanban tasks={tasks.filter(passes)} projOf={projOf} onOpen={setOpenId} onAdd={addTask} onMove={moveTo} dragId={dragId} setDragId={setDragId} overPrio={overPrio} setOverPrio={setOverPrio} patch={patch} />}
       </div>
 
-      {openTask && <TaskModal t={openTask} cols={cols} projs={projs} projOf={projOf} patch={patch} remove={remove} onClose={() => setOpenId(null)} />}
-      {projMgr && <ProjectsManager projs={projs} setProjs={setProjs} onClose={() => setProjMgr(false)} />}
+      {openTask && <TaskModal t={openTask} projs={projs} projOf={projOf} patch={patch} ask={ask} remove={remove} onClose={() => setOpenId(null)} />}
+      {projMgr && <ProjectsManager projs={projs} setProjs={setProjs} ask={ask} onClose={() => setProjMgr(false)} />}
+      {confirm && <Confirm msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={undo} onClose={clear} />
     </main>
   );
+}
+
+// ── íconos ─────────────────────────────────────────────────────────────────────
+function PencilIcon() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>; }
+function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+function ActorIcon({ actor, size = 13 }: { actor: Actor; size?: number }) {
+  if (actor === 'ia') return <span title="MaKo (IA)" style={{ fontSize: size, color: 'var(--accent)' }}>✦</span>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="usuario"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 12 0v1" /></svg>;
 }
 
 // ── átomos ────────────────────────────────────────────────────────────────────
@@ -213,8 +236,8 @@ const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', 
 function ProjLabel({ p }: { p: Proj }) {
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: p.color, background: p.color + '14', border: `1px solid ${p.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}><span style={{ width: 7, height: 7, borderRadius: 2, background: p.color }} />{p.emoji} {p.name}</span>;
 }
-function PrioBadge({ p }: { p: Prio }) {
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: PCOLOR[p] }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: PCOLOR[p] }} />{PLABEL[p]}</span>;
+function StatusBadge({ s }: { s: Estado }) {
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600, color: SCOLOR[s] }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: SCOLOR[s] }} />{SLABEL[s]}</span>;
 }
 function Star({ on, onClick, size = 15 }: { on: boolean; onClick: (e: RME) => void; size?: number }) {
   return <button onClick={onClick} title="Foco" aria-pressed={on} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: size, lineHeight: 1, color: on ? 'var(--accent-soft)' : 'var(--faint)', padding: 2 }}>{on ? '★' : '☆'}</button>;
@@ -223,23 +246,23 @@ function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
 }
 
-// ── tarjeta (cuadrada, estilo CRM) ─────────────────────────────────────────────
-function CardTile({ t, projOf, onOpen, patch, onDragStart, onDragEnd }: { t: Task; projOf: (id: string) => Proj; onOpen: (id: string) => void; patch: (id: string, f: Partial<Task>) => void; onDragStart: () => void; onDragEnd: () => void }) {
+// ── tarjeta ────────────────────────────────────────────────────────────────────
+function CardTile({ t, projOf, onOpen, patch, onDragStart, onDragEnd }: { t: Task; projOf: (id: string) => Proj; onOpen: (id: string) => void; patch: (id: string, f: Partial<Task>, log?: string) => void; onDragStart: () => void; onDragEnd: () => void }) {
   const done = t.checklist.filter((c) => c.done).length;
   return (
     <div draggable onDragStart={(e) => { onDragStart(); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={onDragEnd} onClick={() => onOpen(t.id)}
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 13px', cursor: 'grab', transition: 'border-color .12s, box-shadow .12s' }}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 13px', cursor: 'grab', opacity: t.status === 'hecho' ? 0.62 : 1, transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
         <ProjLabel p={projOf(t.project)} />
-        <PrioBadge p={t.priority} />
         <span style={{ flex: 1 }} />
-        <Star on={t.foco} onClick={(e) => { e.stopPropagation(); patch(t.id, { foco: !t.foco }); }} size={14} />
+        <Star on={t.foco} onClick={(e) => { e.stopPropagation(); patch(t.id, { foco: !t.foco }, t.foco ? 'Quitó del foco' : 'Agregó al foco'); }} size={14} />
       </div>
-      <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.35, color: 'var(--ink)', marginBottom: 9 }}>{t.text}</div>
+      <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.35, color: 'var(--ink)', textDecoration: t.status === 'hecho' ? 'line-through' : 'none', marginBottom: 9 }}>{t.text}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)' }}>#{t.n}</span>
-        {t.detalle && <span title="doc" style={{ color: 'var(--faint)', fontSize: 11.5 }}>📄</span>}
+        {t.origen === 'ia' && <ActorIcon actor="ia" size={12} />}
+        <StatusBadge s={t.status} />
         {t.checklist.length > 0 && <span title="checklist" style={{ fontSize: 10.5, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>☑ {done}/{t.checklist.length}</span>}
         <span style={{ flex: 1 }}><MiniBar v={t.prog} /></span>
         <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{t.prog}%</span>
@@ -248,89 +271,51 @@ function CardTile({ t, projOf, onOpen, patch, onDragStart, onDragEnd }: { t: Tas
   );
 }
 
-// ── vista Kanban (columnas dinámicas + DnD + auto-scroll) ──────────────────────
-function Kanban({ tasks, cols, setCols, projOf, onOpen, onAdd, onMove, dragId, setDragId, overCol, setOverCol, patch }: {
-  tasks: Task[]; cols: Col[]; setCols: (c: Col[] | ((c: Col[]) => Col[])) => void; projOf: (id: string) => Proj; onOpen: (id: string) => void;
-  onAdd: (text: string, col: string) => void; onMove: (id: string, col: string) => void; dragId: string | null; setDragId: (v: string | null) => void; overCol: string | null; setOverCol: (v: string | null) => void; patch: (id: string, f: Partial<Task>) => void;
+// ── vista Kanban (4 columnas de prioridad, ancho completo, DnD mueve prioridad) ─
+function Kanban({ tasks, projOf, onOpen, onAdd, onMove, dragId, setDragId, overPrio, setOverPrio, patch }: {
+  tasks: Task[]; projOf: (id: string) => Proj; onOpen: (id: string) => void; onAdd: (text: string, p: Prio) => void; onMove: (id: string, p: Prio) => void;
+  dragId: string | null; setDragId: (v: string | null) => void; overPrio: Prio | null; setOverPrio: (v: Prio | null) => void; patch: (id: string, f: Partial<Task>, log?: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const raf = useRef<number | null>(null);
-  const stopScroll = () => { if (raf.current) { cancelAnimationFrame(raf.current); raf.current = null; } };
-  const onBoardDragOver = (e: RDragEvent) => {
-    const el = scrollRef.current; if (!el) return;
-    const r = el.getBoundingClientRect(); const EDGE = 90;
-    const dir = e.clientX < r.left + EDGE ? -1 : e.clientX > r.right - EDGE ? 1 : 0;
-    stopScroll();
-    if (dir !== 0) { const tick = () => { el.scrollLeft += dir * 16; raf.current = requestAnimationFrame(tick); }; raf.current = requestAnimationFrame(tick); }
-  };
-  useEffect(() => () => stopScroll(), []);
-
-  const addCol = () => setCols((c) => [...c, { id: uid(), name: 'Nueva columna', color: SWATCHES[0] }]);
-  const renameCol = (id: string, name: string) => setCols((c) => c.map((x) => (x.id === id ? { ...x, name } : x)));
-  const colorCol = (id: string, color: string) => setCols((c) => c.map((x) => (x.id === id ? { ...x, color } : x)));
-  const delCol = (id: string) => {
-    if (cols.length <= 1) return;
-    const fallback = cols.find((c) => c.id !== id)!.id;
-    tasks.filter((t) => t.col === id).forEach((t) => patch(t.id, { col: fallback }));
-    setCols((c) => c.filter((x) => x.id !== id));
-  };
-
   return (
-    <div ref={scrollRef} onDragOver={onBoardDragOver} onDrop={stopScroll} style={{ display: 'flex', gap: 14, padding: '4px 30px 30px', height: '100%', overflowX: 'auto', overflowY: 'hidden', alignItems: 'flex-start' }}>
-      {cols.map((c) => {
-        const items = tasks.filter((t) => t.col === c.id).sort((a, b) => a.n - b.n);
-        const isOver = overCol === c.id && dragId != null;
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '4px 30px 30px', height: '100%', alignItems: 'flex-start' }}>
+      {PRIOS.map((p) => {
+        const items = tasks.filter((t) => t.priority === p).sort((a, b) => a.n - b.n);
+        const isOver = overPrio === p && dragId != null;
         return (
-          <section key={c.id}
-            onDragOver={(e) => { e.preventDefault(); if (dragId != null && overCol !== c.id) setOverCol(c.id); }}
-            onDrop={(e) => { e.preventDefault(); if (dragId != null) onMove(dragId, c.id); setOverCol(null); setDragId(null); stopScroll(); }}
-            style={{ width: 288, flex: 'none', display: 'flex', flexDirection: 'column', maxHeight: '100%', background: isOver ? 'var(--primary-bg)' : 'var(--surface)', border: '1px solid ' + (isOver ? 'var(--primary-weak)' : 'var(--border)'), borderTop: '3px solid ' + c.color, borderRadius: 14, padding: 10, boxShadow: isOver ? '0 0 0 3px var(--primary-weak)' : 'none', transition: 'background .12s, box-shadow .12s' }}>
-            <ColHeader c={c} count={items.length} onRename={renameCol} onColor={colorCol} onDelete={() => delCol(c.id)} onAdd={onAdd} canDelete={cols.length > 1} />
+          <section key={p}
+            onDragOver={(e) => { e.preventDefault(); if (dragId != null && overPrio !== p) setOverPrio(p); }}
+            onDrop={(e) => { e.preventDefault(); if (dragId != null) onMove(dragId, p); setOverPrio(null); setDragId(null); }}
+            style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: isOver ? 'var(--primary-bg)' : 'var(--surface)', border: '1px solid ' + (isOver ? 'var(--primary-weak)' : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, boxShadow: isOver ? '0 0 0 3px var(--primary-weak)' : 'none', transition: 'background .12s, box-shadow .12s' }}>
+            <ColHeader p={p} count={items.length} onAdd={onAdd} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
-              {items.map((t) => (
-                <CardTile key={t.id} t={t} projOf={projOf} onOpen={onOpen} patch={patch} onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverCol(null); stopScroll(); }} />
-              ))}
+              {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
+              {items.map((t) => <CardTile key={t.id} t={t} projOf={projOf} onOpen={onOpen} patch={patch} onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverPrio(null); }} />)}
             </div>
           </section>
         );
       })}
-      <button onClick={addCol} style={{ width: 200, flex: 'none', border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)', borderRadius: 14, padding: '12px', cursor: 'pointer', fontSize: 13.5, fontFamily: 'inherit', height: 'fit-content' }}>+ Columna</button>
     </div>
   );
 }
-
-function ColHeader({ c, count, onRename, onColor, onDelete, onAdd, canDelete }: { c: Col; count: number; onRename: (id: string, n: string) => void; onColor: (id: string, col: string) => void; onDelete: () => void; onAdd: (text: string, col: string) => void; canDelete: boolean }) {
-  const [menu, setMenu] = useState(false);
+function ColHeader({ p, count, onAdd }: { p: Prio; count: number; onAdd: (text: string, p: Prio) => void }) {
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState('');
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '2px 2px 8px' }}>
-        <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, flex: 'none' }} />
-        <input value={c.name} onChange={(e) => onRename(c.id, e.target.value)} style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--ink)', fontWeight: 600, fontSize: 13.5, outline: 'none', fontFamily: 'inherit' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: PCOLOR[p], flex: 'none' }} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{PLABEL[p]}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{count}</span>
+        <span style={{ flex: 1 }} />
         <button onClick={() => setAdding((a) => !a)} title="Nueva tarea" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 18, lineHeight: 1, padding: '0 3px' }}>+</button>
-        <span style={{ position: 'relative' }}>
-          <button onClick={() => setMenu((m) => !m)} title="Columna" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 16, lineHeight: 1, padding: '0 2px' }}>⋯</button>
-          {menu && <>
-            <span onClick={() => setMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-            <div style={{ position: 'absolute', top: 22, right: 0, zIndex: 41, width: 168, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 12px 30px rgba(18,21,27,.16)', padding: 10 }}>
-              <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Color</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                {SWATCHES.map((s) => <button key={s} onClick={() => onColor(c.id, s)} style={{ width: 20, height: 20, borderRadius: 6, background: s, border: c.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}
-              </div>
-              {canDelete && <button onClick={() => { if (confirm('¿Borrar la columna? Sus tarjetas pasan a otra.')) { onDelete(); setMenu(false); } }} style={{ width: '100%', textAlign: 'left', border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', padding: '6px 0 0', borderTop: '1px solid var(--border)' }}>Borrar columna</button>}
-            </div>
-          </>}
-        </span>
       </div>
-      {adding && <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(v, c.id); setV(''); } if (e.key === 'Escape') setAdding(false); }} onBlur={() => setAdding(false)} placeholder="Nueva tarea… (Enter)" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none', marginBottom: 4 }} />}
+      {adding && <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(v, p); setV(''); } if (e.key === 'Escape') setAdding(false); }} onBlur={() => setAdding(false)} placeholder="Nueva tarea… (Enter)" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none' }} />}
     </div>
   );
 }
 
 // ── vista Prioridades (solo foco) ──────────────────────────────────────────────
-function Prioridades({ focos, projOf, onOpen, patch }: { focos: Task[]; projOf: (id: string) => Proj; onOpen: (id: string) => void; patch: (id: string, f: Partial<Task>) => void }) {
+function Prioridades({ focos, projOf, onOpen, patch }: { focos: Task[]; projOf: (id: string) => Proj; onOpen: (id: string) => void; patch: (id: string, f: Partial<Task>, log?: string) => void }) {
   if (focos.length === 0) return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--faint)', textAlign: 'center', padding: 40 }}>
       <div style={{ fontSize: 40 }}>🎯</div>
@@ -345,8 +330,8 @@ function Prioridades({ focos, projOf, onOpen, patch }: { focos: Task[]; projOf: 
         {focos.slice().sort((a, b) => a.prog - b.prog).map((t) => (
           <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <ProjLabel p={projOf(t.project)} /><PrioBadge p={t.priority} />
-              <span style={{ flex: 1 }} /><Star on onClick={(e) => { e.stopPropagation(); patch(t.id, { foco: false }); }} size={18} />
+              <ProjLabel p={projOf(t.project)} /><StatusBadge s={t.status} />
+              <span style={{ flex: 1 }} /><Star on onClick={(e) => { e.stopPropagation(); patch(t.id, { foco: false }, 'Quitó del foco'); }} size={18} />
             </div>
             <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 12 : 14 }}>{t.text}</div>
             {t.detalle && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.detalle}</div>}
@@ -358,7 +343,7 @@ function Prioridades({ focos, projOf, onOpen, patch }: { focos: Task[]; projOf: 
   );
 }
 
-// ── filtros (dropdown de 2 niveles: grupo → ítems) ─────────────────────────────
+// ── filtros (2 niveles) ────────────────────────────────────────────────────────
 function FilterMenu({ projs, fProj, setFProj, fPrio, setFPrio, n }: { projs: Proj[]; fProj: Set<string>; setFProj: (s: Set<string>) => void; fPrio: Set<Prio>; setFPrio: (s: Set<Prio>) => void; n: number }) {
   const [open, setOpen] = useState(false);
   const [grp, setGrp] = useState<'root' | 'proj' | 'prio'>('root');
@@ -367,9 +352,9 @@ function FilterMenu({ projs, fProj, setFProj, fPrio, setFPrio, n }: { projs: Pro
   const grpRow = (label: string, on: () => void) => <button onClick={on} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 10px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, color: 'var(--ink)', textAlign: 'left', fontFamily: 'inherit' }}>{label}<span style={{ marginLeft: 'auto', color: 'var(--faint)' }}>›</span></button>;
   return (
     <span style={{ position: 'relative' }}>
-      <button onClick={() => { setOpen((o) => !o); setGrp('root'); }} style={{ position: 'relative', ...ghostBtn, background: open ? 'var(--surface-2)' : 'var(--surface)' }}>
-        Filtrar
-        {n > 0 && <span onClick={clearAll} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--ink)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
+      <button onClick={() => { setOpen((o) => !o); setGrp('root'); }} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
+        <FunnelIcon color="var(--primary)" />Filtrar
+        {n > 0 && <span onClick={clearAll} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
         <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
@@ -390,48 +375,68 @@ function FRow({ on, onClick, icon, children }: { on: boolean; onClick: () => voi
   </button>;
 }
 
-// ── modal de detalle (con checklist) ───────────────────────────────────────────
-function TaskModal({ t, cols, projs, projOf, patch, remove, onClose }: { t: Task; cols: Col[]; projs: Proj[]; projOf: (id: string) => Proj; patch: (id: string, f: Partial<Task>) => void; remove: (id: string) => void; onClose: () => void }) {
+// ── modal de detalle (checklist + change history) ──────────────────────────────
+function TaskModal({ t, projs, projOf, patch, ask, remove, onClose }: { t: Task; projs: Proj[]; projOf: (id: string) => Proj; patch: (id: string, f: Partial<Task>, log?: string) => void; ask: (msg: string, onOk: () => void) => void; remove: (id: string) => void; onClose: () => void }) {
   const [newItem, setNewItem] = useState('');
+  const [now, setNow] = useState(0);
+  /* eslint-disable-next-line react-hooks/set-state-in-effect */
+  useEffect(() => { setNow(Date.now()); }, []);
   const p = projOf(t.project);
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
   const cl = t.checklist;
-  const setCl = (next: Check[]) => patch(t.id, { checklist: next });
+  const setCl = (next: Check[], log?: string) => patch(t.id, { checklist: next }, log);
   const clDone = cl.filter((c) => c.done).length;
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 800, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600 }}>#{t.n}</span><ProjLabel p={p} />
+          <span title={t.origen === 'ia' ? 'Creada por MaKo' : 'Creada por vos'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--faint)' }}><ActorIcon actor={t.origen} size={13} />{t.origen === 'ia' ? 'MaKo' : 'Vos'}</span>
           <span style={{ flex: 1 }} /><button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
             <textarea value={t.text} onChange={(e) => patch(t.id, { text: e.target.value })} rows={2} style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: 'inherit', letterSpacing: '-0.01em', marginBottom: 16 }} />
             <label style={rowLabel}>Detalle · doc</label>
-            <textarea value={t.detalle} onChange={(e) => patch(t.id, { detalle: e.target.value })} placeholder="Escribí el doc de esta tarea (lo que te llevás a una sesión nueva)…" style={{ width: '100%', minHeight: 150, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '12px 14px', fontFamily: 'inherit', marginBottom: 20 }} />
+            <textarea value={t.detalle} onChange={(e) => patch(t.id, { detalle: e.target.value })} placeholder="Escribí el doc de esta tarea (lo que te llevás a una sesión nueva)…" style={{ width: '100%', minHeight: 140, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '12px 14px', fontFamily: 'inherit', marginBottom: 20 }} />
+
             <label style={rowLabel}>Checklist {cl.length > 0 && `· ${clDone}/${cl.length}`}</label>
             {cl.length > 0 && <span style={{ display: 'block', marginBottom: 10 }}><MiniBar v={cl.length ? Math.round((clDone / cl.length) * 100) : 0} /></span>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
               {cl.map((c) => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 2px' }}>
-                  <button onClick={() => setCl(cl.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
+                  <button onClick={() => setCl(cl.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`)} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
                   <input value={c.text} onChange={(e) => setCl(cl.map((x) => (x.id === c.id ? { ...x, text: e.target.value } : x)))} style={{ flex: 1, border: 'none', background: 'transparent', color: c.done ? 'var(--faint)' : 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: 'inherit', textDecoration: c.done ? 'line-through' : 'none' }} />
                   <button onClick={() => setCl(cl.filter((x) => x.id !== c.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
                 </div>
               ))}
             </div>
-            <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newItem.trim()) { setCl([...cl, { id: uid(), text: newItem.trim(), done: false }]); setNewItem(''); } }} placeholder="+ ítem de checklist (Enter)" style={{ width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--ink)', fontSize: 13, outline: 'none' }} />
+            <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newItem.trim()) { setCl([...cl, { id: uid(), text: newItem.trim(), done: false }], `Agregó "${newItem.trim().slice(0, 30)}" al checklist`); setNewItem(''); } }} placeholder="+ ítem de checklist (Enter)" style={{ width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--ink)', fontSize: 13, outline: 'none', marginBottom: 24 }} />
+
+            <label style={rowLabel}>Change history</label>
+            {t.historial.length === 0
+              ? <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios (mover, checklist, foco…) van a aparecer acá.</div>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+                  {t.historial.map((h) => (
+                    <div key={h.ts} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                      <span style={{ marginTop: 1, flex: 'none' }}><ActorIcon actor={h.actor} size={13} /></span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : 'Vos'}</strong> · {h.text}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--faint)', fontVariantNumeric: 'tabular-nums' }}>{relTime(h.ts, now)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>}
           </div>
           <div style={{ width: 228, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
-            <div><label style={rowLabel}>Columna</label><select value={t.col} onChange={(e) => patch(t.id, { col: e.target.value })} style={selStyle}>{cols.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+            <div><label style={rowLabel}>Estado</label><select value={t.status} onChange={(e) => { const s = e.target.value as Estado; patch(t.id, { status: s, ...(s === 'hecho' && t.prog < 100 ? { prog: 100 } : {}) }, `Marcó como ${SLABEL[s]}`); }} style={selStyle}>{ESTADOS.map((s) => <option key={s} value={s}>{SLABEL[s]}</option>)}</select></div>
             <div><label style={rowLabel}>Proyecto</label><select value={t.project} onChange={(e) => patch(t.id, { project: e.target.value })} style={{ ...selStyle, color: p.color, fontWeight: 600 }}>{projs.map((x) => <option key={x.id} value={x.id}>{x.emoji} {x.name}</option>)}</select></div>
-            <div><label style={rowLabel}>Prioridad</label><select value={t.priority} onChange={(e) => patch(t.id, { priority: e.target.value as Prio })} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }}>{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select></div>
+            <div><label style={rowLabel}>Prioridad</label><select value={t.priority} onChange={(e) => patch(t.id, { priority: e.target.value as Prio }, `Movió a ${PLABEL[e.target.value as Prio]}`)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }}>{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select></div>
             <div><label style={rowLabel}>Avance · {t.prog}%</label><input type="range" min={0} max={100} step={5} value={t.prog} onChange={(e) => patch(t.id, { prog: clamp(+e.target.value) })} style={{ width: '100%', accentColor: 'var(--primary)' }} /></div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => patch(t.id, { deadline: e.target.value })} style={selStyle} /></div>
-            <button onClick={() => patch(t.id, { foco: !t.foco })} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: t.foco ? 'var(--primary-bg)' : 'var(--surface)', color: t.foco ? 'var(--primary)' : 'var(--dim)', fontWeight: 600 }}>{t.foco ? '★ En foco' : '☆ Agregar al foco'}</button>
+            <button onClick={() => patch(t.id, { foco: !t.foco }, t.foco ? 'Quitó del foco' : 'Agregó al foco')} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: t.foco ? 'var(--primary-bg)' : 'var(--surface)', color: t.foco ? 'var(--primary)' : 'var(--dim)', fontWeight: 600 }}>{t.foco ? '★ En foco' : '☆ Agregar al foco'}</button>
             <span style={{ flex: 1 }} />
-            <button onClick={() => { if (confirm('¿Eliminar esta tarea?')) remove(t.id); }} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
+            <button onClick={() => ask('¿Eliminar esta tarea? No se puede deshacer luego de cerrar el aviso.', () => remove(t.id))} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
           </div>
         </div>
       </div>
@@ -439,8 +444,8 @@ function TaskModal({ t, cols, projs, projOf, patch, remove, onClose }: { t: Task
   );
 }
 
-// ── gestor de proyectos (labels editables) ─────────────────────────────────────
-function ProjectsManager({ projs, setProjs, onClose }: { projs: Proj[]; setProjs: (p: Proj[] | ((p: Proj[]) => Proj[])) => void; onClose: () => void }) {
+// ── gestor de proyectos ────────────────────────────────────────────────────────
+function ProjectsManager({ projs, setProjs, ask, onClose }: { projs: Proj[]; setProjs: (p: Proj[] | ((p: Proj[]) => Proj[])) => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void }) {
   const up = (id: string, f: Partial<Proj>) => setProjs((ps) => ps.map((p) => (p.id === id ? { ...p, ...f } : p)));
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px' }}>
@@ -455,10 +460,25 @@ function ProjectsManager({ projs, setProjs, onClose }: { projs: Proj[]; setProjs
               <input value={p.emoji} onChange={(e) => up(p.id, { emoji: e.target.value.slice(0, 2) })} style={{ width: 34, textAlign: 'center', border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface)', fontSize: 15, padding: '5px 0', outline: 'none' }} />
               <input value={p.name} onChange={(e) => up(p.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, padding: '6px 9px', outline: 'none', fontFamily: 'inherit' }} />
               <span style={{ display: 'flex', gap: 3 }}>{SWATCHES.map((s) => <button key={s} onClick={() => up(p.id, { color: s })} title={s} style={{ width: 16, height: 16, borderRadius: 5, background: s, border: p.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}</span>
-              <button onClick={() => { if (confirm(`¿Borrar el proyecto "${p.name}"?`)) setProjs((ps) => ps.filter((x) => x.id !== p.id)); }} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
+              <button onClick={() => ask(`¿Borrar el proyecto "${p.name}"?`, () => setProjs((ps) => ps.filter((x) => x.id !== p.id)))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
             </div>
           ))}
           <button onClick={() => setProjs((ps) => [...ps, { id: uid(), emoji: '🏷', name: 'Nuevo proyecto', color: SWATCHES[1] }])} style={{ ...ghostBtn, textAlign: 'center' }}>+ Proyecto</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── pop-up de confirmación (reemplaza confirm() del navegador) ─────────────────
+function Confirm({ msg, onOk, onCancel }: { msg: string; onOk: () => void; onCancel: () => void }) {
+  return (
+    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(18,21,27,.4)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 60px rgba(18,21,27,.28)', padding: '22px 24px' }}>
+        <div style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 20 }}>{msg}</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onCancel} style={{ ...ghostBtn }}>Cancelar</button>
+          <button onClick={onOk} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--bad)', color: '#fff', fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}>Eliminar</button>
         </div>
       </div>
     </div>
