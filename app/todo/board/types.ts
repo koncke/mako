@@ -80,3 +80,18 @@ export function prioFromScore(score: number): Prio {
 }
 // score representativo de cada columna (migración de tareas viejas / bajar prioridad a mano)
 export const scoreFromPrio: Record<Prio, number> = { alta: 85, media: 62, baja: 37, futuro: 12 };
+
+// Score a partir del cual una tarea es EMERGENCIA (entra a Alta aunque no sea del
+// proyecto top). Ej: cuenta de Meta suspendida.
+export const EMERGENCY_SCORE = 90;
+
+// La columna que se MUESTRA respeta la restricción del guardián: ALTA (y las 3
+// prioridades) solo para tareas del PROYECTO TOP, sin proyecto, o emergencias.
+// Una tarea con score alto pero de otro proyecto se topea en Media.
+export function displayPrio(t: BoardTask, topProjectId: string | null): Prio {
+  const base = prioFromScore(t.score);
+  if (base !== 'alta') return base;
+  return puedeSerAlta(t, topProjectId) ? 'alta' : 'media';
+}
+export const puedeSerAlta = (t: BoardTask, topProjectId: string | null): boolean =>
+  (topProjectId != null && t.labels.includes(topProjectId)) || t.labels.length === 0 || t.score >= EMERGENCY_SCORE;

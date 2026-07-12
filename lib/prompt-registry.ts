@@ -67,7 +67,7 @@ import {
   CHECKLIST_ASK_SYSTEM_TEMPLATE, CHECKLIST_ASK_USER_TEMPLATE,
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
 } from './checklist-coach';
-import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE } from './mako-guardian';
+import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE } from './mako-guardian';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -578,6 +578,20 @@ export const REGISTRY: Group[] = [
         variables: [v('contexto', 'brief del negocio'), v('plan', 'proyectos+tareas en JSON, con id')], scope: 'full', sensitive: false,
         default: GUARDIAN_USER_TEMPLATE,
         context: 'Le pasa el negocio y el plan (con ids). No borres los slots {{contexto}}/{{plan}}.',
+      },
+      {
+        key: 'guardian.debate.system', source: 'override',
+        label: 'Debate de prioridad (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: GUARDIAN_DEBATE_SYSTEM_TEMPLATE,
+        context: 'Cuando el usuario debate la prioridad de una tarea, MaKo escucha, es exigente y decide el score (última palabra). No borres el slot {{jsonShape}} ni cambies el esquema.',
+      },
+      {
+        key: 'guardian.debate.user', source: 'override',
+        label: 'Argumento del usuario (user)', kind: 'user', dynamic: true,
+        variables: [v('scoreActual', 'score actual'), v('tarea', 'la tarea'), v('plan', 'resto del plan para comparar'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
+        default: GUARDIAN_DEBATE_USER_TEMPLATE,
+        context: 'Le pasa la tarea, el plan y el argumento. No borres los slots {{scoreActual}}/{{tarea}}/{{plan}}/{{argumento}}.',
       },
     ],
   },

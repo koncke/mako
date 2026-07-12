@@ -9,19 +9,21 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as RME, type DragEvent as RDragEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as RME } from 'react';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
 import { PriorizarWizard } from './PriorizarWizard';
 import { MakoChecklistModal } from './MakoChecklist';
+import { DebateModal } from './DebateModal';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, altaIncompleta, prioFromScore } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, puedeSerAlta } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
 export function BoardShell({ board }: { board: Board }) {
+  // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
   const { tasks, labels, repo } = board;
   const [view, setView] = useState<'prioridades' | 'kanban'>('prioridades');
   const [q, setQ] = useState('');
@@ -30,31 +32,36 @@ export function BoardShell({ board }: { board: Board }) {
   const [projMgr, setProjMgr] = useState(false);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
+  const [debateId, setDebateId] = useState<string | null>(null);
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [flash, setFlash] = useState('');
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overPrio, setOverPrio] = useState<Prio | null>(null);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   const doFlash = (m: string) => setFlash(m);
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 2600); return () => clearTimeout(t); }, [flash]);
 
-  // ── MaKo perro guardián (light): NINGUNA tarea puede quedar en Alta sin
-  // deadline+checklist. Si hay alguna, se abre el form bloqueante (gauntlet). ──
+  // El guardián es dueño de la ubicación: la columna respeta la restricción
+  // (Alta solo para el proyecto top / sin proyecto / emergencia).
+  const objetivoPrincipal = labels.length ? labels.slice().sort((a, b) => b.score - a.score)[0] : null;
+  const topProjectId = objetivoPrincipal?.id ?? null;
+  const esAltaIncompleta = (t: BoardTask) => displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0);
+
+  // ── MaKo perro guardián: NINGUNA tarea puede quedar en Alta sin deadline+
+  // checklist. Si hay alguna, se abre el form bloqueante (gauntlet). ──
   useEffect(() => {
     if (wizardId) return;
-    const pend = tasks.find((t) => altaIncompleta(t) && !dismissed.has(t.id));
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const pend = tasks.find((t) => esAltaIncompleta(t) && !dismissed.has(t.id));
     if (pend) setWizardId(pend.id);
-  }, [tasks, wizardId, dismissed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, wizardId, dismissed, topProjectId]);
 
-  const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (t && priority === 'alta' && altaIncompleta(t)) setWizardId(t.id); };
-  const doMoveTo = (id: string, priority: Prio) => {
-    const t = tasks.find((x) => x.id === id); board.moveTo(id, priority);
-    if (t && priority === 'alta' && (!t.deadline || t.checklist.length === 0)) { setAltaUndo({ id, snap: t }); setWizardId(id); }
+  const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (t && esAltaIncompleta(t)) setWizardId(t.id); };
+  const togglePrio = (id: string) => {
+    const t = tasks.find((x) => x.id === id);
+    if (t && !t.enPrioridad && !puedeSerAlta(t, topProjectId)) { doFlash('En prioridad solo entra el proyecto Objetivo Principal (o una emergencia)'); return; }
+    if (!board.toggleEnPrioridad(id)) doFlash(`En prioridad hay un máximo de ${MAX_PRIORIDAD} tareas`);
   };
-  const togglePrio = (id: string) => { if (!board.toggleEnPrioridad(id)) doFlash(`En prioridad hay un máximo de ${MAX_PRIORIDAD} tareas`); };
 
   // ── el perro guardián re-puntúa todo el plan (score 1-100 / 1-5) ──
   const [repriorizando, setRepriorizando] = useState(false);
@@ -85,9 +92,11 @@ export function BoardShell({ board }: { board: Board }) {
   const enPrioAll = tasks.filter((t) => t.enPrioridad);
   const prioAvg = enPrioAll.length ? Math.round(enPrioAll.reduce((s, t) => s + t.progress, 0) / enPrioAll.length) : 0;
   const prioHechas = enPrioAll.filter((t) => t.progress >= 100).length;
-  const objetivoPrincipal = labels.length ? labels.slice().sort((a, b) => b.score - a.score)[0] : null;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
+  const debateTask = tasks.find((t) => t.id === debateId) ?? null;
+  // resumen del plan para que el guardián compare al debatir
+  const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
 
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
@@ -112,10 +121,11 @@ export function BoardShell({ board }: { board: Board }) {
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades'
           ? <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onToggle={togglePrio} />
-          : <Kanban tasks={visibles} board={board} onOpen={setOpenId} onCreate={doCreate} onMove={doMoveTo} onToggle={togglePrio} onWarn={setWizardId} dragId={dragId} setDragId={setDragId} overPrio={overPrio} setOverPrio={setOverPrio} />}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onCreate={doCreate} onToggle={togglePrio} onWarn={setWizardId} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} onSetPriority={doMoveTo} onToggle={togglePrio} ask={ask} onClose={() => setOpenId(null)} />}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onToggle={togglePrio} onDebate={() => setDebateId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
+      {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con MaKo · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         dismissable={repo.dismissableGauntlet}
@@ -176,21 +186,19 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
   return <span style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.45, fontWeight: 700, flex: 'none' }}>{ini}</span>;
 }
 
-// ── tarjeta (cuadrada, estilo CRM, con avance editable inline) ──────────────────
-function CardTile({ t, board, onOpen, onToggle, onWarn, onDragStart, onDragEnd }: {
-  t: BoardTask; board: Board; onOpen: (id: string) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
-  onDragStart: () => void; onDragEnd: () => void;
+// ── tarjeta (cuadrada, estilo CRM; la columna la decide el guardián, no se arrastra) ─
+function CardTile({ t, board, warn, onOpen, onToggle, onWarn }: {
+  t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
 }) {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-  const warn = altaIncompleta(t);
   const [prog, setProg] = useState<number | null>(null);
   const shown = prog ?? t.progress;
   const commit = () => { if (prog != null) board.setProgress(t.id, prog, t.progress); setProg(null); };
   return (
-    <div draggable onDragStart={(e) => { onDragStart(); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={onDragEnd} onClick={() => onOpen(t.id)}
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'grab', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
+    <div onClick={() => onOpen(t.id)}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {chips.map((l) => <LabelChip key={l.id} l={l} />)}
@@ -219,26 +227,22 @@ function CardTile({ t, board, onOpen, onToggle, onWarn, onDragStart, onDragEnd }
   );
 }
 
-// ── vista Kanban (4 columnas de prioridad, ancho completo) ──────────────────────
-function Kanban({ tasks, board, onOpen, onCreate, onMove, onToggle, onWarn, dragId, setDragId, overPrio, setOverPrio }: {
-  tasks: BoardTask[]; board: Board; onOpen: (id: string) => void; onCreate: (title: string, p: Prio) => void; onMove: (id: string, p: Prio) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
-  dragId: string | null; setDragId: (v: string | null) => void; overPrio: Prio | null; setOverPrio: (v: Prio | null) => void;
+// ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
+function Kanban({ tasks, board, topProjectId, onOpen, onCreate, onToggle, onWarn }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onCreate: (title: string, p: Prio) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
 }) {
+  const objetivo = topProjectId ? board.labelById(topProjectId) : null;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '4px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
-        const items = tasks.filter((t) => t.priority === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
-        const isOver = overPrio === p && dragId != null;
+        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
         return (
-          <section key={p}
-            onDragOver={(e: RDragEvent) => { e.preventDefault(); if (dragId != null && overPrio !== p) setOverPrio(p); }}
-            onDrop={(e: RDragEvent) => { e.preventDefault(); if (dragId != null) onMove(dragId, p); setOverPrio(null); setDragId(null); }}
-            style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: isOver ? 'var(--primary-bg)' : 'var(--surface)', border: '1px solid ' + (isOver ? 'var(--primary-weak)' : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, boxShadow: isOver ? '0 0 0 3px var(--primary-weak)' : 'none', transition: 'background .12s, box-shadow .12s' }}>
-            <ColHeader p={p} count={items.length} onAdd={onCreate} />
+          <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
+            <ColHeader p={p} count={items.length} onAdd={onCreate} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
-              {items.map((t) => <CardTile key={t.id} t={t} board={board} onOpen={onOpen} onToggle={onToggle} onWarn={onWarn} onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverPrio(null); }} />)}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onToggle={onToggle} onWarn={onWarn} />)}
             </div>
           </section>
         );
@@ -246,7 +250,7 @@ function Kanban({ tasks, board, onOpen, onCreate, onMove, onToggle, onWarn, drag
     </div>
   );
 }
-function ColHeader({ p, count, onAdd }: { p: Prio; count: number; onAdd: (title: string, p: Prio) => void }) {
+function ColHeader({ p, count, onAdd, nota }: { p: Prio; count: number; onAdd: (title: string, p: Prio) => void; nota?: string }) {
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState('');
   return (
@@ -258,6 +262,7 @@ function ColHeader({ p, count, onAdd }: { p: Prio; count: number; onAdd: (title:
         <span style={{ flex: 1 }} />
         <button onClick={() => setAdding((a) => !a)} title="Nueva tarea" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 18, lineHeight: 1, padding: '0 3px' }}>+</button>
       </div>
+      {nota && <div style={{ fontSize: 10, color: 'var(--faint)', padding: '0 3px 8px', lineHeight: 1.3 }}>{nota}</div>}
       {adding && <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(v, p); setV(''); } if (e.key === 'Escape') setAdding(false); }} onBlur={() => setAdding(false)} placeholder="Nueva tarea… (Enter)" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none' }} />}
     </div>
   );
@@ -372,9 +377,11 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
-  t: BoardTask; board: Board; onSetPriority: (id: string, p: Prio) => void; onToggle: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
+function TaskModal({ t, board, topProjectId, onToggle, onDebate, ask, onClose }: {
+  t: BoardTask; board: Board; topProjectId: string | null; onToggle: (id: string) => void; onDebate: () => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
 }) {
+  const prioEfectiva = displayPrio(t, topProjectId);
+  const topeada = prioEfectiva !== prioFromScore(t.score);
   const [newItem, setNewItem] = useState('');
   const [mako, setMako] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
@@ -442,13 +449,14 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             <div>
-              <label style={rowLabel}>Prioridad · guardián</label>
+              <label style={rowLabel}>Prioridad · la pone MaKo</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <ScoreBadge score={t.score} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: PCOLOR[t.priority] }}>{PLABEL[t.priority]}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: PCOLOR[prioEfectiva] }}>{PLABEL[prioEfectiva]}</span>
               </div>
-              {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
-              <select value={t.priority} onChange={(e) => onSetPriority(t.id, e.target.value as Prio)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }} title="Ajuste manual (temporal, hasta el debate con MaKo)">{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select>
+              {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
+              {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
+              <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700 }}>🛡️ Debatir con MaKo</button>
             </div>
             <div><label style={rowLabel}>Avance · {cl.length > 0 ? t.progress : progShown}%{cl.length > 0 ? ' · por checklist' : ''}</label>
               {cl.length > 0
