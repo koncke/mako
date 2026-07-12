@@ -30,6 +30,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [projMgr, setProjMgr] = useState(false);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
+  const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [flash, setFlash] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [overPrio, setOverPrio] = useState<Prio | null>(null);
@@ -38,47 +39,57 @@ export function BoardShell({ board }: { board: Board }) {
   const doFlash = (m: string) => setFlash(m);
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 2600); return () => clearTimeout(t); }, [flash]);
 
-  // ── acciones que pueden gatillar el form bloqueante de Alta ──
-  const abrirWizardSiHace = (t: BoardTask | null | undefined) => { if (t && altaIncompleta(t)) setWizardId(t.id); };
-  const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (priority === 'alta') abrirWizardSiHace(t); };
+  // ── MaKo perro guardián (light): NINGUNA tarea puede quedar en Alta sin
+  // deadline+checklist. Si hay alguna, se abre el form bloqueante (gauntlet). ──
+  useEffect(() => {
+    if (wizardId) return;
+    const pend = tasks.find((t) => altaIncompleta(t));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (pend) setWizardId(pend.id);
+  }, [tasks, wizardId]);
+
+  const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (t && priority === 'alta' && altaIncompleta(t)) setWizardId(t.id); };
   const doMoveTo = (id: string, priority: Prio) => {
     const t = tasks.find((x) => x.id === id); board.moveTo(id, priority);
-    if (t && priority === 'alta' && (!t.deadline || t.checklist.length === 0)) setWizardId(id);
+    if (t && priority === 'alta' && (!t.deadline || t.checklist.length === 0)) { setAltaUndo({ id, snap: t }); setWizardId(id); }
   };
   const togglePrio = (id: string) => { if (!board.toggleEnPrioridad(id)) doFlash(`En prioridad hay un máximo de ${MAX_PRIORIDAD} tareas`); };
+  // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
+  // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
+  const cerrarWizard = () => {
+    if (altaUndo && altaUndo.id === wizardId) { const snap = altaUndo.snap; board.showUndo('Movida a Alta', () => board.replaceTask(snap)); setAltaUndo(null); }
+    setWizardId(null);
+  };
 
   const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l)));
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
   const enPrio = tasks.filter((t) => t.enPrioridad && t.progress < 100);
+  const enPrioAll = tasks.filter((t) => t.enPrioridad);
+  const prioAvg = enPrioAll.length ? Math.round(enPrioAll.reduce((s, t) => s + t.progress, 0) / enPrioAll.length) : 0;
+  const prioHechas = enPrioAll.filter((t) => t.progress >= 100).length;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
 
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 6px', flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600 }}>Plan de ejecución</div>
-          <h1 style={{ fontSize: 25, fontWeight: 700, letterSpacing: '-0.02em', margin: '3px 0 0', color: 'var(--ink)' }}>Qué construir</h1>
-        </div>
-        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3, marginLeft: 6 }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 30px 14px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
           {(['prioridades', 'kanban'] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v}</button>
           ))}
         </div>
-        <span style={{ flex: 1 }} />
-      </header>
-
-      {/* toolbar: avance promedio (antes de proyectos) · proyectos · buscar · filtrar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 30px 12px', flexWrap: 'wrap' }}>
-        <AvgChip avg={avg} hechas={hechas} total={tasks.length} />
+        {view === 'kanban'
+          ? <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />
+          : <AvgChip avg={prioAvg} hechas={prioHechas} total={enPrioAll.length} label="en prioridad" />}
         {view === 'kanban' && <>
           <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />{repo.labelPlural}</button>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: 1, minWidth: 150, maxWidth: 240, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: 1, minWidth: 130, maxWidth: 230, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
         </>}
-      </div>
+        <span style={{ flex: 1 }} />
+      </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades'
@@ -91,8 +102,8 @@ export function BoardShell({ board }: { board: Board }) {
       {wizardTask && <PriorizarWizard task={wizardTask}
         onSetDeadline={(d) => board.setDeadline(wizardTask.id, d, wizardTask.deadline)}
         onSetChecklist={(c) => board.setChecklist(wizardTask.id, c, `Definió el checklist (${c.length})`)}
-        onDowngrade={(p) => board.moveTo(wizardTask.id, p)}
-        onDone={() => setWizardId(null)} />}
+        onDowngrade={(p) => { board.moveTo(wizardTask.id, p); setAltaUndo(null); }}
+        onDone={cerrarWizard} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       {flash && <div style={{ position: 'fixed', left: '50%', bottom: 84, transform: 'translateX(-50%)', zIndex: 250, background: '#14161B', color: '#F3F5F8', padding: '10px 16px', borderRadius: 10, fontSize: 13.5, boxShadow: '0 12px 32px rgba(18,21,27,.35)' }}>{flash}</div>}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
@@ -107,12 +118,12 @@ const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', 
 function PencilIcon() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>; }
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
 
-function AvgChip({ avg, hechas, total }: { avg: number; hechas: number; total: number }) {
+function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '7px 13px' }}>
-      <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>{avg}%</span>
-      <span style={{ display: 'block', width: 90, height: 6, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: avg + '%', background: 'var(--primary)' }} /></span>
-      <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{hechas}/{total}</span>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '6px 12px' }}>
+      <span style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{avg}%</span>
+      <span style={{ display: 'block', width: 74, height: 6, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: avg + '%', background: 'var(--primary)' }} /></span>
+      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{hechas}/{total} {label}</span>
     </div>
   );
 }
@@ -126,9 +137,10 @@ function StarPrioridad({ on, onClick, size = 15 }: { on: boolean; onClick: (e: R
 function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
 }
-function OrigenIcon({ origen, size = 12 }: { origen: Actor; size?: number }) {
-  if (origen === 'ia') return <span title="Creada por MaKo" style={{ fontSize: size, color: 'var(--accent)', lineHeight: 1 }}>✦</span>;
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="usuario"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 12 0v1" /></svg>;
+// Chip de origen: solo para tareas creadas por MaKo (✦ Origen IA), al lado del tag.
+function OrigenChip({ origen }: { origen: Actor }) {
+  if (origen !== 'ia') return null;
+  return <span title="Creada por MaKo" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'var(--surface)', border: '1px solid var(--primary-weak)', borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}>✦ Origen IA</span>;
 }
 // Avatar para el change history: IA → ✦ MaKo; usuario → foto de perfil o inicial.
 function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; nombre: string; avatarUrl: string; size?: number }) {
@@ -153,12 +165,12 @@ function CardTile({ t, board, onOpen, onToggle, onWarn, onDragStart, onDragEnd }
   const commit = () => { if (prog != null) board.setProgress(t.id, prog, t.progress); setProg(null); };
   return (
     <div draggable onDragStart={(e) => { onDragStart(); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={onDragEnd} onClick={() => onOpen(t.id)}
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', opacity: done ? 0.62 : 1, minHeight: 132, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'grab', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+        <OrigenChip origen={t.origen} />
         <span style={{ flex: 1 }} />
-        <OrigenIcon origen={t.origen} />
         <StarPrioridad on={t.enPrioridad} onClick={(e) => { e.stopPropagation(); onToggle(t.id); }} size={14} />
       </div>
       <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
@@ -171,10 +183,12 @@ function CardTile({ t, board, onOpen, onToggle, onWarn, onDragStart, onDragEnd }
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)' }}>{shown}%</span>
       </div>
-      {/* avance editable SIN abrir el detalle */}
-      <input type="range" min={0} max={100} step={5} value={shown} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}
-        onChange={(e) => setProg(Number(e.target.value))} onMouseUp={commit} onKeyUp={commit} onTouchEnd={commit}
-        style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} draggable={false} />
+      {/* avance: si hay checklist se DERIVA de ella (solo lectura); si no, slider editable inline */}
+      {t.checklist.length > 0
+        ? <MiniBar v={t.progress} />
+        : <input type="range" min={0} max={100} step={5} value={shown} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}
+            onChange={(e) => setProg(Number(e.target.value))} onMouseUp={commit} onKeyUp={commit} onTouchEnd={commit}
+            style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} draggable={false} />}
     </div>
   );
 }
@@ -308,16 +322,20 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
   if (t.historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios van a aparecer acá.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {t.historial.map((h) => (
-        <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {h.text}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+      {t.historial.map((h, i) => {
+        const esCreacion = h.text.startsWith('Creó la tarjeta');
+        return (
+          <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creada por la IA' : `Creada por ${nombre || 'vos'}`) : h.text}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+            </div>
+            {/* solo el ÚLTIMO cambio se puede deshacer (1 en 1, tipo ctrl-z) */}
+            {i === 0 && h.undo && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer el último cambio" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
           </div>
-          {h.undo && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -352,6 +370,7 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
   const disponibles = board.labels.filter((l) => !t.labels.includes(l.id));
   const cl = t.checklist; const clDone = cl.filter((c) => c.done).length;
   const setCl = (next: Check[], log?: string) => board.setChecklist(t.id, next, log);
+  const optimizada = t.historial.some((h) => h.text.startsWith('MaKo'));
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
 
   return (
@@ -360,8 +379,13 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600 }}>#{t.num}</span>
           {chips.map((l) => <LabelChip key={l.id} l={l} />)}
-          <span title={t.origen === 'ia' ? 'Creada por MaKo' : 'Creada por vos'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--faint)' }}><OrigenIcon origen={t.origen} size={13} />{t.origen === 'ia' ? 'MaKo' : ''}</span>
-          <span style={{ flex: 1 }} /><button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
+          <OrigenChip origen={t.origen} />
+          <span style={{ flex: 1 }} />
+          <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+            {optimizada ? '✦ MaKo ✓ optimizada' : '✦ MaKo te ayuda'}
+          </button>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
@@ -369,11 +393,7 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
             <label style={rowLabel}>Detalle · doc</label>
             <textarea value={detalleDraft} onChange={(e) => setDetalleDraft(e.target.value)} onBlur={() => board.setDetalle(t.id, detalleDraft, t.detalle)} placeholder="El doc de esta tarea…" style={{ width: '100%', minHeight: 130, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '12px 14px', fontFamily: SANS, marginBottom: 20 }} />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <label style={{ ...rowLabel, marginBottom: 0 }}>Checklist {cl.length > 0 && `· ${clDone}/${cl.length}`}</label>
-              <span style={{ flex: 1 }} />
-              <button onClick={() => setMako(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✦ MaKo te ayuda</button>
-            </div>
+            <label style={rowLabel}>Checklist {cl.length > 0 && `· ${clDone}/${cl.length} · manda el avance`}</label>
             {cl.length > 0 && <span style={{ display: 'block', marginBottom: 10 }}><MiniBar v={cl.length ? Math.round((clDone / cl.length) * 100) : 0} /></span>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
               {cl.map((c) => (
@@ -391,7 +411,11 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             <div><label style={rowLabel}>Prioridad</label><select value={t.priority} onChange={(e) => onSetPriority(t.id, e.target.value as Prio)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }}>{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select></div>
-            <div><label style={rowLabel}>Avance · {progShown}%</label><input type="range" min={0} max={100} step={5} value={progShown} onChange={(e) => setProgDraft(Number(e.target.value))} onMouseUp={commitProg} onKeyUp={commitProg} onTouchEnd={commitProg} style={{ width: '100%', accentColor: 'var(--primary)' }} /></div>
+            <div><label style={rowLabel}>Avance · {cl.length > 0 ? t.progress : progShown}%{cl.length > 0 ? ' · por checklist' : ''}</label>
+              {cl.length > 0
+                ? <MiniBar v={t.progress} />
+                : <input type="range" min={0} max={100} step={5} value={progShown} onChange={(e) => setProgDraft(Number(e.target.value))} onMouseUp={commitProg} onKeyUp={commitProg} onTouchEnd={commitProg} style={{ width: '100%', accentColor: 'var(--primary)' }} />}
+            </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
@@ -411,7 +435,7 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
           </div>
         </div>
       </div>
-      {mako && <MakoChecklistModal title={t.title} detalle={t.detalle} onApply={(txts) => setCl([...cl, ...txts.map((x) => ({ id: uid(), text: x, done: false }))], `MaKo agregó ${txts.length} ítem${txts.length === 1 ? '' : 's'}`)} onClose={() => setMako(false)} />}
+      {mako && <MakoChecklistModal title={t.title} detalle={t.detalle} yaOptimizada={optimizada} onApply={(txts) => setCl([...cl, ...txts.map((x) => ({ id: uid(), text: x, done: false }))], `MaKo agregó ${txts.length} ítem${txts.length === 1 ? '' : 's'}`)} onClose={() => setMako(false)} />}
     </div>
   );
 }

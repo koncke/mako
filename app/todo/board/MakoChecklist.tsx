@@ -17,7 +17,7 @@ async function coach(body: Record<string, unknown>): Promise<{ ok: boolean; preg
     .catch((e) => ({ ok: false, error: String(e) }));
 }
 
-export function MakoChecklistModal({ title, detalle, onApply, onClose }: { title: string; detalle: string; onApply: (items: string[]) => void; onClose: () => void }) {
+export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApply, onClose }: { title: string; detalle: string; yaOptimizada?: boolean; onApply: (items: string[]) => void; onClose: () => void }) {
   const tarea = (title + (detalle ? `\n\n${detalle}` : '')).trim();
   const [fase, setFase] = useState<'preguntando' | 'preguntas' | 'proponiendo' | 'propuesta'>('preguntando');
   const [preguntas, setPreguntas] = useState('');
@@ -60,6 +60,12 @@ export function MakoChecklistModal({ title, detalle, onApply, onClose }: { title
           <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
         </div>
         <div style={{ padding: '18px 22px', overflowY: 'auto' }}>
+          {/* contexto de la tarea, para no perder de vista de qué se trata */}
+          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px', marginBottom: 16 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{title || 'Tarea sin título'}</div>
+            {detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{detalle}</div>}
+          </div>
+          {yaOptimizada && <div style={{ fontSize: 12.5, color: 'var(--good)', background: 'var(--good-bg, var(--surface-2))', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 11px', marginBottom: 14 }}>✓ Esta tarea ya fue optimizada por MaKo antes. Podés refinar la checklist si querés.</div>}
           {loading && <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}>{fase === 'preguntando' ? 'MaKo está leyendo la tarea…' : 'MaKo está armando los ítems…'}</div>}
 
           {(fase === 'preguntas') && (

@@ -95,10 +95,19 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     return true;
   };
 
+  // El avance de una tarea CON checklist se deriva del % de ítems completados
+  // (marcar/agregar/quitar mueve la barra proporcionalmente).
   const setChecklist = (id: string, next: Check[], text?: string) => {
-    if (text) patchLog(id, 'checklist', next, text);
-    else patch(id, { checklist: next });
+    const t = byId(id); if (!t) return;
+    const derived = next.length ? Math.round((next.filter((c) => c.done).length / next.length) * 100) : null;
+    const entry = text ? mkEntry('user', text, 'checklist', t.checklist) : null;
+    setTasks((ts) => ts.map((x) => (x.id === id
+      ? { ...x, checklist: next, ...(derived != null ? { progress: derived } : {}), ...(entry ? { historial: [entry, ...x.historial].slice(0, HIST_CAP) } : {}) }
+      : x)));
+    markDirty(id);
   };
+  // reemplaza una tarea entera (para el "deshacer todo" del pase a Alta)
+  const replaceTask = (task: BoardTask) => { setTasks((ts) => ts.map((x) => (x.id === task.id ? task : x))); markDirty(task.id); };
   const setTitle = (id: string, title: string, prev: string) => { if (title.trim() !== prev.trim()) patchLogExplicit(id, 'title', title, prev, 'Editó el título'); };
   const setDetalle = (id: string, detalle: string, prev: string) => { if (detalle !== prev) patchLogExplicit(id, 'detalle', detalle, prev, 'Editó el detalle'); };
   const setProgress = (id: string, value: number, prev: number) => { const w = clampPct(value); if (w !== prev) patchLogExplicit(id, 'progress', w, prev, `Avance ${w}%`); };
@@ -141,7 +150,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   return {
     tasks, labels, user, repo,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
-    create, remove, patch, moveTo, toggleEnPrioridad, setChecklist,
+    create, remove, patch, moveTo, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, setDeadline, setTaskLabels, undoHist,
     createLabel, patchLabel, deleteLabel, reset,
     undo, showUndo: show, clearUndo: clear,
