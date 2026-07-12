@@ -31,6 +31,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [flash, setFlash] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [overPrio, setOverPrio] = useState<Prio | null>(null);
@@ -43,10 +44,10 @@ export function BoardShell({ board }: { board: Board }) {
   // deadline+checklist. Si hay alguna, se abre el form bloqueante (gauntlet). ──
   useEffect(() => {
     if (wizardId) return;
-    const pend = tasks.find((t) => altaIncompleta(t));
+    const pend = tasks.find((t) => altaIncompleta(t) && !dismissed.has(t.id));
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (pend) setWizardId(pend.id);
-  }, [tasks, wizardId]);
+  }, [tasks, wizardId, dismissed]);
 
   const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (t && priority === 'alta' && altaIncompleta(t)) setWizardId(t.id); };
   const doMoveTo = (id: string, priority: Prio) => {
@@ -100,6 +101,8 @@ export function BoardShell({ board }: { board: Board }) {
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} onSetPriority={doMoveTo} onToggle={togglePrio} ask={ask} onClose={() => setOpenId(null)} />}
       {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
+        dismissable={repo.dismissableGauntlet}
+        onDismiss={() => { setDismissed((s) => new Set(s).add(wizardTask.id)); setAltaUndo(null); setWizardId(null); }}
         onSetDeadline={(d) => board.setDeadline(wizardTask.id, d, wizardTask.deadline)}
         onSetChecklist={(c) => board.setChecklist(wizardTask.id, c, `Definió el checklist (${c.length})`)}
         onDowngrade={(p) => { board.moveTo(wizardTask.id, p); setAltaUndo(null); }}

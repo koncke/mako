@@ -133,6 +133,7 @@ function loadLabels(): Label[] {
 export function PlanBoard({ user }: { user: BoardUser }) {
   const repo: Repo = {
     labelMode: 'single', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
+    dismissableGauntlet: true, // TEMPORAL (solo super-admin, mientras se desarrolla)
     createTask: async (d) => d, saveTask: async () => {}, deleteTask: async () => {},
     createLabel: async (l) => l, saveLabel: async () => {}, deleteLabel: async () => {},
   };

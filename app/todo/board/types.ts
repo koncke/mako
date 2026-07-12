@@ -34,6 +34,9 @@ export type Repo = {
   labelMode: 'single' | 'multi';          // admin: 1 proyecto/tarea; cliente: n categorías
   labelSingular: string;                   // "Proyecto" | "Categoría"
   labelPlural: string;                     // "Proyectos" | "Categorías"
+  // TEMPORAL: en super-admin dejamos cerrar el form bloqueante de Alta mientras
+  // se desarrolla el resto. QUITAR cuando exista el guardián (también para admin).
+  dismissableGauntlet?: boolean;
   createTask(draft: BoardTask): Promise<BoardTask>;  // devuelve canónica (id puede cambiar)
   saveTask(task: BoardTask): Promise<void>;          // upsert de una tarea existente
   deleteTask(id: string): Promise<void>;

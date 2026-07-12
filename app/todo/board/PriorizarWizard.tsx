@@ -9,12 +9,14 @@ import { WizardShell, wizardInput } from '../../leads/WizardShell';
 import { MakoChecklistModal } from './MakoChecklist';
 import { type BoardTask, type Check, type Prio, uid, PLABEL } from './types';
 
-export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngrade, onDone }: {
+export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngrade, onDone, dismissable = false, onDismiss }: {
   task: BoardTask;
   onSetDeadline: (d: string) => void;
   onSetChecklist: (c: Check[]) => void;
   onDowngrade: (p: Prio) => void;
   onDone: () => void;
+  dismissable?: boolean;      // TEMPORAL super-admin: permite cerrar sin completar
+  onDismiss?: () => void;
 }) {
   const needDeadline = !task.deadline;
   const needChecklist = task.checklist.length === 0;
@@ -50,8 +52,8 @@ export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngra
         pregunta={preguntas[paso]} sub={subs[paso]}
         puedeAvanzar={puedeAvanzar} enUltimo={enUltimo} confirmLabel="Guardar y priorizar"
         pending={pending} atrasLabel="Atrás"
-        bloqueante hideAtras={idx === 0}
-        onClose={() => { /* bloqueante: no cierra */ }}
+        bloqueante={!dismissable} hideAtras={idx === 0}
+        onClose={() => onDismiss?.()}
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
         onSiguiente={() => setIdx((i) => Math.min(steps.length - 1, i + 1))}
         onConfirmar={guardar}
