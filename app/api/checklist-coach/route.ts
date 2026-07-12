@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { preguntarChecklist, optimizarTarea, proponerProyecto } from '@/lib/checklist-coach';
+import { preguntarTarea, optimizarTarea, proponerProyecto } from '@/lib/checklist-coach';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const tarea = String(body.tarea ?? '').trim();
     if (!tarea) return Response.json({ ok: false, error: 'Falta la tarea.' }, { status: 400 });
     if (body.action === 'ask') {
-      const preguntas = await preguntarChecklist(tarea, String(body.contexto ?? ''));
+      const preguntas = await preguntarTarea(tarea, String(body.contexto ?? ''));
       return Response.json({ ok: true, preguntas });
     }
     if (body.action === 'propose') {

@@ -533,10 +533,10 @@ export const REGISTRY: Group[] = [
     entries: [
       {
         key: 'checklist.ask.system', source: 'override',
-        label: 'Preguntas de encuadre (system)', kind: 'system', dynamic: false,
-        variables: [], scope: 'static-only', sensitive: false,
+        label: 'Preguntas de encuadre multiple-choice (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de preguntas')], scope: 'static-only', sensitive: true,
         default: CHECKLIST_ASK_SYSTEM_TEMPLATE,
-        context: 'Pone a MaKo a hacer 2-4 preguntas para entender la tarea antes de proponer ítems. No cambia el esquema del JSON del paso 2.',
+        context: 'Pone a MaKo a hacer 2-4 preguntas multiple-choice para entender la tarea. No borres el slot {{jsonShape}} ni cambies el esquema.',
       },
       {
         key: 'checklist.ask.user', source: 'override',

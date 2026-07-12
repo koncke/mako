@@ -1,153 +1,111 @@
 'use client';
 
-// MakoChecklistModal — MaKo te ayuda a OPTIMIZAR una tarea.
-// Paso 1: MaKo hace preguntas de encuadre. Paso 2: propone un título más claro,
-// un detalle accionable y una checklist (elegís qué aplicar).
-// onApply recibe { titulo?, detalle?, items } → el board los aplica.
+// MakoChecklistModal — el Perro Guardián optimiza una tarea, de a 1 pregunta
+// (WizardShell): intro → preguntas multiple-choice → propone título + detalle +
+// checklist (elegís qué aplicar). onApply recibe { titulo?, detalle?, items }.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
+import { WizardShell } from '../../leads/WizardShell';
+import { IntroBody, ChoiceBody } from './guardian-form';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type Sugerido = { texto: string; razon?: string };
+type PreguntaMC = { pregunta: string; opciones: string[] };
 export type CoachApply = { titulo?: string; detalle?: string; items: string[] };
 
-async function coach(body: Record<string, unknown>): Promise<{ ok: boolean; preguntas?: string; titulo?: string; detalle?: string; items?: Sugerido[]; error?: string }> {
+async function coach(body: Record<string, unknown>): Promise<{ ok: boolean; preguntas?: PreguntaMC[]; titulo?: string; detalle?: string; items?: Sugerido[]; error?: string }> {
   return fetch('/api/checklist-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    .then((r) => r.json())
-    .catch((e) => ({ ok: false, error: String(e) }));
+    .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
 
 export function MakoChecklistModal({ title, detalle, yaOptimizada = false, onApply, onClose }: { title: string; detalle: string; yaOptimizada?: boolean; onApply: (r: CoachApply) => void; onClose: () => void }) {
   const tarea = (title + (detalle ? `\n\n${detalle}` : '')).trim();
-  const [fase, setFase] = useState<'preguntando' | 'preguntas' | 'proponiendo' | 'propuesta'>('preguntando');
-  const [preguntas, setPreguntas] = useState('');
-  const [respuestas, setRespuestas] = useState('');
-  const [items, setItems] = useState<Sugerido[]>([]);
-  const [sel, setSel] = useState<Set<number>>(new Set());
-  const [propTit, setPropTit] = useState('');
-  const [propDet, setPropDet] = useState('');
+  const [paso, setPaso] = useState(0);
+  const [preguntas, setPreguntas] = useState<PreguntaMC[]>([]);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [prop, setProp] = useState<{ titulo: string; detalle: string; items: Sugerido[] } | null>(null);
   const [useTit, setUseTit] = useState(false);
   const [useDet, setUseDet] = useState(false);
+  const [sel, setSel] = useState<Set<number>>(new Set());
   const [err, setErr] = useState('');
-  const started = useRef(false);
 
-  useEffect(() => {
-    if (started.current) return; started.current = true;
-    (async () => {
-      const j = await coach({ action: 'ask', tarea });
-      if (j.ok && j.preguntas) { setPreguntas(j.preguntas); setFase('preguntas'); }
-      else { setErr(j.error || 'No pude generar preguntas.'); setFase('preguntas'); }
-    })();
-  }, [tarea]);
+  const N = preguntas.length;
+  const enPropuesta = prop != null && paso === N + 1;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  const proponer = async () => {
-    setFase('proponiendo'); setErr('');
-    const j = await coach({ action: 'propose', tarea, respuestas });
-    const its = j.items || [];
-    if (j.ok && (its.length || j.titulo || j.detalle)) {
-      setItems(its); setSel(new Set(its.map((_, i) => i)));
-      setPropTit(j.titulo || ''); setPropDet(j.detalle || '');
-      setUseTit(!!j.titulo && j.titulo.trim() !== title.trim());
-      setUseDet(!!j.detalle && j.detalle.trim() !== detalle.trim());
-      setFase('propuesta');
-    } else { setErr(j.error || 'MaKo no devolvió nada. Probá dando más contexto.'); setFase('preguntas'); }
+  const cargarPreguntas = async () => {
+    setLoading(true); setErr('');
+    const j = await coach({ action: 'ask', tarea });
+    setPreguntas(j.ok && Array.isArray(j.preguntas) && j.preguntas.length ? j.preguntas : [{ pregunta: 'Contame en una línea qué hace falta para dar esto por listo', opciones: [] }]);
+    setLoading(false); setPaso(1);
   };
-  const nApply = (useTit && propTit ? 1 : 0) + (useDet && propDet ? 1 : 0) + sel.size;
+  const optimizar = async () => {
+    setLoading(true); setErr('');
+    const respuestas = preguntas.map((p, i) => `${p.pregunta}: ${answers[i]?.trim() || '(sin respuesta)'}`).join('\n');
+    const j = await coach({ action: 'propose', tarea, respuestas });
+    if (j.ok && (j.items?.length || j.titulo || j.detalle)) {
+      const p = { titulo: j.titulo || '', detalle: j.detalle || '', items: j.items || [] };
+      setProp(p); setSel(new Set(p.items.map((_, i) => i)));
+      setUseTit(!!p.titulo && p.titulo.trim() !== title.trim());
+      setUseDet(!!p.detalle && p.detalle.trim() !== detalle.trim());
+      setPaso(N + 1);
+    } else setErr(j.error || 'MaKo no devolvió nada. Probá con más contexto.');
+    setLoading(false);
+  };
+  const handleNext = () => {
+    if (loading) return;
+    if (paso === 0) void cargarPreguntas();
+    else if (paso < N) setPaso(paso + 1);
+    else if (paso === N) void optimizar();
+  };
+  const nApply = (useTit && prop?.titulo ? 1 : 0) + (useDet && prop?.detalle ? 1 : 0) + sel.size;
   const aplicar = () => {
-    onApply({ titulo: useTit && propTit ? propTit : undefined, detalle: useDet && propDet ? propDet : undefined, items: items.filter((_, i) => sel.has(i)).map((x) => x.texto) });
+    if (prop) onApply({ titulo: useTit ? prop.titulo : undefined, detalle: useDet ? prop.detalle : undefined, items: prop.items.filter((_, i) => sel.has(i)).map((x) => x.texto) });
     onClose();
   };
 
-  const loading = fase === 'preguntando' || fase === 'proponiendo';
+  const pregunta = paso === 0 ? 'Hola, soy el Perro Guardián MaKo' : enPropuesta ? 'Esto te propongo' : (preguntas[paso - 1]?.pregunta || '…');
+  const total = N ? N + 2 : 3;
+  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', display: 'block', marginBottom: 5, textAlign: 'left' };
+
   return (
-    <div onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(18,21,27,.45)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '9vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: '80vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO</span>
-          <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>optimiza tu tarea</span>
-          <span style={{ flex: 1 }} />
-          <button type="button" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
-        </div>
-        <div style={{ padding: '18px 22px', overflowY: 'auto' }}>
-          {/* contexto de la tarea, para no perder de vista de qué se trata */}
-          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 13px', marginBottom: 16 }}>
-            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{title || 'Tarea sin título'}</div>
-            {detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{detalle}</div>}
-          </div>
-          {yaOptimizada && <div style={{ fontSize: 12.5, color: 'var(--good)', background: 'var(--good-bg, var(--surface-2))', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 11px', marginBottom: 14 }}>✓ Esta tarea ya fue optimizada por MaKo antes. Podés refinar la checklist si querés.</div>}
-          {loading && <div style={{ padding: '30px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}>{fase === 'preguntando' ? 'MaKo está leyendo la tarea…' : 'MaKo está optimizando la tarea…'}</div>}
-
-          {(fase === 'preguntas') && (
-            <>
-              <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', marginBottom: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px' }}>{preguntas || 'Contame un poco más sobre esta tarea.'}</div>
-              <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', display: 'block', marginBottom: 6 }}>Tus respuestas</label>
-              <textarea value={respuestas} onChange={(e) => setRespuestas(e.target.value)} autoFocus placeholder="Respondé lo que puedas (no hace falta todo)…" style={{ width: '100%', minHeight: 110, border: '1px solid var(--border-strong)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, lineHeight: 1.55, padding: '11px 13px', fontFamily: SANS }} />
-              {err && <div style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 8 }}>{err}</div>}
-            </>
-          )}
-
-          {fase === 'propuesta' && (
-            <>
-              <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 12 }}>Elegí qué aplicar:</div>
-              {propTit && (
-                <button type="button" onClick={() => setUseTit((v) => !v)} style={{ ...propCard(useTit), marginBottom: 8 }}>
-                  <Check on={useTit} />
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 3 }}>Título mejorado</span>
-                    <span style={{ display: 'block', fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>{propTit}</span>
-                  </span>
-                </button>
-              )}
-              {propDet && (
-                <button type="button" onClick={() => setUseDet((v) => !v)} style={{ ...propCard(useDet), marginBottom: 8 }}>
-                  <Check on={useDet} />
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 3 }}>Detalle mejorado</span>
-                    <span style={{ display: 'block', fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{propDet}</span>
-                  </span>
-                </button>
-              )}
-              {items.length > 0 && <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', margin: '12px 0 6px' }}>Checklist</div>}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {items.map((it, i) => (
-                  <button key={i} type="button" onClick={() => setSel((s) => { const c = new Set(s); if (c.has(i)) c.delete(i); else c.add(i); return c; })}
-                    style={{ display: 'flex', gap: 10, alignItems: 'flex-start', textAlign: 'left', width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${sel.has(i) ? 'var(--primary-weak)' : 'var(--border)'}`, background: sel.has(i) ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', fontFamily: SANS }}>
-                    <span style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${sel.has(i) ? 'var(--primary)' : 'var(--border-strong)'}`, background: sel.has(i) ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>{sel.has(i) ? '✓' : ''}</span>
-                    <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>{it.texto}</span>
-                      {it.razon && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{it.razon}</span>}
-                    </span>
+    <WizardShell
+      titulo={`MaKo optimiza · ${title.slice(0, 36) || 'tarea'}`}
+      total={total} idx={Math.min(paso, total - 1)}
+      pregunta={loading ? 'MaKo está pensando…' : pregunta}
+      sub={paso === 0 ? undefined : enPropuesta ? 'Elegí qué aplicar.' : 'Elegí una opción o escribí la tuya.'}
+      puedeAvanzar={enPropuesta ? nApply > 0 : true} pending={loading}
+      enUltimo={enPropuesta} confirmLabel={`Aplicar ${nApply}`}
+      atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'} error={err}
+      onClose={onClose}
+      onAtras={() => (paso === 0 ? onClose() : setPaso(Math.max(0, paso - 1)))}
+      onSiguiente={handleNext}
+      onConfirmar={aplicar}
+    >
+      {loading
+        ? <div style={{ padding: '22px 0', color: 'var(--dim)', fontSize: 14 }}>{paso === 0 ? 'Leyendo la tarea…' : 'Armando la propuesta…'}</div>
+        : paso === 0
+          ? <><IntroBody que={`optimizar "${title.slice(0, 46) || 'esta tarea'}"`} mi="que tus tareas queden claras y ejecutables" />{yaOptimizada && <div style={{ fontSize: 12.5, color: 'var(--good)', marginTop: 12 }}>✓ Ya la optimizamos antes — podés refinarla.</div>}</>
+          : enPropuesta && prop
+            ? <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {prop.titulo && <button type="button" onClick={() => setUseTit((v) => !v)} style={propCard(useTit)}><Check on={useTit} /><span><span style={rowLabel}>Título mejorado</span><span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{prop.titulo}</span></span></button>}
+                {prop.detalle && <button type="button" onClick={() => setUseDet((v) => !v)} style={propCard(useDet)}><Check on={useDet} /><span><span style={rowLabel}>Detalle mejorado</span><span style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>{prop.detalle}</span></span></button>}
+                {prop.items.length > 0 && <span style={{ ...rowLabel, marginTop: 8 }}>Checklist</span>}
+                {prop.items.map((it, i) => (
+                  <button key={i} type="button" onClick={() => setSel((s) => { const c = new Set(s); if (c.has(i)) c.delete(i); else c.add(i); return c; })} style={propCard(sel.has(i))}>
+                    <Check on={sel.has(i)} />
+                    <span><span style={{ display: 'block', fontSize: 13.5, color: 'var(--ink)', fontWeight: 500 }}>{it.texto}</span>{it.razon && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', marginTop: 2 }}>{it.razon}</span>}</span>
                   </button>
                 ))}
               </div>
-            </>
-          )}
-        </div>
-        {(fase === 'preguntas' || fase === 'propuesta') && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '13px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-            {fase === 'preguntas'
-              ? <button type="button" onClick={proponer} style={primaryBtn}>Que MaKo lo optimice →</button>
-              : <>
-                  <button type="button" onClick={() => setFase('preguntas')} style={ghostBtn}>← Ajustar</button>
-                  <button type="button" onClick={aplicar} disabled={nApply === 0} style={{ ...primaryBtn, opacity: nApply === 0 ? 0.5 : 1, cursor: nApply === 0 ? 'default' : 'pointer' }}>Aplicar {nApply}</button>
-                </>}
-          </div>
-        )}
-      </div>
-    </div>
+            : <ChoiceBody opciones={preguntas[paso - 1]?.opciones || []} value={answers[paso - 1] || ''} onChange={(v) => setAnswers((a) => ({ ...a, [paso - 1]: v }))} />}
+    </WizardShell>
   );
 }
 
-const primaryBtn: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS };
-const ghostBtn: CSSProperties = { padding: '10px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 500, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS };
-const propCard = (on: boolean): CSSProperties => ({ display: 'flex', gap: 10, alignItems: 'flex-start', textAlign: 'left', width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${on ? 'var(--primary-weak)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', fontFamily: SANS });
+const propCard = (on: boolean): CSSProperties => ({ display: 'flex', gap: 10, alignItems: 'flex-start', textAlign: 'left', width: '100%', padding: '11px 13px', borderRadius: 11, border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', fontFamily: SANS });
 function Check({ on }: { on: boolean }) {
   return <span style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>{on ? '✓' : ''}</span>;
 }
