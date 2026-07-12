@@ -16,7 +16,9 @@ export type BoardTask = {
   num: number;              // #n visible
   title: string;
   detalle: string;
-  priority: Prio;
+  priority: Prio;           // DERIVADA del score (prioFromScore); no la fija el usuario
+  score: number;            // 1-100 (MaKo perro guardián). 0 = sin puntuar
+  scoreRazon?: string;      // por qué el guardián le puso ese score
   progress: number;         // 0-100
   deadline: string;         // '' | YYYY-MM-DD
   labels: string[];         // ids de Label
@@ -26,7 +28,7 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; emoji: string; name: string; color: string };
+export type Label = { id: string; emoji: string; name: string; color: string; score: number };
 export type BoardUser = { nombre: string; avatarUrl: string };
 
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.
@@ -65,3 +67,15 @@ export function relTime(ts: number, nowMs: number): string {
 
 // Una tarea Alta está "completa" si tiene deadline Y al menos un ítem de checklist.
 export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && (!t.deadline || t.checklist.length === 0);
+
+// ── Score 1-100 ⇄ columna (el guardián pone el score; la columna se DERIVA) ──
+export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));
+export const clampProj = (v: number) => Math.max(1, Math.min(5, Math.round(Number.isFinite(v) ? v : 3)));
+export function prioFromScore(score: number): Prio {
+  if (score >= 75) return 'alta';
+  if (score >= 50) return 'media';
+  if (score >= 25) return 'baja';
+  return 'futuro';
+}
+// score representativo de cada columna (migración de tareas viejas / bajar prioridad a mano)
+export const scoreFromPrio: Record<Prio, number> = { alta: 85, media: 62, baja: 37, futuro: 12 };

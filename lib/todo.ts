@@ -38,6 +38,7 @@ export type Tarea = {
   checklist: ChecklistItem[];    // ítems {id,text,done}
   historial: HistEntry[];        // change history {ts,actor,text} — user|ia
   en_prioridad: boolean;         // marcada "En prioridad" (vista Prioridades)
+  score: number;                 // 1-100 del guardián (define la columna)
   origen: OrigenTarea;
   experimento_id: number | null;
   retro_id: number | null;
@@ -47,7 +48,7 @@ export type Tarea = {
   updated_at: string;
 };
 
-export type Categoria = { id: number; nombre: string; color: string; emoji: string; created_at: string };
+export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; created_at: string };
 
 const COLS = '*';
 const rowTo = (r: Record<string, unknown>): Tarea => {
@@ -59,11 +60,14 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   t.checklist = checklistOk(r.checklist);
   t.historial = histOk(r.historial);
   t.en_prioridad = !!r.en_prioridad;
+  t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
   return t;
 };
 
 // estado derivado del avance: 100→hecho, >0→en_curso, 0→por_hacer.
 const estadoDeProgreso = (p: number): EstadoTarea => (p >= 100 ? 'hecho' : p > 0 ? 'en_curso' : 'por_hacer');
+// score representativo de cada columna, para tareas nuevas (hasta que el guardián puntúe).
+const scoreDePrioridad = (p: Prioridad): number => ({ alta: 85, media: 62, baja: 37, futuro: 12 }[p] ?? 62);
 
 const checklistOk = (c: unknown): ChecklistItem[] =>
   Array.isArray(c)
@@ -151,6 +155,7 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     checklist: [] as ChecklistItem[],
     historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
     en_prioridad: false,
+    score: scoreDePrioridad(prioridadOk(input.prioridad)),
     origen,
     experimento_id: input.experimento_id ?? null,
     retro_id: input.retro_id ?? null,
@@ -183,6 +188,7 @@ export async function crearTareasDesde(
     categorias: [] as number[],
     checklist: [] as ChecklistItem[],
     historial: [{ id: 'h' + Date.now() + i, ts: Date.now(), actor: 'ia' as Actor, text: 'Creó la tarjeta' }] as HistEntry[],
+    score: scoreDePrioridad(prioridadOk(it.prioridad)),
     origen: origenOk(meta.origen),
     retro_id: meta.retro_id ?? null,
     experimento_id: meta.experimento_id ?? null,
@@ -215,7 +221,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -240,6 +246,7 @@ export async function editarTarea(
   if (patch.checklist !== undefined) upd.checklist = checklistOk(patch.checklist);
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   if (patch.en_prioridad !== undefined) upd.en_prioridad = !!patch.en_prioridad;
+  if (patch.score !== undefined) upd.score = Math.max(0, Math.min(100, Math.round(patch.score)));
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);
@@ -259,6 +266,7 @@ export async function borrarTarea(id: number): Promise<void> {
 const catRow = (r: Record<string, unknown>): Categoria => {
   const c = r as unknown as Categoria;
   c.emoji = typeof r.emoji === 'string' && r.emoji ? (r.emoji as string) : '🏷';
+  c.prioridad = Math.max(1, Math.min(5, Math.round(Number(r.prioridad) || 3)));
   return c;
 };
 
@@ -269,20 +277,21 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number): Promise<Categoria> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(5, Math.round(prioridad ?? 3))) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
   if (patch.emoji !== undefined) upd.emoji = (patch.emoji || '🏷').slice(0, 4);
+  if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(5, Math.round(patch.prioridad)));
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias').update(upd).eq('id', id).select('*').single();
   if (error) throw new Error(`editarCategoria: ${error.message}`);

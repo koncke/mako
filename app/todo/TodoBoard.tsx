@@ -9,16 +9,17 @@
 
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, prioFromScore, scoreFromPrio } from './board/types';
 import type { Tarea, Categoria } from '@/lib/todo';
 
 const toBoard = (t: Tarea): BoardTask => ({
   id: String(t.id), num: t.id, title: t.titulo, detalle: t.detalle ?? '',
-  priority: t.prioridad, progress: t.progreso, deadline: t.deadline ?? '',
+  priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
+  progress: t.progreso, deadline: t.deadline ?? '',
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
 });
-const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color });
+const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad });
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -29,7 +30,7 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?
 const editPatch = (d: BoardTask) => ({
   titulo: d.title, detalle: d.detalle || null, prioridad: d.priority, progreso: d.progress,
   deadline: d.deadline || null, categorias: d.labels.map(Number).filter(Number.isFinite),
-  checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad,
+  checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score,
 });
 
 export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser }) {
@@ -52,10 +53,10 @@ export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[];
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
   };
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);

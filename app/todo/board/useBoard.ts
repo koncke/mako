@@ -5,7 +5,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
-import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Prio, type Check, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct } from './types';
+import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Prio, type Check, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
+
+export type GuardScore = { id: string; score: number; razon: string };
 
 const now = () => Date.now();
 
@@ -54,7 +56,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   const create = async (title: string, priority: Prio): Promise<BoardTask | null> => {
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, title: v, detalle: '', priority, progress: 0, deadline: '', labels: repo.labelMode === 'single' && labels[0] ? [labels[0].id] : [], checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: repo.labelMode === 'single' && labels[0] ? [labels[0].id] : [], checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);
@@ -80,11 +82,31 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     });
   };
 
+  // El SCORE es la fuente de verdad; la columna (priority) se DERIVA de él.
+  const setScore = (id: string, score: number, text: string, actor: Actor = 'user', razon?: string) => {
+    const t = byId(id); if (!t) return;
+    const s = clampScore(score);
+    const entry = mkEntry(actor, text, 'score', t.score);
+    setTasks((ts) => ts.map((x) => (x.id === id ? { ...x, score: s, priority: prioFromScore(s), scoreRazon: razon ?? x.scoreRazon, historial: [entry, ...x.historial].slice(0, HIST_CAP) } : x)));
+    markDirty(id);
+  };
   const moveTo = (id: string, priority: Prio) => {
     const t = byId(id); if (!t || t.priority === priority) return;
-    const from = t.priority;
-    patchLog(id, 'priority', priority, `Movió a ${PLABEL[priority]}`);
-    show(`"${t.title.slice(0, 26)}" → ${PLABEL[priority]}`, () => patchLog(id, 'priority', from, `Volvió a ${PLABEL[from]}`));
+    const fromScore = t.score, fromPrio = t.priority;
+    setScore(id, scoreFromPrio[priority], `Movió a ${PLABEL[priority]}`);
+    show(`"${t.title.slice(0, 26)}" → ${PLABEL[priority]}`, () => setScore(id, fromScore, `Volvió a ${PLABEL[fromPrio]}`));
+  };
+  // aplica la puntuación del guardián: score → columna derivada, 1 entrada por tarea.
+  const applyGuardian = (tareas: GuardScore[], proyectos: GuardScore[]) => {
+    setTasks((ts) => ts.map((x) => {
+      const g = tareas.find((t) => t.id === x.id); if (!g) return x;
+      const s = clampScore(g.score);
+      const entry = mkEntry('ia', `Priorizó · score ${s}`, 'score', x.score);
+      return { ...x, score: s, priority: prioFromScore(s), scoreRazon: g.razon, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
+    }));
+    tareas.forEach((t) => markDirty(t.id));
+    setLabels((ls) => ls.map((l) => { const g = proyectos.find((p) => p.id === l.id); return g ? { ...l, score: clampProj(g.score) } : l; }));
+    proyectos.forEach((p) => { const l = labels.find((x) => x.id === p.id); if (l) void repo.saveLabel({ ...l, score: clampProj(p.score) }).catch((e) => console.error('[board] saveLabel', e)); });
   };
 
   // tope de "En prioridad": cuenta solo las NO completadas (consistente con la vista)
@@ -123,6 +145,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       if (x.id !== id) return x;
       const next = { ...x, historial: x.historial.filter((h) => h.id !== entry.id) } as BoardTask;
       (next as unknown as Record<string, unknown>)[field] = prev;
+      if (field === 'score') next.priority = prioFromScore(clampScore(Number(prev))); // la columna deriva del score
       return next;
     }));
     markDirty(id);
@@ -150,7 +173,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   return {
     tasks, labels, user, repo,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
-    create, remove, patch, moveTo, toggleEnPrioridad, setChecklist, replaceTask,
+    create, remove, patch, moveTo, setScore, applyGuardian, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, setDeadline, setTaskLabels, undoHist,
     createLabel, patchLabel, deleteLabel, reset,
     undo, showUndo: show, clearUndo: clear,

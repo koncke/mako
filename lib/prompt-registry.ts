@@ -67,6 +67,7 @@ import {
   CHECKLIST_ASK_SYSTEM_TEMPLATE, CHECKLIST_ASK_USER_TEMPLATE,
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
 } from './checklist-coach';
+import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE } from './mako-guardian';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -556,6 +557,27 @@ export const REGISTRY: Group[] = [
         variables: [v('tarea', 'la tarea'), v('respuestas', 'las respuestas del usuario a las preguntas')], scope: 'full', sensitive: false,
         default: CHECKLIST_PROPOSE_USER_TEMPLATE,
         context: 'Le pasa la tarea y las respuestas. No borres los slots {{tarea}}/{{respuestas}}.',
+      },
+    ],
+  },
+  {
+    group: 'MaKo Perro Guardián (prioridades)',
+    icon: '🛡️',
+    blurb: 'Cómo el guardián puntúa proyectos (1-5) y tareas (1-100) para decidir qué mueve la aguja.',
+    entries: [
+      {
+        key: 'guardian.puntuar.system', source: 'override',
+        label: 'Criterios del guardián (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: GUARDIAN_SYSTEM_TEMPLATE,
+        context: 'Los criterios con los que MaKo prioriza (impacto, urgencia, esfuerzo/retorno, dependencias) y los rangos de score→columna. No borres el slot {{jsonShape}} ni cambies el esquema.',
+      },
+      {
+        key: 'guardian.puntuar.user', source: 'override',
+        label: 'Plan a priorizar (user)', kind: 'user', dynamic: true,
+        variables: [v('contexto', 'brief del negocio'), v('plan', 'proyectos+tareas en JSON, con id')], scope: 'full', sensitive: false,
+        default: GUARDIAN_USER_TEMPLATE,
+        context: 'Le pasa el negocio y el plan (con ids). No borres los slots {{contexto}}/{{plan}}.',
       },
     ],
   },

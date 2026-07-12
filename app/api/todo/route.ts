@@ -28,7 +28,7 @@ export async function GET() {
 type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
   progreso?: number; deadline?: string | null; categorias?: number[];
-  checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean;
+  checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
 };
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, tarea: await editarTarea(id, {
         titulo: patch.titulo, detalle: patch.detalle, prioridad: patch.prioridad,
         progreso: patch.progreso, deadline: patch.deadline, categorias: patch.categorias,
-        checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad,
+        checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score,
       }) });
     }
     if (action === 'borrar') {
@@ -79,12 +79,13 @@ export async function POST(req: NextRequest) {
       const nombre = String(body.nombre ?? '');
       const color = String(body.color ?? '#9b9ba2');
       const emoji = body.emoji != null ? String(body.emoji) : undefined;
+      const prioridad = body.prioridad != null ? Number(body.prioridad) : undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string }) ?? {};
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

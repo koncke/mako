@@ -16,7 +16,7 @@ import { EmojiPickerMini } from './EmojiPicker';
 import { PriorizarWizard } from './PriorizarWizard';
 import { MakoChecklistModal } from './MakoChecklist';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, altaIncompleta } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, altaIncompleta, prioFromScore } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -55,6 +55,21 @@ export function BoardShell({ board }: { board: Board }) {
     if (t && priority === 'alta' && (!t.deadline || t.checklist.length === 0)) { setAltaUndo({ id, snap: t }); setWizardId(id); }
   };
   const togglePrio = (id: string) => { if (!board.toggleEnPrioridad(id)) doFlash(`En prioridad hay un máximo de ${MAX_PRIORIDAD} tareas`); };
+
+  // ── el perro guardián re-puntúa todo el plan (score 1-100 / 1-5) ──
+  const [repriorizando, setRepriorizando] = useState(false);
+  const rePriorizar = async () => {
+    if (repriorizando) return;
+    setRepriorizando(true);
+    const proyectos = labels.map((l) => ({ id: l.id, nombre: l.name }));
+    const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle, proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen }));
+    try {
+      const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proyectos, tareas: tareasIn }) }).then((r) => r.json());
+      if (j.ok) { board.applyGuardian(j.tareas || [], j.proyectos || []); doFlash('MaKo re-priorizó el plan'); }
+      else doFlash(j.error || 'MaKo no pudo re-priorizar ahora');
+    } catch { doFlash('MaKo no pudo re-priorizar ahora'); }
+    setRepriorizando(false);
+  };
   // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
   // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
   const cerrarWizard = () => {
@@ -70,6 +85,7 @@ export function BoardShell({ board }: { board: Board }) {
   const enPrioAll = tasks.filter((t) => t.enPrioridad);
   const prioAvg = enPrioAll.length ? Math.round(enPrioAll.reduce((s, t) => s + t.progress, 0) / enPrioAll.length) : 0;
   const prioHechas = enPrioAll.filter((t) => t.progress >= 100).length;
+  const objetivoPrincipal = labels.length ? labels.slice().sort((a, b) => b.score - a.score)[0] : null;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
 
@@ -85,8 +101,9 @@ export function BoardShell({ board }: { board: Board }) {
           ? <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />
           : <AvgChip avg={prioAvg} hechas={prioHechas} total={enPrioAll.length} label="en prioridad" />}
         {view === 'kanban' && <>
+          <button onClick={rePriorizar} disabled={repriorizando} title="El perro guardián re-puntúa todo el plan" style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--primary-bg)', color: 'var(--primary)', borderColor: 'var(--primary-weak)', opacity: repriorizando ? 0.6 : 1 }}>🛡️ {repriorizando ? 'Priorizando…' : 'Re-priorizar'}</button>
           <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />{repo.labelPlural}</button>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: 1, minWidth: 130, maxWidth: 230, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: 1, minWidth: 120, maxWidth: 210, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
         </>}
         <span style={{ flex: 1 }} />
@@ -94,7 +111,7 @@ export function BoardShell({ board }: { board: Board }) {
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades'
-          ? <Prioridades tasks={enPrio} board={board} onOpen={setOpenId} onToggle={togglePrio} />
+          ? <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onToggle={togglePrio} />
           : <Kanban tasks={visibles} board={board} onOpen={setOpenId} onCreate={doCreate} onMove={doMoveTo} onToggle={togglePrio} onWarn={setWizardId} dragId={dragId} setDragId={setDragId} overPrio={overPrio} setOverPrio={setOverPrio} />}
       </div>
 
@@ -140,6 +157,11 @@ function StarPrioridad({ on, onClick, size = 15 }: { on: boolean; onClick: (e: R
 function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
 }
+// score del guardián (1-100), coloreado por la columna que define.
+function ScoreBadge({ score }: { score: number }) {
+  const c = PCOLOR[prioFromScore(score)];
+  return <span title="Prioridad del guardián (1-100)" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px' }}>⚡{score}</span>;
+}
 // Chip de origen: solo para tareas creadas por MaKo (✦ Origen IA), al lado del tag.
 function OrigenChip({ origen }: { origen: Actor }) {
   if (origen !== 'ia') return null;
@@ -180,6 +202,7 @@ function CardTile({ t, board, onOpen, onToggle, onWarn, onDragStart, onDragEnd }
       <span style={{ flex: 1 }} />
       {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+        <ScoreBadge score={t.score} />
         <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)' }}>#{t.num}</span>
         {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
         {t.checklist.length > 0 && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>}
@@ -205,7 +228,7 @@ function Kanban({ tasks, board, onOpen, onCreate, onMove, onToggle, onWarn, drag
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '4px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
-        const items = tasks.filter((t) => t.priority === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || a.num - b.num);
+        const items = tasks.filter((t) => t.priority === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
         const isOver = overPrio === p && dragId != null;
         return (
           <section key={p}
@@ -240,21 +263,26 @@ function ColHeader({ p, count, onAdd }: { p: Prio; count: number; onAdd: (title:
   );
 }
 
-// ── vista Prioridades (máx 3, checklist desplegable) ────────────────────────────
-function Prioridades({ tasks, board, onOpen, onToggle }: { tasks: BoardTask[]; board: Board; onOpen: (id: string) => void; onToggle: (id: string) => void }) {
+// ── vista Prioridades (Objetivo Principal + máx 3 tareas, checklist desplegable) ─
+function Prioridades({ tasks, board, objetivo, onOpen, onToggle }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void; onToggle: (id: string) => void }) {
   const [expand, setExpand] = useState<Set<string>>(new Set());
   const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
-  if (tasks.length === 0) return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--faint)', textAlign: 'center', padding: 40 }}>
-      <div style={{ fontSize: 40 }}>🎯</div>
-      <div style={{ fontSize: 17, color: 'var(--dim)', fontWeight: 600 }}>No hay nada en prioridad</div>
-      <div style={{ fontSize: 14, maxWidth: 380, lineHeight: 1.5 }}>Marcá hasta {MAX_PRIORIDAD} tareas con la <span style={{ color: 'var(--accent-soft, #C8870C)' }}>★</span> para tener adelante lo poco que importa ahora.</div>
-    </div>
-  );
   return (
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, textAlign: 'center' }}>🎯 En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
+        {objetivo && (
+          <div style={{ background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderLeft: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '18px 22px' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.15em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700, marginBottom: 6 }}>🎯 Objetivo Principal · prioridad {objetivo.score}/5</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{objetivo.emoji} {objetivo.name}</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4 }}>El norte de todo ahora. Lo que MaKo protege por encima del resto.</div>
+          </div>
+        )}
+        <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, textAlign: 'center' }}>⭐ En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
+        {tasks.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
+            <div style={{ fontSize: 14, maxWidth: 380, lineHeight: 1.5 }}>Marcá hasta {MAX_PRIORIDAD} tareas con la <span style={{ color: 'var(--accent-soft, #C8870C)' }}>★</span> para tener adelante lo poco que importa ahora.</div>
+          </div>
+        )}
         {tasks.slice().sort((a, b) => a.progress - b.progress).map((t) => {
           const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
           const clDone = t.checklist.filter((c) => c.done).length;
@@ -413,7 +441,15 @@ function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
             <ChangeHistory t={t} board={board} ask={ask} />
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
-            <div><label style={rowLabel}>Prioridad</label><select value={t.priority} onChange={(e) => onSetPriority(t.id, e.target.value as Prio)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }}>{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select></div>
+            <div>
+              <label style={rowLabel}>Prioridad · guardián</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <ScoreBadge score={t.score} />
+                <span style={{ fontSize: 13, fontWeight: 600, color: PCOLOR[t.priority] }}>{PLABEL[t.priority]}</span>
+              </div>
+              {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
+              <select value={t.priority} onChange={(e) => onSetPriority(t.id, e.target.value as Prio)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }} title="Ajuste manual (temporal, hasta el debate con MaKo)">{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select>
+            </div>
             <div><label style={rowLabel}>Avance · {cl.length > 0 ? t.progress : progShown}%{cl.length > 0 ? ' · por checklist' : ''}</label>
               {cl.length > 0
                 ? <MiniBar v={t.progress} />
@@ -462,11 +498,12 @@ function ProjectsManager({ board, ask, onClose }: { board: Board; ask: (msg: str
             <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 11px' }}>
               <EmojiPickerMini value={l.emoji} onPick={(em) => board.patchLabel(l.id, { emoji: em })} />
               <input value={l.name} onChange={(e) => board.patchLabel(l.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, padding: '6px 9px', outline: 'none', fontFamily: SANS }} />
+              <span title="Prioridad del proyecto (la pone el guardián)" style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 6px', flex: 'none' }}>P{l.score}</span>
               <span style={{ display: 'flex', gap: 3 }}>{SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(l.id, { color: s })} title={s} style={{ width: 16, height: 16, borderRadius: 5, background: s, border: l.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}</span>
               <button onClick={() => ask(`¿Borrar "${l.name}"?`, () => board.deleteLabel(l.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
             </div>
           ))}
-          <button onClick={() => board.createLabel({ id: uid(), emoji: '🏷', name: `Nuevo ${repo.labelSingular.toLowerCase()}`, color: SWATCHES[1] })} style={{ ...ghostBtn, textAlign: 'center' }}>+ {repo.labelSingular}</button>
+          <button onClick={() => board.createLabel({ id: uid(), emoji: '🏷', name: `Nuevo ${repo.labelSingular.toLowerCase()}`, color: SWATCHES[1], score: 3 })} style={{ ...ghostBtn, textAlign: 'center' }}>+ {repo.labelSingular}</button>
         </div>
       </div>
     </div>

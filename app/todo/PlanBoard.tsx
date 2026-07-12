@@ -10,19 +10,19 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Prio, type Hist } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Prio, type Hist, scoreFromPrio, prioFromScore, clampScore } from './board/types';
 
 const K5 = 'mako_plan_v5', K4 = 'mako_plan_v4', K_PROJS = 'mako_plan_projs_v3';
 const SEED_TS = Date.parse('2026-07-01T12:00:00Z');
 const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 
 const PROJS_DEFAULT: Label[] = [
-  { id: 'doer', emoji: '🔴', name: 'Hacer MaKo DOER', color: '#D0504A' },
-  { id: 'plat', emoji: '🧱', name: 'Plataforma & Núcleo', color: '#2F6FED' },
-  { id: 'canales', emoji: '💬', name: 'Canales & Mensajería', color: '#7C5CFB' },
-  { id: 'analy', emoji: '🔍', name: 'Analysts & Generadores', color: '#0E9B8E' },
-  { id: 'growth', emoji: '📈', name: 'Growth · Vender MaKo', color: '#C8870C' },
-  { id: 'ux', emoji: '✨', name: 'UX & Diseño', color: '#D6489B' },
+  { id: 'doer', emoji: '🔴', name: 'Hacer MaKo DOER', color: '#D0504A', score: 5 },
+  { id: 'plat', emoji: '🧱', name: 'Plataforma & Núcleo', color: '#2F6FED', score: 4 },
+  { id: 'canales', emoji: '💬', name: 'Canales & Mensajería', color: '#7C5CFB', score: 3 },
+  { id: 'analy', emoji: '🔍', name: 'Analysts & Generadores', color: '#0E9B8E', score: 3 },
+  { id: 'growth', emoji: '📈', name: 'Growth · Vender MaKo', color: '#C8870C', score: 2 },
+  { id: 'ux', emoji: '✨', name: 'UX & Diseño', color: '#D6489B', score: 2 },
 ];
 
 // [num, title, project, prioridad, prog, detalle, enPrioridad]
@@ -93,7 +93,7 @@ const SEED: Row[] = [
 const seedTasks = (): BoardTask[] => SEED.map((d) => {
   const esIA = d[2] === 'doer';
   return {
-    id: 't' + d[0], num: d[0], title: d[1], detalle: d[5], priority: d[3], progress: d[4],
+    id: 't' + d[0], num: d[0], title: d[1], detalle: d[5], priority: d[3], score: scoreFromPrio[d[3]], progress: d[4],
     deadline: '', labels: [d[2]], checklist: [], enPrioridad: d[6],
     origen: esIA ? 'ia' as const : 'user' as const,
     historial: [{ id: 'seed' + d[0], ts: SEED_TS, actor: esIA ? 'ia' : 'user', text: 'Creó la tarjeta' } as Hist],
@@ -105,16 +105,24 @@ const normHist = (h: unknown[]): Hist[] => (Array.isArray(h) ? h : []).map((e) =
   const o = (e ?? {}) as Record<string, unknown>;
   return { ...o, id: typeof o.id === 'string' && o.id ? o.id : 'h' + (Number(o.ts) || 0) } as Hist;
 });
-const normTask = (t: BoardTask): BoardTask => ({ ...t, historial: normHist(t.historial as unknown[]) });
+const normTask = (t: BoardTask): BoardTask => {
+  // score = fuente de verdad; si el localStorage viejo no lo tiene, se deriva de la columna.
+  const s = typeof t.score === 'number' && t.score > 0 ? clampScore(t.score) : scoreFromPrio[t.priority] ?? 62;
+  return { ...t, score: s, priority: prioFromScore(s), historial: normHist(t.historial as unknown[]) };
+};
+const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(5, Math.round(l.score)) : 3 });
 
 type OldV4 = { id: string; n: number; text: string; project: string; priority: Prio; prog?: number; detalle?: string; foco?: boolean; deadline?: string; checklist?: unknown; origen?: string; historial?: unknown };
-const fromV4 = (t: OldV4): BoardTask => ({
-  id: t.id ?? 't' + uid(), num: typeof t.n === 'number' ? t.n : 0, title: t.text ?? '', detalle: t.detalle ?? '',
-  priority: (['alta', 'media', 'baja', 'futuro'] as string[]).includes(t.priority) ? t.priority : 'media',
-  progress: Math.max(0, Math.min(100, Math.round(t.prog ?? 0))), deadline: t.deadline ?? '',
-  labels: t.project ? [t.project] : [], checklist: Array.isArray(t.checklist) ? t.checklist as BoardTask['checklist'] : [],
-  historial: Array.isArray(t.historial) ? t.historial as Hist[] : [], origen: t.origen === 'ia' ? 'ia' : 'user', enPrioridad: !!t.foco,
-});
+const fromV4 = (t: OldV4): BoardTask => {
+  const priority = (['alta', 'media', 'baja', 'futuro'] as string[]).includes(t.priority) ? t.priority : 'media';
+  return {
+    id: t.id ?? 't' + uid(), num: typeof t.n === 'number' ? t.n : 0, title: t.text ?? '', detalle: t.detalle ?? '',
+    priority, score: scoreFromPrio[priority],
+    progress: Math.max(0, Math.min(100, Math.round(t.prog ?? 0))), deadline: t.deadline ?? '',
+    labels: t.project ? [t.project] : [], checklist: Array.isArray(t.checklist) ? t.checklist as BoardTask['checklist'] : [],
+    historial: Array.isArray(t.historial) ? t.historial as Hist[] : [], origen: t.origen === 'ia' ? 'ia' : 'user', enPrioridad: !!t.foco,
+  };
+};
 
 function loadTasks(): BoardTask[] {
   try {
@@ -126,7 +134,7 @@ function loadTasks(): BoardTask[] {
   return seedTasks();
 }
 function loadLabels(): Label[] {
-  try { const p = localStorage.getItem(K_PROJS); if (p) return JSON.parse(p) as Label[]; } catch { /* default */ }
+  try { const p = localStorage.getItem(K_PROJS); if (p) return (JSON.parse(p) as Label[]).map(normLabel); } catch { /* default */ }
   return PROJS_DEFAULT;
 }
 
