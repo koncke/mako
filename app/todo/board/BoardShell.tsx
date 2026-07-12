@@ -16,6 +16,7 @@ import { EmojiPickerMini } from './EmojiPicker';
 import { PriorizarWizard } from './PriorizarWizard';
 import { MakoChecklistModal } from './MakoChecklist';
 import { DebateModal } from './DebateModal';
+import { CrearTareaModal } from './CrearTareaModal';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, puedeSerAlta } from './types';
 
@@ -33,6 +34,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
+  const [nuevaTarea, setNuevaTarea] = useState(false);
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [flash, setFlash] = useState('');
@@ -56,7 +58,6 @@ export function BoardShell({ board }: { board: Board }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, wizardId, dismissed, topProjectId]);
 
-  const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (t && esAltaIncompleta(t)) setWizardId(t.id); };
   const togglePrio = (id: string) => {
     const t = tasks.find((x) => x.id === id);
     if (t && !t.enPrioridad && !puedeSerAlta(t, topProjectId)) { doFlash('En prioridad solo entra el proyecto Objetivo Principal (o una emergencia)'); return; }
@@ -95,8 +96,24 @@ export function BoardShell({ board }: { board: Board }) {
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
-  // resumen del plan para que el guardián compare al debatir
+  // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
+
+  // crear una tarea: el GUARDIÁN la puntúa (con el argumento) y decide su columna.
+  const crearConGuardian = async (title: string, detalle: string, argumento: string) => {
+    const t = await board.create(title, 'media');
+    if (!t) return null;
+    if (detalle) board.setDetalle(t.id, detalle, '');
+    const argFinal = argumento || '(el usuario no dio argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
+    try {
+      const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: title + (detalle ? `\n\n${detalle}` : ''), scoreActual: 50, argumento: argFinal, plan: planResumen }) }).then((r) => r.json());
+      if (j.ok && typeof j.score === 'number') {
+        board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
+        return { score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
+      }
+    } catch { /* fallback abajo */ }
+    return { score: 50, razon: '', respuesta: 'No pude priorizar ahora; quedó en Media. Podés debatirla después.', prio: 'media' as Prio };
+  };
 
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
@@ -109,6 +126,7 @@ export function BoardShell({ board }: { board: Board }) {
         {view === 'kanban'
           ? <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />
           : <AvgChip avg={prioAvg} hechas={prioHechas} total={enPrioAll.length} label="en prioridad" />}
+        <button onClick={() => setNuevaTarea(true)} style={{ ...ghostBtn, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 }}>+ Nueva tarea</button>
         {view === 'kanban' && <>
           <button onClick={rePriorizar} disabled={repriorizando} title="El perro guardián re-puntúa todo el plan" style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--primary-bg)', color: 'var(--primary)', borderColor: 'var(--primary-weak)', opacity: repriorizando ? 0.6 : 1 }}>🛡️ {repriorizando ? 'Priorizando…' : 'Re-priorizar'}</button>
           <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />{repo.labelPlural}</button>
@@ -121,11 +139,12 @@ export function BoardShell({ board }: { board: Board }) {
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades'
           ? <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onToggle={togglePrio} />
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onCreate={doCreate} onToggle={togglePrio} onWarn={setWizardId} />}
+          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onToggle={togglePrio} onWarn={setWizardId} />}
       </div>
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onToggle={togglePrio} onDebate={() => setDebateId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
       {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con MaKo · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
+      {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => setNuevaTarea(false)} />}
       {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         dismissable={repo.dismissableGauntlet}
@@ -228,8 +247,8 @@ function CardTile({ t, board, warn, onOpen, onToggle, onWarn }: {
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, onOpen, onCreate, onToggle, onWarn }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onCreate: (title: string, p: Prio) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, onOpen, onNew, onToggle, onWarn }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
 }) {
   const objetivo = topProjectId ? board.labelById(topProjectId) : null;
   return (
@@ -239,7 +258,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onCreate, onToggle, onWarn
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
         return (
           <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
-            <ColHeader p={p} count={items.length} onAdd={onCreate} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
+            <ColHeader p={p} count={items.length} onNew={onNew} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
               {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onToggle={onToggle} onWarn={onWarn} />)}
@@ -250,9 +269,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onCreate, onToggle, onWarn
     </div>
   );
 }
-function ColHeader({ p, count, onAdd, nota }: { p: Prio; count: number; onAdd: (title: string, p: Prio) => void; nota?: string }) {
-  const [adding, setAdding] = useState(false);
-  const [v, setV] = useState('');
+function ColHeader({ p, count, onNew, nota }: { p: Prio; count: number; onNew: () => void; nota?: string }) {
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
@@ -260,10 +277,9 @@ function ColHeader({ p, count, onAdd, nota }: { p: Prio; count: number; onAdd: (
         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{PLABEL[p]}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{count}</span>
         <span style={{ flex: 1 }} />
-        <button onClick={() => setAdding((a) => !a)} title="Nueva tarea" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 18, lineHeight: 1, padding: '0 3px' }}>+</button>
+        <button onClick={onNew} title="Nueva tarea (la prioriza MaKo)" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 18, lineHeight: 1, padding: '0 3px' }}>+</button>
       </div>
       {nota && <div style={{ fontSize: 10, color: 'var(--faint)', padding: '0 3px 8px', lineHeight: 1.3 }}>{nota}</div>}
-      {adding && <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(v, p); setV(''); } if (e.key === 'Escape') setAdding(false); }} onBlur={() => setAdding(false)} placeholder="Nueva tarea… (Enter)" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none' }} />}
     </div>
   );
 }
