@@ -19,7 +19,7 @@ export const wizardInput: CSSProperties = { width: '100%', padding: '12px 15px',
 export function WizardShell({
   titulo, total, idx, pregunta, sub, children, error,
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
-  atrasLabel, onAtras, onSiguiente, onConfirmar, onClose,
+  atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   total: number; idx: number;
@@ -32,9 +32,10 @@ export function WizardShell({
   pending?: boolean;
   atrasLabel: string;        // "Cancelar" (primer paso) o "Atrás"
   onAtras: () => void; onSiguiente: () => void; onConfirmar: () => void; onClose: () => void;
+  bloqueante?: boolean;      // true → no se puede cerrar (sin ✕, backdrop no cierra)
 }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+    <div onClick={bloqueante ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
         {/* Header: logo · dots · cerrar */}
@@ -45,7 +46,9 @@ export function WizardShell({
               <span key={i} style={{ width: i === idx ? 22 : 8, height: 8, borderRadius: 999, background: i === idx ? 'var(--primary)' : i < idx ? 'var(--primary-weak, #B9CDF8)' : 'var(--border)', transition: 'width .2s' }} />
             ))}
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14, fontFamily: SANS }}>✕</button>
+          {bloqueante
+            ? <span style={{ width: 32 }} />
+            : <button onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14, fontFamily: SANS }}>✕</button>}
         </div>
 
         {/* Cuerpo: una pregunta por paso */}

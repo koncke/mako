@@ -15,7 +15,8 @@ export type Prioridad = 'alta' | 'media' | 'baja' | 'futuro';
 export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
 export type Actor = 'user' | 'ia';
 export type ChecklistItem = { id: string; text: string; done: boolean };
-export type HistEntry = { ts: number; actor: Actor; text: string };
+export type HistUndo = { field: string; prev: unknown };
+export type HistEntry = { ts: number; actor: Actor; text: string; undo?: HistUndo };
 
 const origenActor = (o: OrigenTarea): Actor => (o === 'manual' ? 'user' : 'ia');
 
@@ -36,6 +37,7 @@ export type Tarea = {
   categorias: number[];          // ids de tarea_categorias
   checklist: ChecklistItem[];    // ítems {id,text,done}
   historial: HistEntry[];        // change history {ts,actor,text} — user|ia
+  en_prioridad: boolean;         // marcada "En prioridad" (vista Prioridades)
   origen: OrigenTarea;
   experimento_id: number | null;
   retro_id: number | null;
@@ -45,7 +47,7 @@ export type Tarea = {
   updated_at: string;
 };
 
-export type Categoria = { id: number; nombre: string; color: string; created_at: string };
+export type Categoria = { id: number; nombre: string; color: string; emoji: string; created_at: string };
 
 const COLS = '*';
 const rowTo = (r: Record<string, unknown>): Tarea => {
@@ -56,8 +58,12 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   t.progreso = clampPct((r.progreso as number) ?? 0);
   t.checklist = checklistOk(r.checklist);
   t.historial = histOk(r.historial);
+  t.en_prioridad = !!r.en_prioridad;
   return t;
 };
+
+// estado derivado del avance: 100→hecho, >0→en_curso, 0→por_hacer.
+const estadoDeProgreso = (p: number): EstadoTarea => (p >= 100 ? 'hecho' : p > 0 ? 'en_curso' : 'por_hacer');
 
 const checklistOk = (c: unknown): ChecklistItem[] =>
   Array.isArray(c)
@@ -68,7 +74,12 @@ const checklistOk = (c: unknown): ChecklistItem[] =>
 const histOk = (h: unknown): HistEntry[] =>
   Array.isArray(h)
     ? h.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
-        .map((o) => ({ ts: Number(o.ts) || 0, actor: o.actor === 'ia' ? 'ia' : 'user' as Actor, text: String(o.text ?? '') }))
+        .map((o) => {
+          const e: HistEntry = { ts: Number(o.ts) || 0, actor: o.actor === 'ia' ? 'ia' : 'user', text: String(o.text ?? '') };
+          const u = o.undo as Record<string, unknown> | undefined;
+          if (u && typeof u === 'object' && typeof u.field === 'string') e.undo = { field: u.field, prev: u.prev };
+          return e;
+        })
     : [];
 
 function clampPct(v: unknown): number {
@@ -138,6 +149,7 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     categorias: catsOk(input.categorias),
     checklist: [] as ChecklistItem[],
     historial: [{ ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
+    en_prioridad: false,
     origen,
     experimento_id: input.experimento_id ?? null,
     retro_id: input.retro_id ?? null,
@@ -202,19 +214,26 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[] },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.prioridad != null) upd.prioridad = prioridadOk(patch.prioridad);
-  // El avance es una MÉTRICA independiente del estado (columna): editar el
-  // progreso NO mueve de columna. "Hecho" se marca moviendo la tarjeta (moverTarea).
-  if (patch.progreso != null) upd.progreso = clampPct(patch.progreso);
+  // El estado se DERIVA del avance (el board /todo ya no muestra "Estado" aparte):
+  // 100→hecho (sella hecho_at), >0→en_curso, 0→por_hacer.
+  if (patch.progreso != null) {
+    const p = clampPct(patch.progreso);
+    const est = estadoDeProgreso(p);
+    upd.progreso = p;
+    upd.estado = est;
+    upd.hecho_at = est === 'hecho' ? new Date().toISOString() : null;
+  }
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
   if (patch.checklist !== undefined) upd.checklist = checklistOk(patch.checklist);
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
+  if (patch.en_prioridad !== undefined) upd.en_prioridad = !!patch.en_prioridad;
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);
@@ -231,7 +250,11 @@ export async function borrarTarea(id: number): Promise<void> {
 // Categorías (etiquetas con color)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const catRow = (r: Record<string, unknown>): Categoria => r as unknown as Categoria;
+const catRow = (r: Record<string, unknown>): Categoria => {
+  const c = r as unknown as Categoria;
+  c.emoji = typeof r.emoji === 'string' && r.emoji ? (r.emoji as string) : '🏷';
+  return c;
+};
 
 export async function listCategorias(): Promise<Categoria[]> {
   const supabase = (await getTenantDb());
@@ -240,12 +263,23 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string): Promise<Categoria> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2' })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
+  return catRow(data);
+}
+
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string }): Promise<Categoria> {
+  const upd: Record<string, unknown> = {};
+  if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
+  if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
+  if (patch.emoji !== undefined) upd.emoji = (patch.emoji || '🏷').slice(0, 4);
+  const supabase = (await getTenantDb());
+  const { data, error } = await supabase.from('tarea_categorias').update(upd).eq('id', id).select('*').single();
+  if (error) throw new Error(`editarCategoria: ${error.message}`);
   return catRow(data);
 }
 

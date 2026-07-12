@@ -1,0 +1,431 @@
+'use client';
+
+// =============================================================================
+// BoardShell — la ÚNICA vista del tablero /todo (admin y cliente idénticos)
+// =============================================================================
+// Recibe un `Board` (useBoard) y pinta todo: header con avance promedio, toggle
+// Prioridades/Kanban, 4 columnas de prioridad a ancho completo con DnD, tarjetas
+// cuadradas (estilo CRM) con avance editable inline, modal con checklist + coach
+// de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
+// con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
+
+import { useEffect, useState, type CSSProperties, type MouseEvent as RME, type DragEvent as RDragEvent } from 'react';
+import { UndoToast } from '../../_components/UndoToast';
+import { ConfirmModal } from '../../_components/ConfirmModal';
+import { EmojiPickerMini } from './EmojiPicker';
+import { PriorizarWizard } from './PriorizarWizard';
+import { MakoChecklistModal } from './MakoChecklist';
+import type { Board } from './useBoard';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, altaIncompleta } from './types';
+
+const MONO = "'Geist Mono', monospace";
+const SANS = "'Geist', sans-serif";
+
+export function BoardShell({ board }: { board: Board }) {
+  const { tasks, labels, repo } = board;
+  const [view, setView] = useState<'prioridades' | 'kanban'>('prioridades');
+  const [q, setQ] = useState('');
+  const [fLabels, setFLabels] = useState<Set<string>>(new Set());
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [projMgr, setProjMgr] = useState(false);
+  const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
+  const [wizardId, setWizardId] = useState<string | null>(null);
+  const [flash, setFlash] = useState('');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overPrio, setOverPrio] = useState<Prio | null>(null);
+
+  const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
+  const doFlash = (m: string) => setFlash(m);
+  useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 2600); return () => clearTimeout(t); }, [flash]);
+  useEffect(() => {
+    const active = openId || projMgr || confirm || wizardId;
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !wizardId) { setConfirm(null); setOpenId(null); setProjMgr(false); } };
+    document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
+  }, [openId, projMgr, confirm, wizardId]);
+
+  // ── acciones que pueden gatillar el form bloqueante de Alta ──
+  const abrirWizardSiHace = (t: BoardTask | null | undefined) => { if (t && altaIncompleta(t)) setWizardId(t.id); };
+  const doCreate = async (title: string, priority: Prio) => { const t = await board.create(title, priority); if (priority === 'alta') abrirWizardSiHace(t); };
+  const doMoveTo = (id: string, priority: Prio) => {
+    const t = tasks.find((x) => x.id === id); board.moveTo(id, priority);
+    if (t && priority === 'alta' && (!t.deadline || t.checklist.length === 0)) setWizardId(id);
+  };
+  const togglePrio = (id: string) => { if (!board.toggleEnPrioridad(id)) doFlash(`En prioridad hay un máximo de ${MAX_PRIORIDAD} tareas`); };
+
+  const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l)));
+  const visibles = tasks.filter(passes);
+  const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
+  const hechas = tasks.filter((t) => t.progress >= 100).length;
+  const enPrio = tasks.filter((t) => t.enPrioridad && t.progress < 100);
+  const openTask = tasks.find((t) => t.id === openId) ?? null;
+  const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
+
+  return (
+    <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 6px', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--accent)', fontWeight: 600 }}>Plan de ejecución</div>
+          <h1 style={{ fontSize: 25, fontWeight: 700, letterSpacing: '-0.02em', margin: '3px 0 0', color: 'var(--ink)' }}>Qué construir</h1>
+        </div>
+        <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3, marginLeft: 6 }}>
+          {(['prioridades', 'kanban'] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v}</button>
+          ))}
+        </div>
+        <span style={{ flex: 1 }} />
+      </header>
+
+      {/* toolbar: avance promedio (antes de proyectos) · proyectos · buscar · filtrar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 30px 12px', flexWrap: 'wrap' }}>
+        <AvgChip avg={avg} hechas={hechas} total={tasks.length} />
+        {view === 'kanban' && <>
+          <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />{repo.labelPlural}</button>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ flex: 1, minWidth: 150, maxWidth: 240, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
+        </>}
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {view === 'prioridades'
+          ? <Prioridades tasks={enPrio} board={board} onOpen={setOpenId} onToggle={togglePrio} />
+          : <Kanban tasks={visibles} board={board} onOpen={setOpenId} onCreate={doCreate} onMove={doMoveTo} onToggle={togglePrio} onWarn={setWizardId} dragId={dragId} setDragId={setDragId} overPrio={overPrio} setOverPrio={setOverPrio} />}
+      </div>
+
+      {openTask && <TaskModal t={openTask} board={board} onSetPriority={doMoveTo} onToggle={togglePrio} ask={ask} onClose={() => setOpenId(null)} />}
+      {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
+      {wizardTask && <PriorizarWizard task={wizardTask}
+        onSetDeadline={(d) => board.setDeadline(wizardTask.id, d, wizardTask.deadline)}
+        onSetChecklist={(c) => board.setChecklist(wizardTask.id, c, `Definió el checklist (${c.length})`)}
+        onDowngrade={(p) => board.moveTo(wizardTask.id, p)}
+        onDone={() => setWizardId(null)} />}
+      {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
+      {flash && <div style={{ position: 'fixed', left: '50%', bottom: 84, transform: 'translateX(-50%)', zIndex: 250, background: '#14161B', color: '#F3F5F8', padding: '10px 16px', borderRadius: 10, fontSize: 13.5, boxShadow: '0 12px 32px rgba(18,21,27,.35)' }}>{flash}</div>}
+      <UndoToast state={board.undo} onClose={board.clearUndo} />
+    </main>
+  );
+}
+
+// ── átomos ────────────────────────────────────────────────────────────────────
+const ghostBtn: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 500, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS };
+const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 500, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: SANS, width: '100%' };
+
+function PencilIcon() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>; }
+function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+
+function AvgChip({ avg, hechas, total }: { avg: number; hechas: number; total: number }) {
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '7px 13px' }}>
+      <span style={{ fontFamily: MONO, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>{avg}%</span>
+      <span style={{ display: 'block', width: 90, height: 6, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: avg + '%', background: 'var(--primary)' }} /></span>
+      <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{hechas}/{total}</span>
+    </div>
+  );
+}
+
+function LabelChip({ l }: { l: Label }) {
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>{l.emoji} {l.name}</span>;
+}
+function StarPrioridad({ on, onClick, size = 15 }: { on: boolean; onClick: (e: RME) => void; size?: number }) {
+  return <button onClick={onClick} title="En prioridad" aria-pressed={on} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: size, lineHeight: 1, color: on ? 'var(--accent-soft, #C8870C)' : 'var(--faint)', padding: 2 }}>{on ? '★' : '☆'}</button>;
+}
+function MiniBar({ v }: { v: number }) {
+  return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
+}
+function OrigenIcon({ origen, size = 12 }: { origen: Actor; size?: number }) {
+  if (origen === 'ia') return <span title="Creada por MaKo" style={{ fontSize: size, color: 'var(--accent)', lineHeight: 1 }}>✦</span>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="usuario"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 12 0v1" /></svg>;
+}
+// Avatar para el change history: IA → ✦ MaKo; usuario → foto de perfil o inicial.
+function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; nombre: string; avatarUrl: string; size?: number }) {
+  if (actor === 'ia') return <span title="MaKo" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--accent)' + '1f', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.55, flex: 'none' }}>✦</span>;
+  if (avatarUrl) /* eslint-disable-next-line @next/next/no-img-element */
+    return <img src={avatarUrl} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />;
+  const ini = (nombre || 'U').trim().slice(0, 1).toUpperCase();
+  return <span style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.45, fontWeight: 700, flex: 'none' }}>{ini}</span>;
+}
+
+// ── tarjeta (cuadrada, estilo CRM, con avance editable inline) ──────────────────
+function CardTile({ t, board, onOpen, onToggle, onWarn, onDragStart, onDragEnd }: {
+  t: BoardTask; board: Board; onOpen: (id: string) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
+  onDragStart: () => void; onDragEnd: () => void;
+}) {
+  const done = t.progress >= 100;
+  const clDone = t.checklist.filter((c) => c.done).length;
+  const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
+  const warn = altaIncompleta(t);
+  const [prog, setProg] = useState<number | null>(null);
+  const shown = prog ?? t.progress;
+  const commit = () => { if (prog != null) board.setProgress(t.id, prog, t.progress); setProg(null); };
+  return (
+    <div draggable onDragStart={(e) => { onDragStart(); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={onDragEnd} onClick={() => onOpen(t.id)}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 14px', cursor: 'grab', opacity: done ? 0.62 : 1, minHeight: 132, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+        <span style={{ flex: 1 }} />
+        <OrigenIcon origen={t.origen} />
+        <StarPrioridad on={t.enPrioridad} onClick={(e) => { e.stopPropagation(); onToggle(t.id); }} size={14} />
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
+      <span style={{ flex: 1 }} />
+      {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)' }}>#{t.num}</span>
+        {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
+        {t.checklist.length > 0 && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>}
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)' }}>{shown}%</span>
+      </div>
+      {/* avance editable SIN abrir el detalle */}
+      <input type="range" min={0} max={100} step={5} value={shown} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}
+        onChange={(e) => setProg(Number(e.target.value))} onMouseUp={commit} onKeyUp={commit} onTouchEnd={commit}
+        style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} draggable={false} />
+    </div>
+  );
+}
+
+// ── vista Kanban (4 columnas de prioridad, ancho completo) ──────────────────────
+function Kanban({ tasks, board, onOpen, onCreate, onMove, onToggle, onWarn, dragId, setDragId, overPrio, setOverPrio }: {
+  tasks: BoardTask[]; board: Board; onOpen: (id: string) => void; onCreate: (title: string, p: Prio) => void; onMove: (id: string, p: Prio) => void; onToggle: (id: string) => void; onWarn: (id: string) => void;
+  dragId: string | null; setDragId: (v: string | null) => void; overPrio: Prio | null; setOverPrio: (v: Prio | null) => void;
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '4px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
+      <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
+      {PRIOS.map((p) => {
+        const items = tasks.filter((t) => t.priority === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || a.num - b.num);
+        const isOver = overPrio === p && dragId != null;
+        return (
+          <section key={p}
+            onDragOver={(e: RDragEvent) => { e.preventDefault(); if (dragId != null && overPrio !== p) setOverPrio(p); }}
+            onDrop={(e: RDragEvent) => { e.preventDefault(); if (dragId != null) onMove(dragId, p); setOverPrio(null); setDragId(null); }}
+            style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: isOver ? 'var(--primary-bg)' : 'var(--surface)', border: '1px solid ' + (isOver ? 'var(--primary-weak)' : 'var(--border)'), borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10, boxShadow: isOver ? '0 0 0 3px var(--primary-weak)' : 'none', transition: 'background .12s, box-shadow .12s' }}>
+            <ColHeader p={p} count={items.length} onAdd={onCreate} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
+              {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
+              {items.map((t) => <CardTile key={t.id} t={t} board={board} onOpen={onOpen} onToggle={onToggle} onWarn={onWarn} onDragStart={() => setDragId(t.id)} onDragEnd={() => { setDragId(null); setOverPrio(null); }} />)}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+function ColHeader({ p, count, onAdd }: { p: Prio; count: number; onAdd: (title: string, p: Prio) => void }) {
+  const [adding, setAdding] = useState(false);
+  const [v, setV] = useState('');
+  return (
+    <div style={{ flex: 'none', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
+        <span style={{ width: 9, height: 9, borderRadius: '50%', background: PCOLOR[p], flex: 'none' }} />
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{PLABEL[p]}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{count}</span>
+        <span style={{ flex: 1 }} />
+        <button onClick={() => setAdding((a) => !a)} title="Nueva tarea" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 18, lineHeight: 1, padding: '0 3px' }}>+</button>
+      </div>
+      {adding && <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { onAdd(v, p); setV(''); } if (e.key === 'Escape') setAdding(false); }} onBlur={() => setAdding(false)} placeholder="Nueva tarea… (Enter)" style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none' }} />}
+    </div>
+  );
+}
+
+// ── vista Prioridades (máx 3, checklist desplegable) ────────────────────────────
+function Prioridades({ tasks, board, onOpen, onToggle }: { tasks: BoardTask[]; board: Board; onOpen: (id: string) => void; onToggle: (id: string) => void }) {
+  const [expand, setExpand] = useState<Set<string>>(new Set());
+  const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
+  if (tasks.length === 0) return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--faint)', textAlign: 'center', padding: 40 }}>
+      <div style={{ fontSize: 40 }}>🎯</div>
+      <div style={{ fontSize: 17, color: 'var(--dim)', fontWeight: 600 }}>No hay nada en prioridad</div>
+      <div style={{ fontSize: 14, maxWidth: 380, lineHeight: 1.5 }}>Marcá hasta {MAX_PRIORIDAD} tareas con la <span style={{ color: 'var(--accent-soft, #C8870C)' }}>★</span> para tener adelante lo poco que importa ahora.</div>
+    </div>
+  );
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
+      <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, textAlign: 'center' }}>🎯 En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
+        {tasks.slice().sort((a, b) => a.progress - b.progress).map((t) => {
+          const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
+          const clDone = t.checklist.filter((c) => c.done).length;
+          const open = expand.has(t.id);
+          return (
+            <div key={t.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', boxShadow: '0 1px 2px rgba(18,21,27,.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+                <span style={{ flex: 1 }} /><StarPrioridad on onClick={(e) => { e.stopPropagation(); onToggle(t.id); }} size={18} />
+              </div>
+              <div onClick={() => onOpen(t.id)} style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 12 : 14, cursor: 'pointer' }}>{t.title}</div>
+              {t.detalle && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.detalle}</div>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
+                <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
+                {t.checklist.length > 0 && <button onClick={() => toggleExp(t.id)} style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{open ? '▾' : '▸'} checklist {clDone}/{t.checklist.length}</button>}
+              </div>
+              {open && t.checklist.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                  {t.checklist.map((c) => (
+                    <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '3px 0' }}>
+                      <button onClick={() => board.setChecklist(t.id, t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`)} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
+                      <span style={{ fontSize: 13.5, color: c.done ? 'var(--faint)' : 'var(--ink)', textDecoration: c.done ? 'line-through' : 'none' }}>{c.text}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── filtro por etiqueta ─────────────────────────────────────────────────────────
+function FilterMenu({ labels, fLabels, setFLabels }: { labels: Label[]; fLabels: Set<string>; setFLabels: (s: Set<string>) => void }) {
+  const [open, setOpen] = useState(false);
+  const n = fLabels.size;
+  const toggle = (id: string) => { const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
+  return (
+    <span style={{ position: 'relative' }}>
+      <button onClick={() => setOpen((o) => !o)} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
+        <FunnelIcon color="var(--primary)" />Filtrar
+        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels(new Set()); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
+      </button>
+      {open && <>
+        <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 234, maxHeight: 380, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
+          {labels.length === 0 ? <div style={{ fontSize: 12.5, color: 'var(--faint)', padding: '6px 9px' }}>Sin etiquetas</div> : labels.map((l) => (
+            <button key={l.id} onClick={() => toggle(l.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}>
+              <span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${fLabels.has(l.id) ? 'var(--primary)' : 'var(--border-strong)'}`, background: fLabels.has(l.id) ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{fLabels.has(l.id) ? '✓' : ''}</span>
+              <span>{l.emoji} {l.name}</span>
+            </button>
+          ))}
+        </div>
+      </>}
+    </span>
+  );
+}
+
+// ── change history (avatar + nombre + deshacer por entrada) ─────────────────────
+function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (msg: string, onOk: () => void) => void }) {
+  const [nowMs, setNowMs] = useState(0);
+  /* eslint-disable-next-line react-hooks/set-state-in-effect */
+  useEffect(() => { setNowMs(Date.now()); }, []);
+  const { nombre, avatarUrl } = board.user;
+  if (t.historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía. Los cambios van a aparecer acá.</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {t.historial.map((h) => (
+        <div key={h.ts} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {h.text}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+          </div>
+          {h.undo && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── modal de detalle ────────────────────────────────────────────────────────────
+function TaskModal({ t, board, onSetPriority, onToggle, ask, onClose }: {
+  t: BoardTask; board: Board; onSetPriority: (id: string, p: Prio) => void; onToggle: (id: string) => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
+}) {
+  const [newItem, setNewItem] = useState('');
+  const [mako, setMako] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(t.title);
+  const [detalleDraft, setDetalleDraft] = useState(t.detalle);
+  const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
+  const disponibles = board.labels.filter((l) => !t.labels.includes(l.id));
+  const cl = t.checklist; const clDone = cl.filter((c) => c.done).length;
+  const setCl = (next: Check[], log?: string) => board.setChecklist(t.id, next, log);
+  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600 }}>#{t.num}</span>
+          {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+          <span title={t.origen === 'ia' ? 'Creada por MaKo' : 'Creada por vos'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--faint)' }}><OrigenIcon origen={t.origen} size={13} />{t.origen === 'ia' ? 'MaKo' : ''}</span>
+          <span style={{ flex: 1 }} /><button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
+        </div>
+        <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
+            <textarea value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} onBlur={() => board.setTitle(t.id, titleDraft, t.title)} rows={2} style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16 }} />
+            <label style={rowLabel}>Detalle · doc</label>
+            <textarea value={detalleDraft} onChange={(e) => setDetalleDraft(e.target.value)} onBlur={() => board.setDetalle(t.id, detalleDraft, t.detalle)} placeholder="El doc de esta tarea…" style={{ width: '100%', minHeight: 130, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '12px 14px', fontFamily: SANS, marginBottom: 20 }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <label style={{ ...rowLabel, marginBottom: 0 }}>Checklist {cl.length > 0 && `· ${clDone}/${cl.length}`}</label>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => setMako(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>✦ MaKo te ayuda</button>
+            </div>
+            {cl.length > 0 && <span style={{ display: 'block', marginBottom: 10 }}><MiniBar v={cl.length ? Math.round((clDone / cl.length) * 100) : 0} /></span>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+              {cl.map((c) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 2px' }}>
+                  <button onClick={() => setCl(cl.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`)} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
+                  <input value={c.text} onChange={(e) => setCl(cl.map((x) => (x.id === c.id ? { ...x, text: e.target.value } : x)))} style={{ flex: 1, border: 'none', background: 'transparent', color: c.done ? 'var(--faint)' : 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS, textDecoration: c.done ? 'line-through' : 'none' }} />
+                  <button onClick={() => setCl(cl.filter((x) => x.id !== c.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              ))}
+            </div>
+            <input value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newItem.trim()) { setCl([...cl, { id: uid(), text: newItem.trim(), done: false }], `Agregó "${newItem.trim().slice(0, 30)}" al checklist`); setNewItem(''); } }} placeholder="+ ítem de checklist (Enter)" style={{ width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--ink)', fontSize: 13, outline: 'none', marginBottom: 24 }} />
+
+            <label style={rowLabel}>Change history</label>
+            <ChangeHistory t={t} board={board} ask={ask} />
+          </div>
+          <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div><label style={rowLabel}>Prioridad</label><select value={t.priority} onChange={(e) => onSetPriority(t.id, e.target.value as Prio)} style={{ ...selStyle, color: PCOLOR[t.priority], fontWeight: 600 }}>{PRIOS.map((x) => <option key={x} value={x}>{PLABEL[x]}</option>)}</select></div>
+            <div><label style={rowLabel}>Avance · {t.progress}%</label><input type="range" min={0} max={100} step={5} value={t.progress} onChange={(e) => board.setProgress(t.id, Number(e.target.value), t.progress)} style={{ width: '100%', accentColor: 'var(--primary)' }} /></div>
+            <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
+            <div>
+              <label style={rowLabel}>{board.repo.labelPlural}</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: chips.length ? 8 : 0 }}>
+                {chips.map((l) => (
+                  <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '3px 4px 3px 8px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color }}>
+                    {l.emoji} {l.name}
+                    <button onClick={() => board.setTaskLabels(t.id, board.repo.labelMode === 'single' ? [] : t.labels.filter((x) => x !== l.id), `Quitó ${l.name}`)} style={{ border: 'none', background: 'transparent', color: 'inherit', opacity: 0.6, fontSize: 13, lineHeight: 1, cursor: 'pointer', padding: 0 }}>×</button>
+                  </span>
+                ))}
+              </div>
+              {disponibles.length > 0 && <select value="" onChange={(e) => { if (e.target.value) board.setTaskLabels(t.id, board.repo.labelMode === 'single' ? [e.target.value] : [...t.labels, e.target.value], `Agregó ${board.labelById(e.target.value)?.name ?? ''}`); }} style={selStyle}><option value="">＋ {board.repo.labelSingular.toLowerCase()}</option>{disponibles.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}</select>}
+            </div>
+            <button onClick={() => onToggle(t.id)} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: t.enPrioridad ? 'var(--primary-bg)' : 'var(--surface)', color: t.enPrioridad ? 'var(--primary)' : 'var(--dim)', fontWeight: 600 }}>{t.enPrioridad ? '★ En prioridad' : '☆ Poner en prioridad'}</button>
+            <span style={{ flex: 1 }} />
+            <button onClick={() => ask('¿Eliminar esta tarea?', () => { board.remove(t.id); onClose(); })} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
+          </div>
+        </div>
+      </div>
+      {mako && <MakoChecklistModal title={t.title} detalle={t.detalle} onApply={(txts) => setCl([...cl, ...txts.map((x) => ({ id: uid(), text: x, done: false }))], `MaKo agregó ${txts.length} ítem${txts.length === 1 ? '' : 's'}`)} onClose={() => setMako(false)} />}
+    </div>
+  );
+}
+
+// ── editor de proyectos / categorías (con emoji picker) ─────────────────────────
+function ProjectsManager({ board, ask, onClose }: { board: Board; ask: (msg: string, onOk: () => void) => void; onClose: () => void }) {
+  const { labels, repo } = board;
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px', fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, maxHeight: '78vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{repo.labelPlural}</h2><span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
+        </div>
+        <div style={{ padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {labels.map((l) => (
+            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 11px' }}>
+              <EmojiPickerMini value={l.emoji} onPick={(em) => board.patchLabel(l.id, { emoji: em })} />
+              <input value={l.name} onChange={(e) => board.patchLabel(l.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, padding: '6px 9px', outline: 'none', fontFamily: SANS }} />
+              <span style={{ display: 'flex', gap: 3 }}>{SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(l.id, { color: s })} title={s} style={{ width: 16, height: 16, borderRadius: 5, background: s, border: l.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}</span>
+              <button onClick={() => ask(`¿Borrar "${l.name}"?`, () => board.deleteLabel(l.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+          <button onClick={() => board.createLabel({ id: uid(), emoji: '🏷', name: `Nuevo ${repo.labelSingular.toLowerCase()}`, color: SWATCHES[1] })} style={{ ...ghostBtn, textAlign: 'center' }}>+ {repo.labelSingular}</button>
+        </div>
+      </div>
+    </div>
+  );
+}

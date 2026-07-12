@@ -173,15 +173,15 @@ export const demoRetros: Retro[] = [
 
 const tarea = (p: Partial<Tarea>): Tarea => ({
   id: 0, titulo: '', detalle: null, estado: 'por_hacer', prioridad: 'media', progreso: 0,
-  deadline: null, categorias: [], checklist: [], historial: [], origen: 'manual',
+  deadline: null, categorias: [], checklist: [], historial: [], en_prioridad: false, origen: 'manual',
   experimento_id: null, retro_id: null, orden: 0, hecho_at: null,
   created_at: '2026-06-20T12:00:00Z', updated_at: '2026-06-20T12:00:00Z', ...p,
 });
 
 export const demoCategorias: Categoria[] = [
-  { id: 1, nombre: 'Marketing', color: '#3b82f6', created_at: '2026-06-01T12:00:00Z' },
-  { id: 2, nombre: 'Producto', color: '#46a758', created_at: '2026-06-01T12:00:00Z' },
-  { id: 3, nombre: 'Ventas', color: '#f0a818', created_at: '2026-06-01T12:00:00Z' },
+  { id: 1, nombre: 'Marketing', color: '#3b82f6', emoji: '📈', created_at: '2026-06-01T12:00:00Z' },
+  { id: 2, nombre: 'Producto', color: '#46a758', emoji: '🧱', created_at: '2026-06-01T12:00:00Z' },
+  { id: 3, nombre: 'Ventas', color: '#f0a818', emoji: '🤝', created_at: '2026-06-01T12:00:00Z' },
 ];
 
 export const demoTareas: Tarea[] = [

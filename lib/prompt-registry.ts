@@ -63,6 +63,10 @@ import {
 } from './ad-copy';
 import { NUTRI_VOZ_SYSTEM_TEMPLATE, NUTRI_VOZ_USER_TEMPLATE, NUTRI_GEN_SYSTEM_TEMPLATE, NUTRI_GEN_USER_TEMPLATE } from './nutricion-generator';
 import { NUTRI_PLANTILLA_SYSTEM_TEMPLATE, NUTRI_PLANTILLA_USER_TEMPLATE } from './nutricion-plantillas';
+import {
+  CHECKLIST_ASK_SYSTEM_TEMPLATE, CHECKLIST_ASK_USER_TEMPLATE,
+  CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
+} from './checklist-coach';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -517,6 +521,41 @@ export const REGISTRY: Group[] = [
         variables: [v('setActual', 'las variantes actuales en JSON'), v('instruccion', 'el cambio que pide el usuario'), v('contexto', 'brief del negocio')], scope: 'full', sensitive: false,
         default: AD_COPY_ADJUST_USER_TEMPLATE,
         context: 'Le pasa a MaKo las variantes actuales y el cambio pedido. Mantené los slots {{setActual}}/{{instruccion}}/{{contexto}} y el pedido de devolver el JSON completo.',
+      },
+    ],
+  },
+  {
+    group: 'Coach de checklist de tareas (MaKo)',
+    icon: '✅',
+    blurb: 'MaKo hace preguntas para entender la tarea y luego propone los ítems de la checklist en el tablero /todo.',
+    entries: [
+      {
+        key: 'checklist.ask.system', source: 'override',
+        label: 'Preguntas de encuadre (system)', kind: 'system', dynamic: false,
+        variables: [], scope: 'static-only', sensitive: false,
+        default: CHECKLIST_ASK_SYSTEM_TEMPLATE,
+        context: 'Pone a MaKo a hacer 2-4 preguntas para entender la tarea antes de proponer ítems. No cambia el esquema del JSON del paso 2.',
+      },
+      {
+        key: 'checklist.ask.user', source: 'override',
+        label: 'Datos de la tarea (user)', kind: 'user', dynamic: true,
+        variables: [v('tarea', 'título/descripción de la tarea'), v('contexto', 'lo que el usuario ya contestó')], scope: 'full', sensitive: false,
+        default: CHECKLIST_ASK_USER_TEMPLATE,
+        context: 'Le pasa la tarea y las respuestas previas. No borres los slots {{tarea}}/{{contexto}}.',
+      },
+      {
+        key: 'checklist.propose.system', source: 'override',
+        label: 'Propuesta de ítems (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: CHECKLIST_PROPOSE_SYSTEM_TEMPLATE,
+        context: 'MaKo devuelve los ítems propuestos como JSON. No borres el slot {{jsonShape}} ni cambies el esquema.',
+      },
+      {
+        key: 'checklist.propose.user', source: 'override',
+        label: 'Respuestas + tarea (user)', kind: 'user', dynamic: true,
+        variables: [v('tarea', 'la tarea'), v('respuestas', 'las respuestas del usuario a las preguntas')], scope: 'full', sensitive: false,
+        default: CHECKLIST_PROPOSE_USER_TEMPLATE,
+        context: 'Le pasa la tarea y las respuestas. No borres los slots {{tarea}}/{{respuestas}}.',
       },
     ],
   },

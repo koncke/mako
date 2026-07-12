@@ -10,6 +10,7 @@ import { guardOnboarding } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { OWNER_WS } from '@/lib/auth-session';
+import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 import { PlanBoard } from './PlanBoard';
 
@@ -19,11 +20,15 @@ export const revalidate = 0;
 const MONO = "'Geist Mono', monospace";
 
 export default async function TodoPage() {
+  // Nombre + foto del usuario logueado (para el change history del board).
+  let user = { nombre: '', avatarUrl: '' };
+  try { const p = await getPerfil(); user = { nombre: p.nombre, avatarUrl: p.avatarUrl }; } catch { /* fallback vacío */ }
+
   // Super-admin sin impersonar (no tiene workspace de cliente activo) → su plan.
   const sesion = await getUsuarioActual();
   if (sesion?.rol === 'admin') {
     const ws = await getWorkspaceActual();
-    if (ws == null || ws === OWNER_WS) return <PlanBoard />;
+    if (ws == null || ws === OWNER_WS) return <PlanBoard user={user} />;
   }
 
   // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
@@ -49,7 +54,7 @@ export default async function TodoPage() {
           To-do · tablero de ejecución
         </div>
       </header>
-      <TodoBoard tareas={tareas} categorias={categorias} demo={demo} />
+      <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} />
     </main>
   );
 }
