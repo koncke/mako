@@ -96,7 +96,7 @@ export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngra
         </div>
       </WizardShell>
 
-      {mako && <MakoChecklistModal title={task.title} detalle={task.detalle} onApply={(txts) => setItems((c) => [...c, ...txts.map((t) => ({ id: uid(), text: t, done: false }))])} onClose={() => setMako(false)} />}
+      {mako && <MakoChecklistModal title={task.title} detalle={task.detalle} onApply={(r) => setItems((c) => [...c, ...r.items.map((t) => ({ id: uid(), text: t, done: false }))])} onClose={() => setMako(false)} />}
     </>
   );
 }

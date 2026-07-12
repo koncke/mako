@@ -498,7 +498,11 @@ function TaskModal({ t, board, topProjectId, onToggle, onDebate, ask, onClose }:
           </div>
         </div>
       </div>
-      {mako && <MakoChecklistModal title={t.title} detalle={t.detalle} yaOptimizada={optimizada} onApply={(txts) => setCl([...cl, ...txts.map((x) => ({ id: uid(), text: x, done: false }))], `MaKo agregó ${txts.length} ítem${txts.length === 1 ? '' : 's'}`)} onClose={() => setMako(false)} />}
+      {mako && <MakoChecklistModal title={t.title} detalle={t.detalle} yaOptimizada={optimizada} onApply={(r) => {
+        if (r.titulo) board.setTitle(t.id, r.titulo, t.title);
+        if (r.detalle) board.setDetalle(t.id, r.detalle, t.detalle);
+        if (r.items.length) setCl([...cl, ...r.items.map((x) => ({ id: uid(), text: x, done: false }))], `MaKo optimizó la tarea (+${r.items.length} ítem${r.items.length === 1 ? '' : 's'})`);
+      }} onClose={() => setMako(false)} />}
     </div>
   );
 }
@@ -506,10 +510,21 @@ function TaskModal({ t, board, topProjectId, onToggle, onDebate, ask, onClose }:
 // ── editor de proyectos / categorías (con emoji picker) ─────────────────────────
 function ProjectsManager({ board, ask, onClose }: { board: Board; ask: (msg: string, onOk: () => void) => void; onClose: () => void }) {
   const { labels, repo } = board;
+  const [desc, setDesc] = useState('');
+  const [makoLoading, setMakoLoading] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+  const crearConMako = async () => {
+    const d = desc.trim(); if (!d || makoLoading) return;
+    setMakoLoading(true);
+    try {
+      const j = await fetch('/api/checklist-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'proyecto', descripcion: d }) }).then((r) => r.json());
+      if (j.ok && j.nombre) board.createLabel({ id: uid(), emoji: j.emoji || '🏷', name: j.nombre, color: SWATCHES[labels.length % SWATCHES.length], score: 3 });
+    } catch { /* no-op */ }
+    setDesc(''); setMakoLoading(false);
+  };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, maxHeight: '78vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -527,7 +542,16 @@ function ProjectsManager({ board, ask, onClose }: { board: Board; ask: (msg: str
               <button onClick={() => ask(`¿Borrar "${l.name}"?`, () => board.deleteLabel(l.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
             </div>
           ))}
-          <button onClick={() => board.createLabel({ id: uid(), emoji: '🏷', name: `Nuevo ${repo.labelSingular.toLowerCase()}`, color: SWATCHES[1], score: 3 })} style={{ ...ghostBtn, textAlign: 'center' }}>+ {repo.labelSingular}</button>
+          <button onClick={() => board.createLabel({ id: uid(), emoji: '🏷', name: `Nuevo ${repo.labelSingular.toLowerCase()}`, color: SWATCHES[1], score: 3 })} style={{ ...ghostBtn, textAlign: 'center' }}>+ {repo.labelSingular} en blanco</button>
+          {/* MaKo te ayuda a crear el proyecto (nombre + emoji) */}
+          <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
+            <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', display: 'block', marginBottom: 6 }}>✦ MaKo te ayuda</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') crearConMako(); }} placeholder={`Describí el ${repo.labelSingular.toLowerCase()}… (MaKo le pone nombre + emoji)`}
+                style={{ flex: 1, minWidth: 0, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, padding: '8px 11px', outline: 'none', fontFamily: SANS }} />
+              <button onClick={crearConMako} disabled={!desc.trim() || makoLoading} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: !desc.trim() || makoLoading ? 'default' : 'pointer', opacity: !desc.trim() || makoLoading ? 0.5 : 1, whiteSpace: 'nowrap' }}>{makoLoading ? '…' : '✦ Crear'}</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -66,6 +66,7 @@ import { NUTRI_PLANTILLA_SYSTEM_TEMPLATE, NUTRI_PLANTILLA_USER_TEMPLATE } from '
 import {
   CHECKLIST_ASK_SYSTEM_TEMPLATE, CHECKLIST_ASK_USER_TEMPLATE,
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
+  PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE } from './mako-guardian';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
@@ -546,10 +547,10 @@ export const REGISTRY: Group[] = [
       },
       {
         key: 'checklist.propose.system', source: 'override',
-        label: 'Propuesta de ítems (system)', kind: 'system', dynamic: true,
+        label: 'Optimizar tarea: título+detalle+checklist (system)', kind: 'system', dynamic: true,
         variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
         default: CHECKLIST_PROPOSE_SYSTEM_TEMPLATE,
-        context: 'MaKo devuelve los ítems propuestos como JSON. No borres el slot {{jsonShape}} ni cambies el esquema.',
+        context: 'MaKo reescribe título y detalle y propone la checklist, todo como JSON. No borres el slot {{jsonShape}} ni cambies el esquema.',
       },
       {
         key: 'checklist.propose.user', source: 'override',
@@ -557,6 +558,20 @@ export const REGISTRY: Group[] = [
         variables: [v('tarea', 'la tarea'), v('respuestas', 'las respuestas del usuario a las preguntas')], scope: 'full', sensitive: false,
         default: CHECKLIST_PROPOSE_USER_TEMPLATE,
         context: 'Le pasa la tarea y las respuestas. No borres los slots {{tarea}}/{{respuestas}}.',
+      },
+      {
+        key: 'proyecto.sugerir.system', source: 'override',
+        label: 'Sugerir proyecto: nombre+emoji (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: PROYECTO_SYSTEM_TEMPLATE,
+        context: 'MaKo propone nombre y emoji de un proyecto a partir de una descripción. No borres el slot {{jsonShape}}.',
+      },
+      {
+        key: 'proyecto.sugerir.user', source: 'override',
+        label: 'Descripción del proyecto (user)', kind: 'user', dynamic: true,
+        variables: [v('descripcion', 'lo que el usuario describe del proyecto')], scope: 'full', sensitive: false,
+        default: PROYECTO_USER_TEMPLATE,
+        context: 'Le pasa la descripción del proyecto. No borres el slot {{descripcion}}.',
       },
     ],
   },
