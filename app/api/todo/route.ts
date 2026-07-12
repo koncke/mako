@@ -10,7 +10,7 @@ import type { NextRequest } from 'next/server';
 import {
   listTareas, crearTarea, crearTareasDesde, moverTarea, editarTarea, borrarTarea,
   listCategorias, crearCategoria, borrarCategoria,
-  type EstadoTarea, type Prioridad, type OrigenTarea,
+  type EstadoTarea, type Prioridad, type OrigenTarea, type ChecklistItem, type HistEntry,
 } from '@/lib/todo';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +28,7 @@ export async function GET() {
 type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
   progreso?: number; deadline?: string | null; categorias?: number[];
+  checklist?: ChecklistItem[]; historial?: HistEntry[];
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
 };
 
@@ -57,7 +58,8 @@ export async function POST(req: NextRequest) {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
       const estado = String(body.estado) as EstadoTarea;
       const orden = body.orden != null ? Number(body.orden) : undefined;
-      return Response.json({ ok: true, tarea: await moverTarea(id, estado, orden) });
+      const historial = (body.historial as HistEntry[] | undefined);
+      return Response.json({ ok: true, tarea: await moverTarea(id, estado, orden, historial) });
     }
     if (action === 'editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, tarea: await editarTarea(id, {
         titulo: patch.titulo, detalle: patch.detalle, prioridad: patch.prioridad,
         progreso: patch.progreso, deadline: patch.deadline, categorias: patch.categorias,
+        checklist: patch.checklist, historial: patch.historial,
       }) });
     }
     if (action === 'borrar') {

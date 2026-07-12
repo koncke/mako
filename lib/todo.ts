@@ -13,6 +13,11 @@ import { getTenantDb } from './workspace';
 export type EstadoTarea = 'por_hacer' | 'en_curso' | 'hecho';
 export type Prioridad = 'alta' | 'media' | 'baja' | 'futuro';
 export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
+export type Actor = 'user' | 'ia';
+export type ChecklistItem = { id: string; text: string; done: boolean };
+export type HistEntry = { ts: number; actor: Actor; text: string };
+
+const origenActor = (o: OrigenTarea): Actor => (o === 'manual' ? 'user' : 'ia');
 
 export const COLUMNAS: Array<{ key: EstadoTarea; label: string }> = [
   { key: 'por_hacer', label: 'Por hacer' },
@@ -29,6 +34,8 @@ export type Tarea = {
   progreso: number;              // 0-100
   deadline: string | null;       // YYYY-MM-DD
   categorias: number[];          // ids de tarea_categorias
+  checklist: ChecklistItem[];    // ítems {id,text,done}
+  historial: HistEntry[];        // change history {ts,actor,text} — user|ia
   origen: OrigenTarea;
   experimento_id: number | null;
   retro_id: number | null;
@@ -47,8 +54,22 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   const cats = (r.categorias as unknown);
   t.categorias = Array.isArray(cats) ? cats.map(Number).filter((n) => Number.isFinite(n)) : [];
   t.progreso = clampPct((r.progreso as number) ?? 0);
+  t.checklist = checklistOk(r.checklist);
+  t.historial = histOk(r.historial);
   return t;
 };
+
+const checklistOk = (c: unknown): ChecklistItem[] =>
+  Array.isArray(c)
+    ? c.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+        .map((o) => ({ id: String(o.id ?? ''), text: String(o.text ?? ''), done: !!o.done }))
+        .filter((i) => i.id)
+    : [];
+const histOk = (h: unknown): HistEntry[] =>
+  Array.isArray(h)
+    ? h.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+        .map((o) => ({ ts: Number(o.ts) || 0, actor: o.actor === 'ia' ? 'ia' : 'user' as Actor, text: String(o.text ?? '') }))
+    : [];
 
 function clampPct(v: unknown): number {
   const n = Math.round(Number(v));
@@ -106,6 +127,7 @@ async function ordenTope(estado: EstadoTarea): Promise<number> {
 
 export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
   const estado = estadoOk(input.estado);
+  const origen = origenOk(input.origen);
   const fila = {
     titulo: (input.titulo || '').trim() || 'Tarea',
     detalle: input.detalle ?? null,
@@ -114,7 +136,9 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     progreso: input.progreso != null ? clampPct(input.progreso) : 0,
     deadline: dateOk(input.deadline),
     categorias: catsOk(input.categorias),
-    origen: origenOk(input.origen),
+    checklist: [] as ChecklistItem[],
+    historial: [{ ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
+    origen,
     experimento_id: input.experimento_id ?? null,
     retro_id: input.retro_id ?? null,
     orden: await ordenTope(estado),
@@ -144,6 +168,8 @@ export async function crearTareasDesde(
     progreso: 0,
     deadline: null,
     categorias: [] as number[],
+    checklist: [] as ChecklistItem[],
+    historial: [{ ts: Date.now(), actor: 'ia' as Actor, text: 'Creó la tarjeta' }] as HistEntry[],
     origen: origenOk(meta.origen),
     retro_id: meta.retro_id ?? null,
     experimento_id: meta.experimento_id ?? null,
@@ -158,7 +184,7 @@ export async function crearTareasDesde(
 }
 
 /** Mueve una tarea de columna y/o la reordena. Al pasar a 'hecho' completa el avance. */
-export async function moverTarea(id: number, estado: EstadoTarea, orden?: number): Promise<Tarea> {
+export async function moverTarea(id: number, estado: EstadoTarea, orden?: number, historial?: HistEntry[]): Promise<Tarea> {
   const est = estadoOk(estado);
   const patch: Record<string, unknown> = {
     estado: est,
@@ -167,6 +193,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
     updated_at: new Date().toISOString(),
   };
   if (est === 'hecho') patch.progreso = 100;
+  if (historial !== undefined) patch.historial = histOk(historial);
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(patch).eq('id', id).select(COLS).single();
   if (error) throw new Error(`moverTarea: ${error.message}`);
@@ -175,7 +202,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[] },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[] },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -186,6 +213,8 @@ export async function editarTarea(
   if (patch.progreso != null) upd.progreso = clampPct(patch.progreso);
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   if (patch.categorias !== undefined) upd.categorias = catsOk(patch.categorias);
+  if (patch.checklist !== undefined) upd.checklist = checklistOk(patch.checklist);
+  if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);
