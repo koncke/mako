@@ -13,6 +13,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode, type MouseEvent as RME } from 'react';
 import { useUndoToast, UndoToast } from '../_components/UndoToast';
+import { ConfirmModal } from '../_components/ConfirmModal';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -215,7 +216,7 @@ export function PlanBoard() {
 
       {openTask && <TaskModal t={openTask} projs={projs} projOf={projOf} patch={patch} ask={ask} remove={remove} onClose={() => setOpenId(null)} />}
       {projMgr && <ProjectsManager projs={projs} setProjs={setProjs} ask={ask} onClose={() => setProjMgr(false)} />}
-      {confirm && <Confirm msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
+      {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={undo} onClose={clear} />
     </main>
   );
@@ -464,21 +465,6 @@ function ProjectsManager({ projs, setProjs, ask, onClose }: { projs: Proj[]; set
             </div>
           ))}
           <button onClick={() => setProjs((ps) => [...ps, { id: uid(), emoji: '🏷', name: 'Nuevo proyecto', color: SWATCHES[1] }])} style={{ ...ghostBtn, textAlign: 'center' }}>+ Proyecto</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── pop-up de confirmación (reemplaza confirm() del navegador) ─────────────────
-function Confirm({ msg, onOk, onCancel }: { msg: string; onOk: () => void; onCancel: () => void }) {
-  return (
-    <div onClick={onCancel} style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(18,21,27,.4)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 380, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 24px 60px rgba(18,21,27,.28)', padding: '22px 24px' }}>
-        <div style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.5, marginBottom: 20 }}>{msg}</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button onClick={onCancel} style={{ ...ghostBtn }}>Cancelar</button>
-          <button onClick={onOk} style={{ padding: '8px 16px', borderRadius: 9, border: 'none', background: 'var(--bad)', color: '#fff', fontWeight: 600, fontSize: 13.5, cursor: 'pointer' }}>Eliminar</button>
         </div>
       </div>
     </div>

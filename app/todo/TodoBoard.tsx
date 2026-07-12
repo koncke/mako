@@ -14,6 +14,14 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Tarea, Categoria, EstadoTarea, Prioridad } from '@/lib/todo';
 import { Dropdown } from '@/app/components/Dropdown';
+import { ConfirmModal } from '@/app/_components/ConfirmModal';
+
+// Origen de la tarea: 'manual' = la creó el usuario; el resto (mako/retro/
+// experimento) = la creó MaKo. Se refleja con un ícono en la tarjeta.
+function OrigenIcon({ origen, size = 13 }: { origen: Tarea['origen']; size?: number }) {
+  if (origen !== 'manual') return <span title="Creada por MaKo" style={{ fontSize: size, color: 'var(--accent)', lineHeight: 1 }}>✦</span>;
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Creada por vos"><title>Creada por vos</title><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a6 6 0 0 1 12 0v1" /></svg>;
+}
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -75,6 +83,10 @@ export function TodoBoard({ tareas: tareasInit, categorias: catsInit, demo }: { 
   const [dragId, setDragId] = useState<number | null>(null);
   const [overCol, setOverCol] = useState<EstadoTarea | null>(null);
 
+  // Pop-up de confirmación propio (nunca window.confirm()).
+  const [confirmState, setConfirmState] = useState<{ msg: string; onOk: () => void } | null>(null);
+  const ask = (msg: string, onOk: () => void) => setConfirmState({ msg, onOk });
+
   // Genera ids negativos decrecientes para tareas creadas en demo (sin backend).
   const tempId = useRef(-1);
 
@@ -126,14 +138,15 @@ export function TodoBoard({ tareas: tareasInit, categorias: catsInit, demo }: { 
     if (j.ok && j.tarea) patchLocal(id, j.tarea);
   };
 
-  // ── Borrar ──
-  const borrar = async (id: number) => {
+  // ── Borrar (con pop-up de confirmación propio) ──
+  const borrar = (id: number) => {
     const t = tareas.find((x) => x.id === id);
     const label = t ? t.titulo.slice(0, 48) + (t.titulo.length > 48 ? '…' : '') : 'esta tarea';
-    if (!window.confirm(`¿Eliminar "${label}"?`)) return;
-    setTareas((prev) => prev.filter((x) => x.id !== id));
-    if (demo) return;
-    await api({ action: 'borrar', id });
+    ask(`¿Eliminar "${label}"?`, async () => {
+      setTareas((prev) => prev.filter((x) => x.id !== id));
+      if (demo) return;
+      await api({ action: 'borrar', id });
+    });
   };
 
   // ── Categorías ──
@@ -149,14 +162,17 @@ export function TodoBoard({ tareas: tareasInit, categorias: catsInit, demo }: { 
     if (j.ok && j.categoria) setCats((prev) => [...prev, j.categoria as Categoria]);
   };
 
-  const borrarCategoria = async (id: number) => {
-    const c = findCat(id);
-    if (c && !window.confirm(`¿Eliminar la categoría "${c.nombre}"? Las tareas con esta categoría quedarán sin categoría.`)) return;
+  const doBorrarCategoria = async (id: number) => {
     setCats((prev) => prev.filter((x) => x.id !== id));
     setTareas((prev) => prev.map((t) => (t.categorias.includes(id) ? { ...t, categorias: t.categorias.filter((x) => x !== id) } : t)));
     if (filtroCat === String(id)) setFiltroCat('all');
     if (demo) return;
     await api({ action: 'categoria-borrar', id });
+  };
+  const borrarCategoria = (id: number) => {
+    const c = findCat(id);
+    if (!c) { doBorrarCategoria(id); return; }
+    ask(`¿Eliminar la categoría "${c.nombre}"? Las tareas con esta categoría quedarán sin categoría.`, () => doBorrarCategoria(id));
   };
 
   // ── Filtro + orden (aplicado antes de repartir por columna) ──
@@ -317,6 +333,8 @@ export function TodoBoard({ tareas: tareasInit, categorias: catsInit, demo }: { 
           );
         })}
       </div>
+
+      {confirmState && <ConfirmModal msg={confirmState.msg} onOk={() => { confirmState.onOk(); setConfirmState(null); }} onCancel={() => setConfirmState(null)} />}
     </div>
   );
 }
@@ -443,16 +461,19 @@ function TarjetaTarea({
         cursor: 'grab',
       }}
     >
-      {/* top: prioridad + acciones */}
+      {/* top: prioridad + origen + acciones */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 9 }}>
-        <Dropdown
-          value={t.prioridad}
-          options={PRIOS.map((p) => ({ value: p, label: PRIO_LABEL[p], color: PRIO_COLOR[p] }))}
-          onChange={(v) => onEditar(t.id, { prioridad: v as Prioridad })}
-          width={112}
-          ariaLabel="Prioridad"
-          buttonStyle={{ padding: '5px 9px', fontSize: 12, borderRadius: 8 }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+          <Dropdown
+            value={t.prioridad}
+            options={PRIOS.map((p) => ({ value: p, label: PRIO_LABEL[p], color: PRIO_COLOR[p] }))}
+            onChange={(v) => onEditar(t.id, { prioridad: v as Prioridad })}
+            width={112}
+            ariaLabel="Prioridad"
+            buttonStyle={{ padding: '5px 9px', fontSize: 12, borderRadius: 8 }}
+          />
+          <OrigenIcon origen={t.origen} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 'none' }}>
           <button type="button" onClick={toggleDone} aria-pressed={done} aria-label={done ? 'Quitar 100%' : 'Marcar 100%'} title={done ? 'Quitar 100%' : 'Marcar hecho'}
             style={{ width: 24, height: 24, display: 'grid', placeItems: 'center', borderRadius: 8, cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, border: `1.5px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'var(--surface)', color: done ? '#fff' : 'var(--faint)' }}>
