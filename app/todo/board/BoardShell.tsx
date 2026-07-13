@@ -540,7 +540,8 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
             {/* solo el ÚLTIMO cambio se puede deshacer (1 en 1, tipo ctrl-z) */}
-            {i === 0 && h.undo && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer el último cambio" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
+            {/* #10: no se puede deshacer un cambio de MaKo / el perro — sería saltearse el sistema */}
+            {i === 0 && h.undo && h.actor !== 'ia' && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer el último cambio" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
           </div>
         );
       })}
@@ -587,6 +588,11 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
           {chips.map((l) => <LabelChip key={l.id} l={l} />)}
           <OrigenChip origen={t.origen} />
           <span style={{ flex: 1 }} />
+          {/* #10: deadline al lado de "MaKo te ayuda" */}
+          <label title="Deadline" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${t.deadline ? 'var(--border-strong)' : 'var(--border)'}`, background: 'var(--surface)', borderRadius: 8, padding: '4px 9px', cursor: 'pointer' }}>
+            <span style={{ fontSize: 12, color: t.deadline ? 'var(--dim)' : 'var(--faint)' }}>◷</span>
+            <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={{ border: 'none', outline: 'none', background: 'transparent', color: t.deadline ? 'var(--ink)' : 'var(--faint)', fontSize: 12.5, fontFamily: SANS, cursor: 'pointer', width: t.deadline ? 108 : 92 }} />
+          </label>
           <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
             {optimizada ? '✦ MaKo ✓ optimizada' : '✦ MaKo te ayuda'}
@@ -637,7 +643,6 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
               {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
               <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700, padding: '9px 10px' }}><GuardianIcon size={20} /> Cambiar prioridad</button>
             </div>
-            <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
