@@ -343,8 +343,15 @@ function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; t
   );
 }
 
-function LabelChip({ l }: { l: Label }) {
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>{l.emoji} {l.name}</span>;
+function LabelChip({ l, cap = 190 }: { l: Label; cap?: number }) {
+  return <span title={l.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none' }}><span style={{ flex: 'none' }}>{l.emoji}</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span></span>;
+}
+// Chips de proyecto con tope: muestra `max` (truncados) + un "+N" si hay más. Evita
+// que las tareas con varios proyectos rompan el layout o le coman protagonismo al título.
+function LabelChips({ chips, max = 2, cap = 190 }: { chips: Label[]; max?: number; cap?: number }) {
+  const shown = chips.slice(0, max);
+  const rest = chips.length - shown.length;
+  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} />)}{rest > 0 && <span title={chips.slice(max).map((l) => l.name).join(' · ')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '2px 6px', flex: 'none' }}>+{rest}</span>}</>;
 }
 function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
@@ -383,11 +390,12 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
     <div onClick={() => onOpen(t.id)}
       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-        {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+      {/* título primero (protagonista); los proyectos van abajo, compactos y topeados */}
+      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
+        <LabelChips chips={chips} max={1} cap={150} />
         <OrigenChip origen={t.origen} />
       </div>
-      <div style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
       <span style={{ flex: 1 }} />
       {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
@@ -481,7 +489,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', flexWrap: 'wrap' }}><LabelChips chips={chips} max={2} cap={200} /></div>
                   <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
                 </div>
                 <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 10 : 14 }}>{t.title}</div>
@@ -647,8 +655,9 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           {onBack && <button onClick={onBack} title="Volver al proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← Volver</button>}
-          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600 }}>#{t.num}</span>
-          {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+          <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600, flex: 'none' }}>#{t.num}</span>
+          {/* en el header, compacto (la lista completa está en el sidebar "Proyectos") */}
+          <LabelChips chips={chips} max={1} cap={230} />
           <OrigenChip origen={t.origen} />
           <span style={{ flex: 1 }} />
           <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
@@ -793,16 +802,23 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
-  const TOPE = 9; // #1: mostrar un tope y "ver más…" para no scrollear un chorro de proyectos
+  const TOPE = 9; // #1: total de celdas de arranque = el "+" (cuenta como 1) + 8 proyectos reales
+  const REALES = TOPE - 1;
   const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
   const shown = withProg.filter(({ prog }) => pasaEstado(prog.pct, projFilter));
-  const visibles = verTodos ? shown : shown.slice(0, TOPE);
+  const visibles = verTodos ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
   return (
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+          {/* #1: "Crear proyecto" PRIMERO y del mismo tamaño que el resto (cuenta como 1 celda) */}
+          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 128, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>
+            <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
+          </button>
           {visibles.map(({ l, prog }) => {
             const isTop = l.id === topProjectId;
             return (
@@ -823,15 +839,9 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter }: { boa
               </div>
             );
           })}
-          {/* #8: card translúcida "crear proyecto" al final, en vez del botón de arriba */}
-          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 128, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>
-            <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
-            <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
-          </button>
           {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '10px 0 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
         </div>
-        {shown.length > TOPE && (
+        {shown.length > REALES && (
           <button onClick={() => setVerTodos((v) => !v)}
             style={{ alignSelf: 'center', marginTop: -4, padding: '9px 20px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>

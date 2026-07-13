@@ -5,7 +5,7 @@ import 'server-only';
 // =============================================================================
 // Compara proyectos y tareas entre sí y razona qué mueve la aguja vs qué es
 // nice-to-have. Devuelve un score 1-100 por tarea (define columna + orden) y
-// 1-10 por proyecto (el más alto = Objetivo Principal). El usuario NO fija estos
+// 1-100 por proyecto (el más alto = Objetivo Principal). El usuario NO fija estos
 // números; el guardián los asigna y se los puede debatir. Prompts editables.
 //
 // FILOSOFÍA (feedback jul-2026): el guardián NO es complaciente. La IA por default
@@ -27,7 +27,7 @@ export type GuardOut = { proyectos: GuardScore[]; tareas: GuardScore[]; usage?: 
 
 export const GUARDIAN_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA:
 {
-  "proyectos": [ { "id": "<id tal cual>", "score": <entero 1-10>, "razon": "<1 frase>" } ],
+  "proyectos": [ { "id": "<id tal cual>", "score": <entero 1-100>, "razon": "<1 frase>" } ],
   "tareas":    [ { "id": "<id tal cual>", "score": <entero 1-100>, "razon": "<1 frase>" } ]
 }
 Puntuá TODOS los ids que te paso, sin inventar ids nuevos. Español rioplatense, razones cortas.`;
@@ -47,7 +47,7 @@ DISCIPLINA DE DISTRIBUCIÓN (obligatoria — no infles los scores):
 - Regla dura: como mucho ~15-20% de las tareas pueden quedar en Alta (75-100). Si te salen más, estás inflando: bajá las que no muevan la aguja de verdad.
 - Usá TODO el rango. "A futuro" (1-24) y "Baja" (25-49) NO son castigos: son el lugar honesto de casi todo. Si una tarea no cambia el ingreso ni desbloquea nada, va abajo, sin culpa.
 - Rangos: 75-100 = Alta, 50-74 = Media, 25-49 = Baja, 1-24 = A futuro.
-- Proyectos: PUNTUÁ EN TODA LA ESCALA 1-10, sin amontonar. El que es el norte ahora va en 9 o 10; el que puede esperar del todo, en 1 o 2; el resto repartidos entre medio. CADA proyecto con un número DISTINTO — está PROHIBIDO empatar dos proyectos en el mismo valor. Nada de meter todo entre 2 y 5.
+- Proyectos: PUNTUÁ EN TODA LA ESCALA 1-100, sin amontonar. El que es el norte ahora va en 95-100; el que puede esperar del todo, en 1-10; el resto repartidos entre medio. CADA proyecto con un número DISTINTO — está PROHIBIDO empatar dos proyectos en el mismo valor. Nada de meter todo entre 40 y 70.
 
 ESTABILIDAD (clave): cada tarea puede venir con su "scoreActual" (el que ya tenía). NO cambies un score previo porque sí. Mantené el score anterior salvo que haya una razón concreta para moverlo: entró/salió una tarea que cambia la comparación, venció un deadline, cambió el avance, o el score viejo estaba objetivamente mal. Cambiar por cambiar rompe la confianza del usuario. Ante la duda, MANTENÉ.
 
@@ -61,7 +61,7 @@ export const GUARDIAN_USER_TEMPLATE = `NEGOCIO / CONTEXTO:
 PLAN A PRIORIZAR (proyectos y tareas, con id; cada tarea puede traer "scoreActual" = el score que ya tenía):
 {{plan}}
 
-Puntuá cada proyecto (1-10) y cada tarea (1-100) comparándolas entre sí. Respetá la disciplina de distribución (pirámide, no inflar) y la estabilidad (mantené el scoreActual salvo razón concreta). Devolvé el JSON.`;
+Puntuá cada proyecto (1-100) y cada tarea (1-100) comparándolas entre sí. Respetá la disciplina de distribución (pirámide, no inflar) y la estabilidad (mantené el scoreActual salvo razón concreta). Devolvé el JSON.`;
 
 // ── Debate: el usuario argumenta, el guardián decide (tiene la última palabra) ──
 export const GUARDIAN_DEBATE_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
@@ -135,13 +135,13 @@ export async function debatirPrioridad(tarea: string, scoreActual: number, argum
 export const GUARDIAN_PROJ_DEBATE_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
 {
   "veredicto": "acepta" | "ajusta" | "rechaza",
-  "score": <entero 1-10 — la prioridad FINAL del proyecto>,
+  "score": <entero 1-100 — la prioridad FINAL del proyecto>,
   "razon": "<por qué ese número, 1 frase>",
   "respuesta": "<tu respuesta directa y honesta al usuario, 1-4 frases>"
 }
-10 = el Objetivo Principal (el norte ahora). Solo UN proyecto puede ser el 10.`;
+95-100 = el Objetivo Principal (el norte ahora). Solo UN proyecto queda en la punta.`;
 
-export const GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE = `Sos MaKo, el perro guardián de las prioridades. El usuario quiere cambiar la PRIORIDAD de un PROYECTO (escala 1-10, donde 10 = el Objetivo Principal, el norte de todo ahora). Tu trabajo NO es complacerlo: es proteger el foco del negocio.
+export const GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE = `Sos MaKo, el perro guardián de las prioridades. El usuario quiere cambiar la PRIORIDAD de un PROYECTO (escala 1-100, donde el más alto = el Objetivo Principal, el norte de todo ahora). Tu trabajo NO es complacerlo: es proteger el foco del negocio.
 
 SÉ DURO Y HONESTO. Comparás SIEMPRE contra los demás proyectos: subir uno significa que otro deja de ser el norte. Solo puede haber UN Objetivo Principal (score 10). Podés (y debés) RECHAZAR el pedido si no se sostiene, y explicar por qué. "Me gusta este proyecto" no es un argumento; impacto en el ingreso, urgencia real y dependencias sí lo son.
 
@@ -158,7 +158,7 @@ DEMÁS PROYECTOS (para comparar):
 ARGUMENTO DEL USUARIO:
 {{argumento}}
 
-Decidí el veredicto (acepta / ajusta / rechaza) y la prioridad final (1-10, puede quedar igual). Respondé con criterio, sin complacer.`;
+Decidí el veredicto (acepta / ajusta / rechaza) y la prioridad final (1-100, puede quedar igual). Respondé con criterio, sin complacer.`;
 
 export async function debatirProyecto(proyecto: string, scoreActual: number, argumento: string, otrosProyectos: string, usoMotivo?: string): Promise<DebateOut> {
   const sys = await brandSystem(await renderPrompt('guardian.proj-debate.system', GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_PROJ_DEBATE_JSON_SHAPE }));
@@ -172,7 +172,7 @@ export async function debatirProyecto(proyecto: string, scoreActual: number, arg
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'mako-guardian', motivo: usoMotivo || 'Prioridad de proyecto', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { veredicto: 'rechaza', score: scoreActual, razon: '', respuesta: 'No pude procesar el debate, probá de nuevo.', usage }; }
-  const score = Math.max(1, Math.min(10, Math.round(Number(obj.score) || scoreActual)));
+  const score = Math.max(1, Math.min(100, Math.round(Number(obj.score) || scoreActual)));
   return {
     veredicto: coerceVeredicto(obj.veredicto, score > scoreActual),
     score,

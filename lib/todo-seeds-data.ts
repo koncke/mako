@@ -17,28 +17,28 @@ export type SeedTarea = { cat: string; titulo: string; detalle: string; prio: Pr
 // ── Proyectos FINITOS de un negocio que vende con ads + funnel ────────────────
 // prioridad DISTINTA (sin empatar); la más alta = Objetivo Principal (arrancar).
 export const SEED_CATEGORIAS: SeedProy[] = [
-  { key: 'setup', nombre: 'Setup inicial de MaKo', emoji: '🚀', color: '#D0504A', prioridad: 9, deadlineDias: 14,
+  { key: 'setup', nombre: 'Setup inicial de MaKo', emoji: '🚀', color: '#D0504A', prioridad: 95, deadlineDias: 14,
     scoreRazon: 'Es lo primero: hasta que MaKo no está enchufado a tus fuentes, no ve tu negocio.',
     detalle: 'Dejar MaKo conectado a todas tus fuentes: Meta Ads, Calendly, el CRM/ficha del lead, WhatsApp y Fathom. Es el arranque — sin esto MaKo no ve tu negocio. Se termina cuando cada integración está conectada y probada.' },
-  { key: 'ganador', nombre: 'Encontrar el primer anuncio ganador', emoji: '🎯', color: '#2F6FED', prioridad: 8, deadlineDias: 30,
+  { key: 'ganador', nombre: 'Encontrar el primer anuncio ganador', emoji: '🎯', color: '#2F6FED', prioridad: 85, deadlineDias: 30,
     scoreRazon: 'Es el motor: sin un creativo que baje el CPL de forma estable, escalar es tirar plata.',
     detalle: 'Testear ángulos y creativos hasta dar con el anuncio que baja el costo por lead de forma consistente. Es el motor de todo. Se termina cuando hay un creativo con CPL estable por debajo de tu objetivo.' },
-  { key: 'clientes', nombre: 'Cerrar los primeros 10 clientes', emoji: '🤝', color: '#0E9B8E', prioridad: 7, deadlineDias: 75,
+  { key: 'clientes', nombre: 'Cerrar los primeros 10 clientes', emoji: '🤝', color: '#0E9B8E', prioridad: 72, deadlineDias: 75,
     scoreRazon: 'La meta comercial de arranque: valida que el sistema entero convierte en plata.',
     detalle: 'Llevar el sistema hasta los primeros 10 cierres, afinando oferta, guiones y manejo de objeciones. Se termina cuando hay 10 clientes cerrados y un proceso de venta repetible.' },
-  { key: 'funnel', nombre: 'Validar el funnel completo (VSL → agenda → cierre)', emoji: '🔁', color: '#7C5CFB', prioridad: 6, deadlineDias: 45,
+  { key: 'funnel', nombre: 'Validar el funnel completo (VSL → agenda → cierre)', emoji: '🔁', color: '#7C5CFB', prioridad: 62, deadlineDias: 45,
     scoreRazon: 'Es donde el tráfico se transforma en plata; una fuga acá arruina toda la pauta.',
     detalle: 'Que el camino del lead convierta punta a punta: mira el VSL, agenda, se presenta (R1), avanza (R2) y cierra. Se termina cuando cada paso tiene su número medido y sin fugas grandes.' },
-  { key: 'seguimiento', nombre: 'Montar el seguimiento por WhatsApp', emoji: '💬', color: '#C8870C', prioridad: 5, deadlineDias: 35,
+  { key: 'seguimiento', nombre: 'Montar el seguimiento por WhatsApp', emoji: '💬', color: '#C8870C', prioridad: 50, deadlineDias: 35,
     scoreRazon: 'Recupera plata que hoy se pierde: recordatorios de junta y reactivación de no-shows.',
     detalle: 'Los mensajes que mantienen vivo al lead: recordatorios antes de la junta y reactivación de los que no se presentaron o se enfriaron. Se termina cuando las dos secuencias corren solas y se mide su impacto.' },
-  { key: 'escalar', nombre: 'Escalar la campaña ganadora', emoji: '📈', color: '#D6489B', prioridad: 4, deadlineDias: 60,
+  { key: 'escalar', nombre: 'Escalar la campaña ganadora', emoji: '📈', color: '#D6489B', prioridad: 38, deadlineDias: 60,
     scoreRazon: 'Va después del ganador: escalar sin ganador rompe el CPA y quema presupuesto.',
     detalle: 'Una vez que hay un ganador, subirlo sin romper el CPA: decidir si el escalado es vertical (más presupuesto) u horizontal (más públicos/ubicaciones). Se termina cuando el ganador corre a mayor gasto manteniendo el costo por cierre.' },
-  { key: 'contenido', nombre: 'Construir el banco de creativos y contenido', emoji: '✍️', color: '#1E9E57', prioridad: 3, deadlineDias: 40,
+  { key: 'contenido', nombre: 'Construir el banco de creativos y contenido', emoji: '✍️', color: '#1E9E57', prioridad: 26, deadlineDias: 40,
     scoreRazon: 'Munición para no quemar la audiencia; importa, pero después de tener un ganador.',
     detalle: 'La materia prima para no quemar la audiencia: VSL, ángulos nuevos de ads y testimonios. Se termina cuando hay un pipeline que produce creativos nuevos cada mes.' },
-  { key: 'tablero', nombre: 'Montar el tablero de números (fuente de verdad)', emoji: '⚙️', color: '#98A0AC', prioridad: 2, deadlineDias: 21,
+  { key: 'tablero', nombre: 'Montar el tablero de números (fuente de verdad)', emoji: '⚙️', color: '#98A0AC', prioridad: 14, deadlineDias: 21,
     scoreRazon: 'Para decidir con datos, no con sensaciones; transversal y de menor urgencia.',
     detalle: 'Un solo lugar con las métricas norte del negocio: gasto, CPL, CPA, cierres, ROAS. Se termina cuando el tablero se actualiza solo y el equipo lo mira semana a semana.' },
 ];
@@ -116,6 +116,10 @@ export function buildCatRows(now: number): { filas: CatRow[]; deadlinePorKey: Ma
 /** Filas de tareas (sin workspace_id), linkeadas por id de proyecto. */
 export function buildTarRows(now: number, esMauricio: boolean, idPorKey: Map<string, number>, deadlinePorKey: Map<string, string>): TarRow[] {
   const n = SEED_TAREAS.length;
+  // score VARIADO (no todas el mismo número): parte del band representativo y le suma
+  // un pequeño jitter por índice, sin cambiar la columna. Con 34+ proyectos el guardián
+  // reparte fino, pero de arranque ya no se repite un único valor por banda.
+  const jitter = (i: number) => ((i * 7) % 9) - 4; // -4..+4, determinístico
   return SEED_TAREAS.map((t, i) => {
     const catId = idPorKey.get(t.cat);
     const hecho = !!(esMauricio && t.mDone);
@@ -126,7 +130,7 @@ export function buildTarRows(now: number, esMauricio: boolean, idPorKey: Map<str
     return {
       titulo: t.titulo, detalle: t.detalle, estado: estadoDe(progreso), prioridad: t.prio,
       progreso, deadline: deadlinePorKey.get(t.cat) ?? null, categorias: catId != null ? [catId] : [], checklist, historial: hist,
-      en_prioridad: false, score: SCORE_PRIO[t.prio], score_razon: null, origen: 'mako', experimento_id: null, retro_id: null,
+      en_prioridad: false, score: Math.max(1, Math.min(100, SCORE_PRIO[t.prio] + jitter(i))), score_razon: null, origen: 'mako', experimento_id: null, retro_id: null,
       orden: i - n, hecho_at: hecho ? new Date(now).toISOString() : null, updated_at: new Date(now).toISOString(),
     };
   });

@@ -270,7 +270,7 @@ export async function borrarTarea(id: number): Promise<void> {
 const catRow = (r: Record<string, unknown>): Categoria => {
   const c = r as unknown as Categoria;
   c.emoji = typeof r.emoji === 'string' && r.emoji ? (r.emoji as string) : '🏷';
-  c.prioridad = Math.max(1, Math.min(10, Math.round(Number(r.prioridad) || 5)));
+  c.prioridad = Math.max(1, Math.min(100, Math.round(Number(r.prioridad) || 50)));
   c.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
   c.deadline = dateOk(r.deadline);
   c.detalle = typeof r.detalle === 'string' ? (r.detalle as string) : '';
@@ -288,7 +288,7 @@ export async function listCategorias(): Promise<Categoria[]> {
 export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null): Promise<Categoria> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(10, Math.round(prioridad ?? 5))), score_razon: score_razon ?? null, deadline: dateOk(deadline), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(100, Math.round(prioridad ?? 50))), score_razon: score_razon ?? null, deadline: dateOk(deadline), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
@@ -299,7 +299,7 @@ export async function editarCategoria(id: number, patch: { nombre?: string; colo
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
   if (patch.emoji !== undefined) upd.emoji = (patch.emoji || '🏷').slice(0, 4);
-  if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(10, Math.round(patch.prioridad)));
+  if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(100, Math.round(patch.prioridad)));
   if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
   if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;

@@ -74,8 +74,8 @@ export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progr
 
 // ── Score 1-100 ⇄ columna (el guardián pone el score; la columna se DERIVA) ──
 export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));
-export const MAX_PROJ = 10; // prioridad del proyecto: 1-10 (para no empatar)
-export const clampProj = (v: number) => Math.max(1, Math.min(MAX_PROJ, Math.round(Number.isFinite(v) ? v : 5)));
+export const MAX_PROJ = 100; // prioridad del proyecto: 1-100 (igual que las tareas; con 34+ proyectos, 1-10 se quedaba corto y empataba)
+export const clampProj = (v: number) => Math.max(1, Math.min(MAX_PROJ, Math.round(Number.isFinite(v) ? v : 50)));
 
 // Curva las tareas a una PIRÁMIDE sana usando el RANKING del guardián (el modelo
 // tiende a inflar: mete casi todo en Alta/Media y casi nada en "A futuro"). Toma el
@@ -129,13 +129,12 @@ export const scoreFromPrio: Record<Prio, number> = { alta: 85, media: 62, baja: 
 // proyecto top). Ej: cuenta de Meta suspendida.
 export const EMERGENCY_SCORE = 90;
 
-// La columna que se MUESTRA respeta la restricción del guardián: ALTA (y las 3
-// prioridades) solo para tareas del PROYECTO TOP, sin proyecto, o emergencias.
-// Una tarea con score alto pero de otro proyecto se topea en Media.
-export function displayPrio(t: BoardTask, topProjectId: string | null): Prio {
-  const base = prioFromScore(t.score);
-  if (base !== 'alta') return base;
-  return puedeSerAlta(t, topProjectId) ? 'alta' : 'media';
+// La columna sale DIRECTO del score (pirámide real). Con 34+ proyectos finitos ya no
+// tiene sentido topear a Media todo lo que no sea del Objetivo Principal: la prioridad
+// se juzga entre TODAS las tareas. El foco en el norte vive en la vista Prioridades.
+// (El 2º arg queda por compatibilidad de call-sites; ya no restringe.)
+export function displayPrio(t: BoardTask, _topProjectId?: string | null): Prio {
+  return prioFromScore(t.score);
 }
 export const puedeSerAlta = (t: BoardTask, topProjectId: string | null): boolean =>
   (topProjectId != null && t.labels.includes(topProjectId)) || t.labels.length === 0 || t.score >= EMERGENCY_SCORE;

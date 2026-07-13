@@ -78,7 +78,7 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
   const enviar = async () => {
     setFase('puntuando'); setErr('');
     const proyecto = `${proj.emoji} ${proj.name}${proj.detalle ? `\n\n${proj.detalle}` : ''}`;
-    const j = await debate({ proyecto, scoreActual: proj.score, argumento: buildArgumento(), plan: otros.map((p) => `- ${p.emoji} ${p.name} (prioridad ${p.score}/10)`).join('\n') || '(no hay otros)' });
+    const j = await debate({ proyecto, scoreActual: proj.score, argumento: buildArgumento(), plan: otros.map((p) => `- ${p.emoji} ${p.name} (prioridad ${p.score}/100)`).join('\n') || '(no hay otros)' });
     if (j.usage) onUsage?.(j.usage);
     if (j.ok && typeof j.score === 'number') { setVer({ veredicto: String(j.veredicto ?? 'ajusta'), score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '' }); setFase('veredicto'); }
     else { setErr(j.error || 'MaKo no pudo responder ahora.'); setFase('form'); }
@@ -123,7 +123,7 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontWeight: 700, fontSize: 13, color: proj.color }}><ScoreIcon size={13} color={proj.color} />{proj.score}</span>
                   <span style={{ color: 'var(--faint)' }}>→</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontWeight: 700, fontSize: 17, color: proj.color }}><ScoreIcon size={16} color={proj.color} />{ver.score}/10</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontWeight: 700, fontSize: 17, color: proj.color }}><ScoreIcon size={16} color={proj.color} />{ver.score}/100</span>
                   {ver.score === proj.score && <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>(sin cambios)</span>}
                 </div>
                 <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55, textAlign: 'left', background: vMeta.bg, border: `1px solid ${vMeta.c}55`, borderRadius: 12, padding: '13px 15px' }}>{ver.respuesta}</div>
@@ -145,7 +145,7 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
       : sube ? (razon === 'ingresos' ? '¿En serio mueve más los ingresos que estos?' : '¿En serio es más el norte que estos?')
         : '¿En serio estos deberían pesar más?';
   const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿A cuánto la llevarías?', sube ? '¿Por qué la subís?' : newScore < proj.score ? '¿Por qué la bajás?' : 'Movela primero', pregunta3, '¿Por qué? Contame tu razón'];
-  const subs: (string | undefined)[] = [undefined, `Hoy está en ${proj.score}/10. 10 = el Objetivo Principal (solo uno).`, 'Elegí una razón, con criterio.', esPick ? 'Elegí uno o más. Yo lo cruzo con el resto.' : 'Son los proyectos con prioridad más cercana.', 'Con datos, no "me gusta". Yo comparo y decido.'];
+  const subs: (string | undefined)[] = [undefined, `Hoy está en ${proj.score}/100. El más alto es el Objetivo Principal.`, 'Elegí una razón, con criterio.', esPick ? 'Elegí uno o más. Yo lo cruzo con el resto.' : 'Son los proyectos con prioridad más cercana.', 'Con datos, no "me gusta". Yo comparo y decido.'];
   const puedeAvanzar = idx === 0 ? true : idx === 1 ? newScore !== proj.score : idx === 2 ? razon !== '' : idx === 3 ? (esPick ? elegidos.length > 0 : siNo === true) : porque.trim() !== '';
   const siLabel = sube ? (razon === 'ingresos' ? 'Sí, mueve más' : 'Sí, es más el norte') : 'Sí, está bien';
 
@@ -174,10 +174,10 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
       {idx === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ textAlign: 'center' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 34, fontWeight: 800, color: proj.color }}><ScoreIcon size={30} color={proj.color} />{newScore}<span style={{ fontSize: 20, color: 'var(--faint)' }}>/10</span></span>
-            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 2 }}>{newScore === proj.score ? 'sin cambios' : newScore > proj.score ? 'más arriba' : 'más abajo'}{newScore === 10 ? ' · sería el Objetivo Principal' : ''}</div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 34, fontWeight: 800, color: proj.color }}><ScoreIcon size={30} color={proj.color} />{newScore}<span style={{ fontSize: 20, color: 'var(--faint)' }}>/100</span></span>
+            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 2 }}>{newScore === proj.score ? 'sin cambios' : newScore > proj.score ? 'más arriba' : 'más abajo'}{newScore >= 96 ? ' · sería el Objetivo Principal' : ''}</div>
           </div>
-          <input type="range" min={1} max={10} step={1} value={newScore} onChange={(e) => setNewScore(Number(e.target.value))} style={{ width: '100%', accentColor: proj.color }} />
+          <input type="range" min={1} max={100} step={1} value={newScore} onChange={(e) => setNewScore(Number(e.target.value))} style={{ width: '100%', accentColor: proj.color }} />
         </div>
       )}
       {idx === 2 && <RadioList opciones={razones} value={razon} onChange={(k) => { setRazon(k as RazonKey); setSiNo(null); setElegidos([]); }} />}

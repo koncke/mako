@@ -26,7 +26,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
   const [idx, setIdx] = useState(0);
   const [desc, setDesc] = useState('');
   const [porque, setPorque] = useState('');
-  const [score, setScore] = useState(5);
+  const [score, setScore] = useState(50);
   const [fase, setFase] = useState<'form' | 'generando' | 'result'>('form');
   const [nombre, setNombre] = useState('');
   const [emoji, setEmoji] = useState('🏷');
@@ -35,7 +35,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw); setDesc(d.desc || ''); setPorque(d.porque || ''); setScore(d.score || 5); } } catch { /* no-op */ }
+    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw); setDesc(d.desc || ''); setPorque(d.porque || ''); setScore(d.score || 50); } } catch { /* no-op */ }
     setRestored(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -82,7 +82,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
     );
   }
 
-  const banda = score >= 8 ? '#D0504A' : score >= 5 ? '#C8870C' : '#1E9E57';
+  const banda = score >= 75 ? '#D0504A' : score >= 50 ? '#C8870C' : score >= 25 ? '#1E9E57' : '#98A0AC';
   const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿De qué se trata el proyecto?', '¿Qué prioridad le pondrías?', '¿Por qué importa? ¿Qué tareas viven acá?', '¿Mando esto a MaKo?'];
   const subs: (string | undefined)[] = [undefined, 'Contámelo en tus palabras.', 'Comparalo con los demás. 10 = el Objetivo Principal (solo uno).', 'Con esto MaKo le pone nombre, emoji y detalle. Podés saltearlo.', 'Revisá tus respuestas; MaKo genera con esto.'];
   const puedeAvanzar = idx === 1 ? desc.trim() !== '' : true;
@@ -105,10 +105,10 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
       {idx === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ textAlign: 'center' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 32, fontWeight: 800, color: banda }}><ScoreIcon size={28} color={banda} />{score}<span style={{ fontSize: 19, color: 'var(--faint)' }}>/10</span></span>
-            {score === 10 && <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>sería el Objetivo Principal</div>}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 32, fontWeight: 800, color: banda }}><ScoreIcon size={28} color={banda} />{score}<span style={{ fontSize: 19, color: 'var(--faint)' }}>/100</span></span>
+            {score >= 95 && <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>sería el Objetivo Principal</div>}
           </div>
-          <input type="range" min={1} max={10} step={1} value={score} onChange={(e) => setScore(Number(e.target.value))} style={{ width: '100%', accentColor: banda }} />
+          <input type="range" min={1} max={100} step={1} value={score} onChange={(e) => setScore(Number(e.target.value))} style={{ width: '100%', accentColor: banda }} />
           {ordenados.length > 0 && (
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'left' }}>
               <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Los que ya tenés</div>
@@ -134,7 +134,7 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
           ))}
           <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ fontSize: 11.5, color: 'var(--faint)', flex: 1 }}>Prioridad</div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 18, fontWeight: 800, color: banda }}><ScoreIcon size={17} color={banda} />{score}<span style={{ fontSize: 12, color: 'var(--faint)' }}>/10</span></span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 18, fontWeight: 800, color: banda }}><ScoreIcon size={17} color={banda} />{score}<span style={{ fontSize: 12, color: 'var(--faint)' }}>/100</span></span>
           </div>
         </div>
       )}
