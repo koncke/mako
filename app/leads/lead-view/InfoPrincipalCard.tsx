@@ -5,7 +5,7 @@
 // =============================================================================
 // Teléfono y email: click en el dato (o en el ícono de copiar) lo copia al
 // portapapeles; al lado, el ícono de WhatsApp abre la tab /whatsapp en el chat
-// del lead y el de Gmail abre un correo a ese lead. Reemplaza a QuickActions.
+// del lead y el de Gmail abre un correo a ese lead.
 
 import Link from 'next/link';
 import { useState, type CSSProperties, type ReactNode } from 'react';
