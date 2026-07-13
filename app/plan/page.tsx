@@ -6,10 +6,10 @@
 // tareas (TodoBoard, tenant-scoped por DB). Un mismo /todo, distinta vista por rol.
 
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
-import { seedTodoCategoriasSiVacio } from '@/lib/todo-seeds';
+import { seedTodoBoardSiVacio } from '@/lib/todo-seeds';
 import { guardOnboarding } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual } from '@/lib/workspace';
+import { getWorkspaceActual, getWorkspace } from '@/lib/workspace';
 import { OWNER_WS } from '@/lib/auth-session';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
@@ -39,12 +39,17 @@ export default async function TodoPage() {
   try { tareas = await listTareas(); } catch { dbDown = true; }
   try { categorias = await listCategorias(); } catch { /* categorías arrancan vacías */ }
 
-  // G4: cliente nuevo con el board en blanco → sembrarle los proyectos por defecto
-  // (idempotente). Solo cuando NO hay ni tareas ni proyectos, para no re-sembrar si el
-  // cliente ya empezó a armar su plan (aunque haya borrado todas sus categorías).
+  // G4: cliente nuevo con el board en blanco → sembrarle los 6 proyectos + las tareas
+  // de arranque (idempotente). Solo cuando NO hay ni tareas ni proyectos, para no
+  // re-sembrar si el cliente ya empezó su plan. Para Mauricio (slug 'mauricio') marca
+  // hechas las que ya tiene armadas.
   if (!dbDown && categorias.length === 0 && tareas.length === 0) {
-    try { await seedTodoCategoriasSiVacio(); categorias = await listCategorias(); }
-    catch (e) { console.error('[plan] seed categorías por defecto', e); }
+    try {
+      const wsId = await getWorkspaceActual();
+      const esMauricio = wsId != null && (await getWorkspace(wsId))?.slug === 'mauricio';
+      await seedTodoBoardSiVacio(esMauricio);
+      [tareas, categorias] = await Promise.all([listTareas(), listCategorias()]);
+    } catch (e) { console.error('[plan] seed board por defecto', e); }
   }
 
   let demo = false;
