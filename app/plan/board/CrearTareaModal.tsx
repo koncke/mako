@@ -1,31 +1,32 @@
 'use client';
 
 // CrearTareaModal — crear una tarea con el Perro Guardián, de a 1 pregunta:
-// intro → título → detalle → PROYECTO(s) (o ninguno + por qué; si el proyecto no
-// existe, se crea inline) → PRIORIDAD propuesta → PUNTUACIÓN propuesta (con ejemplos)
-// → ¿por qué importa? → MaKo la puntúa arrancando de la sugerencia y decide su columna.
-// Guarda BORRADOR por si se sale.
+// intro → título → PROYECTO(s) (o ninguno; si no existe, se crea inline) → PRIORIDAD
+// (unificada: puntaje 1-100 + bandas + comparación, como "Cambiar prioridad") → ¿por
+// qué importa? → "Contame un poco más" (al final, opcional). El perro SIEMPRE la puntúa.
+// Al crear, se abre el detalle y se sugiere optimizarla con "MaKo te ayuda".
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { WizardShell, wizardInput } from '../../leads/WizardShell';
 import { IntroBody, ChoiceBody, textareaStyle, ScoreIcon } from './guardian-form';
 import { GuardianIcon } from './GuardianIcon';
 import { EmojiPickerMini } from './EmojiPicker';
-import { type Prio, type Label, PRIOS, PLABEL, PCOLOR, prioFromScore, scoreFromPrio } from './types';
+import { type Prio, type Label, PLABEL, PCOLOR, prioFromScore, scoreFromPrio } from './types';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 const DRAFT_KEY = 'mako_draft_tarea';
 
-export type CrearResult = { score: number; prio: Prio; razon: string; respuesta: string } | null;
-export type CrearData = { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; puntuar: boolean };
+export type CrearResult = { id: string; score: number; prio: Prio; razon: string; respuesta: string } | null;
+export type CrearData = { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string };
 
 const OPCIONES = ['Es urgente / bloquea algo', 'Impacta directo en los ingresos', 'Mejora la conversión o el funnel', 'Es un quick win (poco esfuerzo, buen retorno)', 'Es a futuro / nice to have'];
 const NINGUNO = ['Ese proyecto todavía no existe', 'Es una tarea suelta'];
+const BANDAS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 
-export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos, onCrear, onClose }: {
+export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos, onCrear, onDone, onClose }: {
   labels: Label[]; proyectoInicial: string | null; prioInicial: Prio | null; ejemplos: Array<{ title: string; score: number }>;
-  onCrear: (data: CrearData) => Promise<CrearResult>; onClose: () => void;
+  onCrear: (data: CrearData) => Promise<CrearResult>; onDone: (id: string) => void; onClose: () => void;
 }) {
   const [idx, setIdx] = useState(0);
   const [title, setTitle] = useState('');
@@ -34,10 +35,8 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
   const [motivoNinguno, setMotivoNinguno] = useState('');
   const [nuevoProy, setNuevoProy] = useState('');
   const [nuevoEmoji, setNuevoEmoji] = useState('🏷');
-  const [userPrio, setUserPrio] = useState<Prio | ''>(prioInicial ?? '');
   const [userScore, setUserScore] = useState<number>(prioInicial ? scoreFromPrio[prioInicial] : 50);
   const [arg, setArg] = useState('');
-  const [puntuar, setPuntuar] = useState(true);
   const [fase, setFase] = useState<'form' | 'puntuando' | 'veredicto'>('form');
   const [res, setRes] = useState<CrearResult>(null);
   const [restored, setRestored] = useState(false);
@@ -46,21 +45,18 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
   // BORRADOR
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw); setTitle(d.title || ''); setDetalle(d.detalle || ''); setMotivoNinguno(d.motivoNinguno || ''); setNuevoProy(d.nuevoProy || ''); setNuevoEmoji(d.nuevoEmoji || '🏷'); if (typeof d.userScore === 'number') setUserScore(d.userScore); if (d.userPrio) setUserPrio(d.userPrio); setArg(d.arg || ''); } } catch { /* no-op */ }
+    try { const raw = localStorage.getItem(DRAFT_KEY); if (raw) { const d = JSON.parse(raw); setTitle(d.title || ''); setDetalle(d.detalle || ''); setMotivoNinguno(d.motivoNinguno || ''); setNuevoProy(d.nuevoProy || ''); setNuevoEmoji(d.nuevoEmoji || '🏷'); if (typeof d.userScore === 'number') setUserScore(d.userScore); setArg(d.arg || ''); } } catch { /* no-op */ }
     setRestored(true);
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!restored) return;
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, detalle, motivoNinguno, nuevoProy, nuevoEmoji, userPrio, userScore, arg })); } catch { /* no-op */ }
-  }, [restored, title, detalle, motivoNinguno, nuevoProy, nuevoEmoji, userPrio, userScore, arg]);
-
-  // al mover la prioridad, arrastro el score al centro de la banda (si no lo tocó a mano)
-  const setPrio = (p: Prio) => { setUserPrio(p); setUserScore(scoreFromPrio[p]); };
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, detalle, motivoNinguno, nuevoProy, nuevoEmoji, userScore, arg })); } catch { /* no-op */ }
+  }, [restored, title, detalle, motivoNinguno, nuevoProy, nuevoEmoji, userScore, arg]);
 
   const crear = async () => {
     setFase('puntuando');
-    const r = await onCrear({ title: title.trim(), detalle: detalle.trim(), labelIds: sel, userPrio, userScore, motivoNinguno: motivoNinguno.trim(), nuevoProyecto: motivoNinguno === 'Ese proyecto todavía no existe' ? nuevoProy.trim() : '', nuevoProyEmoji: nuevoEmoji, argumento: arg.trim(), puntuar });
+    const r = await onCrear({ title: title.trim(), detalle: detalle.trim(), labelIds: sel, userScore, motivoNinguno: motivoNinguno.trim(), nuevoProyecto: motivoNinguno === 'Ese proyecto todavía no existe' ? nuevoProy.trim() : '', nuevoProyEmoji: nuevoEmoji, argumento: arg.trim() });
     try { localStorage.removeItem(DRAFT_KEY); } catch { /* no-op */ }
     setRes(r); setFase('veredicto');
   };
@@ -79,8 +75,9 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
               </>}
         </div>
         {fase === 'veredicto' && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-            <button type="button" onClick={onClose} style={primaryBtn}>Listo</button>
+          <div style={{ display: 'flex', justifyContent: res?.id ? 'space-between' : 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <button type="button" onClick={onClose} style={ghostBtn}>Listo</button>
+            {res?.id && <button type="button" onClick={() => onDone(res.id)} style={{ ...primaryBtn, display: 'inline-flex', alignItems: 'center', gap: 6 }}><MakoStarInline /> Optimizala con MaKo →</button>}
           </div>
         )}
       </Shell>
@@ -89,21 +86,20 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
 
   const banda = prioFromScore(userScore);
   const cercanos = ejemplos.slice().sort((a, b) => Math.abs(a.score - userScore) - Math.abs(b.score - userScore)).slice(0, 3);
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿Qué hay que hacer?', 'Contame un poco más (opcional)', '¿En qué proyecto(s) va?', '¿Qué prioridad le pondrías vos?', '¿Y qué puntuación (1-100)?', '¿Por qué importa?'];
-  const subs: (string | undefined)[] = [undefined, undefined, 'Detalle, contexto, criterio de "listo". Podés saltearlo.', 'Podés elegir más de uno, o ninguno.', 'Es tu propuesta: yo la reviso y decido la final.', 'Afiná el número. Mirá cómo puntúan otras parecidas.', 'Con esto ajusto la prioridad. Elegí o escribí.'];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿Qué hay que hacer?', '¿En qué proyecto(s) va?', '¿Qué prioridad le pondrías?', '¿Por qué importa?', 'Contame un poco más (opcional)'];
+  const subs: (string | undefined)[] = [undefined, undefined, 'Podés elegir más de uno, o ninguno.', 'Poné tu puntaje; yo lo reviso y decido el final. Mirá cómo puntúan otras.', 'Con esto ajusto la prioridad. Elegí o escribí.', 'Detalle, contexto, criterio de "listo". Podés saltearlo.'];
   const nuevoOk = motivoNinguno === 'Ese proyecto todavía no existe' ? nuevoProy.trim() !== '' : true;
   const puedeAvanzar = idx === 1 ? title.trim() !== ''
-    : idx === 3 ? ((sel.length > 0 || motivoNinguno !== '') && nuevoOk)
-      : idx === 4 ? userPrio !== ''
-        : idx === 6 ? (!puntuar || arg.trim() !== '') : true;
+    : idx === 2 ? ((sel.length > 0 || motivoNinguno !== '') && nuevoOk)
+      : idx === 4 ? arg.trim() !== '' : true;
 
   return (
     <WizardShell
       titulo="Nueva tarea"
-      total={7} idx={idx}
+      total={6} idx={idx}
       pregunta={preguntas[idx]} sub={subs[idx]}
       puedeAvanzar={puedeAvanzar}
-      enUltimo={idx === 6} confirmLabel={puntuar ? 'Crear · que la priorice →' : 'Crear sin puntuar · 0 tokens'}
+      enUltimo={idx === 5} confirmLabel="Crear · que la priorice →"
       atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
       onClose={onClose}
       onAtras={() => (idx === 0 ? onClose() : setIdx(idx - 1))}
@@ -112,8 +108,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
     >
       {idx === 0 && <IntroBody que="crear una tarea nueva" />}
       {idx === 1 && <input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && title.trim()) setIdx(2); }} autoFocus placeholder="Escribí la tarea…" style={{ ...wizardInput }} />}
-      {idx === 2 && <textarea value={detalle} onChange={(e) => setDetalle(e.target.value)} autoFocus placeholder="Contexto, alcance…" style={{ ...textareaStyle }} />}
-      {idx === 3 && (
+      {idx === 2 && (
         <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {labels.map((l) => {
             const on = sel.includes(l.id);
@@ -148,29 +143,20 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
           )}
         </div>
       )}
-      {idx === 4 && (
-        <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {PRIOS.map((p) => {
-            const on = userPrio === p;
-            return (
-              <button key={p} type="button" onClick={() => setPrio(p)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 14px', borderRadius: 11, border: `1px solid ${on ? PCOLOR[p] : 'var(--border-strong)'}`, background: on ? PCOLOR[p] + '14' : 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: SANS }}>
-                <span style={{ width: 11, height: 11, borderRadius: '50%', background: PCOLOR[p], flex: 'none' }} />
-                <span style={{ flex: 1 }}>{PLABEL[p]}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {idx === 5 && (
+      {idx === 3 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ textAlign: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 34, fontWeight: 800, color: PCOLOR[banda] }}><ScoreIcon size={30} color={PCOLOR[banda]} />{userScore}</span>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: PCOLOR[banda], textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 2 }}>{PLABEL[banda]}</div>
           </div>
           <input type="range" min={1} max={100} step={1} value={userScore} onChange={(e) => setUserScore(Number(e.target.value))} style={{ width: '100%', accentColor: PCOLOR[banda] }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            {BANDAS.map((p) => (
+              <button key={p} type="button" onClick={() => setUserScore(scoreFromPrio[p])} style={{ flex: 1, padding: '8px 4px', borderRadius: 9, border: `1px solid ${banda === p ? PCOLOR[p] : 'var(--border-strong)'}`, background: banda === p ? PCOLOR[p] + '14' : 'var(--surface)', color: banda === p ? PCOLOR[p] : 'var(--dim)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{PLABEL[p]}</button>
+            ))}
+          </div>
           {cercanos.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, textAlign: 'left' }}>
               <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>Parecidas a ese puntaje</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {cercanos.map((t, i) => {
@@ -187,24 +173,13 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, ejemplos
           )}
         </div>
       )}
-      {idx === 6 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'left' }}>
-          <button type="button" onClick={() => setPuntuar((v) => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 13px', borderRadius: 11, border: `1px solid ${puntuar ? 'var(--primary)' : 'var(--border-strong)'}`, background: puntuar ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', fontFamily: SANS }}>
-            <span style={{ width: 34, height: 20, borderRadius: 999, background: puntuar ? 'var(--primary)' : 'var(--border-strong)', position: 'relative', flex: 'none', transition: 'background .12s' }}>
-              <span style={{ position: 'absolute', top: 2, left: puntuar ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .12s' }} />
-            </span>
-            <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Que el Perro Guardián la puntúe</span>
-            <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: MONO }}>{puntuar ? 'usa tokens' : '0 tokens'}</span>
-          </button>
-          {puntuar
-            ? <ChoiceBody opciones={OPCIONES} value={arg} onChange={setArg} customPlaceholder="Otra… (por qué te parece importante)" />
-            : <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px' }}>Se crea con la puntuación que elegiste ({userScore} · {PLABEL[banda]}) sin llamar a la IA. Perfecto para cargar tareas en lote; después podés debatirla con el perro cuando quieras.</div>}
-        </div>
-      )}
+      {idx === 4 && <ChoiceBody opciones={OPCIONES} value={arg} onChange={setArg} customPlaceholder="Otra… (por qué te parece importante)" />}
+      {idx === 5 && <textarea value={detalle} onChange={(e) => setDetalle(e.target.value)} autoFocus placeholder="Contexto, alcance, criterio de listo…" style={{ ...textareaStyle }} />}
     </WizardShell>
   );
 }
+
+function MakoStarInline() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M12 2l2.2 6.6L21 9l-5.4 4 2 6.8L12 16l-5.6 3.8 2-6.8L3 9l6.8-.4z" /></svg>; }
 
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
@@ -215,3 +190,4 @@ function Shell({ children, onClose }: { children: React.ReactNode; onClose: () =
 }
 
 const primaryBtn: CSSProperties = { padding: '11px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: SANS };
+const ghostBtn: CSSProperties = { padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: SANS };
