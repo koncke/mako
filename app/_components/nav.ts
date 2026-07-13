@@ -40,7 +40,7 @@ export const TOP_NAV: NavItem[] = [
   { key: 'crm', label: 'CRM', href: '/leads', icon: 'crm', badge: true, rolesWs: ['closer', 'setter'], match: starts('/leads') },
   { key: 'graphics', label: 'Graphics', href: '/graphics', icon: 'graphics', match: (p) => starts('/graphics')(p) || starts('/marketing')(p) || starts('/comercial')(p) },
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  { key: 'todo', label: 'To-do', href: '/todo', icon: 'todo', rolesWs: ['closer', 'setter'], match: starts('/todo') },
+  { key: 'todo', label: 'Plan', href: '/plan', icon: 'todo', rolesWs: ['closer', 'setter'], match: (p) => starts('/plan')(p) || starts('/todo')(p) },
 ];
 
 // Ads Manager va DEBAJO del divider, arriba de los grupos.
@@ -53,7 +53,7 @@ export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', hre
 // marketing — solo gestión de clientes e integraciones.
 export const ADMIN_NAV: NavItem[] = [
   { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: starts('/admin') },
-  { key: 'plan', label: 'Plan', href: '/todo', icon: 'todo', match: starts('/todo') },
+  { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
   { key: 'mako-admin', label: 'MaKo', href: '/admin?tab=copy', icon: 'mako', match: () => false },
   { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },

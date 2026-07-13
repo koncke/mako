@@ -17,7 +17,7 @@ import 'server-only';
 import { chatClaude } from './anthropic';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
-import { spreadProjScores } from '../app/todo/board/types';
+import { spreadProjScores } from '../app/plan/board/types';
 import type { UsageInfo } from './anthropic-usage';
 
 export type GuardProjIn = { id: string; nombre: string };

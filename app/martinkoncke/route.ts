@@ -11,5 +11,5 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export function GET(req: Request) {
-  return NextResponse.redirect(new URL('/todo', req.url));
+  return NextResponse.redirect(new URL('/plan', req.url));
 }

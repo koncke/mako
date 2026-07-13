@@ -23,6 +23,14 @@ const nextConfig: NextConfig = {
       { source: '/vsl/mako-cs', destination: '/vsl-assets/mako-cs.html' },
     ];
   },
+  // /todo se renombró a /plan (el "Plan de ejecución"). Mantenemos el redirect
+  // para links viejos.
+  async redirects() {
+    return [
+      { source: '/todo', destination: '/plan', permanent: false },
+      { source: '/todo/:path*', destination: '/plan/:path*', permanent: false },
+    ];
+  },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca
   // script-src/style-src (eso requiere nonces + testeo en browser), pero corta
   // clickjacking, sniffing, fuga de referrer, plugins y base-tag injection.
