@@ -39,6 +39,7 @@ export type Tarea = {
   historial: HistEntry[];        // change history {ts,actor,text} — user|ia
   en_prioridad: boolean;         // marcada "En prioridad" (vista Prioridades)
   score: number;                 // 1-100 del guardián (define la columna)
+  score_razon: string | null;    // por qué el guardián le puso ese score
   origen: OrigenTarea;
   experimento_id: number | null;
   retro_id: number | null;
@@ -48,7 +49,7 @@ export type Tarea = {
   updated_at: string;
 };
 
-export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; detalle: string; historial: HistEntry[]; created_at: string };
+export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; score_razon: string | null; deadline: string | null; detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
 const rowTo = (r: Record<string, unknown>): Tarea => {
@@ -61,6 +62,7 @@ const rowTo = (r: Record<string, unknown>): Tarea => {
   t.historial = histOk(r.historial);
   t.en_prioridad = !!r.en_prioridad;
   t.score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));
+  t.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
   return t;
 };
 
@@ -222,7 +224,7 @@ export async function moverTarea(id: number, estado: EstadoTarea, orden?: number
 
 export async function editarTarea(
   id: number,
-  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number },
+  patch: { titulo?: string; detalle?: string | null; prioridad?: Prioridad; progreso?: number; deadline?: string | null; categorias?: number[]; checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null },
 ): Promise<Tarea> {
   const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.titulo != null) upd.titulo = patch.titulo.trim() || 'Tarea';
@@ -248,6 +250,7 @@ export async function editarTarea(
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   if (patch.en_prioridad !== undefined) upd.en_prioridad = !!patch.en_prioridad;
   if (patch.score !== undefined) upd.score = Math.max(0, Math.min(100, Math.round(patch.score)));
+  if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('experimento_tareas').update(upd).eq('id', id).select(COLS).single();
   if (error) throw new Error(`editarTarea: ${error.message}`);
@@ -268,6 +271,8 @@ const catRow = (r: Record<string, unknown>): Categoria => {
   const c = r as unknown as Categoria;
   c.emoji = typeof r.emoji === 'string' && r.emoji ? (r.emoji as string) : '🏷';
   c.prioridad = Math.max(1, Math.min(10, Math.round(Number(r.prioridad) || 5)));
+  c.score_razon = typeof r.score_razon === 'string' && r.score_razon.trim() ? (r.score_razon as string) : null;
+  c.deadline = dateOk(r.deadline);
   c.detalle = typeof r.detalle === 'string' ? (r.detalle as string) : '';
   c.historial = histOk(r.historial);
   return c;
@@ -280,21 +285,23 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[]): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[], score_razon?: string | null, deadline?: string | null): Promise<Categoria> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(10, Math.round(prioridad ?? 5))), detalle: detalle ?? '', historial: histOk(historial ?? []) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(10, Math.round(prioridad ?? 5))), score_razon: score_razon ?? null, deadline: dateOk(deadline), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[] }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
   if (patch.emoji !== undefined) upd.emoji = (patch.emoji || '🏷').slice(0, 4);
   if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(10, Math.round(patch.prioridad)));
+  if (patch.score_razon !== undefined) upd.score_razon = patch.score_razon;
+  if (patch.deadline !== undefined) upd.deadline = dateOk(patch.deadline);
   if (patch.detalle !== undefined) upd.detalle = patch.detalle;
   if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());

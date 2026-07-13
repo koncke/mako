@@ -15,11 +15,12 @@ import type { Tarea, Categoria } from '@/lib/todo';
 const toBoard = (t: Tarea): BoardTask => ({
   id: String(t.id), num: t.id, title: t.titulo, detalle: t.detalle ?? '',
   priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
+  scoreRazon: t.score_razon ?? undefined,
   progress: t.progreso, deadline: t.deadline ?? '',
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
 });
-const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, detalle: c.detalle, historial: c.historial });
+const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, detalle: c.detalle, historial: c.historial });
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: Tarea; categoria?: Categoria; error?: string }> {
   return fetch('/api/todo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -30,12 +31,15 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?
 const editPatch = (d: BoardTask) => ({
   titulo: d.title, detalle: d.detalle || null, prioridad: d.priority, progreso: d.progress,
   deadline: d.deadline || null, categorias: d.labels.map(Number).filter(Number.isFinite),
-  checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score,
+  checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null,
 });
 
 export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser }) {
   const repo: Repo = {
-    labelMode: 'multi', labelSingular: 'Categoría', labelPlural: 'Categorías',
+    // MISMA config que el board del super-admin (PlanBoard): la única diferencia real
+    // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
+    labelMode: 'single', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
+    dismissableGauntlet: true,
     createTask: async (d) => {
       if (demo) return d;
       // origen preservado (al restaurar un borrado de una tarea de MaKo mantiene el ✦)
@@ -53,10 +57,10 @@ export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[];
     deleteTask: async (id) => { if (demo) return; await api({ action: 'borrar', id: Number(id) }); },
     createLabel: async (l) => {
       if (demo) return l;
-      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial });
+      const j = await api({ action: 'categoria-crear', nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null });
       return j.ok && j.categoria ? toLabel(j.categoria) : l;
     },
-    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial } }); },
+    saveLabel: async (l) => { if (demo) return; await api({ action: 'categoria-editar', id: Number(l.id), patch: { nombre: l.name, color: l.color, emoji: l.emoji, prioridad: l.score, detalle: l.detalle, historial: l.historial, score_razon: l.scoreRazon ?? null, deadline: l.deadline ?? null } }); },
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
   };
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);

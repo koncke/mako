@@ -111,36 +111,26 @@ export function BoardShell({ board }: { board: Board }) {
         board.applyGuardian(j.tareas || [], j.proyectos || []);
         showUsage(j.usage, 're-priorización del plan');
         lastReprioSig.current = sigNow;
-        try { localStorage.setItem('mako_plan_sig', sigNow); } catch { /* no-op */ }
       }
     } catch { /* silencioso, es automático */ }
     repriorizando.current = false;
   };
-  // Dispara la re-priorización SOLO cuando la firma estructural cambia respecto de la
-  // última corrida (con debounce). Editar un título o mover un score no la re-dispara.
+  // Re-priorización: SOLO cuando el plan cambia DE VERDAD MIENTRAS lo usás (agregar/
+  // borrar/completar una tarea, o cambiar un proyecto). NUNCA al entrar a la tab ni al
+  // refrescar (feedback: no debe correr en cada refresh). Para eso guardamos la firma
+  // de ARRANQUE como línea base en un ref (por sesión): la primera firma con la que
+  // hidrata el board NO dispara nada; solo disparan las divergencias posteriores.
   const planSig = planSignature();
+  const baseSig = useRef<string | null>(null);
   useEffect(() => {
-    if (tasks.length < 2) return;
-    let stored = ''; try { stored = localStorage.getItem('mako_plan_sig') || ''; } catch { /* no-op */ }
-    if (!planSig || planSig === stored) return;
-    const id = setTimeout(() => { void rePriorizar(planSig); }, 2500);
+    if (tasks.length < 2 || !planSig) return;
+    // primer render con datos → fijamos la línea base y NO corremos (es "entrar a la tab").
+    if (baseSig.current === null) { baseSig.current = planSig; return; }
+    if (planSig === baseSig.current) return; // sin cambios estructurales reales
+    const id = setTimeout(() => { baseSig.current = planSig; void rePriorizar(planSig); }, 2500);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSig]);
-  // Re-puntuación FORZADA de una sola vez por navegador: aplica el guardián nuevo
-  // (más duro + disciplina de distribución) al plan existente. Bump de REPRIO_FORCE
-  // para volver a forzarla en el futuro si hace falta.
-  const ready = tasks.length >= 2;
-  useEffect(() => {
-    if (!ready) return;
-    const REPRIO_FORCE = 'v4-guardian-2026-07';
-    let f = ''; try { f = localStorage.getItem('mako_reprio_force') || ''; } catch { /* no-op */ }
-    if (f === REPRIO_FORCE) return;
-    try { localStorage.setItem('mako_reprio_force', REPRIO_FORCE); } catch { /* no-op */ }
-    const id = setTimeout(() => { void rePriorizar(); }, 1800);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
   // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
   // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
   const cerrarWizard = () => {
@@ -425,7 +415,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
   tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
 }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '4px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);

@@ -2,8 +2,9 @@
 
 // ProyectoDebateModal — cambiar la prioridad (1-10) de un PROYECTO pasa por el Perro
 // Guardián, con la MISMA lógica que el debate de tareas: intro → ¿a cuánto? → ¿por
-// qué la subís/bajás? → SÍ/NO contra los proyectos cercanos → ¿por qué? → el perro
-// decide (acepta/ajusta/rechaza). Si dice "No", sale una consolación (0 tokens).
+// qué la subís/bajás? → paso 4 que DEPENDE de la razón (si "habilita/desbloquea" o
+// "lo cubre otro" → elegís CUÁLES proyectos; si no → SÍ/NO contra los cercanos) →
+// ¿por qué? → el perro decide. Si dice "No", sale una consolación (0 tokens).
 
 import { useMemo, useState, type CSSProperties } from 'react';
 import { WizardShell } from '../../leads/WizardShell';
@@ -18,7 +19,7 @@ type OtroProy = { id: string; name: string; emoji: string; color: string; score:
 type RazonKey = 'mas_norte' | 'desbloquea' | 'ingresos' | 'ya_no_norte' | 'lo_cubre' | 'puede_esperar';
 const RAZONES_SUBE: Array<{ key: RazonKey; label: string }> = [
   { key: 'mas_norte', label: 'Es más el norte del negocio de lo que parece' },
-  { key: 'desbloquea', label: 'Habilita / desbloquea al resto de los proyectos' },
+  { key: 'desbloquea', label: 'Habilita / desbloquea a otros proyectos' },
   { key: 'ingresos', label: 'Mueve más los ingresos de lo que se ve' },
 ];
 const RAZONES_BAJA: Array<{ key: RazonKey; label: string }> = [
@@ -26,6 +27,8 @@ const RAZONES_BAJA: Array<{ key: RazonKey; label: string }> = [
   { key: 'lo_cubre', label: 'Lo cubre / lo absorbe otro proyecto' },
   { key: 'puede_esperar', label: 'Puede esperar' },
 ];
+// Los que necesitan que elijas CUÁLES proyectos (no un SÍ/NO).
+const PICK: Record<string, boolean> = { desbloquea: true, lo_cubre: true };
 const CONSUELO: Record<RazonKey, string> = {
   mas_norte: 'Buen freno. Cambiar el norte cada dos por tres dispersa a todo el equipo. Lo dejo donde está y seguimos ejecutando el que ya es prioridad.',
   desbloquea: 'Si dudás en subirlo, quizá no desbloquea tanto todavía. Lo dejo donde está: mejor terminar de habilitar lo que ya está arriba.',
@@ -48,6 +51,7 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
   const [newScore, setNewScore] = useState(proj.score);
   const [razon, setRazon] = useState<RazonKey | ''>('');
   const [siNo, setSiNo] = useState<boolean | null>(null);
+  const [elegidos, setElegidos] = useState<string[]>([]); // ids de proyectos (habilita / lo cubre)
   const [porque, setPorque] = useState('');
   const [fase, setFase] = useState<'form' | 'consolacion' | 'puntuando' | 'veredicto'>('form');
   const [ver, setVer] = useState<{ veredicto: string; score: number; razon: string; respuesta: string } | null>(null);
@@ -55,12 +59,19 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
 
   const sube = newScore > proj.score;
   const razones = sube ? RAZONES_SUBE : RAZONES_BAJA;
+  const esPick = razon !== '' && !!PICK[razon];
   const comparacion = useMemo(() => otros.slice().sort((a, b) => Math.abs(a.score - newScore) - Math.abs(b.score - newScore)).slice(0, 3), [otros, newScore]);
 
   const buildArgumento = (): string => {
     const meta = razones.find((r) => r.key === razon);
-    const lista = comparacion.map((p) => `"${p.name}" (prioridad ${p.score})`).join('; ') || '(no hay otros)';
-    const ctx = sube ? `Confirma que pesa más que: ${lista}.` : `Confirma que estos deberían quedar por encima: ${lista}.`;
+    let ctx = '';
+    if (esPick) {
+      const names = elegidos.map((id) => otros.find((o) => o.id === id)).filter(Boolean).map((o) => `"${o!.name}"`).join(', ') || '(no eligió)';
+      ctx = razon === 'desbloquea' ? `Dice que este proyecto habilita/desbloquea a: ${names}.` : `Dice que estos proyectos lo cubren o lo absorben: ${names}.`;
+    } else {
+      const lista = comparacion.map((p) => `"${p.name}" (prioridad ${p.score})`).join('; ') || '(no hay otros)';
+      ctx = sube ? `Confirma que pesa más que: ${lista}.` : `Confirma que estos deberían quedar por encima: ${lista}.`;
+    }
     return `El usuario quiere ${sube ? 'SUBIR' : 'BAJAR'} el proyecto de ${proj.score} a ${newScore} (de 10). Razón: ${meta?.label ?? ''}. ${ctx} Motivo: ${porque.trim()}`;
   };
 
@@ -74,6 +85,7 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
   };
   const aceptar = () => { if (ver) onApply(ver.score, ver.razon); onClose(); };
   const decirNo = () => { setSiNo(false); setFase('consolacion'); };
+  const toggleElegido = (id: string) => setElegidos((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   // ── consolación ──
   if (fase === 'consolacion') {
@@ -128,9 +140,14 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
   }
 
   // ── formulario ──
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿A cuánto la llevarías?', sube ? '¿Por qué la subís?' : newScore < proj.score ? '¿Por qué la bajás?' : 'Movela primero', sube ? '¿En serio pesa más que estos?' : '¿En serio estos deberían pesar más?', '¿Por qué? Contame tu razón'];
-  const subs: (string | undefined)[] = [undefined, `Hoy está en ${proj.score}/10. 10 = el Objetivo Principal (solo uno).`, 'Elegí una razón, con criterio.', 'Son los proyectos con prioridad más cercana.', 'Con datos, no "me gusta". Yo comparo y decido.'];
-  const puedeAvanzar = idx === 0 ? true : idx === 1 ? newScore !== proj.score : idx === 2 ? razon !== '' : idx === 3 ? siNo === true : porque.trim() !== '';
+  const pregunta3 = razon === 'desbloquea' ? '¿A qué proyectos habilita?'
+    : razon === 'lo_cubre' ? '¿Qué proyecto lo cubre?'
+      : sube ? (razon === 'ingresos' ? '¿En serio mueve más los ingresos que estos?' : '¿En serio es más el norte que estos?')
+        : '¿En serio estos deberían pesar más?';
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿A cuánto la llevarías?', sube ? '¿Por qué la subís?' : newScore < proj.score ? '¿Por qué la bajás?' : 'Movela primero', pregunta3, '¿Por qué? Contame tu razón'];
+  const subs: (string | undefined)[] = [undefined, `Hoy está en ${proj.score}/10. 10 = el Objetivo Principal (solo uno).`, 'Elegí una razón, con criterio.', esPick ? 'Elegí uno o más. Yo lo cruzo con el resto.' : 'Son los proyectos con prioridad más cercana.', 'Con datos, no "me gusta". Yo comparo y decido.'];
+  const puedeAvanzar = idx === 0 ? true : idx === 1 ? newScore !== proj.score : idx === 2 ? razon !== '' : idx === 3 ? (esPick ? elegidos.length > 0 : siNo === true) : porque.trim() !== '';
+  const siLabel = sube ? (razon === 'ingresos' ? 'Sí, mueve más' : 'Sí, es más el norte') : 'Sí, está bien';
 
   return (
     <WizardShell
@@ -163,8 +180,10 @@ export function ProyectoDebateModal({ proj, otros, onApply, onUsage, onClose }: 
           <input type="range" min={1} max={10} step={1} value={newScore} onChange={(e) => setNewScore(Number(e.target.value))} style={{ width: '100%', accentColor: proj.color }} />
         </div>
       )}
-      {idx === 2 && <RadioList opciones={razones} value={razon} onChange={(k) => { setRazon(k as RazonKey); setSiNo(null); }} />}
-      {idx === 3 && <SiNoBody comparacion={comparacion} value={siNo} sube={sube} onSi={() => setSiNo(true)} onNo={decirNo} />}
+      {idx === 2 && <RadioList opciones={razones} value={razon} onChange={(k) => { setRazon(k as RazonKey); setSiNo(null); setElegidos([]); }} />}
+      {idx === 3 && (esPick
+        ? <ProyectosPick otros={otros} value={elegidos} onToggle={toggleElegido} />
+        : <SiNoBody comparacion={comparacion} value={siNo} siLabel={siLabel} onSi={() => setSiNo(true)} onNo={decirNo} />)}
       {idx === 4 && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder="Ej: sin este proyecto no factura nada del resto…" style={{ ...textareaStyle }} />}
     </WizardShell>
   );
@@ -187,7 +206,27 @@ function RadioList({ opciones, value, onChange }: { opciones: Array<{ key: strin
   );
 }
 
-function SiNoBody({ comparacion, value, sube, onSi, onNo }: { comparacion: OtroProy[]; value: boolean | null; sube: boolean; onSi: () => void; onNo: () => void }) {
+// Multi-select de proyectos (para "habilita/desbloquea" o "lo cubre otro").
+function ProyectosPick({ otros, value, onToggle }: { otros: OtroProy[]; value: string[]; onToggle: (id: string) => void }) {
+  if (otros.length === 0) return <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic', textAlign: 'center', padding: '10px 0' }}>No hay otros proyectos para elegir.</div>;
+  return (
+    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 260, overflowY: 'auto' }}>
+      {otros.map((p) => {
+        const on = value.includes(p.id);
+        return (
+          <button key={p.id} type="button" onClick={() => onToggle(p.id)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px 13px', borderRadius: 11, border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`, borderLeft: `3px solid ${p.color}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontSize: 14, cursor: 'pointer', fontFamily: SANS }}>
+            <span style={{ width: 17, height: 17, borderRadius: 5, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{on ? '✓' : ''}</span>
+            <span style={{ flex: 1 }}>{p.emoji} {p.name}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: p.color }}><ScoreIcon size={11} color={p.color} />{p.score}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SiNoBody({ comparacion, value, siLabel, onSi, onNo }: { comparacion: OtroProy[]; value: boolean | null; siLabel: string; onSi: () => void; onNo: () => void }) {
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -200,7 +239,7 @@ function SiNoBody({ comparacion, value, sube, onSi, onNo }: { comparacion: OtroP
         ))}
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
-        <button type="button" onClick={onSi} style={{ flex: 1, padding: '12px 10px', borderRadius: 11, border: `1.5px solid ${value === true ? 'var(--primary)' : 'var(--border-strong)'}`, background: value === true ? 'var(--primary-bg)' : 'var(--surface)', color: value === true ? 'var(--primary)' : 'var(--ink)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{sube ? 'Sí, pesa más' : 'Sí, está bien'}</button>
+        <button type="button" onClick={onSi} style={{ flex: 1, padding: '12px 10px', borderRadius: 11, border: `1.5px solid ${value === true ? 'var(--primary)' : 'var(--border-strong)'}`, background: value === true ? 'var(--primary-bg)' : 'var(--surface)', color: value === true ? 'var(--primary)' : 'var(--ink)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{siLabel}</button>
         <button type="button" onClick={onNo} style={{ flex: 1, padding: '12px 10px', borderRadius: 11, border: '1.5px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>No, ahora que lo veo…</button>
       </div>
     </div>

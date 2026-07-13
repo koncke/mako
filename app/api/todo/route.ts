@@ -28,7 +28,7 @@ export async function GET() {
 type TareaBody = {
   titulo?: string; detalle?: string | null; prioridad?: Prioridad; estado?: EstadoTarea;
   progreso?: number; deadline?: string | null; categorias?: number[];
-  checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number;
+  checklist?: ChecklistItem[]; historial?: HistEntry[]; en_prioridad?: boolean; score?: number; score_razon?: string | null;
   origen?: OrigenTarea; retro_id?: number | null; experimento_id?: number | null;
 };
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, tarea: await editarTarea(id, {
         titulo: patch.titulo, detalle: patch.detalle, prioridad: patch.prioridad,
         progreso: patch.progreso, deadline: patch.deadline, categorias: patch.categorias,
-        checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score,
+        checklist: patch.checklist, historial: patch.historial, en_prioridad: patch.en_prioridad, score: patch.score, score_razon: patch.score_razon,
       }) });
     }
     if (action === 'borrar') {
@@ -82,12 +82,14 @@ export async function POST(req: NextRequest) {
       const prioridad = body.prioridad != null ? Number(body.prioridad) : undefined;
       const detalle = body.detalle != null ? String(body.detalle) : undefined;
       const historial = body.historial as HistEntry[] | undefined;
+      const scoreRazon = body.score_razon != null ? String(body.score_razon) : undefined;
+      const deadline = body.deadline != null ? String(body.deadline) : undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial, scoreRazon, deadline) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[] }) ?? {};
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[]; score_razon?: string | null; deadline?: string | null }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {
