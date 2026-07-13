@@ -322,7 +322,7 @@ function NuevaRetroModal({ onClose, onGenerada, notify, demo }: {
               {inputSteps.map((s, i) => <span key={s} style={{ width: i === idx ? 22 : 7, height: 7, borderRadius: 999, background: i <= idx ? 'var(--primary)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
             </div>
           )}
-          <button onClick={() => { abortRef.current?.abort(); demoCancelRef.current?.(); onClose(); }} style={{ marginLeft: step === 'ejecutando' ? 'auto' : 0, width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={() => { abortRef.current?.abort(); demoCancelRef.current?.(); onClose(); }} style={{ marginLeft: step === 'ejecutando' ? 'auto' : 0, width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>

@@ -153,7 +153,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
                       ]}
                     />
                     <input style={input} value={f.placeholder ?? ''} placeholder="Placeholder (opcional)" onChange={(e) => setField(gi, fi, { placeholder: e.target.value })} />
-                    <button style={{ ...btnGhostSm, color: 'var(--bad)' }} onClick={() => delField(gi, fi)}>✕</button>
+                    <button aria-label="Quitar campo" style={{ ...btnGhostSm, color: 'var(--bad)' }} onClick={() => delField(gi, fi)}>✕</button>
                   </div>
                 ))}
               </div>

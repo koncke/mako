@@ -423,7 +423,7 @@ Tu tarea PRINCIPAL: escribí el COPY de UN anuncio por cada creativo (texto prin
               {flow.map((s, i) => <span key={s} style={{ width: i === idx ? 22 : 7, height: 7, borderRadius: 999, background: i <= idx ? 'var(--primary)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
             </div>
           )}
-          <button onClick={onClose} style={{ marginLeft: enWizard ? 0 : 'auto', width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ marginLeft: enWizard ? 0 : 'auto', width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -612,7 +612,7 @@ function CreativosPicker({ tray, onQuitar, senales, onGanador, fileRef }: { tray
                 </div>
               )}
               {t.kind === 'existing' && <span style={{ position: 'absolute', bottom: 3, left: 3, fontSize: 10, background: 'var(--accent)', color: '#fff', borderRadius: 4, padding: '0 4px' }}>★</span>}
-              <button type="button" onClick={() => onQuitar(t.id)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 6, border: 'none', background: 'rgba(18,21,27,.7)', color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              <button type="button" aria-label="Quitar" onClick={() => onQuitar(t.id)} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 6, border: 'none', background: 'rgba(18,21,27,.7)', color: '#fff', fontSize: 11, cursor: 'pointer', lineHeight: 1 }}>✕</button>
             </div>
           ))}
         </div>

@@ -187,7 +187,7 @@ function NuevoExperimentoModal({ onClose, refreshExp, demo }: { onClose: () => v
               {dots.map((s, i) => <span key={s} style={{ width: i === dotIdx ? 22 : 7, height: 7, borderRadius: 999, background: i <= dotIdx ? 'var(--primary)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
             </div>
           )}
-          <button onClick={onClose} style={{ marginLeft: (step === 'hipotesis' || step === 'revision') ? 0 : 'auto', width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ marginLeft: (step === 'hipotesis' || step === 'revision') ? 0 : 'auto', width: 32, height: 32, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>

@@ -80,7 +80,7 @@ export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngra
               {items.map((c) => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px' }}>
                   <span style={{ flex: 1, fontSize: 13, color: 'var(--ink)' }}>{c.text}</span>
-                  <button type="button" onClick={() => setItems((cs) => cs.filter((x) => x.id !== c.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 14 }}>×</button>
+                  <button type="button" aria-label="Quitar" onClick={() => setItems((cs) => cs.filter((x) => x.id !== c.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 14 }}>×</button>
                 </div>
               ))}
             </div>

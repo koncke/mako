@@ -83,7 +83,7 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--dim)' }}><MakoStar size={12} /> <MakoWord base="var(--accent)">MaKo</MakoWord></div>
           <span style={{ fontFamily: SANS, fontSize: 14, fontWeight: 600, color: 'var(--ink)', margin: '0 auto' }}>Agregar anuncio</span>
-          <button onClick={onClose} style={{ width: 30, height: 30, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ width: 30, height: 30, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -137,7 +137,7 @@ export function AgregarAnuncioModal({ adsetId, defaultName, senales, onClose, on
         {info && (
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
             {err && <span style={{ fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.4, marginRight: 'auto' }}>{err}</span>}
-            <button onClick={onClose} style={btnGhost}>Cancelar</button>
+            <button aria-label="Cerrar" onClick={onClose} style={btnGhost}>Cancelar</button>
             <button onClick={guardar} disabled={!puede || saving} style={{ ...btnDark, opacity: !puede || saving ? 0.5 : 1, cursor: !puede || saving ? 'default' : 'pointer' }}>{saving ? 'Agregando…' : 'Agregar en pausa'}</button>
           </div>
         )}

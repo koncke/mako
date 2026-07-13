@@ -769,7 +769,7 @@ function ProblemaModal({ ads, onClose, onEditAd }: { ads: ProblemAd[]; onClose: 
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 540, maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 80px rgba(18,21,27,.4)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <span style={{ fontFamily: SANS, fontSize: 15, fontWeight: 600, color: 'var(--ink)', margin: '0 auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Por qué no está entregando</span>
-          <button onClick={onClose} style={{ width: 30, height: 30, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ width: 30, height: 30, flex: 'none', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {ads.length === 0 ? <p style={{ color: 'var(--dim)', fontSize: 13.5, textAlign: 'center' }}>Sin detalle disponible.</p> : ads.map((ad) => {
@@ -840,7 +840,7 @@ function RecosModal({ onClose }: { onClose: () => void }) {
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Recomendaciones de Meta · API</div>
             <h2 style={{ fontWeight: 600, fontSize: 20, margin: '3px 0 0', color: 'var(--ink)' }}>Analizar (Meta)</h2>
           </div>
-          <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
         </div>
         <div style={{ padding: '22px 24px' }}>
           {loading && <p style={{ fontSize: 14, color: 'var(--faint)', margin: 0 }}>Consultando a Meta…</p>}
@@ -1193,7 +1193,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
             <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>MaKo · Ordenar nombres</div>
             <h2 style={{ fontWeight: 600, fontSize: 20, margin: '3px 0 0', color: 'var(--ink)' }}>Renombrar {NIVEL_NOUN[level]}</h2>
           </div>
-          <button onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer' }}>✕</button>
         </div>
 
         {phase !== 'review' ? (
@@ -1233,7 +1233,7 @@ function RenameModal({ level, entities, onClose, onApply }: { level: Level; enti
 
             {err && <div style={{ fontSize: 13, color: 'var(--bad)' }}>Error: {err}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+              <button aria-label="Cerrar" onClick={onClose} style={{ padding: '10px 16px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
               <button onClick={proponer} disabled={phase === 'loading' || enAlcance.length === 0} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 11, border: 'none', background: phase === 'loading' || enAlcance.length === 0 ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: phase === 'loading' || enAlcance.length === 0 ? 'default' : 'pointer' }}>{phase === 'loading' ? 'MaKo completando…' : <><MakoStar size={13} color="var(--surface)" /> Generar con MaKo</>}</button>
             </div>
           </div>

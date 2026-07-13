@@ -102,7 +102,7 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved }: { angles
             <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Ángulos y avatares</h2>
             <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 6, lineHeight: 1.5 }}>El vocabulario con el que se clasifican los guiones. Se aplica al re-analizar o sincronizar; los anuncios ya clasificados con uno que borrás lo siguen mostrando hasta re-analizarse.</div>
           </div>
-          <button onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+          <button aria-label="Cerrar" onClick={onClose} style={{ width: 34, height: 34, flex: 'none', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
         </div>
         <div style={{ padding: '20px 26px', maxHeight: '62vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
           {section({ title: 'Ángulos del mensaje', blurb: 'El enfoque del guion (visionario, dolor, testimonio…). Tiene que quedar al menos uno.', rows: aRows, setRows: setARows, placeholder: 'Nombre del ángulo (ej. Autoridad)' })}

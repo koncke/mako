@@ -764,7 +764,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 580, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '22px 26px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ minWidth: 0 }}><div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>Patrón</div><div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', marginTop: 4, lineHeight: 1.4 }}>{drill.title}</div></div>
-              <button onClick={() => setDrill(null)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+              <button aria-label="Cerrar" onClick={() => setDrill(null)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
             </div>
             <div style={{ padding: '18px 26px 16px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}><span style={{ width: 110, flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--dim)', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drill.aLabel}</span><div style={{ flex: 1, height: 15, borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', overflow: 'hidden' }}><div style={drill.aBar} /></div><span style={{ width: 52, flex: 'none', fontFamily: MONO, fontSize: 13, fontWeight: 600, color: drill.aColor }}>{drill.aVal}</span></div>
@@ -793,7 +793,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
                 <div style={{ width: 32, height: 32, flex: 'none', borderRadius: 9, background: 'linear-gradient(150deg,#23272F,#14161B)', border: '1px solid rgba(239,159,39,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{spark(15, 'samb')}</div>
                 <div style={{ minWidth: 0 }}><div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Conclusiones con MaKo</div><div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)' }}>Qué escribir esta semana</div></div>
               </div>
-              <button onClick={() => setMako(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+              <button aria-label="Cerrar" onClick={() => setMako(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
             </div>
             <div style={{ padding: '22px 24px' }}>
               <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
@@ -818,7 +818,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
                 <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' }}>Actualizar patrones</div>
                 <div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)', marginTop: 3 }}>{syncGate.level === 'nada' ? 'Ya está todo al día' : syncGate.level === 'reciente' ? 'Recién sincronizaste' : 'Actualizar patrones'}</div>
               </div>
-              <button onClick={() => setConfirmSync(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+              <button aria-label="Cerrar" onClick={() => setConfirmSync(false)} style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>
             </div>
             <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {syncGate.level === 'nada' ? (
@@ -946,7 +946,7 @@ export function FunnelModal({ sel, onClose, onReanalizar, reMsg, onSetAngle, onS
             {!sel.esImagen && (
               <div style={{ textAlign: 'right' }}><div style={{ fontSize: 30, fontWeight: 600, lineHeight: 1, color: hookColor(sel.hookRate), fontVariantNumeric: 'tabular-nums' }}>{sel.hookRate}%</div><div style={{ fontSize: 10, color: 'var(--faint)', fontFamily: MONO, marginTop: 3, letterSpacing: '.04em' }}>HOOK · 3s</div></div>
             )}
-            {!embedded && <button onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>}
+            {!embedded && <button aria-label="Cerrar" onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, cursor: 'pointer', fontFamily: SANS }}>✕</button>}
           </div>
         </div>
         <div style={{ padding: embedded ? '16px 0 0' : '22px 26px', maxHeight: embedded ? undefined : '74vh', overflowY: embedded ? undefined : 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>

@@ -105,7 +105,7 @@ export function EntityDetalle({ id, level, name, statusLabel, semaforo, desde, h
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
             {data && p && <MakoButton chartKey={`mkt-${level}-${id}`} titulo={name} contexto={ctx} sugerencias={['¿Escalo o pauso este nivel?', '¿Dónde se cae el rendimiento?', '¿El presupuesto está bien asignado?', '¿Qué dicen los números vs los cierres?']} />}
-            <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            <button aria-label="Cerrar" onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
           </div>
         </div>
 

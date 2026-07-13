@@ -645,7 +645,7 @@ export function RetroReport({ reporte, periodo, alcance, onPlan, busyPlanId }: {
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: DOT[stArea(f.area)] }} />
                       {TOOL_LABEL[f.tool]}
                     </span>
-                    <button type="button" onClick={closeModal} style={{ marginLeft: 'auto', width: 30, height: 30, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                    <button type="button" aria-label="Cerrar" onClick={closeModal} style={{ marginLeft: 'auto', width: 30, height: 30, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>✕</button>
                   </div>
                   <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '22px 24px', marginBottom: 18 }}>
                     <EvidenciaBlock ev={f.ev} />
@@ -696,7 +696,7 @@ export function RetroReport({ reporte, periodo, alcance, onPlan, busyPlanId }: {
                     {a.prio && (
                       <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', padding: '4px 11px', borderRadius: 6, background: prioColors(a.prio)[0], color: prioColors(a.prio)[1] }}>{a.prio}</span>
                     )}
-                    <button type="button" onClick={closeModal} style={{ marginLeft: 'auto', width: 30, height: 30, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                    <button type="button" aria-label="Cerrar" onClick={closeModal} style={{ marginLeft: 'auto', width: 30, height: 30, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', lineHeight: 1 }}>✕</button>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
                     <span style={{ flex: 'none', marginTop: 5 }}><MakoStar size={18} /></span>

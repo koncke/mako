@@ -134,7 +134,7 @@ export function ConocimientoView() {
       {errorMsg && (
         <div style={{ maxWidth: 880, marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '11px 14px', borderRadius: 12, border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: 13.5 }}>
           <span>{errorMsg}</span>
-          <button onClick={() => setErrorMsg(null)} style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--bad)', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+          <button aria-label="Descartar aviso" onClick={() => setErrorMsg(null)} style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--bad)', cursor: 'pointer', fontWeight: 700 }}>✕</button>
         </div>
       )}
 

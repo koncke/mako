@@ -443,7 +443,7 @@ export function AdDetalle({ s, desde, hasta, onClose }: { s: SenalRecon; desde: 
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
             {data && p && <MakoButton chartKey={`marketing-ad-${s.ad_id}`} titulo={s.ad_name ?? 'Anuncio'} contexto={ctxAd} sugerencias={['¿Apago este anuncio o lo escalo?', '¿Por qué no convierte?', '¿Qué dice el creativo vs los números?', '¿Qué le cambiarías?']} />}
-            <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            <button aria-label="Cerrar" onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
           </div>
         </div>
 
@@ -734,7 +734,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
             {data && p && <MakoButton chartKey={`ad-detail-${head.adId}`} titulo={head.adName ?? 'Anuncio'} contexto={ctxAd} sugerencias={['¿Apago este anuncio o lo escalo?', '¿Por qué no convierte?', '¿Qué dice el creativo vs los números?', '¿Qué le cambiarías al guion?']} />}
-            <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            <button aria-label="Cerrar" onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
           </div>
         </div>
 
