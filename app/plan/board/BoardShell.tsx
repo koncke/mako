@@ -956,7 +956,13 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, on
                 <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad</span>
                 <ProjScore score={proj.score} color={proj.color} big />
               </div>
-              {proj.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{proj.scoreRazon}”</div>}
+              {proj.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{proj.scoreRazon}”</div>}
+              {(proj.impacto != null || proj.esfuerzo != null) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
+                  {proj.impacto != null && <IEMeter label="Impacto" v={proj.impacto} color="#1E9E57" />}
+                  {proj.esfuerzo != null && <IEMeter label="Esfuerzo" v={proj.esfuerzo} color="#C8870C" />}
+                </div>
+              )}
               <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
