@@ -5,7 +5,7 @@
 // no cambiás nada. La pregunta final es PERSONALIZADA según el cambio (sin proyecto /
 // cambiás de X a Y / agregás A, B, C). El motivo queda en el historial (feedback #19).
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { WizardShell } from '../../leads/WizardShell';
 import { IntroBody, textareaStyle } from './guardian-form';
 import { type BoardTask, type Label } from './types';
@@ -22,25 +22,26 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const confirmar = () => { onAsignar(sel, motivo.trim()); onClose(); };
 
-  const nombre = (id: string) => labels.find((l) => l.id === id)?.name ?? '';
   const actuales = task.labels;
   const mismos = sel.length === actuales.length && sel.every((id) => actuales.includes(id));
   const agregados = sel.filter((id) => !actuales.includes(id));
   const quitados = actuales.filter((id) => !sel.includes(id));
 
-  // pregunta final personalizada según el tipo de cambio
-  const preguntaPorque = (): string => {
-    if (sel.length === 0) return '¿Por qué dejás esta tarea sin proyecto?';
+  const chip = (id: string) => { const l = labels.find((x) => x.id === id); return l ? <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 14, fontWeight: 700, padding: '3px 10px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color }}>{l.emoji} {l.name}</span> : null; };
+  // encabezado del cambio, con emojis + chips (se lee más fácil que un texto plano)
+  const cambioHeader = () => {
+    const flecha = <span style={{ color: 'var(--faint)', fontSize: 18, margin: '0 2px' }}>→</span>;
+    if (sel.length === 0) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 14 }}>La dejás <b style={{ color: 'var(--ink)' }}>sin proyecto</b>.</span></div>;
     if (quitados.length === actuales.length && actuales.length > 0 && agregados.length) {
-      if (actuales.length === 1 && sel.length === 1) return `¿Por qué la cambiás del proyecto ${nombre(actuales[0])} a ${nombre(sel[0])}?`;
-      return `¿Por qué la movés a ${sel.map(nombre).join(', ')}?`;
+      if (actuales.length === 1 && sel.length === 1) return <div style={cambioBox}>{chip(actuales[0])}{flecha}{chip(sel[0])}</div>;
+      return <div style={cambioBox}>{sel.map(chip)}</div>;
     }
-    if (agregados.length && !quitados.length) return `¿Por qué agregás ${agregados.map(nombre).join(', ')}?`;
-    if (quitados.length && !agregados.length) return `¿Por qué sacás ${quitados.map(nombre).join(', ')}?`;
-    return `¿Por qué la movés a ${sel.map(nombre).join(', ')}?`;
+    if (agregados.length && !quitados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Agregás</span>{agregados.map(chip)}</div>;
+    if (quitados.length && !agregados.length) return <div style={cambioBox}><span style={{ color: 'var(--dim)', fontSize: 13.5 }}>Sacás</span>{quitados.map(chip)}</div>;
+    return <div style={cambioBox}>{sel.map(chip)}</div>;
   };
 
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿En qué proyecto(s) va esta tarea?', preguntaPorque()];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿En qué proyecto(s) va esta tarea?', sel.length === 0 ? '¿Por qué la dejás sin proyecto?' : '¿Por qué el cambio?'];
   const subs: (string | undefined)[] = [undefined, 'Podés elegir más de uno. Tenés que cambiar algo para seguir.', 'Contame tu criterio: así entiendo dónde encaja de verdad.'];
   const puedeAvanzar = idx === 0 ? true : idx === 1 ? !mismos : motivo.trim() !== '';
 
@@ -74,7 +75,9 @@ export function AsignarProyectoModal({ task, labels, onAsignar, onClose }: {
           })}
         </div>
       )}
-      {idx === 2 && <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus placeholder="Ej: es parte del núcleo, no de growth…" style={{ ...textareaStyle }} />}
+      {idx === 2 && <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>{cambioHeader()}<textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} autoFocus placeholder="Ej: es parte del núcleo, no de growth…" style={{ ...textareaStyle }} /></div>}
     </WizardShell>
   );
 }
+
+const cambioBox: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' };

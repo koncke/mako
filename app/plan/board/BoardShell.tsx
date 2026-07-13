@@ -245,7 +245,7 @@ export function BoardShell({ board }: { board: Board }) {
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
-      {debateProj && <ProyectoDebateModal proj={debateProj} otrosProyectos={labels.filter((l) => l.id !== debateProj.id).map((l) => `- ${l.emoji} ${l.name} (prioridad ${l.score}/10)`).join('\n') || '(no hay otros proyectos)'} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia')} onClose={() => setDebateProjId(null)} />}
+      {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
         otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
@@ -894,26 +894,36 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
   );
 }
 
-// Color como DESPLEGABLE (#4): botón con el color actual → panel con swatches + RGB.
+// nombres de los colores por defecto (en vez del hex)
+const COLOR_NAMES: Record<string, string> = { '#98A0AC': 'Gris', '#2F6FED': 'Azul', '#1E9E57': 'Verde', '#C8870C': 'Ámbar', '#D0504A': 'Rojo', '#7C5CFB': 'Violeta', '#0E9B8E': 'Turquesa', '#D6489B': 'Rosa' };
+const colorName = (c: string) => COLOR_NAMES[c.toUpperCase()] || COLOR_NAMES[c] || 'Personalizado';
+// Color como DESPLEGABLE (#29): swatches en CÍRCULOS + botón "+" con anillo rainbow que
+// abre el selector RGB nativo. Muestra el NOMBRE del color, no el hex.
 function ColorDropdown({ color, onPick }: { color: string; onPick: (c: string) => void }) {
   const [open, setOpen] = useState(false);
+  const rainbow = 'conic-gradient(from 90deg, #ff0000, #ffea00, #21d24a, #00c2ff, #2b5cff, #c000ff, #ff0090, #ff0000)';
   return (
     <span style={{ position: 'relative', display: 'block' }}>
       <button onClick={() => setOpen((o) => !o)} style={{ ...selStyle, display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
-        <span style={{ width: 16, height: 16, borderRadius: 5, background: color, border: '1px solid rgba(0,0,0,.15)', flex: 'none' }} />
-        <span style={{ flex: 1, textAlign: 'left', fontFamily: MONO, fontSize: 12 }}>{color.toUpperCase()}</span>
+        <span style={{ width: 18, height: 18, borderRadius: '50%', background: color, border: '1px solid rgba(0,0,0,.15)', flex: 'none' }} />
+        <span style={{ flex: 1, textAlign: 'left', fontSize: 13 }}>{colorName(color)}</span>
         <span style={{ color: 'var(--faint)' }}>▾</span>
       </button>
       {open && <>
         <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95 }} />
-        <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0, zIndex: 96, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.2)', padding: 12 }}>
-          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10 }}>
-            {SWATCHES.map((s) => <button key={s} onClick={() => { onPick(s); setOpen(false); }} title={s} style={{ width: 22, height: 22, borderRadius: 7, background: s, border: color.toLowerCase() === s.toLowerCase() ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer', flex: 'none' }} />)}
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 96, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, boxShadow: '0 16px 40px rgba(18,21,27,.2)', padding: 14 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* "+" con anillo rainbow → selector RGB nativo */}
+            <label title="Elegir cualquier color" style={{ position: 'relative', width: 30, height: 30, borderRadius: '50%', background: rainbow, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flex: 'none' }}>
+              <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, color: 'var(--ink)', lineHeight: 1 }}>＋</span>
+              <input type="color" value={color} onChange={(e) => onPick(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+            </label>
+            {SWATCHES.map((s) => {
+              const on = color.toUpperCase() === s.toUpperCase();
+              return <button key={s} onClick={() => { onPick(s); setOpen(false); }} title={colorName(s)} style={{ width: 30, height: 30, borderRadius: '50%', background: s, border: on ? '2px solid var(--ink)' : '2px solid transparent', boxShadow: on ? '0 0 0 2px var(--surface), 0 0 0 3px var(--ink)' : 'inset 0 0 0 1px rgba(0,0,0,.1)', cursor: 'pointer', flex: 'none' }} />;
+            })}
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--dim)', cursor: 'pointer' }}>
-            <input type="color" value={color} onChange={(e) => onPick(e.target.value)} style={{ width: 26, height: 22, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', cursor: 'pointer' }} />
-            Elegir cualquier color (RGB)
-          </label>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--dim)' }}>Color actual: <b style={{ color: 'var(--ink)' }}>{colorName(color)}</b></div>
         </div>
       </>}
     </span>
