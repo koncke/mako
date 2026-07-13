@@ -243,7 +243,8 @@ export function BoardShell({ board }: { board: Board }) {
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
         otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}
-        onOpenTask={() => setOpenId(eliminarTask.id)}
+        onCompletar={() => board.toggleDone(eliminarTask.id)}
+        onDebate={() => setDebateId(eliminarTask.id)}
         onBorrar={(motivo) => { board.remove(eliminarTask.id, motivo); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
       {eliminarProj && <EliminarModal tipo="proyecto" nombre={eliminarProj.name} nTareas={tasks.filter((t) => t.labels.includes(eliminarProj.id)).length}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar proyecto')}
