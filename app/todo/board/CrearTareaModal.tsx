@@ -15,7 +15,7 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 export type CrearResult = { score: number; prio: Prio; razon: string; respuesta: string } | null;
-export type CrearData = { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; motivoNinguno: string; argumento: string };
+export type CrearData = { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; motivoNinguno: string; argumento: string; puntuar: boolean };
 
 const OPCIONES = [
   'Es urgente / bloquea algo',
@@ -37,13 +37,14 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
   const [motivoNinguno, setMotivoNinguno] = useState('');
   const [userPrio, setUserPrio] = useState<Prio | ''>(prioInicial ?? '');
   const [arg, setArg] = useState('');
+  const [puntuar, setPuntuar] = useState(true); // #18: si off, se crea sin gastar tokens
   const [fase, setFase] = useState<'form' | 'puntuando' | 'veredicto'>('form');
   const [res, setRes] = useState<CrearResult>(null);
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
   const crear = async () => {
     setFase('puntuando');
-    const r = await onCrear({ title: title.trim(), detalle: detalle.trim(), labelIds: sel, userPrio, motivoNinguno: motivoNinguno.trim(), argumento: arg.trim() });
+    const r = await onCrear({ title: title.trim(), detalle: detalle.trim(), labelIds: sel, userPrio, motivoNinguno: motivoNinguno.trim(), argumento: arg.trim(), puntuar });
     setRes(r); setFase('veredicto');
   };
 
@@ -74,7 +75,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
   const puedeAvanzar = idx === 1 ? title.trim() !== ''
     : idx === 3 ? (sel.length > 0 || motivoNinguno !== '')
       : idx === 4 ? userPrio !== ''
-        : idx === 5 ? arg.trim() !== '' : true;
+        : idx === 5 ? (!puntuar || arg.trim() !== '') : true;
 
   return (
     <WizardShell
@@ -82,7 +83,7 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
       total={6} idx={idx}
       pregunta={preguntas[idx]} sub={subs[idx]}
       puedeAvanzar={puedeAvanzar}
-      enUltimo={idx === 5} confirmLabel="Crear · que la priorice →"
+      enUltimo={idx === 5} confirmLabel={puntuar ? 'Crear · que la priorice →' : 'Crear sin puntuar · 0 tokens'}
       atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'}
       onClose={onClose}
       onAtras={() => (idx === 0 ? onClose() : setIdx(idx - 1))}
@@ -136,7 +137,21 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
           })}
         </div>
       )}
-      {idx === 5 && <ChoiceBody opciones={OPCIONES} value={arg} onChange={setArg} customPlaceholder="Otra… (por qué te parece importante)" />}
+      {idx === 5 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, textAlign: 'left' }}>
+          <button type="button" onClick={() => setPuntuar((v) => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 13px', borderRadius: 11, border: `1px solid ${puntuar ? 'var(--primary)' : 'var(--border-strong)'}`, background: puntuar ? 'var(--primary-bg)' : 'var(--surface)', cursor: 'pointer', fontFamily: SANS }}>
+            <span style={{ width: 34, height: 20, borderRadius: 999, background: puntuar ? 'var(--primary)' : 'var(--border-strong)', position: 'relative', flex: 'none', transition: 'background .12s' }}>
+              <span style={{ position: 'absolute', top: 2, left: puntuar ? 16 : 2, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left .12s' }} />
+            </span>
+            <span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Que el Perro Guardián la puntúe</span>
+            <span style={{ fontSize: 11, color: 'var(--faint)', fontFamily: MONO }}>{puntuar ? 'usa tokens' : '0 tokens'}</span>
+          </button>
+          {puntuar
+            ? <ChoiceBody opciones={OPCIONES} value={arg} onChange={setArg} customPlaceholder="Otra… (por qué te parece importante)" />
+            : <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px' }}>Se crea con la prioridad que elegiste ({PLABEL[userPrio || 'media']}) sin llamar a la IA. Perfecto para cargar tareas en lote; después podés debatirla con el perro cuando quieras.</div>}
+        </div>
+      )}
     </WizardShell>
   );
 }

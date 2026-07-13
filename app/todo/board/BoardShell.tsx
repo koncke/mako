@@ -144,11 +144,16 @@ export function BoardShell({ board }: { board: Board }) {
 
   // crear una tarea: el usuario propone proyecto(s) + prioridad; el GUARDIÁN la puntúa
   // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
-  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; motivoNinguno: string; argumento: string }) => {
+  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; motivoNinguno: string; argumento: string; puntuar: boolean }) => {
     const t = await board.create(d.title, d.userPrio || 'media', d.labelIds.length ? d.labelIds : undefined);
     if (!t) return null;
     if (d.detalle) board.setDetalle(t.id, d.detalle, '');
     const starter = d.userPrio ? scoreFromPrio[d.userPrio] : 50;
+    // #18: crear SIN gastar tokens — usa la prioridad propuesta por el usuario y no
+    // llama al guardián. Ideal para cargar/editar en lote desde super-admin.
+    if (!d.puntuar) {
+      return { score: starter, razon: '', respuesta: 'Creada sin puntuar (0 tokens). Cuando quieras, debatila con el Perro Guardián.', prio: displayPrio({ ...t, score: starter }, topProjectId) };
+    }
     const partes: string[] = [];
     if (d.argumento) partes.push(d.argumento);
     if (d.userPrio) partes.push(`El usuario la propone como prioridad ${PLABEL[d.userPrio]} (podés corregirlo si no corresponde).`);
