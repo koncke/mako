@@ -54,3 +54,7 @@ graphify-out/
 
 # hook local de graphify (always-on por-maquina; requiere graphify en PATH)
 .claude/settings.local.json
+
+# Tooling de Claude Code (no va al repo)
+.agents/
+skills-lock.json
