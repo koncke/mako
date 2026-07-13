@@ -332,6 +332,24 @@ function loadLabels(): Label[] {
   return PROJS_DEFAULT;
 }
 
+// Agregar ideas nuevas SIN pisar tus ediciones: cuando sumo proyectos/tareas al SEED de
+// arriba, bumpeo MERGE_VERSION; en el próximo load se AGREGA al localStorage solo lo que
+// falte (por id de proyecto / num de tarea). Lo que moviste, editaste o completaste queda
+// intacto. (Reset total sería bumpear las claves K7/K_PROJS; esto NO resetea.)
+const MERGE_VERSION = 'v1';
+function mergeExtras(tasks: BoardTask[], labels: Label[]): { tasks: BoardTask[]; labels: Label[] } {
+  try {
+    if (localStorage.getItem('mako_plan_merge') === MERGE_VERSION) return { tasks, labels };
+    localStorage.setItem('mako_plan_merge', MERGE_VERSION);
+    const haveL = new Set(labels.map((l) => l.id));
+    const haveT = new Set(tasks.map((t) => t.num));
+    return {
+      tasks: [...tasks, ...seedTasks().filter((t) => !haveT.has(t.num))],
+      labels: [...labels, ...PROJS_DEFAULT.filter((p) => !haveL.has(p.id))],
+    };
+  } catch { return { tasks, labels }; }
+}
+
 export function PlanBoard({ user }: { user: BoardUser }) {
   const repo: Repo = {
     labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
@@ -344,7 +362,7 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   const [hydrated, setHydrated] = useState(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { board.reset(loadTasks(), loadLabels()); setHydrated(true); }, []);
+  useEffect(() => { const { tasks, labels } = mergeExtras(loadTasks(), loadLabels()); board.reset(tasks, labels); setHydrated(true); }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K7, JSON.stringify(board.tasks)); } catch { /* no-op */ } }, [board.tasks, hydrated]);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(board.labels)); } catch { /* no-op */ } }, [board.labels, hydrated]);
 
