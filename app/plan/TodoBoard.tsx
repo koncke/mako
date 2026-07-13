@@ -40,6 +40,7 @@ export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[];
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
     labelMode: 'single', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
     dismissableGauntlet: true,
+    fathomExtract: true, // extraer tareas de una reunión (usa la Fathom key del propio workspace)
     createTask: async (d) => {
       if (demo) return d;
       // origen preservado (al restaurar un borrado de una tarea de MaKo mantiene el ✦)

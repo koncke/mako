@@ -85,6 +85,17 @@ export async function esWorkspaceDueno(): Promise<boolean> {
   return (await getWorkspaceActual()) === OWNER_WS;
 }
 
+/** true si un admin está impersonando a un cliente (cookie de impersonación activa).
+ *  Sirve para distinguir "admin viendo su propio panel" de "admin metido en un
+ *  cliente": p.ej. el board /plan muestra el PlanBoard del dueño solo si NO impersona,
+ *  y el tablero del cliente (incl. Mauricio/ws1) cuando sí. */
+export async function estaImpersonando(): Promise<boolean> {
+  const sesion = await getUsuarioActual();
+  if (sesion?.rol !== 'admin') return false;
+  const store = await cookies();
+  return leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value) != null;
+}
+
 /**
  * Rol EFECTIVO dentro del workspace que ve el request, para gatear tabs:
  *   · admin de agencia (impersonando o no) → 'admin' (acceso total a las tabs;

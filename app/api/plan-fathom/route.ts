@@ -18,9 +18,11 @@ export const maxDuration = 120;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function POST(req: NextRequest) {
-  // Feature de la agencia: solo el super-admin (dueño) puede extraer de Fathom.
+  // Cualquier usuario logueado puede extraer de SU Fathom: la key sale de
+  // credWs('FATHOM_API_KEY') que ya está scopeada por workspace (el dueño usa la de
+  // la agencia; cada cliente, la suya). Si el workspace no tiene key, falla lindo.
   const sesion = await getUsuarioActual();
-  if (sesion?.rol !== 'admin') return Response.json({ ok: false, error: 'No autorizado' }, { status: 403 });
+  if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
 
   let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }

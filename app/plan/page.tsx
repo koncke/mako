@@ -9,8 +9,7 @@ import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/to
 import { seedTodoBoardSiVacio } from '@/lib/todo-seeds';
 import { guardOnboarding } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getWorkspace } from '@/lib/workspace';
-import { OWNER_WS } from '@/lib/auth-session';
+import { getWorkspaceActual, getWorkspace, estaImpersonando } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
 import { PlanBoard } from './PlanBoard';
@@ -24,12 +23,11 @@ export default async function TodoPage() {
   let user = { nombre: '', avatarUrl: '' };
   try { const p = await getPerfil(); user = { nombre: p.nombre, avatarUrl: p.avatarUrl }; } catch { /* fallback vacío */ }
 
-  // Super-admin sin impersonar (no tiene workspace de cliente activo) → su plan.
+  // Super-admin (Martín) SIN impersonar → su plan de ejecución (PlanBoard).
+  // Si un admin IMPERSONA a un cliente (incl. Mauricio/ws1), cae al tablero del
+  // cliente — Mauricio es un cliente más, no el dueño.
   const sesion = await getUsuarioActual();
-  if (sesion?.rol === 'admin') {
-    const ws = await getWorkspaceActual();
-    if (ws == null || ws === OWNER_WS) return <PlanBoard user={user} />;
-  }
+  if (sesion?.rol === 'admin' && !(await estaImpersonando())) return <PlanBoard user={user} />;
 
   // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
   await guardOnboarding();
