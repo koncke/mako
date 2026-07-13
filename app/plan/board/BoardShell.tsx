@@ -10,6 +10,7 @@
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
@@ -23,7 +24,6 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
 import { ReunionExtractModal } from './ReunionExtractModal';
-import { GuardianIcon } from './GuardianIcon';
 import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
 import { RichText, stripHtml, sanitizeHtml } from './RichText';
@@ -354,19 +354,23 @@ function LabelChips({ chips, max = 2, cap = 190 }: { chips: Label[]; max?: numbe
   return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} />)}{rest.length > 0 && <MasChip extra={rest} />}</>;
 }
 // "+N" con desplegable HOVER (diseño nuestro): muestra los proyectos ocultos con su
-// color + emoji, en vez del title HTML feo.
+// color + emoji. Se renderiza en un PORTAL (fixed) para que NO lo tape ni lo recorte
+// ninguna card/columna con overflow, y muestra el NOMBRE COMPLETO (sin cortar).
 function MasChip({ extra }: { extra: Label[] }) {
-  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const ref = useRef<HTMLSpanElement>(null);
+  const abrir = () => { const r = ref.current?.getBoundingClientRect(); if (r) setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 320) }); };
   return (
-    <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: `1px solid ${open ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 6, padding: '2px 6px', cursor: 'default' }}>+{extra.length}</span>
-      {open && (
-        <span style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 300, display: 'flex', flexDirection: 'column', gap: 5, minWidth: 150, maxWidth: 280, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 14px 34px rgba(18,21,27,.20)', padding: 8 }}>
+    <span ref={ref} style={{ flex: 'none', display: 'inline-flex' }} onMouseEnter={abrir} onMouseLeave={() => setPos(null)}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: `1px solid ${pos ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 6, padding: '2px 6px', cursor: 'default' }}>+{extra.length}</span>
+      {pos && createPortal(
+        <span style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 5, width: 300, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.24)', padding: 8, fontFamily: SANS, pointerEvents: 'none' }}>
           <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '0 2px 2px' }}>También en</span>
           {extra.map((l) => (
-            <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.emoji} {l.name}</span>
+            <span key={l.id} style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', lineHeight: 1.35 }}><span style={{ flex: 'none' }}>{l.emoji}</span><span>{l.name}</span></span>
           ))}
-        </span>
+        </span>,
+        document.body,
       )}
     </span>
   );
@@ -565,7 +569,7 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
       <span style={{ flex: 1 }} />
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <GuardianIcon size={15} />
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--primary)" style={{ flex: 'none' }}><path d="M12 2.2l7 2.9v5.6c0 4.6-3 8-7 9.1-4-1.1-7-4.5-7-9.1V5.1l7-2.9z" /></svg>
           <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>Por qué es el norte</span>
         </div>
         <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, fontStyle: objetivo.scoreRazon ? 'italic' : 'normal' }}>
