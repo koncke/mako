@@ -22,6 +22,7 @@ import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { GuardianIcon } from './GuardianIcon';
+import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, scoreFromPrio } from './types';
@@ -274,6 +275,8 @@ export function BoardShell({ board }: { board: Board }) {
 // ── átomos ────────────────────────────────────────────────────────────────────
 const ghostBtn: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 500, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS };
 const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 500, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: SANS, width: '100%' };
+// botón "Cambiar prioridad/proyecto" — mismo diseño en toda la app: estrella de IA + texto azul
+const cambiarBtn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid var(--primary-weak)', background: 'var(--surface)', color: 'var(--primary)', fontWeight: 700, fontSize: 13, padding: '9px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS };
 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
 // Logo del Plan: checklist relleno (mismo motivo que el ícono de la sidebar). Los
@@ -399,9 +402,12 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
         return (
           <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
-            <ColHeader p={p} count={items.length} onNew={() => onNew(p)} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
+            <ColHeader p={p} count={items.length} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
-              {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
+              {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas) */}
+              <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>＋ Nueva tarea</button>
+              {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '10px 0' }}>—</div>}
               {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} />)}
             </div>
           </section>
@@ -410,15 +416,13 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
     </div>
   );
 }
-function ColHeader({ p, count, onNew, nota }: { p: Prio; count: number; onNew: () => void; nota?: string }) {
+function ColHeader({ p, count, nota }: { p: Prio; count: number; nota?: string }) {
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
         <span style={{ width: 9, height: 9, borderRadius: '50%', background: PCOLOR[p], flex: 'none' }} />
         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{PLABEL[p]}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{count}</span>
-        <span style={{ flex: 1 }} />
-        <button onClick={onNew} title="Nueva tarea (la prioriza MaKo)" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--dim)', fontSize: 18, lineHeight: 1, padding: '0 3px' }}>+</button>
       </div>
       {nota && <div style={{ fontSize: 10, color: 'var(--faint)', padding: '0 3px 8px', lineHeight: 1.3 }}>{nota}</div>}
     </div>
@@ -660,7 +664,7 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
               </div>
               {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
               {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
-              <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700, padding: '9px 10px' }}><GuardianIcon size={20} /> Cambiar prioridad</button>
+              <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
@@ -673,7 +677,7 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
                     <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color }}>{l.emoji} {l.name}</span>
                   ))}
               </div>
-              <button onClick={onAsignar} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700 }}><GuardianIcon size={13} /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
+              <button onClick={onAsignar} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
@@ -846,7 +850,7 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
             <label style={rowLabel}>Prioridad · la pone el Perro Guardián</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <ProjScore score={proj.score} color={proj.color} big />
-              <button onClick={onDebatePrio} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--accent)', borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}><GuardianIcon size={17} /> Cambiar prioridad</button>
+              <button onClick={onDebatePrio} style={{ ...cambiarBtn, width: 'auto' }}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             {proj.scoreRazon && <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, fontStyle: 'italic', marginTop: 10 }}>“{proj.scoreRazon}”</div>}
           </div>
