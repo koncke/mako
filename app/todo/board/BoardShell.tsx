@@ -18,6 +18,8 @@ import { MakoChecklistModal } from './MakoChecklist';
 import { DebateModal } from './DebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
+import { EliminarModal } from './EliminarModal';
+import { AsignarProyectoModal } from './AsignarProyecto';
 import { GuardianIcon } from './GuardianIcon';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
@@ -32,6 +34,9 @@ export function BoardShell({ board }: { board: Board }) {
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [nuevoProj, setNuevoProj] = useState(false);
   const [nuevaTareaProj, setNuevaTareaProj] = useState<string | null>(null); // proyecto donde crear la tarea nueva
+  const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
+  const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
+  const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
@@ -110,6 +115,9 @@ export function BoardShell({ board }: { board: Board }) {
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
+  const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
+  const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
+  const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;
   const crearProyecto = (nombre: string, emoji: string, detalle: string) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score: 5, detalle, historial: [] });
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
@@ -162,11 +170,14 @@ export function BoardShell({ board }: { board: Board }) {
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} />}
       </div>
 
-      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onDebate={() => setDebateId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
+      {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onDebate={() => setDebateId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
       {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} ask={ask} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onClose={() => setOpenProj(null)} />}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
+      {eliminarTask && <EliminarModal que={`la tarea «${eliminarTask.title.slice(0, 40)}»`} opciones={['Ya no aplica', 'Está duplicada', 'Ya se hizo', 'Cambió la prioridad']} confirmLabel="Borrar tarea" onConfirm={(motivo) => { board.remove(eliminarTask.id, motivo); setEliminarTaskId(null); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
+      {eliminarProj && <EliminarModal que={`el proyecto «${eliminarProj.name}»`} advertencia={`Se borran también sus ${tasks.filter((t) => t.labels.includes(eliminarProj.id)).length} tarea(s). No se puede deshacer.`} opciones={['Ya no es relevante', 'Se fusiona con otro', 'Fue un error', 'Terminó']} confirmLabel="Borrar todo" onConfirm={() => { board.deleteLabelYTareas(eliminarProj.id); setEliminarProjId(null); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
+      {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels} topProjectId={topProjectId} onAsignar={(lid) => board.setTaskLabels(asignarTask.id, board.repo.labelMode === 'single' ? [lid] : [...asignarTask.labels.filter((x) => x !== lid), lid], `Asignó al proyecto ${board.labelById(lid)?.name ?? ''}`)} onClose={() => setAsignarTaskId(null)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         dismissable={repo.dismissableGauntlet}
         onDismiss={() => { setDismissed((s) => new Set(s).add(wizardTask.id)); setAltaUndo(null); setWizardId(null); }}
@@ -409,8 +420,8 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
 }
 
 // ── modal de detalle ────────────────────────────────────────────────────────────
-function TaskModal({ t, board, topProjectId, onDebate, ask, onClose }: {
-  t: BoardTask; board: Board; topProjectId: string | null; onDebate: () => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
+function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask, onClose }: {
+  t: BoardTask; board: Board; topProjectId: string | null; onDebate: () => void; onDelete: () => void; onAsignar: () => void; ask: (msg: string, onOk: () => void) => void; onClose: () => void;
 }) {
   const prioEfectiva = displayPrio(t, topProjectId);
   const topeada = prioEfectiva !== prioFromScore(t.score);
@@ -506,10 +517,10 @@ function TaskModal({ t, board, topProjectId, onDebate, ask, onClose }: {
                   </span>
                 ))}
               </div>
-              {disponibles.length > 0 && <select value="" onChange={(e) => { if (e.target.value) board.setTaskLabels(t.id, board.repo.labelMode === 'single' ? [e.target.value] : [...t.labels, e.target.value], `Agregó ${board.labelById(e.target.value)?.name ?? ''}`); }} style={selStyle}><option value="">＋ {board.repo.labelSingular.toLowerCase()}</option>{disponibles.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}</select>}
+              {disponibles.length > 0 && <button onClick={onAsignar} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700 }}><GuardianIcon size={13} /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>}
             </div>
             <span style={{ flex: 1 }} />
-            <button onClick={() => ask('¿Eliminar esta tarea?', () => { board.remove(t.id); onClose(); })} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
+            <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
           </div>
         </div>
       </div>
@@ -586,7 +597,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
 }
 
 // ── detalle de un proyecto (con sus tareas + change history) ────────────────────
-function ProjectDetailModal({ proj, board, topProjectId, ask, onOpenTask, onNewTask, onClose }: { proj: Label; board: Board; topProjectId: string | null; ask: (msg: string, onOk: () => void) => void; onOpenTask: (id: string) => void; onNewTask: () => void; onClose: () => void }) {
+function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; onOpenTask: (id: string) => void; onNewTask: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
   const [detDraft, setDetDraft] = useState(proj.detalle);
   useEffect(() => {
@@ -596,7 +607,6 @@ function ProjectDetailModal({ proj, board, topProjectId, ask, onOpenTask, onNewT
   const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
   const isTop = proj.id === topProjectId;
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
-  const borrar = () => ask(`Vas a borrar el proyecto "${proj.name}" Y sus ${suyas.length} tarea${suyas.length === 1 ? '' : 's'}. Esto no se puede deshacer. ¿Seguir?`, () => { board.deleteLabelYTareas(proj.id); onClose(); });
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -638,7 +648,7 @@ function ProjectDetailModal({ proj, board, topProjectId, ask, onOpenTask, onNewT
             <label style={rowLabel}>Change history del proyecto</label>
             <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
           </div>
-          <button onClick={borrar} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
+          <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
         </div>
       </div>
     </div>
