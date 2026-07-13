@@ -16,15 +16,18 @@ const K5 = 'mako_plan_v5', K4 = 'mako_plan_v4', K_PROJS = 'mako_plan_projs_v3';
 const SEED_TS = Date.parse('2026-07-01T12:00:00Z');
 const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 
-const P = (id: string, emoji: string, name: string, color: string, score: number, detalle: string): Label => ({ id, emoji, name, color, score, detalle, historial: [{ id: 'seedp' + id, ts: SEED_TS, actor: 'ia', text: 'Creó el proyecto' }] });
+const P = (id: string, emoji: string, name: string, color: string, score: number, detalle: string, scoreRazon: string): Label => ({ id, emoji, name, color, score, scoreRazon, detalle, historial: [{ id: 'seedp' + id, ts: SEED_TS, actor: 'ia', text: 'Creó el proyecto' }] });
 const PROJS_DEFAULT: Label[] = [
-  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10, 'Que todo lo que ya existe sea DOER: que la app te diga qué hacer, reclame y cierre el loop.'),
-  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8, 'La base: usuarios, perfiles, CRM, ciberseguridad, multi-tenant.'),
-  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6, 'Email, WhatsApp (oficial y no), nutrición, reportes.'),
-  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 6, 'Los analistas (landing, VSL, CS, market) y generadores de MaKo.'),
-  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4, 'Vender MaKo: oferta, ads por feature, landing, testimonios.'),
-  P('ux', '✨', 'UX & Diseño', '#D6489B', 4, 'La experiencia simple y el rediseño de la app.'),
+  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10, 'Que todo lo que ya existe deje de ser un dashboard pasivo y pase a ser DOER: la app te dice qué hacer hoy, reclama lo que no hiciste y cierra el loop (Retro real, pulso diario, rendición de cuentas).', 'Es el norte de todo ahora: sin la capa DOER, MaKo es un dashboard más. Todo lo demás sostiene esto o espera.'),
+  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8, 'La base que sostiene todo: usuarios, perfiles, CRM/ficha del lead, multi-tenant y ciberseguridad. Casi todo hecho; queda endurecer y depurar.', 'Es el piso: si la base falla, no hay DOER ni canales que valgan. Alto, pero ya maduro.'),
+  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6, 'Cómo MaKo llega al lead: email (Resend), WhatsApp oficial y no oficial, nutrición automática y reportes. Motores hechos, falta go-live real.', 'Es el brazo ejecutor del DOER, pero está a un paso del go-live: mueve la aguja cuando se enciende, no antes.'),
+  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 5, 'Los analistas (landing, VSL, CS, market, offer) y generadores de MaKo que convierten data en decisiones y en copy.', 'Multiplican el criterio de MaKo, pero la mayoría son stubs: valor alto a futuro, todavía no hoy.'),
+  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4, 'Vender MaKo hacia afuera: oferta por planes, ads por feature, landing, testimonios. Marketing, no producto.', 'Importa para crecer, pero primero el producto tiene que estar DOER: vender algo a medio hacer quema pólvora.'),
+  P('ux', '✨', 'UX & Diseño', '#D6489B', 3, 'La experiencia simple y el rediseño: que la app se entienda de un vistazo y no abrume. Modo Simple por default.', 'Hace todo usable, pero es transversal y continuo: acompaña al resto, no compite por el primer lugar.'),
 ];
+// Razonamiento del perro por proyecto, para BACKFILL de localStorage viejo (que no
+// tiene scoreRazon) sin pisar nada de lo que el usuario haya editado.
+const SEED_RAZON: Record<string, string> = Object.fromEntries(PROJS_DEFAULT.map((p) => [p.id, p.scoreRazon ?? '']));
 
 // [num, title, project, prioridad, prog, detalle, enPrioridad]
 type Row = [number, string, string, Prio, number, string, boolean];
@@ -111,7 +114,7 @@ const normTask = (t: BoardTask): BoardTask => {
   const s = typeof t.score === 'number' && t.score > 0 ? clampScore(t.score) : scoreFromPrio[t.priority] ?? 62;
   return { ...t, score: s, priority: prioFromScore(s), historial: normHist(t.historial as unknown[]) };
 };
-const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(10, Math.round(l.score)) : 5, detalle: typeof l.detalle === 'string' ? l.detalle : '', historial: normHist((l.historial as unknown[]) || []) });
+const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(10, Math.round(l.score)) : 5, detalle: typeof l.detalle === 'string' ? l.detalle : '', scoreRazon: typeof l.scoreRazon === 'string' && l.scoreRazon.trim() ? l.scoreRazon : (SEED_RAZON[l.id] ?? undefined), historial: normHist((l.historial as unknown[]) || []) });
 
 type OldV4 = { id: string; n: number; text: string; project: string; priority: Prio; prog?: number; detalle?: string; foco?: boolean; deadline?: string; checklist?: unknown; origen?: string; historial?: unknown };
 const fromV4 = (t: OldV4): BoardTask => {

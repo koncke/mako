@@ -108,8 +108,8 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       return { ...x, score: s, priority: prioFromScore(s), scoreRazon: g.razon, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
     }));
     tareas.forEach((t) => markDirty(t.id));
-    setLabels((ls) => ls.map((l) => { const g = proyectos.find((p) => p.id === l.id); return g ? { ...l, score: clampProj(g.score) } : l; }));
-    proyectos.forEach((p) => { const l = labels.find((x) => x.id === p.id); if (l) void repo.saveLabel({ ...l, score: clampProj(p.score) }).catch((e) => console.error('[board] saveLabel', e)); });
+    setLabels((ls) => ls.map((l) => { const g = proyectos.find((p) => p.id === l.id); return g ? { ...l, score: clampProj(g.score), scoreRazon: g.razon || l.scoreRazon } : l; }));
+    proyectos.forEach((p) => { const l = labels.find((x) => x.id === p.id); if (l) void repo.saveLabel({ ...l, score: clampProj(p.score), scoreRazon: p.razon || l.scoreRazon }).catch((e) => console.error('[board] saveLabel', e)); });
   };
 
   // tope de "En prioridad": cuenta solo las NO completadas (consistente con la vista)

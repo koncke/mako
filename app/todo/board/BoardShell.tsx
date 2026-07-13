@@ -184,7 +184,7 @@ export function BoardShell({ board }: { board: Board }) {
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} />}
+        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onWarn={setWizardId} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} />}
       </div>
@@ -340,57 +340,89 @@ function ColHeader({ p, count, onNew, nota }: { p: Prio; count: number; onNew: (
   );
 }
 
-// ── vista Prioridades (Objetivo Principal + máx 3 tareas, checklist desplegable) ─
-function Prioridades({ tasks, board, objetivo, onOpen }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void }) {
+// ── vista Prioridades: Objetivo Principal a la IZQUIERDA (alto, clickeable) + las
+// 3 tareas a la DERECHA (feedback #11 y #3). ─────────────────────────────────────
+function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: BoardTask[]; board: Board; objetivo: Label | null; onOpen: (id: string) => void; onOpenProj: (id: string) => void }) {
   const [expand, setExpand] = useState<Set<string>>(new Set());
   const toggleExp = (id: string) => setExpand((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   return (
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
-      <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {objetivo && (
-          <div style={{ background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderLeft: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '18px 22px' }}>
-            <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.15em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700, marginBottom: 6 }}>🎯 Objetivo Principal · prioridad {objetivo.score}/5</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{objetivo.emoji} {objetivo.name}</div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4 }}>El norte de todo ahora. Lo que MaKo protege por encima del resto.</div>
-          </div>
-        )}
-        <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, textAlign: 'center' }}>🎯 En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
-        {tasks.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
-            <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>MaKo pone acá, solo, las {MAX_PRIORIDAD} tareas de mayor prioridad del Objetivo Principal. Todavía no hay ninguna.</div>
-          </div>
-        )}
-        {tasks.map((t) => {
-          const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-          const clDone = t.checklist.filter((c) => c.done).length;
-          const open = expand.has(t.id);
-          return (
-            <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                {chips.map((l) => <LabelChip key={l.id} l={l} />)}
-                <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
-              </div>
-              <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 12 : 14 }}>{t.title}</div>
-              {t.detalle && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.detalle}</div>}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
-                <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
-                {t.checklist.length > 0 && <button onClick={(e) => { e.stopPropagation(); toggleExp(t.id); }} style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{open ? '▾' : '▸'} checklist {clDone}/{t.checklist.length}</button>}
-              </div>
-              {open && t.checklist.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                  {t.checklist.map((c) => (
-                    <label key={c.id} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '3px 0' }}>
-                      <button onClick={(e) => { e.stopPropagation(); board.setChecklist(t.id, t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`); }} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
-                      <span style={{ fontSize: 13.5, color: c.done ? 'var(--faint)' : 'var(--ink)', textDecoration: c.done ? 'line-through' : 'none' }}>{c.text}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+      <div className="mako-prio" style={{ width: '100%', maxWidth: 1060, display: 'flex', gap: 20, alignItems: 'stretch' }}>
+        <style>{`@media (max-width:840px){.mako-prio{flex-direction:column!important}.mako-prio-obj{flex:none!important;width:auto!important}}`}</style>
+        {/* IZQUIERDA — Objetivo Principal (card alto, clickeable) */}
+        <div className="mako-prio-obj" style={{ flex: '0 0 336px', display: 'flex' }}>
+          {objetivo ? <ObjetivoCard objetivo={objetivo} onOpen={() => onOpenProj(objetivo.id)} /> : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Creá un proyecto y el perro elige el norte.</div>
+          )}
+        </div>
+        {/* DERECHA — las 3 tareas en prioridad */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
+          {tasks.length === 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
+              <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>MaKo pone acá, solo, las {MAX_PRIORIDAD} tareas de mayor prioridad del Objetivo Principal. Todavía no hay ninguna.</div>
             </div>
-          );
-        })}
+          )}
+          {tasks.map((t) => {
+            const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
+            const clDone = t.checklist.filter((c) => c.done).length;
+            const open = expand.has(t.id);
+            return (
+              <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  {chips.map((l) => <LabelChip key={l.id} l={l} />)}
+                  <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 10 : 14 }}>{t.title}</div>
+                {t.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.detalle}</div>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
+                  <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
+                  {t.checklist.length > 0 && <button onClick={(e) => { e.stopPropagation(); toggleExp(t.id); }} style={{ border: 'none', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>{open ? '▾' : '▸'} checklist {clDone}/{t.checklist.length}</button>}
+                </div>
+                {open && t.checklist.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                    {t.checklist.map((c) => (
+                      <label key={c.id} onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '3px 0' }}>
+                        <button onClick={(e) => { e.stopPropagation(); board.setChecklist(t.id, t.checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)), c.done ? undefined : `Completó "${c.text.slice(0, 30)}"`); }} style={{ width: 16, height: 16, borderRadius: 4, border: `1px solid ${c.done ? 'var(--good)' : 'var(--border-strong)'}`, background: c.done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, cursor: 'pointer', flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{c.done ? '✓' : ''}</button>
+                        <span style={{ fontSize: 13.5, color: c.done ? 'var(--faint)' : 'var(--ink)', textDecoration: c.done ? 'line-through' : 'none' }}>{c.text}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Card del Objetivo Principal (izquierda de Prioridades). Alto, clickeable → abre el
+// proyecto. Muestra el detalle y el POR QUÉ es el norte (lo escribe el perro).
+function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => void }) {
+  return (
+    <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '20px 22px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = objetivo.color)} onMouseLeave={(e) => (e.currentTarget.style.borderColor = objetivo.color + '59')}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: objetivo.color, background: objetivo.color + '18', border: `1px solid ${objetivo.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{objetivo.score}/10</span>
+      </div>
+      <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 8 }}>{objetivo.emoji}</div>
+      <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25, marginBottom: 12 }}>{objetivo.name}</div>
+      {objetivo.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16 }}>{objetivo.detalle}</div>}
+      <span style={{ flex: 1 }} />
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <GuardianIcon size={15} />
+          <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>Por qué es el norte</span>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, fontStyle: objetivo.scoreRazon ? 'italic' : 'normal' }}>
+          {objetivo.scoreRazon ? `“${objetivo.scoreRazon}”` : 'El perro todavía no escribió por qué. Se completa en la próxima re-priorización.'}
+        </div>
       </div>
     </div>
   );
