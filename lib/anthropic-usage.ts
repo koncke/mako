@@ -10,7 +10,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, OWNER_WS } from './workspace';
+import { OWNER_WS } from './workspace';
 import { getSupabaseServer } from './supabase';
 
 export type UsageInfo = {
@@ -49,7 +49,11 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead });
   const info: UsageInfo = { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
   try {
-    await (await getTenantDb()).from('anthropic_usage').insert({
+    // La API key de Anthropic es ÚNICA para toda la agencia (super-admin y Mauricio
+    // comparten el pool). Registramos SIEMPRE contra OWNER_WS con el cliente crudo —
+    // igual que getSaldo/getUsageSummary — para no fragmentar el gasto por tenant.
+    await getSupabaseServer().from('anthropic_usage').insert({
+      workspace_id: OWNER_WS,
       feature: feature || 'otros',
       model,
       input_tokens: input,

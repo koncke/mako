@@ -18,12 +18,24 @@ const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 
 const P = (id: string, emoji: string, name: string, color: string, score: number, detalle: string, scoreRazon: string): Label => ({ id, emoji, name, color, score, scoreRazon, detalle, historial: [{ id: 'seedp' + id, ts: SEED_TS, actor: 'ia', text: 'Creó el proyecto' }] });
 const PROJS_DEFAULT: Label[] = [
-  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10, 'Que todo lo que ya existe deje de ser un dashboard pasivo y pase a ser DOER: la app te dice qué hacer hoy, reclama lo que no hiciste y cierra el loop (Retro real, pulso diario, rendición de cuentas).', 'Es el norte de todo ahora: sin la capa DOER, MaKo es un dashboard más. Todo lo demás sostiene esto o espera.'),
-  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8, 'La base que sostiene todo: usuarios, perfiles, CRM/ficha del lead, multi-tenant y ciberseguridad. Casi todo hecho; queda endurecer y depurar.', 'Es el piso: si la base falla, no hay DOER ni canales que valgan. Alto, pero ya maduro.'),
-  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6, 'Cómo MaKo llega al lead: email (Resend), WhatsApp oficial y no oficial, nutrición automática y reportes. Motores hechos, falta go-live real.', 'Es el brazo ejecutor del DOER, pero está a un paso del go-live: mueve la aguja cuando se enciende, no antes.'),
-  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 5, 'Los analistas (landing, VSL, CS, market, offer) y generadores de MaKo que convierten data en decisiones y en copy.', 'Multiplican el criterio de MaKo, pero la mayoría son stubs: valor alto a futuro, todavía no hoy.'),
-  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4, 'Vender MaKo hacia afuera: oferta por planes, ads por feature, landing, testimonios. Marketing, no producto.', 'Importa para crecer, pero primero el producto tiene que estar DOER: vender algo a medio hacer quema pólvora.'),
-  P('ux', '✨', 'UX & Diseño', '#D6489B', 3, 'La experiencia simple y el rediseño: que la app se entienda de un vistazo y no abrume. Modo Simple por default.', 'Hace todo usable, pero es transversal y continuo: acompaña al resto, no compite por el primer lugar.'),
+  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10,
+    'Que MaKo deje de ser un dashboard pasivo y pase a ser DOER: no solo te muestra datos, te dice QUÉ HACER hoy, te reclama lo que no hiciste y cierra el loop. Junta la Retro real (detecta fugas y patrones con la metodología Recon), el pulso diario (una vista "Hoy" que avisa por campanita y WhatsApp), la rendición de cuentas (verifica lo que ejecutaste contra lo que prometiste), el semáforo vivo con alertas de IA y el CRM automático que mueve leads solos. Es la capa que convierte todo lo que ya existe en algo que mueve la aguja sin que se lo pidas.',
+    'Es el norte de todo ahora: sin la capa DOER, MaKo es un dashboard más. Todo lo demás sostiene esto o espera.'),
+  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8,
+    'La base técnica que sostiene el producto entero: cuentas de usuario y perfiles, el CRM y la ficha del lead (7 tabs), el panel de equipo con roles, el aislamiento multi-tenant por workspace, la capa de ciberseguridad (auditorías + fixes) y el Ads Manager con escritura a Meta y USD. Casi todo está hecho y en producción; lo que queda es endurecer, depurar y proteger sin interrumpir a los usuarios (protocolo de beta, performance, traspaso de cuentas).',
+    'Es el piso: si la base falla, no hay DOER ni canales que valgan. Alto, pero ya bastante maduro.'),
+  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6,
+    'Todos los caminos por los que MaKo le habla al lead y al cliente: email transaccional y de nutrición (Resend), WhatsApp oficial (Meta) y no oficial (Evolution), el motor de nutrición automática con reglas anti-baneo, los reportes por WhatsApp/email y la importación/exportación de leads. Los motores están construidos; lo pendiente es el go-live real (dominios, secrets, templates aprobados) y que los crons iteren todos los workspaces, no solo el del dueño.',
+    'Es el brazo ejecutor del DOER, pero está a un paso del go-live: mueve la aguja cuando se enciende, no antes.'),
+  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 5,
+    'El cerebro analítico y creativo de MaKo: los analistas que leen una fuente y devuelven decisiones (Landing, VSL, CS/churn, Market/competencia, Offer) y los generadores que producen copy y creativos (Ads Writer, generador de creativos y de landings, cursos en Conocimiento/RAG). Multiplican el criterio de MaKo y le dan escala, pero la mayoría todavía son stubs "coming soon": altísimo valor a futuro, poco entregado hoy.',
+    'Multiplican el criterio de MaKo, pero la mayoría son stubs: valor alto a futuro, todavía no hoy.'),
+  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4,
+    'Vender MaKo hacia afuera: la oferta por planes (Cebolla), los ads por cada funcionalidad, la landing de venta (/vsl), los testimonios, las thank-you pages, los demos por feature y el mapa de calor de uso. Es marketing del producto, no producto. Importa para crecer, pero recién cuando el producto esté DOER de verdad: vender algo a medio hacer quema pólvora y reputación.',
+    'Importa para crecer, pero primero el producto tiene que estar DOER: vender algo a medio hacer quema pólvora.'),
+  P('ux', '✨', 'UX & Diseño', '#D6489B', 3,
+    'La experiencia: que MaKo se entienda de un vistazo y no abrume. El rediseño completo de la app, el Modo Simple por default (3 tareas + experimentos, con el kanban movido a Avanzado) y el administrador de eventos. Es transversal y continuo — acompaña a todo el resto en lugar de competir por el primer lugar.',
+    'Hace todo usable, pero es transversal y continuo: acompaña al resto, no compite por el primer lugar.'),
 ];
 // Razonamiento del perro por proyecto, para BACKFILL de localStorage viejo (que no
 // tiene scoreRazon) sin pisar nada de lo que el usuario haya editado.
@@ -92,13 +104,81 @@ const SEED: Row[] = [
   [44, 'Administrador de Eventos', 'ux', 'baja', 0, '', false],
 ];
 
+// ── Checklists escritas a mano por tarea (feedback: "escribí todas las checklist").
+// El avance de cada tarea se DERIVA de estos flags (ya no del % viejo). Si están mal,
+// se editan en la ficha. Key = num de la tarea. ──────────────────────────────────
+const SEED_CL: Record<number, Array<[string, boolean]>> = {
+  // doer
+  42: [['Diseñar la tab Retro & Planning', true], ['Ligar reportes + plan a Experiments', true], ['Publicar la vista base', true]],
+  55: [['Definir los 7 patrones de fuga', false], ['Implementar el juez IA (metodología Recon, 2 señales)', false], ['Conectar al spec de Retro', false], ['Probar con datos reales de un cliente', false]],
+  56: [['Joinear experimento_tareas por retro_id', false], ['Distinguir "aceptado" de "HECHO"', false], ['Reclamar automáticamente lo que no se ejecutó', false]],
+  54: [['Definir el chequeo diario barato (vista Hoy)', false], ['Reclamo/aviso por campanita + WhatsApp', false], ['Surfacear el pulso en el semáforo', false]],
+  53: [['Default SIMPLE (3 tareas + experimentos)', false], ['Mover el kanban a Avanzado', false], ['Toggle Simple ⇄ Avanzado', false]],
+  4: [['Onboarding inicial con Meta', true], ['Veredicto con Experiments', true], ['Detección de fuga que manda a la tab', false], ['Modelo progresivo por tab completo', false]],
+  57: [['Cruzar meta_ad_id × pagos', false], ['Atribución de cash por anuncio (granular)', false], ['Exponer el ROAS por creativo', false]],
+  58: [['Leer objeciones de closing_analyses', false], ['Detectar las objeciones recurrentes que matan cierres', false], ['Surfacearlas en el cerebro', false]],
+  59: [['Juntar señales + tendencia', false], ['Claude razona alertas nuevas', false], ['Mostrarlas en el semáforo vivo', false]],
+  18: [['MaKo embebido en WhatsApp', true], ['Embeber en funnel y leads', false], ['Embeber en experimentos, email y closing', false]],
+  14: [['Motor CRM T1-T6 construido', true], ['Esquema de cuándo mover un lead', false], ['Pop-up de confirmación + Datos sin Marcar auto', false], ['Etapa Reactivación + prender el motor', false]],
+  // plat
+  3: [['Diseñar /perfil (tabs)', true], ['Notificaciones + reportes', true], ['Publicar', true]],
+  5: [['Roles y sesión firmada', true], ['Vista /admin + entrar-como', true], ['Publicar', true]],
+  6: [['Tokens cifrados', true], ['Tutorial de /metodo', true], ['Publicar', true]],
+  28: [['Roles closer/setter por workspace', true], ['Panel /equipo', true], ['Publicar', true]],
+  2: [['7 tabs de la ficha del lead', true], ['Tab Chat (lectura)', true], ['Publicar', true]],
+  12: [['Crear/editar campañas + USD', true], ['Escrituras a Meta (en pausa)', true], ['Probar CREATE en vivo', false]],
+  33: [['Integrar la API "Analizar" de Meta', true], ['Manejar el bloqueo de pago', true], ['Recos nativas (bloqueadas por pago, no código)', true]],
+  7: [['Auditoría OWASP + STRIDE', true], ['Fixear HIGH + MEDIUM', true], ['Performance (LOW)', false], ['Depurar continuo', false]],
+  30: [['Definir protocolo de beta y versiones', false], ['Mejorar sin interrumpir a los usuarios', false]],
+  52: [['Instalar skills (brainstorming/plans/grill/…)', true], ['Aplicarlas en el código existente', false], ['Volverlo hábito', false], ['Documentar el uso', false]],
+  17: [['Traspasar Supabase', false], ['Traspasar Vercel', false], ['Traspasar dominio', false]],
+  32: [['Comprar/configurar dominio propio', false], ['Rutear la landing a la raíz (no /vsl)', false]],
+  // canales
+  8: [['Motor de email (Resend) completo', true], ['Configurar dominio de envío', false], ['Setear RESEND_WEBHOOK_SECRET', false], ['Go-live real', false]],
+  9: [['Motor de nutrición (3 canales, anti-baneo)', true], ['Aprobar templates de WhatsApp', false], ['Prender flags + dominio', false], ['Go-live', false]],
+  20: [['Reportes por WhatsApp para el dueño', true], ['Que los crons iteren todos los workspaces', false], ['Go-live multi-tenant', false]],
+  41: [['Evolution (no oficial) integrado', true], ['Que WhatsApp y email no-oficial vivan cómodos en MaKo', false], ['Borradores + anti-ban', false]],
+  43: [['Diseñar el flujo "Datos sin Marcar" por WhatsApp', false], ['Responder desde WhatsApp', false]],
+  51: [['Modelo de listas de difusión', false], ['UI para crear/enviar', false], ['Anti-baneo', false]],
+  19: [['Parser de import/export de leads', false], ['Mapeo de columnas', false], ['Enrolar en nutrición', false]],
+  16: [['UTM/UUID de Calendly', true], ['Config multi-tenant (hoy hardcodeado a Mauricio)', false], ['Probar por workspace', false]],
+  21: [['Definir el reporte post-reunión', false], ['Enviarlo al lead/cliente', false]],
+  // analy
+  24: [['Conectar PostHog/Clarity', false], ['Session replay + heatmaps', false], ['Convertir el stub en analista real', false]],
+  25: [['Usar la telemetría VSL existente', false], ['Construir el analista', false], ['Sacar el stub coming-soon', false]],
+  13: [['Aprovechar que Closing distingue servicio', false], ['Analista de churn (CS)', false], ['Sacar el stub', false]],
+  34: [['Proceso recurrente de scraping de competencia', false], ['Aviso por WhatsApp cuando un competidor mueve', false], ['Sacar el stub', false]],
+  39: [['Que audite la oferta en el onboarding', false], ['Que la mejore, no solo la guarde', false]],
+  26: [['Ads Writer (lib/ad-copy.ts)', true], ['GhostWriter cubierto', true]],
+  29: [['Pipeline de generación de creativos en masa', false], ['Estilo Claudio Conde', false], ['Publicar', false]],
+  49: [['Generador de landing pages', false], ['Plantillas + edición', false]],
+  47: [['Generador de contratos', false], ['Plantillas legales', false]],
+  31: [['Pipeline de cursos en Conocimiento (RAG)', true], ['Transcripción', true], ['Pre-seedear más cursos (hoy solo Levanta Muertos)', false], ['Asesor WhatsApp sobre el RAG', false]],
+  // growth
+  46: [['Diseñar la Oferta Cebolla (planes por nivel)', false], ['Limitar acceso por situación del lead', false], ['Venderle a todo el que corra el VSL Funnel', false]],
+  45: [['Definir 1 feature por ad', false], ['Producir miles de ads por feature', false]],
+  1: [['Escribir el copy de features en /vsl', false], ['Marketing, no producto', false]],
+  22: [['Thank You Page post-agenda', false], ['Forzar instrucciones o cancelar la llamada', false]],
+  15: [['Juntar testimonios', false], ['Mostrarlos', false]],
+  27: [['Costos internos', false], ['Costos por cliente', false]],
+  23: [['Grabar Loom demo por feature', false]],
+  35: [['Mapa de calor de uso', false]],
+  // ux
+  36: [['Rediseñar Script/Closing Analyst', true], ['Rediseñar Experiments + Perfil', true], ['Rediseñar Onboarding', false], ['Cerrar el rediseño completo', false]],
+  37: [['Modo Simple base', true], ['Simplificar Closing/Script Analyst', false], ['Simplificar Funnel + Onboarding', false]],
+  44: [['Administrador de eventos', false], ['Publicar', false]],
+};
+const buildCL = (num: number): BoardTask['checklist'] => (SEED_CL[num] ?? []).map(([text, done], i) => ({ id: `sc${num}_${i}`, text, done }));
+const clProgress = (cl: BoardTask['checklist'], fallback: number) => (cl.length ? Math.round((cl.filter((c) => c.done).length / cl.length) * 100) : fallback);
+
 // El proyecto DOER es la iniciativa impulsada por MaKo → esas tarjetas se
 // atribuyen a MaKo (ícono IA + "MaKo" en el change history).
 const seedTasks = (): BoardTask[] => SEED.map((d) => {
   const esIA = d[2] === 'doer';
+  const checklist = buildCL(d[0]);
   return {
-    id: 't' + d[0], num: d[0], title: d[1], detalle: d[5], priority: d[3], score: scoreFromPrio[d[3]], progress: d[4],
-    deadline: '', labels: [d[2]], checklist: [], enPrioridad: d[6],
+    id: 't' + d[0], num: d[0], title: d[1], detalle: d[5], priority: d[3], score: scoreFromPrio[d[3]], progress: clProgress(checklist, d[4]),
+    deadline: '', labels: [d[2]], checklist, enPrioridad: d[6],
     origen: esIA ? 'ia' as const : 'user' as const,
     historial: [{ id: 'seed' + d[0], ts: SEED_TS, actor: esIA ? 'ia' : 'user', text: 'Creó la tarjeta' } as Hist],
   };
@@ -112,7 +192,15 @@ const normHist = (h: unknown[]): Hist[] => (Array.isArray(h) ? h : []).map((e) =
 const normTask = (t: BoardTask): BoardTask => {
   // score = fuente de verdad; si el localStorage viejo no lo tiene, se deriva de la columna.
   const s = typeof t.score === 'number' && t.score > 0 ? clampScore(t.score) : scoreFromPrio[t.priority] ?? 62;
-  return { ...t, score: s, priority: prioFromScore(s), historial: normHist(t.historial as unknown[]) };
+  // BACKFILL: tarea del SEED que todavía no tiene checklist → le inyectamos la escrita
+  // a mano y DERIVAMOS el avance de ella (arregla los % viejos, sin pisar lo editado).
+  let checklist = Array.isArray(t.checklist) ? t.checklist : [];
+  let progress = t.progress;
+  if (checklist.length === 0 && SEED_CL[t.num]) {
+    checklist = buildCL(t.num);
+    progress = clProgress(checklist, t.progress);
+  }
+  return { ...t, score: s, priority: prioFromScore(s), checklist, progress, historial: normHist(t.historial as unknown[]) };
 };
 const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(10, Math.round(l.score)) : 5, detalle: typeof l.detalle === 'string' ? l.detalle : '', scoreRazon: typeof l.scoreRazon === 'string' && l.scoreRazon.trim() ? l.scoreRazon : (SEED_RAZON[l.id] ?? undefined), historial: normHist((l.historial as unknown[]) || []) });
 
