@@ -17,26 +17,30 @@ const SEED_TS = Date.parse('2026-07-01T12:00:00Z');
 const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 
 const P = (id: string, emoji: string, name: string, color: string, score: number, detalle: string, scoreRazon: string): Label => ({ id, emoji, name, color, score, scoreRazon, detalle, historial: [{ id: 'seedp' + id, ts: SEED_TS, actor: 'ia', text: 'Creó el proyecto' }] });
+
+// ── Descripciones de los proyectos, escritas a mano y con formato (HTML) ──────────
+const D_DOER = '<b>Que MaKo deje de ser un dashboard pasivo y pase a ser DOER.</b> No solo te muestra datos: te dice <b>qué hacer hoy</b>, te reclama lo que no hiciste y <u>cierra el loop</u>.<div><br></div>Junta las piezas que hoy están sueltas:<div>• la <b>Retro real</b> — detecta fugas y patrones con la metodología Recon;</div><div>• el <b>pulso diario</b> — una vista "Hoy" que avisa por campanita y WhatsApp;</div><div>• la <b>rendición de cuentas</b> — verifica lo que ejecutaste contra lo que prometiste;</div><div>• el <b>semáforo vivo</b> con alertas de IA;</div><div>• el <b>CRM automático</b> que mueve leads solos.</div><div><br></div>Es la capa que convierte todo lo que ya existe en <u>algo que mueve la aguja sin que se lo pidas</u>.';
+const D_PLAT = '<b>La base técnica que sostiene el producto entero.</b> Cuentas y perfiles, el <b>CRM y la ficha del lead</b> (7 tabs), el panel de equipo con roles, el aislamiento <b>multi-tenant</b> por workspace, la capa de <b>ciberseguridad</b> (auditorías + fixes) y el <b>Ads Manager</b> con escritura a Meta y USD.<div><br></div>Casi todo está hecho y en producción; lo que queda es <u>endurecer, depurar y proteger</u> sin interrumpir a los usuarios (protocolo de beta, performance, traspaso de cuentas).';
+const D_CANALES = '<b>Todos los caminos por los que MaKo le habla al lead y al cliente.</b> Email transaccional y de nutrición (Resend), <b>WhatsApp</b> oficial (Meta) y no oficial (Evolution), el motor de <b>nutrición automática</b> con reglas anti-baneo, los reportes por WhatsApp/email y la importación/exportación de leads.<div><br></div>Los motores <u>están construidos</u>; lo pendiente es el <b>go-live real</b> (dominios, secrets, templates aprobados) y que los crons iteren todos los workspaces, no solo el del dueño.';
+const D_ANALY = '<b>El cerebro analítico y creativo de MaKo.</b> Los <b>analistas</b> que leen una fuente y devuelven decisiones (Landing, VSL, CS/churn, Market/competencia, Offer) y los <b>generadores</b> que producen copy y creativos (Ads Writer, generador de creativos y de landings, cursos en Conocimiento/RAG).<div><br></div>Multiplican el criterio de MaKo y le dan escala, pero la mayoría todavía son <u>stubs "coming soon"</u>: altísimo valor a futuro, poco entregado hoy.';
+const D_GROWTH = '<b>Vender MaKo hacia afuera.</b> La oferta por planes (Cebolla), los <b>ads por cada funcionalidad</b>, la landing de venta (/vsl), los testimonios, las thank-you pages, los demos por feature y el mapa de calor de uso.<div><br></div>Es <u>marketing del producto, no producto</u>. Importa para crecer, pero recién cuando el producto esté DOER de verdad: <b>vender algo a medio hacer quema pólvora</b> y reputación.';
+const D_UX = '<b>La experiencia: que MaKo se entienda de un vistazo y no abrume.</b> El rediseño completo de la app, el <b>Modo Simple por default</b> (3 tareas + experimentos, con el kanban movido a Avanzado) y el administrador de eventos.<div><br></div>Es <u>transversal y continuo</u>: acompaña a todo el resto en lugar de competir por el primer lugar.';
 const PROJS_DEFAULT: Label[] = [
-  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10,
-    'Que MaKo deje de ser un dashboard pasivo y pase a ser DOER: no solo te muestra datos, te dice QUÉ HACER hoy, te reclama lo que no hiciste y cierra el loop. Junta la Retro real (detecta fugas y patrones con la metodología Recon), el pulso diario (una vista "Hoy" que avisa por campanita y WhatsApp), la rendición de cuentas (verifica lo que ejecutaste contra lo que prometiste), el semáforo vivo con alertas de IA y el CRM automático que mueve leads solos. Es la capa que convierte todo lo que ya existe en algo que mueve la aguja sin que se lo pidas.',
+  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10, D_DOER,
     'Es el norte de todo ahora: sin la capa DOER, MaKo es un dashboard más. Todo lo demás sostiene esto o espera.'),
-  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8,
-    'La base técnica que sostiene el producto entero: cuentas de usuario y perfiles, el CRM y la ficha del lead (7 tabs), el panel de equipo con roles, el aislamiento multi-tenant por workspace, la capa de ciberseguridad (auditorías + fixes) y el Ads Manager con escritura a Meta y USD. Casi todo está hecho y en producción; lo que queda es endurecer, depurar y proteger sin interrumpir a los usuarios (protocolo de beta, performance, traspaso de cuentas).',
+  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8, D_PLAT,
     'Es el piso: si la base falla, no hay DOER ni canales que valgan. Alto, pero ya bastante maduro.'),
-  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6,
-    'Todos los caminos por los que MaKo le habla al lead y al cliente: email transaccional y de nutrición (Resend), WhatsApp oficial (Meta) y no oficial (Evolution), el motor de nutrición automática con reglas anti-baneo, los reportes por WhatsApp/email y la importación/exportación de leads. Los motores están construidos; lo pendiente es el go-live real (dominios, secrets, templates aprobados) y que los crons iteren todos los workspaces, no solo el del dueño.',
+  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6, D_CANALES,
     'Es el brazo ejecutor del DOER, pero está a un paso del go-live: mueve la aguja cuando se enciende, no antes.'),
-  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 5,
-    'El cerebro analítico y creativo de MaKo: los analistas que leen una fuente y devuelven decisiones (Landing, VSL, CS/churn, Market/competencia, Offer) y los generadores que producen copy y creativos (Ads Writer, generador de creativos y de landings, cursos en Conocimiento/RAG). Multiplican el criterio de MaKo y le dan escala, pero la mayoría todavía son stubs "coming soon": altísimo valor a futuro, poco entregado hoy.',
+  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 5, D_ANALY,
     'Multiplican el criterio de MaKo, pero la mayoría son stubs: valor alto a futuro, todavía no hoy.'),
-  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4,
-    'Vender MaKo hacia afuera: la oferta por planes (Cebolla), los ads por cada funcionalidad, la landing de venta (/vsl), los testimonios, las thank-you pages, los demos por feature y el mapa de calor de uso. Es marketing del producto, no producto. Importa para crecer, pero recién cuando el producto esté DOER de verdad: vender algo a medio hacer quema pólvora y reputación.',
+  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4, D_GROWTH,
     'Importa para crecer, pero primero el producto tiene que estar DOER: vender algo a medio hacer quema pólvora.'),
-  P('ux', '✨', 'UX & Diseño', '#D6489B', 3,
-    'La experiencia: que MaKo se entienda de un vistazo y no abrume. El rediseño completo de la app, el Modo Simple por default (3 tareas + experimentos, con el kanban movido a Avanzado) y el administrador de eventos. Es transversal y continuo — acompaña a todo el resto en lugar de competir por el primer lugar.',
+  P('ux', '✨', 'UX & Diseño', '#D6489B', 3, D_UX,
     'Hace todo usable, pero es transversal y continuo: acompaña al resto, no compite por el primer lugar.'),
 ];
+// Detalles con formato (HTML) — el usuario los pidió "bonitos" y con negritas.
+const SEED_DETALLE: Record<string, string> = { doer: D_DOER, plat: D_PLAT, canales: D_CANALES, analy: D_ANALY, growth: D_GROWTH, ux: D_UX };
 // Razonamiento del perro por proyecto, para BACKFILL de localStorage viejo (que no
 // tiene scoreRazon) sin pisar nada de lo que el usuario haya editado.
 const SEED_RAZON: Record<string, string> = Object.fromEntries(PROJS_DEFAULT.map((p) => [p.id, p.scoreRazon ?? '']));
@@ -235,6 +239,13 @@ function loadLabels(): Label[] {
       const spread = spreadProjScores(labels);
       labels = labels.map((l) => ({ ...l, score: spread[l.id] ?? l.score }));
       localStorage.setItem('mako_proj_spread_v1', '1');
+    }
+  } catch { /* no-op */ }
+  // Una sola vez: aplicar los detalles con formato (bonitos) a los 6 proyectos del seed.
+  try {
+    if (!localStorage.getItem('mako_proj_detalle_v1')) {
+      labels = labels.map((l) => (SEED_DETALLE[l.id] ? { ...l, detalle: SEED_DETALLE[l.id] } : l));
+      localStorage.setItem('mako_proj_detalle_v1', '1');
     }
   } catch { /* no-op */ }
   return labels;

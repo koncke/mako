@@ -24,6 +24,7 @@ import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { GuardianIcon } from './GuardianIcon';
 import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
+import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
 
@@ -458,7 +459,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                   <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
                 </div>
                 <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 10 : 14 }}>{t.title}</div>
-                {t.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.detalle}</div>}
+                {t.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{stripHtml(t.detalle)}</div>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
                   <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
@@ -496,7 +497,7 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
       </div>
       <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 8 }}>{objetivo.emoji}</div>
       <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25, marginBottom: 12 }}>{objetivo.name}</div>
-      {objetivo.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16 }}>{objetivo.detalle}</div>}
+      {objetivo.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{stripHtml(objetivo.detalle)}</div>}
       <span style={{ flex: 1 }} />
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -595,20 +596,16 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
   const [newItem, setNewItem] = useState('');
   const [mako, setMako] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
-  const [detalleDraft, setDetalleDraft] = useState(t.detalle);
 
-  // commit de título/detalle al DESMONTAR (Escape/cierre no dispara onBlur del textarea)
-  const tRef = useRef(t); tRef.current = t;
-  const tdRef = useRef(titleDraft); tdRef.current = titleDraft;
-  const ddRef = useRef(detalleDraft); ddRef.current = detalleDraft;
-  useEffect(() => () => {
-    board.setTitle(tRef.current.id, tdRef.current, tRef.current.title);
-    board.setDetalle(tRef.current.id, ddRef.current, tRef.current.detalle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  // Escape cierra la ficha, salvo que haya un submodal de MaKo abierto
+  // commit del título al DESMONTAR (Escape/cierre no dispara onBlur). El detalle lo
+  // maneja RichText (commit onBlur).
+  const tRef = useRef(t);
+  const tdRef = useRef(titleDraft);
+  useEffect(() => { tRef.current = t; tdRef.current = titleDraft; });
+  useEffect(() => () => { board.setTitle(tRef.current.id, tdRef.current, tRef.current.title); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Escape cierra la ficha (blureando primero para commitear el detalle), salvo submodal de MaKo.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mako) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !mako) { (document.activeElement as HTMLElement)?.blur?.(); onClose(); } };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [mako, onClose]);
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
@@ -625,11 +622,6 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
           {chips.map((l) => <LabelChip key={l.id} l={l} />)}
           <OrigenChip origen={t.origen} />
           <span style={{ flex: 1 }} />
-          {/* #10: deadline al lado de "MaKo te ayuda" */}
-          <label title="Deadline" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${t.deadline ? 'var(--border-strong)' : 'var(--border)'}`, background: 'var(--surface)', borderRadius: 8, padding: '4px 9px', cursor: 'pointer' }}>
-            <span style={{ fontSize: 12, color: t.deadline ? 'var(--dim)' : 'var(--faint)' }}>◷</span>
-            <input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={{ border: 'none', outline: 'none', background: 'transparent', color: t.deadline ? 'var(--ink)' : 'var(--faint)', fontSize: 12.5, fontFamily: SANS, cursor: 'pointer', width: t.deadline ? 108 : 92 }} />
-          </label>
           <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: suggestMako && !optimizada ? '0 0 0 3px var(--primary-weak)' : 'none', animation: suggestMako && !optimizada ? 'makoPulse 1.4s ease-in-out infinite' : 'none' }}>
             <style>{`@keyframes makoPulse{0%,100%{box-shadow:0 0 0 2px var(--primary-weak)}50%{box-shadow:0 0 0 5px transparent}}`}</style>
@@ -641,7 +633,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
           <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
             <textarea value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)} onBlur={() => board.setTitle(t.id, titleDraft, t.title)} rows={2} style={{ width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, lineHeight: 1.3, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16 }} />
             <label style={rowLabel}>Detalle · doc</label>
-            <textarea value={detalleDraft} onChange={(e) => setDetalleDraft(e.target.value)} onBlur={() => board.setDetalle(t.id, detalleDraft, t.detalle)} placeholder="El doc de esta tarea…" style={{ width: '100%', minHeight: 130, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '12px 14px', fontFamily: SANS, marginBottom: 20 }} />
+            <div style={{ marginBottom: 22 }}><RichText value={t.detalle} onChange={(html) => board.setDetalle(t.id, html, t.detalle)} placeholder="El doc de esta tarea…" /></div>
 
             {/* Avance ARRIBA de la checklist (feedback #6). Siempre derivado (#17):
                 con checklist sale de ella; sin checklist, botón Completada (0↔100). */}
@@ -681,6 +673,8 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
               <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
+            {/* #5: deadline en el sidebar */}
+            <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
@@ -800,7 +794,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
                 </div>
                 <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
                 {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
-                {l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.detalle}</div>}
+                {l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{stripHtml(l.detalle)}</div>}
                 <span style={{ flex: 1 }} />
                 {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
                 <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{prog.total ? `${prog.done}/${prog.total} · ${prog.pct}%` : 'sin tareas'}</div>
@@ -824,83 +818,44 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
   );
 }
 
-// ── detalle de un proyecto — rediseño minimalista (feedback) ────────────────────
+// ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
 function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, onDebatePrio, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
-  const [detDraft, setDetDraft] = useState(proj.detalle);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { (document.activeElement as HTMLElement)?.blur?.(); onClose(); } };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
   const prog = projProgress(board.tasks, proj.id);
   const isTop = proj.id === topProjectId;
-  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8, display: 'block' };
+  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, maxHeight: '86vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* header limpio: emoji + nombre + cerrar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 24px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
-              style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 21, fontWeight: 700, fontFamily: SANS, letterSpacing: '-0.01em' }} />
-            {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
-          </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 24, lineHeight: 1, color: 'var(--faint)', flex: 'none' }}>×</button>
+          {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+          <span style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
+        <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
+          {/* columna principal */}
+          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 22px' }}>
+            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
+              style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 600, fontFamily: SANS, letterSpacing: '-0.01em', marginBottom: 16 }} />
+            <label style={rowLabel}>Detalle · doc</label>
+            <div style={{ marginBottom: 22 }}><RichText value={proj.detalle} onChange={(html) => { if (html !== proj.detalle) board.patchLabelLog(proj.id, { detalle: html }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" /></div>
 
-        <div style={{ padding: '22px 24px 26px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 26 }}>
-          {/* AVANCE — protagonista, grande */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-              <span style={{ fontFamily: MONO, fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{prog.pct}%</span>
-              <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{prog.total ? `${prog.done}/${prog.total} tareas completas` : 'sin tareas todavía'}</span>
-            </div>
-            <span style={{ display: 'block', height: 8, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: prog.pct + '%', background: proj.color, transition: 'width .2s' }} /></span>
-          </div>
+            {/* AVANCE arriba de las tareas (#4) */}
+            <label style={rowLabel}>Avance · {prog.pct}%{prog.total ? ` · ${prog.done}/${prog.total} tareas` : ''}</label>
+            <span style={{ display: 'block', marginBottom: 20 }}><MiniBar v={prog.pct} /></span>
 
-          {/* PRIORIDAD — la pone el perro, se debate (no a mano). El razonamiento va acá, aparte del avance. */}
-          <div>
-            <label style={rowLabel}>Prioridad · la pone el Perro Guardián</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <ProjScore score={proj.score} color={proj.color} big />
-              <button onClick={onDebatePrio} style={{ ...cambiarBtn, width: 'auto' }}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
-            </div>
-            {proj.scoreRazon && <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, fontStyle: 'italic', marginTop: 10 }}>“{proj.scoreRazon}”</div>}
-          </div>
-
-          {/* DETALLE */}
-          <div>
-            <label style={rowLabel}>Detalle</label>
-            <textarea value={detDraft} onChange={(e) => setDetDraft(e.target.value)} onBlur={() => { if (detDraft !== proj.detalle) board.patchLabelLog(proj.id, { detalle: detDraft }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" style={{ width: '100%', minHeight: 88, border: '1px solid var(--border)', borderRadius: 11, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.65, padding: '12px 14px', fontFamily: SANS }} />
-          </div>
-
-          {/* COLOR (botones) + selector RGB + DEADLINE */}
-          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            <div>
-              <label style={rowLabel}>Color</label>
-              <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
-                {SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(proj.id, { color: s })} title={s} style={{ width: 22, height: 22, borderRadius: 7, background: s, border: proj.color.toLowerCase() === s.toLowerCase() ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer', flex: 'none' }} />)}
-                <label title="Elegir cualquier color" style={{ width: 22, height: 22, borderRadius: 7, cursor: 'pointer', flex: 'none', position: 'relative', overflow: 'hidden', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--dim)' }}>
-                  ＋<input type="color" value={proj.color} onChange={(e) => board.patchLabel(proj.id, { color: e.target.value })} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                </label>
-              </div>
-            </div>
-            <div>
-              <label style={rowLabel}>Deadline</label>
-              <input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={{ ...selStyle, width: 160 }} />
-            </div>
-          </div>
-
-          {/* TAREAS — como cards */}
-          <div>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
               <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {suyas.length}</label>
               <span style={{ flex: 1 }} />
               <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
               {suyas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>}
               {suyas.map((t) => (
                 <div key={t.id} onClick={() => onOpenTask(t.id)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', cursor: 'pointer', opacity: t.progress >= 100 ? 0.62 : 1, transition: 'border-color .12s' }}
@@ -914,15 +869,53 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
                 </div>
               ))}
             </div>
-          </div>
 
-          <div>
             <label style={rowLabel}>Change history del proyecto</label>
             <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
           </div>
-          <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
+          {/* sidebar */}
+          <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: proj.scoreRazon ? 8 : 10 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad</span>
+                <ProjScore score={proj.score} color={proj.color} big />
+              </div>
+              {proj.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{proj.scoreRazon}”</div>}
+              <button onClick={onDebatePrio} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
+            </div>
+            <div><label style={rowLabel}>Deadline</label><input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} /></div>
+            <div><label style={rowLabel}>Color</label><ColorDropdown color={proj.color} onPick={(c) => board.patchLabel(proj.id, { color: c })} /></div>
+            <span style={{ flex: 1 }} />
+            <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// Color como DESPLEGABLE (#4): botón con el color actual → panel con swatches + RGB.
+function ColorDropdown({ color, onPick }: { color: string; onPick: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'block' }}>
+      <button onClick={() => setOpen((o) => !o)} style={{ ...selStyle, display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
+        <span style={{ width: 16, height: 16, borderRadius: 5, background: color, border: '1px solid rgba(0,0,0,.15)', flex: 'none' }} />
+        <span style={{ flex: 1, textAlign: 'left', fontFamily: MONO, fontSize: 12 }}>{color.toUpperCase()}</span>
+        <span style={{ color: 'var(--faint)' }}>▾</span>
+      </button>
+      {open && <>
+        <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 95 }} />
+        <div style={{ position: 'absolute', top: 'calc(100% + 5px)', left: 0, right: 0, zIndex: 96, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.2)', padding: 12 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 10 }}>
+            {SWATCHES.map((s) => <button key={s} onClick={() => { onPick(s); setOpen(false); }} title={s} style={{ width: 22, height: 22, borderRadius: 7, background: s, border: color.toLowerCase() === s.toLowerCase() ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer', flex: 'none' }} />)}
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--dim)', cursor: 'pointer' }}>
+            <input type="color" value={color} onChange={(e) => onPick(e.target.value)} style={{ width: 26, height: 22, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'transparent', cursor: 'pointer' }} />
+            Elegir cualquier color (RGB)
+          </label>
+        </div>
+      </>}
+    </span>
   );
 }
