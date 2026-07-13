@@ -20,10 +20,11 @@ import { CrearTareaModal } from './CrearTareaModal';
 import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
+import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon } from './guardian-form';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, scoreFromPrio, clampProj } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, scoreFromPrio } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -39,6 +40,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
   const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
+  const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [doneFilter, setDoneFilter] = useState<'all' | 'activas' | 'hechas'>('all'); // #16: filtrar completadas
@@ -156,6 +158,7 @@ export function BoardShell({ board }: { board: Board }) {
   const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
   const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;
+  const debateProj = labels.find((l) => l.id === debateProjId) ?? null;
   const crearProyecto = (nombre: string, emoji: string, detalle: string) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score: 5, detalle, historial: [] });
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
@@ -225,7 +228,8 @@ export function BoardShell({ board }: { board: Board }) {
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
         onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
+      {debateProj && <ProyectoDebateModal proj={debateProj} otrosProyectos={labels.filter((l) => l.id !== debateProj.id).map((l) => `- ${l.emoji} ${l.name} (prioridad ${l.score}/10)`).join('\n') || '(no hay otros proyectos)'} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia')} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {eliminarTask && <EliminarModal que={`la tarea «${eliminarTask.title.slice(0, 40)}»`} opciones={['Ya no aplica', 'Está duplicada', 'Ya se hizo', 'Cambió la prioridad']} confirmLabel="Borrar tarea" onConfirm={(motivo) => { board.remove(eliminarTask.id, motivo); setEliminarTaskId(null); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
       {eliminarProj && <EliminarModal que={`el proyecto «${eliminarProj.name}»`} advertencia={`Se borran también sus ${tasks.filter((t) => t.labels.includes(eliminarProj.id)).length} tarea(s). No se puede deshacer.`} opciones={['Ya no es relevante', 'Se fusiona con otro', 'Fue un error', 'Terminó']} confirmLabel="Borrar todo" onConfirm={() => { board.deleteLabelYTareas(eliminarProj.id); setEliminarProjId(null); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
@@ -670,15 +674,15 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
   );
 }
 
-// ── change history genérico (solo lectura) — para proyectos ─────────────────────
-function HistList({ historial, nombre, avatarUrl }: { historial: BoardTask['historial']; nombre: string; avatarUrl: string }) {
+// ── change history para proyectos — con deshacer (solo la última entrada del usuario) ──
+function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTask['historial']; nombre: string; avatarUrl: string; onUndo?: (h: import('./types').Hist) => void }) {
   const [nowMs, setNowMs] = useState(0);
   /* eslint-disable-next-line react-hooks/set-state-in-effect */
   useEffect(() => { setNowMs(Date.now()); }, []);
   if (historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía.</div>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-      {historial.map((h) => {
+      {historial.map((h, i) => {
         const esCreacion = h.text.startsWith('Creó el proyecto');
         return (
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -687,6 +691,8 @@ function HistList({ historial, nombre, avatarUrl }: { historial: BoardTask['hist
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
+            {/* solo el último cambio del usuario se puede deshacer (nunca los de MaKo) */}
+            {i === 0 && h.undo && h.actor !== 'ia' && onUndo && <button onClick={() => onUndo(h)} title="Deshacer" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '3px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶</button>}
           </div>
         );
       })}
@@ -779,8 +785,8 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
   );
 }
 
-// ── detalle de un proyecto (con sus tareas + change history) ────────────────────
-function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; onOpenTask: (id: string) => void; onNewTask: () => void; onDelete: () => void; onClose: () => void }) {
+// ── detalle de un proyecto — rediseño minimalista (feedback) ────────────────────
+function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, onDebatePrio, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
   const [detDraft, setDetDraft] = useState(proj.detalle);
   useEffect(() => {
@@ -790,68 +796,90 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
   const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
   const prog = projProgress(board.tasks, proj.id);
   const isTop = proj.id === topProjectId;
-  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
-  const stepBtn: CSSProperties = { width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 16, lineHeight: 1, cursor: 'pointer', fontFamily: SANS, flex: 'none' };
+  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8, display: 'block' };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 640, maxHeight: '86vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* header limpio: emoji + nombre + cerrar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 24px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
-          <ProjScore score={proj.score} color={proj.color} />
-          {isTop && <span style={{ fontFamily: MONO, fontSize: 10, color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
-          <span style={{ flex: 1 }} /><button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
+              style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 21, fontWeight: 700, fontFamily: SANS, letterSpacing: '-0.01em' }} />
+            {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 24, lineHeight: 1, color: 'var(--faint)', flex: 'none' }}>×</button>
         </div>
-        <div style={{ padding: '18px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
-            style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 700, fontFamily: SANS, letterSpacing: '-0.01em' }} />
+
+        <div style={{ padding: '22px 24px 26px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 26 }}>
+          {/* AVANCE — protagonista, grande */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontFamily: MONO, fontSize: 30, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{prog.pct}%</span>
+              <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{prog.total ? `${prog.done}/${prog.total} tareas completas` : 'sin tareas todavía'}</span>
+            </div>
+            <span style={{ display: 'block', height: 8, borderRadius: 99, background: 'var(--surface-2)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: prog.pct + '%', background: proj.color, transition: 'width .2s' }} /></span>
+          </div>
+
+          {/* PRIORIDAD — la pone el perro, se debate (no a mano). El razonamiento va acá, aparte del avance. */}
+          <div>
+            <label style={rowLabel}>Prioridad · la pone el Perro Guardián</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <ProjScore score={proj.score} color={proj.color} big />
+              <button onClick={onDebatePrio} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--accent)', borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}><GuardianIcon size={17} /> Cambiar prioridad</button>
+            </div>
+            {proj.scoreRazon && <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55, fontStyle: 'italic', marginTop: 10 }}>“{proj.scoreRazon}”</div>}
+          </div>
+
+          {/* DETALLE */}
           <div>
             <label style={rowLabel}>Detalle</label>
-            <textarea value={detDraft} onChange={(e) => setDetDraft(e.target.value)} onBlur={() => { if (detDraft !== proj.detalle) board.patchLabelLog(proj.id, { detalle: detDraft }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" style={{ width: '100%', minHeight: 70, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '11px 13px', fontFamily: SANS }} />
+            <textarea value={detDraft} onChange={(e) => setDetDraft(e.target.value)} onBlur={() => { if (detDraft !== proj.detalle) board.patchLabelLog(proj.id, { detalle: detDraft }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" style={{ width: '100%', minHeight: 88, border: '1px solid var(--border)', borderRadius: 11, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.65, padding: '12px 14px', fontFamily: SANS }} />
           </div>
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-            <span style={{ ...rowLabel, marginBottom: 0, marginRight: 6 }}>Color</span>
-            {SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(proj.id, { color: s })} title={s} style={{ width: 18, height: 18, borderRadius: 5, background: s, border: proj.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}
-          </div>
-          {/* #13: paridad con la ficha de tarea — prioridad, deadline y avance del proyecto */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+          {/* COLOR (botones) + selector RGB + DEADLINE */}
+          <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div>
-              <label style={rowLabel}>Prioridad · la pone el perro</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => board.patchLabelLog(proj.id, { score: clampProj(proj.score - 1) }, `Ajustó la prioridad → P${clampProj(proj.score - 1)}/10`)} style={stepBtn}>−</button>
-                <span style={{ flex: 1, textAlign: 'center', fontFamily: MONO, fontSize: 15, fontWeight: 700, color: proj.color, background: proj.color + '18', border: `1px solid ${proj.color}33`, borderRadius: 8, padding: '4px 0' }}>P{proj.score}/10</span>
-                <button onClick={() => board.patchLabelLog(proj.id, { score: clampProj(proj.score + 1) }, `Ajustó la prioridad → P${clampProj(proj.score + 1)}/10`)} style={stepBtn}>+</button>
+              <label style={rowLabel}>Color</label>
+              <div style={{ display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'wrap' }}>
+                {SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(proj.id, { color: s })} title={s} style={{ width: 22, height: 22, borderRadius: 7, background: s, border: proj.color.toLowerCase() === s.toLowerCase() ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer', flex: 'none' }} />)}
+                <label title="Elegir cualquier color" style={{ width: 22, height: 22, borderRadius: 7, cursor: 'pointer', flex: 'none', position: 'relative', overflow: 'hidden', border: '1px dashed var(--border-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--dim)' }}>
+                  ＋<input type="color" value={proj.color} onChange={(e) => board.patchLabel(proj.id, { color: e.target.value })} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                </label>
               </div>
             </div>
             <div>
               <label style={rowLabel}>Deadline</label>
-              <input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} />
+              <input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={{ ...selStyle, width: 160 }} />
             </div>
           </div>
-          {proj.scoreRazon && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, fontStyle: 'italic', marginTop: -6 }}>“{proj.scoreRazon}”</div>}
+
+          {/* TAREAS — como cards */}
           <div>
-            <label style={rowLabel}>Avance del proyecto · {prog.pct}%{prog.total ? ` · ${prog.done}/${prog.total} tareas` : ''}</label>
-            <MiniBar v={prog.pct} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
               <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {suyas.length}</label>
               <span style={{ flex: 1 }} />
-              <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
+              <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 9, padding: '6px 12px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {suyas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>}
               {suyas.map((t) => (
-                <button key={t.id} onClick={() => onOpenTask(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 11px', cursor: 'pointer', fontFamily: SANS }}>
-                  <ScoreBadge score={t.score} />
-                  <span style={{ flex: 1, fontSize: 13.5, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', opacity: t.progress >= 100 ? 0.6 : 1 }}>{t.title}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--faint)' }}>{t.progress}%</span>
-                </button>
+                <div key={t.id} onClick={() => onOpenTask(t.id)} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', cursor: 'pointer', opacity: t.progress >= 100 ? 0.62 : 1, transition: 'border-color .12s' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
+                    <ScoreBadge score={t.score} />
+                    <span style={{ flex: 1, fontSize: 13.5, fontWeight: 500, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', minWidth: 0 }}>{t.title}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
+                  </div>
+                  <MiniBar v={t.progress} />
+                </div>
               ))}
             </div>
           </div>
+
           <div>
             <label style={rowLabel}>Change history del proyecto</label>
-            <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
+            <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} onUndo={(h) => board.undoLabelHist(proj.id, h)} />
           </div>
           <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
         </div>

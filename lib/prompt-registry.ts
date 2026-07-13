@@ -68,7 +68,7 @@ import {
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
-import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE } from './mako-guardian';
+import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE } from './mako-guardian';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -607,6 +607,20 @@ export const REGISTRY: Group[] = [
         variables: [v('scoreActual', 'score actual'), v('tarea', 'la tarea'), v('plan', 'resto del plan para comparar'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
         default: GUARDIAN_DEBATE_USER_TEMPLATE,
         context: 'Le pasa la tarea, el plan y el argumento. No borres los slots {{scoreActual}}/{{tarea}}/{{plan}}/{{argumento}}.',
+      },
+      {
+        key: 'guardian.proj-debate.system', source: 'override',
+        label: 'Debate de prioridad de proyecto (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE,
+        context: 'Cuando el usuario debate la prioridad (1-10) de un PROYECTO, MaKo compara contra los demás y decide (última palabra). No borres el slot {{jsonShape}} ni cambies el esquema.',
+      },
+      {
+        key: 'guardian.proj-debate.user', source: 'override',
+        label: 'Argumento del proyecto (user)', kind: 'user', dynamic: true,
+        variables: [v('scoreActual', 'prioridad actual 1-10'), v('proyecto', 'el proyecto'), v('plan', 'los demás proyectos'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
+        default: GUARDIAN_PROJ_DEBATE_USER_TEMPLATE,
+        context: 'Le pasa el proyecto, los demás proyectos y el argumento. No borres los slots {{scoreActual}}/{{proyecto}}/{{plan}}/{{argumento}}.',
       },
     ],
   },

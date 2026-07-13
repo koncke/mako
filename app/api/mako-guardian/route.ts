@@ -6,7 +6,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { puntuarPlan, debatirPrioridad, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
+import { puntuarPlan, debatirPrioridad, debatirProyecto, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -14,7 +14,7 @@ export const maxDuration = 120;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function POST(req: NextRequest) {
-  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; scoreActual?: number; argumento?: string; plan?: string };
+  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
       const argumento = String(body.argumento ?? '').trim();
       if (!tarea || !argumento) return Response.json({ ok: false, error: 'Falta la tarea o el argumento.' }, { status: 400 });
       const out = await debatirPrioridad(tarea, Number(body.scoreActual) || 0, argumento, String(body.plan ?? ''));
+      return Response.json({ ok: true, ...out });
+    }
+    if (body.action === 'debatir-proyecto') {
+      const proyecto = String(body.proyecto ?? '').trim();
+      const argumento = String(body.argumento ?? '').trim();
+      if (!proyecto || !argumento) return Response.json({ ok: false, error: 'Falta el proyecto o el argumento.' }, { status: 400 });
+      const out = await debatirProyecto(proyecto, Number(body.scoreActual) || 5, argumento, String(body.plan ?? ''));
       return Response.json({ ok: true, ...out });
     }
     // default: puntuar todo el plan

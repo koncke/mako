@@ -173,10 +173,26 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     setLabels((ls) => ls.map((l) => (l.id === id ? (next = { ...l, ...fields }) : l)));
     if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
   };
-  // patch de proyecto + entrada en SU change history (rename, detalle, score…)
+  // patch de proyecto + entrada en SU change history (rename, detalle, score…).
+  // Guarda el `undo` (snapshot de los campos que cambian) SOLO para cambios del usuario.
   const patchLabelLog = (id: string, fields: Partial<Label>, text: string, actor: Actor = 'user') => {
     let next: Label | null = null;
-    setLabels((ls) => ls.map((l) => (l.id === id ? (next = { ...l, ...fields, historial: [{ id: uid(), ts: now(), actor, text }, ...l.historial].slice(0, HIST_CAP) }) : l)));
+    setLabels((ls) => ls.map((l) => {
+      if (l.id !== id) return l;
+      const prev: Record<string, unknown> = {};
+      for (const k of Object.keys(fields)) prev[k] = (l as unknown as Record<string, unknown>)[k];
+      const entry: Hist = { id: uid(), ts: now(), actor, text, ...(actor === 'user' ? { undo: { field: '__label__', prev } } : {}) };
+      next = { ...l, ...fields, historial: [entry, ...l.historial].slice(0, HIST_CAP) };
+      return next;
+    }));
+    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+  };
+  // deshacer una entrada del change history de un proyecto (solo cambios del usuario)
+  const undoLabelHist = (labelId: string, entry: Hist) => {
+    if (!entry.undo) return;
+    const prev = entry.undo.prev as Partial<Label>;
+    let next: Label | null = null;
+    setLabels((ls) => ls.map((l) => (l.id === labelId ? (next = { ...l, ...prev, historial: l.historial.filter((h) => h.id !== entry.id) }) : l)));
     if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
   };
   // registra un evento en el change history de un proyecto (tarea creada/borrada/renombrada).
@@ -207,7 +223,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, patch, moveTo, setScore, applyGuardian, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setTaskLabels, undoHist,
-    createLabel, patchLabel, patchLabelLog, deleteLabel, deleteLabelYTareas, reset,
+    createLabel, patchLabel, patchLabelLog, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }
