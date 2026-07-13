@@ -6,6 +6,7 @@
 // tareas (TodoBoard, tenant-scoped por DB). Un mismo /todo, distinta vista por rol.
 
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
+import { seedTodoCategoriasSiVacio } from '@/lib/todo-seeds';
 import { guardOnboarding } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -37,6 +38,14 @@ export default async function TodoPage() {
   let dbDown = false;
   try { tareas = await listTareas(); } catch { dbDown = true; }
   try { categorias = await listCategorias(); } catch { /* categorías arrancan vacías */ }
+
+  // G4: cliente nuevo con el board en blanco → sembrarle los proyectos por defecto
+  // (idempotente). Solo cuando NO hay ni tareas ni proyectos, para no re-sembrar si el
+  // cliente ya empezó a armar su plan (aunque haya borrado todas sus categorías).
+  if (!dbDown && categorias.length === 0 && tareas.length === 0) {
+    try { await seedTodoCategoriasSiVacio(); categorias = await listCategorias(); }
+    catch (e) { console.error('[plan] seed categorías por defecto', e); }
+  }
 
   let demo = false;
   if (dbDown && process.env.NODE_ENV !== 'production') {
