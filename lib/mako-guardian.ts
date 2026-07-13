@@ -46,7 +46,7 @@ DISCIPLINA DE DISTRIBUCIÓN (obligatoria — no infles los scores):
 - Regla dura: como mucho ~15-20% de las tareas pueden quedar en Alta (75-100). Si te salen más, estás inflando: bajá las que no muevan la aguja de verdad.
 - Usá TODO el rango. "A futuro" (1-24) y "Baja" (25-49) NO son castigos: son el lugar honesto de casi todo. Si una tarea no cambia el ingreso ni desbloquea nada, va abajo, sin culpa.
 - Rangos: 75-100 = Alta, 50-74 = Media, 25-49 = Baja, 1-24 = A futuro.
-- Proyectos 1-10 (10 = el Objetivo Principal, el norte ahora; 1 = lo que puede esperar). Usá el rango para NO empatar dos proyectos en el mismo número.
+- Proyectos: PUNTUÁ EN TODA LA ESCALA 1-10, sin amontonar. El que es el norte ahora va en 9 o 10; el que puede esperar del todo, en 1 o 2; el resto repartidos entre medio. CADA proyecto con un número DISTINTO — está PROHIBIDO empatar dos proyectos en el mismo valor. Nada de meter todo entre 2 y 5.
 
 ESTABILIDAD (clave): cada tarea puede venir con su "scoreActual" (el que ya tenía). NO cambies un score previo porque sí. Mantené el score anterior salvo que haya una razón concreta para moverlo: entró/salió una tarea que cambia la comparación, venció un deadline, cambió el avance, o el score viejo estaba objetivamente mal. Cambiar por cambiar rompe la confianza del usuario. Ante la duda, MANTENÉ.
 
