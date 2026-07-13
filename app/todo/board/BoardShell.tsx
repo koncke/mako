@@ -199,7 +199,9 @@ export function BoardShell({ board }: { board: Board }) {
       {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {eliminarTask && <EliminarModal que={`la tarea «${eliminarTask.title.slice(0, 40)}»`} opciones={['Ya no aplica', 'Está duplicada', 'Ya se hizo', 'Cambió la prioridad']} confirmLabel="Borrar tarea" onConfirm={(motivo) => { board.remove(eliminarTask.id, motivo); setEliminarTaskId(null); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
       {eliminarProj && <EliminarModal que={`el proyecto «${eliminarProj.name}»`} advertencia={`Se borran también sus ${tasks.filter((t) => t.labels.includes(eliminarProj.id)).length} tarea(s). No se puede deshacer.`} opciones={['Ya no es relevante', 'Se fusiona con otro', 'Fue un error', 'Terminó']} confirmLabel="Borrar todo" onConfirm={() => { board.deleteLabelYTareas(eliminarProj.id); setEliminarProjId(null); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
-      {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels} topProjectId={topProjectId} onAsignar={(lid) => board.setTaskLabels(asignarTask.id, board.repo.labelMode === 'single' ? [lid] : [...asignarTask.labels.filter((x) => x !== lid), lid], `Asignó al proyecto ${board.labelById(lid)?.name ?? ''}`)} onClose={() => setAsignarTaskId(null)} />}
+      {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels} topProjectId={topProjectId}
+        onAsignar={(ids, motivo) => board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`)}
+        onClose={() => setAsignarTaskId(null)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         dismissable={repo.dismissableGauntlet}
         onDismiss={() => { setDismissed((s) => new Set(s).add(wizardTask.id)); setAltaUndo(null); setWizardId(null); }}
@@ -270,9 +272,6 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-  const [prog, setProg] = useState<number | null>(null);
-  const shown = prog ?? t.progress;
-  const commit = () => { if (prog != null) board.setProgress(t.id, prog, t.progress); setProg(null); };
   return (
     <div onClick={() => onOpen(t.id)}
       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
@@ -290,14 +289,18 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
         {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
         {t.checklist.length > 0 && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)' }}>{shown}%</span>
+        <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
       </div>
-      {/* avance: si hay checklist se DERIVA de ella (solo lectura); si no, slider editable inline */}
-      {t.checklist.length > 0
-        ? <MiniBar v={t.progress} />
-        : <input type="range" min={0} max={100} step={5} value={shown} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}
-            onChange={(e) => setProg(Number(e.target.value))} onMouseUp={commit} onKeyUp={commit} onTouchEnd={commit}
-            style={{ width: '100%', accentColor: 'var(--primary)', cursor: 'pointer' }} draggable={false} />}
+      {/* avance: SIEMPRE derivado (feedback #17). Con checklist sale de ella; sin
+          checklist, se marca "Completada" (0↔100) — nunca a mano. */}
+      <MiniBar v={t.progress} />
+      {t.checklist.length === 0 && (
+        <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
+          style={{ marginTop: 8, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: done ? 'var(--good)' : 'var(--dim)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+          <span style={{ width: 13, height: 13, borderRadius: 4, border: `1px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{done ? '✓' : ''}</span>
+          {done ? 'Completada' : 'Completar'}
+        </button>
+      )}
     </div>
   );
 }
@@ -491,9 +494,6 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
   const [mako, setMako] = useState(false);
   const [titleDraft, setTitleDraft] = useState(t.title);
   const [detalleDraft, setDetalleDraft] = useState(t.detalle);
-  const [progDraft, setProgDraft] = useState<number | null>(null);
-  const progShown = progDraft ?? t.progress;
-  const commitProg = () => { if (progDraft != null) board.setProgress(t.id, progDraft, t.progress); setProgDraft(null); };
 
   // commit de título/detalle al DESMONTAR (Escape/cierre no dispara onBlur del textarea)
   const tRef = useRef(t); tRef.current = t;
@@ -510,7 +510,6 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [mako, onClose]);
   const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
-  const disponibles = board.labels.filter((l) => !t.labels.includes(l.id));
   const cl = t.checklist; const clDone = cl.filter((c) => c.done).length;
   const setCl = (next: Check[], log?: string) => board.setChecklist(t.id, next, log);
   const optimizada = t.historial.some((h) => h.text.startsWith('MaKo'));
@@ -536,8 +535,18 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
             <label style={rowLabel}>Detalle · doc</label>
             <textarea value={detalleDraft} onChange={(e) => setDetalleDraft(e.target.value)} onBlur={() => board.setDetalle(t.id, detalleDraft, t.detalle)} placeholder="El doc de esta tarea…" style={{ width: '100%', minHeight: 130, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '12px 14px', fontFamily: SANS, marginBottom: 20 }} />
 
+            {/* Avance ARRIBA de la checklist (feedback #6). Siempre derivado (#17):
+                con checklist sale de ella; sin checklist, botón Completada (0↔100). */}
+            <label style={rowLabel}>Avance · {t.progress}%{cl.length > 0 ? ' · lo maneja la checklist' : ''}</label>
+            <span style={{ display: 'block', marginBottom: 10 }}><MiniBar v={t.progress} /></span>
+            {cl.length === 0 && (
+              <button onClick={() => board.toggleDone(t.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: t.progress >= 100 ? 'var(--good)' : 'var(--dim)', borderRadius: 9, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, marginBottom: 22 }}>
+                <span style={{ width: 16, height: 16, borderRadius: 5, border: `1px solid ${t.progress >= 100 ? 'var(--good)' : 'var(--border-strong)'}`, background: t.progress >= 100 ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{t.progress >= 100 ? '✓' : ''}</span>
+                {t.progress >= 100 ? 'Completada' : 'Marcar como completada'}
+              </button>
+            )}
+
             <label style={rowLabel}>Checklist {cl.length > 0 && `· ${clDone}/${cl.length} · manda el avance`}</label>
-            {cl.length > 0 && <span style={{ display: 'block', marginBottom: 10 }}><MiniBar v={cl.length ? Math.round((clDone / cl.length) * 100) : 0} /></span>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
               {cl.map((c) => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '5px 2px' }}>
@@ -564,23 +573,19 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
               {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
               <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700, padding: '9px 10px' }}><GuardianIcon size={20} /> Cambiar prioridad</button>
             </div>
-            <div><label style={rowLabel}>Avance · {cl.length > 0 ? t.progress : progShown}%{cl.length > 0 ? ' · por checklist' : ''}</label>
-              {cl.length > 0
-                ? <MiniBar v={t.progress} />
-                : <input type="range" min={0} max={100} step={5} value={progShown} onChange={(e) => setProgDraft(Number(e.target.value))} onMouseUp={commitProg} onKeyUp={commitProg} onTouchEnd={commitProg} style={{ width: '100%', accentColor: 'var(--primary)' }} />}
-            </div>
             <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: chips.length ? 8 : 0 }}>
-                {chips.map((l) => (
-                  <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '3px 4px 3px 8px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color }}>
-                    {l.emoji} {l.name}
-                    <button onClick={() => board.setTaskLabels(t.id, board.repo.labelMode === 'single' ? [] : t.labels.filter((x) => x !== l.id), `Quitó ${l.name}`)} style={{ border: 'none', background: 'transparent', color: 'inherit', opacity: 0.6, fontSize: 13, lineHeight: 1, cursor: 'pointer', padding: 0 }}>×</button>
-                  </span>
-                ))}
+              {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
+                  Perro Guardián (feedback #7). */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+                {chips.length === 0
+                  ? <span style={{ fontSize: 12, color: 'var(--faint)', fontStyle: 'italic' }}>Sin proyecto</span>
+                  : chips.map((l) => (
+                    <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color }}>{l.emoji} {l.name}</span>
+                  ))}
               </div>
-              {disponibles.length > 0 && <button onClick={onAsignar} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700 }}><GuardianIcon size={13} /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>}
+              <button onClick={onAsignar} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--accent)', fontWeight: 700 }}><GuardianIcon size={13} /> {chips.length ? 'Cambiar proyecto' : 'Asignar proyecto'}</button>
             </div>
             <span style={{ flex: 1 }} />
             <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '4px 0' }}>Eliminar tarea</button>
