@@ -12,7 +12,7 @@
 
 import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { notificarTelegram } from '@/lib/telegram';
 
@@ -39,9 +39,13 @@ type ChatwootHook = {
   sender?: { name?: string; phone_number?: string };
 };
 
+// El matcheo va por getTenantDb → scopeado al workspace del contexto. Este webhook
+// se corre dentro de runWithWorkspace(OWNER_WS), así que solo matchea/escribe leads
+// del dueño (no cruza al lead de otro cliente con el mismo teléfono). El routing
+// real por cliente (mapear account_id/inbox de Chatwoot → workspace) es Fase 2.
 async function buscarLeadPorTelefono(d: string): Promise<number | null> {
   if (!d) return null;
-  const supabase = getSupabaseServer();
+  const supabase = await getTenantDb();
   const exact = await supabase.from('leads').select('id').eq('telefono_normalizado', d).limit(1).maybeSingle();
   if (exact.data?.id) return exact.data.id as number;
   if (d.length >= 10) {
@@ -98,53 +102,59 @@ export async function POST(req: NextRequest) {
   const content = body.content ?? '';
   const convId = body.conversation?.id ?? body.conversation_id ?? null;
 
-  // 1) Pausar nutrición del lead que respondió.
-  let leadId: number | null = null;
-  try {
-    leadId = await buscarLeadPorTelefono(digits(phone));
-    if (leadId) await pausarPorRespuesta(leadId);
-  } catch (err) {
-    console.error(`[webhook:chatwoot] pausa: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  // 1.5) Si el lead respondió y todavía está EN FRÍO (abierto, sin agenda ni
-  //      reuniones ni override de etapa), pasa a "Nutrición - Manual" para que un
-  //      humano lo atienda. NO tocamos leads ganados/perdidos/descalificados ni
-  //      los que ya avanzaron (agendaron / R1 / R2): degradarlos los sacaría del
-  //      tablero.
-  try {
-    if (leadId) {
-      const supabase = getSupabaseServer();
-      const { data } = await supabase
-        .from('leads')
-        .select('estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2')
-        .eq('id', leadId)
-        .maybeSingle();
-      const l = (data ?? {}) as {
-        estado_lead?: string; pipeline_stage?: string | null;
-        fecha_agenda?: string | null; fecha_junta_1?: string | null; fecha_junta_2?: string | null;
-        asistio_j1?: boolean | null; asistio_j2?: boolean | null;
-      };
-      const enFrio =
-        l.estado_lead === 'abierto' &&
-        (l.pipeline_stage == null || l.pipeline_stage === 'nutri') &&
-        !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2 &&
-        l.asistio_j1 == null && l.asistio_j2 == null;
-      if (enFrio) {
-        await supabase.from('leads').update({ pipeline_stage: 'manual', nutricion_realizada: true }).eq('id', leadId);
-      }
+  // Todo el matcheo/escritura de leads corre confinado al workspace DUEÑO: sin un
+  // mapeo inbox→workspace, un WhatsApp entrante no debe poder tocar el lead de OTRO
+  // cliente con el mismo teléfono. Mismo criterio que los webhooks de Calendly/
+  // Fathom/Meta (que van por lib/leads → getTenantDb → OWNER_WS).
+  return runWithWorkspace(OWNER_WS, async () => {
+    // 1) Pausar nutrición del lead que respondió.
+    let leadId: number | null = null;
+    try {
+      leadId = await buscarLeadPorTelefono(digits(phone));
+      if (leadId) await pausarPorRespuesta(leadId);
+    } catch (err) {
+      console.error(`[webhook:chatwoot] pausa: ${err instanceof Error ? err.message : String(err)}`);
     }
-  } catch (err) {
-    console.error(`[webhook:chatwoot] stage manual: ${err instanceof Error ? err.message : String(err)}`);
-  }
 
-  // 2) Avisar a Mauricio por Telegram.
-  const base = (process.env.CHATWOOT_BASE_URL || '').replace(/\/$/, '');
-  const acc = process.env.CHATWOOT_ACCOUNT_ID || '3';
-  const link = convId && base ? `${base}/app/accounts/${acc}/conversations/${convId}` : '';
-  await notificarTelegram(
-    `💬 <b>Nuevo mensaje de WhatsApp</b>\n${nombre}${phone ? ` (${phone})` : ''}\n<i>${content.slice(0, 300)}</i>${link ? `\n${link}` : ''}`,
-  );
+    // 1.5) Si el lead respondió y todavía está EN FRÍO (abierto, sin agenda ni
+    //      reuniones ni override de etapa), pasa a "Nutrición - Manual" para que un
+    //      humano lo atienda. NO tocamos leads ganados/perdidos/descalificados ni
+    //      los que ya avanzaron (agendaron / R1 / R2): degradarlos los sacaría del
+    //      tablero.
+    try {
+      if (leadId) {
+        const supabase = await getTenantDb();
+        const { data } = await supabase
+          .from('leads')
+          .select('estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2')
+          .eq('id', leadId)
+          .maybeSingle();
+        const l = (data ?? {}) as {
+          estado_lead?: string; pipeline_stage?: string | null;
+          fecha_agenda?: string | null; fecha_junta_1?: string | null; fecha_junta_2?: string | null;
+          asistio_j1?: boolean | null; asistio_j2?: boolean | null;
+        };
+        const enFrio =
+          l.estado_lead === 'abierto' &&
+          (l.pipeline_stage == null || l.pipeline_stage === 'nutri') &&
+          !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2 &&
+          l.asistio_j1 == null && l.asistio_j2 == null;
+        if (enFrio) {
+          await supabase.from('leads').update({ pipeline_stage: 'manual', nutricion_realizada: true }).eq('id', leadId);
+        }
+      }
+    } catch (err) {
+      console.error(`[webhook:chatwoot] stage manual: ${err instanceof Error ? err.message : String(err)}`);
+    }
 
-  return Response.json({ ok: true, leadId });
+    // 2) Avisar a Mauricio por Telegram.
+    const base = (process.env.CHATWOOT_BASE_URL || '').replace(/\/$/, '');
+    const acc = process.env.CHATWOOT_ACCOUNT_ID || '3';
+    const link = convId && base ? `${base}/app/accounts/${acc}/conversations/${convId}` : '';
+    await notificarTelegram(
+      `💬 <b>Nuevo mensaje de WhatsApp</b>\n${nombre}${phone ? ` (${phone})` : ''}\n<i>${content.slice(0, 300)}</i>${link ? `\n${link}` : ''}`,
+    );
+
+    return Response.json({ ok: true, leadId });
+  });
 }

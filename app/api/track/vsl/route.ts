@@ -21,7 +21,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSupabaseServer } from '@/lib/supabase';
+import { getTenantDb } from '@/lib/workspace';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
@@ -65,7 +65,12 @@ export async function OPTIONS() {
 // por diseño: un fallo acá jamás debe tumbar el tracking.
 async function stampVisitorOnLead(token: string, visitorId: string): Promise<void> {
   try {
-    const supabase = getSupabaseServer();
+    // getTenantDb scopea `leads` por workspace. Este beacon es público (sin sesión)
+    // → getWorkspaceActual resuelve al dueño (OWNER_WS), así que el match por
+    // meta_lead_id queda confinado a los leads del dueño (antes, con el cliente
+    // crudo, matcheaba GLOBAL). El VSL por-cliente —que la landing mande el
+    // workspace— es Fase 2.
+    const supabase = await getTenantDb();
     const { data: lead, error } = await supabase
       .from('leads')
       .select('id, visitor_id')
@@ -145,7 +150,7 @@ export async function POST(request: NextRequest) {
   // Se intercepta antes de la coerción a 'play' de tipos desconocidos.
   if (tipoEvento === 'pageview') {
     try {
-      const supabase = getSupabaseServer();
+      const supabase = await getTenantDb();
       const { error } = await supabase.from('landing_visits').insert({
         visitor_id: visitorId,
         // URL exacta de la landing (multi-landing / pruebas A/B) + referrer.
@@ -188,7 +193,7 @@ export async function POST(request: NextRequest) {
       : null;
 
   try {
-    const supabase = getSupabaseServer();
+    const supabase = await getTenantDb();
     const { error } = await supabase.from('vsl_events').insert({
       visitor_id: visitorId,
       event,

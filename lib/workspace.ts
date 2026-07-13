@@ -46,6 +46,11 @@ const TENANT_TABLES = new Set<string>([
   'identidades_fiscales', 'lead_insights', 'lead_respuestas', 'mako_confirmaciones', 'mako_knowledge', 'meta_health_history', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias', 'pagos',
   'pipeline_stages', 'retros', 'review_queue', 'script_analyses', 'script_drafts',
   'tarea_categorias', 'vsl_events', 'wa_bloqueados', 'wa_borradores', 'wa_mensajes', 'wa_ocultos', 'whatsapp_template_drafts', 'workspace_telefonos',
+  // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
+  // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta
+  // .eq('workspace_id', ws) y corta el leak del agregado global. OJO: scripts de
+  // mantenimiento owner-side que las lean con `sql` crudo verán todos los ws.
+  'v_cohortes_semanales', 'v_cohortes_mensuales',
 ]);
 
 // Resolución desde cookies (memoizada por request). Solo se llama FUERA de
