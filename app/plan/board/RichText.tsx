@@ -8,6 +8,19 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 const SANS = "'Geist', sans-serif";
 
+// sanea el HTML de la descripción (viene de contentEditable + paste): saca scripts,
+// estilos, iframes y handlers on*, para poder renderizarlo con dangerouslySetInnerHTML.
+export function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<\s*(script|style|iframe|object|embed|link|meta)[\s\S]*?<\/\s*\1\s*>/gi, '')
+    .replace(/<\s*(script|style|iframe|object|embed|link|meta)[^>]*\/?>/gi, '')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+    .replace(/javascript:/gi, '');
+}
+
 // saca las etiquetas para mostrar la descripción como texto plano en las cards
 export function stripHtml(html: string): string {
   if (!html) return '';
@@ -32,6 +45,7 @@ export function RichText({ value, onChange, placeholder, style }: {
     setFocused(false);
     let html = ref.current?.innerHTML ?? '';
     if (html === '<br>' || html === '<div><br></div>') html = '';
+    html = sanitizeHtml(html);
     if (html !== value) onChange(html);
   };
   const cmd = (c: string) => { document.execCommand(c, false); ref.current?.focus(); };

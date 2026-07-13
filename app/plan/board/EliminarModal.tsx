@@ -121,7 +121,7 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
   const confirmLabel = step === 'bloqueo'
     ? (motivo === 'ya_hecha' ? 'Marcar como completada →' : 'Cambiar prioridad →')
     : 'Que el perro decida →';
-  const puedeAvanzar = step === 'motivo' ? motivo !== '' : step === 'porque' ? porque.trim() !== '' : true;
+  const puedeAvanzar = step === 'motivo' ? motivo !== '' : step === 'porque' ? porque.trim() !== '' : step === 'dup' ? !dupLoading : true;
 
   const avanzar = () => {
     // al pasar de "motivo" a la rama de duplicados, dispara la búsqueda
@@ -176,7 +176,7 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
       )}
       {step === 'dup' && (
         dupLoading
-          ? <div style={{ padding: '20px 0', color: 'var(--dim)', fontSize: 14 }}>Buscando duplicadas…</div>
+          ? <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--dim)', fontSize: 14 }}><GuardianIcon size={40} /><div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Spinner /> Buscando tareas duplicadas…</div></div>
           : dups.length === 0
             ? <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 15px' }}>No encontré ninguna tarea que sea el mismo trabajo. Si igual creés que está duplicada, seguí y contame cuál.</div>
             : <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -196,6 +196,10 @@ export function EliminarModal({ tipo, nombre, nTareas = 0, task, otras = [], pla
       {step === 'porque' && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder={motivo === 'no_aplica' ? 'Ej: el cliente canceló ese servicio…' : 'Contame tu razón…'} style={{ ...textareaStyle }} />}
     </WizardShell>
   );
+}
+
+function Spinner() {
+  return <span style={{ display: 'inline-block', width: 15, height: 15, border: '2px solid var(--border-strong)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'makoSpin .7s linear infinite' }}><style>{'@keyframes makoSpin{to{transform:rotate(360deg)}}'}</style></span>;
 }
 
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {

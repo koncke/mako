@@ -140,9 +140,19 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   };
   const setDetalle = (id: string, detalle: string, prev: string) => { if (detalle !== prev) patchLogExplicit(id, 'detalle', detalle, prev, 'Editó el detalle'); };
   const setProgress = (id: string, value: number, prev: number) => { const w = clampPct(value); if (w !== prev) patchLogExplicit(id, 'progress', w, prev, `Avance ${w}%`); };
-  // Tareas SIN checklist: el avance no se mueve a mano (feedback #17). Se marca
-  // "Completada" (0 → 100) o se reabre (→ 0).
-  const toggleDone = (id: string) => { const t = byId(id); if (!t) return; const done = t.progress >= 100; patchLogExplicit(id, 'progress', done ? 0 : 100, t.progress, done ? 'Reabrió la tarea' : 'Marcó como completada'); };
+  // Marcar "Completada" (0 → 100) o reabrir (→ 0). Si la tarea TIENE checklist, marca
+  // TODOS sus ítems (el avance deriva). Salta el undo-toast de 5s (feedback #7/#33).
+  const toggleDone = (id: string) => {
+    const t = byId(id); if (!t) return;
+    const snap = t;
+    const done = t.progress >= 100;
+    if (t.checklist.length > 0) {
+      setChecklist(id, t.checklist.map((c) => ({ ...c, done: !done })), done ? 'Reabrió la tarea' : 'Marcó como completada');
+    } else {
+      patchLogExplicit(id, 'progress', done ? 0 : 100, t.progress, done ? 'Reabrió la tarea' : 'Marcó como completada');
+    }
+    show(done ? 'Tarea reabierta' : 'Tarea completada', () => replaceTask(snap));
+  };
   const setDeadline = (id: string, deadline: string, prev: string) => { if (deadline !== prev) patchLogExplicit(id, 'deadline', deadline, prev, deadline ? `Deadline ${deadline}` : 'Quitó el deadline'); };
   const setTaskLabels = (id: string, next: string[], text: string) => patchLogExplicit(id, 'labels', next, byId(id)?.labels ?? [], text);
 

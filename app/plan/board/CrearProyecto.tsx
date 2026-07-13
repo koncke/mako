@@ -83,8 +83,8 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
   }
 
   const banda = score >= 8 ? '#D0504A' : score >= 5 ? '#C8870C' : '#1E9E57';
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿De qué se trata el proyecto?', '¿Por qué importa? ¿Qué tareas viven acá?', '¿Qué prioridad le pondrías?', '¿Mando esto a MaKo?'];
-  const subs: (string | undefined)[] = [undefined, 'Contámelo en tus palabras.', 'Con esto MaKo le pone nombre, emoji y detalle. Podés saltearlo.', 'Comparalo con los demás. 10 = el Objetivo Principal (solo uno).', 'Revisá tus respuestas; MaKo genera con esto.'];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿De qué se trata el proyecto?', '¿Qué prioridad le pondrías?', '¿Por qué importa? ¿Qué tareas viven acá?', '¿Mando esto a MaKo?'];
+  const subs: (string | undefined)[] = [undefined, 'Contámelo en tus palabras.', 'Comparalo con los demás. 10 = el Objetivo Principal (solo uno).', 'Con esto MaKo le pone nombre, emoji y detalle. Podés saltearlo.', 'Revisá tus respuestas; MaKo genera con esto.'];
   const puedeAvanzar = idx === 1 ? desc.trim() !== '' : true;
   return (
     <WizardShell
@@ -101,8 +101,8 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
     >
       {idx === 0 && <IntroBody que="crear un proyecto nuevo" mi="agrupar tus tareas por lo que de verdad mueve la aguja" />}
       {idx === 1 && <textarea value={desc} onChange={(e) => setDesc(e.target.value)} autoFocus placeholder="Ej: todo lo de conseguir y nutrir leads por WhatsApp y email" style={{ ...textareaStyle }} />}
-      {idx === 2 && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder="Ej: es de donde sale la facturación; van tareas de captación, nutrición y reportes" style={{ ...textareaStyle }} />}
-      {idx === 3 && (
+      {idx === 3 && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder="Ej: es de donde sale la facturación; van tareas de captación, nutrición y reportes" style={{ ...textareaStyle }} />}
+      {idx === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ textAlign: 'center' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 32, fontWeight: 800, color: banda }}><ScoreIcon size={28} color={banda} />{score}<span style={{ fontSize: 19, color: 'var(--faint)' }}>/10</span></span>
@@ -126,12 +126,16 @@ export function CrearProyectoModal({ otros, onCrear, onClose }: { otros: Array<{
       )}
       {idx === 4 && (
         <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {[['De qué se trata', desc], ['Por qué importa', porque], ['Prioridad', `${score}/10`]].map(([k, v], i) => (
+          {[['De qué se trata', desc], ['Por qué importa', porque]].map(([k, v], i) => (
             <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 13px' }}>
               <div style={{ fontSize: 11.5, color: 'var(--faint)', marginBottom: 3 }}>{k}</div>
               <div style={{ fontSize: 13.5, color: v ? 'var(--ink)' : 'var(--faint)', fontWeight: 500 }}>{v || '(sin respuesta)'}</div>
             </div>
           ))}
+          <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 11.5, color: 'var(--faint)', flex: 1 }}>Prioridad</div>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 18, fontWeight: 800, color: banda }}><ScoreIcon size={17} color={banda} />{score}<span style={{ fontSize: 12, color: 'var(--faint)' }}>/10</span></span>
+          </div>
         </div>
       )}
     </WizardShell>

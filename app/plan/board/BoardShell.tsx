@@ -25,7 +25,7 @@ import { MakoProyectoModal } from './MakoProyecto';
 import { GuardianIcon } from './GuardianIcon';
 import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
-import { RichText, stripHtml } from './RichText';
+import { RichText, stripHtml, sanitizeHtml } from './RichText';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
 
@@ -48,7 +48,8 @@ export function BoardShell({ board }: { board: Board }) {
   const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
-  const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado
+  const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado (kanban)
+  const [projFilter, setProjFilter] = useState<DoneFilter>('all');  // filtrar por estado (proyectos)
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
@@ -156,6 +157,11 @@ export function BoardShell({ board }: { board: Board }) {
     .sort((a, b) => b.score - a.score)
     .slice(0, MAX_PRIORIDAD);
   const prioAvg = enPrio.length ? Math.round(enPrio.reduce((s, t) => s + t.progress, 0) / enPrio.length) : 0;
+  // agregado de proyectos (para el chip del header en la vista Proyectos)
+  const projAgg = labels.map((l) => projProgress(tasks, l.id));
+  const projConTareas = projAgg.filter((p) => p.total > 0);
+  const avgProj = projConTareas.length ? Math.round(projConTareas.reduce((s, p) => s + p.pct, 0) / projConTareas.length) : 0;
+  const hechosProj = projAgg.filter((p) => p.total > 0 && p.done === p.total).length;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
@@ -217,23 +223,25 @@ export function BoardShell({ board }: { board: Board }) {
         <span style={{ flex: 1 }} />
         {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
+        {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {view === 'kanban' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
+        {view === 'proyectos' && <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />}
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setWizardId} />}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} />}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} />}
       </div>
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} ask={ask} onClose={() => { setOpenId(null); setMakoHintId(null); }} />}
       {debateTask && <DebateModal task={debateTask} planResumen={planResumen}
         otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, title: t.title, score: t.score, projId: l?.id, projName: l?.name, projColor: l?.color, projEmoji: l?.emoji }; })}
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
-        onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
+        onApply={(score, razon) => { const snap = debateTask; board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon); board.showUndo('Prioridad actualizada', () => board.replaceTask(snap)); }} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
@@ -249,7 +257,7 @@ export function BoardShell({ board }: { board: Board }) {
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar proyecto')}
         onBorrar={() => { board.deleteLabelYTareas(eliminarProj.id); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
       {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels}
-        onAsignar={(ids, motivo) => board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`)}
+        onAsignar={(ids, motivo) => { const snap = asignarTask; board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`); board.showUndo('Proyecto actualizado', () => board.replaceTask(snap)); }}
         onClose={() => setAsignarTaskId(null)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         dismissable={repo.dismissableGauntlet}
@@ -392,7 +400,6 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
   tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
 }) {
-  const objetivo = topProjectId ? board.labelById(topProjectId) : null;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '4px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
@@ -400,7 +407,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
         return (
           <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
-            <ColHeader p={p} count={items.length} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
+            <ColHeader p={p} count={items.length} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
               {/* card gris translúcida para crear (arriba de todo, más bajita que las tarjetas) */}
               <button onClick={() => onNew(p)} style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 10, padding: '9px 10px', cursor: 'pointer', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, opacity: 0.8, transition: 'border-color .12s, color .12s' }}
@@ -414,7 +421,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
     </div>
   );
 }
-function ColHeader({ p, count, nota }: { p: Prio; count: number; nota?: string }) {
+function ColHeader({ p, count }: { p: Prio; count: number }) {
   return (
     <div style={{ flex: 'none', marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 3px 8px' }}>
@@ -422,7 +429,6 @@ function ColHeader({ p, count, nota }: { p: Prio; count: number; nota?: string }
         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--dim)' }}>{PLABEL[p]}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', background: 'var(--surface-2)', borderRadius: 999, padding: '1px 8px' }}>{count}</span>
       </div>
-      {nota && <div style={{ fontSize: 10, color: 'var(--faint)', padding: '0 3px 8px', lineHeight: 1.3 }}>{nota}</div>}
     </div>
   );
 }
@@ -501,7 +507,7 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
       </div>
       <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 8 }}>{objetivo.emoji}</div>
       <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25, marginBottom: 12 }}>{objetivo.name}</div>
-      {objetivo.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16, display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{stripHtml(objetivo.detalle)}</div>}
+      {objetivo.detalle && <div className="mako-rt" style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(objetivo.detalle) }} />}
       <span style={{ flex: 1 }} />
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
@@ -765,25 +771,14 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter }) {
   const { labels, tasks, repo } = board;
-  const [projFilter, setProjFilter] = useState<DoneFilter>('all');
   const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
   const shown = withProg.filter(({ prog }) => pasaEstado(prog.pct, projFilter));
-  // #15 progreso agregado de TODOS los proyectos (promedio de los que tienen tareas)
-  const conTareas = withProg.filter(({ prog }) => prog.total > 0);
-  const avgProj = conTareas.length ? Math.round(conTareas.reduce((s, { prog }) => s + prog.pct, 0) / conTareas.length) : 0;
-  const hechosProj = withProg.filter(({ prog }) => completo(prog)).length;
   return (
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>{repo.labelPlural}</span>
-          <span style={{ flex: 1 }} />
-          <AvgChip avg={avgProj} hechas={hechosProj} total={withProg.length} label="proyectos ✓" />
-          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
-        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {shown.map(({ l, prog }) => {
             const isTop = l.id === topProjectId;
