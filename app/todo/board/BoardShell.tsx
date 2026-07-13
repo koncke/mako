@@ -23,7 +23,7 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon } from './guardian-form';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, scoreFromPrio } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -35,6 +35,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [openProj, setOpenProj] = useState<string | null>(null);
   const [nuevoProj, setNuevoProj] = useState(false);
   const [nuevaTareaProj, setNuevaTareaProj] = useState<string | null>(null); // proyecto donde crear la tarea nueva
+  const [nuevaTareaPrio, setNuevaTareaPrio] = useState<Prio | null>(null);   // columna desde la que se creó (precompleta la prioridad)
   const [eliminarTaskId, setEliminarTaskId] = useState<string | null>(null);
   const [eliminarProjId, setEliminarProjId] = useState<string | null>(null);
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
@@ -140,21 +141,27 @@ export function BoardShell({ board }: { board: Board }) {
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
 
-  // crear una tarea: el GUARDIÁN la puntúa (con el argumento) y decide su columna.
-  const crearConGuardian = async (title: string, detalle: string, argumento: string) => {
-    const t = await board.create(title, 'media', nuevaTareaProj ? [nuevaTareaProj] : undefined);
+  // crear una tarea: el usuario propone proyecto(s) + prioridad; el GUARDIÁN la puntúa
+  // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
+  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; motivoNinguno: string; argumento: string }) => {
+    const t = await board.create(d.title, d.userPrio || 'media', d.labelIds.length ? d.labelIds : undefined);
     if (!t) return null;
-    if (detalle) board.setDetalle(t.id, detalle, '');
-    const argFinal = argumento || '(el usuario no dio argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
+    if (d.detalle) board.setDetalle(t.id, d.detalle, '');
+    const starter = d.userPrio ? scoreFromPrio[d.userPrio] : 50;
+    const partes: string[] = [];
+    if (d.argumento) partes.push(d.argumento);
+    if (d.userPrio) partes.push(`El usuario la propone como prioridad ${PLABEL[d.userPrio]} (podés corregirlo si no corresponde).`);
+    if (!d.labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
+    const argFinal = partes.join(' ') || '(sin argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
     try {
-      const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: title + (detalle ? `\n\n${detalle}` : ''), scoreActual: 50, argumento: argFinal, plan: planResumen }) }).then((r) => r.json());
+      const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen }) }).then((r) => r.json());
       if (j.ok && typeof j.score === 'number') {
         board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
         showUsage(j.usage, 'nueva tarea');
         return { score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
       }
     } catch { /* fallback abajo */ }
-    return { score: 50, razon: '', respuesta: 'No pude priorizar ahora; quedó en Media. Podés debatirla después.', prio: 'media' as Prio };
+    return { score: starter, razon: '', respuesta: 'No pude priorizar ahora; quedó donde la propusiste. Podés debatirla después.', prio: displayPrio({ ...t, score: starter }, topProjectId) };
   };
 
   return (
@@ -185,7 +192,7 @@ export function BoardShell({ board }: { board: Board }) {
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onWarn={setWizardId} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setWizardId} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} />}
       </div>
 
@@ -194,7 +201,7 @@ export function BoardShell({ board }: { board: Board }) {
         otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => ({ id: t.id, title: t.title, score: t.score }))}
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
         onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
-      {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); }} />}
+      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {eliminarTask && <EliminarModal que={`la tarea «${eliminarTask.title.slice(0, 40)}»`} opciones={['Ya no aplica', 'Está duplicada', 'Ya se hizo', 'Cambió la prioridad']} confirmLabel="Borrar tarea" onConfirm={(motivo) => { board.remove(eliminarTask.id, motivo); setEliminarTaskId(null); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
@@ -307,7 +314,7 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
 function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; onWarn: (id: string) => void;
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
 }) {
   const objetivo = topProjectId ? board.labelById(topProjectId) : null;
   return (
@@ -317,7 +324,7 @@ function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
         const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
         return (
           <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
-            <ColHeader p={p} count={items.length} onNew={onNew} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
+            <ColHeader p={p} count={items.length} onNew={() => onNew(p)} nota={p === 'alta' && objetivo ? `solo ${objetivo.emoji} ${objetivo.name} · o emergencias` : undefined} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 9, overflowY: 'auto', minHeight: 30, paddingRight: 2 }}>
               {items.length === 0 && <div style={{ fontSize: 12, color: 'var(--faint)', textAlign: 'center', padding: '14px 0' }}>—</div>}
               {items.map((t) => <CardTile key={t.id} t={t} board={board} warn={displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0)} onOpen={onOpen} onWarn={onWarn} />)}
