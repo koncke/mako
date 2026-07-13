@@ -44,7 +44,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
-  const [doneFilter, setDoneFilter] = useState<'all' | 'activas' | 'hechas'>('all'); // #16: filtrar completadas
+  const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
@@ -141,7 +141,7 @@ export function BoardShell({ board }: { board: Board }) {
     setWizardId(null);
   };
 
-  const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (doneFilter === 'all' || (doneFilter === 'hechas' ? t.progress >= 100 : t.progress < 100));
+  const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -220,9 +220,8 @@ export function BoardShell({ board }: { board: Board }) {
         {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'kanban' && <>
-          <Segmented value={doneFilter} onChange={setDoneFilter} opciones={[['all', 'Todas'], ['activas', 'Activas'], ['hechas', 'Hechas']]} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
+          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
       </header>
 
@@ -294,21 +293,20 @@ function PlanIcon({ size = 24 }: { size?: number }) {
 }
 // formatea tokens (12300 → "12,3k") para el toast de consumo de IA
 function fmtTokens(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n); }
+// filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas
+type DoneFilter = 'all' | 'activas' | 'comenzadas' | 'hechas';
+const ESTADO_OPS: Array<[DoneFilter, string]> = [['all', 'Todas'], ['activas', 'Activas'], ['comenzadas', 'Comenzadas'], ['hechas', 'Completadas']];
+function pasaEstado(progress: number, f: DoneFilter): boolean {
+  if (f === 'all') return true;
+  if (f === 'hechas') return progress >= 100;
+  if (f === 'comenzadas') return progress > 0 && progress < 100;
+  return progress < 100; // activas
+}
 // progreso agregado de un proyecto (promedio del avance de sus tareas)
 function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number } {
   const suyas = tasks.filter((t) => t.labels.includes(labelId));
   if (!suyas.length) return { pct: 0, total: 0, done: 0 };
   return { pct: Math.round(suyas.reduce((s, t) => s + t.progress, 0) / suyas.length), total: suyas.length, done: suyas.filter((t) => t.progress >= 100).length };
-}
-// control segmentado (Todas / Activas / Hechas, etc.)
-function Segmented<T extends string>({ value, onChange, opciones }: { value: T; onChange: (v: T) => void; opciones: Array<[T, string]> }) {
-  return (
-    <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
-      {opciones.map(([v, label]) => (
-        <button key={v} onClick={() => onChange(v)} style={{ border: 'none', background: value === v ? 'var(--surface)' : 'transparent', color: value === v ? 'var(--ink)' : 'var(--dim)', fontWeight: value === v ? 600 : 500, fontSize: 12.5, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', boxShadow: value === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS }}>{label}</button>
-      ))}
-    </div>
-  );
 }
 
 function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
@@ -519,25 +517,46 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
 }
 
 // ── filtro por etiqueta ─────────────────────────────────────────────────────────
-function FilterMenu({ labels, fLabels, setFLabels }: { labels: Label[]; fLabels: Set<string>; setFLabels: (s: Set<string>) => void }) {
+// Botón "Filtrar" de 2 CAPAS (#13): estado (Todas/Activas/Comenzadas/Completadas) +
+// etiquetas. `labels` opcional: en Proyectos solo va la capa de estado.
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels }: {
+  labels?: Label[]; fLabels?: Set<string>; setFLabels?: (s: Set<string>) => void;
+  doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
+}) {
   const [open, setOpen] = useState(false);
-  const n = fLabels.size;
-  const toggle = (id: string) => { const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
+  const n = (fLabels?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
+  const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
+  const ops = estadoLabels ?? ESTADO_OPS;
+  const secLabel: CSSProperties = { fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '2px 4px 6px' };
   return (
     <span style={{ position: 'relative' }}>
       <button onClick={() => setOpen((o) => !o)} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />Filtrar
-        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels(new Set()); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
+        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
         <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 234, maxHeight: 380, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
-          {labels.length === 0 ? <div style={{ fontSize: 12.5, color: 'var(--faint)', padding: '6px 9px' }}>Sin etiquetas</div> : labels.map((l) => (
-            <button key={l.id} onClick={() => toggle(l.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}>
-              <span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${fLabels.has(l.id) ? 'var(--primary)' : 'var(--border-strong)'}`, background: fLabels.has(l.id) ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{fLabels.has(l.id) ? '✓' : ''}</span>
-              <span>{l.emoji} {l.name}</span>
+        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 234, maxHeight: 420, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
+          {/* CAPA 1: estado */}
+          <div style={secLabel}>Estado</div>
+          {ops.map(([v, label]) => (
+            <button key={v} onClick={() => setDoneFilter(v)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: doneFilter === v ? 'var(--primary-bg)' : 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS, fontWeight: doneFilter === v ? 700 : 500 }}>
+              <span style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${doneFilter === v ? 'var(--primary)' : 'var(--border-strong)'}`, background: doneFilter === v ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: doneFilter === v ? 'inset 0 0 0 2px var(--surface)' : 'none' }} />
+              <span>{label}</span>
             </button>
           ))}
+          {/* CAPA 2: etiquetas (solo si hay labels) */}
+          {labels && labels.length > 0 && (
+            <>
+              <div style={{ ...secLabel, marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 10 }}>{labels.length ? 'Proyecto' : ''}</div>
+              {labels.map((l) => (
+                <button key={l.id} onClick={() => toggle(l.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${fLabels?.has(l.id) ? 'var(--primary)' : 'var(--border-strong)'}`, background: fLabels?.has(l.id) ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{fLabels?.has(l.id) ? '✓' : ''}</span>
+                  <span>{l.emoji} {l.name}</span>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </>}
     </span>
@@ -754,10 +773,10 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
 function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void }) {
   const { labels, tasks, repo } = board;
-  const [projFilter, setProjFilter] = useState<'all' | 'activos' | 'hechos'>('all');
+  const [projFilter, setProjFilter] = useState<DoneFilter>('all');
   const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
-  const shown = withProg.filter(({ prog }) => projFilter === 'all' || (projFilter === 'hechos' ? completo(prog) : !completo(prog)));
+  const shown = withProg.filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   // #15 progreso agregado de TODOS los proyectos (promedio de los que tienen tareas)
   const conTareas = withProg.filter(({ prog }) => prog.total > 0);
   const avgProj = conTareas.length ? Math.round(conTareas.reduce((s, { prog }) => s + prog.pct, 0) / conTareas.length) : 0;
@@ -769,7 +788,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
           <span style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>{repo.labelPlural}</span>
           <span style={{ flex: 1 }} />
           <AvgChip avg={avgProj} hechas={hechosProj} total={withProg.length} label="proyectos ✓" />
-          <Segmented value={projFilter} onChange={setProjFilter} opciones={[['all', 'Todos'], ['activos', 'Activos'], ['hechos', 'Completados']]} />
+          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {shown.map(({ l, prog }) => {
