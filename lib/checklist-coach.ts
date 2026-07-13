@@ -101,13 +101,13 @@ function coerceItems(raw: unknown): ChecklistSugerido[] {
 }
 
 /** Paso 1: MaKo hace preguntas de encuadre MULTIPLE-CHOICE (con opciones). */
-export async function preguntarTarea(tarea: string, contexto: string): Promise<PreguntaMC[]> {
+export async function preguntarTarea(tarea: string, contexto: string, usoMotivo?: string): Promise<PreguntaMC[]> {
   const sys = await brandSystem(await renderPrompt('checklist.ask.system', CHECKLIST_ASK_SYSTEM_TEMPLATE, { jsonShape: ASK_JSON_SHAPE }));
   const user = await renderPrompt('checklist.ask.user', CHECKLIST_ASK_USER_TEMPLATE, {
     tarea: contenidoNoConfiable(tarea, 'tarea'),
     contexto: contexto.trim() ? contenidoNoConfiable(contexto, 'contexto') : '(todavía nada)',
   });
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'checklist-coach' });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'checklist-coach', motivo: usoMotivo || 'MaKo: preguntas de la tarea' });
   return coercePreguntas(parseJson(raw)?.preguntas);
 }
 function coercePreguntas(raw: unknown): PreguntaMC[] {
@@ -120,13 +120,13 @@ function coercePreguntas(raw: unknown): PreguntaMC[] {
 }
 
 /** Paso 2: MaKo OPTIMIZA la tarea (título + detalle + checklist) como JSON. */
-export async function optimizarTarea(tarea: string, respuestas: string): Promise<TareaOptimizada> {
+export async function optimizarTarea(tarea: string, respuestas: string, usoMotivo?: string): Promise<TareaOptimizada> {
   const sys = await brandSystem(await renderPrompt('checklist.propose.system', CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, { jsonShape: CHECKLIST_JSON_SHAPE }));
   const user = await renderPrompt('checklist.propose.user', CHECKLIST_PROPOSE_USER_TEMPLATE, {
     tarea: contenidoNoConfiable(tarea, 'tarea'),
     respuestas: contenidoNoConfiable(respuestas, 'respuestas'),
   });
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 3000, feature: 'checklist-coach' });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 3000, feature: 'checklist-coach', motivo: usoMotivo || 'MaKo: optimizar tarea' });
   const obj = parseJson(raw);
   return {
     titulo: obj ? String(obj.titulo ?? '').trim() : '',
@@ -136,10 +136,10 @@ export async function optimizarTarea(tarea: string, respuestas: string): Promise
 }
 
 /** MaKo propone nombre + emoji para un proyecto a partir de una descripción. */
-export async function proponerProyecto(descripcion: string): Promise<ProyectoSugerido> {
+export async function proponerProyecto(descripcion: string, usoMotivo?: string): Promise<ProyectoSugerido> {
   const sys = await brandSystem(await renderPrompt('proyecto.sugerir.system', PROYECTO_SYSTEM_TEMPLATE, { jsonShape: PROYECTO_JSON_SHAPE }));
   const user = await renderPrompt('proyecto.sugerir.user', PROYECTO_USER_TEMPLATE, { descripcion: contenidoNoConfiable(descripcion, 'descripcion') });
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 800, feature: 'checklist-coach' });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 800, feature: 'checklist-coach', motivo: usoMotivo || 'MaKo: proponer proyecto' });
   const obj = parseJson(raw);
   return { nombre: obj ? String(obj.nombre ?? '').trim() : '', emoji: obj ? String(obj.emoji ?? '🏷').trim().slice(0, 4) : '🏷', detalle: obj ? String(obj.detalle ?? '').trim() : '' };
 }

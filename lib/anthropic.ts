@@ -21,9 +21,10 @@ export type ClaudeMsg = { role: 'user' | 'assistant'; content: string };
 export async function chatClaude(
   system: string,
   messages: ClaudeMsg[],
-  // feature: etiqueta para el desglose de gasto (ej. 'ads-rename'). onUsage:
-  // callback con los tokens/costo de ESTA llamada (para mostrarlo al usuario).
-  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; onUsage?: (u: UsageInfo) => void } = {},
+  // feature: categoría del gasto (ej. 'ads-rename'). motivo: razón concreta y legible
+  // (ej. 'Debate de prioridad') para el historial. onUsage: callback con los
+  // tokens/costo de ESTA llamada (para mostrarlo al usuario).
+  opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void } = {},
 ): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
@@ -60,7 +61,7 @@ export async function chatClaude(
     throw new Error(body?.error?.message ?? `Anthropic ${res.status}`);
   }
   // Registrar tokens/costo de esta llamada (best-effort) y avisar al caller.
-  const usage = await recordUsage(opts.feature ?? 'otros', String(payload.model), body.usage);
+  const usage = await recordUsage(opts.feature ?? 'otros', String(payload.model), body.usage, opts.motivo);
   opts.onUsage?.(usage);
   // Quedarse solo con el texto (descartar los bloques de "thinking").
   const text = (body.content ?? [])
@@ -116,6 +117,7 @@ export async function chatClaudeTools(
     maxSteps?: number;              // tope de vueltas del loop (default 8) — baranda anti-bucle.
     toolChoice?: 'auto' | 'any';    // 'any' = forzá al menos una herramienta.
     feature?: string;
+    motivo?: string;
     onUsage?: (u: UsageInfo) => void;                                   // costo de CADA llamada.
     onStep?: (info: { step: number; toolCalls: Array<{ name: string; input: Record<string, unknown> }> }) => void;
   } = {},
@@ -149,7 +151,7 @@ export async function chatClaudeTools(
     const body = await res.json();
     if (!res.ok || body.error) throw new Error(body?.error?.message ?? `Anthropic ${res.status}`);
 
-    const usage = await recordUsage(opts.feature ?? 'tools', String(model), body.usage);
+    const usage = await recordUsage(opts.feature ?? 'tools', String(model), body.usage, opts.motivo);
     opts.onUsage?.(usage);
 
     const content: Block[] = Array.isArray(body.content) ? (body.content as Block[]) : [];

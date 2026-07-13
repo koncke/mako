@@ -109,7 +109,7 @@ function coerceVeredicto(v: unknown, subio: boolean): DebateOut['veredicto'] {
   return subio ? 'acepta' : 'rechaza';
 }
 
-export async function debatirPrioridad(tarea: string, scoreActual: number, argumento: string, planResumen: string): Promise<DebateOut> {
+export async function debatirPrioridad(tarea: string, scoreActual: number, argumento: string, planResumen: string, usoMotivo?: string): Promise<DebateOut> {
   const sys = await brandSystem(await renderPrompt('guardian.debate.system', GUARDIAN_DEBATE_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_DEBATE_JSON_SHAPE }));
   const user = await renderPrompt('guardian.debate.user', GUARDIAN_DEBATE_USER_TEMPLATE, {
     scoreActual: String(scoreActual),
@@ -118,7 +118,7 @@ export async function debatirPrioridad(tarea: string, scoreActual: number, argum
     argumento: contenidoNoConfiable(argumento, 'argumento'),
   });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 2000, feature: 'mako-guardian', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 2000, feature: 'mako-guardian', motivo: usoMotivo || 'Debate de prioridad', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { veredicto: 'rechaza', score: scoreActual, razon: '', respuesta: 'No pude procesar el debate, probá de nuevo.', usage }; }
   const score = Math.max(1, Math.min(100, Math.round(Number(obj.score) || scoreActual)));
@@ -160,7 +160,7 @@ ARGUMENTO DEL USUARIO:
 
 Decidí el veredicto (acepta / ajusta / rechaza) y la prioridad final (1-10, puede quedar igual). Respondé con criterio, sin complacer.`;
 
-export async function debatirProyecto(proyecto: string, scoreActual: number, argumento: string, otrosProyectos: string): Promise<DebateOut> {
+export async function debatirProyecto(proyecto: string, scoreActual: number, argumento: string, otrosProyectos: string, usoMotivo?: string): Promise<DebateOut> {
   const sys = await brandSystem(await renderPrompt('guardian.proj-debate.system', GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_PROJ_DEBATE_JSON_SHAPE }));
   const user = await renderPrompt('guardian.proj-debate.user', GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, {
     scoreActual: String(scoreActual),
@@ -169,7 +169,7 @@ export async function debatirProyecto(proyecto: string, scoreActual: number, arg
     argumento: contenidoNoConfiable(argumento, 'argumento'),
   });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'mako-guardian', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'mako-guardian', motivo: usoMotivo || 'Prioridad de proyecto', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { veredicto: 'rechaza', score: scoreActual, razon: '', respuesta: 'No pude procesar el debate, probá de nuevo.', usage }; }
   const score = Math.max(1, Math.min(10, Math.round(Number(obj.score) || scoreActual)));
@@ -206,7 +206,7 @@ CONTEXTO / RESTO DEL PLAN:
 Decidí: ¿borrar o conservar? Respondé con criterio.`;
 
 export type EliminarOut = { veredicto: 'borrar' | 'conservar'; razon: string; respuesta: string; usage?: UsageInfo };
-export async function decidirEliminar(tipo: string, que: string, motivo: string, plan: string): Promise<EliminarOut> {
+export async function decidirEliminar(tipo: string, que: string, motivo: string, plan: string, usoMotivo?: string): Promise<EliminarOut> {
   const sys = await brandSystem(await renderPrompt('guardian.eliminar.system', ELIMINAR_SYSTEM_TEMPLATE, { jsonShape: ELIMINAR_JSON_SHAPE, tipo }));
   const user = await renderPrompt('guardian.eliminar.user', ELIMINAR_USER_TEMPLATE, {
     que: contenidoNoConfiable(que, 'que'),
@@ -214,7 +214,7 @@ export async function decidirEliminar(tipo: string, que: string, motivo: string,
     plan: contenidoNoConfiable(plan || '(sin plan)', 'plan'),
   });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1200, feature: 'mako-guardian', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1200, feature: 'mako-guardian', motivo: usoMotivo || `Eliminar ${tipo}`, onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { veredicto: 'conservar', razon: '', respuesta: 'No pude procesar esto ahora. Por las dudas, la dejo.', usage }; }
   const v = String(obj.veredicto ?? '').toLowerCase().trim();
@@ -241,12 +241,12 @@ LISTA DE OTRAS TAREAS (id + título + detalle):
 Devolvé el JSON con los ids que sean el mismo trabajo.`;
 
 export type DupOut = { duplicados: Array<{ id: string; razon: string }>; usage?: UsageInfo };
-export async function buscarDuplicados(tarea: string, otras: Array<{ id: string; titulo: string; detalle?: string }>): Promise<DupOut> {
+export async function buscarDuplicados(tarea: string, otras: Array<{ id: string; titulo: string; detalle?: string }>, usoMotivo?: string): Promise<DupOut> {
   const lista = otras.map((o) => `[${o.id}] ${o.titulo}${o.detalle ? ` — ${o.detalle.slice(0, 120)}` : ''}`).join('\n');
   const sys = await brandSystem(await renderPrompt('guardian.duplicados.system', DUP_SYSTEM_TEMPLATE, { jsonShape: DUP_JSON_SHAPE }));
   const user = await renderPrompt('guardian.duplicados.user', DUP_USER_TEMPLATE, { tarea: contenidoNoConfiable(tarea, 'tarea'), lista: contenidoNoConfiable(lista || '(no hay otras)', 'lista') });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'mako-guardian', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'mako-guardian', motivo: usoMotivo || 'Buscar duplicados', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { duplicados: [], usage }; }
   const dups = Array.isArray(obj.duplicados)
@@ -264,7 +264,7 @@ function toScores(arr: unknown, min: number, max: number): GuardScore[] {
 }
 
 /** Puntúa todo el plan. `contexto` = brief del negocio (opcional). */
-export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[], contexto = ''): Promise<GuardOut> {
+export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[], contexto = '', usoMotivo?: string): Promise<GuardOut> {
   const plan = JSON.stringify({ proyectos, tareas });
   const sys = await brandSystem(await renderPrompt('guardian.puntuar.system', GUARDIAN_SYSTEM_TEMPLATE, { jsonShape: GUARDIAN_JSON_SHAPE }));
   const user = await renderPrompt('guardian.puntuar.user', GUARDIAN_USER_TEMPLATE, {
@@ -272,7 +272,7 @@ export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[
     plan: contenidoNoConfiable(plan, 'plan'),
   });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 8000, feature: 'mako-guardian', onUsage: (u) => { usage = u; } });
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 8000, feature: 'mako-guardian', motivo: usoMotivo || 'Re-priorización del plan', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { proyectos: [], tareas: [], usage }; }
   // El modelo tiende a empatar/amontonar los scores de proyecto: los repartimos en

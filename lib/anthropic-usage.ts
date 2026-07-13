@@ -40,7 +40,7 @@ export function costFor(model: string, u: { input: number; output: number; cache
 }
 
 /** Registra una llamada. Best-effort: nunca lanza. Devuelve el detalle para mostrarlo. */
-export async function recordUsage(feature: string, model: string, rawUsage: unknown): Promise<UsageInfo> {
+export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string): Promise<UsageInfo> {
   const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
   const input = Number(u.input_tokens ?? 0) || 0;
   const output = Number(u.output_tokens ?? 0) || 0;
@@ -55,6 +55,7 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
     await getSupabaseServer().from('anthropic_usage').insert({
       workspace_id: OWNER_WS,
       feature: feature || 'otros',
+      motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null,
       model,
       input_tokens: input,
       output_tokens: output,
@@ -69,8 +70,9 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
 }
 
 type Saldo = { usd: number; setAt: string };
-type Row = { created_at: string; feature: string; cost_usd: number; input_tokens: number; output_tokens: number };
+type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
 
+export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; tokens: number; costUsd: number };
 export type UsageSummary = {
   saldo: Saldo | null;
   gastadoMesUsd: number;
@@ -78,6 +80,7 @@ export type UsageSummary = {
   restanteUsd: number | null;
   ultimaOp: { tokens: number; costUsd: number; feature: string; at: string } | null;
   porFeature: Array<{ feature: string; costUsd: number; tokens: number }>;
+  historial: UsageItem[];   // últimas operaciones (cronológico, con el motivo)
 };
 
 // El saldo es GLOBAL de la agencia: la API key de Anthropic es única, así que
@@ -128,7 +131,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   try {
     const { data } = await getSupabaseServer()
       .from('anthropic_usage')
-      .select('created_at, feature, cost_usd, input_tokens, output_tokens')
+      .select('created_at, feature, motivo, model, cost_usd, input_tokens, output_tokens')
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .limit(20000);
@@ -153,6 +156,12 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const last = rows[0] ?? null; // ya viene ordenado desc
   const ultimaOp = last ? { tokens: (Number(last.input_tokens) || 0) + (Number(last.output_tokens) || 0), costUsd: Number(last.cost_usd) || 0, feature: last.feature, at: last.created_at } : null;
 
+  // Historial cronológico (últimas 80 operaciones) con el motivo legible.
+  const historial: UsageItem[] = rows.slice(0, 80).map((r) => ({
+    at: r.created_at, feature: r.feature, motivo: r.motivo ?? null, model: r.model ?? null,
+    tokens: (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0), costUsd: Number(r.cost_usd) || 0,
+  }));
+
   return {
     saldo,
     gastadoMesUsd,
@@ -160,5 +169,6 @@ export async function getUsageSummary(): Promise<UsageSummary> {
     restanteUsd: saldo ? saldo.usd - gastadoDesdeSaldoUsd : null,
     ultimaOp,
     porFeature: [...feat.entries()].map(([feature, v]) => ({ feature, ...v })).sort((a, b) => b.costUsd - a.costUsd),
+    historial,
   };
 }

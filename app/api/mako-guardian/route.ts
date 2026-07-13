@@ -15,42 +15,43 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 type DupTarea = { id: string; titulo: string; detalle?: string };
 export async function POST(req: NextRequest) {
-  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string; tipo?: string; que?: string; motivo?: string; otras?: DupTarea[] };
+  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string; tipo?: string; que?: string; motivo?: string; otras?: DupTarea[]; uso?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  const uso = String(body.uso ?? '').trim() || undefined;   // razón legible para el historial de gasto
 
   try {
     if (body.action === 'eliminar') {
       const que = String(body.que ?? '').trim();
       const motivo = String(body.motivo ?? '').trim();
       if (!que || !motivo) return Response.json({ ok: false, error: 'Falta el elemento o el motivo.' }, { status: 400 });
-      const out = await decidirEliminar(String(body.tipo ?? 'tarea'), que, motivo, String(body.plan ?? ''));
+      const out = await decidirEliminar(String(body.tipo ?? 'tarea'), que, motivo, String(body.plan ?? ''), uso);
       return Response.json({ ok: true, ...out });
     }
     if (body.action === 'duplicados') {
       const tarea = String(body.tarea ?? '').trim();
       if (!tarea) return Response.json({ ok: false, error: 'Falta la tarea.' }, { status: 400 });
-      const out = await buscarDuplicados(tarea, Array.isArray(body.otras) ? body.otras : []);
+      const out = await buscarDuplicados(tarea, Array.isArray(body.otras) ? body.otras : [], uso);
       return Response.json({ ok: true, ...out });
     }
     if (body.action === 'debatir') {
       const tarea = String(body.tarea ?? '').trim();
       const argumento = String(body.argumento ?? '').trim();
       if (!tarea || !argumento) return Response.json({ ok: false, error: 'Falta la tarea o el argumento.' }, { status: 400 });
-      const out = await debatirPrioridad(tarea, Number(body.scoreActual) || 0, argumento, String(body.plan ?? ''));
+      const out = await debatirPrioridad(tarea, Number(body.scoreActual) || 0, argumento, String(body.plan ?? ''), uso);
       return Response.json({ ok: true, ...out });
     }
     if (body.action === 'debatir-proyecto') {
       const proyecto = String(body.proyecto ?? '').trim();
       const argumento = String(body.argumento ?? '').trim();
       if (!proyecto || !argumento) return Response.json({ ok: false, error: 'Falta el proyecto o el argumento.' }, { status: 400 });
-      const out = await debatirProyecto(proyecto, Number(body.scoreActual) || 5, argumento, String(body.plan ?? ''));
+      const out = await debatirProyecto(proyecto, Number(body.scoreActual) || 5, argumento, String(body.plan ?? ''), uso);
       return Response.json({ ok: true, ...out });
     }
     // default: puntuar todo el plan
     const proyectos = Array.isArray(body.proyectos) ? body.proyectos : [];
     const tareas = Array.isArray(body.tareas) ? body.tareas : [];
     if (tareas.length === 0) return Response.json({ ok: false, error: 'No hay tareas para priorizar.' }, { status: 400 });
-    const out = await puntuarPlan(proyectos, tareas, String(body.contexto ?? ''));
+    const out = await puntuarPlan(proyectos, tareas, String(body.contexto ?? ''), uso);
     return Response.json({ ok: true, ...out });
   } catch (e) {
     console.error(`[api:mako-guardian] ${msg(e)}`);

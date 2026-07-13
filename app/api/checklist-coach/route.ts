@@ -15,24 +15,25 @@ export const maxDuration = 120;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function POST(req: NextRequest) {
-  let body: { action?: string; tarea?: string; contexto?: string; respuestas?: string; descripcion?: string };
+  let body: { action?: string; tarea?: string; contexto?: string; respuestas?: string; descripcion?: string; uso?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  const uso = String(body.uso ?? '').trim() || undefined;
 
   try {
     if (body.action === 'proyecto') {
       const descripcion = String(body.descripcion ?? '').trim();
       if (!descripcion) return Response.json({ ok: false, error: 'Falta la descripción.' }, { status: 400 });
-      const p = await proponerProyecto(descripcion);
+      const p = await proponerProyecto(descripcion, uso);
       return Response.json({ ok: true, ...p });
     }
     const tarea = String(body.tarea ?? '').trim();
     if (!tarea) return Response.json({ ok: false, error: 'Falta la tarea.' }, { status: 400 });
     if (body.action === 'ask') {
-      const preguntas = await preguntarTarea(tarea, String(body.contexto ?? ''));
+      const preguntas = await preguntarTarea(tarea, String(body.contexto ?? ''), uso);
       return Response.json({ ok: true, preguntas });
     }
     if (body.action === 'propose') {
-      const r = await optimizarTarea(tarea, String(body.respuestas ?? ''));
+      const r = await optimizarTarea(tarea, String(body.respuestas ?? ''), uso);
       return Response.json({ ok: true, ...r });
     }
     return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });

@@ -46,13 +46,21 @@ function IntegracionCard({ i, metaSev }: { i: Integracion; metaSev: string | nul
 }
 
 // ── Saldo de IA (inline) ──────────────────────────────────────────────────────
+type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; tokens: number; costUsd: number };
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
   gastadoMesUsd: number;
   restanteUsd: number | null;
   ultimaOp: { tokens: number; costUsd: number; feature: string; at: string } | null;
+  historial?: UsageItem[];
 };
 const usd = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(n >= 0.01 ? 3 : 4)}`);
+const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+const FEATURE_LABEL: Record<string, string> = {
+  'mako-guardian': 'Perro Guardián', 'checklist-coach': 'MaKo (coach)', 'ads-rename': 'Ordenar nombres',
+  'script-analyst': 'Script Analyst', 'mako-chat': 'MaKo (chat)', closing: 'Closing Analyst', otros: 'Otros', tools: 'MaKo (acciones)',
+};
+const fmtHora = (iso: string) => { try { return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 
 function SaldoIA() {
   const [data, setData] = useState<Resumen | null>(null);
@@ -97,6 +105,27 @@ function SaldoIA() {
         <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Ver saldo real ↗</a>
       </div>
       <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>La API de Anthropic no expone el saldo prepago. Pegá el de la consola y MaKo le resta el gasto de cada operación.</span>
+
+      {/* Historial de gasto: cada operación con su MOTIVO, tokens y costo */}
+      {data?.historial && data.historial.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 2 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>Historial de gasto · {data.historial.length} operaciones</div>
+          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 340, overflowY: 'auto' }}>
+            {data.historial.map((h, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 2px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || FEATURE_LABEL[h.feature] || h.feature}</span>
+                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', fontFamily: MONO }}>{FEATURE_LABEL[h.feature] ?? h.feature} · {fmtHora(h.at)}</span>
+                </span>
+                <span style={{ flex: 'none', textAlign: 'right' }}>
+                  <span style={{ display: 'block', fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{usd(h.costUsd)}</span>
+                  <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{fmtTok(h.tokens)} tok</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
