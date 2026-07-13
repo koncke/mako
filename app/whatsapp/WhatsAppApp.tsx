@@ -1148,10 +1148,17 @@ function WhatsAppInner() {
                   <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '8px' }}>Ventana de 24h cerrada (el lead no escribió hace más de un día). Fuera de la ventana WhatsApp solo entrega <strong>plantillas aprobadas</strong>:</div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <select value={selTpl} onChange={(e) => setSelTpl(e.target.value)} style={{ flex: 1, height: '44px', padding: '0 12px', borderRadius: '12px', border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: '14px', outline: 'none' }}>
-                        <option value="">Elegí una plantilla…</option>
-                        {templatesInbox.map((t) => <option key={t.name} value={t.name}>{t.name} ({t.category})</option>)}
-                      </select>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Dropdown
+                          value={selTpl}
+                          onChange={setSelTpl}
+                          placeholder="Elegí una plantilla…"
+                          width="100%"
+                          ariaLabel="Plantilla de WhatsApp"
+                          buttonStyle={{ height: 44, padding: '0 12px', borderRadius: 12, background: 'var(--surface-2)', fontWeight: 400, fontSize: 14 }}
+                          options={templatesInbox.map((t) => ({ value: t.name, label: `${t.name} (${t.category})` }))}
+                        />
+                      </div>
                       <button onClick={() => void enviarTemplate()} disabled={sending || !selTpl} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: (sending || !selTpl) ? 'default' : 'pointer', opacity: (sending || !selTpl) ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar plantilla'}</button>
                     </div>
                     {selTpl && (() => { const t = templatesInbox.find((x) => x.name === selTpl); if (!t) return null; const txt = t.params[0] ? t.body.split(`{{${t.params[0]}}}`).join(sel?.contacto ?? '') : t.body; return <div style={{ marginTop: '8px', fontSize: '12.5px', color: 'var(--faint)', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{txt}</div>; })()}

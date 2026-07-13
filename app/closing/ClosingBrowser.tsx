@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { useRouter } from 'next/navigation';
 import { Icon } from '../_components/icons';
 import type { ClosingViewData, ClosingAnalysisRow, ClosingDim, ClosingEvidence, DimGroup, Tone } from '@/lib/closing';
+import { Dropdown } from '../components/Dropdown';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -566,10 +567,16 @@ function LlamadasView(p: {
                   style={{ width: 15, height: 15, borderRadius: '50%', cursor: 'pointer', padding: 0, background: dotC[o], border: '2px solid ' + (p.outcomeF === o ? 'var(--ink)' : 'transparent'), opacity: p.outcomeF === 'todos' || p.outcomeF === o ? 1 : 0.3 }} />
               ))}
               {closers.length > 1 && (
-                <select value={p.closerF} onChange={(e) => p.setCloserF(e.target.value)} style={{ padding: '4px 7px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', fontSize: 11.5, color: 'var(--dim)', fontFamily: "'Geist', sans-serif", cursor: 'pointer' }}>
-                  <option value="todos">Todos los closers</option>
-                  {closers.map((c) => <option key={c} value={c}>{firstName(c)}</option>)}
-                </select>
+                <Dropdown
+                  value={p.closerF}
+                  onChange={p.setCloserF}
+                  ariaLabel="Filtrar por closer"
+                  buttonStyle={{ padding: '4px 7px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface-2)', fontSize: 11.5, fontWeight: 600 }}
+                  options={[
+                    { value: 'todos', label: 'Todos los closers' },
+                    ...closers.map((c) => ({ value: c, label: firstName(c) })),
+                  ]}
+                />
               )}
             </div>
             <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{visible.length} de {calls.length}</span>

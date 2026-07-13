@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 import { TaxonomyManager, type TaxItem } from '../components/TaxonomyManager';
+import { Dropdown } from '../components/Dropdown';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -140,11 +141,17 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
                 {g.fields.map((f, fi) => (
                   <div key={f.key} style={{ display: 'grid', gridTemplateColumns: '1fr 130px 1fr auto', gap: 8, alignItems: 'center' }}>
                     <input style={input} value={f.label} placeholder="Etiqueta / pregunta" onChange={(e) => setField(gi, fi, { label: e.target.value })} />
-                    <select style={{ ...input, cursor: 'pointer' }} value={f.type} onChange={(e) => setField(gi, fi, { type: e.target.value as FieldType })}>
-                      <option value="text">Texto</option>
-                      <option value="number">Número</option>
-                      <option value="textarea">Párrafo</option>
-                    </select>
+                    <Dropdown
+                      value={f.type}
+                      onChange={(v) => setField(gi, fi, { type: v as FieldType })}
+                      width="100%"
+                      buttonStyle={{ padding: '11px 13px', borderRadius: 11, fontSize: 15, fontWeight: 400 }}
+                      options={[
+                        { value: 'text', label: 'Texto' },
+                        { value: 'number', label: 'Número' },
+                        { value: 'textarea', label: 'Párrafo' },
+                      ]}
+                    />
                     <input style={input} value={f.placeholder ?? ''} placeholder="Placeholder (opcional)" onChange={(e) => setField(gi, fi, { placeholder: e.target.value })} />
                     <button style={{ ...btnGhostSm, color: 'var(--bad)' }} onClick={() => delField(gi, fi)}>✕</button>
                   </div>

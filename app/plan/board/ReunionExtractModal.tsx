@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon } from './guardian-form';
+import { Dropdown } from '../../components/Dropdown';
 import { type Label, type Prio, PLABEL } from './types';
 
 const SANS = "'Geist', sans-serif";
@@ -124,10 +125,16 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
                         {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: banda(f.prioridad), fontFamily: MONO }}><ScoreIcon size={11} color={banda(f.prioridad)} />{PLABEL[f.prioridad]}</span>
-                          <select value={f.proyectoId ?? ''} onChange={(e) => setFila(i, { proyectoId: e.target.value || null })} style={selProj}>
-                            <option value="">Sin proyecto</option>
-                            {labels.map((l) => <option key={l.id} value={l.id}>{l.emoji} {l.name}</option>)}
-                          </select>
+                          <Dropdown
+                            value={f.proyectoId ?? ''}
+                            onChange={(v) => setFila(i, { proyectoId: v || null })}
+                            ariaLabel="Proyecto de la tarea"
+                            buttonStyle={{ padding: '4px 8px', borderRadius: 8, fontSize: 12, fontWeight: 600, maxWidth: 200 }}
+                            options={[
+                              { value: '', label: 'Sin proyecto' },
+                              ...labels.map((l) => ({ value: l.id, label: `${l.emoji} ${l.name}`, color: l.color })),
+                            ]}
+                          />
                         </div>
                       </div>
                     </div>
@@ -172,5 +179,4 @@ function Spinner() {
   );
 }
 
-const selProj: CSSProperties = { padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12, fontFamily: SANS, maxWidth: 200, cursor: 'pointer' };
 const ghostBtn: CSSProperties = { padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS };
