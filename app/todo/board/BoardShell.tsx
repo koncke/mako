@@ -305,6 +305,10 @@ function LabelChip({ l }: { l: Label }) {
 function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
 }
+// prioridad del proyecto (1-10) — mismo sistema gauge + número que las tareas (#4)
+function ProjScore({ score, color, big }: { score: number; color: string; big?: boolean }) {
+  return <span title="Prioridad del proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: big ? 15 : 11, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: big ? '3px 10px' : '2px 6px 2px 5px' }}><ScoreIcon size={big ? 15 : 11} color={color} />{score}</span>;
+}
 // score del guardián (1-100), coloreado por la columna que define.
 function ScoreBadge({ score }: { score: number }) {
   const c = PCOLOR[prioFromScore(score)];
@@ -419,13 +423,13 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
         </div>
         {/* DERECHA — las 3 tareas en prioridad */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 En prioridad · {tasks.length}/{MAX_PRIORIDAD}</div>
+          <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>🎯 Tareas prioritarias · {tasks.length}/{MAX_PRIORIDAD}</div>
           {tasks.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: 'var(--faint)', textAlign: 'center', padding: '24px 20px', border: '1px dashed var(--border-strong)', borderRadius: 14 }}>
               <div style={{ fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>MaKo pone acá, solo, las {MAX_PRIORIDAD} tareas de mayor prioridad del Objetivo Principal. Todavía no hay ninguna.</div>
             </div>
           )}
-          {tasks.map((t) => {
+          {tasks.map((t, i) => {
             const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
             const clDone = t.checklist.filter((c) => c.done).length;
             const open = expand.has(t.id);
@@ -433,6 +437,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
               <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
                   {chips.map((l) => <LabelChip key={l.id} l={l} />)}
                   <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
                 </div>
@@ -471,7 +476,7 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>
         <span style={{ flex: 1 }} />
-        <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: objetivo.color, background: objetivo.color + '18', border: `1px solid ${objetivo.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{objetivo.score}/10</span>
+        <ProjScore score={objetivo.score} color={objetivo.color} />
       </div>
       <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 8 }}>{objetivo.emoji}</div>
       <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25, marginBottom: 12 }}>{objetivo.name}</div>
@@ -747,7 +752,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
                   <span style={{ fontSize: 22 }}>{l.emoji}</span>
                   <span style={{ flex: 1 }} />
                   {completo(prog) && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
-                  <span title="Prioridad del proyecto (1-10)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: l.color, background: l.color + '18', border: `1px solid ${l.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{l.score}/10</span>
+                  <ProjScore score={l.score} color={l.color} />
                 </div>
                 <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
                 {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
@@ -787,7 +792,7 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
-          <span title="Prioridad del proyecto (la pone el guardián)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: proj.color, background: proj.color + '18', border: `1px solid ${proj.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{proj.score}/10</span>
+          <ProjScore score={proj.score} color={proj.color} />
           {isTop && <span style={{ fontFamily: MONO, fontSize: 10, color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
           <span style={{ flex: 1 }} /><button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
         </div>
@@ -826,7 +831,7 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
               <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {suyas.length}</label>
               <span style={{ flex: 1 }} />
-              <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ tarea acá</button>
+              <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ Nueva Tarea</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {suyas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>}

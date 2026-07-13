@@ -131,7 +131,6 @@ export function CrearTareaModal({ labels, proyectoInicial, prioInicial, onCrear,
                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 14px', borderRadius: 11, border: `1px solid ${on ? PCOLOR[p] : 'var(--border-strong)'}`, background: on ? PCOLOR[p] + '14' : 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: SANS }}>
                 <span style={{ width: 11, height: 11, borderRadius: '50%', background: PCOLOR[p], flex: 'none' }} />
                 <span style={{ flex: 1 }}>{PLABEL[p]}</span>
-                {prioInicial === p && <span style={{ fontSize: 10.5, color: 'var(--faint)', fontFamily: MONO }}>sugerida</span>}
               </button>
             );
           })}
