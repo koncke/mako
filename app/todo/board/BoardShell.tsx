@@ -80,6 +80,7 @@ export function BoardShell({ board }: { board: Board }) {
   // cambió, NO gasta tokens (feedback #1/#14). La "firma" ignora los scores para no
   // re-dispararse a sí misma cuando el guardián aplica los suyos.
   const repriorizando = useRef(false);
+  const lastReprioSig = useRef(''); // dedup: no re-puntuar dos veces la misma firma
   const planSignature = () => {
     const t = tasks.filter((x) => x.progress < 100).map((x) => x.id).sort().join(',');
     const p = labels.map((l) => l.id).sort().join(',');
@@ -87,6 +88,8 @@ export function BoardShell({ board }: { board: Board }) {
   };
   const rePriorizar = async (sig?: string) => {
     if (repriorizando.current) return;
+    const sigNow = sig ?? planSignature();
+    if (lastReprioSig.current === sigNow) return; // ya se corrió para esta firma
     repriorizando.current = true;
     const proyectos = labels.map((l) => ({ id: l.id, nombre: l.name }));
     // scoreActual: el guardián mantiene el score previo salvo razón concreta (estabilidad).
@@ -97,7 +100,8 @@ export function BoardShell({ board }: { board: Board }) {
       if (j.ok) {
         board.applyGuardian(j.tareas || [], j.proyectos || []);
         showUsage(j.usage, 're-priorización del plan');
-        try { localStorage.setItem('mako_plan_sig', sig ?? planSignature()); } catch { /* no-op */ }
+        lastReprioSig.current = sigNow;
+        try { localStorage.setItem('mako_plan_sig', sigNow); } catch { /* no-op */ }
       }
     } catch { /* silencioso, es automático */ }
     repriorizando.current = false;
@@ -113,6 +117,20 @@ export function BoardShell({ board }: { board: Board }) {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSig]);
+  // Re-puntuación FORZADA de una sola vez por navegador: aplica el guardián nuevo
+  // (más duro + disciplina de distribución) al plan existente. Bump de REPRIO_FORCE
+  // para volver a forzarla en el futuro si hace falta.
+  const ready = tasks.length >= 2;
+  useEffect(() => {
+    if (!ready) return;
+    const REPRIO_FORCE = 'v2-guardian-2026-07';
+    let f = ''; try { f = localStorage.getItem('mako_reprio_force') || ''; } catch { /* no-op */ }
+    if (f === REPRIO_FORCE) return;
+    try { localStorage.setItem('mako_reprio_force', REPRIO_FORCE); } catch { /* no-op */ }
+    const id = setTimeout(() => { void rePriorizar(); }, 1800);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
   // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
   // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
   const cerrarWizard = () => {
