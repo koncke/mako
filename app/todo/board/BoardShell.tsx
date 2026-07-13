@@ -159,26 +159,35 @@ export function BoardShell({ board }: { board: Board }) {
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
   const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;
   const debateProj = labels.find((l) => l.id === debateProjId) ?? null;
-  const crearProyecto = (nombre: string, emoji: string, detalle: string) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score: 5, detalle, historial: [] });
+  const crearProyecto = (nombre: string, emoji: string, detalle: string, score = 5) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score, detalle, historial: [] });
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
 
   // crear una tarea: el usuario propone proyecto(s) + prioridad; el GUARDIÁN la puntúa
   // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
-  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; motivoNinguno: string; argumento: string; puntuar: boolean }) => {
-    const t = await board.create(d.title, d.userPrio || 'media', d.labelIds.length ? d.labelIds : undefined);
+  const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userPrio: Prio | ''; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string; puntuar: boolean }) => {
+    let labelIds = d.labelIds;
+    // #7.2: si el usuario dijo que el proyecto todavía no existe, lo creamos inline
+    // (manual, 0 tokens) y la tarea vive adentro.
+    if (d.nuevoProyecto.trim()) {
+      const newId = uid();
+      void board.createLabel({ id: newId, emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 5, detalle: '', historial: [] });
+      labelIds = [newId];
+    }
+    const starter = d.userScore || (d.userPrio ? scoreFromPrio[d.userPrio] : 50);
+    const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined);
     if (!t) return null;
     if (d.detalle) board.setDetalle(t.id, d.detalle, '');
-    const starter = d.userPrio ? scoreFromPrio[d.userPrio] : 50;
-    // #18: crear SIN gastar tokens — usa la prioridad propuesta por el usuario y no
+    // #18: crear SIN gastar tokens — usa la puntuación propuesta por el usuario y no
     // llama al guardián. Ideal para cargar/editar en lote desde super-admin.
     if (!d.puntuar) {
+      board.setScore(t.id, starter, `Creada por vos · score ${starter}`, 'user');
       return { score: starter, razon: '', respuesta: 'Creada sin puntuar (0 tokens). Cuando quieras, debatila con el Perro Guardián.', prio: displayPrio({ ...t, score: starter }, topProjectId) };
     }
     const partes: string[] = [];
     if (d.argumento) partes.push(d.argumento);
-    if (d.userPrio) partes.push(`El usuario la propone como prioridad ${PLABEL[d.userPrio]} (podés corregirlo si no corresponde).`);
-    if (!d.labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
+    partes.push(`El usuario la propone en ${d.userScore} (${PLABEL[prioFromScore(starter)]}) — podés corregirlo si no corresponde.`);
+    if (!labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
     const argFinal = partes.join(' ') || '(sin argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
     try {
       const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen }) }).then((r) => r.json());
@@ -227,10 +236,10 @@ export function BoardShell({ board }: { board: Board }) {
         otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, title: t.title, score: t.score, projId: l?.id, projName: l?.name, projColor: l?.color, projEmoji: l?.emoji }; })}
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
         onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
-      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
+      {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otrosProyectos={labels.filter((l) => l.id !== debateProj.id).map((l) => `- ${l.emoji} ${l.name} (prioridad ${l.score}/10)`).join('\n') || '(no hay otros proyectos)'} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia')} onClose={() => setDebateProjId(null)} />}
-      {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
+      {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
         otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}
@@ -757,7 +766,6 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
           <span style={{ flex: 1 }} />
           <AvgChip avg={avgProj} hechas={hechosProj} total={withProg.length} label="proyectos ✓" />
           <Segmented value={projFilter} onChange={setProjFilter} opciones={[['all', 'Todos'], ['activos', 'Activos'], ['hechos', 'Completados']]} />
-          <button onClick={onNew} style={{ ...ghostBtn, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 }}>+ Nuevo {repo.labelSingular.toLowerCase()}</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {shown.map(({ l, prog }) => {
@@ -780,7 +788,13 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
               </div>
             );
           })}
-          {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 14, padding: '30px 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
+          {/* #8: card translúcida "crear proyecto" al final, en vez del botón de arriba */}
+          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 128, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>
+            <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
+            <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
+          </button>
+          {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '10px 0 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
         </div>
         <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 12 }}>Change history · proyectos</div>
