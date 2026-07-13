@@ -18,7 +18,9 @@ export type BoardTask = {
   detalle: string;
   priority: Prio;           // DERIVADA del score (prioFromScore); no la fija el usuario
   score: number;            // 1-100 (MaKo perro guardián). 0 = sin puntuar
-  scoreRazon?: string;      // por qué el guardián le puso ese score
+  scoreRazon?: string;      // por qué el guardián le puso ese score (comparando con el resto)
+  impacto?: number;         // 1-100: cuánto mueve la aguja (dinero / métrica norte)
+  esfuerzo?: number;        // 1-100: cuánto cuesta hacerla (menos esfuerzo = mejor)
   progress: number;         // 0-100
   deadline: string;         // '' | YYYY-MM-DD
   labels: string[];         // ids de Label

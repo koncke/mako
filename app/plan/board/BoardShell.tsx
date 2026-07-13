@@ -350,13 +350,43 @@ function LabelChip({ l, cap = 190 }: { l: Label; cap?: number }) {
 // que las tareas con varios proyectos rompan el layout o le coman protagonismo al título.
 function LabelChips({ chips, max = 2, cap = 190 }: { chips: Label[]; max?: number; cap?: number }) {
   const shown = chips.slice(0, max);
-  const rest = chips.length - shown.length;
-  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} />)}{rest > 0 && <span title={chips.slice(max).map((l) => l.name).join(' · ')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '2px 6px', flex: 'none' }}>+{rest}</span>}</>;
+  const rest = chips.slice(max);
+  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} />)}{rest.length > 0 && <MasChip extra={rest} />}</>;
+}
+// "+N" con desplegable HOVER (diseño nuestro): muestra los proyectos ocultos con su
+// color + emoji, en vez del title HTML feo.
+function MasChip({ extra }: { extra: Label[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{ position: 'relative', flex: 'none', display: 'inline-flex' }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: `1px solid ${open ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 6, padding: '2px 6px', cursor: 'default' }}>+{extra.length}</span>
+      {open && (
+        <span style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 300, display: 'flex', flexDirection: 'column', gap: 5, minWidth: 150, maxWidth: 280, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 14px 34px rgba(18,21,27,.20)', padding: 8 }}>
+          <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '0 2px 2px' }}>También en</span>
+          {extra.map((l) => (
+            <span key={l.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.emoji} {l.name}</span>
+          ))}
+        </span>
+      )}
+    </span>
+  );
 }
 function MiniBar({ v }: { v: number }) {
   return <span style={{ display: 'block', height: 4, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: v + '%', background: 'var(--primary)' }} /></span>;
 }
-// prioridad del proyecto (1-10) — mismo sistema gauge + número que las tareas (#4)
+// barra Impacto/Esfuerzo (1-100): las variables con las que el guardián arma la prioridad.
+function IEMeter({ label, v, color }: { label: string; v: number; color: string }) {
+  const w = Math.max(0, Math.min(100, v));
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, width: 52, flex: 'none' }}>{label}</span>
+      <span style={{ flex: 1, height: 5, borderRadius: 99, background: 'var(--border)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: w + '%', background: color }} /></span>
+      <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color, width: 22, textAlign: 'right', flex: 'none' }}>{v}</span>
+    </div>
+  );
+}
+// prioridad del proyecto (1-100) — mismo sistema gauge + número que las tareas
+
 function ProjScore({ score, color, big }: { score: number; color: string; big?: boolean }) {
   return <span title="Prioridad del proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: big ? 15 : 11, fontWeight: 700, color, background: color + '18', border: `1px solid ${color}33`, borderRadius: 6, padding: big ? '3px 10px' : '2px 6px 2px 5px' }}><ScoreIcon size={big ? 15 : 11} color={color} />{score}</span>;
 }
@@ -707,8 +737,13 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
                 <span style={{ fontSize: 15, fontWeight: 800, color: PCOLOR[prioEfectiva], letterSpacing: '.01em' }}>{PLABEL[prioEfectiva].toUpperCase()}</span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>
               </div>
-              {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
-              {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
+              {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 8, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
+              {(t.impacto != null || t.esfuerzo != null) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
+                  {t.impacto != null && <IEMeter label="Impacto" v={t.impacto} color="#1E9E57" />}
+                  {t.esfuerzo != null && <IEMeter label="Esfuerzo" v={t.esfuerzo} color="#C8870C" />}
+                </div>
+              )}
               <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             {/* #5: deadline en el sidebar */}

@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
 import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Prio, type Check, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 
-export type GuardScore = { id: string; score: number; razon: string };
+export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
 const now = () => Date.now();
 
@@ -111,7 +111,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
       const g = tareas.find((t) => t.id === x.id); if (!g) return x;
       const s = clampScore(g.score);
       const entry = mkEntry('ia', `Priorizó · score ${s}`, 'score', x.score);
-      return { ...x, score: s, priority: prioFromScore(s), scoreRazon: g.razon, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
+      return { ...x, score: s, priority: prioFromScore(s), scoreRazon: g.razon, impacto: g.impacto ?? x.impacto, esfuerzo: g.esfuerzo ?? x.esfuerzo, historial: [entry, ...x.historial].slice(0, HIST_CAP) };
     }));
     tareas.forEach((t) => markDirty(t.id));
     setLabels((ls) => ls.map((l) => { const g = proyectos.find((p) => p.id === l.id); return g ? { ...l, score: clampProj(g.score), scoreRazon: g.razon || l.scoreRazon } : l; }));
