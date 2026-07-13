@@ -557,6 +557,38 @@ function HistList({ historial, nombre, avatarUrl }: { historial: BoardTask['hist
   );
 }
 
+// ── change history de la TAB Proyectos: agrega los eventos de CADA proyecto
+// (creación/rename/detalle/score…), NO los de tareas (esos viven en el detalle). ──
+function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: string; avatarUrl: string }) {
+  const [nowMs, setNowMs] = useState(0);
+  /* eslint-disable-next-line react-hooks/set-state-in-effect */
+  useEffect(() => { setNowMs(Date.now()); }, []);
+  const rows = labels
+    .flatMap((l) => l.historial.filter((h) => h.kind !== 'task').map((h) => ({ h, l })))
+    .sort((a, b) => b.h.ts - a.h.ts)
+    .slice(0, 40);
+  if (rows.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad de proyectos todavía.</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+      {rows.map(({ h, l }) => {
+        const esCreacion = h.text.startsWith('Creó el proyecto');
+        return (
+          <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={24} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '1px 7px 1px 5px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color, marginRight: 6, verticalAlign: 'middle' }}>{l.emoji} {l.name}</span>
+                <strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
 function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void }) {
   const { labels, tasks, repo } = board;
@@ -590,6 +622,10 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
             );
           })}
           {ordered.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 14, padding: '30px 0' }}>Todavía no hay {repo.labelPlural.toLowerCase()}.</div>}
+        </div>
+        <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
+          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 12 }}>Change history · proyectos</div>
+          <ProjTabHist labels={labels} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
         </div>
       </div>
     </div>

@@ -16,7 +16,7 @@ export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
 export type Actor = 'user' | 'ia';
 export type ChecklistItem = { id: string; text: string; done: boolean };
 export type HistUndo = { field: string; prev: unknown };
-export type HistEntry = { id: string; ts: number; actor: Actor; text: string; undo?: HistUndo };
+export type HistEntry = { id: string; ts: number; actor: Actor; text: string; undo?: HistUndo; kind?: 'task' };
 
 const origenActor = (o: OrigenTarea): Actor => (o === 'manual' ? 'user' : 'ia');
 
@@ -83,6 +83,7 @@ const histOk = (h: unknown): HistEntry[] =>
           const e: HistEntry = { id: typeof o.id === 'string' && o.id ? o.id : 'h' + ts, ts, actor: o.actor === 'ia' ? 'ia' : 'user', text: String(o.text ?? '') };
           const u = o.undo as Record<string, unknown> | undefined;
           if (u && typeof u === 'object' && typeof u.field === 'string') e.undo = { field: u.field, prev: u.prev };
+          if (o.kind === 'task') e.kind = 'task';
           return e;
         })
     : [];

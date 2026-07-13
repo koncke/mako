@@ -176,10 +176,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     setLabels((ls) => ls.map((l) => (l.id === id ? (next = { ...l, ...fields, historial: [{ id: uid(), ts: now(), actor, text }, ...l.historial].slice(0, HIST_CAP) }) : l)));
     if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
   };
-  // registra un evento en el change history de un proyecto (tarea creada/borrada/renombrada)
+  // registra un evento en el change history de un proyecto (tarea creada/borrada/renombrada).
+  // kind:'task' → queda en el detalle del proyecto pero NO en el change history de la tab.
   const logProject = (labelId: string, text: string, actor: Actor = 'user') => {
     let next: Label | null = null;
-    setLabels((ls) => ls.map((l) => (l.id === labelId ? (next = { ...l, historial: [{ id: uid(), ts: now(), actor, text }, ...l.historial].slice(0, HIST_CAP) }) : l)));
+    setLabels((ls) => ls.map((l) => (l.id === labelId ? (next = { ...l, historial: [{ id: uid(), ts: now(), actor, text, kind: 'task' as const }, ...l.historial].slice(0, HIST_CAP) }) : l)));
     if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
   };
   const deleteLabel = (id: string) => {

@@ -9,7 +9,7 @@ export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 export type Actor = 'user' | 'ia';
 export type Check = { id: string; text: string; done: boolean };
 export type UndoInfo = { field: string; prev: unknown };
-export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: UndoInfo };
+export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: UndoInfo; kind?: 'task' };
 
 export type BoardTask = {
   id: string;
