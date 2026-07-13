@@ -93,14 +93,17 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
   if (fase === 'consolacion') {
     return (
       <Shell onClose={onClose}>
-        <div style={{ padding: '28px 26px 8px', textAlign: 'center' }}>
-          <GuardianIcon size={56} />
-          <div style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', margin: '14px 0 10px' }}>Bien ahí. La dejamos donde está.</div>
-          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>{razon ? CONSUELO[razon] : 'La dejo donde está. Seguí con tus prioridades.'}</div>
+        <div style={{ padding: '30px 26px 10px', textAlign: 'center' }}>
+          <div style={{ width: 58, height: 58, margin: '0 auto', borderRadius: '50%', background: 'linear-gradient(135deg, var(--good) , var(--primary))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(30,158,87,.28)' }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.2 4.2L19 6.5" /></svg>
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.01em', margin: '16px 0 6px' }}>¡Ese es el foco! 💪</div>
+          <div style={{ fontSize: 13.5, color: 'var(--dim)', marginBottom: 14 }}>Decidís con cabeza, no con ansiedad. Así se gana.</div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, textAlign: 'left', background: 'var(--good-bg, var(--surface-2))', border: '1px solid var(--good)55', borderRadius: 12, padding: '14px 16px' }}>{razon ? CONSUELO[razon] : 'La dejo donde está. Seguí con tus prioridades.'}</div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <button type="button" onClick={() => { setSiNo(null); setFase('form'); setIdx(3); }} style={ghostBtn}>Volver</button>
-          <button type="button" onClick={onClose} style={primaryBtn}>Seguir con mi top</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <button type="button" onClick={() => { setSiNo(null); setFase('form'); setIdx(3); }} style={ghostBtn}>← Volver</button>
+          <button type="button" onClick={onClose} style={primaryBtn}>Seguir con mis prioridades →</button>
         </div>
       </Shell>
     );
@@ -131,9 +134,9 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
               </>}
         </div>
         {fase === 'veredicto' && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-            <button type="button" onClick={() => { setVer(null); setFase('form'); setIdx(1); }} style={ghostBtn}>Volver a intentar</button>
-            <button type="button" onClick={aceptar} style={primaryBtn}>Aceptar veredicto</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+            <button type="button" onClick={() => { setVer(null); setFase('form'); setIdx(1); }} style={ghostBtn}>← Volver a intentar</button>
+            <button type="button" onClick={aceptar} style={primaryBtn}>Aceptar veredicto →</button>
           </div>
         )}
       </Shell>
@@ -251,11 +254,12 @@ function SiNoBody({ comparacion, value, sube, onSi, onNo }: { comparacion: OtraT
   );
 }
 
-// ¿Qué tarea desbloquea? — search + filtro por proyecto + filas con color; "Otra" FIJA
-// arriba (fuera del scroll) para no bajar eternamente (feedback #4).
+// ¿Qué tarea desbloquea? — search + filtro por proyecto (DESPLEGABLE a la derecha del
+// search); lista scrolleable; "Otra (a mano)" FIJA abajo del todo, fuera del scroll (#18).
 function DesbloqueaBody({ otras, value, onChange }: { otras: OtraTarea[]; value: string; onChange: (v: string) => void }) {
   const [q, setQ] = useState('');
   const [proj, setProj] = useState<string>('');
+  const [openF, setOpenF] = useState(false);
   const proyectos = useMemo(() => {
     const m = new Map<string, { name: string; color: string; emoji: string }>();
     otras.forEach((t) => { if (t.projId && !m.has(t.projId)) m.set(t.projId, { name: t.projName || '', color: t.projColor || '#999', emoji: t.projEmoji || '' }); });
@@ -263,19 +267,30 @@ function DesbloqueaBody({ otras, value, onChange }: { otras: OtraTarea[]; value:
   }, [otras]);
   const filtradas = otras.filter((t) => (!proj || t.projId === proj) && (!q || t.title.toLowerCase().includes(q.toLowerCase())));
   const enLista = otras.some((t) => t.title === value);
+  const projSel = proyectos.find(([id]) => id === proj)?.[1];
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* FIJO arriba: buscar + "otra" a mano + filtros por proyecto */}
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar tarea…" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
-      <input value={!enLista ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder="✎ Otra (no está en la lista)…" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${!enLista && value ? 'var(--primary)' : 'var(--border-strong)'}`, background: !enLista && value ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
-      {proyectos.length > 1 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button type="button" onClick={() => setProj('')} style={chip(proj === '', '#888')}>Todos</button>
-          {proyectos.map(([id, p]) => <button key={id} type="button" onClick={() => setProj(proj === id ? '' : id)} style={chip(proj === id, p.color)}>{p.emoji} {p.name}</button>)}
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
-        {filtradas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic', padding: '6px 2px' }}>Nada con ese filtro. Escribila a mano arriba.</div>}
+      {/* search + filtro desplegable a la derecha */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar tarea…" style={{ flex: 1, minWidth: 0, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
+        {proyectos.length > 1 && (
+          <div style={{ position: 'relative', flex: 'none' }}>
+            <button type="button" onClick={() => setOpenF((o) => !o)} style={{ display: 'flex', alignItems: 'center', gap: 6, height: '100%', padding: '0 12px', borderRadius: 10, border: `1px solid ${proj ? 'var(--primary)' : 'var(--border-strong)'}`, background: proj ? 'var(--primary-bg)' : 'var(--surface)', color: proj ? 'var(--primary)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, whiteSpace: 'nowrap' }}>
+              {projSel ? `${projSel.emoji} ${projSel.name}` : 'Proyecto'} ▾
+            </button>
+            {openF && <>
+              <span onClick={() => setOpenF(false)} style={{ position: 'fixed', inset: 0, zIndex: 150 }} />
+              <div style={{ position: 'absolute', top: '105%', right: 0, zIndex: 151, minWidth: 180, maxHeight: 220, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.2)', padding: 6 }}>
+                <button type="button" onClick={() => { setProj(''); setOpenF(false); }} style={ddItem(proj === '')}>Todos los proyectos</button>
+                {proyectos.map(([id, p]) => <button key={id} type="button" onClick={() => { setProj(id); setOpenF(false); }} style={ddItem(proj === id)}>{p.emoji} {p.name}</button>)}
+              </div>
+            </>}
+          </div>
+        )}
+      </div>
+      {/* lista scrolleable */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+        {filtradas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic', padding: '6px 2px' }}>Nada con ese filtro. Escribila a mano abajo.</div>}
         {filtradas.map((t) => {
           const on = value === t.title;
           const col = t.projColor || 'var(--border-strong)';
@@ -289,10 +304,14 @@ function DesbloqueaBody({ otras, value, onChange }: { otras: OtraTarea[]; value:
           );
         })}
       </div>
+      {/* "Otra (a mano)" FIJA abajo, fuera del scroll */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+        <input value={!enLista ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder="✎ Otra (no está en la lista)…" style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${!enLista && value ? 'var(--primary)' : 'var(--border-strong)'}`, background: !enLista && value ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
+      </div>
     </div>
   );
 }
-const chip = (on: boolean, color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, border: `1px solid ${on ? color : 'var(--border-strong)'}`, background: on ? color + '1f' : 'var(--surface)', color: on ? color : 'var(--dim)', cursor: 'pointer', fontFamily: SANS });
+const ddItem = (on: boolean): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 8, border: 'none', background: on ? 'var(--primary-bg)' : 'transparent', color: 'var(--ink)', fontSize: 13, fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: SANS });
 
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
