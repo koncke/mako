@@ -21,6 +21,7 @@ import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
+import { MakoProyectoModal } from './MakoProyecto';
 import { GuardianIcon } from './GuardianIcon';
 import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
@@ -44,6 +45,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
   const [debateProjId, setDebateProjId] = useState<string | null>(null);
   const [makoHintId, setMakoHintId] = useState<string | null>(null); // tarea recién creada → sugerir "MaKo te ayuda"
+  const [makoProjId, setMakoProjId] = useState<string | null>(null); // "MaKo te ayuda" para un proyecto
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado
@@ -162,6 +164,7 @@ export function BoardShell({ board }: { board: Board }) {
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
   const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;
   const debateProj = labels.find((l) => l.id === debateProjId) ?? null;
+  const makoProj = labels.find((l) => l.id === makoProjId) ?? null;
   const crearProyecto = (nombre: string, emoji: string, detalle: string, score = 5) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score, detalle, historial: [] });
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
@@ -232,7 +235,8 @@ export function BoardShell({ board }: { board: Board }) {
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
         onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
+      {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otrosProyectos={labels.filter((l) => l.id !== debateProj.id).map((l) => `- ${l.emoji} ${l.name} (prioridad ${l.score}/10)`).join('\n') || '(no hay otros proyectos)'} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia')} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
@@ -819,7 +823,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; t
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, onDebatePrio, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onDelete: () => void; onClose: () => void }) {
+function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, onDebatePrio, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { (document.activeElement as HTMLElement)?.blur?.(); onClose(); } };
@@ -836,6 +840,7 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
           {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
           <span style={{ flex: 1 }} />
+          <button onClick={onMako} title="MaKo te ayuda a mejorar el nombre y el detalle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>✦ MaKo te ayuda</button>
           <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
         </div>
         <div style={{ display: 'flex', minHeight: 0, flex: 1 }}>
