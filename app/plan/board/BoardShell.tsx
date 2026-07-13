@@ -248,7 +248,7 @@ export function BoardShell({ board }: { board: Board }) {
       {eliminarProj && <EliminarModal tipo="proyecto" nombre={eliminarProj.name} nTareas={tasks.filter((t) => t.labels.includes(eliminarProj.id)).length}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar proyecto')}
         onBorrar={() => { board.deleteLabelYTareas(eliminarProj.id); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
-      {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels} topProjectId={topProjectId}
+      {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels}
         onAsignar={(ids, motivo) => board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`)}
         onClose={() => setAsignarTaskId(null)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
