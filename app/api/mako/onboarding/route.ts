@@ -3,13 +3,25 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { getSchema, saveSchema, getAnswers, saveAnswers, type Group } from '@/lib/onboarding';
 
 export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+// El perfil del negocio (alimenta el contexto de MaKo y el brief de campañas) es
+// config admin-only: solo el admin del workspace (patrón /api/mako/voz).
+async function soloAdmin(): Promise<Response | null> {
+  if ((await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ error: 'Solo el admin del workspace puede tocar el perfil del negocio.' }, { status: 403 });
+  }
+  return null;
+}
+
 export async function GET() {
+  const g = await soloAdmin();
+  if (g) return g;
   try {
     const [schema, answers] = await Promise.all([getSchema(), getAnswers()]);
     return Response.json({ schema, answers });
@@ -19,6 +31,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const g = await soloAdmin();
+  if (g) return g;
   let body: { action?: string; schema?: Group[]; answers?: Record<string, string> };
   try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
   try {

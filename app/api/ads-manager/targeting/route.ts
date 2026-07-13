@@ -7,12 +7,17 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { guardAdsDueno } from '@/lib/ads-guard';
 import { listCustomAudiences, searchInterests, listLeadForms, listCustomConversions, listPixels, listPixelEvents, metaErrorEnvelope } from '@/lib/meta-ads-create';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(req: NextRequest) {
+  // Lee la cuenta de Meta GLOBAL del dueño (env) → solo el dueño, como sus hermanos.
+  // Sin esto, un cliente logueado de otro workspace veía públicos/formularios/
+  // pixeles/conversiones de la agencia.
+  const no = await guardAdsDueno(); if (no) return no;
   const kind = req.nextUrl.searchParams.get('kind');
   const q = req.nextUrl.searchParams.get('q') ?? '';
   try {

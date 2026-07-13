@@ -3,13 +3,25 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { getRolWsEfectivo } from '@/lib/workspace';
 import { MAKO_NUCLEO, getPrompts, savePrompt, restorePrompt } from '@/lib/mako-prompts';
 
 export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+// Config del cerebro de MaKo: solo el admin del workspace (patrón /api/mako/voz).
+// Sin esto, un closer/setter podía reescribir la persona/modos vía fetch directo.
+async function soloAdmin(): Promise<Response | null> {
+  if ((await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ error: 'Solo el admin del workspace puede tocar la config de MaKo.' }, { status: 403 });
+  }
+  return null;
+}
+
 export async function GET() {
+  const g = await soloAdmin();
+  if (g) return g;
   try {
     return Response.json({ nucleo: MAKO_NUCLEO, modos: await getPrompts() });
   } catch (e) {
@@ -18,6 +30,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const g = await soloAdmin();
+  if (g) return g;
   let body: { action?: string; modo?: string; text?: string; ts?: string };
   try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
   if (!body.modo) return Response.json({ error: 'modo requerido' }, { status: 400 });
