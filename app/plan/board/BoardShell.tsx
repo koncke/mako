@@ -22,6 +22,7 @@ import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
+import { ReunionExtractModal } from './ReunionExtractModal';
 import { GuardianIcon } from './GuardianIcon';
 import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
@@ -55,6 +56,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [wizardId, setWizardId] = useState<string | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
+  const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [usageFlash, setUsageFlash] = useState<{ tokens: number; cost: number; feature: string } | null>(null);
@@ -205,6 +207,20 @@ export function BoardShell({ board }: { board: Board }) {
     return { id: t.id, score: starter, razon: '', respuesta: 'No pude priorizar ahora; quedó donde la propusiste. Podés debatirla después.', prio: displayPrio({ ...t, score: starter }, topProjectId) };
   };
 
+  // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
+  // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
+  // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
+  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null }>) => {
+    const ids: string[] = [];
+    for (const c of cands) {
+      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined);
+      if (!t) continue;
+      if (c.detalle) board.setDetalle(t.id, c.detalle, '');
+      ids.push(t.id);
+    }
+    if (ids.length) board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan`, () => ids.forEach((id) => board.removeSilent(id)));
+  };
+
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'wrap' }}>
@@ -229,6 +245,13 @@ export function BoardShell({ board }: { board: Board }) {
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
         {view === 'proyectos' && <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />}
+        {repo.fathomExtract && (
+          <button type="button" onClick={() => setExtraerReunion(true)} title="MaKo lee una reunión de Fathom y saca las tareas del equipo"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--ink)'; }}>
+            🎙️ Extraer de una reunión
+          </button>
+        )}
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -247,6 +270,7 @@ export function BoardShell({ board }: { board: Board }) {
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
+      {extraerReunion && <ReunionExtractModal labels={labels} onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onClose={() => setExtraerReunion(false)} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
         otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}

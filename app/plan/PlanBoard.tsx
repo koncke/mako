@@ -255,6 +255,8 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   const repo: Repo = {
     labelMode: 'single', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
     dismissableGauntlet: true, // TEMPORAL (solo super-admin, mientras se desarrolla)
+    fathomExtract: true,       // "Extraer de una reunión" (G3) — usa la Fathom key de la agencia
+
     createTask: async (d) => d, saveTask: async () => {}, deleteTask: async () => {},
     createLabel: async (l) => l, saveLabel: async () => {}, deleteLabel: async () => {},
   };

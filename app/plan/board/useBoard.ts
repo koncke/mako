@@ -73,6 +73,12 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     }
   };
 
+  // Borra sin toast propio (para deshacer un alta en lote: el toast lo maneja el caller).
+  const removeSilent = (id: string) => {
+    if (!byId(id)) return;
+    setTasks((ts) => ts.filter((t) => t.id !== id));
+    void repo.deleteTask(id).catch((e) => console.error('[board] deleteTask', e));
+  };
   const remove = (id: string, motivo?: string) => {
     const snap = byId(id); if (!snap) return;
     setTasks((ts) => ts.filter((t) => t.id !== id));
@@ -231,7 +237,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   return {
     tasks, labels, user, repo,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
-    create, remove, patch, moveTo, setScore, applyGuardian, toggleEnPrioridad, setChecklist, replaceTask,
+    create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setTaskLabels, undoHist,
     createLabel, patchLabel, patchLabelLog, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,

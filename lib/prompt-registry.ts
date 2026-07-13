@@ -68,6 +68,7 @@ import {
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
+import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
@@ -649,6 +650,27 @@ export const REGISTRY: Group[] = [
         variables: [v('tarea', 'la posible duplicada'), v('lista', 'las demás tareas con id')], scope: 'full', sensitive: false,
         default: DUP_USER_TEMPLATE,
         context: 'Le pasa la tarea y la lista de otras. No borres los slots {{tarea}}/{{lista}}.',
+      },
+    ],
+  },
+  {
+    group: 'MaKo · Reunión → Plan (Fathom)',
+    icon: '🎙️',
+    blurb: 'Cómo MaKo lee una reunión de Fathom y saca los action items concretos para el plan de ejecución.',
+    entries: [
+      {
+        key: 'plan-fathom.extraer.system', source: 'override',
+        label: 'Extraer tareas de reunión (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON de salida')], scope: 'static-only', sensitive: true,
+        default: PLAN_FATHOM_SYSTEM_TEMPLATE,
+        context: 'Qué cuenta como action item del equipo (y qué no) al leer una reunión, y cómo sugiere proyecto+prioridad. No borres el slot {{jsonShape}} ni cambies el esquema.',
+      },
+      {
+        key: 'plan-fathom.extraer.user', source: 'override',
+        label: 'Reunión + proyectos (user)', kind: 'user', dynamic: true,
+        variables: [v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
+        default: PLAN_FATHOM_USER_TEMPLATE,
+        context: 'Le pasa los proyectos (para asignar proyectoId) y el contenido de la reunión. No borres los slots {{proyectos}}/{{reunion}}.',
       },
     ],
   },
