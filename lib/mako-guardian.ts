@@ -17,7 +17,7 @@ import 'server-only';
 import { chatClaude } from './anthropic';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
-import { spreadProjScores } from '../app/plan/board/types';
+import { spreadProjScores, curveTaskScores } from '../app/plan/board/types';
 import type { UsageInfo } from './anthropic-usage';
 
 export type GuardProjIn = { id: string; nombre: string };
@@ -275,10 +275,14 @@ export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 8000, feature: 'mako-guardian', motivo: usoMotivo || 'Re-priorización del plan', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { proyectos: [], tareas: [], usage }; }
-  // El modelo tiende a empatar/amontonar los scores de proyecto: los repartimos en
-  // 1-10 sin empatar, conservando su ranking.
+  // El modelo tiende a inflar/amontonar. Repartimos los proyectos en 1-10 sin empatar
+  // y CURVAMOS las tareas a una pirámide sana (usando su ranking), para que de verdad
+  // caigan cosas en Baja / A futuro y no quede todo en Alta/Media.
   const proyOut = toScores(obj.proyectos, 1, 10);
   const spread = spreadProjScores(proyOut);
   proyOut.forEach((p) => { if (spread[p.id] != null) p.score = spread[p.id]; });
-  return { proyectos: proyOut, tareas: toScores(obj.tareas, 1, 100), usage };
+  const tareasOut = toScores(obj.tareas, 1, 100);
+  const curva = curveTaskScores(tareasOut);
+  tareasOut.forEach((t) => { if (curva[t.id] != null) t.score = curva[t.id]; });
+  return { proyectos: proyOut, tareas: tareasOut, usage };
 }

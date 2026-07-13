@@ -74,6 +74,28 @@ export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Nu
 export const MAX_PROJ = 10; // prioridad del proyecto: 1-10 (para no empatar)
 export const clampProj = (v: number) => Math.max(1, Math.min(MAX_PROJ, Math.round(Number.isFinite(v) ? v : 5)));
 
+// Curva las tareas a una PIRÁMIDE sana usando el RANKING del guardián (el modelo
+// tiende a inflar: mete casi todo en Alta/Media y casi nada en "A futuro"). Toma el
+// orden por score y reasigna scores por banda: top ~15% Alta, ~25% Media, ~30% Baja,
+// ~30% A futuro. Devuelve id → score nuevo. (En planes chicos, <5 tareas, no fuerza.)
+export function curveTaskScores(items: Array<{ id: string; score: number }>): Record<string, number> {
+  const out: Record<string, number> = {};
+  const n = items.length;
+  if (n === 0) return out;
+  if (n < 5) { items.forEach((x) => { out[x.id] = x.score; }); return out; }
+  const order = items.map((x, i) => ({ id: x.id, score: x.score, i })).sort((a, b) => b.score - a.score || a.i - b.i);
+  order.forEach((o, k) => {
+    const frac = k / (n - 1); // 0 = la más importante … 1 = la menos
+    let s: number;
+    if (frac < 0.15) s = Math.round(93 - (frac / 0.15) * 17);            // 93 → 76  (Alta)
+    else if (frac < 0.40) s = Math.round(72 - ((frac - 0.15) / 0.25) * 21); // 72 → 51  (Media)
+    else if (frac < 0.70) s = Math.round(48 - ((frac - 0.40) / 0.30) * 22); // 48 → 26  (Baja)
+    else s = Math.round(23 - ((frac - 0.70) / 0.30) * 21);              // 23 → 2   (A futuro)
+    out[o.id] = Math.max(1, Math.min(100, s));
+  });
+  return out;
+}
+
 // Reparte los scores de proyectos en 1-10 SIN empatar, conservando el orden por score
 // (el guardián decide el RANKING; nosotros garantizamos valores distintos y usando la
 // escala completa — el modelo tiende a amontonar y empatar). Devuelve id → score nuevo.

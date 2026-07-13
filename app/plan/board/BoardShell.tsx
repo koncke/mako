@@ -127,7 +127,7 @@ export function BoardShell({ board }: { board: Board }) {
   const ready = tasks.length >= 2;
   useEffect(() => {
     if (!ready) return;
-    const REPRIO_FORCE = 'v3-guardian-2026-07';
+    const REPRIO_FORCE = 'v4-guardian-2026-07';
     let f = ''; try { f = localStorage.getItem('mako_reprio_force') || ''; } catch { /* no-op */ }
     if (f === REPRIO_FORCE) return;
     try { localStorage.setItem('mako_reprio_force', REPRIO_FORCE); } catch { /* no-op */ }
