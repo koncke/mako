@@ -23,7 +23,7 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon } from './guardian-form';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, scoreFromPrio } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio, scoreFromPrio, clampProj } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -41,6 +41,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [asignarTaskId, setAsignarTaskId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
+  const [doneFilter, setDoneFilter] = useState<'all' | 'activas' | 'hechas'>('all'); // #16: filtrar completadas
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
@@ -119,7 +120,7 @@ export function BoardShell({ board }: { board: Board }) {
     setWizardId(null);
   };
 
-  const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l)));
+  const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (doneFilter === 'all' || (doneFilter === 'hechas' ? t.progress >= 100 : t.progress < 100));
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -185,6 +186,7 @@ export function BoardShell({ board }: { board: Board }) {
         {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'kanban' && <>
+          <Segmented value={doneFilter} onChange={setDoneFilter} opciones={[['all', 'Todas'], ['activas', 'Activas'], ['hechas', 'Hechas']]} />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
         </>}
@@ -236,6 +238,22 @@ const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
 // formatea tokens (12300 → "12,3k") para el toast de consumo de IA
 function fmtTokens(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n); }
+// progreso agregado de un proyecto (promedio del avance de sus tareas)
+function projProgress(tasks: BoardTask[], labelId: string): { pct: number; total: number; done: number } {
+  const suyas = tasks.filter((t) => t.labels.includes(labelId));
+  if (!suyas.length) return { pct: 0, total: 0, done: 0 };
+  return { pct: Math.round(suyas.reduce((s, t) => s + t.progress, 0) / suyas.length), total: suyas.length, done: suyas.filter((t) => t.progress >= 100).length };
+}
+// control segmentado (Todas / Activas / Hechas, etc.)
+function Segmented<T extends string>({ value, onChange, opciones }: { value: T; onChange: (v: T) => void; opciones: Array<[T, string]> }) {
+  return (
+    <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
+      {opciones.map(([v, label]) => (
+        <button key={v} onClick={() => onChange(v)} style={{ border: 'none', background: value === v ? 'var(--surface)' : 'transparent', color: value === v ? 'var(--ink)' : 'var(--dim)', fontWeight: value === v ? 600 : 500, fontSize: 12.5, padding: '6px 12px', borderRadius: 999, cursor: 'pointer', boxShadow: value === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS }}>{label}</button>
+      ))}
+    </div>
+  );
+}
 
 function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
   return (
@@ -667,36 +685,46 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
 function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void }) {
   const { labels, tasks, repo } = board;
-  const ordered = labels.slice().sort((a, b) => b.score - a.score);
+  const [projFilter, setProjFilter] = useState<'all' | 'activos' | 'hechos'>('all');
+  const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
+  const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
+  const shown = withProg.filter(({ prog }) => projFilter === 'all' || (projFilter === 'hechos' ? completo(prog) : !completo(prog)));
+  // #15 progreso agregado de TODOS los proyectos (promedio de los que tienen tareas)
+  const conTareas = withProg.filter(({ prog }) => prog.total > 0);
+  const avgProj = conTareas.length ? Math.round(conTareas.reduce((s, { prog }) => s + prog.pct, 0) / conTareas.length) : 0;
+  const hechosProj = withProg.filter(({ prog }) => completo(prog)).length;
   return (
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>{repo.labelPlural} · ordenados por prioridad</span>
           <span style={{ flex: 1 }} />
+          <AvgChip avg={avgProj} hechas={hechosProj} total={withProg.length} label="proyectos ✓" />
+          <Segmented value={projFilter} onChange={setProjFilter} opciones={[['all', 'Todos'], ['activos', 'Activos'], ['hechos', 'Completados']]} />
           <button onClick={onNew} style={{ ...ghostBtn, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 }}>+ Nuevo {repo.labelSingular.toLowerCase()}</button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-          {ordered.map((l) => {
-            const nAct = tasks.filter((t) => t.labels.includes(l.id) && t.progress < 100).length;
+          {shown.map(({ l, prog }) => {
             const isTop = l.id === topProjectId;
             return (
-              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 118, transition: 'border-color .12s' }}
+              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 128, transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 22 }}>{l.emoji}</span>
                   <span style={{ flex: 1 }} />
+                  {completo(prog) && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
                   <span title="Prioridad del proyecto (1-10)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: l.color, background: l.color + '18', border: `1px solid ${l.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{l.score}/10</span>
                 </div>
                 <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
                 {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
                 {l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.detalle}</div>}
                 <span style={{ flex: 1 }} />
-                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{nAct} tarea{nAct === 1 ? '' : 's'} activa{nAct === 1 ? '' : 's'}</div>
+                {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{prog.total ? `${prog.done}/${prog.total} · ${prog.pct}%` : 'sin tareas'}</div>
               </div>
             );
           })}
-          {ordered.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 14, padding: '30px 0' }}>Todavía no hay {repo.labelPlural.toLowerCase()}.</div>}
+          {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 14, padding: '30px 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
         </div>
         <div style={{ marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
           <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, marginBottom: 12 }}>Change history · proyectos</div>
@@ -716,8 +744,10 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
   const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
+  const prog = projProgress(board.tasks, proj.id);
   const isTop = proj.id === topProjectId;
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
+  const stepBtn: CSSProperties = { width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 16, lineHeight: 1, cursor: 'pointer', fontFamily: SANS, flex: 'none' };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -737,6 +767,26 @@ function ProjectDetailModal({ proj, board, topProjectId, onOpenTask, onNewTask, 
           <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
             <span style={{ ...rowLabel, marginBottom: 0, marginRight: 6 }}>Color</span>
             {SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(proj.id, { color: s })} title={s} style={{ width: 18, height: 18, borderRadius: 5, background: s, border: proj.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}
+          </div>
+          {/* #13: paridad con la ficha de tarea — prioridad, deadline y avance del proyecto */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label style={rowLabel}>Prioridad · la pone el perro</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button onClick={() => board.patchLabelLog(proj.id, { score: clampProj(proj.score - 1) }, `Ajustó la prioridad → P${clampProj(proj.score - 1)}/10`)} style={stepBtn}>−</button>
+                <span style={{ flex: 1, textAlign: 'center', fontFamily: MONO, fontSize: 15, fontWeight: 700, color: proj.color, background: proj.color + '18', border: `1px solid ${proj.color}33`, borderRadius: 8, padding: '4px 0' }}>P{proj.score}/10</span>
+                <button onClick={() => board.patchLabelLog(proj.id, { score: clampProj(proj.score + 1) }, `Ajustó la prioridad → P${clampProj(proj.score + 1)}/10`)} style={stepBtn}>+</button>
+              </div>
+            </div>
+            <div>
+              <label style={rowLabel}>Deadline</label>
+              <input type="date" value={proj.deadline || ''} onChange={(e) => board.patchLabelLog(proj.id, { deadline: e.target.value }, e.target.value ? `Deadline ${e.target.value}` : 'Quitó el deadline')} style={selStyle} />
+            </div>
+          </div>
+          {proj.scoreRazon && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, fontStyle: 'italic', marginTop: -6 }}>“{proj.scoreRazon}”</div>}
+          <div>
+            <label style={rowLabel}>Avance del proyecto · {prog.pct}%{prog.total ? ` · ${prog.done}/${prog.total} tareas` : ''}</label>
+            <MiniBar v={prog.pct} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>

@@ -28,7 +28,7 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; detalle: string; historial: Hist[] };
+export type Label = { id: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; deadline?: string; detalle: string; historial: Hist[] };
 export type BoardUser = { nombre: string; avatarUrl: string };
 
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.
