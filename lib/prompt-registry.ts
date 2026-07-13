@@ -70,6 +70,12 @@ import {
 } from './checklist-coach';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
+import {
+  EXP_SUGGEST_SYSTEM_DEFAULT, EXP_SUGGEST_USER_DEFAULT,
+  EXP_IDEAS_SYSTEM_DEFAULT, EXP_IDEAS_USER_DEFAULT,
+  EXP_CLOSE_SYSTEM_DEFAULT, EXP_CLOSE_USER_DEFAULT,
+} from './experimentos';
+import { RETRO3_AREA_SYSTEM, RETRO3_CRUCES_SYSTEM, RETRO3_CEREBRO_SYSTEM, RETRO3_VERIF_SYSTEM } from './retro-pipeline';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -671,6 +677,86 @@ export const REGISTRY: Group[] = [
         variables: [v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
         default: PLAN_FATHOM_USER_TEMPLATE,
         context: 'Le pasa los proyectos (para asignar proyectoId) y el contenido de la reunión. No borres los slots {{proyectos}}/{{reunion}}.',
+      },
+    ],
+  },
+  {
+    group: 'Experimentos (MaKo)',
+    icon: '🧪',
+    blurb: 'Cómo MaKo convierte una hipótesis en un experimento medible, propone experimentos desde el funnel y cierra un experimento concluyendo SOLO sobre el dato.',
+    entries: [
+      {
+        key: 'experimentos.suggest.system', source: 'override',
+        label: 'Sugerir experimento desde una hipótesis (system)', kind: 'system', dynamic: true,
+        variables: [v('catalogo', 'catálogo de métricas disponibles')], scope: 'static-only', sensitive: true,
+        default: EXP_SUGGEST_SYSTEM_DEFAULT,
+        context: 'Convierte una hipótesis de Martín en un experimento honesto (métrica, cambio, criterio de éxito) y define la forma EXACTA del JSON de salida. No borres el slot {{catalogo}} ni cambies el esquema JSON o la propuesta se rompe.',
+      },
+      {
+        key: 'experimentos.suggest.user', source: 'override',
+        label: 'Hipótesis + contexto (user)', kind: 'user', dynamic: true,
+        variables: [v('hipotesis', 'la hipótesis de Martín'), v('contexto', 'lo que vio / por qué lo cree (opcional)'), v('snapshot', 'foto del funnel real')], scope: 'full', sensitive: false,
+        default: EXP_SUGGEST_USER_DEFAULT,
+        context: 'Le pasa la hipótesis, el contexto opcional y el snapshot del funnel. Conservá los slots; sin ellos MaKo elige peor la métrica.',
+      },
+      {
+        key: 'experimentos.ideas.system', source: 'override',
+        label: 'Proponer experimentos desde el funnel (system)', kind: 'system', dynamic: true,
+        variables: [v('catalogo', 'catálogo de métricas disponibles'), v('n', 'cuántas ideas proponer')], scope: 'static-only', sensitive: true,
+        default: EXP_IDEAS_SYSTEM_DEFAULT,
+        context: 'MaKo mira el funnel y propone experimentos (nunca conclusiones), devolviendo un array JSON. No borres los slots {{catalogo}}/{{n}} ni cambies el esquema.',
+      },
+      {
+        key: 'experimentos.ideas.user', source: 'override',
+        label: 'Snapshot del funnel + en curso (user)', kind: 'user', dynamic: true,
+        variables: [v('snapshot', 'foto del funnel real'), v('enCurso', 'experimentos activos/propuestos'), v('n', 'cuántas ideas')], scope: 'full', sensitive: false,
+        default: EXP_IDEAS_USER_DEFAULT,
+        context: 'Le pasa el snapshot del funnel y los experimentos en curso (para no repetir). Conservá los slots.',
+      },
+      {
+        key: 'experimentos.close.system', source: 'override',
+        label: 'Cerrar un experimento (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: EXP_CLOSE_SYSTEM_DEFAULT,
+        context: 'Acá MaKo SÍ concluye — pero solo sobre el dato medido, nunca sobre la intuición. Define el veredicto y el aprendizaje. Conservá la forma del JSON de salida.',
+      },
+      {
+        key: 'experimentos.close.user', source: 'override',
+        label: 'Datos del experimento cerrado (user)', kind: 'user', dynamic: true,
+        variables: [v('titulo', 'título'), v('hipotesis', 'hipótesis'), v('cambio', 'qué se cambió'), v('metrica_label', 'métrica medida'), v('direccion', 'subir/bajar'), v('criterio', 'criterio de éxito'), v('baseline_rango', 'rango del baseline'), v('baseline', 'valor baseline'), v('resultado_rango', 'rango del resultado'), v('resultado', 'valor resultado'), v('objetivo', 'objetivo numérico'), v('delta', 'variación %'), v('serie', 'serie temporal medida')], scope: 'full', sensitive: false,
+        default: EXP_CLOSE_USER_DEFAULT,
+        context: 'Le pasa el experimento y su medición (baseline comparable + resultado + serie) para que el veredicto compare manzanas con manzanas. Conservá los 13 slots o el texto se desalinea.',
+      },
+    ],
+  },
+  {
+    group: 'Retro (MaKo · retrospectivas v3)',
+    icon: '🔁',
+    blurb: 'El pipeline de la retrospectiva: MaKo diagnostica cada área, busca cruces entre áreas, organiza el reporte y lo verifica contra los números.',
+    entries: [
+      {
+        key: 'retro3.area.system', source: 'override',
+        label: 'Diagnóstico por área (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: RETRO3_AREA_SYSTEM,
+        context: 'Cómo MaKo diagnostica UN área del negocio para la retro, usando SOLO los números medidos (JSON "datos") como fuente de verdad. Conservá la forma del JSON de salida.',
+      },
+      {
+        key: 'retro3.cruces.system', source: 'override',
+        label: 'Cruces entre áreas (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: RETRO3_CRUCES_SYSTEM,
+        context: 'Cómo MaKo busca insights que NINGUNA pestaña muestra sola (cruces entre áreas). Conservá el esquema JSON de salida.',
+      },
+      {
+        key: 'retro3.cerebro.system', source: 'override',
+        label: 'Cerebro organizador del reporte (system)', kind: 'system', dynamic: true,
+        variables: [v('catalogo', 'catálogo de métricas disponibles')], scope: 'static-only', sensitive: true,
+        default: RETRO3_CEREBRO_SYSTEM,
+        context: 'El cerebro que arma el reporte final de la retro a partir de todo lo recolectado (dato duro, hallazgos, cruces, perspectiva de Martín). No borres el slot {{catalogo}} ni cambies el esquema JSON.',
+      },
+      {
+        key: 'retro3.verificacion.system', source: 'override',
+        label: 'Verificador del reporte (system)', kind: 'system', dynamic: false, variables: [], scope: 'static-only', sensitive: true,
+        default: RETRO3_VERIF_SYSTEM,
+        context: 'El verificador que contrasta el borrador del reporte contra los números medidos antes de publicarlo. Conservá el esquema JSON de salida.',
       },
     ],
   },

@@ -459,7 +459,7 @@ export function RetroReport({ reporte, periodo, alcance, onPlan, busyPlanId }: {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px 20px', flexWrap: 'wrap', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                 <h2 style={{ fontWeight: 600, fontSize: 21, letterSpacing: '-0.015em', margin: 0 }}>Hallazgos</h2>
-                <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{reporte.findings.length} que ninguna pestaña muestra sola</span>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)' }}>{reporte.findings.length} de todas las áreas</span>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 13px', borderRadius: 999, background: 'var(--bad-bg)', color: 'var(--bad)', fontFamily: MONO, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>
