@@ -13,11 +13,11 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
-import { renderTemplate } from './prompt-render-pure';
-
 // renderTemplate y contenidoNoConfiable son puros → viven en prompt-render-pure
-// (sin server-only, testeables). Se re-exportan acá para no tocar los call-sites.
-export { renderTemplate, contenidoNoConfiable } from './prompt-render-pure';
+// (sin server-only, testeables). Se importan acá y se re-exportan para no tocar los
+// call-sites (siguen importando ambos desde './prompt-render').
+import { renderTemplate, contenidoNoConfiable } from './prompt-render-pure';
+export { renderTemplate, contenidoNoConfiable };
 
 const STORE_KEY = 'mako.prompt-overrides';
 
