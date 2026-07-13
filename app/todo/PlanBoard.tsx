@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Prio, type Hist, scoreFromPrio, prioFromScore, clampScore } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Prio, type Hist, scoreFromPrio, prioFromScore, clampScore, spreadProjScores } from './board/types';
 
 const K5 = 'mako_plan_v5', K4 = 'mako_plan_v4', K_PROJS = 'mako_plan_projs_v3';
 const SEED_TS = Date.parse('2026-07-01T12:00:00Z');
@@ -226,8 +226,18 @@ function loadTasks(): BoardTask[] {
   return seedTasks();
 }
 function loadLabels(): Label[] {
-  try { const p = localStorage.getItem(K_PROJS); if (p) return (JSON.parse(p) as Label[]).map(normLabel); } catch { /* default */ }
-  return PROJS_DEFAULT;
+  let labels = PROJS_DEFAULT;
+  try { const p = localStorage.getItem(K_PROJS); if (p) labels = (JSON.parse(p) as Label[]).map(normLabel); } catch { /* default */ }
+  // Una sola vez: repartir los scores de proyecto en 1-10 SIN empatar (el guardián los
+  // amontonaba/empataba). 0 tokens; después las prioridades debatidas se respetan.
+  try {
+    if (!localStorage.getItem('mako_proj_spread_v1') && labels.length > 1) {
+      const spread = spreadProjScores(labels);
+      labels = labels.map((l) => ({ ...l, score: spread[l.id] ?? l.score }));
+      localStorage.setItem('mako_proj_spread_v1', '1');
+    }
+  } catch { /* no-op */ }
+  return labels;
 }
 
 export function PlanBoard({ user }: { user: BoardUser }) {

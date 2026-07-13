@@ -73,6 +73,24 @@ export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progr
 export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));
 export const MAX_PROJ = 10; // prioridad del proyecto: 1-10 (para no empatar)
 export const clampProj = (v: number) => Math.max(1, Math.min(MAX_PROJ, Math.round(Number.isFinite(v) ? v : 5)));
+
+// Reparte los scores de proyectos en 1-10 SIN empatar, conservando el orden por score
+// (el guardián decide el RANKING; nosotros garantizamos valores distintos y usando la
+// escala completa — el modelo tiende a amontonar y empatar). Devuelve id → score nuevo.
+export function spreadProjScores(items: Array<{ id: string; score: number }>): Record<string, number> {
+  const n = items.length;
+  const order = items.map((x, i) => ({ id: x.id, score: x.score, i })).sort((a, b) => b.score - a.score || a.i - b.i);
+  const out: Record<string, number> = {};
+  let prev = MAX_PROJ + 1;
+  order.forEach((o, k) => {
+    let v = n <= 1 ? MAX_PROJ : Math.round(MAX_PROJ - k * ((MAX_PROJ - 1) / (n - 1)));
+    if (v >= prev) v = prev - 1;   // fuerza estrictamente decreciente (sin empates)
+    if (v < 1) v = 1;
+    prev = v;
+    out[o.id] = v;
+  });
+  return out;
+}
 export function prioFromScore(score: number): Prio {
   if (score >= 75) return 'alta';
   if (score >= 50) return 'media';

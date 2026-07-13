@@ -17,6 +17,7 @@ import 'server-only';
 import { chatClaude } from './anthropic';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
+import { spreadProjScores } from '../app/todo/board/types';
 import type { UsageInfo } from './anthropic-usage';
 
 export type GuardProjIn = { id: string; nombre: string };
@@ -274,5 +275,10 @@ export async function puntuarPlan(proyectos: GuardProjIn[], tareas: GuardTaskIn[
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 8000, feature: 'mako-guardian', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { proyectos: [], tareas: [], usage }; }
-  return { proyectos: toScores(obj.proyectos, 1, 10), tareas: toScores(obj.tareas, 1, 100), usage };
+  // El modelo tiende a empatar/amontonar los scores de proyecto: los repartimos en
+  // 1-10 sin empatar, conservando su ranking.
+  const proyOut = toScores(obj.proyectos, 1, 10);
+  const spread = spreadProjScores(proyOut);
+  proyOut.forEach((p) => { if (spread[p.id] != null) p.score = spread[p.id]; });
+  return { proyectos: proyOut, tareas: toScores(obj.tareas, 1, 100), usage };
 }
