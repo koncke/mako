@@ -221,7 +221,7 @@ export function BoardShell({ board }: { board: Board }) {
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onDebate={() => setDebateId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
       {debateTask && <DebateModal task={debateTask} planResumen={planResumen}
-        otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => ({ id: t.id, title: t.title, score: t.score }))}
+        otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, title: t.title, score: t.score, projId: l?.id, projName: l?.name, projColor: l?.color, projEmoji: l?.emoji }; })}
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
         onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}

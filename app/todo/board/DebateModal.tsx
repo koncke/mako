@@ -1,28 +1,45 @@
 'use client';
 
-// DebateModal — debatir la prioridad de una tarea con el Perro Guardián.
-// Formulario ENCADENADO (feedback #8): intro (con el razonamiento actual del perro)
-// → Q1 ¿por qué cambiar? (multiple-choice, SIN opción abierta) → Q2 que DEPENDE de Q1
-// (SÍ/NO contra el top de tareas que quedarían debajo, o ¿qué desbloquea?) → Q3 ¿por
-// qué? El perro NO es complaciente: puede ACEPTAR, AJUSTAR o RECHAZAR (feedback #9).
+// DebateModal — cambiar la prioridad de una tarea con el Perro Guardián.
+// Flujo (feedback): intro → ¿a cuánto la llevás? (target score) → ¿por qué? (razones
+// según la DIRECCIÓN sube/baja) → confirmación SÍ/NO contra tareas CERCANAS al nuevo
+// score (o, si "desbloquea", elegir cuál desbloquea) → ¿por qué? → el perro decide.
+// Si el usuario dice "No", NO se manda a MaKo: sale un mensaje de CONSOLACIÓN
+// personalizado que lo alienta a terminar sus prioridades. El perro NO es complaciente.
 
-import { useState, type CSSProperties } from 'react';
+import { useState, useMemo, type CSSProperties } from 'react';
 import { WizardShell } from '../../leads/WizardShell';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon, textareaStyle } from './guardian-form';
-import { type BoardTask, prioFromScore, PLABEL, PCOLOR } from './types';
+import { type BoardTask, prioFromScore, PLABEL, PCOLOR, scoreFromPrio } from './types';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type OtraTarea = { id: string; title: string; score: number };
-type RazonKey = 'urgente' | 'desbloquea' | 'ingresos' | 'menos';
-const RAZONES: Array<{ key: RazonKey; label: string; dir: 'sube' | 'baja' }> = [
-  { key: 'urgente', label: 'Es más urgente de lo que parece', dir: 'sube' },
-  { key: 'desbloquea', label: 'Desbloquea (o frena) otras cosas', dir: 'sube' },
-  { key: 'ingresos', label: 'Tiene más impacto en ingresos de lo que se ve', dir: 'sube' },
-  { key: 'menos', label: 'En realidad es MENOS prioritaria', dir: 'baja' },
+export type OtraTarea = { id: string; title: string; score: number; projName?: string; projColor?: string; projEmoji?: string; projId?: string };
+type RazonKey = 'urgente' | 'desbloquea' | 'ingresos' | 'ya_no_urge' | 'no_depende' | 'superada' | 'error';
+
+const RAZONES_SUBE: Array<{ key: RazonKey; label: string }> = [
+  { key: 'urgente', label: 'Es más urgente de lo que parece' },
+  { key: 'desbloquea', label: 'Desbloquea (o frena) otras cosas' },
+  { key: 'ingresos', label: 'Impacta más en ingresos de lo que se ve' },
 ];
+const RAZONES_BAJA: Array<{ key: RazonKey; label: string }> = [
+  { key: 'ya_no_urge', label: 'Ya no es tan urgente' },
+  { key: 'no_depende', label: 'Ya no depende nada de esto' },
+  { key: 'superada', label: 'Otra tarea la superó en impacto' },
+  { key: 'error', label: 'Me equivoqué al priorizarla' },
+];
+// Mensaje de consolación (empático, sin gastar tokens) cuando el usuario se echa atrás.
+const CONSUELO: Record<RazonKey, string> = {
+  urgente: 'Te entiendo — con la cabeza llena, todo se siente urgente. Pero urgente no es lo mismo que importante. La dejo donde está: cerrar tu top de hoy mueve más la aguja que sumar una tarea más. Si de verdad prende fuego, va a volver a aparecer sola.',
+  ingresos: 'Es sano reconocer que no mueve tanto los ingresos como parecía. La dejo donde está. Poné la energía en las que sí facturan — cerrar esas es lo que te cambia el mes.',
+  desbloquea: 'La dejo donde está. Enfocate en terminar lo que ya tenés arriba.',
+  ya_no_urge: 'Si dudaste en bajarla, es porque todavía te importa. La dejo donde está — mejor mantener el foco que dispersarlo reordenando el plan.',
+  no_depende: 'Bien pensado. Si algo todavía puede depender de esto, no conviene enterrarla. Queda donde está; vos seguí con tu top.',
+  superada: 'Perfecto. No hace falta bajarla a mano: si otra la supera de verdad, yo la reacomodo solo. Vos ejecutá.',
+  error: 'Tranqui, no hay error que arreglar a mano ahora. La dejo como está y reacomodo el plan solo cuando corresponda. Cerrar tareas pesa más que reordenarlas.',
+};
 
 async function debate(body: Record<string, unknown>): Promise<{ ok: boolean; veredicto?: string; score?: number; razon?: string; respuesta?: string; usage?: unknown; error?: string }> {
   return fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', ...body }) })
@@ -34,34 +51,31 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
   onApply: (score: number, razon: string) => void; onUsage?: (u: unknown) => void; onClose: () => void;
 }) {
   const [idx, setIdx] = useState(0);
+  const [newScore, setNewScore] = useState(task.score);
   const [razon, setRazon] = useState<RazonKey | ''>('');
-  const [siNo, setSiNo] = useState<boolean | null>(null);   // Q2 para urgente/ingresos/menos
-  const [desbloquea, setDesbloquea] = useState('');          // Q2 para "desbloquea"
-  const [porque, setPorque] = useState('');                  // Q3
-  const [fase, setFase] = useState<'form' | 'puntuando' | 'veredicto'>('form');
+  const [siNo, setSiNo] = useState<boolean | null>(null);
+  const [desbloquea, setDesbloquea] = useState('');
+  const [porque, setPorque] = useState('');
+  const [fase, setFase] = useState<'form' | 'consolacion' | 'puntuando' | 'veredicto'>('form');
   const [ver, setVer] = useState<{ veredicto: string; score: number; razon: string; respuesta: string } | null>(null);
   const [err, setErr] = useState('');
 
-  const razonMeta = RAZONES.find((r) => r.key === razon) ?? null;
-  // Las tareas que quedarían por debajo (sube) o por encima (baja) de esta.
-  const ordenadas = otras.slice().sort((a, b) => b.score - a.score);
-  const comparacion = razonMeta?.dir === 'baja'
-    ? (ordenadas.filter((t) => t.score <= task.score).slice(0, 3).length ? ordenadas.filter((t) => t.score <= task.score).slice(0, 3) : ordenadas.slice(-3))
-    : (ordenadas.filter((t) => t.score >= task.score).slice(0, 3).length ? ordenadas.filter((t) => t.score >= task.score).slice(0, 3) : ordenadas.slice(0, 3));
+  const sube = newScore > task.score;
+  const razones = sube ? RAZONES_SUBE : RAZONES_BAJA;
+  const newPrio = prioFromScore(newScore);
+  // #2: comparar contra las tareas MÁS CERCANAS al nuevo score (no siempre las más altas).
+  const comparacion = useMemo(() => otras.slice().sort((a, b) => Math.abs(a.score - newScore) - Math.abs(b.score - newScore)).slice(0, 3), [otras, newScore]);
 
   const buildArgumento = (): string => {
-    if (!razonMeta) return porque.trim();
+    const meta = razones.find((r) => r.key === razon);
+    const dir = sube ? 'SUBIRLA' : 'BAJARLA';
     let ctx = '';
-    if (razon === 'desbloquea') {
-      ctx = `Según el usuario, esta tarea desbloquea o frena: "${desbloquea.trim()}".`;
-    } else {
-      const lista = comparacion.map((t) => `"${t.title}" (score ${t.score})`).join('; ') || '(no hay otras tareas)';
-      const verbo = razon === 'ingresos' ? 'impacta más en ingresos' : razon === 'menos' ? 'es MENOS prioritaria' : 'es más urgente';
-      ctx = siNo
-        ? `El usuario AFIRMA que ${verbo} que: ${lista}.`
-        : `El usuario ADMITE que NO está seguro de que ${verbo} que: ${lista} (respondió que NO al compararla).`;
+    if (razon === 'desbloquea') ctx = `Dice que desbloquea o frena: "${desbloquea.trim()}".`;
+    else {
+      const lista = comparacion.map((t) => `"${t.title}" (score ${t.score})`).join('; ') || '(no hay otras cerca)';
+      ctx = sube ? `Confirma que le gana a las tareas cercanas: ${lista}.` : `Confirma que estas deberían quedar por encima: ${lista}.`;
     }
-    return `${razonMeta.label}. ${ctx} Motivo del usuario: ${porque.trim()}`;
+    return `El usuario quiere ${dir} de ${task.score} a ${newScore} (${PLABEL[newPrio]}). Razón: ${meta?.label ?? ''}. ${ctx} Motivo: ${porque.trim()}`;
   };
 
   const enviar = async () => {
@@ -73,10 +87,28 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
     else { setErr(j.error || 'MaKo no pudo responder ahora.'); setFase('form'); }
   };
   const aceptar = () => { if (ver) onApply(ver.score, ver.razon); onClose(); };
+  const decirNo = () => { setSiNo(false); setFase('consolacion'); };
 
-  // ── veredicto (o puntuando) — pantalla propia ──
-  if (fase !== 'form') {
-    const prioNueva = ver ? prioFromScore(ver.score) : prioFromScore(task.score);
+  // ── consolación (el usuario se echó atrás) — sin IA, sin tokens ──
+  if (fase === 'consolacion') {
+    return (
+      <Shell onClose={onClose}>
+        <div style={{ padding: '28px 26px 8px', textAlign: 'center' }}>
+          <GuardianIcon size={56} />
+          <div style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)', margin: '14px 0 10px' }}>Bien ahí. La dejamos donde está.</div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px' }}>{razon ? CONSUELO[razon] : 'La dejo donde está. Seguí con tus prioridades.'}</div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
+          <button type="button" onClick={() => { setSiNo(null); setFase('form'); setIdx(3); }} style={ghostBtn}>Volver</button>
+          <button type="button" onClick={onClose} style={primaryBtn}>Seguir con mi top</button>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ── veredicto / puntuando ──
+  if (fase === 'puntuando' || fase === 'veredicto') {
+    const prioNueva = ver ? prioFromScore(ver.score) : newPrio;
     const vk = ver?.veredicto ?? '';
     const vMeta = vk === 'acepta' ? { txt: 'El Perro Guardián te dio la razón', c: 'var(--good)', bg: 'var(--good-bg)' }
       : vk === 'rechaza' ? { txt: 'El Perro Guardián RECHAZÓ tu pedido', c: 'var(--bad)', bg: 'var(--bad-bg)' }
@@ -100,7 +132,7 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
         </div>
         {fase === 'veredicto' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-            <button type="button" onClick={() => { setVer(null); setSiNo(null); setDesbloquea(''); setPorque(''); setRazon(''); setIdx(1); setFase('form'); }} style={ghostBtn}>Volver a intentar</button>
+            <button type="button" onClick={() => { setVer(null); setFase('form'); setIdx(1); }} style={ghostBtn}>Volver a intentar</button>
             <button type="button" onClick={aceptar} style={primaryBtn}>Aceptar veredicto</button>
           </div>
         )}
@@ -108,27 +140,29 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
     );
   }
 
-  // ── formulario encadenado (4 pasos) ──
+  // ── formulario ──
   const prioAct = prioFromScore(task.score);
-  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿Por qué debería cambiar de prioridad?', segundaPregunta(razon), '¿Por qué? Contame tu razón'];
+  const preguntas = ['Hola, soy el Perro Guardián MaKo', '¿A cuánto la llevarías?', sube ? '¿Por qué la subís?' : newScore < task.score ? '¿Por qué la bajás?' : 'Movela primero', razon === 'desbloquea' ? '¿Qué tarea desbloquea o frena?' : sube ? '¿En serio le gana a estas?' : '¿En serio estas deberían quedar por encima?', '¿Por qué? Contame tu razón'];
   const subs: (string | undefined)[] = [
     undefined,
-    `Hoy está en ${PLABEL[prioAct]} (score ${task.score}). Elegí una razón.`,
-    razon === 'desbloquea' ? 'Elegí la tarea que desbloquea, o escribí cuál.' : 'Subir esta tarea significa bajar otra. Sé honesto.',
-    'Con datos, no “me parece”. El perro decide.',
+    `Hoy la puse en ${task.score} (${PLABEL[prioAct]}). Movés el número y yo lo evalúo.`,
+    'Elegí una razón. Sin excusas: con criterio.',
+    razon === 'desbloquea' ? 'Buscá o filtrá por proyecto. También podés escribir una a mano.' : 'Son las tareas más cercanas a ese puntaje.',
+    'Con datos, no "me parece". Yo decido.',
   ];
   const puedeAvanzar = idx === 0 ? true
-    : idx === 1 ? razon !== ''
-      : idx === 2 ? (razon === 'desbloquea' ? desbloquea.trim() !== '' : siNo !== null)
-        : porque.trim() !== '';
+    : idx === 1 ? newScore !== task.score
+      : idx === 2 ? razon !== ''
+        : idx === 3 ? (razon === 'desbloquea' ? desbloquea.trim() !== '' : siNo === true)
+          : porque.trim() !== '';
 
   return (
     <WizardShell
-      titulo={`Debatir · ${task.title.slice(0, 40)}`}
-      total={4} idx={idx}
+      titulo={`Cambiar prioridad · ${task.title.slice(0, 34)}`}
+      total={5} idx={idx}
       pregunta={preguntas[idx]} sub={subs[idx]}
       puedeAvanzar={puedeAvanzar}
-      enUltimo={idx === 3} confirmLabel="Que el Guardián decida →"
+      enUltimo={idx === 4} confirmLabel="Que el Guardián decida →"
       atrasLabel={idx === 0 ? 'Cancelar' : 'Atrás'} error={err}
       onClose={onClose}
       onAtras={() => (idx === 0 ? onClose() : setIdx(idx - 1))}
@@ -151,26 +185,30 @@ export function DebateModal({ task, planResumen, otras, onApply, onUsage, onClos
           </div>
         </div>
       )}
-      {idx === 1 && <RadioList opciones={RAZONES.map((r) => ({ key: r.key, label: r.label }))} value={razon} onChange={(k) => { setRazon(k as RazonKey); setSiNo(null); }} />}
-      {idx === 2 && (razon === 'desbloquea'
-        ? <DesbloqueaBody otras={ordenadas} value={desbloquea} onChange={setDesbloquea} />
-        : <SiNoBody comparacion={comparacion} value={siNo} onChange={setSiNo} baja={razonMeta?.dir === 'baja'} />)}
-      {idx === 3 && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder="Ej: la campaña arranca el lunes y sin esto no factura…" style={{ ...textareaStyle }} />}
+      {idx === 1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ textAlign: 'center' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: MONO, fontSize: 34, fontWeight: 800, color: PCOLOR[newPrio] }}><ScoreIcon size={30} color={PCOLOR[newPrio]} />{newScore}</span>
+            <div style={{ fontSize: 13, fontWeight: 700, color: PCOLOR[newPrio], textTransform: 'uppercase', letterSpacing: '.05em', marginTop: 2 }}>{PLABEL[newPrio]}{newScore === task.score ? ' · sin cambios' : sube ? ' · más arriba' : ' · más abajo'}</div>
+          </div>
+          <input type="range" min={1} max={100} step={1} value={newScore} onChange={(e) => setNewScore(Number(e.target.value))} style={{ width: '100%', accentColor: PCOLOR[newPrio] }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['alta', 'media', 'baja', 'futuro'] as const).map((p) => (
+              <button key={p} type="button" onClick={() => setNewScore(scoreFromPrio[p])} style={{ flex: 1, padding: '8px 4px', borderRadius: 9, border: `1px solid ${newPrio === p ? PCOLOR[p] : 'var(--border-strong)'}`, background: newPrio === p ? PCOLOR[p] + '14' : 'var(--surface)', color: newPrio === p ? PCOLOR[p] : 'var(--dim)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{PLABEL[p]}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      {idx === 2 && <RadioList opciones={razones} value={razon} onChange={(k) => { setRazon(k as RazonKey); setSiNo(null); }} />}
+      {idx === 3 && (razon === 'desbloquea'
+        ? <DesbloqueaBody otras={otras} value={desbloquea} onChange={setDesbloquea} />
+        : <SiNoBody comparacion={comparacion} value={siNo} sube={sube} onSi={() => setSiNo(true)} onNo={decirNo} />)}
+      {idx === 4 && <textarea value={porque} onChange={(e) => setPorque(e.target.value)} autoFocus placeholder="Ej: la campaña arranca el lunes y sin esto no factura…" style={{ ...textareaStyle }} />}
     </WizardShell>
   );
 }
 
-function segundaPregunta(razon: RazonKey | ''): string {
-  switch (razon) {
-    case 'urgente': return '¿En serio es más urgente que estas?';
-    case 'ingresos': return '¿En serio va a mover más ingresos que estas?';
-    case 'menos': return '¿En serio es MENOS prioritaria que estas?';
-    case 'desbloquea': return '¿Qué tarea desbloquea o frena?';
-    default: return '';
-  }
-}
-
-// Lista de opciones single-select SIN caja de texto libre (feedback #8: sacar la abierta en la 1ª).
+// Lista single-select SIN caja libre.
 function RadioList({ opciones, value, onChange }: { opciones: Array<{ key: string; label: string }>; value: string; onChange: (k: string) => void }) {
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -188,57 +226,74 @@ function RadioList({ opciones, value, onChange }: { opciones: Array<{ key: strin
   );
 }
 
-// SÍ / NO contra el top de tareas que quedarían debajo (o encima si baja).
-function SiNoBody({ comparacion, value, onChange, baja }: { comparacion: OtraTarea[]; value: boolean | null; onChange: (v: boolean) => void; baja?: boolean }) {
+// SÍ / NO contra las tareas cercanas. "No" dispara la consolación (no manda a MaKo).
+function SiNoBody({ comparacion, value, sube, onSi, onNo }: { comparacion: OtraTarea[]; value: boolean | null; sube: boolean; onSi: () => void; onNo: () => void }) {
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {comparacion.length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>No hay otras tareas activas para comparar.</div>}
+        {comparacion.length === 0 && <div style={{ fontSize: 13, color: 'var(--faint)', fontStyle: 'italic' }}>No hay otras tareas para comparar.</div>}
         {comparacion.map((t) => {
           const c = PCOLOR[prioFromScore(t.score)];
           return (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 11px' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: c }}><ScoreIcon size={11} color={c} />{t.score}</span>
-              <span style={{ flex: 1, fontSize: 13.5, color: 'var(--ink)' }}>{t.title}</span>
+              {t.projName && <span style={{ fontSize: 10.5, fontWeight: 700, color: t.projColor, background: (t.projColor || '#999') + '1f', border: `1px solid ${(t.projColor || '#999')}44`, borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' }}>{t.projEmoji} {t.projName}</span>}
+              <span style={{ flex: 1, fontSize: 13.5, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
             </div>
           );
         })}
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
-        {[{ v: true, l: baja ? 'Sí, son más importantes' : 'Sí, le gana a todas' }, { v: false, l: 'No, ahora que lo veo…' }].map((b) => {
-          const on = value === b.v;
+        <button type="button" onClick={onSi} style={{ flex: 1, padding: '12px 10px', borderRadius: 11, border: `1.5px solid ${value === true ? 'var(--primary)' : 'var(--border-strong)'}`, background: value === true ? 'var(--primary-bg)' : 'var(--surface)', color: value === true ? 'var(--primary)' : 'var(--ink)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{sube ? 'Sí, le gana a todas' : 'Sí, está bien'}</button>
+        <button type="button" onClick={onNo} style={{ flex: 1, padding: '12px 10px', borderRadius: 11, border: '1.5px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>No, ahora que lo veo…</button>
+      </div>
+    </div>
+  );
+}
+
+// ¿Qué tarea desbloquea? — search + filtro por proyecto + filas con color; "Otra" FIJA
+// arriba (fuera del scroll) para no bajar eternamente (feedback #4).
+function DesbloqueaBody({ otras, value, onChange }: { otras: OtraTarea[]; value: string; onChange: (v: string) => void }) {
+  const [q, setQ] = useState('');
+  const [proj, setProj] = useState<string>('');
+  const proyectos = useMemo(() => {
+    const m = new Map<string, { name: string; color: string; emoji: string }>();
+    otras.forEach((t) => { if (t.projId && !m.has(t.projId)) m.set(t.projId, { name: t.projName || '', color: t.projColor || '#999', emoji: t.projEmoji || '' }); });
+    return [...m.entries()];
+  }, [otras]);
+  const filtradas = otras.filter((t) => (!proj || t.projId === proj) && (!q || t.title.toLowerCase().includes(q.toLowerCase())));
+  const enLista = otras.some((t) => t.title === value);
+  return (
+    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* FIJO arriba: buscar + "otra" a mano + filtros por proyecto */}
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar tarea…" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
+      <input value={!enLista ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder="✎ Otra (no está en la lista)…" style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: `1px solid ${!enLista && value ? 'var(--primary)' : 'var(--border-strong)'}`, background: !enLista && value ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
+      {proyectos.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setProj('')} style={chip(proj === '', '#888')}>Todos</button>
+          {proyectos.map(([id, p]) => <button key={id} type="button" onClick={() => setProj(proj === id ? '' : id)} style={chip(proj === id, p.color)}>{p.emoji} {p.name}</button>)}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+        {filtradas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic', padding: '6px 2px' }}>Nada con ese filtro. Escribila a mano arriba.</div>}
+        {filtradas.map((t) => {
+          const on = value === t.title;
+          const col = t.projColor || 'var(--border-strong)';
           return (
-            <button key={String(b.v)} type="button" onClick={() => onChange(b.v)}
-              style={{ flex: 1, padding: '12px 10px', borderRadius: 11, border: `1.5px solid ${on ? (b.v ? 'var(--primary)' : 'var(--warn)') : 'var(--border-strong)'}`, background: on ? (b.v ? 'var(--primary-bg)' : 'var(--surface-2)') : 'var(--surface)', color: on ? (b.v ? 'var(--primary)' : 'var(--warn)') : 'var(--ink)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{b.l}</button>
+            <button key={t.id} type="button" onClick={() => onChange(on ? '' : t.title)}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', padding: '9px 12px', borderRadius: 10, border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`, borderLeft: `3px solid ${col}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, cursor: 'pointer', fontFamily: SANS }}>
+              {t.projEmoji && <span style={{ fontSize: 13 }}>{t.projEmoji}</span>}
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+              {on && <span style={{ color: 'var(--primary)', fontWeight: 800 }}>✓</span>}
+            </button>
           );
         })}
       </div>
     </div>
   );
 }
+const chip = (on: boolean, color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, border: `1px solid ${on ? color : 'var(--border-strong)'}`, background: on ? color + '1f' : 'var(--surface)', color: on ? color : 'var(--dim)', cursor: 'pointer', fontFamily: SANS });
 
-// ¿Qué tarea desbloquea? — elegir de la lista o escribir a mano.
-function DesbloqueaBody({ otras, value, onChange }: { otras: OtraTarea[]; value: string; onChange: (v: string) => void }) {
-  const enLista = otras.some((t) => t.title === value);
-  return (
-    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 320, overflowY: 'auto' }}>
-      {otras.map((t) => {
-        const on = value === t.title;
-        return (
-          <button key={t.id} type="button" onClick={() => onChange(on ? '' : t.title)}
-            style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', padding: '10px 13px', borderRadius: 10, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, cursor: 'pointer', fontFamily: SANS }}>
-            <span style={{ width: 15, height: 15, borderRadius: '50%', border: `2px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: on ? 'inset 0 0 0 2.5px var(--surface)' : 'none' }} />
-            {t.title}
-          </button>
-        );
-      })}
-      <input value={!enLista ? value : ''} onChange={(e) => onChange(e.target.value)} placeholder="Otra (no está en la lista)…"
-        style={{ width: '100%', padding: '11px 14px', borderRadius: 11, border: `1px solid ${!enLista && value ? 'var(--primary)' : 'var(--border-strong)'}`, background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, outline: 'none', fontFamily: SANS, marginTop: 2 }} />
-    </div>
-  );
-}
-
-// Contenedor simple (mismo look que WizardShell) para la pantalla de veredicto.
 function Shell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 130, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
