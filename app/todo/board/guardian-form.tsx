@@ -9,6 +9,17 @@ import { GuardianIcon } from './GuardianIcon';
 
 const SANS = "'Geist', sans-serif";
 
+// Ícono del score 1-100 (medidor / gauge) — reemplaza al emoji ⚡ (feedback #5:
+// "no poner un emoji, mejor un ícono sofisticado"). Toma el color del contexto.
+export function ScoreIcon({ size = 12, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}>
+      <path d="M4 19a8 8 0 1 1 16 0" />
+      <path d="M12 19l4.2-6.2" />
+    </svg>
+  );
+}
+
 // Pantalla de presentación del guardián (primer paso de todo debate/creación).
 export function IntroBody({ que, mi = 'priorizar lo que de verdad mueve la aguja y protegerte de la parálisis por análisis' }: { que: string; mi?: string }) {
   return (

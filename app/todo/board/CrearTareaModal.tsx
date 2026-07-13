@@ -6,7 +6,7 @@
 
 import { useState, type CSSProperties } from 'react';
 import { WizardShell, wizardInput } from '../../leads/WizardShell';
-import { IntroBody, ChoiceBody, textareaStyle } from './guardian-form';
+import { IntroBody, ChoiceBody, textareaStyle, ScoreIcon } from './guardian-form';
 import { GuardianIcon } from './GuardianIcon';
 import { type Prio, PLABEL, PCOLOR } from './types';
 
@@ -49,7 +49,7 @@ export function CrearTareaModal({ onCrear, onClose }: {
             : res && <>
                 <GuardianIcon size={52} />
                 <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', margin: '12px 0 10px' }}>{title}</div>
-                <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 16, color: PCOLOR[res.prio], marginBottom: 12 }}>⚡{res.score} · {PLABEL[res.prio]}</div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontWeight: 700, fontSize: 16, color: PCOLOR[res.prio], marginBottom: 12 }}><ScoreIcon size={15} color={PCOLOR[res.prio]} />{res.score} · {PLABEL[res.prio]}</div>
                 <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55, textAlign: 'left', background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', borderRadius: 12, padding: '13px 15px' }}>{res.respuesta}</div>
               </>}
         </div>

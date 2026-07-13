@@ -21,6 +21,7 @@ import { CrearProyectoModal } from './CrearProyecto';
 import { EliminarModal } from './EliminarModal';
 import { AsignarProyectoModal } from './AsignarProyecto';
 import { GuardianIcon } from './GuardianIcon';
+import { ScoreIcon } from './guardian-form';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
 
@@ -51,8 +52,9 @@ export function BoardShell({ board }: { board: Board }) {
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   useEffect(() => { if (!usageFlash) return; const t = setTimeout(() => setUsageFlash(null), 6000); return () => clearTimeout(t); }, [usageFlash]);
   // muestra el gasto de tokens/costo de UNA operación de IA (feedback #1: transparencia).
-  const showUsage = (u: { inputTokens?: number; outputTokens?: number; costUsd?: number } | undefined | null, feature: string) => {
-    if (u) setUsageFlash({ tokens: (u.inputTokens || 0) + (u.outputTokens || 0), cost: u.costUsd || 0, feature });
+  const showUsage = (u: unknown, feature: string) => {
+    const o = (u && typeof u === 'object' ? u : null) as { inputTokens?: number; outputTokens?: number; costUsd?: number } | null;
+    if (o) setUsageFlash({ tokens: (o.inputTokens || 0) + (o.outputTokens || 0), cost: o.costUsd || 0, feature });
   };
 
   // El guardián es dueño de la ubicación: la columna respeta la restricción
@@ -188,7 +190,10 @@ export function BoardShell({ board }: { board: Board }) {
       </div>
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onDebate={() => setDebateId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
-      {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
+      {debateTask && <DebateModal task={debateTask} planResumen={planResumen}
+        otras={tasks.filter((t) => t.id !== debateTask.id && t.progress < 100).map((t) => ({ id: t.id, title: t.title, score: t.score }))}
+        onUsage={(u) => showUsage(u, 'debate de prioridad')}
+        onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); }} />}
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
@@ -242,7 +247,7 @@ function MiniBar({ v }: { v: number }) {
 // score del guardián (1-100), coloreado por la columna que define.
 function ScoreBadge({ score }: { score: number }) {
   const c = PCOLOR[prioFromScore(score)];
-  return <span title="Prioridad del guardián (1-100)" style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px' }}>⚡{score}</span>;
+  return <span title="Prioridad del guardián (1-100)" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px 1px 4px' }}><ScoreIcon size={10} color={c} />{score}</span>;
 }
 // Chip de origen: solo para tareas creadas por MaKo (✦ Origen IA), al lado del tag.
 function OrigenChip({ origen }: { origen: Actor }) {
@@ -517,14 +522,15 @@ function TaskModal({ t, board, topProjectId, onDebate, onDelete, onAsignar, ask,
           </div>
           <div style={{ width: 236, flex: 'none', borderLeft: '1px solid var(--border)', background: 'var(--surface-2)', padding: '20px 18px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 15 }}>
             <div>
-              <label style={rowLabel}>Prioridad · la pone MaKo</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <ScoreBadge score={t.score} />
-                <span style={{ fontSize: 13, fontWeight: 600, color: PCOLOR[prioEfectiva] }}>{PLABEL[prioEfectiva]}</span>
+              {/* #5: "Prioridad: ALTA — 90" directo y grande, sin subtítulo, con ícono sofisticado */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: t.scoreRazon || topeada ? 8 : 10 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Prioridad:</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: PCOLOR[prioEfectiva], letterSpacing: '.01em' }}>{PLABEL[prioEfectiva].toUpperCase()}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 15, fontWeight: 700, color: PCOLOR[prioEfectiva] }}><ScoreIcon size={15} color={PCOLOR[prioEfectiva]} />{t.score}</span>
               </div>
               {t.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4, marginBottom: 6, fontStyle: 'italic' }}>“{t.scoreRazon}”</div>}
               {topeada && <div style={{ fontSize: 11, color: 'var(--warn)', lineHeight: 1.4, marginBottom: 6 }}>Score de Alta, pero fuera del Objetivo Principal → queda en {PLABEL[prioEfectiva]}.</div>}
-              <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700 }}><GuardianIcon size={15} /> Debatir con el Perro Guardián</button>
+              <button onClick={onDebate} style={{ ...selStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--surface)', color: 'var(--accent)', fontWeight: 700, padding: '9px 10px' }}><GuardianIcon size={20} /> Cambiar prioridad</button>
             </div>
             <div><label style={rowLabel}>Avance · {cl.length > 0 ? t.progress : progShown}%{cl.length > 0 ? ' · por checklist' : ''}</label>
               {cl.length > 0
