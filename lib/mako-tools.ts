@@ -17,7 +17,7 @@ import 'server-only';
 import type { ToolDef, ToolRunner } from './anthropic';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
-  normalizarTelefono, type Lead,
+  normalizarTelefono, getFunnel, type Lead,
 } from './leads';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
@@ -118,6 +118,11 @@ export const MAKO_TOOLS: ToolDef[] = [
     description: 'Verdades ya validadas por los experimentos del negocio (que MaKo SÍ puede afirmar) y lo que sigue en prueba. No requiere parámetros.',
     input_schema: { type: 'object', properties: {} },
   },
+  {
+    name: 'ver_funnel',
+    description: 'La estructura del funnel / proceso comercial del negocio (etapas configuradas en /funnel): el pipeline activo en orden, más las etapas de nutrición y de descarte. Úsalo para razonar con las etapas reales del negocio (no un embudo genérico) antes de opinar sobre en qué etapa está un lead o cómo debería avanzar. No requiere parámetros.',
+    input_schema: { type: 'object', properties: {} },
+  },
 ];
 
 // ── ejecutor: enruta cada herramienta a su lib (todo lectura, tenant-scoped) ───
@@ -178,6 +183,16 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     case 'estado_experimentos': {
       const t = await resumenExperimentos().catch(() => '');
       return t || 'No hay experimentos registrados todavía.';
+    }
+
+    case 'ver_funnel': {
+      const funnel = await getFunnel().catch(() => null);
+      if (!funnel?.stages?.length) return 'No hay un funnel configurado todavía.';
+      const banda = (b: 'pipeline' | 'nutricion' | 'salidas') => funnel.stages
+        .filter((s) => (s.band ?? 'pipeline') === b)
+        .sort((a, c) => (a.col ?? 0) - (c.col ?? 0))
+        .map((s) => (b === 'pipeline' && s.kind ? { key: s.key, label: s.label, tipo: s.kind } : { key: s.key, label: s.label }));
+      return JSON.stringify({ activo: banda('pipeline'), nutricion: banda('nutricion'), descartado: banda('salidas') });
     }
 
     default:

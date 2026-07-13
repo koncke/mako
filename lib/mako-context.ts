@@ -42,6 +42,29 @@ async function resumenSecuencias(): Promise<string> {
     .filter(Boolean).join('\n\n');
 }
 
+// Resumen del FUNNEL real del negocio (funnel_config del workspace), para que MaKo
+// razone con las etapas CONFIGURADAS y no con un embudo genérico de memoria. Es la
+// fuente de verdad del proceso comercial ([[funnel-fuente-de-verdad]]). Aditivo y
+// resiliente: getFunnel cae a DEFAULT_PIPELINE si no hay fila, así que nunca queda
+// vacío; con el funnel por defecto, el bloque describe el embudo base de siempre.
+async function resumenFunnel(): Promise<string> {
+  const { getFunnel } = await import('./leads');
+  const { BAND_LABEL } = await import('./pipeline');
+  const funnel = await getFunnel().catch(() => null);
+  if (!funnel?.stages?.length) return '';
+  const bandas: Array<'pipeline' | 'nutricion' | 'salidas'> = ['pipeline', 'nutricion', 'salidas'];
+  const bloques = bandas.map((banda) => {
+    const etapas = funnel.stages
+      .filter((s) => (s.band ?? 'pipeline') === banda)
+      .sort((a, b) => (a.col ?? 0) - (b.col ?? 0))
+      .map((s) => (banda === 'pipeline' && s.kind ? `${s.label} (${s.kind})` : s.label));
+    if (!etapas.length) return '';
+    const sep = banda === 'pipeline' ? ' → ' : ', ';
+    return `${BAND_LABEL[banda]}: ${etapas.join(sep)}`;
+  }).filter(Boolean);
+  return bloques.join('\n');
+}
+
 export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string }): Promise<string> {
   const { chartKey, titulo, contexto, query } = opts;
 
@@ -64,6 +87,12 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   // sigue en prueba. Para todo lo no probado, MaKo sugiere abrir un experimento.
   const exps = await resumenExperimentos().catch(() => '');
   if (exps) base += `\n\nESTADO DE EXPERIMENTOS DEL NEGOCIO:\n${exps}`;
+
+  // El funnel/proceso comercial real (funnel_config, editable en /funnel): que MaKo
+  // razone con las etapas del workspace y no con un embudo genérico. Aditivo — con
+  // el funnel default el prompt describe el embudo base de siempre.
+  const funnelTxt = await resumenFunnel().catch(() => '');
+  if (funnelTxt) base += `\n\nEL FUNNEL / PROCESO COMERCIAL DEL NEGOCIO (fuente de verdad, editable en /funnel):\n${funnelTxt}`;
 
   // Chat de secuencias de WhatsApp: sos consultor de deliverability. Cargás las
   // reglas de aprobación de Meta + las secuencias/plantillas reales del negocio.
