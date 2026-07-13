@@ -53,16 +53,18 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     markDirty(id);
   }
 
-  const create = async (title: string, priority: Prio): Promise<BoardTask | null> => {
+  const create = async (title: string, priority: Prio, labelsIn?: string[]): Promise<BoardTask | null> => {
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: repo.labelMode === 'single' && labels[0] ? [labels[0].id] : [], checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
+    const labels0 = labelsIn && labelsIn.length ? labelsIn : (repo.labelMode === 'single' && labels[0] ? [labels[0].id] : []);
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);
       // preservar ediciones en vuelo: mantenemos el task local y solo fijamos el id real
       setTasks((ts) => ts.map((x) => (x.id === draft.id ? { ...x, id: canon.id, num: canon.num || x.num, origen: canon.origen } : x)));
       markDirty(canon.id);
+      draft.labels.forEach((lid) => logProject(lid, `Agregó la tarea «${v.slice(0, 38)}»`));
       return { ...draft, id: canon.id };
     } catch (e) {
       console.error('[board] createTask', e);
@@ -71,10 +73,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     }
   };
 
-  const remove = (id: string) => {
+  const remove = (id: string, motivo?: string) => {
     const snap = byId(id); if (!snap) return;
     setTasks((ts) => ts.filter((t) => t.id !== id));
     void repo.deleteTask(id).catch((e) => console.error('[board] deleteTask', e));
+    snap.labels.forEach((lid) => logProject(lid, `Eliminó la tarea «${snap.title.slice(0, 34)}»${motivo ? ` — ${motivo.slice(0, 60)}` : ''}`));
     show('Tarea eliminada', async () => {
       setTasks((ts) => [snap, ...ts]);
       try { const canon = await repo.createTask(snap); setTasks((ts) => ts.map((t) => (t.id === snap.id ? canon : t))); }
@@ -130,7 +133,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   };
   // reemplaza una tarea entera (para el "deshacer todo" del pase a Alta)
   const replaceTask = (task: BoardTask) => { setTasks((ts) => ts.map((x) => (x.id === task.id ? task : x))); markDirty(task.id); };
-  const setTitle = (id: string, title: string, prev: string) => { if (title.trim() !== prev.trim()) patchLogExplicit(id, 'title', title, prev, 'Editó el título'); };
+  const setTitle = (id: string, title: string, prev: string) => {
+    if (title.trim() === prev.trim()) return;
+    patchLogExplicit(id, 'title', title, prev, 'Editó el título');
+    (byId(id)?.labels ?? []).forEach((lid) => logProject(lid, `Renombró una tarea → «${title.slice(0, 34)}»`));
+  };
   const setDetalle = (id: string, detalle: string, prev: string) => { if (detalle !== prev) patchLogExplicit(id, 'detalle', detalle, prev, 'Editó el detalle'); };
   const setProgress = (id: string, value: number, prev: number) => { const w = clampPct(value); if (w !== prev) patchLogExplicit(id, 'progress', w, prev, `Avance ${w}%`); };
   const setDeadline = (id: string, deadline: string, prev: string) => { if (deadline !== prev) patchLogExplicit(id, 'deadline', deadline, prev, deadline ? `Deadline ${deadline}` : 'Quitó el deadline'); };
@@ -151,10 +158,11 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     markDirty(id);
   };
 
-  // ── etiquetas (proyectos / categorías) ──
+  // ── etiquetas / PROYECTOS (con su propio change history) ──
   const createLabel = async (draft: Label) => {
-    setLabels((ls) => [...ls, draft]);
-    try { const canon = await repo.createLabel(draft); setLabels((ls) => ls.map((l) => (l.id === draft.id ? canon : l))); }
+    const d: Label = { ...draft, historial: draft.historial?.length ? draft.historial : [{ id: uid(), ts: now(), actor: draft.score >= 1 ? 'user' : 'user', text: 'Creó el proyecto' }] };
+    setLabels((ls) => [...ls, d]);
+    try { const canon = await repo.createLabel(d); setLabels((ls) => ls.map((l) => (l.id === d.id ? canon : l))); }
     catch (e) { console.error('[board] createLabel', e); }
   };
   const patchLabel = (id: string, fields: Partial<Label>) => {
@@ -162,9 +170,29 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     setLabels((ls) => ls.map((l) => (l.id === id ? (next = { ...l, ...fields }) : l)));
     if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
   };
+  // patch de proyecto + entrada en SU change history (rename, detalle, score…)
+  const patchLabelLog = (id: string, fields: Partial<Label>, text: string, actor: Actor = 'user') => {
+    let next: Label | null = null;
+    setLabels((ls) => ls.map((l) => (l.id === id ? (next = { ...l, ...fields, historial: [{ id: uid(), ts: now(), actor, text }, ...l.historial].slice(0, HIST_CAP) }) : l)));
+    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+  };
+  // registra un evento en el change history de un proyecto (tarea creada/borrada/renombrada)
+  const logProject = (labelId: string, text: string, actor: Actor = 'user') => {
+    let next: Label | null = null;
+    setLabels((ls) => ls.map((l) => (l.id === labelId ? (next = { ...l, historial: [{ id: uid(), ts: now(), actor, text }, ...l.historial].slice(0, HIST_CAP) }) : l)));
+    if (next) void repo.saveLabel(next).catch((e) => console.error('[board] saveLabel', e));
+  };
   const deleteLabel = (id: string) => {
     setLabels((ls) => ls.filter((l) => l.id !== id));
     setTasks((ts) => ts.map((t) => (t.labels.includes(id) ? { ...t, labels: t.labels.filter((x) => x !== id) } : t)));
+    void repo.deleteLabel(id).catch((e) => console.error('[board] deleteLabel', e));
+  };
+  // borra un proyecto Y todas sus tareas (fricción alta: se debate antes).
+  const deleteLabelYTareas = (id: string) => {
+    const suyas = tasks.filter((t) => t.labels.includes(id));
+    suyas.forEach((t) => { void repo.deleteTask(t.id).catch((e) => console.error('[board] deleteTask', e)); });
+    setTasks((ts) => ts.filter((t) => !t.labels.includes(id)));
+    setLabels((ls) => ls.filter((l) => l.id !== id));
     void repo.deleteLabel(id).catch((e) => console.error('[board] deleteLabel', e));
   };
 
@@ -175,7 +203,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
     create, remove, patch, moveTo, setScore, applyGuardian, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, setDeadline, setTaskLabels, undoHist,
-    createLabel, patchLabel, deleteLabel, reset,
+    createLabel, patchLabel, patchLabelLog, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,
   };
 }

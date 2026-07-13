@@ -48,7 +48,7 @@ export type Tarea = {
   updated_at: string;
 };
 
-export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; created_at: string };
+export type Categoria = { id: number; nombre: string; color: string; emoji: string; prioridad: number; detalle: string; historial: HistEntry[]; created_at: string };
 
 const COLS = '*';
 const rowTo = (r: Record<string, unknown>): Tarea => {
@@ -266,7 +266,9 @@ export async function borrarTarea(id: number): Promise<void> {
 const catRow = (r: Record<string, unknown>): Categoria => {
   const c = r as unknown as Categoria;
   c.emoji = typeof r.emoji === 'string' && r.emoji ? (r.emoji as string) : '🏷';
-  c.prioridad = Math.max(1, Math.min(5, Math.round(Number(r.prioridad) || 3)));
+  c.prioridad = Math.max(1, Math.min(10, Math.round(Number(r.prioridad) || 5)));
+  c.detalle = typeof r.detalle === 'string' ? (r.detalle as string) : '';
+  c.historial = histOk(r.historial);
   return c;
 };
 
@@ -277,21 +279,23 @@ export async function listCategorias(): Promise<Categoria[]> {
   return (data ?? []).map(catRow);
 }
 
-export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number): Promise<Categoria> {
+export async function crearCategoria(nombre: string, color: string, emoji?: string, prioridad?: number, detalle?: string, historial?: HistEntry[]): Promise<Categoria> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias')
-    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(5, Math.round(prioridad ?? 3))) })
+    .insert({ nombre: (nombre || '').trim().slice(0, 40) || 'Categoría', color: color || '#9b9ba2', emoji: (emoji || '🏷').slice(0, 4), prioridad: Math.max(1, Math.min(10, Math.round(prioridad ?? 5))), detalle: detalle ?? '', historial: histOk(historial ?? []) })
     .select('*').single();
   if (error) throw new Error(`crearCategoria: ${error.message}`);
   return catRow(data);
 }
 
-export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number }): Promise<Categoria> {
+export async function editarCategoria(id: number, patch: { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[] }): Promise<Categoria> {
   const upd: Record<string, unknown> = {};
   if (patch.nombre !== undefined) upd.nombre = (patch.nombre || '').trim().slice(0, 40) || 'Categoría';
   if (patch.color !== undefined) upd.color = patch.color || '#9b9ba2';
   if (patch.emoji !== undefined) upd.emoji = (patch.emoji || '🏷').slice(0, 4);
-  if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(5, Math.round(patch.prioridad)));
+  if (patch.prioridad !== undefined) upd.prioridad = Math.max(1, Math.min(10, Math.round(patch.prioridad)));
+  if (patch.detalle !== undefined) upd.detalle = patch.detalle;
+  if (patch.historial !== undefined) upd.historial = histOk(patch.historial);
   const supabase = (await getTenantDb());
   const { data, error } = await supabase.from('tarea_categorias').update(upd).eq('id', id).select('*').single();
   if (error) throw new Error(`editarCategoria: ${error.message}`);

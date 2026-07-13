@@ -28,7 +28,7 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; emoji: string; name: string; color: string; score: number };
+export type Label = { id: string; emoji: string; name: string; color: string; score: number; detalle: string; historial: Hist[] };
 export type BoardUser = { nombre: string; avatarUrl: string };
 
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.
@@ -71,7 +71,8 @@ export const altaIncompleta = (t: BoardTask) => t.priority === 'alta' && t.progr
 
 // ── Score 1-100 ⇄ columna (el guardián pone el score; la columna se DERIVA) ──
 export const clampScore = (v: number) => Math.max(0, Math.min(100, Math.round(Number.isFinite(v) ? v : 0)));
-export const clampProj = (v: number) => Math.max(1, Math.min(5, Math.round(Number.isFinite(v) ? v : 3)));
+export const MAX_PROJ = 10; // prioridad del proyecto: 1-10 (para no empatar)
+export const clampProj = (v: number) => Math.max(1, Math.min(MAX_PROJ, Math.round(Number.isFinite(v) ? v : 5)));
 export function prioFromScore(score: number): Prio {
   if (score >= 75) return 'alta';
   if (score >= 50) return 'media';

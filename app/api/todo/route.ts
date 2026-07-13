@@ -80,12 +80,14 @@ export async function POST(req: NextRequest) {
       const color = String(body.color ?? '#9b9ba2');
       const emoji = body.emoji != null ? String(body.emoji) : undefined;
       const prioridad = body.prioridad != null ? Number(body.prioridad) : undefined;
+      const detalle = body.detalle != null ? String(body.detalle) : undefined;
+      const historial = body.historial as HistEntry[] | undefined;
       if (!nombre.trim()) return Response.json({ ok: false, error: 'falta el nombre' }, { status: 400 });
-      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad) });
+      return Response.json({ ok: true, categoria: await crearCategoria(nombre, color, emoji, prioridad, detalle, historial) });
     }
     if (action === 'categoria-editar') {
       if (!Number.isFinite(id)) return Response.json({ ok: false, error: 'id requerido' }, { status: 400 });
-      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number }) ?? {};
+      const patch = (body.patch as { nombre?: string; color?: string; emoji?: string; prioridad?: number; detalle?: string; historial?: HistEntry[] }) ?? {};
       return Response.json({ ok: true, categoria: await editarCategoria(id, patch) });
     }
     if (action === 'categoria-borrar') {

@@ -17,6 +17,7 @@ import { PriorizarWizard } from './PriorizarWizard';
 import { MakoChecklistModal } from './MakoChecklist';
 import { DebateModal } from './DebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
+import { CrearProyectoModal } from './CrearProyecto';
 import { GuardianIcon } from './GuardianIcon';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
@@ -27,11 +28,13 @@ const SANS = "'Geist', sans-serif";
 export function BoardShell({ board }: { board: Board }) {
   // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
   const { tasks, labels, repo } = board;
-  const [view, setView] = useState<'prioridades' | 'kanban'>('prioridades');
+  const [view, setView] = useState<'prioridades' | 'kanban' | 'proyectos'>('prioridades');
+  const [openProj, setOpenProj] = useState<string | null>(null);
+  const [nuevoProj, setNuevoProj] = useState(false);
+  const [nuevaTareaProj, setNuevaTareaProj] = useState<string | null>(null); // proyecto donde crear la tarea nueva
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [openId, setOpenId] = useState<string | null>(null);
-  const [projMgr, setProjMgr] = useState(false);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [wizardId, setWizardId] = useState<string | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
@@ -106,12 +109,14 @@ export function BoardShell({ board }: { board: Board }) {
   const openTask = tasks.find((t) => t.id === openId) ?? null;
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
+  const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
+  const crearProyecto = (nombre: string, emoji: string, detalle: string) => board.createLabel({ id: uid(), emoji: emoji || '🏷', name: nombre, color: SWATCHES[labels.length % SWATCHES.length], score: 5, detalle, historial: [] });
   // resumen del plan para que el guardián compare al debatir/crear
   const planResumen = tasks.filter((t) => t.progress < 100).map((t) => `- [${t.score}] ${t.title} (${board.labelById(t.labels[0])?.name ?? 'sin proyecto'})`).join('\n');
 
   // crear una tarea: el GUARDIÁN la puntúa (con el argumento) y decide su columna.
   const crearConGuardian = async (title: string, detalle: string, argumento: string) => {
-    const t = await board.create(title, 'media');
+    const t = await board.create(title, 'media', nuevaTareaProj ? [nuevaTareaProj] : undefined);
     if (!t) return null;
     if (detalle) board.setDetalle(t.id, detalle, '');
     const argFinal = argumento || '(el usuario no dio argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
@@ -137,32 +142,31 @@ export function BoardShell({ board }: { board: Board }) {
         </div>
         {/* tabs */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
-          {(['prioridades', 'kanban'] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v}</button>
+          {(['prioridades', 'kanban', 'proyectos'] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)} style={{ border: 'none', background: view === v ? 'var(--surface)' : 'transparent', color: view === v ? 'var(--ink)' : 'var(--dim)', fontWeight: view === v ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: view === v ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: 'inherit', textTransform: 'capitalize' }}>{v === 'proyectos' ? repo.labelPlural : v}</button>
           ))}
         </div>
         {/* de acá para la derecha, todo alineado a la derecha */}
         <span style={{ flex: 1 }} />
-        {view === 'kanban'
-          ? <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />
-          : <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
+        {view === 'kanban' && <AvgChip avg={avg} hechas={hechas} total={tasks.length} label="del plan" />}
+        {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'kanban' && <>
-          <button onClick={() => setProjMgr(true)} style={{ ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7 }}><PencilIcon />{repo.labelPlural}</button>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} />
         </>}
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {view === 'prioridades'
-          ? <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} />
-          : <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onWarn={setWizardId} />}
+        {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={() => setNuevaTarea(true)} onWarn={setWizardId} />}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} />}
       </div>
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} onDebate={() => setDebateId(openTask.id)} ask={ask} onClose={() => setOpenId(null)} />}
       {debateTask && <DebateModal task={debateTask} planResumen={planResumen} onApply={(score, razon) => board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon)} onClose={() => setDebateId(null)} />}
-      {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => setNuevaTarea(false)} />}
-      {projMgr && <ProjectsManager board={board} ask={ask} onClose={() => setProjMgr(false)} />}
+      {nuevaTarea && <CrearTareaModal onCrear={crearConGuardian} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); }} />}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} ask={ask} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onClose={() => setOpenProj(null)} />}
+      {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
       {wizardTask && <PriorizarWizard task={wizardTask}
         dismissable={repo.dismissableGauntlet}
         onDismiss={() => { setDismissed((s) => new Set(s).add(wizardTask.id)); setAltaUndo(null); setWizardId(null); }}
@@ -181,7 +185,6 @@ export function BoardShell({ board }: { board: Board }) {
 const ghostBtn: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 500, fontSize: 13.5, cursor: 'pointer', fontFamily: SANS };
 const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 500, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: SANS, width: '100%' };
 
-function PencilIcon() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>; }
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
 
 function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
@@ -519,51 +522,123 @@ function TaskModal({ t, board, topProjectId, onDebate, ask, onClose }: {
   );
 }
 
-// ── editor de proyectos / categorías (con emoji picker) ─────────────────────────
-function ProjectsManager({ board, ask, onClose }: { board: Board; ask: (msg: string, onOk: () => void) => void; onClose: () => void }) {
-  const { labels, repo } = board;
-  const [desc, setDesc] = useState('');
-  const [makoLoading, setMakoLoading] = useState(false);
+// ── change history genérico (solo lectura) — para proyectos ─────────────────────
+function HistList({ historial, nombre, avatarUrl }: { historial: BoardTask['historial']; nombre: string; avatarUrl: string }) {
+  const [nowMs, setNowMs] = useState(0);
+  /* eslint-disable-next-line react-hooks/set-state-in-effect */
+  useEffect(() => { setNowMs(Date.now()); }, []);
+  if (historial.length === 0) return <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin actividad todavía.</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+      {historial.map((h) => {
+        const esCreacion = h.text.startsWith('Creó el proyecto');
+        return (
+          <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={24} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
+function ProyectosView({ board, topProjectId, onOpen, onNew }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void }) {
+  const { labels, tasks, repo } = board;
+  const ordered = labels.slice().sort((a, b) => b.score - a.score);
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
+      <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: '.15em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700 }}>{repo.labelPlural} · ordenados por prioridad</span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onNew} style={{ ...ghostBtn, background: 'var(--surface)', color: 'var(--ink)', fontWeight: 600 }}>+ Nuevo {repo.labelSingular.toLowerCase()}</button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+          {ordered.map((l) => {
+            const nAct = tasks.filter((t) => t.labels.includes(l.id) && t.progress < 100).length;
+            const isTop = l.id === topProjectId;
+            return (
+              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 118, transition: 'border-color .12s' }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 22 }}>{l.emoji}</span>
+                  <span style={{ flex: 1 }} />
+                  <span title="Prioridad del proyecto (1-10)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: l.color, background: l.color + '18', border: `1px solid ${l.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{l.score}/10</span>
+                </div>
+                <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
+                {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+                {l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{l.detalle}</div>}
+                <span style={{ flex: 1 }} />
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{nAct} tarea{nAct === 1 ? '' : 's'} activa{nAct === 1 ? '' : 's'}</div>
+              </div>
+            );
+          })}
+          {ordered.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 14, padding: '30px 0' }}>Todavía no hay {repo.labelPlural.toLowerCase()}.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── detalle de un proyecto (con sus tareas + change history) ────────────────────
+function ProjectDetailModal({ proj, board, topProjectId, ask, onOpenTask, onNewTask, onClose }: { proj: Label; board: Board; topProjectId: string | null; ask: (msg: string, onOk: () => void) => void; onOpenTask: (id: string) => void; onNewTask: () => void; onClose: () => void }) {
+  const [nameDraft, setNameDraft] = useState(proj.name);
+  const [detDraft, setDetDraft] = useState(proj.detalle);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey); return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
-  const crearConMako = async () => {
-    const d = desc.trim(); if (!d || makoLoading) return;
-    setMakoLoading(true);
-    try {
-      const j = await fetch('/api/checklist-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'proyecto', descripcion: d }) }).then((r) => r.json());
-      if (j.ok && j.nombre) board.createLabel({ id: uid(), emoji: j.emoji || '🏷', name: j.nombre, color: SWATCHES[labels.length % SWATCHES.length], score: 3 });
-    } catch { /* no-op */ }
-    setDesc(''); setMakoLoading(false);
-  };
+  const suyas = board.tasks.filter((t) => t.labels.includes(proj.id)).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score);
+  const isTop = proj.id === topProjectId;
+  const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
+  const borrar = () => ask(`Vas a borrar el proyecto "${proj.name}" Y sus ${suyas.length} tarea${suyas.length === 1 ? '' : 's'}. Esto no se puede deshacer. ¿Seguir?`, () => { board.deleteLabelYTareas(proj.id); onClose(); });
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 110, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '10vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, maxHeight: '78vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{repo.labelPlural}</h2><span style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 720, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
+          <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
+          <span title="Prioridad del proyecto (la pone el guardián)" style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: proj.color, background: proj.color + '18', border: `1px solid ${proj.color}33`, borderRadius: 6, padding: '2px 7px' }}>P{proj.score}/10</span>
+          {isTop && <span style={{ fontFamily: MONO, fontSize: 10, color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+          <span style={{ flex: 1 }} /><button onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)' }}>×</button>
         </div>
-        <div style={{ padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {labels.map((l) => (
-            <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 11px' }}>
-              <EmojiPickerMini value={l.emoji} onPick={(em) => board.patchLabel(l.id, { emoji: em })} />
-              <input value={l.name} onChange={(e) => board.patchLabel(l.id, { name: e.target.value })} style={{ flex: 1, minWidth: 0, border: '1px solid var(--border)', borderRadius: 7, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, padding: '6px 9px', outline: 'none', fontFamily: SANS }} />
-              <span title="Prioridad del proyecto (la pone el guardián)" style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 5, padding: '2px 6px', flex: 'none' }}>P{l.score}</span>
-              <span style={{ display: 'flex', gap: 3 }}>{SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(l.id, { color: s })} title={s} style={{ width: 16, height: 16, borderRadius: 5, background: s, border: l.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}</span>
-              <button onClick={() => ask(`¿Borrar "${l.name}"?`, () => board.deleteLabel(l.id))} style={{ border: 'none', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
+        <div style={{ padding: '18px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} onBlur={() => { if (nameDraft.trim() && nameDraft !== proj.name) board.patchLabelLog(proj.id, { name: nameDraft.trim() }, `Renombró el proyecto → «${nameDraft.trim()}»`); }}
+            style={{ width: '100%', border: 'none', outline: 'none', background: 'transparent', color: 'var(--ink)', fontSize: 22, fontWeight: 700, fontFamily: SANS, letterSpacing: '-0.01em' }} />
+          <div>
+            <label style={rowLabel}>Detalle</label>
+            <textarea value={detDraft} onChange={(e) => setDetDraft(e.target.value)} onBlur={() => { if (detDraft !== proj.detalle) board.patchLabelLog(proj.id, { detalle: detDraft }, 'Editó el detalle'); }} placeholder="¿De qué se trata este proyecto?" style={{ width: '100%', minHeight: 70, border: '1px solid var(--border)', borderRadius: 10, outline: 'none', resize: 'vertical', background: 'var(--surface-2)', color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.6, padding: '11px 13px', fontFamily: SANS }} />
+          </div>
+          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+            <span style={{ ...rowLabel, marginBottom: 0, marginRight: 6 }}>Color</span>
+            {SWATCHES.map((s) => <button key={s} onClick={() => board.patchLabel(proj.id, { color: s })} title={s} style={{ width: 18, height: 18, borderRadius: 5, background: s, border: proj.color === s ? '2px solid var(--ink)' : '2px solid transparent', cursor: 'pointer' }} />)}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ ...rowLabel, marginBottom: 0 }}>Tareas del proyecto · {suyas.length}</label>
+              <span style={{ flex: 1 }} />
+              <button onClick={onNewTask} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>+ tarea acá</button>
             </div>
-          ))}
-          <button onClick={() => board.createLabel({ id: uid(), emoji: '🏷', name: `Nuevo ${repo.labelSingular.toLowerCase()}`, color: SWATCHES[1], score: 3 })} style={{ ...ghostBtn, textAlign: 'center' }}>+ {repo.labelSingular} en blanco</button>
-          {/* MaKo te ayuda a crear el proyecto (nombre + emoji) */}
-          <div style={{ marginTop: 4, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
-            <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', display: 'block', marginBottom: 6 }}>✦ MaKo te ayuda</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input value={desc} onChange={(e) => setDesc(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') crearConMako(); }} placeholder={`Describí el ${repo.labelSingular.toLowerCase()}… (MaKo le pone nombre + emoji)`}
-                style={{ flex: 1, minWidth: 0, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, padding: '8px 11px', outline: 'none', fontFamily: SANS }} />
-              <button onClick={crearConMako} disabled={!desc.trim() || makoLoading} style={{ border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '0 14px', fontSize: 12.5, fontWeight: 700, cursor: !desc.trim() || makoLoading ? 'default' : 'pointer', opacity: !desc.trim() || makoLoading ? 0.5 : 1, whiteSpace: 'nowrap' }}>{makoLoading ? '…' : '✦ Crear'}</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {suyas.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--faint)', fontStyle: 'italic' }}>Sin tareas todavía.</div>}
+              {suyas.map((t) => (
+                <button key={t.id} onClick={() => onOpenTask(t.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '8px 11px', cursor: 'pointer', fontFamily: SANS }}>
+                  <ScoreBadge score={t.score} />
+                  <span style={{ flex: 1, fontSize: 13.5, color: 'var(--ink)', textDecoration: t.progress >= 100 ? 'line-through' : 'none', opacity: t.progress >= 100 ? 0.6 : 1 }}>{t.title}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--faint)' }}>{t.progress}%</span>
+                </button>
+              ))}
             </div>
           </div>
+          <div>
+            <label style={rowLabel}>Change history del proyecto</label>
+            <HistList historial={proj.historial} nombre={board.user.nombre} avatarUrl={board.user.avatarUrl} />
+          </div>
+          <button onClick={borrar} style={{ border: 'none', background: 'transparent', color: 'var(--bad)', fontSize: 12.5, cursor: 'pointer', textAlign: 'left', padding: '2px 0' }}>Eliminar el proyecto y sus {suyas.length} tarea{suyas.length === 1 ? '' : 's'}</button>
         </div>
       </div>
     </div>

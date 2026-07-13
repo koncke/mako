@@ -179,9 +179,9 @@ const tarea = (p: Partial<Tarea>): Tarea => ({
 });
 
 export const demoCategorias: Categoria[] = [
-  { id: 1, nombre: 'Marketing', color: '#3b82f6', emoji: '📈', prioridad: 5, created_at: '2026-06-01T12:00:00Z' },
-  { id: 2, nombre: 'Producto', color: '#46a758', emoji: '🧱', prioridad: 3, created_at: '2026-06-01T12:00:00Z' },
-  { id: 3, nombre: 'Ventas', color: '#f0a818', emoji: '🤝', prioridad: 4, created_at: '2026-06-01T12:00:00Z' },
+  { id: 1, nombre: 'Marketing', color: '#3b82f6', emoji: '📈', prioridad: 9, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
+  { id: 2, nombre: 'Producto', color: '#46a758', emoji: '🧱', prioridad: 6, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
+  { id: 3, nombre: 'Ventas', color: '#f0a818', emoji: '🤝', prioridad: 8, detalle: '', historial: [], created_at: '2026-06-01T12:00:00Z' },
 ];
 
 export const demoTareas: Tarea[] = [

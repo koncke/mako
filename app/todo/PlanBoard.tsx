@@ -16,13 +16,14 @@ const K5 = 'mako_plan_v5', K4 = 'mako_plan_v4', K_PROJS = 'mako_plan_projs_v3';
 const SEED_TS = Date.parse('2026-07-01T12:00:00Z');
 const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 
+const P = (id: string, emoji: string, name: string, color: string, score: number, detalle: string): Label => ({ id, emoji, name, color, score, detalle, historial: [{ id: 'seedp' + id, ts: SEED_TS, actor: 'ia', text: 'Creó el proyecto' }] });
 const PROJS_DEFAULT: Label[] = [
-  { id: 'doer', emoji: '🔴', name: 'Hacer MaKo DOER', color: '#D0504A', score: 5 },
-  { id: 'plat', emoji: '🧱', name: 'Plataforma & Núcleo', color: '#2F6FED', score: 4 },
-  { id: 'canales', emoji: '💬', name: 'Canales & Mensajería', color: '#7C5CFB', score: 3 },
-  { id: 'analy', emoji: '🔍', name: 'Analysts & Generadores', color: '#0E9B8E', score: 3 },
-  { id: 'growth', emoji: '📈', name: 'Growth · Vender MaKo', color: '#C8870C', score: 2 },
-  { id: 'ux', emoji: '✨', name: 'UX & Diseño', color: '#D6489B', score: 2 },
+  P('doer', '🔴', 'Hacer MaKo DOER', '#D0504A', 10, 'Que todo lo que ya existe sea DOER: que la app te diga qué hacer, reclame y cierre el loop.'),
+  P('plat', '🧱', 'Plataforma & Núcleo', '#2F6FED', 8, 'La base: usuarios, perfiles, CRM, ciberseguridad, multi-tenant.'),
+  P('canales', '💬', 'Canales & Mensajería', '#7C5CFB', 6, 'Email, WhatsApp (oficial y no), nutrición, reportes.'),
+  P('analy', '🔍', 'Analysts & Generadores', '#0E9B8E', 6, 'Los analistas (landing, VSL, CS, market) y generadores de MaKo.'),
+  P('growth', '📈', 'Growth · Vender MaKo', '#C8870C', 4, 'Vender MaKo: oferta, ads por feature, landing, testimonios.'),
+  P('ux', '✨', 'UX & Diseño', '#D6489B', 4, 'La experiencia simple y el rediseño de la app.'),
 ];
 
 // [num, title, project, prioridad, prog, detalle, enPrioridad]
@@ -110,7 +111,7 @@ const normTask = (t: BoardTask): BoardTask => {
   const s = typeof t.score === 'number' && t.score > 0 ? clampScore(t.score) : scoreFromPrio[t.priority] ?? 62;
   return { ...t, score: s, priority: prioFromScore(s), historial: normHist(t.historial as unknown[]) };
 };
-const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(5, Math.round(l.score)) : 3 });
+const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(10, Math.round(l.score)) : 5, detalle: typeof l.detalle === 'string' ? l.detalle : '', historial: normHist((l.historial as unknown[]) || []) });
 
 type OldV4 = { id: string; n: number; text: string; project: string; priority: Prio; prog?: number; detalle?: string; foco?: boolean; deadline?: string; checklist?: unknown; origen?: string; historial?: unknown };
 const fromV4 = (t: OldV4): BoardTask => {
