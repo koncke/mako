@@ -46,11 +46,14 @@ export function BoardShell({ board }: { board: Board }) {
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
-  const [flash, setFlash] = useState('');
+  const [usageFlash, setUsageFlash] = useState<{ tokens: number; cost: number; feature: string } | null>(null);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
-  const doFlash = (m: string) => setFlash(m);
-  useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 2600); return () => clearTimeout(t); }, [flash]);
+  useEffect(() => { if (!usageFlash) return; const t = setTimeout(() => setUsageFlash(null), 6000); return () => clearTimeout(t); }, [usageFlash]);
+  // muestra el gasto de tokens/costo de UNA operación de IA (feedback #1: transparencia).
+  const showUsage = (u: { inputTokens?: number; outputTokens?: number; costUsd?: number } | undefined | null, feature: string) => {
+    if (u) setUsageFlash({ tokens: (u.inputTokens || 0) + (u.outputTokens || 0), cost: u.costUsd || 0, feature });
+  };
 
   // El guardián es dueño de la ubicación: la columna respeta la restricción
   // (Alta solo para el proyecto top / sin proyecto / emergencia).
@@ -67,32 +70,45 @@ export function BoardShell({ board }: { board: Board }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, wizardId, dismissed, topProjectId]);
 
-  // ── el perro guardián re-puntúa todo el plan (score 1-100 / 1-5) ──
-  // Ya no hay botón: corre solo, "cada tanto" (gate por localStorage) en background.
+  // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
+  // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
+  // ESTRUCTURAL (se agregó/quitó/completó una tarea, o cambió un proyecto). Si nada
+  // cambió, NO gasta tokens (feedback #1/#14). La "firma" ignora los scores para no
+  // re-dispararse a sí misma cuando el guardián aplica los suyos.
   const repriorizando = useRef(false);
-  const rePriorizar = async () => {
+  const planSignature = () => {
+    const t = tasks.filter((x) => x.progress < 100).map((x) => x.id).sort().join(',');
+    const p = labels.map((l) => l.id).sort().join(',');
+    return `${t}|${p}`;
+  };
+  const rePriorizar = async (sig?: string) => {
     if (repriorizando.current) return;
     repriorizando.current = true;
     const proyectos = labels.map((l) => ({ id: l.id, nombre: l.name }));
-    const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle, proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen }));
+    // scoreActual: el guardián mantiene el score previo salvo razón concreta (estabilidad).
+    const tareasIn = tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle, proyecto: board.labelById(t.labels[0])?.name ?? '', deadline: t.deadline, avance: t.progress, origen: t.origen, scoreActual: t.score }));
     if (tareasIn.length < 2) { repriorizando.current = false; return; }
     try {
       const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proyectos, tareas: tareasIn }) }).then((r) => r.json());
-      if (j.ok) { board.applyGuardian(j.tareas || [], j.proyectos || []); doFlash('🛡️ MaKo re-priorizó el plan'); }
+      if (j.ok) {
+        board.applyGuardian(j.tareas || [], j.proyectos || []);
+        showUsage(j.usage, 're-priorización del plan');
+        try { localStorage.setItem('mako_plan_sig', sig ?? planSignature()); } catch { /* no-op */ }
+      }
     } catch { /* silencioso, es automático */ }
     repriorizando.current = false;
   };
-  // Auto: la primera vez en +24h que se abre el board, MaKo re-prioriza en background.
+  // Dispara la re-priorización SOLO cuando la firma estructural cambia respecto de la
+  // última corrida (con debounce). Editar un título o mover un score no la re-dispara.
+  const planSig = planSignature();
   useEffect(() => {
-    const KEY = 'mako_last_reprio';
-    let last = 0; try { last = Number(localStorage.getItem(KEY) || 0); } catch { /* no-op */ }
-    if (Date.now() - last > 24 * 3600 * 1000) {
-      try { localStorage.setItem(KEY, String(Date.now())); } catch { /* no-op */ }
-      const id = setTimeout(() => { void rePriorizar(); }, 1200);
-      return () => clearTimeout(id);
-    }
+    if (tasks.length < 2) return;
+    let stored = ''; try { stored = localStorage.getItem('mako_plan_sig') || ''; } catch { /* no-op */ }
+    if (!planSig || planSig === stored) return;
+    const id = setTimeout(() => { void rePriorizar(planSig); }, 2500);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [planSig]);
   // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
   // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
   const cerrarWizard = () => {
@@ -132,6 +148,7 @@ export function BoardShell({ board }: { board: Board }) {
       const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: title + (detalle ? `\n\n${detalle}` : ''), scoreActual: 50, argumento: argFinal, plan: planResumen }) }).then((r) => r.json());
       if (j.ok && typeof j.score === 'number') {
         board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
+        showUsage(j.usage, 'nueva tarea');
         return { score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
       }
     } catch { /* fallback abajo */ }
@@ -186,7 +203,13 @@ export function BoardShell({ board }: { board: Board }) {
         onDowngrade={(p) => { board.moveTo(wizardTask.id, p); setAltaUndo(null); }}
         onDone={cerrarWizard} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
-      {flash && <div style={{ position: 'fixed', left: '50%', bottom: 84, transform: 'translateX(-50%)', zIndex: 250, background: '#14161B', color: '#F3F5F8', padding: '10px 16px', borderRadius: 10, fontSize: 13.5, boxShadow: '0 12px 32px rgba(18,21,27,.35)' }}>{flash}</div>}
+      {usageFlash && <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 250, display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 12px 32px rgba(18,21,27,.18)', fontFamily: SANS }}>
+        <span style={{ fontSize: 18, lineHeight: 1 }}>🪙</span>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtTokens(usageFlash.tokens)} tokens · US${usageFlash.cost.toFixed(3)}</div>
+          <div style={{ fontSize: 11, color: 'var(--faint)' }}>{usageFlash.feature} · consumo de MaKo</div>
+        </div>
+      </div>}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>
   );
@@ -197,6 +220,8 @@ const ghostBtn: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: 
 const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 500, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: SANS, width: '100%' };
 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+// formatea tokens (12300 → "12,3k") para el toast de consumo de IA
+function fmtTokens(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n); }
 
 function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; total: number; label: string }) {
   return (
