@@ -2,7 +2,7 @@
 // /leads — CRM (rediseño Marketing OS): Kanban + Tabla + ficha en modal
 // =============================================================================
 
-import { listLeads, getPipelineStages, getFunnelTransitions, getVisitasLandingMap, getVslEngagementMap, type Lead } from '@/lib/leads';
+import { listLeads, getPipelineStages, getFunnelTransitions, type Lead } from '@/lib/leads';
 import { generateFunnel, DEFAULT_PIPELINE, type FunnelTransition } from '@/lib/pipeline';
 import {
   getCampaignNameMap,
@@ -53,21 +53,10 @@ export default async function LeadsPage() {
     stages = generateFunnel(DEFAULT_PIPELINE).stages;
   }
 
-  // Independientes entre sí → en paralelo (antes eran dos awaits en cascada).
-  const visitorIds = leads.map((l) => l.visitor_id);
-  const [visitasMap, vslMap] = await Promise.all([
-    getVisitasLandingMap(visitorIds).catch(
-      () => new Map<string, { total_visitas: number; dias_distintos: number }>(),
-    ),
-    getVslEngagementMap(visitorIds).catch(
-      () => new Map() as Awaited<ReturnType<typeof getVslEngagementMap>>,
-    ),
-  ]);
-
   const telById = new Map(leads.map((l) => [l.id, l.telefono]));
 
   const validStageKeys = new Set(stages.map((s) => s.key));
-  const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, visitasMap, validStageKeys, vslMap));
+  const crmLeads: CrmLead[] = leads.map((l) => mapToCrmLead(l, campMap, validStageKeys));
 
   const juntas: CrmJunta[] = juntasRaw.map((j) => ({
     id: `${j.lead_id}-${j.tipo}`,

@@ -36,7 +36,6 @@ import {
   getLead,
   getPipelineStages,
   getVisitasLandingMap,
-  getVslEngagementMap,
   getVslEngagement,
   getTrackingEvents,
   getLeadRespuestas,
@@ -76,8 +75,7 @@ async function autorActual(): Promise<string> {
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
 import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, type PlanPagos, type Pago } from '@/lib/pagos';
-import { mapToCrmLead, type VisitasMap, type VslMap } from './crm-map';
-import type { CrmLead } from './CrmBoard';
+import { type VisitasMap } from './crm-map';
 
 /** Análisis de llamadas (Closing Analyst) matcheados a este lead. */
 export type LeadInsightRow = {
@@ -831,24 +829,3 @@ export async function saveFunnelAction(pipeline: Stage[], suppressed: string[]):
   revalidatePath('/funnel');
 }
 
-/**
- * Carga un lead como CrmLead (+ etapas) para el modal de edición in-place que se
- * abre desde cualquier desglose del dashboard. Mismo view-model que /leads.
- */
-export async function getCrmLeadAction(
-  id: number,
-): Promise<{ lead: CrmLead; stages: Stage[] } | null> {
-  const l = await getLead(id);
-  if (!l) return null;
-  const [campMap, stages, visitasMap, vslMap] = await Promise.all([
-    getCampaignNameMap().catch(() => ({}) as Record<string, string>),
-    getPipelineStages().catch(() => DEFAULT_STAGES),
-    getVisitasLandingMap([l.visitor_id]).catch(() => new Map() as VisitasMap),
-    getVslEngagementMap([l.visitor_id]).catch(() => new Map() as VslMap),
-  ]);
-  // Mismo criterio que /leads: ignorar overrides huérfanos (etapa ya no en el funnel).
-  const validStageKeys = new Set(stages.map((s) => s.key));
-  // vslMap: sin esto el modal abierto desde WhatsApp/desgloses mostraba el VSL
-  // vacío (plays 0, retención —) aunque en el CRM sí figuraran los datos.
-  return { lead: mapToCrmLead(l, campMap, visitasMap, validStageKeys, vslMap), stages };
-}
