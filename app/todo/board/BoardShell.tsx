@@ -168,12 +168,10 @@ export function BoardShell({ board }: { board: Board }) {
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'wrap' }}>
-        {/* logo de MaKo + Plan */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
-          <GuardianIcon size={26} />
-          <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 700, letterSpacing: '.12em', color: 'var(--accent)' }}>MAKO</span>
-          <span style={{ width: 1, height: 18, background: 'var(--border)' }} />
-          <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>Plan</span>
+        {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 11 }}>
+          <PlanIcon size={30} />
+          <span style={{ fontSize: 27, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.02em' }}>Plan</span>
         </div>
         {/* tabs */}
         <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
@@ -236,6 +234,19 @@ const ghostBtn: CSSProperties = { padding: '8px 13px', borderRadius: 9, border: 
 const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, fontWeight: 500, padding: '7px 10px', borderRadius: 8, cursor: 'pointer', fontFamily: SANS, width: '100%' };
 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+// Logo del Plan: checklist relleno (mismo motivo que el ícono de la sidebar). Los
+// checks/líneas usan --surface para invertir bien en claro/oscuro.
+function PlanIcon({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ flex: 'none' }}>
+      <rect x="3.4" y="2.4" width="17.2" height="19.2" rx="3.4" fill="var(--ink)" />
+      <g stroke="var(--surface)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" fill="none">
+        <path d="M6.6 8l1.3 1.3 2.4-2.9" /><path d="M6.6 12.4l1.3 1.3 2.4-2.9" /><path d="M6.6 16.8l1.3 1.3 2.4-2.9" />
+        <path d="M13 8h4.3M13 12.4h4.3M13 16.8h4.3" strokeWidth="1.9" />
+      </g>
+    </svg>
+  );
+}
 // formatea tokens (12300 → "12,3k") para el toast de consumo de IA
 function fmtTokens(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n); }
 // progreso agregado de un proyecto (promedio del avance de sus tareas)

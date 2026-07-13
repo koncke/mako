@@ -17,7 +17,7 @@ const PATHS: Record<string, ReactNode> = {
   closing: (<path d="M4 4h4l2 5-2.5 1.6a11 11 0 0 0 5 5L15 13l5 2v3.5A1.5 1.5 0 0 1 18.5 21 16 16 0 0 1 3 5.5 1.5 1.5 0 0 1 4.5 4Z" />),
   script: (<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18" /><path d="M8 4 6.5 9" /><path d="M13 4l-1.5 5" /></>),
   experiments: (<><path d="M9 3h6" /><path d="M10 3v5.5L5.4 16.8A2 2 0 0 0 7.1 20h9.8a2 2 0 0 0 1.7-3.2L14 8.5V3" /><path d="M7.5 15h9" /></>),
-  todo: (<><rect x="4" y="4.5" width="16" height="15" rx="2" /><path d="M7.5 9l1.4 1.4L11.4 7.8" /><path d="M7.5 15l1.4 1.4L11.4 13.8" /><path d="M14 9.3h3M14 15.3h3" /></>),
+  todo: (<><rect x="4.2" y="3.4" width="15.6" height="17.2" rx="2.6" /><path d="M6.9 7.6l1.2 1.2 2.3-2.7" /><path d="M6.9 12l1.2 1.2 2.3-2.7" /><path d="M6.9 16.4l1.2 1.2 2.3-2.7" /><path d="M12.9 7.4h4.5M12.9 11.8h4.5M12.9 16.2h4.5" /></>),
   whatsapp: (<path d="M21 11.5a8 8 0 0 1-11.7 7.1L4 20l1.5-5.2A8 8 0 1 1 21 11.5Z" />),
   email: (<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 7 8.5 6 8.5-6" /></>),
   mako: (<><path d="M12 3v4M12 17v4M3 12h4M17 12h4" /><path d="M12 8.5 13.3 11 16 12l-2.7 1L12 15.5 10.7 13 8 12l2.7-1Z" /></>),
