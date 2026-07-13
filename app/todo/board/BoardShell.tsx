@@ -231,8 +231,14 @@ export function BoardShell({ board }: { board: Board }) {
       {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otrosProyectos={labels.filter((l) => l.id !== debateProj.id).map((l) => `- ${l.emoji} ${l.name} (prioridad ${l.score}/10)`).join('\n') || '(no hay otros proyectos)'} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia')} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
-      {eliminarTask && <EliminarModal que={`la tarea «${eliminarTask.title.slice(0, 40)}»`} opciones={['Ya no aplica', 'Está duplicada', 'Ya se hizo', 'Cambió la prioridad']} confirmLabel="Borrar tarea" onConfirm={(motivo) => { board.remove(eliminarTask.id, motivo); setEliminarTaskId(null); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
-      {eliminarProj && <EliminarModal que={`el proyecto «${eliminarProj.name}»`} advertencia={`Se borran también sus ${tasks.filter((t) => t.labels.includes(eliminarProj.id)).length} tarea(s). No se puede deshacer.`} opciones={['Ya no es relevante', 'Se fusiona con otro', 'Fue un error', 'Terminó']} confirmLabel="Borrar todo" onConfirm={() => { board.deleteLabelYTareas(eliminarProj.id); setEliminarProjId(null); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
+      {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
+        otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
+        plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}
+        onOpenTask={() => setOpenId(eliminarTask.id)}
+        onBorrar={(motivo) => { board.remove(eliminarTask.id, motivo); setOpenId(null); }} onClose={() => setEliminarTaskId(null)} />}
+      {eliminarProj && <EliminarModal tipo="proyecto" nombre={eliminarProj.name} nTareas={tasks.filter((t) => t.labels.includes(eliminarProj.id)).length}
+        plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar proyecto')}
+        onBorrar={() => { board.deleteLabelYTareas(eliminarProj.id); setOpenProj(null); }} onClose={() => setEliminarProjId(null)} />}
       {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels} topProjectId={topProjectId}
         onAsignar={(ids, motivo) => board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`)}
         onClose={() => setAsignarTaskId(null)} />}

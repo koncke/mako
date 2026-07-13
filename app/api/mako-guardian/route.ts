@@ -6,18 +6,32 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { puntuarPlan, debatirPrioridad, debatirProyecto, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
+import { puntuarPlan, debatirPrioridad, debatirProyecto, decidirEliminar, buscarDuplicados, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+type DupTarea = { id: string; titulo: string; detalle?: string };
 export async function POST(req: NextRequest) {
-  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string };
+  let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string; tipo?: string; que?: string; motivo?: string; otras?: DupTarea[] };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
+    if (body.action === 'eliminar') {
+      const que = String(body.que ?? '').trim();
+      const motivo = String(body.motivo ?? '').trim();
+      if (!que || !motivo) return Response.json({ ok: false, error: 'Falta el elemento o el motivo.' }, { status: 400 });
+      const out = await decidirEliminar(String(body.tipo ?? 'tarea'), que, motivo, String(body.plan ?? ''));
+      return Response.json({ ok: true, ...out });
+    }
+    if (body.action === 'duplicados') {
+      const tarea = String(body.tarea ?? '').trim();
+      if (!tarea) return Response.json({ ok: false, error: 'Falta la tarea.' }, { status: 400 });
+      const out = await buscarDuplicados(tarea, Array.isArray(body.otras) ? body.otras : []);
+      return Response.json({ ok: true, ...out });
+    }
     if (body.action === 'debatir') {
       const tarea = String(body.tarea ?? '').trim();
       const argumento = String(body.argumento ?? '').trim();

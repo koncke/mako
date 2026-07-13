@@ -68,7 +68,7 @@ import {
   CHECKLIST_PROPOSE_SYSTEM_TEMPLATE, CHECKLIST_PROPOSE_USER_TEMPLATE,
   PROYECTO_SYSTEM_TEMPLATE, PROYECTO_USER_TEMPLATE,
 } from './checklist-coach';
-import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE } from './mako-guardian';
+import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
 // Defaults de fragmentos cortos ───────────────────────────────────────────────
 import {
   CHART_PROMPT_ANALISIS_DEFAULT,
@@ -621,6 +621,34 @@ export const REGISTRY: Group[] = [
         variables: [v('scoreActual', 'prioridad actual 1-10'), v('proyecto', 'el proyecto'), v('plan', 'los demás proyectos'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
         default: GUARDIAN_PROJ_DEBATE_USER_TEMPLATE,
         context: 'Le pasa el proyecto, los demás proyectos y el argumento. No borres los slots {{scoreActual}}/{{proyecto}}/{{plan}}/{{argumento}}.',
+      },
+      {
+        key: 'guardian.eliminar.system', source: 'override',
+        label: 'Decidir si borrar (system)', kind: 'system', dynamic: true,
+        variables: [v('tipo', 'tarea | proyecto'), v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
+        default: ELIMINAR_SYSTEM_TEMPLATE,
+        context: 'Cuando el usuario quiere borrar algo, MaKo decide si vale la pena (borrar es destructivo). No borres los slots {{tipo}}/{{jsonShape}}.',
+      },
+      {
+        key: 'guardian.eliminar.user', source: 'override',
+        label: 'Qué se quiere borrar (user)', kind: 'user', dynamic: true,
+        variables: [v('que', 'el elemento'), v('motivo', 'por qué lo borra'), v('plan', 'resto del plan')], scope: 'full', sensitive: false,
+        default: ELIMINAR_USER_TEMPLATE,
+        context: 'Le pasa el elemento, el motivo y el plan. No borres los slots {{que}}/{{motivo}}/{{plan}}.',
+      },
+      {
+        key: 'guardian.duplicados.system', source: 'override',
+        label: 'Buscar duplicados (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
+        default: DUP_SYSTEM_TEMPLATE,
+        context: 'Encuentra tareas que sean el mismo trabajo aunque estén escritas distinto. No borres el slot {{jsonShape}}.',
+      },
+      {
+        key: 'guardian.duplicados.user', source: 'override',
+        label: 'Tarea + lista (user)', kind: 'user', dynamic: true,
+        variables: [v('tarea', 'la posible duplicada'), v('lista', 'las demás tareas con id')], scope: 'full', sensitive: false,
+        default: DUP_USER_TEMPLATE,
+        context: 'Le pasa la tarea y la lista de otras. No borres los slots {{tarea}}/{{lista}}.',
       },
     ],
   },
