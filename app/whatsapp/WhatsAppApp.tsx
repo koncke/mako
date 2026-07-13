@@ -1156,7 +1156,10 @@ function WhatsAppInner() {
                           width="100%"
                           ariaLabel="Plantilla de WhatsApp"
                           buttonStyle={{ height: 44, padding: '0 12px', borderRadius: 12, background: 'var(--surface-2)', fontWeight: 400, fontSize: 14 }}
-                          options={templatesInbox.map((t) => ({ value: t.name, label: `${t.name} (${t.category})` }))}
+                          options={[
+                            { value: '', label: 'Elegí una plantilla…' },
+                            ...templatesInbox.map((t) => ({ value: t.name, label: `${t.name} (${t.category})` })),
+                          ]}
                         />
                       </div>
                       <button onClick={() => void enviarTemplate()} disabled={sending || !selTpl} style={{ flex: 'none', height: '44px', padding: '0 20px', borderRadius: '12px', border: 'none', background: 'var(--good)', color: '#fff', fontSize: '14.5px', fontWeight: 600, cursor: (sending || !selTpl) ? 'default' : 'pointer', opacity: (sending || !selTpl) ? 0.6 : 1, fontFamily: "'Geist', sans-serif" }}>{sending ? 'Enviando…' : 'Enviar plantilla'}</button>
