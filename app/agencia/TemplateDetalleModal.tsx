@@ -8,7 +8,6 @@
 // espera respuesta, el flujo continúa (respuesta del dueño → acción de MaKo).
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { MakoStar } from '../_components/MakoBrand';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reporte', aviso: 'Aviso', accion: 'Acción', pregunta: 'Pregunta' };
@@ -57,17 +56,17 @@ export function TemplateDetalleModal({ aviso, onClose }: { aviso: AvisoCatalogo;
   const impl = IMPL[aviso.yaImplementado] ?? IMPL.no;
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1400, padding: 24 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: '88vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 18, padding: 22 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
-          <div style={{ display: 'flex', gap: 11, alignItems: 'center', minWidth: 0 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 11, flex: 'none', background: '#171511', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MakoStar size={18} /></div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{aviso.titulo}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[aviso.categoria]} {LABEL[aviso.categoria]} · <span style={{ color: impl.c }}>{impl.t}</span></div>
-            </div>
+    <div style={{ height: 620, width: '100%', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+      <div style={{ maxWidth: 560, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver</button>
+        </div>
+        <div style={{ display: 'flex', gap: 11, alignItems: 'center', minWidth: 0, marginBottom: 18 }}>
+          <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{EMOJI_CATEGORIA[aviso.categoria]}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{aviso.titulo}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[aviso.categoria]} {LABEL[aviso.categoria]} · <span style={{ color: impl.c }}>{impl.t}</span></div>
           </div>
-          <button onClick={onClose} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--faint)', cursor: 'pointer', flex: 'none' }}>✕</button>
         </div>
 
         {/* Diagrama: cuándo se envía */}

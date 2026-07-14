@@ -46,7 +46,7 @@ export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
   const estado = canal?.estado ?? 'desconectado';
 
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ width: '100%', maxWidth: 1080, margin: '0 auto', flex: 1, minWidth: 0, padding: '28px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
         <MakoStar size={24} color="var(--primary)" />
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>WhatsApp de MaKo</h1>
@@ -63,8 +63,18 @@ export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
         <div style={{ marginLeft: 'auto', position: 'relative' }}>
           <button type="button" onClick={() => setCanalOpen((v) => !v)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 9, height: 40, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR[estado], flex: 'none' }} />
-            {CANAL_LABEL[estado] ?? 'WhatsApp Admin'}
+            {canal === null ? (
+              <>
+                <style>{'@keyframes mako-pulse{0%,100%{opacity:.35}50%{opacity:1}}'}</style>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: 'var(--faint)', flex: 'none', animation: 'mako-pulse 1.1s infinite' }} />
+                WhatsApp Admin…
+              </>
+            ) : (
+              <>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: COLOR[estado], flex: 'none' }} />
+                {CANAL_LABEL[estado] ?? 'WhatsApp Admin'}
+              </>
+            )}
             <span style={{ color: 'var(--faint)', fontSize: 11, transform: canalOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
           </button>
           {canalOpen && (

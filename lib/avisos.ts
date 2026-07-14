@@ -75,8 +75,11 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       payload: { texto: a.texto, categoria: a.categoria ?? null, semaforo: a.semaforo ?? 'na' },
       origen: `aviso:${a.tipo}`,
     });
-    const alDueno = a.alDueno || ws === OWNER_WS;
-    const env = alDueno ? await enviarAlGrupoSuperAdmin(a.texto) : await enviarAlGrupoMaKo(ws, a.texto);
+    // Ruteo: al grupo del CLIENTE (su "MaKo <> cliente") por default. El grupo de
+    // SuperAdmin es SOLO para avisos de agencia (cross-cliente) marcados alDueno.
+    // Así los eventos de un cliente (aunque corran en OWNER_WS) NO caen en el grupo
+    // de SuperAdmin — el cliente los recibe en SU grupo (creado en Config>Notif).
+    const env = a.alDueno === true ? await enviarAlGrupoSuperAdmin(a.texto) : await enviarAlGrupoMaKo(ws, a.texto);
     if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
     return { ok: true, feedId, wa: env.ok, deduped: false };
   } catch (e) {

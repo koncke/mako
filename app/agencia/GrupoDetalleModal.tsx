@@ -49,17 +49,17 @@ export function GrupoDetalleModal({ jid, onClose, onCambio }: { jid: string; onC
   };
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1400, padding: 24 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, maxHeight: '86vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 18, padding: 22 }}>
+    <div style={{ height: 620, width: '100%', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+      <div style={{ maxWidth: 520, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>Detalle del grupo</div>
-          <button onClick={onClose} title="Cerrar" style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--faint)', cursor: 'pointer' }}>✕</button>
+          <button onClick={onClose} title="Volver al chat" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver al chat</button>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Detalle del grupo</div>
         </div>
 
         {/* Foto + nombre */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <button onClick={() => fileRef.current?.click()} disabled={busy === 'foto'} title="Cambiar foto"
-            style={{ width: 72, height: 72, borderRadius: 18, flex: 'none', background: '#171511', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative' }}>
+            style={{ width: 72, height: 72, borderRadius: '50%', flex: 'none', background: '#171511', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {info?.foto ? <img src={info.foto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <MakoStar size={30} />}
             <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: 9, fontWeight: 600, padding: '2px 0' }}>{busy === 'foto' ? '…' : 'Editar'}</span>

@@ -9,7 +9,6 @@
 // la réplica de MaKo. La topbar (o el botón editar) abre el detalle editable.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MakoStar } from '../_components/MakoBrand';
 import { Dropdown } from '../components/Dropdown';
 import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { TemplateDetalleModal } from './TemplateDetalleModal';
@@ -73,6 +72,9 @@ export function PlantillasView() {
     return () => { timers.current.forEach(clearTimeout); timers.current = []; };
   }, [selId, sel]);
 
+  // Detalle/edición del template: cubre TODO (inline), con botón para volver.
+  if (detalle) return <TemplateDetalleModal aviso={detalle} onClose={() => setDetalle(null)} />;
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
       {/* Columna de "contactos" = títulos, con buscador + filtro arriba */}
@@ -94,7 +96,7 @@ export function PlantillasView() {
             return (
               <button key={a.id} type="button" onClick={() => setSelId(a.id)}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2 }}>
-                <span style={{ width: 40, height: 40, borderRadius: 11, flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{EMOJI_CATEGORIA[a.categoria]}</span>
+                <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{EMOJI_CATEGORIA[a.categoria]}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo}</div>
                   <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.ejemplo.replace(/[*_\n]/g, ' ').slice(0, 40)}</div>
@@ -118,7 +120,7 @@ export function PlantillasView() {
           header={(
             <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
               <button type="button" onClick={() => setDetalle(sel)} title="Ver detalle / editar" style={{ display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, flex: 'none', background: '#171511', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><MakoStar size={16} /></div>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>{EMOJI_CATEGORIA[sel.categoria]}</div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sel.titulo}</div>
                   <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[sel.categoria]} {LABEL[sel.categoria]}{sel.requiereRespuesta ? ' · espera respuesta' : ''} · toca para ver/editar</div>
@@ -132,8 +134,6 @@ export function PlantillasView() {
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--faint)', fontSize: 14 }}>Elegí una plantilla.</div>
       )}
-
-      {detalle && <TemplateDetalleModal aviso={detalle} onClose={() => setDetalle(null)} />}
     </div>
   );
 }
