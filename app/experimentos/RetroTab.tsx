@@ -15,6 +15,7 @@ import type { Retro } from '@/lib/retro';
 import type { RetroPlanItem, RetroReporte, RetroStreamEvent, RetroFaseId } from '@/lib/retro-reporte';
 import { ayerEnTijuana, diasAntes, primerDiaDelMesEnTijuana, primerDiaDelMesDeFecha } from '@/lib/date-utils';
 import { MakoStar, MakoWord } from '@/app/_components/MakoBrand';
+import { useConfirm } from '@/app/_components/useConfirm';
 import { Icon } from '@/app/_components/icons';
 import type { Toast } from './ExperimentosApp';
 import { RetroReport } from './RetroReport';
@@ -62,13 +63,14 @@ export function RetroTab({
   const [selId, setSelId] = useState<number | null>(null);
   const [wizard, setWizard] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
+  const { confirm, confirmNode } = useConfirm();
 
   const sel = selId != null ? retros.find((r) => r.id === selId) ?? null : null;
 
   const onGenerada = (retro: Retro) => { setRetros([retro, ...retros]); setSelId(retro.id); setWizard(false); notify('Retro generada'); };
 
   const borrar = async (id: number) => {
-    if (!window.confirm('¿Eliminar esta retrospectiva?')) return;
+    if (!(await confirm('¿Eliminar esta retrospectiva?'))) return;
     setRetros(retros.filter((r) => r.id !== id));
     if (selId === id) setSelId(null);
     if (demo) return;
@@ -102,6 +104,7 @@ export function RetroTab({
     const alcance = alcanceLabel(sel);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {confirmNode}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <button type="button" onClick={() => setSelId(null)} style={{ ...btnGhost, border: 'none', paddingLeft: 0 }}>← Todas las retros</button>
           <button type="button" onClick={() => borrar(sel.id)} style={{ ...btnGhost, border: 'none', color: 'var(--faint)' }}>🗑 Eliminar</button>
@@ -121,6 +124,7 @@ export function RetroTab({
   // ── Lista ──
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {confirmNode}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <p style={{ margin: 0, fontSize: 14.5, color: 'var(--dim)', maxWidth: 560, lineHeight: 1.55 }}>
           MaKo navega todas tus tabs, cruza los datos y te deja <b>una tesis con su plan</b>. Vos aceptás, posponés o descartás cada recomendación.

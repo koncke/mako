@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../_components/icons';
+import { useConfirm } from '../_components/useConfirm';
 import { VozGuia } from '../_components/VozGuia';
 import { NutricionGenerar } from '../_components/NutricionGenerar';
 
@@ -557,6 +558,7 @@ function BroadcastEditor(props: {
   onClose: () => void; reload: () => Promise<void>;
 }) {
   const { broadcast, segmentos, segCounts, sendEnabled, onClose, reload } = props;
+  const { confirm, confirmNode } = useConfirm();
   const yaEnviado = broadcast.estado === 'enviado';
   const [asunto, setAsunto] = useState(broadcast.asunto);
   const [preheader, setPreheader] = useState(broadcast.preheader ?? '');
@@ -638,7 +640,7 @@ function BroadcastEditor(props: {
   }
 
   async function eliminar() {
-    if (!window.confirm('¿Eliminar este broadcast? No se puede deshacer.')) return;
+    if (!(await confirm('¿Eliminar este broadcast? No se puede deshacer.'))) return;
     setBusy(true);
     try {
       const j = await apiSend<{ ok: boolean; error?: string }>(`/api/email/broadcasts?id=${broadcast.id}`, 'DELETE');
@@ -649,6 +651,7 @@ function BroadcastEditor(props: {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '24px' }}>
+      {confirmNode}
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: '16px', padding: '22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
           <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--ink)' }}>{yaEnviado ? 'Broadcast enviado' : 'Editar broadcast'}</div>
@@ -718,6 +721,7 @@ function BroadcastEditor(props: {
 // (3) "Verificar" + polling hasta 'verified'; (4) elige el remitente. Mientras
 // no esté conectado, la tab funciona en modo simulado.
 function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d: DomState) => void; onClose?: () => void }) {
+  const { confirm, confirmNode } = useConfirm();
   const [dominioInput, setDominioInput] = useState('');
   const [local, setLocal] = useState('hola');
   const [nombre, setNombre] = useState('');
@@ -762,6 +766,7 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '24px', marginBottom: '18px' }}>
+      {confirmNode}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <div>
           <div style={{ fontSize: '19px', fontWeight: 600, color: 'var(--ink)' }}>Configurá tu dominio de envío</div>
@@ -789,7 +794,7 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
             ) : (
               <div style={{ fontSize: '13.5px', color: 'var(--dim)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <code style={{ fontFamily: "'Geist Mono', monospace", color: 'var(--ink)' }}>{dom.dominio}</code>
-                <button onClick={() => { if (window.confirm('¿Quitar este dominio de la configuración? (no se borra de Resend)')) void accion({ action: 'desconectar' }); }} style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'Geist', sans-serif" }}>cambiar</button>
+                <button onClick={async () => { if (await confirm('¿Quitar este dominio de la configuración? (no se borra de Resend)', { confirmLabel: 'Quitar' })) void accion({ action: 'desconectar' }); }} style={{ background: 'none', border: 'none', color: 'var(--faint)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline', fontFamily: "'Geist', sans-serif" }}>cambiar</button>
               </div>
             )}
           </div>

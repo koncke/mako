@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { IconRefresh, IconWrench } from './_shared/composer-icons';
+import { useConfirm } from '../_components/useConfirm';
 
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'error';
 type Qr = { base64: string | null; code: string | null; pairingCode: string | null };
@@ -47,6 +48,7 @@ const chipBase: CSSProperties = {
 const MAX_FALLOS = 5; // tras N fallos seguidos del polling, cortar y avisar
 
 export function EvolutionConnect() {
+  const { confirm, confirmNode } = useConfirm();
   const [estado, setEstado] = useState<Estado>('desconectado');
   const [numero, setNumero] = useState<string | null>(null);
   const [configurado, setConfigurado] = useState(true);
@@ -145,7 +147,7 @@ export function EvolutionConnect() {
   }
 
   async function borrarChats() {
-    if (!window.confirm('¿Borrar TODOS los chats guardados del WhatsApp no oficial? Empezás de 0. (No afecta tu WhatsApp; solo el espejo guardado en la app.)')) return;
+    if (!(await confirm('¿Borrar TODOS los chats guardados del WhatsApp no oficial? Empezás de 0. (No afecta tu WhatsApp; solo el espejo guardado en la app.)'))) return;
     setBorrando(true); setSyncMsg(null); setErr(null);
     try {
       const { body } = await apiPost<{ ok: boolean; borrados?: number; error?: string }>('/api/whatsapp/evolution', { action: 'borrar-chats' });
@@ -171,7 +173,7 @@ export function EvolutionConnect() {
   }
 
   async function desconectar() {
-    if (!window.confirm('¿Desconectar el WhatsApp de empresa? Vas a tener que volver a escanear el QR para reconectar.')) return;
+    if (!(await confirm('¿Desconectar el WhatsApp de empresa? Vas a tener que volver a escanear el QR para reconectar.'))) return;
     setBusy(true); setErr(null);
     try {
       const { body } = await apiPost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution', { action: 'desconectar' });
@@ -190,6 +192,7 @@ export function EvolutionConnect() {
 
   return (
     <>
+      {confirmNode}
       <button onClick={() => { setOpen(true); if (!conectado) void abrir(); }} style={chipStyle}
         title={conectado ? `WhatsApp no oficial conectado${numero ? ` (${numero})` : ''}` : 'Conectar el WhatsApp no oficial (API no Oficial)'}>
         <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: conectado ? 'var(--good)' : 'var(--faint)' }} />

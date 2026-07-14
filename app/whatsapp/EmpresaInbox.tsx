@@ -23,6 +23,7 @@ import { Ticks } from './_shared/Ticks';
 import { Dropdown } from '../components/Dropdown';
 import { ETAPA_COLOR, etapaChip } from '@/lib/wa-etapas';
 import { useNotifications } from '../_components/NotificationsProvider';
+import { useConfirm } from '../_components/useConfirm';
 
 // La MISMA ficha editable del CRM que usa el inbox oficial (on-demand, ssr:false).
 const LeadEditModal = dynamic(() => import('../leads/LeadEditModal').then((m) => m.LeadEditModal), { ssr: false });
@@ -90,6 +91,7 @@ function leerLeido(): Record<string, number> { try { const raw = localStorage.ge
 
 export function EmpresaInbox() {
   const { setOpenChatNoOficial } = useNotifications();
+  const { confirm, confirmNode } = useConfirm();
   const router = useRouter();
   const [convs, setConvs] = useState<Conv[]>(convsCache);
   const [busqLeads, setBusqLeads] = useState<Conv[]>([]); // leads del CRM traídos por el buscador (#2)
@@ -392,7 +394,7 @@ export function EmpresaInbox() {
   async function borrarEsteChat() {
     const sc = findConv(sel);
     if (!sc) return;
-    if (!window.confirm(`¿Borrar el historial guardado de ${sc.nombre}? (Solo el espejo de la app; no toca tu WhatsApp. Podés volver a sincronizarlo.)`)) return;
+    if (!(await confirm(`¿Borrar el historial guardado de ${sc.nombre}? (Solo el espejo de la app; no toca tu WhatsApp. Podés volver a sincronizarlo.)`))) return;
     setChatBusy('clear'); setSendErr(null);
     try {
       const j = await jpost<{ ok: boolean; error?: string }>('/api/whatsapp/evolution/block', { telefono: sc.telefono ?? '', chat: sc.chatJid, action: 'clear-chat' });
@@ -440,6 +442,7 @@ export function EmpresaInbox() {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '330px 1fr 344px', gap: '16px' }}>
+      {confirmNode}
       {/* LISTA */}
       <div style={card}>
         <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--border)' }}>
