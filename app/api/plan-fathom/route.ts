@@ -10,7 +10,9 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { listReunionesRecientes, extraerTareasDeReunion, type ProyectoRef } from '@/lib/plan-fathom';
+import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
   const sesion = await getUsuarioActual();
   if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
 
-  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string };
+  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;
 
@@ -40,6 +42,18 @@ export async function POST(req: NextRequest) {
         ? body.proyectos.filter((p): p is ProyectoRef => !!p && typeof p.id === 'string').map((p) => ({ id: String(p.id), emoji: String(p.emoji ?? ''), nombre: String(p.nombre ?? '') }))
         : [];
       const out = await extraerTareasDeReunion(recordingId, proyectos, uso);
+      // Aviso: MaKo sacó compromisos de la reunión → ofrece cargarlos al tablero.
+      if (out.tareas.length > 0) {
+        const ws = await getWorkspaceActual();
+        const titulo = String(body.titulo ?? '').trim();
+        const deReunion = titulo ? ` de la reunión *${titulo}*` : ' de la última reunión';
+        const n = out.tareas.length;
+        const lista = out.tareas.map((t, i) => `${i + 1}. ${t.titulo}`).join('\n');
+        await emitirDelCatalogo('reunion-compromisos-tareas', {
+          ws: ws ?? undefined,
+          texto: `📝 Saqué *${n} ${n === 1 ? 'compromiso' : 'compromisos'}*${deReunion}:\n${lista}\n\n¿Los cargo como tareas en tu tablero? — MaKo`,
+        });
+      }
       return Response.json({ ok: true, ...out });
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });
