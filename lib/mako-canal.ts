@@ -107,9 +107,24 @@ export async function conectarCanalMaKo(): Promise<{ ok: true; qr: QrCanal; esta
   return { ok: true, estado: 'conectando', qr: { base64: b.base64 ?? null, code: b.code ?? null, pairingCode: b.pairingCode ?? null } };
 }
 
-/** Fija (o saca) mako_superadmin como la voz activa de MaKo. */
+/** Fija (o saca) mako_superadmin como la voz activa de MaKo. Al fijarla, agrega
+ *  el número del canal nuevo a TODOS los grupos (con la voz ACTUAL, que es admin),
+ *  así la línea nueva puede mandar en cada grupo. */
 export async function usarCanalComoVoz(usar: boolean): Promise<void> {
-  await setInstanciaVoz(usar ? INSTANCIA_SUPERADMIN : INSTANCIA_VOZ_DEFAULT);
+  if (usar) {
+    try {
+      const info = await estadoCanalMaKo();
+      if (info.numero) {
+        const { agregarNumeroATodosLosGrupos } = await import('./mako-chat');
+        await agregarNumeroATodosLosGrupos(info.numero);
+      }
+    } catch (e) {
+      console.error('[mako-canal] no se pudo sincronizar el número en los grupos:', e);
+    }
+    await setInstanciaVoz(INSTANCIA_SUPERADMIN);
+  } else {
+    await setInstanciaVoz(INSTANCIA_VOZ_DEFAULT);
+  }
 }
 
 /** Cierra sesión y elimina la instancia del canal. */

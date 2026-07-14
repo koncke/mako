@@ -28,6 +28,7 @@ async function ev<T = unknown>(path: string, init?: RequestInit): Promise<T | nu
 }
 
 const esGrupo = (jid: string | undefined | null): boolean => !!jid && jid.endsWith('@g.us');
+const soloDigitos = (s: string) => (s || '').replace(/\D/g, '');
 
 // Texto legible de un record de Evolution (conversation / texto extendido / caption).
 type EvMsg = {
@@ -144,6 +145,72 @@ export async function mensajesGrupoMaKo(jid: string, limite = 200): Promise<Mens
     })
     .filter((m) => m.texto || m.tipo)
     .sort((a, b) => a.at - b.at);
+}
+
+// ── Detalle / gestión de un grupo (para el modal "detalle del grupo") ─────────
+export type GrupoInfo = {
+  jid: string; subject: string; descripcion: string; foto: string | null;
+  participantes: Array<{ numero: string; admin: boolean }>;
+};
+
+/** Info de un grupo (nombre, descripción, foto, participantes). */
+export async function infoGrupoMaKo(jid: string): Promise<GrupoInfo | null> {
+  if (!esGrupo(jid)) return null;
+  const inst = await instanciaVoz();
+  const g = await ev<Record<string, unknown>>(`/group/findGroupInfos/${inst}?groupJid=${encodeURIComponent(jid)}`);
+  if (!g || typeof g !== 'object') return null;
+  const parts = (g.participants as Array<{ id?: string; admin?: string | null }> | undefined) ?? [];
+  return {
+    jid,
+    subject: (g.subject as string) || '',
+    descripcion: (g.desc as string) || (g.description as string) || '',
+    foto: (g.pictureUrl as string) || (g.profilePicUrl as string) || null,
+    participantes: parts.map((p) => ({ numero: (p.id || '').replace(/@.*/, ''), admin: !!p.admin })).filter((p) => p.numero),
+  };
+}
+
+async function accionParticipantes(jid: string, numeros: string[], action: 'add' | 'remove'): Promise<{ ok: boolean }> {
+  const inst = await instanciaVoz();
+  const nums = numeros.map(soloDigitos).filter(Boolean);
+  if (!nums.length) return { ok: false };
+  const r = await ev(`/group/updateParticipant/${inst}?groupJid=${encodeURIComponent(jid)}`, {
+    method: 'POST', body: JSON.stringify({ action, participants: nums }),
+  });
+  return { ok: r != null };
+}
+export const agregarParticipantesMaKo = (jid: string, numeros: string[]) => accionParticipantes(jid, numeros, 'add');
+export const quitarParticipantesMaKo = (jid: string, numeros: string[]) => accionParticipantes(jid, numeros, 'remove');
+
+/**
+ * Agrega un número a TODOS los grupos de MaKo (SuperAdmin + "MaKo <> cliente").
+ * Se usa al cambiar el WhatsApp Admin: la línea NUEVA tiene que estar en todos los
+ * grupos para poder mandar. Corre con la voz ACTUAL (la vieja, que es admin de los
+ * grupos) — llamarlo ANTES de switchear la voz a la línea nueva.
+ */
+export async function agregarNumeroATodosLosGrupos(numero: string): Promise<{ grupos: number; ok: number }> {
+  const jids = [...(await jidsGruposMaKo())];
+  let ok = 0;
+  for (const jid of jids) { const r = await agregarParticipantesMaKo(jid, [numero]); if (r.ok) ok++; }
+  return { grupos: jids.length, ok };
+}
+
+/** Cambia el nombre del grupo. */
+export async function renombrarGrupoMaKo(jid: string, subject: string): Promise<{ ok: boolean }> {
+  const inst = await instanciaVoz();
+  const r = await ev(`/group/updateGroupSubject/${inst}?groupJid=${encodeURIComponent(jid)}`, { method: 'POST', body: JSON.stringify({ subject }) });
+  return { ok: r != null };
+}
+/** Cambia la descripción del grupo. */
+export async function descripcionGrupoMaKoSet(jid: string, descripcion: string): Promise<{ ok: boolean }> {
+  const inst = await instanciaVoz();
+  const r = await ev(`/group/updateGroupDescription/${inst}?groupJid=${encodeURIComponent(jid)}`, { method: 'POST', body: JSON.stringify({ description: descripcion }) });
+  return { ok: r != null };
+}
+/** Cambia la foto del grupo (base64 crudo o data URL). */
+export async function fotoGrupoMaKo(jid: string, base64: string): Promise<{ ok: boolean }> {
+  const inst = await instanciaVoz();
+  const r = await ev(`/group/updateGroupPicture/${inst}?groupJid=${encodeURIComponent(jid)}`, { method: 'POST', body: JSON.stringify({ image: soloB64(base64) }) });
+  return { ok: r != null };
 }
 
 /** Trae los bytes de la media de un mensaje de grupo (proxy same-origin). */

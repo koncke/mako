@@ -94,6 +94,16 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
  * Emite un aviso a partir de una entrada del catálogo (usa su `ejemplo` como
  * texto por defecto, o el `texto` provisto cuando hay datos reales).
  */
+export const KEY_PLANTILLA = (id: string) => `mako.plantilla.${id}`;
+
+/** Texto EFECTIVO de una plantilla: el override editado (si existe) o el ejemplo
+ *  del catálogo. El override lo edita el dueño en la tab Plantillas. */
+export async function textoPlantilla(id: string): Promise<string> {
+  const cat = avisoDelCatalogo(id);
+  const ov = await runWithWorkspace(OWNER_WS, () => getSetting(KEY_PLANTILLA(id)));
+  return (ov && ov.trim()) || cat?.ejemplo || '';
+}
+
 export async function emitirDelCatalogo(
   id: string, opts: { texto?: string; ws?: number; dedupTtlMin?: number } = {},
 ): Promise<EmitirAvisoResult> {
@@ -102,7 +112,9 @@ export async function emitirDelCatalogo(
   return emitirAviso({
     tipo: cat.id,
     titulo: cat.titulo,
-    texto: opts.texto ?? cat.ejemplo,
+    // Prioridad: texto explícito (con datos reales del disparador) → override
+    // editado por el dueño → ejemplo del catálogo.
+    texto: opts.texto ?? (await textoPlantilla(id)),
     categoria: cat.categoria,
     semaforo: cat.semaforo,
     ws: opts.ws,

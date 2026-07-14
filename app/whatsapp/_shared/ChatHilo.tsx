@@ -52,14 +52,28 @@ export type ChatHiloProps = {
   placeholder?: string;
   /** burbuja "escribiendo…" (para previews animadas). lado: quién escribe. */
   typing?: { lado: 'left' | 'right'; autor?: string } | null;
+  /** clave de la conversación → borrador POR conversación (no se filtra al saltar). */
+  draftKey?: string;
 };
+
+// Borradores por conversación (sobreviven el salto entre chats, como el inbox real).
+const draftStore = new Map<string, string>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
-  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing,
+  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey,
 }: ChatHiloProps) {
-  const [draft, setDraft] = useState('');
+  const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
   const [adjunto, setAdjunto] = useState<File | null>(null);
+  // Al cambiar de conversación: cargar SU borrador y limpiar adjunto/emoji.
+  const prevKey = useRef(draftKey);
+  const setDraft = (v: string | ((p: string) => string)) => {
+    setDraftState((prev) => {
+      const next = typeof v === 'function' ? (v as (p: string) => string)(prev) : v;
+      if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); }
+      return next;
+    });
+  };
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
@@ -71,6 +85,13 @@ export function ChatHilo({
 
   const adjuntoPreview = useMemo(() => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null), [adjunto]);
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
+  // Cambió la conversación → cargar SU borrador + limpiar adjunto/emoji/error.
+  useEffect(() => {
+    if (prevKey.current === draftKey) return;
+    prevKey.current = draftKey;
+    setDraftState(draftKey ? draftStore.get(draftKey) ?? '' : '');
+    setAdjunto(null); setEmojiOpen(false); setSendErr(null);
+  }, [draftKey]);
   useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
   const onScroll = () => { const el = scrollRef.current; if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; };
 
@@ -180,6 +201,14 @@ export function ChatHilo({
       )}
       {sendErr && <div style={{ padding: '8px 16px', background: 'var(--warn-fill)', color: 'var(--warn)', fontSize: 12.5, borderTop: '1px solid var(--border)' }}>{sendErr}</div>}
 
+      {readOnly && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 4, opacity: 0.55, pointerEvents: 'none', userSelect: 'none' }}>
+          <span style={iconComposer}><IconSmiley /></span>
+          <span style={iconComposer}><IconClip /></span>
+          <div style={{ flex: 1, minHeight: 40, padding: '9px 16px', borderRadius: 21, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--faint)', fontSize: 14, display: 'flex', alignItems: 'center' }}>{placeholder ?? 'Escribí un mensaje…'}</div>
+          <span style={iconComposer}><IconMic /></span>
+        </div>
+      )}
       {puedeComponer && (voz.recording ? (
         <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
           <VoiceRecorderBar paused={voz.paused} secs={voz.secs} sending={sending} onCancel={() => voz.stop(true)} onTogglePause={voz.paused ? voz.resume : voz.pause} onSend={() => voz.stop(false)} />
