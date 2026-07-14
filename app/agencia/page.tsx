@@ -14,6 +14,6 @@ export const revalidate = 0;
 export default async function AgenciaPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   if (!(await getSesionAdmin())) redirect('/login');
   const { tab } = await searchParams;
-  const inicial = tab === 'chat' || tab === 'plantillas' ? tab : 'canal';
+  const inicial = tab === 'plantillas' ? 'plantillas' : 'chat';
   return <AgenciaTabs inicial={inicial} />;
 }

@@ -9,21 +9,18 @@
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { MakoStar } from '../_components/MakoBrand';
-import { CanalMaKoPanel } from './CanalMaKoPanel';
 import { PlantillasView } from './PlantillasView';
 import { ChatGruposPanel } from './ChatGruposPanel';
 
-type TabKey = 'canal' | 'chat' | 'plantillas';
+type TabKey = 'chat' | 'plantillas';
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'canal', label: 'Canal' },
   { key: 'chat', label: 'Chat' },
   { key: 'plantillas', label: 'Plantillas' },
 ];
 
-export function AgenciaTabs({ inicial = 'canal' }: { inicial?: TabKey }) {
+export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
   const [tab, setTab] = useState<TabKey>(inicial);
   const paneles: Record<TabKey, ReactNode> = {
-    canal: <CanalMaKoPanel />,
     chat: <ChatGruposPanel />,
     plantillas: <PlantillasView />,
   };

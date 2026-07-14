@@ -19,7 +19,7 @@ const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var
 const COLOR: Record<Estado, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
 const LABEL: Record<Estado, string> = { conectado: 'Conectado', conectando: 'Esperando escaneo…', desconectado: 'Desconectado', error: 'Error' };
 
-export function CanalMaKoPanel() {
+export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   const [info, setInfo] = useState<Info | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,8 @@ export function CanalMaKoPanel() {
 
   const cargar = useCallback(async () => {
     try { const j = await (await fetch('/api/admin/mako-canal')).json(); if (j.ok) setInfo(j as Info); } catch { /* noop */ }
-  }, []);
+    onCambio?.();
+  }, [onCambio]);
 
   useEffect(() => { cargar(); }, [cargar]);
   // Mientras hay QR en pantalla, poleá el estado hasta conectar.
