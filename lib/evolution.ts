@@ -109,6 +109,22 @@ async function setSettings(instance: string): Promise<void> {
   });
 }
 
+// Habilita la RECEPCIÓN de mensajes de grupo (groupsIgnore:false) para una
+// instancia — necesario para el doer "Hola MaKo", que escucha en los grupos de
+// MaKo. Por defecto las instancias ignoran grupos (regla anti-ban del PDF); esto
+// se activa a propósito solo en la línea que le da voz a MaKo. Mantiene el resto
+// de los ajustes anti-ban igual.
+export async function permitirGruposEnInstancia(instance: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await evFetch(`/settings/set/${encodeURIComponent(instance)}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      rejectCall: false, msgCall: '', groupsIgnore: false,
+      alwaysOnline: false, readMessages: false, readStatus: false, syncFullHistory: false,
+    }),
+  });
+  return r.ok ? { ok: true } : { ok: false, error: r.error };
+}
+
 // ── Tipos de respuesta que consumimos ────────────────────────────────────────
 export type QrData = { base64: string | null; code: string | null; pairingCode: string | null };
 

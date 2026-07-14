@@ -14,6 +14,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
+import { manejarEntranteDoer } from '@/lib/mako-doer-in';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 
@@ -113,6 +114,14 @@ export async function POST(req: NextRequest) {
       let errores = 0;
       await runWithWorkspace(ws, async () => {
         for (const m of mensajes) {
+          // Mensajes de GRUPO (…@g.us) → doer "Hola MaKo" (guardarMensajeUpsert
+          // los descarta; el espejo 1-a-1 no aplica a grupos). El doer decide
+          // solo si engancha (grupo habilitado + lo nombran / hay pendiente).
+          const rjid = ((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '';
+          if (rjid.endsWith('@g.us')) {
+            try { await manejarEntranteDoer(ws, m); } catch (e) { console.error(`[webhook:evolution] doer: ${e instanceof Error ? e.message : String(e)}`); }
+            continue;
+          }
           try { await guardarMensajeUpsert(instance, m); } catch (e) { errores += 1; console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }
         }
         await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
