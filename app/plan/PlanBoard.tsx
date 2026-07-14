@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, prioFromScore, clampScore } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, prioFromScore, clampScore, HIST_CAP } from './board/types';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -349,17 +349,31 @@ function mergeExtras(tasks: BoardTask[], labels: Label[]): { tasks: BoardTask[];
 // Reconciliar UNA vez el checklist de tareas puntuales al SEED corregido (marcar lo
 // que ya se hizo). A diferencia de mergeExtras (que solo AGREGA tareas nuevas), esto
 // pisa el checklist —y por ende el avance, que se deriva de él— SOLO de estas tareas,
-// dejando intacto el resto del board. Se bumpea RECONCILE_VERSION para re-correrlo.
-const RECONCILE_VERSION = 'v1';
-const RECONCILE_NUMS = new Set([10, 12, 34, 65, 89, 92, 95]);
+// dejando intacto el resto del board, y DEJA RASTRO en el historial (actor 'ia' = MaKo)
+// de cada ítem que MaKo completó en la tanda autónoma. Bump de versión para re-correrlo.
+const RECONCILE_VERSION = 'v2';
+const RECONCILE_TS = Date.parse('2026-07-13T21:00:00-06:00'); // cuándo MaKo lo hizo (TJ)
+// Por tarea: los ítems que MaKo COMPLETÓ en esta tanda (los que pasaron a hecho ahora;
+// no incluye los que ya estaban tildados). Alimenta el historial + son la allowlist.
+const RECONCILE_DONE: Record<number, string[]> = {
+  10: ['El webhook de Chatwoot busca el lead acotado al cliente', 'Tracking del VSL y la landing sin conexión cruda', 'La columna de cliente en las vistas de datos (mig 0084)', 'Auditoría de las 131 rutas + gates de rol que faltaban'],
+  12: ['Tests de que cada consulta queda acotada al cliente (contrato TENANT_TABLES)', 'Más tests: scoring del guardián, fechas, Calendly, anti-inyección, journey'],
+  34: ['Inyectarle a MaKo el funnel real (contexto + tool para consultarlo)'],
+  65: ['Sumar los de Experimentos/Retro a la pantalla editable', "Corregir los carteles mal (Retro + 'núcleo no editable' en Contexto)"],
+  89: ['Borrar el administrador de ángulos viejo', 'Borrar el navegador de anuncios huérfano', 'Borrar el retro viejo + 3 componentes huérfanos más'],
+  92: ['Tab Graphics del board (matriz impacto×esfuerzo, pirámide, avance, salud)'],
+  95: ['Migrar los desplegables nativos que quedaban', 'Los textos R1/R2 visibles ya están todos migrados'],
+};
 function reconcileChecklists(tasks: BoardTask[]): BoardTask[] {
   try {
     if (localStorage.getItem('mako_plan_reconcile') === RECONCILE_VERSION) return tasks;
     localStorage.setItem('mako_plan_reconcile', RECONCILE_VERSION);
     return tasks.map((t) => {
-      if (!RECONCILE_NUMS.has(t.num)) return t;
+      const hechos = RECONCILE_DONE[t.num];
       const cl = buildCL(t.num);
-      return cl.length ? { ...t, checklist: cl, progress: clProgress(cl, t.progress) } : t;
+      if (!hechos || !cl.length) return t;
+      const entries: Hist[] = hechos.map((text, i) => ({ id: 'rec' + t.num + '_' + i, ts: RECONCILE_TS - i * 1000, actor: 'ia', text: `Completó "${text}"`, kind: 'task' }));
+      return { ...t, checklist: cl, progress: clProgress(cl, t.progress), historial: [...entries, ...t.historial].slice(0, HIST_CAP) };
     });
   } catch { return tasks; }
 }
