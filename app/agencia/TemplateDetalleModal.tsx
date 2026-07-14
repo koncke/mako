@@ -1,23 +1,26 @@
 'use client';
 
 // =============================================================================
-// TemplateDetalleModal — detalle + edición de una plantilla de aviso
+// TemplateDetalleModal — detalle + edición + CRUD de una plantilla de aviso
 // =============================================================================
-// Explica CUÁNDO se envía el mensaje (diagrama de flujo) y deja EDITAR el texto
-// (override guardado en app_settings, que usa emitirDelCatalogo). Si el aviso
-// espera respuesta, el flujo continúa (respuesta del dueño → acción de MaKo).
+// Cubre TODO el chat (inline). Explica CUÁNDO se dispara (diagrama), deja EDITAR
+// la referencia, ACTIVAR/DESACTIVAR, ELIMINAR y CREAR. La referencia NO es un
+// molde: "Probar con IA" muestra cómo MaKo la adapta con datos reales.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Dropdown } from '../components/Dropdown';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
+export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean };
+
+const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reporte', aviso: 'Aviso', accion: 'Acción', pregunta: 'Pregunta' };
-const IMPL: Record<string, { t: string; c: string }> = { si: { t: 'activo', c: 'var(--good)' }, parcial: { t: 'parcial', c: 'var(--warn)' }, no: { t: 'por venir', c: 'var(--faint)' } };
 const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' };
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
+const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, fontFamily: "'Geist', sans-serif", outline: 'none' };
 
-// Un paso del diagrama de flujo.
 function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titulo: string; detalle?: string; tono?: 'neutro' | 'mako' | 'dueno' }) {
-  const bg = tono === 'mako' ? 'var(--primary-bg)' : tono === 'dueno' ? 'var(--surface-2)' : 'var(--surface-2)';
+  const bg = tono === 'mako' ? 'var(--primary-bg)' : 'var(--surface-2)';
   const bd = tono === 'mako' ? 'var(--primary-weak)' : 'var(--border)';
   return (
     <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: bg, border: `1px solid ${bd}` }}>
@@ -31,78 +34,100 @@ function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titu
 }
 const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, margin: '2px 0' }}>↓</div>;
 
-export function TemplateDetalleModal({ aviso, onClose }: { aviso: AvisoCatalogo; onClose: () => void }) {
-  const [texto, setTexto] = useState('');
-  const [orig, setOrig] = useState('');
-  const [esOverride, setEsOverride] = useState(false);
-  const [busy, setBusy] = useState(false);
+async function api(body: unknown): Promise<{ ok: boolean; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
+  try { return await (await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false }; }
+}
+
+export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantilla: PlantillaVista | null; onClose: () => void; onCambio?: () => void }) {
+  const crear = plantilla === null;
+  const [titulo, setTitulo] = useState(plantilla?.titulo ?? '');
+  const [categoria, setCategoria] = useState<CategoriaAviso>(plantilla?.categoria ?? 'aviso');
+  const [requiereResp, setRequiereResp] = useState(plantilla?.requiereRespuesta ?? false);
+  const [texto, setTexto] = useState(plantilla?.ejemplo ?? '');
+  const [orig, setOrig] = useState(plantilla?.ejemplo ?? '');
+  const [enabled, setEnabled] = useState(plantilla?.enabled ?? true);
+  const [prueba, setPrueba] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
-  const cargar = useCallback(async () => {
-    try { const j = await (await fetch(`/api/admin/plantillas?id=${encodeURIComponent(aviso.id)}`)).json(); if (j.ok) { setTexto(j.texto); setOrig(j.texto); setEsOverride(!!j.esOverride); } } catch { /* noop */ }
-  }, [aviso.id]);
-  useEffect(() => { cargar(); }, [cargar]);
+  const flashOk = (m: string) => { setFlash(m); setTimeout(() => setFlash(null), 2200); };
+  const id = plantilla?.id;
 
-  const guardar = async () => {
-    setBusy(true);
-    try { const j = await (await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: aviso.id, texto }) })).json(); if (j.ok) { setOrig(texto); setEsOverride(true); setFlash('Guardado ✓'); setTimeout(() => setFlash(null), 2200); } }
-    finally { setBusy(false); }
+  const guardarTexto = async () => { if (!id) return; setBusy('save'); const r = await api({ action: 'texto', id, texto }); if (r.ok) { setOrig(texto); flashOk('Guardado ✓'); onCambio?.(); } setBusy(null); };
+  const toggle = async () => { if (!id) return; setBusy('toggle'); const r = await api({ action: 'enabled', id, enabled: !enabled }); if (r.ok) { setEnabled(!enabled); flashOk(!enabled ? 'Activada ✓' : 'Desactivada ✓'); onCambio?.(); } setBusy(null); };
+  const eliminar = async () => { if (!id) return; setBusy('del'); const r = await api({ action: 'borrar', id }); if (r.ok) { onCambio?.(); onClose(); } setBusy(null); };
+  const probar = async () => { if (!id) return; setBusy('probar'); const r = await api({ action: 'probar', id }); if (r.ok && r.texto) setPrueba(r.texto); setBusy(null); };
+  const crearNueva = async () => {
+    setBusy('crear');
+    const r = await api({ action: 'crear', titulo, categoria, requiereRespuesta: requiereResp, texto });
+    if (r.ok) { onCambio?.(); onClose(); }
+    setBusy(null);
   };
-  const resetear = async () => {
-    setBusy(true);
-    try { const j = await (await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: aviso.id, reset: true }) })).json(); if (j.ok) { setTexto(j.texto); setOrig(j.texto); setEsOverride(false); setFlash('Volvió al ejemplo ✓'); setTimeout(() => setFlash(null), 2200); } }
-    finally { setBusy(false); }
-  };
-  const impl = IMPL[aviso.yaImplementado] ?? IMPL.no;
 
   return (
     <div style={{ height: 620, width: '100%', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
       <div style={{ maxWidth: 560, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver</button>
-        </div>
-        <div style={{ display: 'flex', gap: 11, alignItems: 'center', minWidth: 0, marginBottom: 18 }}>
-          <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{EMOJI_CATEGORIA[aviso.categoria]}</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{aviso.titulo}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[aviso.categoria]} {LABEL[aviso.categoria]} · <span style={{ color: impl.c }}>{impl.t}</span></div>
-          </div>
+          {!crear && id && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{plantilla.esCustom ? 'Eliminar' : 'Desactivar'}</button>}
         </div>
 
-        {/* Diagrama: cuándo se envía */}
-        <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cuándo se dispara?</div>
-        <div style={{ marginBottom: 20 }}>
-          <Paso icono="⚡" titulo="Se dispara cuando…" detalle={aviso.disparador} />
-          <Flecha />
-          <Paso icono="🧠" titulo="MaKo lo detecta" detalle="El motor de avisos arma el mensaje con los datos reales del evento (nombre, fecha, monto, etc.)." tono="mako" />
-          <Flecha />
-          <Paso icono="💬" titulo={`MaKo te manda el mensaje${aviso.semaforo !== 'na' ? ` (semáforo ${aviso.semaforo})` : ''}`} detalle="Llega a este grupo de WhatsApp + al feed in-app." tono="mako" />
-          {aviso.requiereRespuesta && (
-            <>
+        {crear ? (
+          <>
+            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 16 }}>Nueva plantilla</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título (ej. Recordar renovación)" style={inp} />
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <Dropdown value={categoria} onChange={(v) => setCategoria(v as CategoriaAviso)} width={180} ariaLabel="Categoría" options={ORDEN.map((k) => ({ value: k, label: `${EMOJI_CATEGORIA[k]} ${LABEL[k]}` }))} />
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--dim)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={requiereResp} onChange={(e) => setRequiereResp(e.target.checked)} /> Espera respuesta
+                </label>
+              </div>
+              <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={6} placeholder="Referencia del mensaje (MaKo la adapta con datos reales)…" style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+              <button onClick={crearNueva} disabled={busy === 'crear' || !titulo.trim()} style={{ ...btn, opacity: busy === 'crear' || !titulo.trim() ? 0.5 : 1 }}>Crear plantilla</button>
+            </div>
+          </>
+        ) : plantilla ? (
+          <>
+            <div style={{ display: 'flex', gap: 11, alignItems: 'center', minWidth: 0, marginBottom: 18 }}>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{EMOJI_CATEGORIA[plantilla.categoria]}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{plantilla.titulo}</div>
+                <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[plantilla.categoria]} {LABEL[plantilla.categoria]}{plantilla.esCustom ? ' · personalizada' : ''}</div>
+              </div>
+              <button onClick={toggle} disabled={busy === 'toggle'} title={enabled ? 'Desactivar' : 'Activar'}
+                style={{ flex: 'none', padding: '5px 12px', borderRadius: 999, border: `1px solid ${enabled ? 'var(--good)' : 'var(--border-strong)'}`, background: enabled ? 'var(--good-bg)' : 'var(--surface)', color: enabled ? 'var(--good)' : 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{enabled ? 'Activa' : 'Inactiva'}</button>
+            </div>
+
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cuándo se dispara?</div>
+            <div style={{ marginBottom: 20 }}>
+              <Paso icono="⚡" titulo="Se dispara cuando…" detalle={plantilla.disparador} />
               <Flecha />
-              <Paso icono="🙋" titulo="Vos respondés" detalle="El aviso espera tu OK (o tu respuesta) para seguir." tono="dueno" />
+              <Paso icono="🧠" titulo="MaKo lo detecta y ESCRIBE con IA" detalle="Toma esta referencia + los datos reales del evento y redacta el mensaje (libre de adaptarlo)." tono="mako" />
               <Flecha />
-              <Paso icono="✅" titulo="MaKo actúa y te confirma" detalle={aviso.categoria === 'accion' ? 'Ejecuta la acción sugerida y te avisa cuando está.' : 'Sigue el flujo según lo que le digas.'} tono="mako" />
-            </>
-          )}
-        </div>
+              <Paso icono="💬" titulo="Te llega al grupo de WhatsApp + al feed" tono="mako" />
+              {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Vos respondés" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
+            </div>
 
-        {/* Editar el mensaje */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)' }}>El mensaje</span>
-          {esOverride && <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 5, padding: '1px 6px' }}>editado</span>}
-        </div>
-        <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7}
-          style={{ width: '100%', boxSizing: 'border-box', resize: 'vertical', padding: '11px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, fontFamily: "'Geist', sans-serif", lineHeight: 1.5, outline: 'none' }} />
-        <div style={{ fontSize: 11.5, color: 'var(--faint)', marginTop: 6, lineHeight: 1.4 }}>
-          Es la base con la que MaKo escribe. Los datos de muestra (nombres, montos, fechas) se reemplazan por los reales al dispararse.
-        </div>
+            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Referencia (MaKo la usa como guía, no literal)</div>
+            <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
-          {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)', marginRight: 'auto' }}>{flash}</span>}
-          {esOverride && <button onClick={resetear} disabled={busy} style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }}>Volver al ejemplo</button>}
-          <button onClick={guardar} disabled={busy || texto === orig} style={{ ...btn, opacity: busy || texto === orig ? 0.5 : 1 }}>Guardar</button>
-        </div>
+            {prueba && (
+              <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 12, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 5 }}>✨ MaKo lo escribiría así:</div>
+                <div style={{ fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{prueba}</div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end', marginTop: 14 }}>
+              {flash && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)', marginRight: 'auto' }}>{flash}</span>}
+              <button onClick={probar} disabled={busy === 'probar'} style={{ ...btnGhost, opacity: busy === 'probar' ? 0.6 : 1 }}>{busy === 'probar' ? 'Generando…' : '✨ Probar con IA'}</button>
+              <button onClick={guardarTexto} disabled={busy === 'save' || texto === orig} style={{ ...btn, opacity: busy === 'save' || texto === orig ? 0.5 : 1 }}>Guardar</button>
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

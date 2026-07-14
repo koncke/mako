@@ -97,30 +97,24 @@ export function avisoDelCatalogo(id: string): AvisoCatalogo | undefined {
  * Emite un aviso a partir de una entrada del catálogo (usa su `ejemplo` como
  * texto por defecto, o el `texto` provisto cuando hay datos reales).
  */
-export const KEY_PLANTILLA = (id: string) => `mako.plantilla.${id}`;
-
-/** Texto EFECTIVO de una plantilla: el override editado (si existe) o el ejemplo
- *  del catálogo. El override lo edita el dueño en la tab Plantillas. */
-export async function textoPlantilla(id: string): Promise<string> {
-  const cat = avisoDelCatalogo(id);
-  const ov = await runWithWorkspace(OWNER_WS, () => getSetting(KEY_PLANTILLA(id)));
-  return (ov && ov.trim()) || cat?.ejemplo || '';
-}
-
+/**
+ * Emite un aviso del catálogo. La plantilla es una REFERENCIA (editable): si se
+ * pasa `contexto` (datos reales del evento), MaKo GENERA el mensaje con IA usando
+ * la referencia + esos datos (libre de adaptarla). Si se pasa `texto`, se usa tal
+ * cual. Si no, cae a la referencia literal. Respeta activar/desactivar la plantilla.
+ */
 export async function emitirDelCatalogo(
-  id: string, opts: { texto?: string; ws?: number; dedupTtlMin?: number } = {},
+  id: string, opts: { texto?: string; contexto?: string; ws?: number; dedupTtlMin?: number; alDueno?: boolean } = {},
 ): Promise<EmitirAvisoResult> {
   const cat = avisoDelCatalogo(id);
   if (!cat) return { ok: false, feedId: null, wa: false, deduped: false };
+  const { plantillaActiva, referenciaPlantilla, generarMensajeAviso } = await import('./plantillas');
+  if (!(await plantillaActiva(id))) return { ok: true, feedId: null, wa: false, deduped: true }; // desactivada → no manda
+  const texto = opts.texto
+    ?? (opts.contexto ? await generarMensajeAviso(id, opts.contexto) : await referenciaPlantilla(id));
   return emitirAviso({
-    tipo: cat.id,
-    titulo: cat.titulo,
-    // Prioridad: texto explícito (con datos reales del disparador) → override
-    // editado por el dueño → ejemplo del catálogo.
-    texto: opts.texto ?? (await textoPlantilla(id)),
-    categoria: cat.categoria,
-    semaforo: cat.semaforo,
-    ws: opts.ws,
-    dedupTtlMin: opts.dedupTtlMin,
+    tipo: cat.id, titulo: cat.titulo, texto,
+    categoria: cat.categoria, semaforo: cat.semaforo,
+    ws: opts.ws, dedupTtlMin: opts.dedupTtlMin, alDueno: opts.alDueno,
   });
 }
