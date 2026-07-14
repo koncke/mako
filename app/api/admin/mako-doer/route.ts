@@ -9,7 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { OWNER_WS, runWithWorkspace } from '@/lib/workspace';
-import { permitirGruposEnInstancia } from '@/lib/evolution';
+import { permitirGruposEnInstancia, registrarWebhookInstancia } from '@/lib/evolution';
 import { instanciaVoz } from '@/lib/mako-grupo';
 import { gruposDoer, setGruposDoer, manejarEntranteDoer } from '@/lib/mako-doer-in';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
@@ -36,6 +36,15 @@ export async function POST(req: NextRequest) {
       // groupsIgnore:false en la línea de voz → Evolution empieza a entregar los @g.us.
       const r = await permitirGruposEnInstancia(await instanciaVoz());
       return NextResponse.json(r, { status: r.ok ? 200 : 502 });
+    }
+    case 'preparar-voz': {
+      // Deja lista la línea de voz para el "Hola MaKo" en vivo: registra el webhook
+      // hacia nuestra app + abre la recepción de grupos. (El canal SuperAdmin se
+      // crea sin webhook; sin esto, los entrantes de grupo nunca llegan.)
+      const voz = await instanciaVoz();
+      const wh = await registrarWebhookInstancia(voz);
+      const grp = await permitirGruposEnInstancia(voz);
+      return NextResponse.json({ ok: wh.ok && grp.ok, voz, webhook: wh, grupos: grp });
     }
     case 'pendientes': {
       if (!body.jid) return NextResponse.json({ ok: false, error: 'falta jid' }, { status: 400 });

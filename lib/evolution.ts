@@ -97,6 +97,13 @@ async function setWebhook(instance: string): Promise<{ ok: boolean; error?: stri
   return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
+/** Registra el webhook de una instancia hacia nuestra app (wrapper público de
+ *  setWebhook). Lo usa el canal de voz de MaKo (mako_superadmin), que se crea sin
+ *  webhook, para que los entrantes de grupo (Hola MaKo) lleguen al doer. */
+export async function registrarWebhookInstancia(instance: string): Promise<{ ok: boolean; error?: string }> {
+  return setWebhook(instance);
+}
+
 // Ajustes anti-baneo / de comportamiento humano (PDF): no leer recibos de forma
 // automática, ignorar grupos, no forzar "en línea" siempre.
 async function setSettings(instance: string): Promise<void> {

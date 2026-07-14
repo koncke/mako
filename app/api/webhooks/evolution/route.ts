@@ -11,10 +11,11 @@
 
 import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
-import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
+import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
 import { guardarMensajeUpsert } from '@/lib/evolution-mensajes';
 import { manejarEntranteDoer } from '@/lib/mako-doer-in';
+import { INSTANCIA_SUPERADMIN } from '@/lib/mako-canal';
 import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 
@@ -24,7 +25,12 @@ export const dynamic = 'force-dynamic';
 async function wsDeInstancia(instance: string): Promise<number | null> {
   const { data } = await getSupabaseServer()
     .from('evolution_instancias').select('workspace_id').eq('instance_name', instance).maybeSingle();
-  return (data as { workspace_id?: number } | null)?.workspace_id ?? null;
+  const ws = (data as { workspace_id?: number } | null)?.workspace_id ?? null;
+  // La línea de voz de MaKo (canal SuperAdmin) NO vive en evolution_instancias
+  // (no es de ningún cliente) → cae al workspace dueño para que el doer "Hola
+  // MaKo" pueda correr en sus grupos.
+  if (ws == null && instance === INSTANCIA_SUPERADMIN) return OWNER_WS;
+  return ws;
 }
 
 type EvEvent = {
@@ -122,6 +128,9 @@ export async function POST(req: NextRequest) {
             try { await manejarEntranteDoer(ws, m); } catch (e) { console.error(`[webhook:evolution] doer: ${e instanceof Error ? e.message : String(e)}`); }
             continue;
           }
+          // La línea de voz de MaKo (SuperAdmin) no es un inbox de cliente: sus
+          // 1-a-1 no se espejan (evitá mezclar los DMs de MaKo con los del cliente).
+          if (instance === INSTANCIA_SUPERADMIN) continue;
           try { await guardarMensajeUpsert(instance, m); } catch (e) { errores += 1; console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }
         }
         await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
