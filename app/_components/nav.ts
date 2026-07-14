@@ -61,11 +61,9 @@ export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', hre
 export const ADMIN_NAV: NavItem[] = [
   { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: starts('/admin') },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
-  // Canal propio de MaKo (SuperAdmin): línea de WhatsApp nativa por QR.
-  { key: 'agencia', label: 'Canal de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
-  // Tabs por-workspace para PROBAR (preview del cliente): entran como el dueño (ws1).
-  { key: 'whatsapp-admin', label: 'WhatsApp (cliente)', href: '/whatsapp', icon: 'whatsapp', entrarComoDueno: true, match: () => false },
-  { key: 'email-admin', label: 'Email (cliente)', href: '/email', icon: 'email', entrarComoDueno: true, match: () => false },
+  // Canal propio de MaKo (SuperAdmin): WhatsApp del admin (canal + chat de grupos
+  // + plantillas). NO es preview de ningún cliente. Su propia línea por QR.
+  { key: 'agencia', label: 'WhatsApp de MaKo', href: '/agencia', icon: 'whatsapp', match: starts('/agencia') },
   { key: 'mako-admin', label: 'MaKo', href: '/admin?tab=copy', icon: 'mako', match: () => false },
   { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },

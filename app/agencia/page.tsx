@@ -6,12 +6,14 @@
 
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
-import { CanalMaKoPanel } from './CanalMaKoPanel';
+import { AgenciaTabs } from './AgenciaTabs';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function AgenciaPage() {
+export default async function AgenciaPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   if (!(await getSesionAdmin())) redirect('/login');
-  return <CanalMaKoPanel />;
+  const { tab } = await searchParams;
+  const inicial = tab === 'chat' || tab === 'plantillas' ? tab : 'canal';
+  return <AgenciaTabs inicial={inicial} />;
 }

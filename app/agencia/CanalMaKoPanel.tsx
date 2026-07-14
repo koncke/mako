@@ -7,7 +7,6 @@
 // dedicado, y el toggle para usar esa línea como la voz de MaKo (avisos/grupos).
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { MakoStar } from '../_components/MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'error';
@@ -67,12 +66,8 @@ export function CanalMaKoPanel() {
   const estado = info?.estado ?? 'desconectado';
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-        <MakoStar size={26} color="var(--primary)" />
-        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>Canal de MaKo</h1>
-      </div>
-      <p style={{ color: 'var(--dim)', fontSize: 14.5, lineHeight: 1.5, margin: '0 0 24px', maxWidth: 560 }}>
+    <div>
+      <p style={{ color: 'var(--dim)', fontSize: 14.5, lineHeight: 1.5, margin: '0 0 20px', maxWidth: 560 }}>
         La línea de WhatsApp propia de MaKo (SuperAdmin), separada del número de tus clientes. Desde acá MaKo te
         manda los avisos, reportes y alertas — sin la ventana de 24h de la API oficial.
       </p>
