@@ -13,9 +13,10 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { verifyFathomSignature, externalInvitee, inviteeSpoke, FathomSignatureError, type FathomWebhookPayload } from '@/lib/fathom';
+import { verifyFathomSignature, externalInvitee, inviteeSpoke, webhookDurationMin, FathomSignatureError, type FathomWebhookPayload } from '@/lib/fathom';
 import { findLeadByContacto, applyFathomRecording } from '@/lib/leads';
 import { isoToFechaTijuana } from '@/lib/calendly';
+import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +74,19 @@ export async function POST(request: NextRequest) {
     const attended = inviteeSpoke(body, invitee.email);
 
     const res = await applyFathomRecording(lead, which, body.share_url ?? null, attended);
+
+    // Aviso al dueño: terminó la reunión y ya hay grabación/transcript. Solo la
+    // 1ª vez que el webhook aporta algo nuevo a ese lead (idempotente ante Svix).
+    if (res.markedAsistencia || res.addedLink) {
+      const nombre = invitee.name?.trim() || lead.nombre;
+      const reunion = which === 'j1' ? 'R1' : 'R2';
+      const dur = webhookDurationMin(body);
+      const durTxt = dur ? ` (${dur} min)` : '';
+      await emitirDelCatalogo('reunion-ocurrio-fathom', {
+        texto: `✅ Terminó la *${reunion} con ${nombre}*${durTxt}. Ya tengo la grabación y el transcript listos.\n\n¿Querés que te pase el resumen y las objeciones acá? — MaKo`,
+      });
+    }
+
     const ms = Date.now() - tStart;
     console.log(`[webhook:fathom] lead id=${lead.id} ${which} asistencia=${res.markedAsistencia} link=${res.addedLink} attended=${attended ?? 'desconocido'} ms=${ms}`);
     return Response.json({ ok: true, lead_id: lead.id, which, ...res, ms });

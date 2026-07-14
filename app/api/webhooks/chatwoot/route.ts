@@ -15,6 +15,7 @@ import type { NextRequest } from 'next/server';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { notificarTelegram } from '@/lib/telegram';
+import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
 
@@ -154,6 +155,12 @@ export async function POST(req: NextRequest) {
     await notificarTelegram(
       `💬 <b>Nuevo mensaje de WhatsApp</b>\n${nombre}${phone ? ` (${phone})` : ''}\n<i>${content.slice(0, 300)}</i>${link ? `\n${link}` : ''}`,
     );
+
+    // Además del Telegram: aviso por el grupo de WhatsApp del dueño + feed in-app
+    // (suma el canal, no reemplaza). Best-effort.
+    await emitirDelCatalogo('wa-mensaje-entrante', {
+      texto: `💬 *Mensaje nuevo* de ${nombre}${phone ? ` (${phone})` : ''}: "${content.slice(0, 200)}".${link ? `\n${link}` : ''}\n— MaKo`,
+    });
 
     return Response.json({ ok: true, leadId });
   });

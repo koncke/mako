@@ -22,6 +22,7 @@ import type { NextRequest } from 'next/server';
 import { upsertLeadFromMeta } from '@/lib/leads';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
+import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
 
@@ -204,6 +205,15 @@ export async function POST(request: NextRequest) {
       // los leads tenga su hilo de WhatsApp desde el día cero (silencioso).
       if (created && lead.telefono) {
         await ensureContactoWhatsapp(lead.nombre, lead.telefono);
+      }
+
+      // Aviso al dueño: entró un lead nuevo por formulario de Meta (solo en INSERT,
+      // para no re-avisar si Meta reenvía el batch). Best-effort, no bloquea.
+      if (created) {
+        const campaña = graphLead.campaign_name ?? graphLead.ad_name ?? null;
+        await emitirDelCatalogo('lead-formulario-meta', {
+          texto: `📥 Entró un lead por formulario de Meta: *${lead.nombre}*${campaña ? `, campaña "${campaña}"` : ''}. Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
+        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

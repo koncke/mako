@@ -45,6 +45,7 @@ export type FathomWebhookPayload = {
   url?: string;
   share_url?: string;
   recording_start_time?: string;
+  recording_end_time?: string;
   scheduled_start_time?: string;
   calendar_invitees?: FathomInvitee[];
   recorded_by?: { name?: string; email?: string };
@@ -63,4 +64,13 @@ export function inviteeSpoke(p: FathomWebhookPayload, email: string): boolean | 
   if (!p.transcript || !p.transcript.length) return null;
   const e = email.trim().toLowerCase();
   return p.transcript.some((t) => t.speaker?.matched_calendar_invitee_email?.trim().toLowerCase() === e);
+}
+
+/** Duración de la reunión en minutos (del payload del webhook), o null. */
+export function webhookDurationMin(p: FathomWebhookPayload): number | null {
+  if (!p.recording_start_time || !p.recording_end_time) return null;
+  const a = new Date(p.recording_start_time).getTime();
+  const b = new Date(p.recording_end_time).getTime();
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return null;
+  return Math.round((b - a) / 60000);
 }
