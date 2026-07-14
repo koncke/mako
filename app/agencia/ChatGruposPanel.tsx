@@ -93,12 +93,9 @@ export function ChatGruposPanel() {
     );
   }
 
-  // Detalle del grupo: cubre TODO el chat (inline), con botón para volver.
-  if (detalleOpen && sel) {
-    return <GrupoDetalleModal jid={sel} onClose={() => setDetalleOpen(false)} onCambio={cargarGrupos} />;
-  }
-
   const selGrupo = grupos.find((g) => g.jid === sel) ?? null;
+  // Elegir un grupo cierra el detalle y abre esa conversación.
+  const elegir = (jid: string) => { setSel(jid); setDetalleOpen(false); };
   const q = busq.trim().toLowerCase();
   const visibles = (q ? grupos.filter((g) => g.nombre.toLowerCase().includes(q)) : grupos.slice())
     .sort((a, b) => {
@@ -120,7 +117,7 @@ export function ChatGruposPanel() {
           {visibles.map((g) => {
             const on = g.jid === sel;
             return (
-              <button key={g.jid} type="button" onClick={() => setSel(g.jid)}
+              <button key={g.jid} type="button" onClick={() => elegir(g.jid)}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2 }}>
                 <Avatar foto={g.foto} size={40} />
                 <div style={{ minWidth: 0, flex: 1 }}>
@@ -133,7 +130,9 @@ export function ChatGruposPanel() {
         </div>
       </div>
 
-      {sel && selGrupo ? (
+      {detalleOpen && sel ? (
+        <GrupoDetalleModal jid={sel} onClose={() => setDetalleOpen(false)} onCambio={cargarGrupos} />
+      ) : sel && selGrupo ? (
         <ChatHilo
           mensajes={hilo}
           cargando={cargandoMsgs}

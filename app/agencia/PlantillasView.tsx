@@ -15,7 +15,6 @@ import { EMOJI_CATEGORIA, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 const ORDEN: CategoriaAviso[] = ['reporte', 'aviso', 'accion', 'pregunta'];
 const LABEL: Record<CategoriaAviso, string> = { reporte: 'Reportes', aviso: 'Avisos', accion: 'Acciones', pregunta: 'Preguntas' };
-const SEM_COLOR: Record<string, string> = { rojo: 'var(--bad)', amarillo: 'var(--warn)', verde: 'var(--good)', na: 'transparent' };
 
 const respuestaDueno = (a: PlantillaVista) => (a.categoria === 'accion' ? 'Sí, dale 👍' : a.categoria === 'pregunta' ? 'Dale, pasámelo' : '👍');
 const replicaMaKo = (a: PlantillaVista) => (a.categoria === 'accion' ? '✅ Listo, lo hago ahora y te confirmo cuando esté. — MaKo' : 'Genial, te lo preparo y te lo paso en un rato. 🙌 — MaKo');
@@ -86,8 +85,8 @@ export function PlantillasView() {
     );
   }
 
-  // Detalle / crear: cubre TODO (inline).
-  if (detalle) return <TemplateDetalleModal plantilla={detalle === 'crear' ? null : detalle} onClose={() => setDetalle(null)} onCambio={recargar} />;
+  // Elegir una plantilla cierra el detalle y muestra su preview.
+  const elegir = (id: string) => { setSelId(id); setDetalle(null); };
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
@@ -113,14 +112,14 @@ export function PlantillasView() {
           {lista.map((a) => {
             const on = a.id === selId;
             return (
-              <button key={a.id} type="button" onClick={() => setSelId(a.id)}
+              <button key={a.id} type="button" onClick={() => elegir(a.id)}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 11, alignItems: 'center', padding: '10px 12px', borderRadius: 12, border: '1px solid ' + (on ? 'var(--border-strong)' : 'transparent'), background: on ? 'var(--surface-2)' : 'transparent', cursor: 'pointer', marginBottom: 2, opacity: a.enabled ? 1 : 0.5 }}>
                 <span style={{ width: 40, height: 40, borderRadius: '50%', flex: 'none', background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{EMOJI_CATEGORIA[a.categoria]}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.titulo}{!a.enabled && <span style={{ color: 'var(--faint)', fontWeight: 500 }}> · inactiva</span>}</div>
                   <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.ejemplo.replace(/[*_\n]/g, ' ').slice(0, 40)}</div>
                 </div>
-                {a.semaforo !== 'na' && <span style={{ width: 8, height: 8, borderRadius: '50%', background: SEM_COLOR[a.semaforo], flex: 'none' }} />}
+                <span title={a.enabled ? 'Activa' : 'Inactiva'} style={{ width: 8, height: 8, borderRadius: '50%', background: a.enabled ? 'var(--good)' : 'var(--border-strong)', flex: 'none' }} />
                 {a.esCustom && <span style={{ flex: 'none', fontFamily: "'Geist Mono', monospace", fontSize: 8.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 5, padding: '1px 4px' }}>tuya</span>}
               </button>
             );
@@ -128,7 +127,9 @@ export function PlantillasView() {
         </div>
       </div>
 
-      {sel ? (
+      {detalle ? (
+        <TemplateDetalleModal plantilla={detalle === 'crear' ? null : detalle} onClose={() => setDetalle(null)} onCambio={recargar} />
+      ) : sel ? (
         <ChatHilo
           readOnly
           accent="var(--accent-soft)"

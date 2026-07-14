@@ -61,7 +61,15 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     finally { setBusy(false); }
   };
 
-  const estado = info?.estado ?? 'desconectado';
+  if (info === null) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0' }}>
+        <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+        <span style={{ width: 24, height: 24, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
+      </div>
+    );
+  }
+  const estado = info.estado;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

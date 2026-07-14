@@ -65,12 +65,14 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
   };
 
   return (
-    <div style={{ height: 620, width: '100%', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
-      <div style={{ maxWidth: 560, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver</button>
-          {!crear && id && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{plantilla.esCustom ? 'Eliminar' : 'Desactivar'}</button>}
-        </div>
+    <div style={{ height: 620, width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Topbar fija (no scrollea) */}
+      <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver</button>
+        {!crear && id && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{plantilla.esCustom ? 'Eliminar' : 'Desactivar'}</button>}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+        <div style={{ maxWidth: 560, margin: '0 auto' }}>
 
         {crear ? (
           <>
@@ -97,8 +99,13 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
                 <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{plantilla.titulo}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{EMOJI_CATEGORIA[plantilla.categoria]} {LABEL[plantilla.categoria]}{plantilla.esCustom ? ' · personalizada' : ''}</div>
               </div>
-              <button onClick={toggle} disabled={busy === 'toggle'} title={enabled ? 'Desactivar' : 'Activar'}
-                style={{ flex: 'none', padding: '5px 12px', borderRadius: 999, border: `1px solid ${enabled ? 'var(--good)' : 'var(--border-strong)'}`, background: enabled ? 'var(--good-bg)' : 'var(--surface)', color: enabled ? 'var(--good)' : 'var(--dim)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{enabled ? 'Activa' : 'Inactiva'}</button>
+              <div style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: enabled ? 'var(--good)' : 'var(--dim)' }}>{enabled ? 'Activa' : 'Inactiva'}</span>
+                <button onClick={toggle} disabled={busy === 'toggle'} aria-pressed={enabled} title={enabled ? 'Desactivar' : 'Activar'}
+                  style={{ width: 42, height: 24, borderRadius: 999, border: 'none', padding: 2, background: enabled ? 'var(--good)' : 'var(--border-strong)', cursor: 'pointer', flex: 'none', transition: 'background .15s' }}>
+                  <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: enabled ? 'translateX(18px)' : 'none', transition: 'transform .15s' }} />
+                </button>
+              </div>
             </div>
 
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cuándo se dispara?</div>
@@ -128,6 +135,7 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
             </div>
           </>
         ) : null}
+        </div>
       </div>
     </div>
   );

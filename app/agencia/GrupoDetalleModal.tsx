@@ -49,13 +49,20 @@ export function GrupoDetalleModal({ jid, onClose, onCambio }: { jid: string; onC
   };
 
   return (
-    <div style={{ height: 620, width: '100%', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
-      <div style={{ maxWidth: 520, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <button onClick={onClose} title="Volver al chat" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver al chat</button>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Detalle del grupo</div>
+    <div style={{ height: 620, width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Topbar fija (no scrollea) */}
+      <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onClose} title="Volver al chat" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver al chat</button>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Detalle del grupo</div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+      {info === null ? (
+        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <style>{'@keyframes mako-spin{to{transform:rotate(360deg)}}'}</style>
+          <span style={{ width: 28, height: 28, border: '3px solid var(--border)', borderTopColor: 'var(--accent-soft)', borderRadius: '50%', display: 'inline-block', animation: 'mako-spin .8s linear infinite' }} />
         </div>
-
+      ) : (
+        <div style={{ maxWidth: 520, margin: '0 auto' }}>
         {/* Foto + nombre */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
           <button onClick={() => fileRef.current?.click()} disabled={busy === 'foto'} title="Cambiar foto"
@@ -102,6 +109,8 @@ export function GrupoDetalleModal({ jid, onClose, onCambio }: { jid: string; onC
         </div>
 
         {flash && <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color: 'var(--good)' }}>{flash}</div>}
+        </div>
+      )}
       </div>
     </div>
   );
