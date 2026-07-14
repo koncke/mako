@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef, useState, Fragment, type CSSProperties, type ChangeEvent, type ReactNode } from 'react';
 import { EmojiPicker } from '../EmojiPicker';
-import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc } from './composer-icons';
+import { SendArrow, IconSmiley, IconClip, IconMic, IconDoc, IconTrash } from './composer-icons';
 import { useVoiceRecorder, VoiceRecorderBar } from './VoiceRecorder';
 import { Ticks } from './Ticks';
 
@@ -54,26 +54,35 @@ export type ChatHiloProps = {
   typing?: { lado: 'left' | 'right'; autor?: string } | null;
   /** clave de la conversación → borrador POR conversación (no se filtra al saltar). */
   draftKey?: string;
+  /** avisa si esta conversación tiene borrador (texto/adjunto/audio) para ordenarla. */
+  onDraftChange?: (key: string, hayBorrador: boolean) => void;
 };
 
-// Borradores por conversación (sobreviven el salto entre chats, como el inbox real).
+// Borradores por conversación (sobreviven el salto entre chats, como el inbox real):
+// texto, adjunto y audio grabado-sin-enviar quedan atados a SU chat.
 const draftStore = new Map<string, string>();
+const adjuntoStore = new Map<string, File>();
+const audioStore = new Map<string, Blob>();
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
-  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey,
+  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing, draftKey, onDraftChange,
 }: ChatHiloProps) {
   const [draft, setDraftState] = useState<string>(() => (draftKey ? draftStore.get(draftKey) ?? '' : ''));
-  const [adjunto, setAdjunto] = useState<File | null>(null);
-  // Al cambiar de conversación: cargar SU borrador y limpiar adjunto/emoji.
+  const [adjunto, setAdjuntoState] = useState<File | null>(() => (draftKey ? adjuntoStore.get(draftKey) ?? null : null));
+  const [audioPend, setAudioPendState] = useState<Blob | null>(() => (draftKey ? audioStore.get(draftKey) ?? null : null));
   const prevKey = useRef(draftKey);
+  // Reporta si el chat tiene ALGO en borrador (texto/adjunto/audio) → orden en la lista.
+  const reportar = (key: string | undefined) => { if (key) onDraftChange?.(key, !!(draftStore.get(key) || adjuntoStore.get(key) || audioStore.get(key))); };
   const setDraft = (v: string | ((p: string) => string)) => {
     setDraftState((prev) => {
       const next = typeof v === 'function' ? (v as (p: string) => string)(prev) : v;
-      if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); }
+      if (draftKey) { if (next) draftStore.set(draftKey, next); else draftStore.delete(draftKey); reportar(draftKey); }
       return next;
     });
   };
+  const setAdjunto = (f: File | null) => { setAdjuntoState(f); if (draftKey) { if (f) adjuntoStore.set(draftKey, f); else adjuntoStore.delete(draftKey); reportar(draftKey); } };
+  const setAudioPend = (b: Blob | null) => { setAudioPendState(b); if (draftKey) { if (b) audioStore.set(draftKey, b); else audioStore.delete(draftKey); reportar(draftKey); } };
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
@@ -85,12 +94,16 @@ export function ChatHilo({
 
   const adjuntoPreview = useMemo(() => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null), [adjunto]);
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
-  // Cambió la conversación → cargar SU borrador + limpiar adjunto/emoji/error.
+  const audioUrl = useMemo(() => (audioPend ? URL.createObjectURL(audioPend) : null), [audioPend]);
+  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
+  // Cambió la conversación → cargar SU borrador/adjunto/audio (no se pierden).
   useEffect(() => {
     if (prevKey.current === draftKey) return;
     prevKey.current = draftKey;
     setDraftState(draftKey ? draftStore.get(draftKey) ?? '' : '');
-    setAdjunto(null); setEmojiOpen(false); setSendErr(null);
+    setAdjuntoState(draftKey ? adjuntoStore.get(draftKey) ?? null : null);
+    setAudioPendState(draftKey ? audioStore.get(draftKey) ?? null : null);
+    setEmojiOpen(false); setSendErr(null);
   }, [draftKey]);
   useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
   const onScroll = () => { const el = scrollRef.current; if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; };
@@ -117,14 +130,17 @@ export function ChatHilo({
       } finally { setSending(false); }
     } else await enviarTexto();
   }
-  const enviarAudioBlob = async (blob: Blob) => {
-    if (!onEnviarArchivo) return;
+  // Al terminar de grabar NO se manda: queda como borrador para escucharlo antes.
+  const enviarAudioBlob = async (blob: Blob) => { if (onEnviarArchivo) setAudioPend(blob); };
+  const enviarAudioPend = async () => {
+    if (!audioPend || !onEnviarArchivo) return;
     setSending(true); setSendErr(null); setAudioFase('Procesando audio…'); stickRef.current = true;
     let mp3: Blob;
-    try { const { blobToMp3 } = await import('../audio'); mp3 = await blobToMp3(blob); }
+    try { const { blobToMp3 } = await import('../audio'); mp3 = await blobToMp3(audioPend); }
     catch (e) { setSendErr('No se pudo procesar el audio (' + (e instanceof Error ? e.message : 'error') + ').'); setSending(false); setAudioFase(null); return; }
     setAudioFase('Enviando audio…');
-    await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3');
+    const ok = await onEnviarArchivo(mp3, 'audio', 'nota-de-voz.mp3');
+    if (ok) setAudioPend(null);
     setSending(false); setAudioFase(null);
   };
   const voz = useVoiceRecorder(enviarAudioBlob, setSendErr);
@@ -209,11 +225,20 @@ export function ChatHilo({
           <span style={iconComposer}><IconMic /></span>
         </div>
       )}
-      {puedeComponer && (voz.recording ? (
+      {puedeComponer && voz.recording && (
         <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
           <VoiceRecorderBar paused={voz.paused} secs={voz.secs} sending={sending} onCancel={() => voz.stop(true)} onTogglePause={voz.paused ? voz.resume : voz.pause} onSend={() => voz.stop(false)} />
         </div>
-      ) : (
+      )}
+      {/* Audio grabado SIN enviar: escuchalo antes de mandarlo (o descartalo). Queda en borrador. */}
+      {puedeComponer && !voz.recording && audioPend && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => setAudioPend(null)} title="Descartar audio" aria-label="Descartar audio" style={{ flex: 'none', width: 38, height: 38, borderRadius: '50%', border: 'none', background: 'transparent', color: 'var(--bad)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IconTrash /></button>
+          {audioUrl && <audio controls src={audioUrl} style={{ flex: 1, height: 40 }} />}
+          <button onClick={() => void enviarAudioPend()} disabled={sending} title="Enviar audio" aria-label="Enviar audio" style={{ flex: 'none', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'var(--good)', color: '#fff', cursor: sending ? 'default' : 'pointer', opacity: sending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><SendArrow /></button>
+        </div>
+      )}
+      {puedeComponer && !voz.recording && !audioPend && (
         <div style={{ borderTop: '1px solid var(--border)', position: 'relative' }}>
           {emojiOpen && <div onClick={() => setEmojiOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }} />}
           {emojiOpen && <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 10, zIndex: 40 }}><EmojiPicker onPick={(em) => setDraft((d) => d + em)} onClose={() => setEmojiOpen(false)} /></div>}
@@ -247,7 +272,7 @@ export function ChatHilo({
             ) : null}
           </div>
         </div>
-      ))}
+      )}
 
       {lightbox && (
         <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2500, padding: 28 }}>

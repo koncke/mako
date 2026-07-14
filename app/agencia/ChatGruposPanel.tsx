@@ -35,6 +35,7 @@ export function ChatGruposPanel() {
   const [cargandoMsgs, setCargandoMsgs] = useState(false);
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [busq, setBusq] = useState('');
+  const [draftsMap, setDraftsMap] = useState<Record<string, boolean>>({});
   const selRef = useRef<string | null>(null);
 
   const cargarGrupos = useCallback(async () => {
@@ -99,7 +100,12 @@ export function ChatGruposPanel() {
 
   const selGrupo = grupos.find((g) => g.jid === sel) ?? null;
   const q = busq.trim().toLowerCase();
-  const visibles = q ? grupos.filter((g) => g.nombre.toLowerCase().includes(q)) : grupos;
+  const visibles = (q ? grupos.filter((g) => g.nombre.toLowerCase().includes(q)) : grupos.slice())
+    .sort((a, b) => {
+      const da = draftsMap[a.jid] ? 1 : 0, db = draftsMap[b.jid] ? 1 : 0;
+      if (da !== db) return db - da;            // los que tienen borrador, primero
+      return (b.ultimoAt || 0) - (a.ultimoAt || 0);
+    });
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 12, height: 620 }}>
@@ -119,7 +125,7 @@ export function ChatGruposPanel() {
                 <Avatar foto={g.foto} size={40} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.nombre}</div>
-                  <div style={{ fontSize: 12, color: 'var(--faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{g.ultimo || '—'}</div>
+                  <div style={{ fontSize: 12, color: draftsMap[g.jid] ? 'var(--bad)' : 'var(--faint)', fontWeight: draftsMap[g.jid] ? 600 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{draftsMap[g.jid] ? 'Borrador' : (g.ultimo || '—')}</div>
                 </div>
               </button>
             );
@@ -132,6 +138,7 @@ export function ChatGruposPanel() {
           mensajes={hilo}
           cargando={cargandoMsgs}
           draftKey={sel}
+          onDraftChange={(jid, has) => setDraftsMap((m) => (m[jid] === has ? m : { ...m, [jid]: has }))}
           accent="var(--accent-soft)"
           accentBubble="var(--wa-noof-bubble)"
           placeholder="Escribí como MaKo…"
