@@ -7,18 +7,32 @@
 
 const TIJUANA = 'America/Tijuana';
 
-const tjFmt = new Intl.DateTimeFormat('en-CA', {
-  timeZone: TIJUANA,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
+/**
+ * Fecha en una zona horaria arbitraria, formato 'YYYY-MM-DD'. Base multi-tenant:
+ * cada workspace puede tener su propia zona (setting mako.timezone) — usá
+ * tzDeWorkspace(ws) del lib/timezone para resolverla antes de llamar acá.
+ */
+export function hoyEnTz(tz: string, date: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+}
 
 /**
  * Devuelve la fecha actual en zona Tijuana, formato 'YYYY-MM-DD'.
  */
 export function hoyEnTijuana(date: Date = new Date()): string {
-  return tjFmt.format(date);
+  return hoyEnTz(TIJUANA, date);
+}
+
+/**
+ * Describe en HORA LOCAL de una zona un horario de cron dado en UTC (los crons de
+ * Vercel corren en UTC). Ej: (14, 10, 'America/Tijuana') → '7:10 a. m.' en verano
+ * o '6:10 a. m.' en invierno (respeta DST real). Sirve para MOSTRAR cuándo dispara
+ * una automatización sin clavar una hora que cambia con el horario de verano.
+ */
+export function horaCronEnTz(utcHour: number, utcMin: number, tz: string, date: Date = new Date()): string {
+  // Anclamos el H:M UTC al día de hoy y lo formateamos en la zona destino.
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), utcHour, utcMin));
+  return new Intl.DateTimeFormat('es-MX', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(d);
 }
 
 /**

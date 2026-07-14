@@ -42,7 +42,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   {
     id: 'reporte-diario', titulo: 'Reporte diario matutino', categoria: 'reporte',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Cron ~7:10 AM Tijuana: semáforo + ads de ayer + wins + pendientes.',
+    disparador: 'Cron diario a la mañana temprano (hora local del workspace): semáforo + ads de ayer + wins + pendientes.',
     ejemplo: `📊 *Reporte del día* — 14/07\n\n🟢 *Cuenta Meta:* activa · saldo $120 · gastado $8.300 MXN\n*Ads (ayer):* $95 · 14 leads · CPL $6,8 · CTR 1,9%\n*Wins:* 3/10 cierres · cash $4.200 del mes\n*Pendientes:* 2 datos sin marcar · 0 cuotas vencidas\n\nArrancá el día con esto. — MaKo`,
   },
   {
@@ -54,7 +54,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   {
     id: 'reporte-semanal', titulo: 'Reporte semanal (lunes)', categoria: 'reporte',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Cron lunes ~7:20 AM: ads, cierres, CAC, cash, ritmo a la meta.',
+    disparador: 'Cron los lunes a la mañana (hora local del workspace): ads, cierres, CAC, cash, ritmo a la meta.',
     ejemplo: `🗓️ *Reporte semanal* — 07/07 al 13/07\n\n*Ads:* $640 · 92 leads · CPL $6,9 · 4 cierres · CAC $160\n*Cash de la semana:* $12.800\n*Objetivo:* 8/12 cierres · ~6 semanas para la meta\n\nVenís bien. — MaKo`,
   },
   {
