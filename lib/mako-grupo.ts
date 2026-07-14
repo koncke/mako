@@ -6,11 +6,11 @@
 // cliente}". El JID del grupo se guarda en app_settings (key mako.grupo_jid) por
 // workspace, para que el ruteo de avisos sepa a dónde mandar.
 //
-// VOZ de MaKo: por decisión de Martín (jul-2026), MaKo habla desde SU número
-// (Martin Koncke) para todos los clientes — no hay línea dedicada todavía. Ese
-// número es la instancia INSTANCIA_VOZ_MAKO. El cliente es un participante más
-// del grupo, así que a él sí le NOTIFICA (no es su propio número). El día que
-// MaKo tenga su línea propia, se cambia esta constante por esa instancia.
+// VOZ de MaKo: la instancia de Evolution desde la que MaKo habla (grupos +
+// avisos). Se resuelve en runtime con instanciaVoz() (setting mako.voz.instancia):
+// hoy por defecto es el número de Martín en ws1, y al conectar el canal propio de
+// SuperAdmin (mako_superadmin) por QR se cambia a esa línea dedicada. El cliente
+// es un participante más del grupo, así que a él sí le NOTIFICA.
 
 import 'server-only';
 import sharp from 'sharp';
@@ -20,8 +20,20 @@ import { runWithWorkspace, OWNER_WS } from './workspace';
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
 
-/** Instancia de Evolution que le pone la voz a MaKo (hoy = el número de Martín). */
-export const INSTANCIA_VOZ_MAKO = 'mako_ws1';
+/** Instancia de Evolution que le pone la voz a MaKo por defecto (número de Martín
+ *  cargado en ws1). El canal propio de SuperAdmin (mako_superadmin) la reemplaza
+ *  al conectarse por QR — se elige en runtime con la setting mako.voz.instancia. */
+export const INSTANCIA_VOZ_DEFAULT = 'mako_ws1';
+export const KEY_VOZ_INSTANCIA = 'mako.voz.instancia';
+
+/** Instancia que MaKo usa para hablar (grupos + avisos). Configurable en runtime. */
+export async function instanciaVoz(): Promise<string> {
+  return runWithWorkspace(OWNER_WS, async () => (await getSetting(KEY_VOZ_INSTANCIA)) || INSTANCIA_VOZ_DEFAULT);
+}
+/** Fija qué instancia usa la voz de MaKo (ej. al conectar el canal SuperAdmin). */
+export async function setInstanciaVoz(instancia: string): Promise<void> {
+  await runWithWorkspace(OWNER_WS, () => setSetting(KEY_VOZ_INSTANCIA, instancia));
+}
 
 /** Key de app_settings donde vive el JID del grupo de cada workspace (cliente). */
 export const KEY_GRUPO_JID = 'mako.grupo_jid';
@@ -133,7 +145,7 @@ async function guardarGrupoJid(ws: number, jid: string): Promise<void> {
 // ── Retoques de un grupo existente (best-effort) ─────────────────────────────
 async function ponerFoto(jid: string, v: VarianteEstrella = 'gold'): Promise<void> {
   const image = await estrellaPngBase64(v);
-  await ev(`/group/updateGroupPicture/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
+  await ev(`/group/updateGroupPicture/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ image }),
   });
 }
@@ -141,19 +153,19 @@ async function ponerFoto(jid: string, v: VarianteEstrella = 'gold'): Promise<voi
 // delayMs: override del "escribiendo…" (default = anti-ban proporcional al texto).
 async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: number): Promise<{ ok: boolean; id: string }> {
   const delay = delayMs ?? Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
-  const r = await ev(`/message/sendText/${INSTANCIA_VOZ_MAKO}`, {
+  const r = await ev(`/message/sendText/${await instanciaVoz()}`, {
     method: 'POST', body: JSON.stringify({ number: jidONumero, text: texto, delay }),
   });
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   return { ok: r.ok, id };
 }
 async function ponerNombre(jid: string, subject: string): Promise<void> {
-  await ev(`/group/updateGroupSubject/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
+  await ev(`/group/updateGroupSubject/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ subject }),
   });
 }
 async function ponerDescripcion(jid: string, description: string): Promise<void> {
-  await ev(`/group/updateGroupDescription/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
+  await ev(`/group/updateGroupDescription/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ description }),
   });
 }
@@ -189,7 +201,7 @@ export async function asegurarGrupoMaKo(
 
   // Crear el grupo desde la voz de MaKo.
   const participants = (opts.participantes ?? []).map(soloDigitos).filter(Boolean);
-  const r = await ev(`/group/create/${INSTANCIA_VOZ_MAKO}`, {
+  const r = await ev(`/group/create/${await instanciaVoz()}`, {
     method: 'POST',
     body: JSON.stringify({ subject, description: desc, participants }),
   });
@@ -209,7 +221,7 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
   if (!num) return { ok: false, error: 'número inválido' };
   const jid = await getGrupoJidMaKo(ws);
   if (!jid) return { ok: false, error: 'el workspace no tiene grupo todavía' };
-  const r = await ev(`/group/updateParticipant/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
+  const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ action: 'add', participants: [num] }),
   });
   return r.ok ? { ok: true } : { ok: false, error: `Evolution ${r.status}` };
@@ -288,7 +300,7 @@ export async function crearGrupoSuelto(
 ): Promise<{ ok: true; jid: string } | { ok: false; error: string }> {
   if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
   const participants = (participantes ?? []).map(soloDigitos).filter(Boolean);
-  const r = await ev(`/group/create/${INSTANCIA_VOZ_MAKO}`, {
+  const r = await ev(`/group/create/${await instanciaVoz()}`, {
     method: 'POST', body: JSON.stringify({ subject, description: descripcion ?? '', participants }),
   });
   if (!r.ok) return { ok: false, error: `Evolution ${r.status}: ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 200)}` };
@@ -313,7 +325,7 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<Envi
   const jid = await getGrupoJidMaKo(ws);
   if (!jid) return { ok: false, error: 'el workspace no tiene grupo de MaKo todavía' };
   const delay = Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
-  const r = await ev(`/message/sendText/${INSTANCIA_VOZ_MAKO}`, {
+  const r = await ev(`/message/sendText/${await instanciaVoz()}`, {
     method: 'POST', body: JSON.stringify({ number: jid, text: texto, delay }),
   });
   if (!r.ok) return { ok: false, error: `Evolution ${r.status}` };
