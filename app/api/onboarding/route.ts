@@ -12,8 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
-import { getInstanciaRow } from '@/lib/evolution';
-import { asegurarGrupoMaKo } from '@/lib/mako-grupo';
+import { setNumeroDuenoYSync } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { estadoCampo, guardarCredencial, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
@@ -181,14 +180,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Contacto de reportes (los crons de reportes necesitan destinatario).
+      // Contacto de reportes (los crons de reportes necesitan destinatario). Este
+      // teléfono ES el "número del dueño": al cargarlo, MaKo deja listo el grupo
+      // "MaKo <> {cliente}" con ese número + bienvenida (best-effort, no bloquea).
       case 'contacto': {
         const c = body.contacto ?? {};
+        const telefono = (c.telefono ?? '').trim();
         await setContactoReportes({
           nombre: (c.nombre ?? '').trim() || undefined,
           email: (c.email ?? '').trim() || undefined,
-          telefono: (c.telefono ?? '').trim() || undefined,
+          telefono: telefono || undefined,
         });
+        if (telefono) {
+          try {
+            const wsRow = await getWorkspace(ws);
+            await setNumeroDuenoYSync(ws, telefono, wsRow?.nombre ?? 'tu negocio');
+          } catch (e) {
+            console.error('[onboarding] no se pudo sincronizar el grupo de MaKo (no fatal):', e);
+          }
+        }
         return NextResponse.json({ ok: true });
       }
 
@@ -211,18 +221,6 @@ export async function POST(req: NextRequest) {
             }
           }
         });
-        // Al conectar las integraciones, dejamos listo el grupo "MaKo <> {cliente}"
-        // (con el número recién conectado del cliente adentro). Best-effort: nunca
-        // bloquea ni rompe el wizard si Evolution falla.
-        if (body.step === 'integraciones' && body.done) {
-          try {
-            const [wsRow, inst] = await Promise.all([getWorkspace(ws), getInstanciaRow()]);
-            const participantes = inst?.numero ? [inst.numero] : [];
-            if (wsRow) await asegurarGrupoMaKo(ws, { nombre: wsRow.nombre, participantes });
-          } catch (e) {
-            console.error('[onboarding] no se pudo dejar listo el grupo de MaKo (no fatal):', e);
-          }
-        }
         return NextResponse.json({ ok: true, estado });
       }
 

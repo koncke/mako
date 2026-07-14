@@ -15,7 +15,7 @@
 import 'server-only';
 import sharp from 'sharp';
 import { getSetting, setSetting } from './settings';
-import { runWithWorkspace } from './workspace';
+import { runWithWorkspace, OWNER_WS } from './workspace';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -23,34 +23,48 @@ const KEY = process.env.EVOLUTION_API_KEY || '';
 /** Instancia de Evolution que le pone la voz a MaKo (hoy = el número de Martín). */
 export const INSTANCIA_VOZ_MAKO = 'mako_ws1';
 
-/** Key de app_settings donde vive el JID del grupo de cada workspace. */
+/** Key de app_settings donde vive el JID del grupo de cada workspace (cliente). */
 export const KEY_GRUPO_JID = 'mako.grupo_jid';
+/** Número del dueño del cliente (destinatario del grupo), por workspace. */
+export const KEY_NUMERO_DUENO = 'mako.numero_dueno';
+/** JID del grupo de SuperAdmin (global, guardado en OWNER_WS). */
+export const KEY_GRUPO_SUPERADMIN = 'mako.superadmin.grupo_jid';
 
 export function grupoConfigurado(): boolean {
   return !!BASE && !!KEY;
 }
 
-// La estrella de MaKo (SPARK dorada sobre badge oscuro) — mismo vector que
+// La estrella de MaKo (SPARK sobre badge oscuro) — mismo vector que
 // app/_components/MakoBrand.tsx. NO usar /public/mako.svg (logo viejo).
+//   'gold' → grupos con clientes (marca dorada de MaKo).
+//   'blue' → grupo del SuperAdmin (azul de acción #2F6FED, para distinguirlo).
 const SPARK = 'M0 -11 C1 -4 4 -1 11 0 C4 1 1 4 0 11 C-1 4 -4 1 -11 0 C-4 -1 -1 -4 0 -11 Z';
-const ESTRELLA_SVG = `<svg width="640" height="640" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
+export type VarianteEstrella = 'gold' | 'blue';
+const PALETA: Record<VarianteEstrella, { a: string; b: string; glow: string }> = {
+  gold: { a: '#F6D365', b: '#EF9F27', glow: '#EF9F27' },
+  blue: { a: '#6BA0FF', b: '#2F6FED', glow: '#2F6FED' },
+};
+function estrellaSvg(v: VarianteEstrella): string {
+  const p = PALETA[v];
+  return `<svg width="640" height="640" viewBox="0 0 640 640" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#2A251C"/><stop offset="100%" stop-color="#171511"/></linearGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#F6D365"/><stop offset="100%" stop-color="#EF9F27"/></linearGradient>
-    <radialGradient id="glow" cx="50%" cy="46%" r="52%"><stop offset="0%" stop-color="#EF9F27" stop-opacity="0.38"/><stop offset="62%" stop-color="#EF9F27" stop-opacity="0"/></radialGradient>
+    <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${p.a}"/><stop offset="100%" stop-color="${p.b}"/></linearGradient>
+    <radialGradient id="glow" cx="50%" cy="46%" r="52%"><stop offset="0%" stop-color="${p.glow}" stop-opacity="0.38"/><stop offset="62%" stop-color="${p.glow}" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="640" height="640" fill="url(#bg)"/>
   <rect width="640" height="640" fill="url(#glow)"/>
-  <g transform="translate(320 320) scale(19)"><path d="${SPARK}" fill="url(#gold)"/></g>
+  <g transform="translate(320 320) scale(19)"><path d="${SPARK}" fill="url(#spark)"/></g>
 </svg>`;
+}
 
-let estrellaCache: string | null = null;
-/** La estrella de MaKo como base64 CRUDO de PNG (sin prefijo data:). Cacheada. */
-async function estrellaPngBase64(): Promise<string> {
-  if (estrellaCache) return estrellaCache;
-  const png = await sharp(Buffer.from(ESTRELLA_SVG)).png().toBuffer();
-  estrellaCache = png.toString('base64');
-  return estrellaCache;
+const estrellaCache: Partial<Record<VarianteEstrella, string>> = {};
+/** La estrella de MaKo como base64 CRUDO de PNG (sin prefijo data:). Cacheada por variante. */
+async function estrellaPngBase64(v: VarianteEstrella = 'gold'): Promise<string> {
+  if (estrellaCache[v]) return estrellaCache[v]!;
+  const png = await sharp(Buffer.from(estrellaSvg(v))).png().toBuffer();
+  estrellaCache[v] = png.toString('base64');
+  return estrellaCache[v]!;
 }
 
 export function descripcionGrupoMaKo(nombreCliente: string): string {
@@ -61,6 +75,22 @@ export function descripcionGrupoMaKo(nombreCliente: string): string {
     `perderte nada. Escribime cuando quieras.`
   );
 }
+
+/** Mensaje de bienvenida que MaKo manda al crear el grupo de un cliente. */
+export function mensajeBienvenidaMaKo(nombreCliente: string): string {
+  const quien = nombreCliente?.trim() ? `, ${nombreCliente.trim().split(/\s+/)[0]}` : '';
+  return (
+    `¡Hola${quien}! 🌟 Soy MaKo, tu copiloto de marketing. Desde este grupo te voy a ` +
+    `dejar los recordatorios de tus reuniones, el pulso del día, las alertas de tus ` +
+    `anuncios y todo lo importante para que no se te escape nada. Cuando te avise algo, ` +
+    `me podés responder acá mismo. ¡Arrancamos! 🚀`
+  );
+}
+
+const DESC_SUPERADMIN =
+  'Panel del dueño de la agencia. Acá MaKo te resume el estado de todos tus clientes, ' +
+  'te avisa lo urgente (semáforo en rojo, cuotas, fatiga de ads) y te deja tus pendientes. ' +
+  'Es tu vista de comando: lo importante de toda la operación, en un solo lugar.';
 
 // ── Fetch mínimo a Evolution (self-contained: usa la instancia de voz de MaKo,
 //    no la del request, así que no depende de wsEstricto) ─────────────────────
@@ -101,11 +131,20 @@ async function guardarGrupoJid(ws: number, jid: string): Promise<void> {
 }
 
 // ── Retoques de un grupo existente (best-effort) ─────────────────────────────
-async function ponerFoto(jid: string): Promise<void> {
-  const image = await estrellaPngBase64();
+async function ponerFoto(jid: string, v: VarianteEstrella = 'gold'): Promise<void> {
+  const image = await estrellaPngBase64(v);
   await ev(`/group/updateGroupPicture/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
     method: 'POST', body: JSON.stringify({ image }),
   });
+}
+// Envía texto a un JID (grupo o número) por la voz de MaKo. Best-effort.
+async function enviarTextoVozMaKo(jidONumero: string, texto: string): Promise<{ ok: boolean; id: string }> {
+  const delay = Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
+  const r = await ev(`/message/sendText/${INSTANCIA_VOZ_MAKO}`, {
+    method: 'POST', body: JSON.stringify({ number: jidONumero, text: texto, delay }),
+  });
+  const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
+  return { ok: r.ok, id };
 }
 async function ponerNombre(jid: string, subject: string): Promise<void> {
   await ev(`/group/updateGroupSubject/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
@@ -130,7 +169,7 @@ export type AsegurarResult =
  */
 export async function asegurarGrupoMaKo(
   ws: number,
-  opts: { nombre: string; participantes?: string[]; adoptarJid?: string },
+  opts: { nombre: string; participantes?: string[]; adoptarJid?: string; bienvenida?: boolean },
 ): Promise<AsegurarResult> {
   if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
   const subject = `MaKo <> ${opts.nombre.trim()}`;
@@ -156,9 +195,89 @@ export async function asegurarGrupoMaKo(
   if (!r.ok) return { ok: false, error: `Evolution ${r.status}: ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 200)}` };
   jid = extraerJid(r.body);
   if (!jid) return { ok: false, error: 'grupo creado pero sin JID en la respuesta' };
-  await ponerFoto(jid);
+  await ponerFoto(jid, 'gold');
   await guardarGrupoJid(ws, jid);
+  // Mensaje de bienvenida (best-effort: no rompe si el envío falla).
+  if (opts.bienvenida !== false) await enviarTextoVozMaKo(jid, mensajeBienvenidaMaKo(opts.nombre));
   return { ok: true, jid, creado: true };
+}
+
+/** Agrega un número al grupo de MaKo del workspace (cambio de número del dueño). */
+export async function agregarParticipanteGrupo(ws: number, numero: string): Promise<{ ok: boolean; error?: string }> {
+  const num = soloDigitos(numero);
+  if (!num) return { ok: false, error: 'número inválido' };
+  const jid = await getGrupoJidMaKo(ws);
+  if (!jid) return { ok: false, error: 'el workspace no tiene grupo todavía' };
+  const r = await ev(`/group/updateParticipant/${INSTANCIA_VOZ_MAKO}?groupJid=${encodeURIComponent(jid)}`, {
+    method: 'POST', body: JSON.stringify({ action: 'add', participants: [num] }),
+  });
+  return r.ok ? { ok: true } : { ok: false, error: `Evolution ${r.status}` };
+}
+
+// ── Número del dueño por workspace (destinatario del grupo) ───────────────────
+export async function getNumeroDueno(ws: number): Promise<string | null> {
+  return runWithWorkspace(ws, () => getSetting(KEY_NUMERO_DUENO));
+}
+async function guardarNumeroDueno(ws: number, numero: string): Promise<void> {
+  await runWithWorkspace(ws, () => setSetting(KEY_NUMERO_DUENO, numero));
+}
+
+/**
+ * Setea/cambia el número del dueño de un workspace y sincroniza el grupo:
+ *   · sin grupo aún  → crea el grupo "MaKo <> {cliente}" con ese número + bienvenida.
+ *   · grupo ya hecho → agrega el nuevo número al grupo (no recrea).
+ * Guarda el número en app_settings. Devuelve qué hizo.
+ */
+export async function setNumeroDuenoYSync(
+  ws: number, numero: string, nombreCliente: string,
+): Promise<{ ok: true; accion: 'grupo_creado' | 'numero_agregado' | 'sin_cambios'; jid?: string } | { ok: false; error: string }> {
+  const num = soloDigitos(numero);
+  if (!num) return { ok: false, error: 'número inválido' };
+  const anterior = soloDigitos((await getNumeroDueno(ws)) ?? '');
+  await guardarNumeroDueno(ws, num);
+
+  const jid = await getGrupoJidMaKo(ws);
+  if (!jid) {
+    const r = await asegurarGrupoMaKo(ws, { nombre: nombreCliente, participantes: [num] });
+    return r.ok ? { ok: true, accion: 'grupo_creado', jid: r.jid } : { ok: false, error: r.error };
+  }
+  if (num !== anterior) {
+    const a = await agregarParticipanteGrupo(ws, num);
+    return a.ok ? { ok: true, accion: 'numero_agregado', jid } : { ok: false, error: a.error ?? 'no se pudo agregar' };
+  }
+  return { ok: true, accion: 'sin_cambios', jid };
+}
+
+// ── Grupo del SuperAdmin (global, estrella AZUL) ──────────────────────────────
+export async function getGrupoSuperAdminJid(): Promise<string | null> {
+  return runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN));
+}
+async function guardarGrupoSuperAdmin(jid: string): Promise<void> {
+  await runWithWorkspace(OWNER_WS, () => setSetting(KEY_GRUPO_SUPERADMIN, jid));
+}
+
+/** Deja listo el grupo del SuperAdmin: nombre + estrella AZUL + descripción + JID. */
+export async function asegurarGrupoSuperAdmin(
+  opts: { nombre?: string; adoptarJid?: string } = {},
+): Promise<AsegurarResult> {
+  if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
+  const subject = opts.nombre?.trim() || 'MaKo · SuperAdmin';
+  const jid = opts.adoptarJid?.trim() || (await getGrupoSuperAdminJid());
+  if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin para adoptar (pasá adoptarJid)' };
+  await ponerNombre(jid, subject);
+  await ponerDescripcion(jid, DESC_SUPERADMIN);
+  await ponerFoto(jid, 'blue');
+  await guardarGrupoSuperAdmin(jid);
+  return { ok: true, jid, creado: false };
+}
+
+/** Manda un texto al grupo del SuperAdmin. */
+export async function enviarAlGrupoSuperAdmin(texto: string): Promise<EnvioGrupo> {
+  if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  const jid = await getGrupoSuperAdminJid();
+  if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
+  const r = await enviarTextoVozMaKo(jid, texto);
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
 export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string };

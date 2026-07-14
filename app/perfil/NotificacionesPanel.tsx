@@ -68,6 +68,58 @@ function BloqueReporte({ titulo, sub, canal, onChange }: { titulo: string; sub: 
   );
 }
 
+function NumeroDuenoCard() {
+  const [numero, setNumero] = useState('');
+  const [orig, setOrig] = useState('');
+  const [tieneGrupo, setTieneGrupo] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/perfil').then((r) => r.json()).then((j) => {
+      if (j?.ok) { setNumero((j.numeroDueno as string) || ''); setOrig((j.numeroDueno as string) || ''); setTieneGrupo(Boolean(j.tieneGrupo)); }
+    }).catch(() => {}).finally(() => setCargando(false));
+  }, []);
+
+  const soloDig = (s: string) => s.replace(/\D/g, '');
+  const dirty = soloDig(numero) !== soloDig(orig) && soloDig(numero).length >= 8;
+
+  const guardar = async () => {
+    setBusy(true); setFlash(null);
+    try {
+      const j = await (await fetch('/api/perfil', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'numero_dueno', numero }),
+      })).json();
+      if (j.ok) {
+        setOrig(numero); setTieneGrupo(true);
+        setFlash(j.accion === 'grupo_creado' ? 'Grupo de MaKo creado ✓' : j.accion === 'numero_agregado' ? 'Número agregado al grupo ✓' : 'Guardado ✓');
+        setTimeout(() => setFlash(null), 2600);
+      } else setFlash(j.error || 'No se pudo guardar');
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div style={card}>
+      <div style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>Tu WhatsApp (dueño)</div>
+      <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 4, lineHeight: 1.5, maxWidth: 560 }}>
+        Es el número donde MaKo te arma el grupo y te deja los avisos (reuniones, semáforo, ads, pendientes).
+        {tieneGrupo ? ' Ya tenés grupo: si cambiás el número, sumo el nuevo al grupo.' : ' Al guardarlo, MaKo crea el grupo y te manda la bienvenida.'}
+      </div>
+      <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input value={numero} onChange={(e) => setNumero(e.target.value)} inputMode="tel"
+          placeholder="+54 9 3764 67-3479" disabled={cargando || busy}
+          style={{ flex: 1, minWidth: 220, padding: '10px 13px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 14, fontFamily: SANS }} />
+        <button style={{ ...btnDark, opacity: busy || !dirty ? 0.5 : 1 }} disabled={busy || !dirty} onClick={guardar}>
+          {busy ? 'Guardando…' : tieneGrupo ? 'Actualizar' : 'Crear grupo'}
+        </button>
+      </div>
+      {flash && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</div>}
+    </div>
+  );
+}
+
 function PlantillaCard() {
   const [estado, setEstado] = useState<string>('…');
   const [motivo, setMotivo] = useState<string | null>(null);
@@ -142,6 +194,7 @@ export function NotificacionesPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <NumeroDuenoCard />
       <PlantillaCard />
 
       <div>
