@@ -138,8 +138,9 @@ async function ponerFoto(jid: string, v: VarianteEstrella = 'gold'): Promise<voi
   });
 }
 // Envía texto a un JID (grupo o número) por la voz de MaKo. Best-effort.
-async function enviarTextoVozMaKo(jidONumero: string, texto: string): Promise<{ ok: boolean; id: string }> {
-  const delay = Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
+// delayMs: override del "escribiendo…" (default = anti-ban proporcional al texto).
+async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: number): Promise<{ ok: boolean; id: string }> {
+  const delay = delayMs ?? Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
   const r = await ev(`/message/sendText/${INSTANCIA_VOZ_MAKO}`, {
     method: 'POST', body: JSON.stringify({ number: jidONumero, text: texto, delay }),
   });
@@ -277,6 +278,30 @@ export async function enviarAlGrupoSuperAdmin(texto: string): Promise<EnvioGrupo
   const jid = await getGrupoSuperAdminJid();
   if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
   const r = await enviarTextoVozMaKo(jid, texto);
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
+}
+
+// ── Grupo suelto (pruebas): crear sin persistir + postear a un JID cualquiera ──
+/** Crea un grupo (estrella dorada) SIN guardarlo como grupo de ningún workspace. */
+export async function crearGrupoSuelto(
+  subject: string, participantes: string[], descripcion?: string,
+): Promise<{ ok: true; jid: string } | { ok: false; error: string }> {
+  if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
+  const participants = (participantes ?? []).map(soloDigitos).filter(Boolean);
+  const r = await ev(`/group/create/${INSTANCIA_VOZ_MAKO}`, {
+    method: 'POST', body: JSON.stringify({ subject, description: descripcion ?? '', participants }),
+  });
+  if (!r.ok) return { ok: false, error: `Evolution ${r.status}: ${typeof r.body === 'string' ? r.body : JSON.stringify(r.body).slice(0, 200)}` };
+  const jid = extraerJid(r.body);
+  if (!jid) return { ok: false, error: 'grupo creado pero sin JID en la respuesta' };
+  await ponerFoto(jid, 'gold');
+  return { ok: true, jid };
+}
+
+/** Manda un texto a un JID de grupo cualquiera. delayMs opcional (demo = chico). */
+export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
+  if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };
+  const r = await enviarTextoVozMaKo(jid, texto, delayMs);
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
 }
 
