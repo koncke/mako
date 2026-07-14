@@ -35,19 +35,30 @@ type EvMsg = {
   pushName?: string; messageTimestamp?: number | string;
   message?: Record<string, unknown>;
 };
-function textoDeMensaje(m: Record<string, unknown> | undefined): string {
-  if (!m) return '';
-  if (typeof m.conversation === 'string') return m.conversation;
+export type TipoMedia = 'image' | 'audio' | 'video' | 'document' | 'sticker';
+type Parsed = { texto: string; tipo: TipoMedia | null; mime: string | null };
+// Extrae texto + tipo de media + mimetype de un record de Evolution.
+function parseMensaje(m: Record<string, unknown> | undefined): Parsed {
+  if (!m) return { texto: '', tipo: null, mime: null };
+  if (typeof m.conversation === 'string') return { texto: m.conversation, tipo: null, mime: null };
   const ext = m.extendedTextMessage as { text?: string } | undefined;
-  if (ext?.text) return ext.text;
-  const img = m.imageMessage as { caption?: string } | undefined;
-  if (img?.caption) return `📷 ${img.caption}`;
-  if (m.imageMessage) return '📷 Imagen';
-  if (m.videoMessage) return '🎥 Video';
-  if (m.audioMessage) return '🎤 Audio';
-  if (m.documentMessage) return '📄 Documento';
-  if (m.stickerMessage) return 'Sticker';
-  return '';
+  if (ext?.text) return { texto: ext.text, tipo: null, mime: null };
+  const img = m.imageMessage as { caption?: string; mimetype?: string } | undefined;
+  if (img) return { texto: img.caption || '', tipo: 'image', mime: img.mimetype || 'image/jpeg' };
+  const vid = m.videoMessage as { caption?: string; mimetype?: string } | undefined;
+  if (vid) return { texto: vid.caption || '', tipo: 'video', mime: vid.mimetype || 'video/mp4' };
+  const aud = m.audioMessage as { mimetype?: string } | undefined;
+  if (aud) return { texto: '', tipo: 'audio', mime: aud.mimetype || 'audio/ogg' };
+  const doc = m.documentMessage as { fileName?: string; title?: string; mimetype?: string } | undefined;
+  if (doc) return { texto: doc.fileName || doc.title || 'Documento', tipo: 'document', mime: doc.mimetype || 'application/octet-stream' };
+  if (m.stickerMessage) return { texto: '', tipo: 'sticker', mime: 'image/webp' };
+  return { texto: '', tipo: null, mime: null };
+}
+// Solo el texto (para el preview de la lista de grupos).
+function textoDeMensaje(m: Record<string, unknown> | undefined): string {
+  const p = parseMensaje(m);
+  if (p.texto) return p.texto;
+  return p.tipo === 'image' ? '📷 Foto' : p.tipo === 'audio' ? '🎤 Nota de voz' : p.tipo === 'video' ? '🎥 Video' : p.tipo === 'document' ? '📄 Documento' : p.tipo === 'sticker' ? 'Sticker' : '';
 }
 const ts = (v: number | string | undefined): number => {
   const n = typeof v === 'string' ? Number(v) : v ?? 0;
@@ -100,9 +111,13 @@ export async function listarGruposMaKo(): Promise<GrupoChat[]> {
     .sort((a, b) => b.ultimoAt - a.ultimoAt);
 }
 
-export type MensajeChat = { id: string; fromMe: boolean; autor: string; texto: string; at: number };
+export type MensajeChat = {
+  id: string; fromMe: boolean; autor: string; texto: string; at: number;
+  tipo: TipoMedia | null; mediaMime: string | null; mediaUrl: string | null;
+};
 
-/** Mensajes de un grupo (del más viejo al más nuevo). */
+/** Mensajes de un grupo (del más viejo al más nuevo). Incluye media (con URL al
+ *  proxy /api/admin/mako-chats/media que trae los bytes desde Evolution). */
 export async function mensajesGrupoMaKo(jid: string, limite = 200): Promise<MensajeChat[]> {
   if (!esGrupo(jid)) return [];
   const inst = await instanciaVoz();
@@ -113,15 +128,35 @@ export async function mensajesGrupoMaKo(jid: string, limite = 200): Promise<Mens
   const records = Array.isArray(data) ? data : (data?.messages?.records ?? []);
   if (!Array.isArray(records)) return [];
   return records
-    .map((m) => ({
-      id: m.key?.id ?? '',
-      fromMe: !!m.key?.fromMe,
-      autor: m.key?.fromMe ? 'MaKo' : (m.pushName || 'Contacto'),
-      texto: textoDeMensaje(m.message),
-      at: ts(m.messageTimestamp),
-    }))
-    .filter((m) => m.texto)
+    .map((m) => {
+      const p = parseMensaje(m.message);
+      const id = m.key?.id ?? '';
+      const fromMe = !!m.key?.fromMe;
+      const mediaUrl = p.tipo && id
+        ? `/api/admin/mako-chats/media?jid=${encodeURIComponent(jid)}&id=${encodeURIComponent(id)}&fromMe=${fromMe ? 1 : 0}`
+        : null;
+      return {
+        id, fromMe,
+        autor: fromMe ? 'MaKo' : (m.pushName || 'Contacto'),
+        texto: p.texto, tipo: p.tipo, mediaMime: p.mime, mediaUrl,
+        at: ts(m.messageTimestamp),
+      };
+    })
+    .filter((m) => m.texto || m.tipo)
     .sort((a, b) => a.at - b.at);
+}
+
+/** Trae los bytes de la media de un mensaje de grupo (proxy same-origin). */
+export async function fetchMediaGrupoMaKo(jid: string, id: string, fromMe: boolean): Promise<{ base64: string; mimetype: string } | null> {
+  if (!esGrupo(jid) || !id) return null;
+  const inst = await instanciaVoz();
+  const r = await ev<{ base64?: string; mimetype?: string; message?: { base64?: string } }>(
+    `/chat/getBase64FromMediaMessage/${inst}`,
+    { method: 'POST', body: JSON.stringify({ message: { key: { id, remoteJid: jid, fromMe } }, convertToMp4: false }) },
+  );
+  const b64 = r?.base64 || r?.message?.base64;
+  if (!b64) return null;
+  return { base64: soloB64(b64), mimetype: r?.mimetype || 'application/octet-stream' };
 }
 
 /** Manda un texto a un grupo desde la voz de MaKo. */

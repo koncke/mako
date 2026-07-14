@@ -32,7 +32,7 @@ export function AgenciaTabs({ inicial = 'chat' }: { inicial?: TabKey }) {
   });
 
   return (
-    <div style={{ maxWidth: tab === 'chat' ? 1080 : 860, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1080, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
         <MakoStar size={24} color="var(--primary)" />
         <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>WhatsApp de MaKo</h1>

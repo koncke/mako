@@ -50,11 +50,13 @@ export type ChatHiloProps = {
   cargando?: boolean;
   vacio?: ReactNode;
   placeholder?: string;
+  /** burbuja "escribiendo…" (para previews animadas). lado: quién escribe. */
+  typing?: { lado: 'left' | 'right'; autor?: string } | null;
 };
 
 export function ChatHilo({
   mensajes, header, accent = 'var(--wa-noof)', accentBubble = 'var(--wa-noof-bubble)',
-  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder,
+  onEnviarTexto, onEnviarArchivo, readOnly, cargando, vacio, placeholder, typing,
 }: ChatHiloProps) {
   const [draft, setDraft] = useState('');
   const [adjunto, setAdjunto] = useState<File | null>(null);
@@ -69,7 +71,7 @@ export function ChatHilo({
 
   const adjuntoPreview = useMemo(() => (adjunto && adjunto.type.startsWith('image/') ? URL.createObjectURL(adjunto) : null), [adjunto]);
   useEffect(() => () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview); }, [adjuntoPreview]);
-  useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes]);
+  useEffect(() => { const el = scrollRef.current; if (el && stickRef.current) el.scrollTop = el.scrollHeight; }, [mensajes, typing]);
   const onScroll = () => { const el = scrollRef.current; if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 150; };
 
   function pickFile(f: File | null) {
@@ -156,6 +158,17 @@ export function ChatHilo({
             </Fragment>
           );
         })}
+        {typing && (
+          <div style={{ display: 'flex', justifyContent: typing.lado === 'right' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ padding: '11px 14px', borderRadius: typing.lado === 'right' ? '14px 14px 4px 14px' : '14px 14px 14px 4px', background: typing.lado === 'right' ? accentBubble : 'var(--surface)', border: '1px solid ' + (typing.lado === 'right' ? 'rgba(91,107,214,.30)' : 'var(--border)') }}>
+              {typing.lado === 'left' && typing.autor && <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--primary-strong)', marginBottom: 3 }}>{typing.autor}</div>}
+              <style>{'@keyframes mako-dot{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}'}</style>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center', height: 8 }}>
+                {[0, 1, 2].map((i) => <span key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--dim)', display: 'inline-block', animation: `mako-dot 1.2s ${i * 0.2}s infinite` }} />)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {audioFase && (

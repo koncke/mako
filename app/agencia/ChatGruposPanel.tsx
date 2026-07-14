@@ -14,7 +14,7 @@ import { ChatHilo, type HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { CanalMaKoPanel } from './CanalMaKoPanel';
 
 type Grupo = { jid: string; nombre: string; foto: string | null; ultimo: string; ultimoAt: number };
-type Msg = { id: string; fromMe: boolean; autor: string; texto: string; at: number };
+type Msg = { id: string; fromMe: boolean; autor: string; texto: string; at: number; tipo: string | null; mediaMime: string | null; mediaUrl: string | null };
 type Canal = { estado: string; numero: string | null; perfil: string | null; esVozActiva: boolean };
 
 const COLOR: Record<string, string> = { conectado: 'var(--good)', conectando: 'var(--warn)', desconectado: 'var(--faint)', error: 'var(--bad)' };
@@ -41,6 +41,9 @@ export function ChatGruposPanel() {
   }, []);
 
   useEffect(() => { cargarGrupos(); cargarCanal(); const t = setInterval(cargarGrupos, 15000); return () => clearInterval(t); }, [cargarGrupos, cargarCanal]);
+  // Auto-abrir el primer grupo al entrar (como el chat del cliente) — sin pisar
+  // una elección manual.
+  useEffect(() => { if (sel == null && grupos && grupos.length) setSel(grupos[0].jid); }, [grupos, sel]);
   useEffect(() => {
     selRef.current = sel;
     if (!sel) { setMsgs([]); return; }
@@ -51,6 +54,7 @@ export function ChatGruposPanel() {
 
   const hilo: HiloMsg[] = msgs.map((m) => ({
     id: m.id || `${m.at}-${m.autor}`, fromMe: m.fromMe, texto: m.texto,
+    tipo: m.tipo, mediaUrl: m.mediaUrl, mediaMime: m.mediaMime,
     autor: m.fromMe ? null : m.autor, fecha: m.at ? new Date(m.at).toISOString() : null,
   }));
 
