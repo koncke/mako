@@ -186,8 +186,8 @@ function PromptsTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ ...card, background: 'var(--surface-2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 8 }}>
-          <span style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>Núcleo fijo</span>
-          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--border)', color: 'var(--dim)' }}>no editable</span>
+          <span style={{ fontWeight: 600, fontSize: 15.5, color: 'var(--ink)' }}>Núcleo</span>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: 'var(--border)', color: 'var(--dim)' }}>editable en Configuraciones</span>
         </div>
         <div style={{ fontSize: 13, color: 'var(--dim)', whiteSpace: 'pre-wrap', lineHeight: 1.55, fontFamily: MONO }}>{nucleo}</div>
       </div>

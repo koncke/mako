@@ -189,9 +189,9 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   7: [["WhatsApp por QR con chip descartable + espejo verificado", false], ["Dominio de email verificado y recibiendo eventos", false], ["Enviar una plantilla de WhatsApp a Meta en vivo", false]],
   8: [["Secreto del webhook de Chatwoot + migraciones aplicadas", false], ["Las reuniones de Fathom se matchean al cliente correcto", false], ["Emails internos y página de Meta por cliente", false], ["Los recordatorios recorren cada cliente y salen a su canal", false]],
   9: [["Los 3 agujeros graves cerrados (consultas ya filtran por cliente)", true], ["Protección anti-pedido-falso + headers + inyección de prompts", true], ["Accesos indebidos a conocimiento y a gasto de IA cerrados", true]],
-  10: [["El webhook de Chatwoot busca el lead acotado al cliente", false], ["Tracking del VSL y la landing sin conexión cruda", false], ["La columna de cliente en las vistas de datos", false]],
+  10: [["El webhook de Chatwoot busca el lead acotado al cliente", true], ["Tracking del VSL y la landing sin conexión cruda", true], ["La columna de cliente en las vistas de datos (mig 0084)", true], ["Auditoría de las 131 rutas + gates de rol que faltaban", true], ["Routing multi-cliente real por cliente (Fase 2, te toca)", false]],
   11: [["Secreto del webhook de Chatwoot en producción + en su URL", false], ["Aplicar la migración de emails en minúsculas + índices", false], ["Forzar el origen del beacon de tracking (opcional)", false]],
-  12: [["Tests de reglas de etapa y del planificador (hechos)", true], ["Política de seguridad del navegador probada en vivo", false], ["Evitar que un webhook repetido dispare dos veces", false], ["Tests de que cada consulta queda acotada al cliente", false]],
+  12: [["Tests de reglas de etapa y del planificador", true], ["Tests de que cada consulta queda acotada al cliente (contrato TENANT_TABLES)", true], ["Más tests: scoring del guardián, fechas, Calendly, anti-inyección, journey", true], ["Política de seguridad del navegador probada en vivo", false], ["Evitar que un webhook repetido dispare dos veces (idempotencia)", false]],
   13: [["Las 6 reglas + la etapa de Reactivación", true], ["Planificador que arma el plan en modo simulación", true], ["Sección 'Automatizaciones de MaKo' en el Funnel", true], ["Planificador probado + arreglado el bucle infinito", true]],
   14: [["Red anti-repetición + aplicar cada regla", true], ["Deshacer quirúrgico + aviso que no se puede cerrar", true], ["Plantillas de nutrición sembradas sin config manual", true], ["Con la hora de la reunión, el no-show cae a las 3h exactas", true]],
   15: [["El lector de contratos ya sirve como fuente", true], ["Prender por cliente + piloto + mirar el primer lote", false], ["Autocompletar datos sin pisar lo tuyo, con rastro 'MaKo'", false], ["Reglas derivadas del funnel de cada cliente, no del estándar", false]],
@@ -213,7 +213,7 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   31: [["Briefing de la mañana con las 3 jugadas que mueven plata", false], ["Briefing pre-llamada (VSL, Calendly y de dónde vino en una pantalla)", false], ["Diagnóstico del cuello del funnel y la palanca de mayor impacto", false]],
   32: [["El funnel se deriva solo (etapas, bandas y disparadores) con editor liviano", true], ["Nutrición positiva derivada + No Show por reunión", true], ["Fathom marca asistencia solo con llamadas de venta", true], ["Martín: cargar credenciales de Fathom y registrar su webhook", false]],
   33: [["Las métricas del embudo dejan de estar clavadas a 4 etapas", false], ["El embudo de Vista General se arma desde tu funnel", false], ["Confirmar que agregar una etapa no rompe ningún tablero", false]],
-  34: [["Inyectarle a MaKo el funnel real (etapas y disparadores)", false], ["Derivar la secuencia de nutrición desde tu funnel", false], ["Enrolar al lead según su etapa, sea el funnel que sea", false]],
+  34: [["Inyectarle a MaKo el funnel real (contexto + tool para consultarlo)", true], ["Derivar la secuencia de nutrición desde tu funnel", false], ["Enrolar al lead según su etapa, sea el funnel que sea", false]],
   35: [["Límite de días por etapa + alerta cuando se pasa", false], ["Registrar cada cambio de etapa para medir tiempos", false], ["Guardar de dónde salió cada reunión (fuera de Calendly también)", false]],
   36: [["Asistente + '¿hubo R1/R2?' + excepciones guardadas", true], ["Pestañas renombradas + selector de etapa en 2 columnas", true], ["Fathom omitible + 'Atrás' que recuerda por dónde pasaste", true]],
   37: [["Datos del trato + IA del contrato + un solo Guardar", true], ["Cuotas claras + reuniones con sus respuestas", true], ["Tracking fino + pestaña de chat + contacto automático", true], ["Pegar el snippet de tracking en la landing (te toca a vos)", false]],
@@ -244,7 +244,7 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   62: [["Editar público superponiendo solo lo que tocás", true], ["Agregar anuncio y conjunto + aviso 'con problemas' clickeable", true], ["Editar textos + presupuesto en dólares", true]],
   63: [["Armado del contexto resiliente enchufado a MaKo", true], ["Búsqueda de conocimiento por similitud + re-indexado solo", true], ["Fases por pantalla + wizard de arranque", true]],
   64: [["Registro central + ediciones con historial + pantalla de 33 prompts", true], ["Conocimiento por cursos + semilla 'Levanta Muertos'", true], ["Asesor de WhatsApp con la metodología del conocimiento", true]],
-  65: [["Los prompts ya usan el sistema de plantillas", true], ["Sumar los de Experimentos/Retro a la pantalla editable", false], ["Corregir el cartel 'núcleo no editable' en Contexto", false]],
+  65: [["Los prompts ya usan el sistema de plantillas", true], ["Sumar los de Experimentos/Retro a la pantalla editable", true], ["Corregir los carteles mal (Retro + 'núcleo no editable' en Contexto)", true]],
   66: [["El área 'ads' ya existe en el esquema", true], ["Búsqueda de similitud nativa en la base (pgvector)", false], ["Curar más cursos + conocimiento de 'ads' al generador", false]],
   67: [["Hipótesis → experimento con línea de base + veredicto", true], ["La regla en el núcleo + solo verdades validadas al contexto", true], ["Tres vistas + wizard + tarjetas en vivo", true]],
   68: [["Función de cierre reusable lista", true], ["Proceso que cierra experimentos solo al vencer", false], ["Consumir el generador de ideas + revivir los estados", false]],
@@ -268,13 +268,13 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   86: [["YouTube (datos + analítica)", true], ["Serie histórica continua (incluye el VSL anterior)", true], ["Panda como fuente del VSL actual", true]],
   87: [["Separar la lectura estable de las métricas vivas", true], ["Retención reconstruida por tramos + carga de los 55", true], ["Patrones + Cuadrante calibrado", true]],
   88: [["Valorar guion nuevo + veredicto predicho + historial", true], ["Editar ángulos/avatares + override por anuncio", true], ["Imágenes por OCR + detalle unificado", true]],
-  89: [["Borrar el administrador de ángulos viejo", false], ["Borrar el navegador de anuncios huérfano", false], ["Tablero por veredicto (opcional)", false]],
+  89: [["Borrar el administrador de ángulos viejo", true], ["Borrar el navegador de anuncios huérfano", true], ["Borrar el retro viejo + 3 componentes huérfanos más", true], ["Tablero por veredicto (opcional, feature nueva)", false]],
   90: [["Tablero Trello por rol + proyectos como pieza central", true], ["Mismo componente agencia↔cliente + historial de cambios", true], ["Perro Guardián: prioriza + debate + pirámide + orden 1-10", true]],
   91: [["Extraer tareas desde una reunión de Fathom", true], ["Semillas para clientes nuevos + tablero 'Ambos'", true], ["Poblar el tablero con el roadmap de la memoria", true]],
-  92: [["Sacar el modo que saltea el debate", false], ["Guardar motivo de puntaje/deadline del cliente (migración)", false], ["Extracción de Fathom con la cuenta de cada cliente", false]],
+  92: [["Tab Graphics del board (matriz impacto×esfuerzo, pirámide, avance, salud)", true], ["Sacar el modo que saltea el debate", false], ["Guardar motivo de puntaje/deadline del cliente (migración)", false], ["Extracción de Fathom con la cuenta de cada cliente", false]],
   93: [["Tablero al look nuevo + pantallas portadas del diseño", true], ["Sidebar plegable por grupos + menús laterales", true], ["Cerrar analistas + experimentos + perfil + onboarding", false]],
   94: [["Logo + marca + voz + IA con esfuerzo adaptativo", true], ["Análisis de MaKo en el gráfico + historial + sesiones", true], ["Poner el ✦ en los gráficos que faltan + borrar el logo viejo", false]],
-  95: [["Desplegable propio en varias vistas + casi toda la app en R1/R2", true], ["Migrar los desplegables viejos que quedan", false], ["Corregir los últimos textos R1/R2 que se ven", false], ["Administrador de eventos", false]],
+  95: [["Desplegable propio en varias vistas + casi toda la app en R1/R2", true], ["Migrar los desplegables nativos que quedaban", true], ["Los textos R1/R2 visibles ya están todos migrados", true], ["Administrador de eventos", false]],
   96: [["Landing armada desde el diseño + interactividad + responsive", true], ["CTA reforzado: escasez honesta + confianza", true], ["Página mako-cs servida tal cual", true]],
   97: [["Camino directo (con ID en el link) + dos por Calendly", true], ["Retención fina del VSL + varios VSL por persona", true]],
   98: [["Pegar el código con el dominio real", false], ["Leer el ID del lead y mandarlo en todos los eventos", false], ["Flujo de WhatsApp con el ID del lead + probar de punta a punta", false]],
@@ -346,6 +346,24 @@ function mergeExtras(tasks: BoardTask[], labels: Label[]): { tasks: BoardTask[];
   } catch { return { tasks, labels }; }
 }
 
+// Reconciliar UNA vez el checklist de tareas puntuales al SEED corregido (marcar lo
+// que ya se hizo). A diferencia de mergeExtras (que solo AGREGA tareas nuevas), esto
+// pisa el checklist —y por ende el avance, que se deriva de él— SOLO de estas tareas,
+// dejando intacto el resto del board. Se bumpea RECONCILE_VERSION para re-correrlo.
+const RECONCILE_VERSION = 'v1';
+const RECONCILE_NUMS = new Set([10, 12, 34, 65, 89, 92, 95]);
+function reconcileChecklists(tasks: BoardTask[]): BoardTask[] {
+  try {
+    if (localStorage.getItem('mako_plan_reconcile') === RECONCILE_VERSION) return tasks;
+    localStorage.setItem('mako_plan_reconcile', RECONCILE_VERSION);
+    return tasks.map((t) => {
+      if (!RECONCILE_NUMS.has(t.num)) return t;
+      const cl = buildCL(t.num);
+      return cl.length ? { ...t, checklist: cl, progress: clProgress(cl, t.progress) } : t;
+    });
+  } catch { return tasks; }
+}
+
 export function PlanBoard({ user }: { user: BoardUser }) {
   const repo: Repo = {
     labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
@@ -357,7 +375,7 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   const [hydrated, setHydrated] = useState(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { const { tasks, labels } = mergeExtras(loadTasks(), loadLabels()); board.reset(tasks, labels); setHydrated(true); }, []);
+  useEffect(() => { const { tasks, labels } = mergeExtras(loadTasks(), loadLabels()); board.reset(reconcileChecklists(tasks), labels); setHydrated(true); }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K9, JSON.stringify(board.tasks)); } catch { /* no-op */ } }, [board.tasks, hydrated]);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(board.labels)); } catch { /* no-op */ } }, [board.labels, hydrated]);
 
