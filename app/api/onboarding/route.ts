@@ -11,7 +11,9 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
+import { getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
+import { getInstanciaRow } from '@/lib/evolution';
+import { asegurarGrupoMaKo } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { estadoCampo, guardarCredencial, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
@@ -209,6 +211,18 @@ export async function POST(req: NextRequest) {
             }
           }
         });
+        // Al conectar las integraciones, dejamos listo el grupo "MaKo <> {cliente}"
+        // (con el número recién conectado del cliente adentro). Best-effort: nunca
+        // bloquea ni rompe el wizard si Evolution falla.
+        if (body.step === 'integraciones' && body.done) {
+          try {
+            const [wsRow, inst] = await Promise.all([getWorkspace(ws), getInstanciaRow()]);
+            const participantes = inst?.numero ? [inst.numero] : [];
+            if (wsRow) await asegurarGrupoMaKo(ws, { nombre: wsRow.nombre, participantes });
+          } catch (e) {
+            console.error('[onboarding] no se pudo dejar listo el grupo de MaKo (no fatal):', e);
+          }
+        }
         return NextResponse.json({ ok: true, estado });
       }
 

@@ -53,6 +53,16 @@ function NavLink({ item, active, badge, query, expanded, nested, onClick }: { it
       )}
     </>
   );
+  // Tabs por-workspace en el shell de admin: entran como el dueño y navegan
+  // (el onClick lo maneja el Sidebar). Se renderizan como botón, no como Link.
+  if (item.entrarComoDueno) {
+    return (
+      <button type="button" onClick={onClick} title={expanded ? undefined : item.label}
+        style={{ ...base, border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'inherit', textAlign: 'left' }}>
+        {content}
+      </button>
+    );
+  }
   // Rutas que sirven HTML directo (ej. el grafo) abren en pestaña nueva.
   if (item.newTab) {
     return <a href={item.href} target="_blank" rel="noopener noreferrer" style={base} title={expanded ? undefined : item.label} onClick={onClick}>{content}</a>;
@@ -134,6 +144,18 @@ export function Sidebar() {
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   const puedeVer = (it: NavItem) =>
     !rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true;
+
+  // Shell de admin: entrar como el workspace dueño (ws1) y abrir la tab. Reusa la
+  // impersonación firmada; el reload deja al Sidebar leer el nuevo estado.
+  const entrarComoDuenoYNavegar = async (href: string) => {
+    try {
+      await fetch('/api/admin/impersonate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ws: 1 }), // OWNER_WS
+      });
+    } catch { /* si falla, igual navegamos: la tab mostrará el aviso de "elegí cliente" */ }
+    window.location.href = href;
+  };
 
   const onEnter = () => { if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
   const onLeave = () => {
@@ -245,7 +267,8 @@ export function Sidebar() {
             <>
               <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--sidebar-text)', opacity: 0.6, padding: open ? '4px 12px 8px' : '4px 0 8px', textAlign: open ? 'left' : 'center' }}>{open ? 'Administración' : '·'}</div>
               {ADMIN_NAV.map((item) => (
-                <NavLink key={item.key} item={item} active={item.match(pathname)} badge={0} query="" expanded={open} />
+                <NavLink key={item.key} item={item} active={item.match(pathname)} badge={0} query="" expanded={open}
+                  onClick={item.entrarComoDueno ? () => entrarComoDuenoYNavegar(item.href) : undefined} />
               ))}
             </>
           ) : (

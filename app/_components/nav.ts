@@ -26,6 +26,13 @@ export type NavItem = {
   rolesWs?: RolWorkspace[];
   /** Abre en pestaña nueva (rutas que sirven HTML directo, ej. el grafo). */
   newTab?: boolean;
+  /**
+   * Solo en el shell de admin: al clickear, el admin ENTRA COMO el workspace
+   * dueño (ws1) y navega. Sirve para tabs por-workspace (WhatsApp/Email) que el
+   * admin sin impersonar no puede usar (ws=null, fail-closed). Reusa la
+   * impersonación firmada de /api/admin/impersonate.
+   */
+  entrarComoDueno?: boolean;
   match: (pathname: string) => boolean;
 };
 
@@ -54,6 +61,9 @@ export const MAKO_ITEM: NavItem = { key: 'mako', label: 'Preguntale a MaKo', hre
 export const ADMIN_NAV: NavItem[] = [
   { key: 'admin', label: 'Clientes', href: '/admin', icon: 'admin', match: starts('/admin') },
   { key: 'plan', label: 'Plan', href: '/plan', icon: 'todo', match: (p) => starts('/plan')(p) || starts('/todo')(p) },
+  // Tabs por-workspace para PROBAR: entran como el dueño (ws1) y abren la tab.
+  { key: 'whatsapp-admin', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', entrarComoDueno: true, match: () => false },
+  { key: 'email-admin', label: 'Email', href: '/email', icon: 'email', entrarComoDueno: true, match: () => false },
   { key: 'mako-admin', label: 'MaKo', href: '/admin?tab=copy', icon: 'mako', match: () => false },
   { key: 'grafo', label: 'Grafo', href: '/api/admin/graph', icon: 'graphics', newTab: true, match: () => false },
   { key: 'metodo-admin', label: 'Integraciones', href: '/metodo', icon: 'integraciones', match: starts('/metodo') },
