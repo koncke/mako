@@ -31,6 +31,7 @@ import { enqueueJ2SinMatch } from '@/lib/review-queue';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
+import { emitirDelCatalogo } from '@/lib/avisos';
 
 // Identificadores de los event types de Calendly (Fase 10). Si no están
 // seteados, todo cae al flujo J1 actual (compatibilidad).
@@ -40,6 +41,16 @@ const CFG_JUNTAS = {
 };
 
 const KEYWORDS_TEL = ['tel', 'phone', 'celular', 'móvil', 'movil'];
+
+// Formatea un ISO UTC como "jueves 16 a las 11:00" en zona Tijuana (es-MX), para
+// la voz de los avisos al dueño.
+function fmtFechaHoraTijuana(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const fecha = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Tijuana', weekday: 'long', day: 'numeric' }).format(d).replace(',', '');
+  const hora = new Intl.DateTimeFormat('es-MX', { timeZone: 'America/Tijuana', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  return `${fecha} a las ${hora}`;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +122,10 @@ export async function POST(request: NextRequest) {
             // El form de la R2 tiene sus propias respuestas: se guardan POR reunión
             // (antes se descartaban — solo existían columnas para el set de R1).
             await saveLeadRespuestas(lead.id, 'R2', payload.questions_and_answers, fechaJ2);
+            // Aviso al dueño: el lead agendó su R2 (best-effort, no bloquea).
+            await emitirDelCatalogo('reunion-nuevo-agendado', {
+              texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraTijuana(startTimeIso)}*. Ya quedó en su ficha del CRM. — MaKo`,
+            });
             console.log(`[webhook:calendly] J2 → lead id=${lead.id} email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2} ms=${ms}`);
             return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
           }
@@ -244,6 +259,12 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Aviso al dueño: nuevo lead que agendó una R1 (best-effort, no bloquea).
+        const anuncio = utm_campaign ? ` Vino del anuncio "${utm_campaign}".` : '';
+        await emitirDelCatalogo('reunion-nuevo-agendado', {
+          texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraTijuana(startTimeIso)}*.${anuncio} La ficha ya quedó armada en el CRM. — MaKo`,
+        });
+
         return Response.json({
           ok: true,
           event: body.event,
@@ -277,6 +298,11 @@ export async function POST(request: NextRequest) {
         }
         const fechaCancelada = isoToFechaTijuana(startTimeIso);
         const cambio = await cancelarJuntaEnLead(lead, fechaCancelada, hoyEnTijuana());
+        // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
+        const tipoCancelada = clasificarJunta(payload.scheduled_event, CFG_JUNTAS) === 'j2' ? 'R2' : 'R1';
+        await emitirDelCatalogo('reunion-cancelada', {
+          texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraTijuana(startTimeIso)} y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario antes de que se enfríe? — MaKo`,
+        });
         console.log(`[webhook:calendly] cancelación lead id=${lead.id} fecha=${fechaCancelada}: ${cambio} ms=${ms}`);
         return Response.json({ ok: true, event: body.event, lead_id: lead.id, cambio, ms });
       } catch (err) {
