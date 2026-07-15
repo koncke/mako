@@ -530,6 +530,30 @@ export async function bulkFillLeadFieldAction(
   return { updated };
 }
 
+/**
+ * Ignora EN LOTE el dato "Empresa" de varios leads (setea empresa_omitido). Deja de
+ * contar como "dato sin marcar" en el CRM general (sigue visible en la ficha).
+ * Tenant-scoped, en chunks. Devuelve cuántos marcó.
+ */
+export async function bulkIgnoreEmpresaAction(leadIds: number[]): Promise<{ updated: number }> {
+  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
+  if (!ids.length) return { updated: 0 };
+  const db = await getTenantDb();
+  let updated = 0;
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    try {
+      const { data, error } = await db.from('leads').update({ empresa_omitido: true }).in('id', chunk).select('id');
+      if (error) { console.error('[bulk] ignorar empresa:', error.message); continue; }
+      updated += (data ?? []).length;
+    } catch (e) { console.error('[bulk] ignorar empresa excepción:', e); }
+  }
+  bust(TAG.leads);
+  revalidatePath('/leads');
+  revalidatePath('/general');
+  return { updated };
+}
+
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
   const before = await getLead(id).catch(() => null);
@@ -560,12 +584,12 @@ export async function getEquipoAction(): Promise<MiembroEquipo[]> {
       .select('nombre, email, foto_url, rol, estado, workspace_id')
       .eq('workspace_id', ws)
       .neq('estado', 'suspendido');
-    const miembros = ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
-      .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email))
+    // MaKo NO va acá: no es seleccionable a mano (se asigna solo al pasar a una
+    // nutrición automática). Se muestra con su estrella cuando YA es el setter (ver
+    // setterMaKoOption / la estrella en la ficha), pero no como opción a elegir.
+    return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
+      .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email) && u.nombre?.trim() !== MAKO_SETTER)
       .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: u.foto_url ?? null }));
-    // MaKo es setter por default en TODO workspace: corre las nutriciones automáticas
-    // (No Agenda, No Show, Reactivación…), así que ningún lead de esas queda sin setter.
-    return [{ nombre: MAKO_SETTER, email: 'mako', foto_url: null }, ...miembros.filter((m) => m.nombre !== MAKO_SETTER)];
   } catch {
     return [];
   }

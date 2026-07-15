@@ -2035,7 +2035,10 @@ async function _getPendientesDeMarcar(
       continue;
     }
     // Resto: el motor dice EXACTAMENTE qué datos posibles faltan para la etapa.
-    const faltan = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
+    const faltanRaw = faltantesDeLead(l, conPlan.has(l.id), { comprobantesFaltantes: comprobFaltPorLead.get(l.id), r2RespuestasOk: conR2Resp.has(l.id), pipeline: funnelPipeline });
+    // "Empresa" ignorada (empresa_omitido) NO notifica en el worklist del CRM general
+    // (sigue visible como recordatorio suave en la ficha, que usa faltantesDeLead directo).
+    const faltan = l.empresa_omitido ? faltanRaw.filter((f) => f.id !== 'empresa') : faltanRaw;
     if (faltan.length === 0) continue;
     const fecha = (l.fecha_junta_2 && l.fecha_junta_2 < hoy) ? l.fecha_junta_2 : (l.fecha_junta_1 ?? l.fecha_agenda ?? hoy);
     const solTab: PendienteItem['solTab'] = hayPasoDeWizard(faltan) ? 'wizard' : (tabDeSolucion(faltan) ?? 'edit');

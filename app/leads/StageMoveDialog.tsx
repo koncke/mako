@@ -17,6 +17,7 @@ import { completeStageMoveAction, type StageMoveCuota } from './actions';
 import { autoReunionesAction } from './auto-actions';
 import type { CrmLead } from './CrmBoard';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import { esMaKo, MAKO_STAR_URI } from './mako-setter';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -559,7 +560,13 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         { value: '', label: 'Sin asignar' },
         ...equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null })),
       ];
-      if (val.trim() && !equipo.some((m) => m.nombre === val.trim())) opts.push({ value: val.trim(), label: val.trim(), sub: 'fuera del equipo', avatar: null });
+      if (val.trim() && !equipo.some((m) => m.nombre === val.trim())) {
+        // MaKo se pone solo (nutrición automática): se muestra con su estrella y NO
+        // es re-seleccionable (disabled). Cualquier otro valor legacy = "fuera del equipo".
+        opts.push(esMaKo(val)
+          ? { value: val.trim(), label: 'MaKo', sub: 'automático · nutrición', avatar: MAKO_STAR_URI, disabled: true }
+          : { value: val.trim(), label: val.trim(), sub: 'fuera del equipo', avatar: null });
+      }
       cuerpo = equipo.length > 0 ? (
         <div style={{ maxWidth: 340, margin: '0 auto' }}>
           <Dropdown value={val} options={opts} onChange={set} placeholder="Elegí del equipo…" width="100%" ariaLabel={paso === 'setter' ? 'Setter' : 'Closer'} />

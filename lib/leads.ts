@@ -119,6 +119,7 @@ export type Lead = {
   // Omisiones/excepciones del wizard "Solucionar" (migración 0069).
   deal_fiscal_doc_omitido?: boolean | null;  // no se sube el documento fiscal del cliente
   comprobante_omitido?: boolean | null;      // no se suben los comprobantes de pago
+  empresa_omitido?: boolean | null;          // "Empresa" ignorada: no cuenta en el worklist del CRM
   r2_agenda_externa_motivo?: string | null;  // la R2 se agendó fuera de Calendly (motivo) → satisface respuestas R2
 
   // Contrato subido (migración 0029): archivo en Storage + nombre original.

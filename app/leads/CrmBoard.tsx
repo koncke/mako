@@ -35,6 +35,7 @@ import {
   markManualNutritionAction,
   markMeetingManualAction,
   bulkFillLeadFieldAction,
+  bulkIgnoreEmpresaAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
@@ -827,6 +828,7 @@ function BulkHigiene({ marcar, equipo, onDone }: {
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<string | null>(null);
   const [open, setOpen] = useState<{ field: 'setter' | 'closer'; label: string; ids: number[] } | null>(null);
+  const [openEmpresa, setOpenEmpresa] = useState(false);
   const [sel, setSel] = useState('');
 
   const idsCon = (stepId: string) => marcar.filter((m) => m.faltantes?.some((f) => f.id === stepId)).map((m) => m.leadId);
@@ -834,10 +836,24 @@ function BulkHigiene({ marcar, equipo, onDone }: {
     { field: 'setter', label: 'Setter', ids: idsCon('setter') },
     { field: 'closer', label: 'Closer', ids: idsCon('closer') },
   ] as const).filter((g) => g.ids.length > 0);
+  const idsEmpresa = idsCon('empresa');
 
-  if (!grupos.length) return null;
+  if (!grupos.length && !idsEmpresa.length) return null;
 
   const abrir = (g: { field: 'setter' | 'closer'; label: string; ids: number[] }) => { setSel(''); setFlash(null); setOpen(g); };
+
+  const ignorarEmpresa = () => {
+    startTransition(async () => {
+      try {
+        const r = await bulkIgnoreEmpresaAction(idsEmpresa);
+        setOpenEmpresa(false);
+        setFlash(`✓ Empresa ignorada en ${r.updated} lead${r.updated === 1 ? '' : 's'} — ya no la pide el CRM (sigue en la ficha).`);
+        onDone();
+      } catch (e) {
+        setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
+      }
+    });
+  };
 
   const confirmar = () => {
     if (!open || !sel.trim()) return;
@@ -862,19 +878,21 @@ function BulkHigiene({ marcar, equipo, onDone }: {
 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 16, padding: 'var(--card-pad)', marginBottom: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <span aria-hidden style={{ fontSize: 16 }}>⚡</span>
         <h3 style={{ fontWeight: 700, fontSize: 17, margin: 0, color: 'var(--ink)' }}>Marcar en lote</h3>
       </div>
-      <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 12px', lineHeight: 1.45 }}>
-        Muchos leads comparten el mismo dato. Asignalo a todos de una — solo rellena los que están vacíos (no pisa lo cargado a mano).
-      </p>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {grupos.map((g) => (
           <button key={g.field} type="button" onClick={() => abrir(g)} style={{ ...btn, background: 'var(--primary)', color: '#fff' }}>
             Asignar {g.label} · {g.ids.length}
           </button>
         ))}
+        {idsEmpresa.length > 0 && (
+          <button type="button" onClick={() => { setFlash(null); setOpenEmpresa(true); }} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>
+            Ignorar Empresa · {idsEmpresa.length}
+          </button>
+        )}
       </div>
       {flash && <div style={{ marginTop: 10, fontSize: 13.5, fontWeight: 600, color: flash.startsWith('✓') ? 'var(--good)' : flash.startsWith('Sin cambios') ? 'var(--dim)' : 'var(--bad)' }}>{flash}</div>}
 
@@ -898,6 +916,21 @@ function BulkHigiene({ marcar, equipo, onDone }: {
                 style={{ ...btn, background: sel.trim() && !pending ? 'var(--primary)' : 'var(--surface-2)', color: sel.trim() && !pending ? '#fff' : 'var(--faint)' }}>
                 {pending ? 'Asignando…' : `Asignar a los ${open.ids.length}`}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {openEmpresa && (
+        <div onClick={() => !pending && setOpenEmpresa(false)} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px' }}>
+            <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 4px', color: 'var(--ink)' }}>Ignorar Empresa en {idsEmpresa.length} lead{idsEmpresa.length === 1 ? '' : 's'}</h3>
+            <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 16px', lineHeight: 1.45 }}>
+              Muchas veces no tenés la empresa. Al ignorarla, deja de contar como “dato sin marcar” en el CRM general — pero sigue apareciendo como recordatorio suave dentro de la ficha de cada lead. Reversible.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" disabled={pending} onClick={() => setOpenEmpresa(false)} style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
+              <button type="button" disabled={pending} onClick={ignorarEmpresa} style={{ ...btn, background: 'var(--ink)', color: 'var(--surface)' }}>{pending ? 'Ignorando…' : `Ignorar en los ${idsEmpresa.length}`}</button>
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { Lead, FathomLink, RespuestaQA } from '@/lib/leads';
 import type { MiembroEquipo } from '../actions';
+import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 
 const iniciales = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
@@ -23,7 +24,10 @@ function Persona({ label, nombre, equipo, hint }: { label: string; nombre: strin
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 3 }}>
         {n ? (
           <>
-            {u?.foto_url ? (
+            {esMaKo(n) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={MAKO_STAR_URI} alt="" width={22} height={22} style={{ borderRadius: '50%', display: 'block' }} title="MaKo — nutrición automática" />
+            ) : u?.foto_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={u.foto_url} alt="" width={22} height={22} style={{ borderRadius: '50%', display: 'block' }} referrerPolicy="no-referrer" />
             ) : (
