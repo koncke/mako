@@ -25,7 +25,9 @@ import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
 import { runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
-import { transcribirAudio } from '@/lib/ai-cheap';
+import { transcribirAudio, chatCheap } from '@/lib/ai-cheap';
+import { rutearDoer } from '@/lib/mako-router';
+import { overrideDeFeature } from '@/lib/model-registry';
 
 // ── settings del doer ─────────────────────────────────────────────────────────
 const KEY_ACTIVO = 'mako.doer.activo';        // interruptor general (default: ON)
@@ -315,12 +317,37 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
     await guardarTurno(wsData, jid, 'user', texto, msgId);
 
-    // El loop de tool-use corre bajo wsData (procesarDoer ya está dentro de
-    // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
-    const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
-      feature: 'mako-doer-in', maxSteps: 8, motivo: `WhatsApp «${texto.slice(0, 80)}»`,
-    });
-    const respuesta = (text ?? '').trim();
+    // Router: elegí el modelo por TURNO (no todo a Opus). Saludo/charla sin dato →
+    // barato (Groq, sin tools). Dato/acción → Sonnet con tools. Razonamiento/copy/
+    // media → Opus. El override manual del dueño (/modelos-ia) pin-ea el modelo.
+    const ruta = rutearDoer(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    const recorte = texto.slice(0, 80);
+    let respuesta = '';
+
+    if (ruta.tier === 'cheap' && !mediaBlocks) {
+      // Charla trivial: respuesta corta con la voz de MaKo, SIN tools ni Opus. Si
+      // falla la IA barata, caemos al doer normal (nunca dejamos al dueño sin respuesta).
+      try {
+        const cheapSys = `${base}\n\nEs un saludo o charla casual por WhatsApp, sin pedido concreto. Respondé CORTO (1-2 frases), cálido y en la voz de MaKo. No inventes datos ni números; si te piden algo con datos del negocio, decí que lo mirás enseguida.`;
+        respuesta = (await chatCheap({ system: cheapSys, user: texto, maxTokens: 350, feature: 'mako-doer-in', motivo: `${ruta.motivo} «${recorte}»` })).trim();
+      } catch (e) {
+        console.warn('[mako-doer-in] cheap falló, uso doer:', e instanceof Error ? e.message : String(e));
+      }
+    }
+
+    if (!respuesta) {
+      // El loop de tool-use corre bajo wsData (procesarDoer ya está dentro de
+      // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
+      // Si el dueño fijó un modelo a mano, ese pin manda; si no, el que eligió el router.
+      const pin = await overrideDeFeature('mako-doer-in').catch(() => null);
+      const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+        feature: 'mako-doer-in', maxSteps: 8,
+        ...(pin ? {} : { model: ruta.model }),
+        effort: ruta.effort,
+        motivo: `${ruta.motivo} «${recorte}»`,
+      });
+      respuesta = (text ?? '').trim();
+    }
     if (respuesta) {
       const env = await enviarAGrupoJid(jid, respuesta);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);

@@ -91,6 +91,14 @@ export async function modeloDeFeature(feature?: string): Promise<ModeloRef | nul
   return CATALOGO_MODELOS.find((f) => f.feature === feature)?.def ?? null;
 }
 
+/** Solo el override MANUAL del dueño (null si está usando el default del catálogo).
+ *  El router lo respeta como pin: si el dueño fijó un modelo, no lo pisa. */
+export async function overrideDeFeature(feature?: string): Promise<ModeloRef | null> {
+  if (!feature) return null;
+  const ov = await leerOverrides();
+  return (ov[feature]?.provider && ov[feature]?.model) ? ov[feature] : null;
+}
+
 /** Fija (o limpia) el modelo de una feature. model vacío → vuelve al default. */
 export async function setModeloFeature(feature: string, ref: ModeloRef | null): Promise<void> {
   await runWithWorkspace(OWNER_WS, async () => {
