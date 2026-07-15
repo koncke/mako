@@ -8,6 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { syncClosingCalls } from '@/lib/closing';
+import { adjuntarFathomAuto } from '@/lib/fathom-auto';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,11 @@ export async function GET(request: NextRequest) {
         `analizadas=${res.analizadas} ventas=${res.ventas} servicio=${res.servicio} otras=${res.otras} err=${res.errores} ` +
         `restantes=${res.restantes} ms=${res.ms}`,
       );
-      return res;
+      // Auto-adjuntar la grabación de Fathom a los leads con reunión reciente ya
+      // pasada y sin grabación (seguro; no mueve al lead de etapa).
+      const fa = await adjuntarFathomAuto().catch((e) => { console.error(`[cron:closing-sync] fathom-auto: ${e instanceof Error ? e.message : String(e)}`); return { revisados: 0, adjuntados: 0 }; });
+      console.log(`[cron:closing-sync] fathom-auto revisados=${fa.revisados} adjuntados=${fa.adjuntados}`);
+      return { ...res, fathom_auto: fa };
     });
     return Response.json({ ok: true, workspaces: resultados });
   } catch (err) {
