@@ -1468,6 +1468,10 @@ export function faltantesDeLead(
     r2RespuestasOk: (extra?.r2RespuestasOk ?? false) || !!lead.r2_agenda_externa_motivo?.trim(),
     tienePlan,
     hoyISO: hoyEnTijuana(),
+    // Timestamps con hora (Calendly): "ya pasó" mira la hora real, no solo el día,
+    // así una reunión de HOY que ya terminó exige cargar el Fathom.
+    atJ1: lead.junta_1_at,
+    atJ2: lead.junta_2_at,
     sinR1: !!lead.sin_r1,
     sinR2: !!lead.sin_r2,
     fathomOmitido: !!lead.fathom_omitido,

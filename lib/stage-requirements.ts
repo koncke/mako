@@ -53,6 +53,10 @@ export interface StageReqValues {
   tienePlan?: boolean;
   /** Hoy en ISO (YYYY-MM-DD). Si falta, las fechas se asumen pasadas (estricto). */
   hoyISO?: string | null;
+  /** Timestamps con HORA de las reuniones (Calendly start_time). Si están, "ya pasó"
+   *  mira la hora real (no solo el día): una reunión de hoy que ya terminó exige el Fathom. */
+  atJ1?: string | null;
+  atJ2?: string | null;
   /** Excepciones declaradas (con motivo registrado): cierre sin R1 / sin R2. */
   sinR1?: boolean;
   sinR2?: boolean;
@@ -65,9 +69,18 @@ export interface StageReqValues {
   esVenta?: boolean;      // la etapa exige datos de venta (monto + Deal Details)
 }
 
-/** ¿La fecha ya pasó? Sin hoyISO asumimos que sí (comportamiento estricto). */
-const yaPaso = (fecha: string | null | undefined, hoyISO: string | null | undefined) =>
-  !!fecha && (!hoyISO || fecha.slice(0, 10) < hoyISO);
+// Gracia tras la HORA de inicio para considerar una reunión "ya terminada" (y por
+// ende exigirle el Fathom): una llamada de ventas dura ~1h, así no la pedimos
+// mientras la reunión está en curso.
+const GRACIA_POST_REUNION_MS = 60 * 60_000;
+
+/** ¿La reunión ya pasó? Si hay timestamp con HORA (junta_N_at) usamos la hora real
+ *  + gracia; si no, caemos al día (comportamiento previo). Antes solo miraba el día,
+ *  así que una reunión de HOY que ya pasó por hora no exigía el Fathom. */
+const yaPaso = (fecha: string | null | undefined, hoyISO: string | null | undefined, atISO?: string | null) => {
+  if (atISO) { const t = Date.parse(atISO); if (Number.isFinite(t)) return Date.now() >= t + GRACIA_POST_REUNION_MS; }
+  return !!fecha && (!hoyISO || fecha.slice(0, 10) < hoyISO);
+};
 
 /** Nivel de la cadena canónica que exige cada etapa destino (funnel high-ticket default). */
 const NIVEL: Record<string, number> = {
@@ -128,7 +141,7 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
     if (!v.fechaJ1?.trim()) steps.push({ id: 'fechaJ1', label: 'Fecha de la Reunión 1' });
 
     // ── R1 completa (la fecha ya pasó, o la etapa lo implica) ──
-    const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO));
+    const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO, v.atJ1));
     if (r1DebeEstarCompleta) {
       if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
       if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
@@ -142,7 +155,7 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
   if (nivel >= 1 && mTotal >= 2 && !v.sinR1 && !v.sinR2) {
     if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
 
-    const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO));
+    const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO, v.atJ2));
     if (r2DebeEstarCompleta && v.fechaJ2) {
       if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
       if (v.asistioJ2 !== false && !hayFathom && !steps.some((s) => s.id === 'fathomR1')) {

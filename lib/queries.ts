@@ -2142,12 +2142,17 @@ async function _getJuntasProximas(
         : eng.plays > 0
         ? 'vio'
         : 'sin_ver';
+      // ¿Ya pasó por HORA? Una reunión de HOY que ya terminó no debe decir "hoy tenés
+      // la reunión" (mostraba solo el día). Usa junta_N_at (Calendly) + 1h de gracia.
+      const at = c.tipo === 'J1' ? lead.junta_1_at : lead.junta_2_at;
+      const atMs = at ? Date.parse(at) : NaN;
+      const paso = Number.isFinite(atMs) ? Date.now() >= atMs + 60 * 60_000 : c.fecha < hoy;
       juntas.push({
         lead_id: lead.id,
         tipo: c.tipo,
         fecha: c.fecha,
-        // Label visible: hoy/mañana o dd/mm/aaaa (nunca el ISO crudo).
-        dia: c.fecha === hoy ? 'hoy' : c.fecha === masDiasISO(hoy, 1) ? 'mañana' : (() => { const [y, m, d] = c.fecha.split('-'); return `${d}/${m}/${y}`; })(),
+        // Label visible: pasó / hoy / mañana / dd/mm/aaaa (nunca el ISO crudo).
+        dia: paso ? 'pasó' : c.fecha === hoy ? 'hoy' : c.fecha === masDiasISO(hoy, 1) ? 'mañana' : (() => { const [y, m, d] = c.fecha.split('-'); return `${d}/${m}/${y}`; })(),
         nombre: lead.nombre,
         empresa: lead.empresa,
         respuestas: {

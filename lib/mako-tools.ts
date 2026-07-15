@@ -123,6 +123,14 @@ export const MAKO_TOOLS: ToolDef[] = [
     description: 'La estructura del funnel / proceso comercial del negocio (etapas configuradas en /funnel): el pipeline activo en orden, más las etapas de nutrición y de descarte. Úsalo para razonar con las etapas reales del negocio (no un embudo genérico) antes de opinar sobre en qué etapa está un lead o cómo debería avanzar. No requiere parámetros.',
     input_schema: { type: 'object', properties: {} },
   },
+  {
+    name: 'reuniones_recientes',
+    description: 'Las reuniones (R1/R2) más recientes del negocio, ordenadas por fecha, con el lead, si asistió y si ya tiene la grabación de Fathom cargada. Úsalo cuando te pregunten por "la última llamada/reunión" o "cómo me fue" SIN darte un nombre: identificás la reunión, sacás el leadId y después mirás el detalle con ficha_lead / reuniones_lead. También sirve para ver qué reunión pasada le falta cargar el Fathom.',
+    input_schema: {
+      type: 'object',
+      properties: { dias: { type: 'number', description: 'ventana hacia atrás en días (default 21, máx 90).' } },
+    },
+  },
 ];
 
 // ── ejecutor: enruta cada herramienta a su lib (todo lectura, tenant-scoped) ───
@@ -193,6 +201,36 @@ export const runMakoTool: ToolRunner = async (name, input) => {
         .sort((a, c) => (a.col ?? 0) - (c.col ?? 0))
         .map((s) => (b === 'pipeline' && s.kind ? { key: s.key, label: s.label, tipo: s.kind } : { key: s.key, label: s.label }));
       return JSON.stringify({ activo: banda('pipeline'), nutricion: banda('nutricion'), descartado: banda('salidas') });
+    }
+
+    case 'reuniones_recientes': {
+      const dias = Math.max(1, Math.min(90, num(input, 'dias') ?? 21));
+      const desde = Date.now() - dias * 86_400_000;
+      const hasta = Date.now() + 7 * 86_400_000; // incluye las próximas 1 semana
+      const leads = await listLeads();
+      type R = { leadId: number; nombre: string | null; empresa: string | null; reunion: 'R1' | 'R2'; fecha: string; hora: string | null; asistio: boolean | null; ya_paso: boolean; tiene_fathom: boolean };
+      const rs: R[] = [];
+      for (const l of leads) {
+        const juntas: Array<{ r: 'R1' | 'R2'; fecha: string | null; at: string | null; asis: boolean | null }> = [
+          { r: 'R1', fecha: l.fecha_junta_1, at: l.junta_1_at, asis: l.asistio_j1 },
+          { r: 'R2', fecha: l.fecha_junta_2, at: l.junta_2_at, asis: l.asistio_j2 },
+        ];
+        const fathom = ((l.fathom_links ?? []) as Array<{ url?: string }>).some((f) => f.url);
+        for (const j of juntas) {
+          if (!j.fecha) continue;
+          const ms = j.at ? Date.parse(j.at) : Date.parse(`${j.fecha}T12:00:00`);
+          if (!Number.isFinite(ms) || ms < desde || ms > hasta) continue;
+          rs.push({
+            leadId: l.id, nombre: l.nombre, empresa: l.empresa, reunion: j.r, fecha: j.fecha,
+            hora: j.at ? new Date(j.at).toLocaleString('es-MX', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Tijuana' }) : null,
+            asistio: j.asis, ya_paso: Number.isFinite(ms) ? Date.now() >= ms + 60 * 60_000 : false,
+            tiene_fathom: fathom,
+          });
+        }
+      }
+      rs.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
+      if (!rs.length) return `No encontré reuniones en los últimos ${dias} días ni en la próxima semana.`;
+      return JSON.stringify(rs.slice(0, 15));
     }
 
     default:
