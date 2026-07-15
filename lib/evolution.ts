@@ -529,12 +529,11 @@ export async function fetchChatsEvolution(): Promise<EvChat[]> {
   return Array.isArray(arr) ? arr : [];
 }
 
-// Bytes de la media de un mensaje (findMessages NO trae base64 → se pide aparte).
-// POST /chat/getBase64FromMediaMessage. Best-effort: null si falla. Scopeado al ws.
-export async function fetchMediaBase64(chatJid: string, waMessageId: string, fromMe: boolean): Promise<{ base64: string; mimetype: string } | null> {
-  const ws = await getWorkspaceActual();
-  if (ws == null || !waMessageId || !evolutionConfigurado()) return null;
-  const instance = instanceNameDeWs(ws);
+// Bytes de la media de un mensaje EN UNA INSTANCIA DADA (el webhook con base64:true
+// no siempre adjunta el audio inline → se pide aparte a la MISMA línea que lo
+// recibió). POST /chat/getBase64FromMediaMessage. Best-effort: null si falla.
+export async function fetchMediaBase64EnInstancia(instance: string, chatJid: string, waMessageId: string, fromMe: boolean): Promise<{ base64: string; mimetype: string } | null> {
+  if (!instance || !waMessageId || !evolutionConfigurado()) return null;
   const r = await evFetch<{ base64?: string; mimetype?: string; message?: { base64?: string } }>(
     `/chat/getBase64FromMediaMessage/${encodeURIComponent(instance)}`,
     { method: 'POST', body: JSON.stringify({ message: { key: { id: waMessageId, remoteJid: chatJid, fromMe } }, convertToMp4: false }) },
@@ -543,6 +542,23 @@ export async function fetchMediaBase64(chatJid: string, waMessageId: string, fro
   const b64 = r.data?.base64 || r.data?.message?.base64;
   if (!b64) return null;
   return { base64: soloB64(b64), mimetype: r.data?.mimetype || 'application/octet-stream' };
+}
+
+// Bytes de la media de un mensaje (findMessages NO trae base64 → se pide aparte).
+// Usa la instancia del workspace actual. Best-effort: null si falla.
+export async function fetchMediaBase64(chatJid: string, waMessageId: string, fromMe: boolean): Promise<{ base64: string; mimetype: string } | null> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  return fetchMediaBase64EnInstancia(instanceNameDeWs(ws), chatJid, waMessageId, fromMe);
+}
+
+// Muestra "escribiendo…"/"grabando…" en el chat mientras MaKo razona (feedback al
+// dueño de que sí está trabajando). Best-effort, no bloquea. delay = ms que dura.
+export async function enviarPresencia(instance: string, jid: string, presence: 'composing' | 'recording' | 'paused' = 'composing', delayMs = 3000): Promise<void> {
+  if (!instance || !jid || !evolutionConfigurado()) return;
+  await evFetch(`/chat/sendPresence/${encodeURIComponent(instance)}`, {
+    method: 'POST', body: JSON.stringify({ number: jid, delay: delayMs, presence }),
+  }).catch(() => {});
 }
 
 // Estado (tick) de un record de Evolution → nuestro status (0-5 de Baileys / string).

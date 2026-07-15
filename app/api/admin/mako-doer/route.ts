@@ -11,7 +11,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { OWNER_WS, runWithWorkspace } from '@/lib/workspace';
 import { permitirGruposEnInstancia, registrarWebhookInstancia } from '@/lib/evolution';
 import { instanciaVoz } from '@/lib/mako-grupo';
-import { gruposDoer, setGruposDoer, manejarEntranteDoer } from '@/lib/mako-doer-in';
+import { gruposDoer, setGruposDoer, setModoDoer, manejarEntranteDoer } from '@/lib/mako-doer-in';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { transcribirAudio, cheapDisponible } from '@/lib/ai-cheap';
 
@@ -25,7 +25,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
-  let body: { action?: string; jids?: string[]; jid?: string; texto?: string; audioBase64?: string; mime?: string };
+  let body: { action?: string; jids?: string[]; jid?: string; texto?: string; audioBase64?: string; mime?: string; modo?: 'libre' | 'ventana' };
   try { body = (await req.json()) as typeof body; } catch { body = {}; }
 
   switch (body.action) {
@@ -82,9 +82,16 @@ export async function POST(req: NextRequest) {
             message: { conversation: texto },
             pushName: 'Prueba (admin)',
           };
-      const res = await runWithWorkspace(OWNER_WS, () => manejarEntranteDoer(OWNER_WS, msg));
+      const voz = await instanciaVoz();
+      const res = await runWithWorkspace(OWNER_WS, () => manejarEntranteDoer(OWNER_WS, voz, msg));
       const vigentes = await pendientesVigentes(OWNER_WS, jid);
       return NextResponse.json({ ok: true, ...res, vigentes });
+    }
+    case 'modo': {
+      // Fija el modo de un grupo: 'libre' (responde a todo) o 'ventana' (con "Hola MaKo").
+      if (!body.jid || (body.modo !== 'libre' && body.modo !== 'ventana')) return NextResponse.json({ ok: false, error: "jid y modo ('libre'|'ventana') requeridos" }, { status: 400 });
+      await setModoDoer(OWNER_WS, body.jid, body.modo);
+      return NextResponse.json({ ok: true, jid: body.jid, modo: body.modo });
     }
     default:
       return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });

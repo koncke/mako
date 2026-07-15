@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           // solo si engancha (grupo habilitado + lo nombran / hay pendiente).
           const rjid = ((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '';
           if (rjid.endsWith('@g.us')) {
-            try { await manejarEntranteDoer(ws, m); } catch (e) { console.error(`[webhook:evolution] doer: ${e instanceof Error ? e.message : String(e)}`); }
+            try { await manejarEntranteDoer(ws, instance, m); } catch (e) { console.error(`[webhook:evolution] doer: ${e instanceof Error ? e.message : String(e)}`); }
             continue;
           }
           // La línea de voz de MaKo (SuperAdmin) no es un inbox de cliente: sus
