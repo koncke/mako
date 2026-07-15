@@ -22,6 +22,7 @@ const overlay: CSSProperties = {
 const panel: CSSProperties = {
   width: '100%', maxWidth: 560, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18,
   boxShadow: '0 30px 80px rgba(18,21,27,.45)', overflow: 'hidden',
+  display: 'flex', flexDirection: 'column', maxHeight: 'calc(100vh - 96px)',
 };
 const btnBase: CSSProperties = { padding: '8px 14px', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, border: '1px solid transparent' };
 
@@ -107,14 +108,14 @@ export function MakoConfirmGate() {
   return (
     <div style={overlay}>
       <div style={panel}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: 11, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
           <span style={{ width: 30, height: 30, borderRadius: 9, background: 'var(--primary)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, letterSpacing: '-.02em' }}>Mk</span>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>MaKo movió {items.length} {items.length === 1 ? 'lead' : 'leads'} por vos</div>
             <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>Revisá los cambios automáticos antes de seguir. Podés confirmarlos o deshacerlos.</div>
           </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '18px 22px' }}>
+        <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, padding: '18px 22px' }}>
           {items.map((c) => <ItemCard key={c.id} c={c} busy={busy === c.id} bloqueado={busy !== null} error={err === c.id} onResolve={resolver} />)}
         </div>
       </div>
