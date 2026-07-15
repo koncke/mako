@@ -504,11 +504,13 @@ export async function bulkFillLeadFieldAction(
   for (let i = 0; i < ids.length; i += 100) {
     const chunk = ids.slice(i, i + 100);
     try {
-      // ATÓMICO: el propio UPDATE re-chequea que el campo esté vacío (.is null) →
+      // ATÓMICO: el propio UPDATE re-chequea que el campo esté vacío (null O '') →
       // nunca pisa un valor cargado a mano entre el read y el write (sin TOCTOU).
+      // Matchea '' además de null: el worklist marca faltante con !trim(), así que
+      // un setter='' se ve pendiente pero .is(null) no lo agarraba (quedaba trabado).
       // `.select('id')` devuelve EXACTAMENTE las filas que se rellenaron.
       const { data: upd, error: updErr } = await db
-        .from('leads').update(patch).in('id', chunk).is(field, null).select('id');
+        .from('leads').update(patch).in('id', chunk).or(`${field}.is.null,${field}.eq.`).select('id');
       if (updErr) { console.error(`[bulk] update chunk falló: ${updErr.message}`); continue; }
       const hechos = ((upd ?? []) as Array<{ id: number }>).map((r) => Number(r.id));
       if (!hechos.length) continue;
