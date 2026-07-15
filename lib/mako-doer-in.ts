@@ -25,6 +25,24 @@ import { runWithWorkspace } from '@/lib/workspace';
 const KEY_ACTIVO = 'mako.doer.activo';        // interruptor general (default: ON)
 const KEY_GRUPOS = 'mako.doer.grupos';        // allowlist de JIDs donde MaKo escucha
 const KEY_LAST = (jid: string) => `mako.doer.last.${jid}`; // dedup del último msg
+const KEY_SENT = (jid: string) => `mako.doer.sent.${jid}`; // ids que MANDÓ MaKo (anti-eco)
+
+// La línea de voz de MaKo suele ser el número PROPIO del dueño: sus mensajes y los
+// de MaKo llegan los dos como fromMe. Guardamos los ids que enviamos para poder
+// distinguir "el dueño escribe" (procesar) del "eco de mi propia respuesta" (saltar).
+async function idsEnviados(ws: number, jid: string): Promise<string[]> {
+  return runWithWorkspace(ws, async () => {
+    const raw = await getSetting(KEY_SENT(jid));
+    if (!raw) return [];
+    try { const a = JSON.parse(raw); return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : []; } catch { return []; }
+  });
+}
+async function registrarEnviado(ws: number, jid: string, id: string): Promise<void> {
+  if (!id) return;
+  const prev = await idsEnviados(ws, jid);
+  const next = [...prev.filter((x) => x !== id), id].slice(-30); // ring buffer chico
+  await runWithWorkspace(ws, () => setSetting(KEY_SENT(jid), JSON.stringify(next)));
+}
 
 /** JIDs de grupo donde el doer está habilitado (allowlist). */
 export async function gruposDoer(ws: number): Promise<string[]> {
@@ -91,7 +109,6 @@ async function procesarDoer(ws: number, data: MsgIn): Promise<ResultadoDoer> {
     const key = data.key;
     const jid = key?.remoteJid;
     if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
-    if (key?.fromMe) return { engaged: false, skip: 'fromMe' };
     const texto = textoDe(data).trim();
     if (!texto) return { engaged: false, skip: 'sin texto' };
 
@@ -99,8 +116,17 @@ async function procesarDoer(ws: number, data: MsgIn): Promise<ResultadoDoer> {
     const grupos = await gruposDoer(ws);
     if (!grupos.includes(jid)) return { engaged: false, skip: 'grupo no habilitado' };
 
-    // Dedup: Evolution re-entrega el mismo msg (reintentos). Si ya lo tratamos, salir.
     const msgId = key?.id ?? '';
+    // fromMe: en la línea de voz de MaKo (número propio del dueño) TANTO el dueño
+    // COMO MaKo escriben como fromMe. Si el id es de una respuesta que mandamos
+    // nosotros, es un eco → saltar (evita el loop infinito). Si no, es el dueño
+    // hablándole a MaKo desde su teléfono → seguimos.
+    if (key?.fromMe) {
+      const enviados = await idsEnviados(ws, jid);
+      if (msgId && enviados.includes(msgId)) return { engaged: false, skip: 'eco de mi propia respuesta' };
+    }
+
+    // Dedup: Evolution re-entrega el mismo msg (reintentos). Si ya lo tratamos, salir.
     if (msgId) {
       const last = await runWithWorkspace(ws, () => getSetting(KEY_LAST(jid)));
       if (last === msgId) return { engaged: false, skip: 'ya tratado' };
@@ -129,7 +155,12 @@ async function procesarDoer(ws: number, data: MsgIn): Promise<ResultadoDoer> {
     const msgs: RichMsg[] = [{ role: 'user', content: texto }];
     const { text } = await chatClaudeTools(system, msgs, tools, runTool, { feature: 'mako-doer-in', maxSteps: 8 });
     const respuesta = (text ?? '').trim();
-    if (respuesta) await enviarAGrupoJid(jid, respuesta);
+    if (respuesta) {
+      const env = await enviarAGrupoJid(jid, respuesta);
+      // Registrar el id de NUESTRA respuesta: cuando Evolution la eche de vuelta
+      // como fromMe, la saltamos (si no, MaKo se respondería a sí mismo).
+      if (env.ok && env.id) await registrarEnviado(ws, jid, env.id);
+    }
     return { engaged: true, reply: respuesta };
   } catch (e) {
     console.error('[mako-doer-in]', e instanceof Error ? e.message : String(e));
