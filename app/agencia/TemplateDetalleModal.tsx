@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../components/Dropdown';
+import { FlujoEditor } from './FlujoEditor';
 import { EMOJI_CATEGORIA, type AvisoCatalogo, type CategoriaAviso } from '@/lib/avisos-catalogo';
 
 export type PlantillaVista = AvisoCatalogo & { enabled: boolean; esCustom: boolean };
@@ -117,6 +118,15 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
               <Paso icono="💬" titulo="Te llega al grupo de WhatsApp + al feed" tono="mako" />
               {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Vos respondés" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
             </div>
+
+            {id && (
+              <details style={{ marginBottom: 20, border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', background: 'var(--surface-2)' }}>
+                <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', listStyle: 'none' }}>⚙️ Editar el flujo (avanzado) — disparador + pasos</summary>
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                  <FlujoEditor plantillaId={id} />
+                </div>
+              </details>
+            )}
 
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Referencia (MaKo la usa como guía, no literal)</div>
             <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />

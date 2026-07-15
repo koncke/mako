@@ -17,6 +17,7 @@ import { verifyFathomSignature, externalInvitee, inviteeSpoke, webhookDurationMi
 import { findLeadByContacto, applyFathomRecording } from '@/lib/leads';
 import { isoToFechaTijuana } from '@/lib/calendly';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { dispararEvento } from '@/lib/flujos';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +86,8 @@ export async function POST(request: NextRequest) {
       await emitirDelCatalogo('reunion-ocurrio-fathom', {
         texto: `✅ Terminó la *${reunion} con ${nombre}*${durTxt}. Ya tengo la grabación y el transcript listos.\n\n¿Querés que te pase el resumen y las objeciones acá? — MaKo`,
       });
+      // Flujos configurados por el dueño (editor de flujos): disparar 'reunion.ocurrio'.
+      await dispararEvento('reunion.ocurrio', { leadId: lead.id, leadNombre: nombre, reunion });
     }
 
     const ms = Date.now() - tStart;

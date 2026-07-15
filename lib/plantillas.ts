@@ -14,6 +14,7 @@ import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
 import { chatClaude } from './anthropic';
 import { CATALOGO_AVISOS, type AvisoCatalogo, type CategoriaAviso } from './avisos-catalogo';
+import { esFlujoValido, type Flujo } from './flujos-tipos';
 
 const KEY_STORE = 'mako.plantillas.store';
 
@@ -21,6 +22,7 @@ type EntradaStore = {
   texto?: string;      // referencia editada (pisa el ejemplo del catálogo)
   enabled?: boolean;   // default true
   custom?: { titulo: string; categoria: CategoriaAviso; requiereRespuesta: boolean };
+  flujo?: Flujo;       // FLUJO editable (disparador + pasos). Sin esto = aviso clásico.
 };
 type Store = Record<string, EntradaStore>;
 
@@ -52,6 +54,28 @@ function customACatalogo(id: string, e: EntradaStore): AvisoCatalogo {
     disparador: 'Plantilla personalizada (la usás desde MaKo cuando aplique).',
     ejemplo: e.texto || '',
   };
+}
+
+// ── FLUJO de una plantilla (disparador + pasos editables) ─────────────────────
+/** El flujo guardado de una plantilla (o null si es un aviso clásico). */
+export async function getFlujo(id: string): Promise<Flujo | null> {
+  const e = (await leerStore())[id];
+  return e?.flujo && esFlujoValido(e.flujo) ? e.flujo : null;
+}
+/** Guarda (o borra con null) el flujo de una plantilla. */
+export async function setFlujo(id: string, flujo: Flujo | null): Promise<void> {
+  const store = await leerStore();
+  const e = store[id] ?? {};
+  if (flujo && esFlujoValido(flujo)) e.flujo = flujo; else delete e.flujo;
+  store[id] = e;
+  await guardarStore(store);
+}
+/** Todos los flujos ACTIVOS (para el runtime / dispararEvento). */
+export async function listarFlujosActivos(): Promise<Array<{ id: string; flujo: Flujo }>> {
+  const store = await leerStore();
+  return Object.entries(store)
+    .filter(([, e]) => e.flujo && esFlujoValido(e.flujo) && e.flujo.activo && e.enabled !== false)
+    .map(([id, e]) => ({ id, flujo: e.flujo as Flujo }));
 }
 
 /** Lista COMPLETA (catálogo + custom) con estado enabled + texto efectivo. */

@@ -9,9 +9,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import {
   listarPlantillas, getPlantilla, setTextoPlantilla, setEnabledPlantilla,
-  borrarPlantilla, crearPlantilla, generarMensajeAviso,
+  borrarPlantilla, crearPlantilla, generarMensajeAviso, getFlujo, setFlujo,
 } from '@/lib/plantillas';
 import type { CategoriaAviso } from '@/lib/avisos-catalogo';
+import { esFlujoValido } from '@/lib/flujos-tipos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 
 type Body = {
   action?: string; id?: string; texto?: string; enabled?: boolean; contexto?: string;
-  titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean;
+  titulo?: string; categoria?: CategoriaAviso; requiereRespuesta?: boolean; flujo?: unknown;
 };
 
 export async function POST(req: NextRequest) {
@@ -45,6 +46,14 @@ export async function POST(req: NextRequest) {
     case 'enabled': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); await setEnabledPlantilla(b.id, b.enabled !== false); return NextResponse.json({ ok: true, plantilla: await getPlantilla(b.id) }); }
     case 'borrar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, ...(await borrarPlantilla(b.id)) }); }
     case 'probar': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, texto: await generarMensajeAviso(b.id, b.contexto || 'Usá datos de ejemplo realistas.') }); }
+    case 'flujo-get': { if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 }); return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) }); }
+    case 'flujo-set': {
+      if (!b.id) return NextResponse.json({ ok: false, error: 'falta id' }, { status: 400 });
+      const flujo = b.flujo == null ? null : (esFlujoValido(b.flujo) ? b.flujo : null);
+      if (b.flujo != null && !flujo) return NextResponse.json({ ok: false, error: 'flujo inválido' }, { status: 400 });
+      await setFlujo(b.id, flujo);
+      return NextResponse.json({ ok: true, flujo: await getFlujo(b.id) });
+    }
     default: return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });
   }
 }
