@@ -23,6 +23,7 @@ import { upsertLeadFromMeta } from '@/lib/leads';
 import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { dispararEvento } from '@/lib/flujos';
 
 export const dynamic = 'force-dynamic';
 
@@ -214,6 +215,8 @@ export async function POST(request: NextRequest) {
         await emitirDelCatalogo('lead-formulario-meta', {
           texto: `📥 Entró un lead por formulario de Meta: *${lead.nombre}*${campaña ? `, campaña "${campaña}"` : ''}. Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
         });
+        // Flujos configurados por el dueño: disparar 'lead.form_meta'.
+        await dispararEvento('lead.form_meta', { leadId: lead.id, leadNombre: lead.nombre });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

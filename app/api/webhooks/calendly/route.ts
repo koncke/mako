@@ -32,6 +32,7 @@ import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { emitirDelCatalogo } from '@/lib/avisos';
+import { dispararEvento } from '@/lib/flujos';
 
 // Identificadores de los event types de Calendly (Fase 10). Si no están
 // seteados, todo cae al flujo J1 actual (compatibilidad).
@@ -126,6 +127,8 @@ export async function POST(request: NextRequest) {
             await emitirDelCatalogo('reunion-nuevo-agendado', {
               texto: `🎯 *Nuevo agendado*: ${lead.nombre} reservó una *R2 para el ${fmtFechaHoraTijuana(startTimeIso)}*. Ya quedó en su ficha del CRM. — MaKo`,
             });
+            // Flujos configurados por el dueño: disparar 'lead.agendo' (R2).
+            await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: lead.nombre, reunion: 'R2' });
             console.log(`[webhook:calendly] J2 → lead id=${lead.id} email=${emailJ2 ?? '—'} fecha_j2=${fechaJ2} ms=${ms}`);
             return Response.json({ ok: true, event: body.event, tipo: 'j2', action: 'set_j2', lead_id: lead.id, ms });
           }
@@ -264,6 +267,8 @@ export async function POST(request: NextRequest) {
         await emitirDelCatalogo('reunion-nuevo-agendado', {
           texto: `🎯 *Nuevo agendado*: ${nombre} reservó una *R1 para el ${fmtFechaHoraTijuana(startTimeIso)}*.${anuncio} La ficha ya quedó armada en el CRM. — MaKo`,
         });
+        // Flujos configurados por el dueño: disparar 'lead.agendo' (R1).
+        await dispararEvento('lead.agendo', { leadId: lead.id, leadNombre: nombre, reunion: 'R1' });
 
         return Response.json({
           ok: true,
@@ -303,6 +308,8 @@ export async function POST(request: NextRequest) {
         await emitirDelCatalogo('reunion-cancelada', {
           texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraTijuana(startTimeIso)} y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario antes de que se enfríe? — MaKo`,
         });
+        // Flujos configurados por el dueño: disparar 'lead.cancelo'.
+        await dispararEvento('lead.cancelo', { leadId: lead.id, leadNombre: lead.nombre, reunion: tipoCancelada });
         console.log(`[webhook:calendly] cancelación lead id=${lead.id} fecha=${fechaCancelada}: ${cambio} ms=${ms}`);
         return Response.json({ ok: true, event: body.event, lead_id: lead.id, cambio, ms });
       } catch (err) {
