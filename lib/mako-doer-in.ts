@@ -68,9 +68,11 @@ async function doerActivo(ws: number): Promise<boolean> {
   return runWithWorkspace(ws, async () => (await getSetting(KEY_ACTIVO)) !== 'false');
 }
 
-/** Modo del grupo: 'libre' (responde a todo) o 'ventana' (default). */
+/** Modo del grupo: 'libre' (responde a todo — DEFAULT) o 'ventana' (con activador).
+ *  Los grupos de MaKo (Pruebas, SuperAdmin y los de cada cliente) son 100% para
+ *  hablarle a la IA, así que por defecto responde a todo; 'ventana' es opt-in. */
 export async function modoDoer(ws: number, jid: string): Promise<'libre' | 'ventana'> {
-  return runWithWorkspace(ws, async () => ((await getSetting(KEY_MODO(jid))) === 'libre' ? 'libre' : 'ventana'));
+  return runWithWorkspace(ws, async () => ((await getSetting(KEY_MODO(jid))) === 'ventana' ? 'ventana' : 'libre'));
 }
 export async function setModoDoer(ws: number, jid: string, modo: 'libre' | 'ventana'): Promise<void> {
   await runWithWorkspace(ws, () => setSetting(KEY_MODO(jid), modo));
