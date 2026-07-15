@@ -112,9 +112,12 @@ async function procesarDoer(ws: number, data: MsgIn): Promise<ResultadoDoer> {
     const texto = textoDe(data).trim();
     if (!texto) return { engaged: false, skip: 'sin texto' };
 
-    if (!(await doerActivo(ws))) return { engaged: false, skip: 'doer desactivado' };
+    // Allowlist PRIMERO: la línea de voz suele ser el número personal del dueño
+    // (cientos de grupos), y casi todos los mensajes no son para MaKo. Cortar acá
+    // con una sola lectura evita cargar la DB por cada grupo ajeno.
     const grupos = await gruposDoer(ws);
     if (!grupos.includes(jid)) return { engaged: false, skip: 'grupo no habilitado' };
+    if (!(await doerActivo(ws))) return { engaged: false, skip: 'doer desactivado' };
 
     const msgId = key?.id ?? '';
     // fromMe: en la línea de voz de MaKo (número propio del dueño) TANTO el dueño
