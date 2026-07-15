@@ -50,7 +50,7 @@ import {
   type TrackingEvent,
   type RespuestaQA,
 } from '@/lib/leads';
-import { DEFAULT_STAGES, terminalEstadoFor, type Stage } from '@/lib/pipeline';
+import { DEFAULT_STAGES, terminalEstadoFor, MAKO_SETTER, type Stage } from '@/lib/pipeline';
 import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { getUsuarioActual } from '@/lib/auth';
@@ -560,9 +560,12 @@ export async function getEquipoAction(): Promise<MiembroEquipo[]> {
       .select('nombre, email, foto_url, rol, estado, workspace_id')
       .eq('workspace_id', ws)
       .neq('estado', 'suspendido');
-    return ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
+    const miembros = ((data ?? []) as Array<{ nombre: string | null; email: string; foto_url: string | null; rol: string; workspace_id: number | null }>)
       .filter((u) => u.rol !== 'admin' && u.workspace_id === ws && (u.nombre?.trim() || u.email))
       .map((u) => ({ nombre: u.nombre?.trim() || u.email, email: u.email, foto_url: u.foto_url ?? null }));
+    // MaKo es setter por default en TODO workspace: corre las nutriciones automáticas
+    // (No Agenda, No Show, Reactivación…), así que ningún lead de esas queda sin setter.
+    return [{ nombre: MAKO_SETTER, email: 'mako', foto_url: null }, ...miembros.filter((m) => m.nombre !== MAKO_SETTER)];
   } catch {
     return [];
   }

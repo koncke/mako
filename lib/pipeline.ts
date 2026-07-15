@@ -65,6 +65,12 @@ export const NEW_STAGE_TONES: StageTone[] = ['info', 'accent', 'teal', 'violet',
 // (ver nutricionPositivaDe). Se deja 'noshow' legacy por compatibilidad.
 export const NUTRI_KEYS = ['noshow_r1', 'noshow_r2', 'noshow_r3', 'nutri', 'nopaga', 'manual', 'reunion_excepcional', 'nocompro', 'reactivacion', 'noshow'];
 
+/** MaKo como setter: corre las nutriciones AUTOMÁTICAS (No Agenda, No Show,
+ *  Reactivación…). Todo lead de esas etapas lleva este setter (nunca vacío). */
+export const MAKO_SETTER = 'MaKo';
+/** Nutriciones AUTOMÁTICAS (las corre MaKo). 'manual' NO: la maneja un humano. */
+export const NUTRI_AUTO_KEYS = ['nutri', 'noshow', 'noshow_r1', 'noshow_r2', 'noshow_r3', 'postagenda', 'postreunion', 'nopaga', 'nocompro', 'nutridiaria', 'reunion_excepcional', 'reactivacion'];
+
 // ── Transiciones del funnel (grafo etapa → etapa) ───────────────────────────
 // Editable en la tab "Funnel". Definen, para cada etapa, los pasos posibles
 // siguientes; alimentan las opciones contextuales de "Datos sin marcar".

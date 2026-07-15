@@ -18,7 +18,7 @@
 import 'server-only';
 
 import { getLead, updateLead, setPipelineStage, applyFathomRecording, logLeadEvent } from './leads';
-import { pipelineStageOf } from './pipeline';
+import { pipelineStageOf, MAKO_SETTER } from './pipeline';
 import { getTenantDb, runWithWorkspace, listarWorkspaces, OWNER_WS } from './workspace';
 import { hoyEnTijuana } from './date-utils';
 import { buscarReunionesAutomatico } from './auto-reuniones';
@@ -122,6 +122,8 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     if (to === 'nutri' && cur !== 'lead') return 'skip';
     if (to === 'reactivacion' && cur !== 'lead' && cur !== 'nutri') return 'skip';
     await setPipelineStage(a.leadId, to);
+    // Nutrición automática la corre MaKo → setter='MaKo' si estaba vacío (nunca queda sin setter).
+    if (!lead.setter?.trim()) await (await getTenantDb()).from('leads').update({ setter: MAKO_SETTER }).eq('id', a.leadId);
     const label = to === 'reactivacion' ? 'Nutrición - Reactivación' : 'Nutrición - No Agenda';
     await logLeadEvent(a.leadId, 'CRM automático', `T2: → ${label} (${a.descripcion})`, 'MaKo');
     return 'auto';
@@ -135,6 +137,8 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
     const prevStage = lead.pipeline_stage ?? null;
     const prevMotivo = lead.motivo_perdida ?? null; // updateLead lo nulifica al reabrir → restaurarlo en el revert
     await setPipelineStage(a.leadId, 'reactivacion');
+    // Reactivación la corre MaKo → setter='MaKo' si estaba vacío.
+    if (!lead.setter?.trim()) await (await getTenantDb()).from('leads').update({ setter: MAKO_SETTER }).eq('id', a.leadId);
     return confirmarOCompensar(a.leadId, {
       leadId: a.leadId, leadNombre: lead.nombre, regla: 'T6', tipo: a.tipo, clave: 'T6',
       titulo: `Reactivación de ${lead.nombre ?? 'lead'}`,
