@@ -17,6 +17,7 @@ import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, ADS_MANAGER_ITEM, ADMIN_NAV, 
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
+import { SaldoMaKo } from './SaldoMaKo';
 
 const MONO = "'Geist Mono', monospace";
 const RAIL = 74;
@@ -289,8 +290,10 @@ export function Sidebar() {
           )}
         </nav>
 
-        {/* MaKo (aparte) + Usuario (abajo) */}
+        {/* MaKo (aparte) + Saldo IA + Usuario (abajo) */}
         <div style={{ marginTop: 'auto', paddingTop: 14 }}>
+          {/* Saldo IA (Claude/OpenAI/Groq): lo ven el dueño y el admin de agencia. */}
+          {open && !rolCliente && <div style={{ padding: '0 6px' }}><SaldoMaKo /></div>}
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 8px 8px' : '0 6px 8px' }} />
           {!adminShell && puedeVer(MAKO_ITEM) && <NavLink item={MAKO_ITEM} active={MAKO_ITEM.match(pathname)} badge={0} query={dateQuery} expanded={open} />}
           <button ref={userBtnRef} type="button" onClick={openUserMenu} onMouseEnter={openUserMenu} onMouseLeave={scheduleCloseUser} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, marginTop: 6, padding: open ? 9 : '9px 0', justifyContent: open ? 'flex-start' : 'center', borderRadius: 11, border: 'none', background: userOpen ? 'var(--sidebar-2)' : 'transparent', cursor: 'pointer' }}>

@@ -9,14 +9,17 @@
 import type { NextRequest } from 'next/server';
 import { getUsageSummary, setSaldo } from '@/lib/anthropic-usage';
 import { esWorkspaceDueno } from '@/lib/workspace';
+import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// El gasto/saldo de IA es de la cuenta de Anthropic de la AGENCIA (una sola,
-// global). Solo el dueño puede verlo y ajustar el saldo — un cliente no debe leer
-// el gasto de toda la agencia ni sobrescribir el saldo global.
+// El gasto/saldo de IA es de las cuentas de IA de la AGENCIA (globales). Lo ven el
+// DUEÑO (workspace principal) Y el ADMIN de la agencia (que también consume esas
+// keys). Un cliente closer/setter NO debe leer el gasto de toda la agencia.
 async function soloDueno(): Promise<Response | null> {
-  return (await esWorkspaceDueno()) ? null : Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  if (await esWorkspaceDueno()) return null;
+  if (await getSesionAdmin()) return null; // admin de agencia (aunque no impersone)
+  return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
 }
 
 export async function GET() {
