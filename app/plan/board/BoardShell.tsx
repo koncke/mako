@@ -235,7 +235,10 @@ export function BoardShell({ board }: { board: Board }) {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
-        {view === 'proyectos' && <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />}
+        {view === 'proyectos' && <>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
+        </>}
         {repo.fathomExtract && (
           <button type="button" onClick={() => setExtraerReunion(true)} title="MaKo lee una reunión de Fathom y saca las tareas del equipo"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
@@ -248,7 +251,7 @@ export function BoardShell({ board }: { board: Board }) {
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
         {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setWizardId} />}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} />}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -840,15 +843,18 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
   const TOPE = 9; // #1: total de celdas de arranque = el "+" (cuenta como 1) + 8 proyectos reales
   const REALES = TOPE - 1;
+  const needle = q.trim().toLowerCase();
   const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
-  const shown = withProg.filter(({ prog }) => pasaEstado(prog.pct, projFilter));
-  const visibles = verTodos ? shown : shown.slice(0, REALES);
+  const shown = withProg
+    .filter(({ l }) => !needle || `${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle))
+    .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
+  const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
   return (
     <div style={{ height: '100%', overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: '18px 30px 40px' }}>
