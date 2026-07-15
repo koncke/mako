@@ -4,13 +4,11 @@
 // Overview de conexión de cada servicio + el detalle en vivo de Meta + el
 // historial de estados negativos + el Saldo de IA.
 
-import { Suspense } from 'react';
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
 import { getHistorialMeta, registrarEstadoMeta, type MetaEstadoHist } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { IntegracionesBoard } from './IntegracionesBoard';
-import { GoogleCalendarPanel } from '../configuraciones/GoogleCalendarPanel';
 import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +36,6 @@ export default async function IntegracionesPage() {
       health={health}
       metaError={metaError}
       historial={historial}
-      // Google Calendar (OAuth propio) se renderiza dentro del board, al pie.
-      googlePanel={<Suspense fallback={null}><GoogleCalendarPanel /></Suspense>}
     />
   );
 }

@@ -95,7 +95,7 @@ type Saldo = { usd: number; setAt: string };
 type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; provider: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
 
 export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
-export type SaldoProveedor = { provider: string; costMesUsd: number; tokens: number; saldo: Saldo | null; restanteUsd: number | null; gratis: boolean };
+export type SaldoProveedor = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: Saldo | null; restanteUsd: number | null; gratis: boolean };
 export type UsageSummary = {
   saldo: Saldo | null;
   gastadoMesUsd: number;
@@ -148,6 +148,8 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const saldos: Record<string, Saldo | null> = { anthropic: sAnthropic, openai: sOpenai, groq: sGroq };
   const saldo = sAnthropic; // compat: el saldo "principal" sigue siendo Claude
   const monthStart = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCHours(0, 0, 0, 0); return d.toISOString(); })();
+  // Inicio del día UTC: para el uso de HOY (Groq se mide por tokens/día, no por $).
+  const dayStart = (() => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.toISOString(); })();
   // La ventana arranca en el menor entre inicio de mes y la carga MÁS VIEJA de un
   // saldo, así calculamos todos los acumulados con UNA sola lectura acotada.
   const setAts = [sAnthropic, sOpenai, sGroq].filter(Boolean).map((s) => (s as Saldo).setAt);
@@ -170,18 +172,19 @@ export async function getUsageSummary(): Promise<UsageSummary> {
 
   let gastadoMesUsd = 0, gastadoDesdeSaldoUsd = 0;
   const feat = new Map<string, { costUsd: number; tokens: number }>();
-  const prov = new Map<string, { mes: number; tokens: number; desdeSaldo: number }>();
+  const prov = new Map<string, { mes: number; tokens: number; hoy: number; desdeSaldo: number }>();
   for (const r of rows) {
     const c = Number(r.cost_usd) || 0;
     const tk = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
     const p = r.provider ?? 'anthropic';
-    const pa = prov.get(p) ?? { mes: 0, tokens: 0, desdeSaldo: 0 };
+    const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     if (r.created_at >= monthStart) {
       gastadoMesUsd += c; // gasto total de IA del mes (todos los proveedores)
       pa.mes += c; pa.tokens += tk;
       const f = feat.get(r.feature) ?? { costUsd: 0, tokens: 0 };
       f.costUsd += c; f.tokens += tk; feat.set(r.feature, f);
     }
+    if (r.created_at >= dayStart) pa.hoy += tk; // tokens de HOY (para el gauge de Groq)
     const sp = saldos[p];
     if (sp && r.created_at >= sp.setAt) pa.desdeSaldo += c;
     prov.set(p, pa);
@@ -189,9 +192,9 @@ export async function getUsageSummary(): Promise<UsageSummary> {
     if (saldo && p === 'anthropic' && r.created_at >= saldo.setAt) gastadoDesdeSaldoUsd += c;
   }
   const porProveedor: SaldoProveedor[] = PROVEEDORES.map((p) => {
-    const pa = prov.get(p) ?? { mes: 0, tokens: 0, desdeSaldo: 0 };
+    const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     const s = saldos[p];
-    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: p === 'groq' };
+    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: p === 'groq' };
   });
 
   const last = rows[0] ?? null; // ya viene ordenado desc

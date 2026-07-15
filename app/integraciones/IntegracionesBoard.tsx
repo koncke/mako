@@ -13,10 +13,9 @@
 //   · usage (/api/anthropic-usage) — gasto de IA por proveedor/proceso/operación
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MakoStar } from '../_components/MakoBrand';
-import { Dropdown } from '../components/Dropdown';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
 
@@ -27,7 +26,11 @@ type Integracion = { key: string; nombre: string; categoria: string; descripcion
 type MetaEstadoHist = { id: number; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; balanceMxn: number; detalle: string | null; createdAt: string };
 
 type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
-type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
+type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
+
+// Groq es gratis: no se mide en $ sino por tokens/día hacia el límite del plan
+// gratuito. Presupuesto diario aproximado (ajustable) para el gauge de "uso de hoy".
+const GROQ_LIMITE_DIA_TOKENS = 500_000;
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
   gastadoMesUsd: number;
@@ -101,13 +104,21 @@ const capMono: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: 
 // Orden de categorías del diseño.
 const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'Reuniones', 'Datos'];
 
+// Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
+// propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
+const SYNTHETIC: Record<string, Integracion> = {
+  groq: { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida y gratuita para tareas simples y transcripción. Limitada por rate (tokens/día del plan gratis), no por saldo.', estado: 'conectada', detalle: '' },
+};
+
+// Un incidente del "Historial de problemas": activo ahora, o registrado en el log.
+type Incidente = { id: string; key: string; svc: string; label: string; when: string; activo: boolean; sev: 'bad' | 'warn' };
+
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, historial, googlePanel }: {
+export function IntegracionesBoard({ integraciones, health, metaError, historial }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   historial: MetaEstadoHist[];
-  googlePanel?: ReactNode;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -151,9 +162,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
   };
   const dotColor = (s: 'good' | 'warn' | 'bad') => (s === 'good' ? 'var(--good)' : s === 'warn' ? 'var(--warn-fill)' : 'var(--bad)');
   const conectadas = integraciones.filter((i) => sevOf(i) === 'good').length;
-  // Incidentes de Meta abiertos AHORA (la lista de abajo es Meta-only) → el contador
-  // debe reflejar eso, no el total de servicios que requieren atención.
-  const metaAbiertos = (metaSev && metaSev !== 'verde') || (metaError && !health) ? 1 : 0;
+  // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
+  // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
+  const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
 
   // ── Requiere atención: servicios en falta + Meta si no está verde ──
   // (Sin useMemo: el React Compiler memoiza; el useMemo manual con el closure
@@ -170,6 +181,17 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
     }
     atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo });
   }
+
+  // ── Historial de problemas: incidentes ACTIVOS ahora (todo lo que requiere
+  // atención) + los estados negativos de Meta ya registrados en el log. ──
+  const incidentes: Incidente[] = [
+    ...atencion.map((a) => ({ id: `act-${a.i.key}`, key: a.i.key, svc: a.i.nombre, label: a.motivo, when: 'ahora', activo: true, sev: a.sev })),
+    ...historial.map((h) => ({
+      id: `hist-${h.id}`, key: 'meta', svc: 'Meta Ads',
+      label: `${h.entregaFrenada ? 'Entrega frenada' : h.statusLabel}${h.disableReason ? ` · ${h.disableReason}` : ''}`,
+      when: fmtHora(h.createdAt), activo: false, sev: (h.severidad === 'rojo' ? 'bad' : 'warn') as 'bad' | 'warn',
+    })),
+  ];
 
   // ── Servicios por categoría ──
   const porCategoria = CAT_ORDER
@@ -255,19 +277,16 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
       </section>
 
       {/* ═══ COSTO DE MAKO ═══ */}
-      <CostoMaKo usage={usage} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} />
+      <CostoMaKo usage={usage} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} onOpenService={(key) => setModal({ t: 'svc', key })} />
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
-      <ProblemasHistorial historial={historial} abiertos={metaAbiertos} />
-
-      {/* Google Calendar (OAuth propio) — conexión funcional, debajo del board. */}
-      {googlePanel && <div style={{ marginTop: 20 }}>{googlePanel}</div>}
+      <ProblemasHistorial incidentes={incidentes} />
 
       {/* ═══ MODALES ═══ */}
-      {modal?.t === 'svc' && (
+      {modal?.t === 'svc' && svcByKey(modal.key) && (
         <ServicioModal
-          i={integraciones.find((x) => x.key === modal.key)!}
-          sev={sevOf(integraciones.find((x) => x.key === modal.key)!)}
+          i={svcByKey(modal.key)!}
+          sev={sevOf(svcByKey(modal.key)!)}
           health={health} metaError={metaError} usage={usage}
           onClose={() => setModal(null)}
         />
@@ -280,7 +299,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
 }
 
 // ── Costo de MaKo ─────────────────────────────────────────────────────────────
-function CostoMaKo({ usage, onVerOps, onCargarSaldo }: { usage: Resumen | null; onVerOps: () => void; onCargarSaldo: () => void }) {
+function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: Resumen | null; onVerOps: () => void; onCargarSaldo: () => void; onOpenService: (key: string) => void }) {
   const provs = usage?.porProveedor ?? [];
   const feats = (usage?.porFeature ?? []).slice(0, 8);
   const maxFeat = Math.max(1, ...feats.map((f) => f.costUsd));
@@ -315,8 +334,13 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo }: { usage: Resumen | null; 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 11, marginBottom: 26 }}>
         {provs.map((p) => {
           const low = p.restanteUsd !== null && p.restanteUsd <= 5;
+          const pct = Math.min(100, Math.max(2, (p.tokensHoy / GROQ_LIMITE_DIA_TOKENS) * 100));
+          const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
           return (
-            <div key={p.provider} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 17px' }}>
+            <div key={p.provider} role="button" tabIndex={0} title={`Ver detalle de ${proveedorLegible(p.provider)}`}
+              onClick={() => onOpenService(p.provider)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenService(p.provider); } }}
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 17px', cursor: 'pointer' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
                 <SvcIcon k={p.provider} box={26} radius={8} size={16} />
                 <span style={{ ...capMono, fontSize: 11, letterSpacing: '.06em' }}>{proveedorLegible(p.provider)}</span>
@@ -325,12 +349,14 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo }: { usage: Resumen | null; 
                   : <span style={{ marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%', background: low ? 'var(--warn-fill)' : 'var(--good)' }} />}
               </div>
               {p.gratis ? (
+                // Groq no se mide en $: es gratis, limitado por tokens/día del plan.
                 <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                    <span style={{ fontFamily: MONO, fontWeight: 600, fontSize: 21, letterSpacing: '-0.02em', color: 'var(--ink)' }}>{usd(p.costMesUsd)}</span>
-                    <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>este mes</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginBottom: 7 }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>uso de hoy</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{fmtTok(p.tokensHoy)}<span style={{ color: 'var(--faint)' }}> / {fmtTok(GROQ_LIMITE_DIA_TOKENS)}</span></span>
                   </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 5 }}>{fmtTok(p.tokens)} tokens · sin costo</div>
+                  <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${pct}%`, borderRadius: 5, background: '#F55036' }} /></div>
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>tokens · el límite del plan gratis reinicia cada día</div>
                 </>
               ) : (
                 <>
@@ -340,12 +366,12 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo }: { usage: Resumen | null; 
                   </div>
                   <div style={{ fontFamily: MONO, fontSize: 11, color: low ? 'var(--warn)' : 'var(--faint)', marginTop: 5 }}>gastó {usd(p.costMesUsd)} este mes</div>
                   {editProv === p.provider ? (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
-                      <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={p.saldo ? String(p.saldo.usd) : 'Saldo USD'} style={{ flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
-                      <button onClick={() => guardar(p.provider)} disabled={saving || !input.trim()} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 9 }} onClick={stop}>
+                      <input value={input} onClick={stop} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={p.saldo ? String(p.saldo.usd) : 'Saldo USD'} style={{ flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
+                      <button onClick={(e) => { stop(e); guardar(p.provider); }} disabled={saving || !input.trim()} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
                     </div>
                   ) : (
-                    <button onClick={() => { setEditProv(p.provider); setInput(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>{p.saldo ? 'editar saldo' : 'cargar saldo'}</button>
+                    <button onClick={(e) => { stop(e); setEditProv(p.provider); setInput(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>{p.saldo ? 'editar saldo' : 'cargar saldo'}</button>
                   )}
                 </>
               )}
@@ -378,28 +404,31 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo }: { usage: Resumen | null; 
   );
 }
 
-// ── Historial de problemas (estados negativos de Meta) ────────────────────────
-function ProblemasHistorial({ historial, abiertos }: { historial: MetaEstadoHist[]; abiertos: number }) {
+// ── Historial de problemas (incidentes activos + estados de Meta registrados) ──
+function ProblemasHistorial({ incidentes }: { incidentes: Incidente[] }) {
+  const activos = incidentes.filter((x) => x.activo).length;
   return (
     <section style={{ ...card, marginTop: 20, padding: '22px 30px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginBottom: 6 }}>
         <h2 style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Historial de problemas</h2>
-        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{abiertos} {abiertos === 1 ? 'abierto' : 'abiertos'}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{activos} {activos === 1 ? 'activo' : 'activos'}</span>
       </div>
-      {historial.length === 0 ? (
-        <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Sin incidentes registrados. Acá van a quedar los momentos en que Meta estuvo en ámbar/rojo o con la entrega frenada.</div>
+      {incidentes.length === 0 ? (
+        <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Acá van a aparecer los servicios que requieran atención y los momentos en que Meta estuvo en ámbar/rojo o con la entrega frenada.</div>
       ) : (
-        historial.map((h) => {
-          const st = h.severidad === 'rojo' ? { bg: 'var(--bad-bg)', fg: 'var(--bad)' } : { bg: 'var(--warn-bg)', fg: 'var(--warn)' };
+        incidentes.map((it, idx) => {
+          const st = it.activo
+            ? (it.sev === 'bad' ? { bg: 'var(--bad-bg)', fg: 'var(--bad)', label: 'En curso' } : { bg: 'var(--warn-bg)', fg: 'var(--warn)', label: 'En curso' })
+            : { bg: 'var(--surface-2)', fg: 'var(--dim)', label: 'Registrado' };
           return (
-            <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 0', borderTop: '1px solid var(--surface-2)' }}>
-              <SvcIcon k="meta" box={30} radius={8} size={18} />
+            <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 0', borderTop: idx === 0 ? 'none' : '1px solid var(--surface-2)' }}>
+              <SvcIcon k={it.key} box={30} radius={8} size={18} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>Meta Ads</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{h.entregaFrenada ? 'Entrega frenada' : h.statusLabel}{h.disableReason ? ` · ${h.disableReason}` : ''}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{it.svc}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</div>
               </div>
-              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{fmtHora(h.createdAt)}</span>
-              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: st.bg, color: st.fg, whiteSpace: 'nowrap' }}>{h.severidad === 'rojo' ? 'Rojo' : 'Ámbar'}</span>
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{it.when}</span>
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: st.bg, color: st.fg, whiteSpace: 'nowrap' }}>{st.label}</span>
             </div>
           );
         })
@@ -438,7 +467,7 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
   let mako = false;
   let line = i.descripcion;
   let facts: Array<{ k: string; v: string; c: string }> = [];
-  const actions: Array<{ label: string; href?: string; primary?: boolean }> = [];
+  const actions: Array<{ label: string; href?: string; primary?: boolean; sameTab?: boolean }> = [];
   const faltan = i.estado === 'falta' ? i.detalle.replace(/^Falta configurar:\s*/, '') : '';
 
   if (i.key === 'meta' && health) {
@@ -469,6 +498,18 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
     }
     line = i.key === 'anthropic' ? 'El motor de casi todo lo que hace MaKo: análisis, chats y sugerencias.' : 'Transcripción de llamadas y tareas simples de IA.';
     actions.push({ label: i.key === 'anthropic' ? 'Ver saldo de Claude ↗' : 'Cargar saldo en OpenAI ↗', href: i.key === 'anthropic' ? 'https://console.anthropic.com/settings/billing' : 'https://platform.openai.com/settings/organization/billing', primary: i.key === 'openai' });
+  } else if (i.key === 'groq') {
+    const prov = usage?.porProveedor?.find((p) => p.provider === 'groq');
+    if (prov) {
+      facts = [
+        { k: 'Uso de hoy', v: `${fmtTok(prov.tokensHoy)} tok`, c: 'var(--ink)' },
+        { k: 'Tokens del mes', v: `${fmtTok(prov.tokens)} tok`, c: 'var(--ink)' },
+      ];
+    }
+    line = 'IA rápida y gratis (Groq) para tareas simples y transcripción. No se mide en dinero: está limitada por tokens/día del plan gratuito.';
+  } else if (i.key === 'google') {
+    // El OAuth de Google Calendar es un redirect en la MISMA pestaña.
+    actions.push({ label: 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
   }
 
   return (
@@ -517,7 +558,7 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
         {actions.length > 0 && (
           <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
             {actions.map((a) => (
-              <a key={a.label} href={a.href} target="_blank" rel="noopener noreferrer" style={{ border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none' }}>{a.label}</a>
+              <a key={a.label} href={a.href} target={a.sameTab ? undefined : '_blank'} rel={a.sameTab ? undefined : 'noopener noreferrer'} style={{ border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none' }}>{a.label}</a>
             ))}
           </div>
         )}
@@ -531,8 +572,14 @@ function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => v
   const all = useMemo(() => usage.historial ?? [], [usage.historial]);
   const [fProv, setFProv] = useState('todos');
   const [fModelo, setFModelo] = useState('todos');
+  const [fMes, setFMes] = useState('todos');
   const [fFeat, setFFeat] = useState('todos');
   const [sortBy, setSortBy] = useState<'fecha' | 'caro' | 'barato'>('fecha');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [filterTab, setFilterTab] = useState<string | null>(null);
+  const filterRef = useRef<HTMLDivElement | null>(null);
+  const sortRef = useRef<HTMLDivElement | null>(null);
 
   const modelos = useMemo(() => {
     const set = new Set<string>();
@@ -542,23 +589,59 @@ function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => v
   const features = useMemo(() => {
     const set = new Set<string>();
     for (const o of all) set.add(o.feature);
-    return [...set].map((f) => ({ value: f, label: procesoLegible(f) })).sort((a, b) => a.label.localeCompare(b.label));
+    return [...set].map((f) => [f, procesoLegible(f)] as [string, string]).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [all]);
+  const meses = useMemo(() => {
+    const M = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const map = new Map<string, string>();
+    for (const o of all) { const k = o.at.slice(0, 7); if (k.length === 7 && !map.has(k)) { const [y, m] = k.split('-'); map.set(k, `${M[Number(m) - 1] ?? m} ${y}`); } }
+    return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1)) as [string, string][];
   }, [all]);
 
   const ops = useMemo(() => {
     let r = all.slice();
     if (fProv !== 'todos') r = r.filter((o) => o.provider === fProv);
     if (fModelo !== 'todos') r = r.filter((o) => modeloLegible(o.model) === fModelo);
+    if (fMes !== 'todos') r = r.filter((o) => o.at.slice(0, 7) === fMes);
     if (fFeat !== 'todos') r = r.filter((o) => o.feature === fFeat);
     if (sortBy === 'caro') r.sort((a, b) => b.costUsd - a.costUsd);
     else if (sortBy === 'barato') r.sort((a, b) => a.costUsd - b.costUsd);
     else r.sort((a, b) => (a.at < b.at ? 1 : -1));
     return r;
-  }, [all, fProv, fModelo, fFeat, sortBy]);
+  }, [all, fProv, fModelo, fMes, fFeat, sortBy]);
+
+  const groups = [
+    { key: 'prov', label: 'IA', cur: fProv, set: setFProv, opts: [['todos', 'Todas'], ['anthropic', 'Claude'], ['openai', 'OpenAI'], ['groq', 'Groq']] as [string, string][] },
+    { key: 'modelo', label: 'Modelo', cur: fModelo, set: setFModelo, opts: [['todos', 'Todos'], ...modelos.map((m) => [m, m] as [string, string])] },
+    { key: 'mes', label: 'Mes', cur: fMes, set: setFMes, opts: [['todos', 'Todos'], ...meses] },
+    { key: 'op', label: 'Operación', cur: fFeat, set: setFFeat, opts: [['todos', 'Todas'], ...features] },
+  ];
+  const curLabel = (g: (typeof groups)[number]) => (g.opts.find((o) => o[0] === g.cur)?.[1] ?? 'Todas');
+  const activeChips = groups.filter((g) => g.cur !== 'todos').map((g) => ({ key: g.key, label: `${g.label}: ${curLabel(g)}`, clear: () => g.set('todos') }));
+  const nFilters = activeChips.length;
+  const clearAll = () => { setFProv('todos'); setFModelo('todos'); setFMes('todos'); setFFeat('todos'); setFilterTab(null); };
+  const sortDefs = [['fecha', 'Más recientes'], ['caro', 'Más caro'], ['barato', 'Más barato']] as [string, string][];
+  const sortLabel = sortDefs.find((x) => x[0] === sortBy)?.[1] ?? 'Más recientes';
 
   const sum = ops.reduce((t, o) => t + o.costUsd, 0);
-  const nFilters = (fProv !== 'todos' ? 1 : 0) + (fModelo !== 'todos' ? 1 : 0) + (fFeat !== 'todos' ? 1 : 0);
-  const ddBtn: CSSProperties = { padding: '9px 12px', borderRadius: 10, fontSize: 13.5, borderColor: 'var(--border-strong)' };
+
+  // Estilos de los popovers de filtro/orden (a la manera del diseño).
+  const pill = (active: boolean): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', gap: 8, border: `1px solid ${active ? 'var(--primary-bg)' : 'var(--border-strong)'}`, borderRadius: 10, background: active ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, fontWeight: 600, padding: '9px 14px', cursor: 'pointer' });
+  const pop = (w: number): CSSProperties => ({ position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 30, width: w, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 13, boxShadow: '0 16px 40px rgba(20,22,27,.18)', padding: 8, maxHeight: 340, overflow: 'hidden auto' });
+  const optBtn = (sel: boolean): CSSProperties => ({ display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left', border: 0, background: sel ? 'var(--primary-bg)' : 'transparent', borderRadius: 8, padding: '8px 11px', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: sel ? 600 : 500, color: sel ? 'var(--primary)' : 'var(--ink)' });
+  const dot = (sel: boolean): CSSProperties => ({ width: 7, height: 7, flex: 'none', borderRadius: '50%', background: sel ? 'var(--primary)' : 'var(--border-strong)' });
+
+  // Cerrar los popovers al hacer click afuera.
+  useEffect(() => {
+    if (!filterOpen && !sortOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (filterRef.current?.contains(t) || sortRef.current?.contains(t)) return;
+      setFilterOpen(false); setSortOpen(false); setFilterTab(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [filterOpen, sortOpen]);
 
   return (
     <ModalShell w={680} label="Operaciones de IA" onClose={onClose}>
@@ -571,17 +654,66 @@ function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => v
           <button onClick={onClose} style={{ ...closeBtn, marginLeft: 'auto', width: 32, height: 32, borderRadius: 9 }}>✕</button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-          <Dropdown ariaLabel="Filtrar por IA" value={fProv} onChange={setFProv} buttonStyle={ddBtn}
-            options={[{ value: 'todos', label: 'IA: todas' }, { value: 'anthropic', label: 'Claude' }, { value: 'openai', label: 'OpenAI' }, { value: 'groq', label: 'Groq' }]} />
-          <Dropdown ariaLabel="Filtrar por modelo" value={fModelo} onChange={setFModelo} buttonStyle={ddBtn}
-            options={[{ value: 'todos', label: 'Modelo: todos' }, ...modelos.map((m) => ({ value: m, label: m }))]} />
-          <Dropdown ariaLabel="Filtrar por operación" value={fFeat} onChange={setFFeat} buttonStyle={ddBtn}
-            options={[{ value: 'todos', label: 'Operación: todas' }, ...features]} />
-          <Dropdown ariaLabel="Ordenar" value={sortBy} onChange={(v) => setSortBy(v as 'fecha' | 'caro' | 'barato')} buttonStyle={ddBtn}
-            options={[{ value: 'fecha', label: 'Más recientes' }, { value: 'caro', label: 'Más caro' }, { value: 'barato', label: 'Más barato' }]} />
-          {nFilters > 0 && <button type="button" onClick={() => { setFProv('todos'); setFModelo('todos'); setFFeat('todos'); }} style={{ border: 0, background: 'none', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 6 }}>Limpiar</button>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: nFilters > 0 ? 12 : 14 }}>
+          {/* Filtros (popover con grupos colapsables) */}
+          <div style={{ position: 'relative' }} ref={filterRef}>
+            <button type="button" onClick={() => { setFilterOpen((v) => !v); setSortOpen(false); }} style={pill(nFilters > 0)}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h18M6 12h12M10 19h4" /></svg>
+              Filtros
+              {nFilters > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontFamily: MONO, fontSize: 11, fontWeight: 600 }}>{nFilters}</span>}
+              <span style={{ color: 'var(--faint)', fontSize: 11 }}>{filterOpen ? '▴' : '▾'}</span>
+            </button>
+            {filterOpen && (
+              <div style={pop(300)}>
+                {groups.map((g) => (
+                  <div key={g.key} style={{ borderRadius: 9, overflow: 'hidden' }}>
+                    <button type="button" onClick={() => setFilterTab((t) => (t === g.key ? null : g.key))} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, border: 0, background: filterTab === g.key ? 'var(--surface-2)' : 'transparent', borderRadius: 9, padding: '11px 12px', cursor: 'pointer', fontFamily: "'Geist', sans-serif" }}>
+                      <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>{g.label}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontFamily: MONO, fontSize: 11.5, color: g.cur !== 'todos' ? 'var(--primary)' : 'var(--faint)' }}>{curLabel(g)}</span>
+                        <span style={{ color: 'var(--faint)', fontSize: 10 }}>{filterTab === g.key ? '▴' : '▾'}</span>
+                      </span>
+                    </button>
+                    {filterTab === g.key && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 4px 8px' }}>
+                        {g.opts.map(([v, l]) => (
+                          <button key={v} type="button" onClick={() => { g.set(v); setFilterTab(null); }} style={optBtn(v === g.cur)}><span style={dot(v === g.cur)} />{l}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Ordenar (popover propio) */}
+          <div style={{ position: 'relative' }} ref={sortRef}>
+            <button type="button" onClick={() => { setSortOpen((v) => !v); setFilterOpen(false); }} style={pill(false)}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 4v16M7 20l-3-3M7 4l3 3M17 20V4M17 4l-3 3M17 20l3-3" /></svg>
+              {sortLabel}
+              <span style={{ color: 'var(--faint)', fontSize: 11 }}>{sortOpen ? '▴' : '▾'}</span>
+            </button>
+            {sortOpen && (
+              <div style={pop(190)}>
+                {sortDefs.map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => { setSortBy(v as 'fecha' | 'caro' | 'barato'); setSortOpen(false); }} style={optBtn(v === sortBy)}><span style={dot(v === sortBy)} />{l}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {nFilters > 0 && <button type="button" onClick={clearAll} style={{ border: 0, background: 'none', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 6 }}>Limpiar</button>}
         </div>
+
+        {/* Chips de filtros activos */}
+        {nFilters > 0 && (
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
+            {activeChips.map((ch) => (
+              <button key={ch.key} type="button" onClick={ch.clear} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid var(--primary-bg)', borderRadius: 999, background: 'var(--primary-bg)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 12, fontWeight: 600, padding: '5px 11px', cursor: 'pointer' }}>{ch.label}<span style={{ fontSize: 13, lineHeight: 1 }}>✕</span></button>
+            ))}
+          </div>
+        )}
 
         <div style={{ maxHeight: 'calc(100vh - 320px)', minHeight: 180, overflow: 'hidden auto' }}>
           {ops.length === 0 ? (
