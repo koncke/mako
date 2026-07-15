@@ -402,7 +402,7 @@ export async function analyzeMeeting(m: FathomMeeting, lead: LeadMatch | null, f
   try {
     const system = await getPromptText('closing.analyze.system', SYSTEM_ANALISIS);
     const text = await chatClaude(system, [{ role: 'user', content: await buildUserPrompt(m, lead, feedback) }], {
-      model: ANALYSIS_MODEL,
+      // Sin model hardcodeado: el override de /modelos-ia (feature 'closing') manda.
       thinking: true,
       effort: 'high',
       maxTokens: 8000,

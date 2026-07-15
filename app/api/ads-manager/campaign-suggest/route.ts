@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
       const sys = await brandSystem(await renderPrompt('campaign.adjust.system', CAMPAIGN_ADJUST_SYSTEM_TEMPLATE, { jsonShape: CAMPAIGN_JSON_SHAPE }));
       const user = await renderPrompt('campaign.adjust.user', CAMPAIGN_ADJUST_USER_TEMPLATE, { specActual: JSON.stringify(body.specActual, null, 2), instruccion, contexto });
       text = await chatClaude(sys, [{ role: 'user', content: user }], {
-        model: 'claude-opus-4-8', thinking: true, effort: 'high', maxTokens: 16000, feature: 'campaign-suggest',
+        thinking: true, effort: 'high', maxTokens: 16000, feature: 'campaign-suggest',
         onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
       });
     } else {
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       const creativos = String(body.creativos ?? '').trim() || 'Ninguno especificado todavía (el usuario adjunta los creativos en la app).';
       const user = await renderPrompt('campaign.suggest.user', CAMPAIGN_SUGGEST_USER_TEMPLATE, { prompt, creativos, contexto });
       text = await chatClaude(sys, [{ role: 'user', content: user }], {
-        model: 'claude-opus-4-8', thinking: true, effort: 'high', maxTokens: 16000, feature: 'campaign-suggest',
+        thinking: true, effort: 'high', maxTokens: 16000, feature: 'campaign-suggest',
         onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
       });
     }

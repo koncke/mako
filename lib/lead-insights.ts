@@ -421,7 +421,7 @@ export async function generarInsightLead(leadId: number): Promise<GenerarInsight
     // Sin maxTokens explícito: con thinking adaptativo el razonamiento comparte
     // el presupuesto y 8000 podía cortar el JSON (el default da aire: 16000).
     const texto = await chatClaude(system, [{ role: 'user', content: user }], {
-      model: MODEL_INSIGHTS,
+      // Sin model hardcodeado: el override de /modelos-ia (feature 'lead_insights') manda.
       thinking: true,
       effort: 'high',
       feature: 'lead_insights',

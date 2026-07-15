@@ -125,7 +125,7 @@ export async function generarAdCopy(opts: {
         contexto,
       });
       text = await chatClaude(sys, [{ role: 'user', content: user }], {
-        model: 'claude-opus-4-8', thinking: true, effort: 'high', maxTokens: 12000, feature: 'ads-writer',
+        thinking: true, effort: 'high', maxTokens: 12000, feature: 'ads-writer',
         onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
       });
     } else {
@@ -134,7 +134,7 @@ export async function generarAdCopy(opts: {
       );
       const user = await renderPrompt('ads_writer.suggest.user', AD_COPY_SUGGEST_USER_TEMPLATE, { prompt, contexto });
       text = await chatClaude(sys, [{ role: 'user', content: user }], {
-        model: 'claude-opus-4-8', thinking: true, effort: 'high', maxTokens: 12000, feature: 'ads-writer',
+        thinking: true, effort: 'high', maxTokens: 12000, feature: 'ads-writer',
         onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
       });
     }

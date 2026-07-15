@@ -27,36 +27,52 @@ export type FeatureModelo = {
 };
 
 const CLAUDE = (model = 'claude-opus-4-8'): ModeloRef => ({ provider: 'anthropic', model });
+const SONNET: ModeloRef = { provider: 'anthropic', model: 'claude-sonnet-5' };
 const GROQ = (model = 'openai/gpt-oss-20b'): ModeloRef => ({ provider: 'groq', model });
+const GROQ_WHISPER: ModeloRef = { provider: 'groq', model: 'whisper-large-v3-turbo' };
 
-// Catálogo (del audit de los 55 usos de IA). No es exhaustivo: son las tareas que
-// más importan para el costo. Feature no listado → usa el modelo que le pase el
-// call-site (sin override).
+// Catálogo de TODOS los procesos de IA de la app (del audit). Cada `feature` es el
+// tag REAL que el call-site le pasa a chatClaude/chatCheap: si no coincide, el
+// override no aplica. Regla de tiers: PII + razonamiento fino → Claude (Opus o
+// Sonnet); voz de marca → Claude (probar Sonnet); simple sin PII → Groq.
 export const CATALOGO_MODELOS: FeatureModelo[] = [
-  // ── Razonamiento / voz de marca / PII → se quedan en Claude ──────────────────
-  { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: CLAUDE(), pii: true, nota: 'Transcript + decisión comercial. Claude.' },
-  { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: CLAUDE(), pii: true, nota: 'Síntesis multi-fuente sobre PII. Claude.' },
-  { feature: 'experimentos', label: 'Experimentos / Retro', grupo: 'Análisis', def: CLAUDE(), nota: 'Diagnóstico + plan con evidencia. Claude.' },
-  { feature: 'script-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: CLAUDE(), nota: 'Lectura estructural creativa. Claude.' },
-  { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: CLAUDE(), nota: 'Predicción + crítica creativa. Claude.' },
-  { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: CLAUDE(), nota: 'Estrategia + voz de marca. Claude.' },
-  { feature: 'wa-advisor', label: 'Asesor de WhatsApp (mensajes)', grupo: 'Copywriting', def: CLAUDE(), pii: true, nota: 'Copy en voz de marca sobre una charla real. Claude.' },
-  { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp (chat)', grupo: 'Copywriting', def: CLAUDE(), pii: true },
-  { feature: 'mako-chat', label: 'MaKo — chat de la app', grupo: 'MaKo', def: CLAUDE(), nota: 'Análisis conversacional. Claude.' },
-  { feature: 'mako-doer', label: 'MaKo Doer (web)', grupo: 'MaKo', def: CLAUDE() },
-  { feature: 'mako-doer-in', label: 'MaKo — WhatsApp (Hola MaKo)', grupo: 'MaKo', def: CLAUDE(), pii: true, nota: 'Doer conversacional con tools. Claude.' },
-  { feature: 'mako-escribe', label: 'MaKo escribe la nutrición', grupo: 'Copywriting', def: CLAUDE() },
-  // ── Tareas simples → recomendado Groq (barato, no entrena) ───────────────────
+  // ── MaKo conversacional / agentes con herramientas ──────────────────────────
+  { feature: 'mako-doer-in', label: 'MaKo en WhatsApp (Hola MaKo)', grupo: 'MaKo', def: CLAUDE(), pii: true, recomendado: SONNET, nota: 'Doer con herramientas sobre datos de clientes. Necesita Claude; probá Sonnet para abaratar.' },
+  { feature: 'mako-doer', label: 'MaKo Doer — acciones en la web', grupo: 'MaKo', def: CLAUDE(), recomendado: SONNET, nota: 'Agente con herramientas. Claude (Sonnet u Opus).' },
+  { feature: 'mako-chat', label: 'MaKo — chat sobre un gráfico', grupo: 'MaKo', def: CLAUDE(), recomendado: SONNET, nota: 'Chat sobre un dashboard. Probá Sonnet.' },
+  { feature: 'mako-guardian', label: 'Perro Guardián — cerebro de priorización (/plan)', grupo: 'MaKo', def: CLAUDE(), nota: 'Debate prioridades, re-prioriza el plan y detecta duplicados. Razonamiento fino: dejalo en Claude.' },
+  { feature: 'checklist-coach', label: 'MaKo te ayuda (tareas y proyectos)', grupo: 'MaKo', def: CLAUDE(), recomendado: SONNET, nota: 'Genera preguntas, optimiza la tarea y propone el proyecto en /plan.' },
+
+  // ── Análisis / razonamiento fino sobre datos reales → Claude ────────────────
+  { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: CLAUDE(), pii: true, nota: 'Transcript + decisión comercial sobre PII. Opus.' },
+  { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: CLAUDE(), pii: true, nota: 'Síntesis multi-fuente sobre PII. Opus.' },
+  { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), nota: 'El análisis más pesado del producto. Opus.' },
+  { feature: 'script-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: CLAUDE(), recomendado: SONNET, nota: 'Lectura estructural creativa. Probá Sonnet.' },
+  { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: CLAUDE(), recomendado: SONNET },
+  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: CLAUDE(), recomendado: SONNET, nota: 'Extracción estructurada. Probá Sonnet.' },
+
+  // ── Copywriting / voz de marca → Claude (probar Sonnet) ─────────────────────
+  { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: CLAUDE(), recomendado: SONNET, nota: 'Estrategia + voz de marca. Probá Sonnet.' },
+  { feature: 'ads-writer', label: 'Escribir copy de anuncios', grupo: 'Copywriting', def: CLAUDE(), recomendado: SONNET },
+  { feature: 'wa-advisor', label: 'Asesor de WhatsApp — sugerir respuesta a un lead', grupo: 'Copywriting', def: CLAUDE(), pii: true, recomendado: SONNET, nota: 'Analiza la charla real y propone el próximo mensaje (datos del cliente).' },
+  { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: CLAUDE(), pii: true, recomendado: SONNET, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
+  { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: CLAUDE(), recomendado: SONNET },
+  { feature: 'nutri-destilar-voz', label: 'MaKo aprende tu voz (nutrición)', grupo: 'Copywriting', def: CLAUDE(), recomendado: SONNET },
+  { feature: 'nutri-generar', label: 'MaKo escribe la secuencia de nutrición', grupo: 'Copywriting', def: CLAUDE(), recomendado: SONNET },
+  { feature: 'email-generar', label: 'Escribir email de nutrición', grupo: 'Copywriting', def: CLAUDE(), recomendado: SONNET },
+
+  // ── Simples / sin PII → Groq por default (barato, no entrena) ───────────────
+  { feature: 'ads-rename', label: 'Ordenar nombres de campañas de Meta', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Extracción sin datos de clientes → Groq.' },
+  { feature: 'validador', label: 'Validar plantilla de WhatsApp vs reglas de Meta', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Clasificación contra rúbrica fija → Groq.' },
+  { feature: 'nutri-plantilla', label: 'Copy → plantilla de WhatsApp (nutrición)', grupo: 'Simples', def: CLAUDE(), recomendado: GROQ() },
+  { feature: 'avisos', label: 'Redactar aviso al dueño (semáforo)', grupo: 'Simples', def: SONNET, pii: true, recomendado: SONNET, nota: 'Rellena una plantilla con datos del evento (incluye nombres) → Claude Sonnet, más barato que Opus.' },
   { feature: 'Título de chat', label: 'Título de una sesión de chat', grupo: 'Simples', def: GROQ(), recomendado: GROQ(), nota: 'Titulación pura. Ya en barato.' },
-  { feature: 'ia-barata', label: 'IA barata genérica', grupo: 'Simples', def: GROQ(), recomendado: GROQ() },
-  { feature: 'ads-rename', label: 'Ordenar nombres de campañas', grupo: 'Simples', def: CLAUDE(), recomendado: GROQ(), nota: 'Extracción/inferencia sin PII → Groq.' },
-  { feature: 'template-validator', label: 'Validar plantilla vs reglas Meta', grupo: 'Simples', def: CLAUDE(), recomendado: GROQ(), nota: 'Clasificación contra rúbrica fija → Groq.' },
-  { feature: 'checklist-coach', label: 'Proponer nombre+emoji de proyecto', grupo: 'Simples', def: CLAUDE(), recomendado: GROQ() },
-  { feature: 'mako-guardian', label: 'Detectar tareas duplicadas', grupo: 'Simples', def: CLAUDE(), recomendado: GROQ(), nota: 'Dedup semántico — probar A/B.' },
-  { feature: 'nutricion-plantilla', label: 'Copy → plantilla de WhatsApp', grupo: 'Simples', def: CLAUDE(), recomendado: GROQ() },
   { feature: 'onboarding-extract', label: 'Extraer campos del onboarding', grupo: 'Simples', def: { provider: 'openai', model: 'gpt-4o-mini' }, recomendado: GROQ() },
-  // ── STT ──────────────────────────────────────────────────────────────────────
-  { feature: 'MaKo · nota de voz', label: 'Transcribir nota de voz', grupo: 'STT', def: { provider: 'groq', model: 'whisper-large-v3-turbo' }, recomendado: { provider: 'groq', model: 'whisper-large-v3-turbo' } },
+  { feature: 'ia-barata', label: 'IA barata genérica', grupo: 'Simples', def: GROQ(), recomendado: GROQ() },
+
+  // ── STT (voz → texto) ────────────────────────────────────────────────────────
+  { feature: 'MaKo · nota de voz', label: 'Transcribir nota de voz (Hola MaKo)', grupo: 'STT', def: GROQ_WHISPER, recomendado: GROQ_WHISPER },
+  { feature: 'stt-nota-voz', label: 'Transcribir nota de voz (grupo)', grupo: 'STT', def: GROQ_WHISPER, recomendado: GROQ_WHISPER },
 ];
 
 const KEY = 'mako.modelos'; // override JSON: { [feature]: { provider, model } }

@@ -68,7 +68,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown):
   try {
     let uso: { tokens: number; costUsd: number } | null = null;
     const text = await chatClaude(system, [{ role: 'user', content: user }], {
-      model: 'claude-opus-4-8', thinking: true, effort: 'medium', maxTokens: 16000,
+      thinking: true, effort: 'medium', maxTokens: 16000,
       feature: 'ads-rename',
       onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
     });

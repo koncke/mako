@@ -333,7 +333,7 @@ async function analyzeTranscript(t: TranscriptRow, angles: Angle[], avatares: Av
   try {
     const [system, user] = await Promise.all([buildSystemAnalisis(angles, avatares), buildUserPrompt(t)]);
     const text = await chatClaude(system, [{ role: 'user', content: user }], {
-      model: ANALYSIS_MODEL,
+      // Sin model hardcodeado: el override de /modelos-ia (feature 'script-analyst') manda.
       thinking: true,
       effort: 'high',
       maxTokens: 6000,
@@ -1068,7 +1068,7 @@ export async function valorarGuion(guion: string, dur?: number): Promise<{ ok: t
     const [profile, angles] = await Promise.all([buildAccountProfile(), getAngles()]);
     const [system, user] = await Promise.all([buildSystemValoracion(angles), buildValorarPrompt(guion, dur, profile)]);
     const text = await chatClaude(system, [{ role: 'user', content: user }], {
-      model: ANALYSIS_MODEL, thinking: true, effort: 'high', maxTokens: 6000, feature: 'script-valorador',
+      thinking: true, effort: 'high', maxTokens: 6000, feature: 'script-valorador',
     });
     const raw = parseJsonObject(text) as Record<string, unknown>;
     return { ok: true, valoracion: sanitizeValoracion(raw, dur, profile, angles.map((a) => a.key)) };

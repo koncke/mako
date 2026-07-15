@@ -19,12 +19,16 @@ const refKey = (r: Ref) => `${r.provider}|${r.model}`;
 const nombreCorto = (r: Ref) => `${PROV_LABEL[r.provider] ?? r.provider} · ${r.model.replace(/^openai\//, '').replace('claude-', '').replace('-versatile', '')}`;
 
 const CHAT_OPTS: DropdownOption[] = [
-  { value: 'anthropic|claude-opus-4-8', label: 'Claude Opus 4.8', sub: 'razonamiento / voz de marca' },
-  { value: 'anthropic|claude-haiku-4-5', label: 'Claude Haiku 4.5', sub: 'Claude, más barato' },
+  { value: 'anthropic|claude-opus-4-8', label: 'Claude Opus 4.8', sub: 'máximo razonamiento / voz de marca' },
+  { value: 'anthropic|claude-sonnet-5', label: 'Claude Sonnet 5', sub: 'intermedio: casi Opus, bastante más barato' },
+  { value: 'anthropic|claude-sonnet-4-6', label: 'Claude Sonnet 4.6', sub: 'Claude intermedio (previo)' },
+  { value: 'anthropic|claude-haiku-4-5', label: 'Claude Haiku 4.5', sub: 'Claude, el más barato' },
   { value: 'groq|openai/gpt-oss-20b', label: 'Groq · gpt-oss-20b', sub: 'barato, rápido, no entrena' },
   { value: 'groq|openai/gpt-oss-120b', label: 'Groq · gpt-oss-120b', sub: 'barato con más cabeza' },
   { value: 'groq|llama-3.3-70b-versatile', label: 'Groq · Llama 3.3 70B', sub: 'barato' },
   { value: 'openai|gpt-4o-mini', label: 'OpenAI · gpt-4o-mini', sub: 'barato' },
+  { value: 'openai|gpt-5-mini', label: 'OpenAI · gpt-5-mini', sub: 'OpenAI intermedio, barato' },
+  { value: 'openai|gpt-4o', label: 'OpenAI · gpt-4o', sub: 'OpenAI, con visión' },
 ];
 const STT_OPTS: DropdownOption[] = [
   { value: 'groq|whisper-large-v3-turbo', label: 'Groq · Whisper v3 turbo', sub: 'STT barato' },

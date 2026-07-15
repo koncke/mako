@@ -148,7 +148,20 @@ export async function chatClaudeTools(
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
-  const model = opts.model ?? MODEL;
+  // Override configurable por feature (tab /modelos-ia). El LOOP de tools necesita
+  // un modelo con tool-use → solo modelos de Anthropic; si el override apunta a
+  // Groq/OpenAI (sin soporte de tools acá), lo ignoramos y quedamos en Claude. Así
+  // el doer se puede bajar a Sonnet desde la UI (antes esto era config MUERTA:
+  // chatClaudeTools jamás leía el registro y todo corría en Opus).
+  let model = opts.model ?? MODEL;
+  if (!opts.model && opts.feature) {
+    try {
+      const { modeloDeFeature } = await import('@/lib/model-registry');
+      const ref = await modeloDeFeature(opts.feature);
+      if (ref?.provider === 'anthropic') model = ref.model;
+      else if (ref) console.warn(`[anthropic] tools ${opts.feature}: override ${ref.provider} no soporta tool-use, uso ${model}`);
+    } catch { /* sin registro → default */ }
+  }
   const effort: Effort = opts.effort ?? DEFAULT_EFFORT;
   const maxSteps = opts.maxSteps ?? 8;
   const msgs: RichMsg[] = [...messages];
