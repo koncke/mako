@@ -5,6 +5,7 @@ import { Sidebar } from './_components/Sidebar';
 import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
+import { IaUsageToast } from './_components/IaUsageToast';
 
 export const metadata: Metadata = {
   title: 'Marketing OS — Mauricio Bustos',
@@ -55,6 +56,9 @@ export default function RootLayout({
                   CRM al entrar a /leads. usePathname (no necesita Suspense). */}
               <MakoConfirmGate />
               {children}
+              {/* Toast global: avisa CADA operación de IA que gasta tokens y
+                  linkea al detalle en Integraciones › Costo de MaKo. */}
+              <IaUsageToast />
             </div>
           </div>
         </NotificationsProvider>

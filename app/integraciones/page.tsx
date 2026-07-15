@@ -33,12 +33,13 @@ export default async function IntegracionesPage() {
   }
   const historial: MetaEstadoHist[] = await getHistorialMeta(20);
   return (
-    <>
-      <IntegracionesBoard integraciones={integraciones} health={health} metaError={metaError} historial={historial} />
-      {/* Google Calendar (conexión OAuth propia) vive acá, en Integraciones. */}
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 44px 40px' }}>
-        <Suspense fallback={null}><GoogleCalendarPanel /></Suspense>
-      </div>
-    </>
+    <IntegracionesBoard
+      integraciones={integraciones}
+      health={health}
+      metaError={metaError}
+      historial={historial}
+      // Google Calendar (OAuth propio) se renderiza dentro del board, al pie.
+      googlePanel={<Suspense fallback={null}><GoogleCalendarPanel /></Suspense>}
+    />
   );
 }
