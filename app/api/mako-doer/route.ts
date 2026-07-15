@@ -10,6 +10,7 @@
 
 import type { NextRequest } from 'next/server';
 import { chatClaude, chatClaudeTools, type RichMsg } from '@/lib/anthropic';
+import { chatCheap } from '@/lib/ai-cheap';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
@@ -48,11 +49,14 @@ async function responder(sys: string, msgs: RichMsg[]): Promise<string> {
   return text;
 }
 
-// Título corto generado por la IA (sin thinking, barato). Diferencia sesiones.
+// Título corto generado por la IA (tarea simple → modelo barato, fallback a Claude).
 async function generarTitulo(seed: string): Promise<string | null> {
   try {
     const sys = await getPromptText('chart_insights.titulo_generation', CHART_TITULO_DEFAULT);
-    const t = await chatClaude(sys, [{ role: 'user', content: seed.slice(0, 1500) }], { thinking: false, maxTokens: 30, feature: 'mako-doer' });
+    const user = seed.slice(0, 1500);
+    let t: string;
+    try { t = await chatCheap({ system: sys, user, maxTokens: 30 }); }
+    catch { t = await chatClaude(sys, [{ role: 'user', content: user }], { thinking: false, maxTokens: 30, feature: 'mako-doer' }); }
     const clean = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
     return clean ? clean.slice(0, 70) : null;
   } catch { return null; }

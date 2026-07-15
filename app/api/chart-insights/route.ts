@@ -8,6 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { chatClaude, type ClaudeMsg } from '@/lib/anthropic';
+import { chatCheap } from '@/lib/ai-cheap';
 import {
   createSession, getSession, listSessions, listAllSessions, getSessionMessages, appendMessage,
   renameSession, setPinned, setArchived, deleteSession, type ChartMsg,
@@ -31,15 +32,15 @@ async function buildMsgs(contexto: string, history: ChartMsg[], mensaje?: string
   return msgs;
 }
 
-// Título corto generado por la IA (sin thinking, barato). Diferencia chats del mismo gráfico.
+// Título corto generado por la IA (tarea simple → modelo barato, con fallback a
+// Claude si no hay proveedor barato o falla). No necesita la cabeza de Opus.
 async function generarTitulo(seed: string): Promise<string | null> {
   try {
     const sys = await getPromptText('chart_insights.titulo_generation', CHART_TITULO_DEFAULT);
-    const t = await chatClaude(
-      sys,
-      [{ role: 'user', content: seed.slice(0, 1500) }],
-      { thinking: false, maxTokens: 30, feature: 'mako-chat' },
-    );
+    const user = seed.slice(0, 1500);
+    let t: string;
+    try { t = await chatCheap({ system: sys, user, maxTokens: 30 }); }
+    catch { t = await chatClaude(sys, [{ role: 'user', content: user }], { thinking: false, maxTokens: 30, feature: 'mako-chat' }); }
     const clean = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
     return clean ? clean.slice(0, 70) : null;
   } catch { return null; }

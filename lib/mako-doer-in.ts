@@ -20,6 +20,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { enviarAGrupoJid } from '@/lib/mako-grupo';
 import { getSetting, setSetting } from '@/lib/settings';
 import { runWithWorkspace } from '@/lib/workspace';
+import { transcribirAudio } from '@/lib/ai-cheap';
 
 // ── settings del doer ─────────────────────────────────────────────────────────
 const KEY_ACTIVO = 'mako.doer.activo';        // interruptor general (default: ON)
@@ -60,7 +61,7 @@ async function doerActivo(ws: number): Promise<boolean> {
 }
 
 // ── parseo del mensaje entrante ───────────────────────────────────────────────
-type MsgIn = { key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string };
+type MsgIn = { key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string };
 
 function textoDe(m: MsgIn): string {
   const msg = m.message ?? {};
@@ -70,6 +71,17 @@ function textoDe(m: MsgIn): string {
   const img = msg.imageMessage as { caption?: string } | undefined;
   if (img?.caption) return img.caption;
   return '';
+}
+
+/** Nota de voz: devuelve el audio en base64 + su mime, o null si no hay. Evolution
+ *  (webhookBase64:true) adjunta el base64 en data.base64 o en el propio mensaje. */
+function audioDe(m: MsgIn): { base64: string; mime: string } | null {
+  const msg = m.message ?? {};
+  const am = msg.audioMessage as { base64?: string; mimetype?: string } | undefined;
+  if (!am) return null;
+  const b64 = m.base64 || am.base64 || (msg.base64 as string | undefined) || '';
+  if (!b64) return null;
+  return { base64: b64, mime: am.mimetype || 'audio/ogg' };
 }
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
@@ -109,12 +121,13 @@ async function procesarDoer(ws: number, data: MsgIn): Promise<ResultadoDoer> {
     const key = data.key;
     const jid = key?.remoteJid;
     if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
-    const texto = textoDe(data).trim();
-    if (!texto) return { engaged: false, skip: 'sin texto' };
+    const textoDirecto = textoDe(data).trim();
+    const audio = audioDe(data);
+    if (!textoDirecto && !audio) return { engaged: false, skip: 'sin texto ni audio' };
 
     // Allowlist PRIMERO: la línea de voz suele ser el número personal del dueño
     // (cientos de grupos), y casi todos los mensajes no son para MaKo. Cortar acá
-    // con una sola lectura evita cargar la DB por cada grupo ajeno.
+    // con una sola lectura evita cargar la DB —y el STT— por cada grupo ajeno.
     const grupos = await gruposDoer(ws);
     if (!grupos.includes(jid)) return { engaged: false, skip: 'grupo no habilitado' };
     if (!(await doerActivo(ws))) return { engaged: false, skip: 'doer desactivado' };
@@ -135,9 +148,21 @@ async function procesarDoer(ws: number, data: MsgIn): Promise<ResultadoDoer> {
       if (last === msgId) return { engaged: false, skip: 'ya tratado' };
     }
 
-    // ¿Enganchamos? Solo si lo nombran o hay una acción esperando confirmación.
+    // Resolver el texto: si vino como NOTA DE VOZ, transcribir ahora (recién acá,
+    // ya pasada la allowlist + dedup, para no gastar STT en audios de grupos ajenos).
+    let texto = textoDirecto;
+    let eraAudio = false;
+    if (!texto && audio) {
+      try { texto = (await transcribirAudio(audio.base64, audio.mime, { language: 'es' })).trim(); }
+      catch (e) { console.error('[mako-doer-in] STT:', e instanceof Error ? e.message : String(e)); return { engaged: false, skip: 'audio no transcribible' }; }
+      if (!texto) return { engaged: false, skip: 'audio vacío' };
+      eraAudio = true;
+    }
+
+    // ¿Enganchamos? Una NOTA DE VOZ en un grupo de MaKo es deliberada → siempre.
+    // Un texto solo si lo nombran o hay una acción esperando confirmación.
     const vigentes = await pendientesVigentes(ws, jid);
-    if (!nombraAMaKo(texto) && vigentes.length === 0) return { engaged: false, skip: 'no lo nombran / sin pendientes' };
+    if (!eraAudio && !nombraAMaKo(texto) && vigentes.length === 0) return { engaged: false, skip: 'no lo nombran / sin pendientes' };
 
     // Marcar como tratado ANTES de responder (evita doble respuesta si re-entrega
     // mientras generamos).
