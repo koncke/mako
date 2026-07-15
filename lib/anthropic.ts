@@ -29,11 +29,34 @@ export async function chatClaude(
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
+  // Override configurable por feature (tab de modelos en SuperAdmin). Si el caller
+  // NO forzó un modelo y la feature está ruteada a otra IA (Groq/OpenAI), delegamos
+  // a la capa barata; si es otro modelo de Claude, lo usamos. Fallback a Claude si
+  // la barata falla (no romper una tarea por un override mal puesto).
+  let modeloOverride: string | undefined;
+  if (!opts.model && opts.feature) {
+    try {
+      const { modeloDeFeature } = await import('@/lib/model-registry');
+      const ref = await modeloDeFeature(opts.feature);
+      if (ref && ref.provider !== 'anthropic') {
+        try {
+          const { chatCheap } = await import('@/lib/ai-cheap');
+          const user = messages.map((m) => m.content).join('\n\n');
+          return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model });
+        } catch (e) {
+          console.warn(`[anthropic] override ${opts.feature}→${ref.provider} falló, uso Claude: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      } else if (ref) {
+        modeloOverride = ref.model;
+      }
+    } catch { /* sin registro → default */ }
+  }
+
   // thinking === false → sin razonamiento extendido (tareas chicas, p.ej. títulos).
   const thinkingOn = opts.thinking ?? true;
   const effort: Effort = thinkingOn ? (opts.effort ?? DEFAULT_EFFORT) : 'low';
   const payload: Record<string, unknown> = {
-    model: opts.model ?? MODEL,
+    model: opts.model ?? modeloOverride ?? MODEL,
     // Con thinking adaptativo el razonamiento entra en max_tokens: damos aire.
     max_tokens: opts.maxTokens ?? (thinkingOn ? 16000 : 512),
     system,
