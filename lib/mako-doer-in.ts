@@ -111,6 +111,25 @@ function audioDe(m: MsgIn): { base64: string | null; mime: string } | null {
   return { base64: b64, mime: a.mimetype || 'audio/ogg' };
 }
 
+/** ¿Trae una IMAGEN (captura, foto) o un PDF? Claude los lee nativo. Otros documentos
+ *  (docx/xlsx) no se soportan → se devuelven con soportado:false. */
+function adjuntoDe(m: MsgIn): { tipo: 'image' | 'document'; base64: string | null; mime: string; caption: string; soportado: boolean } | null {
+  const msg = m.message ?? {};
+  const img = msg.imageMessage as { base64?: string; mimetype?: string; caption?: string } | undefined;
+  if (img) {
+    const mime = (img.mimetype || 'image/jpeg').split(';')[0];
+    const ok = /^image\/(jpeg|png|gif|webp)$/.test(mime);
+    return { tipo: 'image', base64: m.base64 || img.base64 || null, mime: ok ? mime : 'image/jpeg', caption: img.caption || '', soportado: true };
+  }
+  const doc = msg.documentMessage as { base64?: string; mimetype?: string; caption?: string; fileName?: string } | undefined;
+  if (doc) {
+    const mime = (doc.mimetype || '').split(';')[0];
+    const esPdf = /pdf/i.test(mime) || /\.pdf$/i.test(doc.fileName || '');
+    return { tipo: 'document', base64: m.base64 || doc.base64 || null, mime: 'application/pdf', caption: doc.caption || doc.fileName || '', soportado: esPdf };
+  }
+  return null;
+}
+
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 /** ¿El mensaje interpela a MaKo? (lo nombra al principio o lo menciona). */
 function nombraAMaKo(texto: string): boolean {
@@ -141,6 +160,19 @@ HERRAMIENTAS DE LECTURA: buscar_leads, ficha_lead, historial_whatsapp, reuniones
 CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, activar/pausar una nutrición, renombrar/pausar/ajustar el presupuesto de una campaña de Meta): NO ejecutás directo. Usás la tool 'proponer_*' correspondiente —que deja la acción PENDIENTE— y en tu respuesta explicás en una línea qué vas a hacer y pedís que confirmen con un "sí". Conseguí primero los ids con las tools de lectura.
 
 CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hacelo", "confirmo") y hay una acción pendiente: llamá 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usá 'listar_pendientes' y preguntá.`;
+
+// Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
+// un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
+const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, dá el resumen corto y CERRÁ con un link para verlo (formato: "Mirá el detalle acá → URL"). No inventes rutas; usá estas (base ${APP_URL}):
+- Ficha 360 de un lead: ${APP_URL}/leads/{id}
+- Análisis de una llamada de ventas (Closing Analyst): ${APP_URL}/closing
+- WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
+- Marketing / anuncios: ${APP_URL}/graphics · Ads Manager: ${APP_URL}/ads-manager
+- Experimentos (verdades validadas): ${APP_URL}/experimentos
+- Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
+- Salud de la cuenta de Meta: ${APP_URL}/integraciones
+Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tenés acá → ${APP_URL}/closing".`;
 
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
 
@@ -190,7 +222,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const jid = key?.remoteJid ?? ''; // manejarEntranteDoer ya validó que es un grupo
     const textoDirecto = textoDe(data).trim();
     const audio = audioDe(data);
-    if (!textoDirecto && !audio) return { engaged: false, skip: 'sin texto ni audio' };
+    const adjunto = adjuntoDe(data); // imagen o PDF
+    if (!textoDirecto && !audio && !adjunto) return { engaged: false, skip: 'sin texto ni audio ni adjunto' };
 
     if (!(await doerActivo(OPS))) return { engaged: false, skip: 'doer desactivado' };
 
@@ -210,11 +243,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // ¿Enganchamos? (antes de gastar STT / IA). En 'libre' siempre; en 'ventana' si
     // lo nombran, es nota de voz, hay ventana abierta o hay una acción pendiente.
     const modo = await modoDoer(OPS, jid);
-    const esAudio = !!audio;
+    const esMedia = !!audio || !!adjunto; // nota de voz / imagen / PDF = deliberado
     const vigentes = await pendientesVigentes(wsData, jid);
     const abierta = modo === 'ventana' ? await ventanaVigente(OPS, jid) : false;
     const enganchaTexto = modo === 'libre' || nombraAMaKo(textoDirecto) || abierta || vigentes.length > 0;
-    if (!esAudio && !enganchaTexto) return { engaged: false, skip: 'no lo nombran / sin ventana / sin pendientes' };
+    if (!esMedia && !enganchaTexto) return { engaged: false, skip: 'no lo nombran / sin ventana / sin pendientes' };
 
     // Marcar tratado + renovar la ventana (sliding) ANTES de responder.
     if (msgId) await runWithWorkspace(OPS, () => setSetting(KEY_LAST(jid), msgId));
@@ -238,20 +271,45 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       if (!texto) return { engaged: false, skip: 'audio vacío' };
     }
 
+    // Adjunto (imagen/PDF): Claude lo lee nativo. Armamos bloques de contenido.
+    let mediaBlocks: Array<{ type: string } & Record<string, unknown>> | null = null;
+    if (!audio && adjunto) {
+      if (!adjunto.soportado) {
+        const aviso = 'Por ahora solo puedo leer imágenes (capturas) y PDFs. Ese tipo de archivo todavía no. Pasámelo como PDF o captura y lo miro.';
+        const env = await enviarAGrupoJid(jid, aviso);
+        if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+        return { engaged: true, reply: aviso };
+      }
+      let b64 = adjunto.base64;
+      if (!b64 && msgId) {
+        const m = await fetchMediaBase64EnInstancia(instance, jid, msgId, !!key?.fromMe);
+        if (m) { b64 = m.base64; }
+      }
+      if (!b64) { console.error('[mako-doer-in] adjunto sin base64'); return { engaged: false, skip: 'adjunto sin base64' }; }
+      const source = { type: 'base64', media_type: adjunto.tipo === 'image' ? adjunto.mime : 'application/pdf', data: b64 };
+      const prompt = textoDirecto || adjunto.caption || (adjunto.tipo === 'image' ? 'Mirá esta imagen y decime qué ves y qué hago.' : 'Leé este PDF y decime lo importante.');
+      mediaBlocks = [{ type: adjunto.tipo, source }, { type: 'text', text: prompt }];
+      // Para la memoria guardamos un placeholder de texto.
+      texto = `(envió ${adjunto.tipo === 'image' ? 'una imagen' : 'un PDF'}${adjunto.caption ? `: ${adjunto.caption}` : ''})${textoDirecto ? ` — ${textoDirecto}` : ''}`;
+    }
+
     // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).
     const historial = await historialGrupo(wsData, jid, 24);
     const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: texto }));
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usá confirmar_accion con el id que corresponda.`
       : '';
-    const system = `${base}\n\n${DOER_WA_PREAMBLE}${ctxPend}`;
+    const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${DEEP_LINKS}${ctxPend}`;
 
     const tools = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
     const runnerAcciones = crearRunnerAcciones(wsData, jid);
     const runTool = async (name: string, input: Record<string, unknown>) =>
       NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input);
 
-    const msgs: RichMsg[] = [...saneaHistorial(historial), { role: 'user', content: texto }];
+    // Si hay imagen/PDF, el último turno del usuario va con bloques (media + texto);
+    // si no, texto plano. La memoria guarda siempre el placeholder de texto.
+    const userContent: RichMsg['content'] = mediaBlocks ?? texto;
+    const msgs: RichMsg[] = [...saneaHistorial(historial), { role: 'user', content: userContent }];
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
     await guardarTurno(wsData, jid, 'user', texto, msgId);
 

@@ -70,18 +70,16 @@ export async function POST(req: NextRequest) {
       const texto = (body.texto || '').trim();
       const audioB64 = body.audioBase64;
       if (!jid || (!texto && !audioB64)) return NextResponse.json({ ok: false, error: 'faltan jid y (texto o audioBase64)' }, { status: 400 });
+      const mime = body.mime || 'audio/ogg';
+      const key = { remoteJid: jid, fromMe: false, id: `test-${Date.now()}`, participant: 'test@s.whatsapp.net' };
+      let message: Record<string, unknown>;
+      if (audioB64 && mime.startsWith('image/')) message = { imageMessage: { mimetype: mime, caption: texto || undefined } };
+      else if (audioB64 && mime.includes('pdf')) message = { documentMessage: { mimetype: 'application/pdf', fileName: 'doc.pdf', caption: texto || undefined } };
+      else if (audioB64) message = { audioMessage: { mimetype: mime } };
+      else message = { conversation: texto };
       const msg = audioB64
-        ? {
-            key: { remoteJid: jid, fromMe: false, id: `test-${Date.now()}`, participant: 'test@s.whatsapp.net' },
-            message: { audioMessage: { mimetype: body.mime || 'audio/ogg' } },
-            base64: audioB64,
-            pushName: 'Prueba (admin)',
-          }
-        : {
-            key: { remoteJid: jid, fromMe: false, id: `test-${Date.now()}`, participant: 'test@s.whatsapp.net' },
-            message: { conversation: texto },
-            pushName: 'Prueba (admin)',
-          };
+        ? { key, message, base64: audioB64, pushName: 'Prueba (admin)' }
+        : { key, message, pushName: 'Prueba (admin)' };
       const voz = await instanciaVoz();
       const res = await manejarEntranteDoer(voz, msg);
       const vigentes = await pendientesVigentes(OWNER_WS, jid);
