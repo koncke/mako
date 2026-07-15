@@ -142,7 +142,7 @@ export function transitionsFrom(transitions: FunnelTransition[], from: string): 
 export type AutoReglaMeta = { id: string; titulo: string; desde: string; senal: string; hacia: string; confirmar: boolean };
 export const AUTO_REGLAS: AutoReglaMeta[] = [
   { id: 'T1', titulo: 'Detecta asistencia y No Show', desde: 'Agenda R1 / R2',        senal: 'unas horas después de la reunión busca la grabación en Fathom', hacia: 'Asistió (marca todo) · o No Show R1/R2',      confirmar: true },
-  { id: 'T2', titulo: 'Lead que no agenda',           desde: 'Lead (Instant form)',   senal: 'pasan los días sin agendar una reunión',                       hacia: 'Nutrición - No Agenda',                       confirmar: false },
+  { id: 'T2', titulo: 'Lead que no agenda',           desde: 'Lead (Instant form)',   senal: 'pasan los días sin agendar: reciente vs. frío (hace mucho)',    hacia: 'Nutrición - No Agenda · o Reactivación si ya está frío', confirmar: false },
   { id: 'T3', titulo: 'Nutrición manual vencida',     desde: 'Nutrición - Manual',    senal: 'vence el plazo → revisa el chat de WhatsApp',                  hacia: 'No responde / Perdido · o Datos sin marcar',  confirmar: true },
   { id: 'T4', titulo: 'Cierre de R2',                 desde: 'R2 asistida',           senal: 'Fathom detecta que confirmó que va a arrancar',                hacia: 'Facturando',                                  confirmar: true },
   { id: 'T5', titulo: 'Completa datos sin marcar',    desde: 'Cualquier etapa',       senal: 'lee contrato · Calendly · Fathom · Calendar',                  hacia: 'Datos completados solos',                     confirmar: false },

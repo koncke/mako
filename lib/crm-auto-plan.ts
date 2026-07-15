@@ -9,7 +9,12 @@ import { pipelineStageOf } from './pipeline';
 
 // Umbrales del motor. Por ahora fijos; se harán configurables desde la tab Funnel
 // (funnel_config) para que cada negocio ajuste sus tiempos.
-export const AUTO_UMBRALES = { diasLeadSinAgenda: 2, diasReactivacion: 30, horasPostReunion: 3 };
+//  - diasLeadSinAgenda:  a los N días sin agendar, el lead del Instant form pasa a
+//                        Nutrición - No Agenda (invitación a agendar; sigue "caliente").
+//  - diasSinAgendaFrio:  si NUNCA agendó y ya lleva N días, está FRÍO (capaz ni se
+//                        acuerda del servicio) → Nutrición - Reactivación, no No Agenda.
+//  - diasReactivacion:   No responde / Perdido enfriado N días → Reactivación.
+export const AUTO_UMBRALES = { diasLeadSinAgenda: 2, diasSinAgendaFrio: 7, diasReactivacion: 30, horasPostReunion: 3 };
 
 export type AutoReglaId = 'T1' | 'T2' | 'T3' | 'T6';
 
@@ -87,10 +92,18 @@ export function planLeadAuto(l: AutoLead, hoyISO: string, nowMs: number = Date.n
       });
     }
 
-    // T2 — Lead estancado en el instant form → Nutrición No Agenda.
-    if (stage === 'lead' && !l.fecha_agenda && !l.fecha_junta_1) {
+    // T2 — Lead que no agendó. Reciente → Nutrición No Agenda (invitar a agendar);
+    // frío (hace mucho, capaz ni se acuerda del servicio) → Nutrición - Reactivación
+    // (re-introducir). Cubre el Instant form (stage 'lead') y también a los que YA
+    // están en No Agenda hace mucho sin haber agendado nunca (los reclasifica).
+    if ((stage === 'lead' || stage === 'nutri') && !l.fecha_agenda && !l.fecha_junta_1 && !l.fecha_junta_2) {
       const d = diasEntre(hoy, l.created_at);
-      if (d >= AUTO_UMBRALES.diasLeadSinAgenda) {
+      if (d >= AUTO_UMBRALES.diasSinAgendaFrio) {
+        out.push({
+          regla: 'T2', tipo: 'lead_a_nutri', leadId: l.id, lead: nombre, confirmar: false, move: { to: 'reactivacion' },
+          descripcion: `Lead sin agendar hace ${d} días (frío) → Nutrición - Reactivación`,
+        });
+      } else if (stage === 'lead' && d >= AUTO_UMBRALES.diasLeadSinAgenda) {
         out.push({
           regla: 'T2', tipo: 'lead_a_nutri', leadId: l.id, lead: nombre, confirmar: false, move: { to: 'nutri' },
           descripcion: `${d} días en Instant form sin agendar → Nutrición - No Agenda`,

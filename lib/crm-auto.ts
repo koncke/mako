@@ -8,7 +8,7 @@
 //
 // Reglas (ver AUTO_REGLAS en lib/pipeline.ts para la versión legible):
 //   T1  reunión pasada sin marcar   → revisar Fathom (asistió / No Show R1·R2)
-//   T2  Lead estancado sin agendar  → Nutrición - No Agenda
+//   T2  Lead sin agendar            → Nutrición - No Agenda (reciente) · Reactivación (frío)
 //   T3  Nutrición manual vencida    → revisar WhatsApp (No responde/Perdido | Datos sin marcar)
 //   T6  frío hace X días            → Nutrición - Reactivación
 // (T4 "R2 → Facturando" queda cubierto por T1 sobre la R2 + la derivación del
@@ -108,11 +108,22 @@ async function aplicarAccion(a: AutoAccion, yaConf: Set<string>): Promise<'auto'
   const lead = await getLead(a.leadId);
   if (!lead) return 'skip';
 
-  // T2 — Lead estancado → Nutrición No Agenda (auto, sin confirmación).
+  // T2 — Lead que no agendó → No Agenda (reciente) o Reactivación (frío). Auto.
   if (a.tipo === 'lead_a_nutri') {
-    if (pipelineStageOf(lead) !== 'lead') return 'skip'; // cambió desde la evaluación
-    await setPipelineStage(a.leadId, 'nutri');
-    await logLeadEvent(a.leadId, 'CRM automático', `T2: → Nutrición - No Agenda (${a.descripcion})`, 'MaKo');
+    // Espejo del gate del planner (solo leads abiertos): si entre plan y apply el
+    // lead pasó a terminal (ganado/perdido) por un path que dejó el override stale,
+    // NO lo tocamos (mover a reactivación lo re-abriría y corrompería Revenue/CAPI).
+    if (lead.estado_lead !== 'abierto') return 'skip';
+    const to = a.move?.to === 'reactivacion' ? 'reactivacion' : 'nutri';
+    const cur = pipelineStageOf(lead);
+    if (cur === to) return 'skip';                                       // ya está ahí
+    // Guard anti-carrera: No Agenda solo desde el Instant form; Reactivación desde
+    // el Instant form o desde No Agenda (reclasificar al que entró viejo).
+    if (to === 'nutri' && cur !== 'lead') return 'skip';
+    if (to === 'reactivacion' && cur !== 'lead' && cur !== 'nutri') return 'skip';
+    await setPipelineStage(a.leadId, to);
+    const label = to === 'reactivacion' ? 'Nutrición - Reactivación' : 'Nutrición - No Agenda';
+    await logLeadEvent(a.leadId, 'CRM automático', `T2: → ${label} (${a.descripcion})`, 'MaKo');
     return 'auto';
   }
 
