@@ -95,6 +95,7 @@ type Saldo = { usd: number; setAt: string };
 type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; provider: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
 
 export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
+export type SaldoProveedor = { provider: string; costMesUsd: number; tokens: number; saldo: Saldo | null; restanteUsd: number | null; gratis: boolean };
 export type UsageSummary = {
   saldo: Saldo | null;
   gastadoMesUsd: number;
@@ -102,24 +103,26 @@ export type UsageSummary = {
   restanteUsd: number | null;
   ultimaOp: { tokens: number; costUsd: number; feature: string; at: string } | null;
   porFeature: Array<{ feature: string; costUsd: number; tokens: number }>;
+  porProveedor: SaldoProveedor[];   // Claude / OpenAI / Groq: gasto + saldo + restante
   historial: UsageItem[];   // últimas operaciones (cronológico, con el motivo)
 };
 
-// El saldo es GLOBAL de la agencia: la API key de Anthropic es única, así que
-// leemos/escribimos SIEMPRE contra OWNER_WS con el cliente crudo (settings.ts
-// scopea por workspace del request → cada cliente vería un saldo distinto).
-export async function getSaldo(): Promise<Saldo | null> {
+// El saldo es GLOBAL de la agencia (las API keys son únicas por proveedor): se
+// lee/escribe SIEMPRE contra OWNER_WS con el cliente crudo. Un saldo POR PROVEEDOR
+// (Claude/OpenAI/Groq); la key de Claude conserva su nombre viejo por compat.
+export const PROVEEDORES = ['anthropic', 'openai', 'groq'] as const;
+export type Proveedor = (typeof PROVEEDORES)[number];
+const keySaldo = (p: string) => (p === 'anthropic' ? 'anthropic_saldo' : `saldo.${p}`);
+
+export async function getSaldo(provider: string = 'anthropic'): Promise<Saldo | null> {
   let raw: string | null = null;
   try {
     const { data } = await getSupabaseServer()
-      .from('app_settings')
-      .select('value')
-      .eq('workspace_id', OWNER_WS)
-      .eq('key', 'anthropic_saldo')
-      .maybeSingle();
+      .from('app_settings').select('value')
+      .eq('workspace_id', OWNER_WS).eq('key', keySaldo(provider)).maybeSingle();
     raw = (data?.value as string | undefined) ?? null;
   } catch (e) {
-    console.warn(`[anthropic-usage] no se pudo leer el saldo: ${e instanceof Error ? e.message : String(e)}`);
+    console.warn(`[anthropic-usage] no se pudo leer el saldo (${provider}): ${e instanceof Error ? e.message : String(e)}`);
   }
   if (!raw) return null;
   try {
@@ -129,25 +132,28 @@ export async function getSaldo(): Promise<Saldo | null> {
   return null;
 }
 
-export async function setSaldo(usd: number, setAt: string): Promise<void> {
+export async function setSaldo(usd: number, setAt: string, provider: string = 'anthropic'): Promise<void> {
   const { error } = await getSupabaseServer()
     .from('app_settings')
     .upsert(
-      { workspace_id: OWNER_WS, key: 'anthropic_saldo', value: JSON.stringify({ usd, setAt }), updated_at: new Date().toISOString() },
+      { workspace_id: OWNER_WS, key: keySaldo(provider), value: JSON.stringify({ usd, setAt }), updated_at: new Date().toISOString() },
       { onConflict: 'workspace_id,key' },
     );
-  if (error) throw new Error(`Error guardando saldo de IA: ${error.message}`);
+  if (error) throw new Error(`Error guardando saldo de IA (${provider}): ${error.message}`);
 }
 
 /** Resumen para el chip: gasto del mes, gasto desde el saldo cargado, restante, última op y desglose. */
 export async function getUsageSummary(): Promise<UsageSummary> {
-  const saldo = await getSaldo();
+  const [sAnthropic, sOpenai, sGroq] = await Promise.all([getSaldo('anthropic'), getSaldo('openai'), getSaldo('groq')]);
+  const saldos: Record<string, Saldo | null> = { anthropic: sAnthropic, openai: sOpenai, groq: sGroq };
+  const saldo = sAnthropic; // compat: el saldo "principal" sigue siendo Claude
   const monthStart = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCHours(0, 0, 0, 0); return d.toISOString(); })();
-  // La ventana arranca en el menor entre inicio de mes y la carga del saldo, así
-  // calculamos ambos acumulados con UNA sola lectura acotada.
-  const desde = saldo && saldo.setAt < monthStart ? saldo.setAt : monthStart;
+  // La ventana arranca en el menor entre inicio de mes y la carga MÁS VIEJA de un
+  // saldo, así calculamos todos los acumulados con UNA sola lectura acotada.
+  const setAts = [sAnthropic, sOpenai, sGroq].filter(Boolean).map((s) => (s as Saldo).setAt);
+  const desde = setAts.length ? [monthStart, ...setAts].sort()[0] : monthStart;
 
-  // GLOBAL (sin filtro de workspace): el gasto total es contra la única API key
+  // GLOBAL (sin filtro de workspace): el gasto total es contra las API keys únicas
   // de la agencia, igual que el saldo. Cliente crudo, no getTenantDb() (scopeado).
   let rows: Row[] = [];
   try {
@@ -164,18 +170,29 @@ export async function getUsageSummary(): Promise<UsageSummary> {
 
   let gastadoMesUsd = 0, gastadoDesdeSaldoUsd = 0;
   const feat = new Map<string, { costUsd: number; tokens: number }>();
+  const prov = new Map<string, { mes: number; tokens: number; desdeSaldo: number }>();
   for (const r of rows) {
     const c = Number(r.cost_usd) || 0;
     const tk = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
-    const esClaude = (r.provider ?? 'anthropic') === 'anthropic';
+    const p = r.provider ?? 'anthropic';
+    const pa = prov.get(p) ?? { mes: 0, tokens: 0, desdeSaldo: 0 };
     if (r.created_at >= monthStart) {
       gastadoMesUsd += c; // gasto total de IA del mes (todos los proveedores)
+      pa.mes += c; pa.tokens += tk;
       const f = feat.get(r.feature) ?? { costUsd: 0, tokens: 0 };
       f.costUsd += c; f.tokens += tk; feat.set(r.feature, f);
     }
-    // El SALDO prepago es solo de Claude → solo el gasto 'anthropic' lo descuenta.
-    if (saldo && esClaude && r.created_at >= saldo.setAt) gastadoDesdeSaldoUsd += c;
+    const sp = saldos[p];
+    if (sp && r.created_at >= sp.setAt) pa.desdeSaldo += c;
+    prov.set(p, pa);
+    // El SALDO prepago principal es de Claude.
+    if (saldo && p === 'anthropic' && r.created_at >= saldo.setAt) gastadoDesdeSaldoUsd += c;
   }
+  const porProveedor: SaldoProveedor[] = PROVEEDORES.map((p) => {
+    const pa = prov.get(p) ?? { mes: 0, tokens: 0, desdeSaldo: 0 };
+    const s = saldos[p];
+    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: p === 'groq' };
+  });
 
   const last = rows[0] ?? null; // ya viene ordenado desc
   const ultimaOp = last ? { tokens: (Number(last.input_tokens) || 0) + (Number(last.output_tokens) || 0), costUsd: Number(last.cost_usd) || 0, feature: last.feature, at: last.created_at } : null;
@@ -193,6 +210,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
     restanteUsd: saldo ? saldo.usd - gastadoDesdeSaldoUsd : null,
     ultimaOp,
     porFeature: [...feat.entries()].map(([feature, v]) => ({ feature, ...v })).sort((a, b) => b.costUsd - a.costUsd),
+    porProveedor,
     historial,
   };
 }

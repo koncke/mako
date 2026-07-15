@@ -273,6 +273,14 @@ export function MetodoWizard() {
                 })}
               </div>
 
+              {/* BYOK: tranquilidad de privacidad al pedir una llave */}
+              <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 18, padding: '11px 13px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 15, lineHeight: 1.3 }}>🔒</span>
+                <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+                  <b style={{ color: 'var(--ink)' }}>Tus llaves son tuyas (BYOK).</b> Se guardan <b>cifradas</b> en tu cuenta —nadie más las ve, ni el resto de los clientes— y todo el consumo corre contra <b>tu propio proveedor</b>. Podés quitarlas cuando quieras.
+                </span>
+              </div>
+
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
                 <button type="button" style={{ ...btnGhost, opacity: probando ? 0.6 : 1, cursor: probando ? 'default' : 'pointer' }} disabled={probando} onClick={probar}>{probando ? 'Probando…' : 'Probar conexión'}</button>
                 <button type="button" style={{ ...btnDark, opacity: hayTipeado && !guardando ? 1 : 0.4, cursor: hayTipeado && !guardando ? 'pointer' : 'default' }} disabled={!hayTipeado || guardando} onClick={guardar}>{guardando ? 'Guardando…' : 'Guardar'}</button>

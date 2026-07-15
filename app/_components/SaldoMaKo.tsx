@@ -17,6 +17,7 @@ const MONO = "'Geist Mono', monospace";
 const CONSOLA_URL = 'https://console.anthropic.com/settings/billing';
 
 type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
+type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
   gastadoMesUsd: number;
@@ -24,6 +25,7 @@ type Resumen = {
   restanteUsd: number | null;
   ultimaOp: { tokens: number; costUsd: number; feature: string; at: string } | null;
   porFeature: Array<{ feature: string; costUsd: number; tokens: number }>;
+  porProveedor?: ProvSaldo[];
   historial?: Movimiento[];
 };
 
@@ -50,6 +52,7 @@ const fmtHora = (iso: string) => { try { return new Date(iso).toLocaleString('es
 export function SaldoMaKo() {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<Resumen | null>(null);
+  const [editProv, setEditProv] = useState<string | null>(null); // qué proveedor edito
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -68,13 +71,13 @@ export function SaldoMaKo() {
     return () => { window.removeEventListener('focus', onFocus); clearInterval(t); };
   }, [cargar]);
 
-  const guardar = async () => {
+  const guardar = async (provider: string) => {
     const v = Number(input);
     if (!Number.isFinite(v) || v < 0) return;
     setSaving(true);
     try {
-      const j = await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v }) }).then((r) => r.json());
-      if (j?.ok) { setData(j as Resumen); setInput(''); }
+      const j = await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) }).then((r) => r.json());
+      if (j?.ok) { setData(j as Resumen); setInput(''); setEditProv(null); }
     } finally { setSaving(false); }
   };
 
@@ -97,30 +100,33 @@ export function SaldoMaKo() {
               <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>Uso de la IA</span>
             </div>
 
-            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-              <div style={row}>
-                <span style={{ color: 'var(--dim)' }}>Saldo restante</span>
-                <b style={{ fontFamily: MONO, color: restante === null ? 'var(--faint)' : low ? 'var(--bad)' : 'var(--ink)' }}>{restante !== null ? usd(restante) : '—'}</b>
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+              <div style={{ ...row, fontSize: 11 }}>
+                <span style={label}>Gasto del mes por IA</span>
+                <span style={{ fontFamily: MONO, color: 'var(--dim)' }}>total {usd(data?.gastadoMesUsd ?? 0)}</span>
               </div>
-              <div style={row}>
-                <span style={{ color: 'var(--dim)' }}>Gastado este mes</span>
-                <b style={{ fontFamily: MONO, color: 'var(--ink)' }}>{usd(data?.gastadoMesUsd ?? 0)}</b>
-              </div>
-              {data?.ultimaOp && (
-                <div style={{ ...row, fontSize: 12, color: 'var(--faint)' }}>
-                  <span>Última op · {FEATURE_LABEL[data.ultimaOp.feature] ?? data.ultimaOp.feature}</span>
-                  <span style={{ fontFamily: MONO }}>{fmtTokens(data.ultimaOp.tokens)} tok · {usd(data.ultimaOp.costUsd)}</span>
+              {(data?.porProveedor ?? []).map((p) => (
+                <div key={p.provider} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ ...row, fontSize: 12.5 }}>
+                    <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{PROV_LABEL[p.provider] ?? p.provider}</span>
+                    <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: MONO, color: 'var(--dim)' }}>{usd(p.costMesUsd)}</span>
+                      {p.gratis
+                        ? <span style={{ fontSize: 10.5, color: 'var(--good)', fontWeight: 700 }}>GRATIS</span>
+                        : p.restanteUsd !== null
+                          ? <><span style={{ fontFamily: MONO, fontSize: 11.5, color: p.restanteUsd <= 5 ? 'var(--bad)' : 'var(--ink)' }}>quedan {usd(p.restanteUsd)}</span><button onClick={() => { setEditProv(editProv === p.provider ? null : p.provider); setInput(''); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, color: 'var(--faint)', cursor: 'pointer' }}>editar</button></>
+                          : <button onClick={() => { setEditProv(p.provider); setInput(''); }} style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>cargar saldo</button>}
+                    </span>
+                  </div>
+                  {editProv === p.provider && (
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={p.saldo ? String(p.saldo.usd) : 'Saldo actual USD'} style={{ flex: 1, minWidth: 0, padding: '7px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
+                      <button onClick={() => guardar(p.provider)} disabled={saving || !input.trim()} style={{ padding: '7px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={label}>Cargar / actualizar saldo (USD)</span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" placeholder={data?.saldo ? String(data.saldo.usd) : 'Ej: 20'} style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
-                <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 12px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Guardar'}</button>
-              </div>
-              <span style={{ fontSize: 11, color: 'var(--faint)', lineHeight: 1.45 }}>La API no expone el saldo real. Pegá el de la consola y MaKo le va restando el gasto de cada operación.</span>
+              ))}
+              <span style={{ fontSize: 10.5, color: 'var(--faint)', lineHeight: 1.45 }}>Las APIs no exponen el saldo real: pegá el de cada consola y MaKo le resta el gasto. Groq es gratis (limitado por rate). Claude descuenta del saldo prepago; OpenAI cargalo a mano.</span>
             </div>
 
             {data?.porFeature && data.porFeature.length > 0 && (

@@ -32,12 +32,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const no = await soloDueno();
   if (no) return no;
-  let body: { saldoUsd?: unknown };
+  let body: { saldoUsd?: unknown; provider?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const usd = Number(body.saldoUsd);
   if (!Number.isFinite(usd) || usd < 0) return Response.json({ ok: false, error: 'saldo inválido' }, { status: 400 });
+  const provider = ['anthropic', 'openai', 'groq'].includes(String(body.provider)) ? String(body.provider) : 'anthropic';
   try {
-    await setSaldo(usd, new Date().toISOString());
+    await setSaldo(usd, new Date().toISOString(), provider);
     return Response.json({ ok: true, ...(await getUsageSummary()) });
   } catch (err) {
     return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
