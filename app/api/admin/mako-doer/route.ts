@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { OWNER_WS, runWithWorkspace } from '@/lib/workspace';
+import { OWNER_WS } from '@/lib/workspace';
 import { permitirGruposEnInstancia, registrarWebhookInstancia } from '@/lib/evolution';
 import { instanciaVoz } from '@/lib/mako-grupo';
 import { gruposDoer, setGruposDoer, setModoDoer, manejarEntranteDoer } from '@/lib/mako-doer-in';
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
             pushName: 'Prueba (admin)',
           };
       const voz = await instanciaVoz();
-      const res = await runWithWorkspace(OWNER_WS, () => manejarEntranteDoer(OWNER_WS, voz, msg));
+      const res = await manejarEntranteDoer(voz, msg);
       const vigentes = await pendientesVigentes(OWNER_WS, jid);
       return NextResponse.json({ ok: true, ...res, vigentes });
     }

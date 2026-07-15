@@ -20,10 +20,11 @@ import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/ma
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
 import { buildSystemPrompt } from '@/lib/mako-context';
-import { enviarAGrupoJid } from '@/lib/mako-grupo';
+import { enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
-import { runWithWorkspace } from '@/lib/workspace';
+import { runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getSupabaseServer } from '@/lib/supabase';
 import { transcribirAudio } from '@/lib/ai-cheap';
 
 // ── settings del doer ─────────────────────────────────────────────────────────
@@ -144,53 +145,80 @@ CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hacelo", "confirmo") y hay una acció
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
 
 /**
- * Procesa un mensaje entrante de grupo. Best-effort: nunca lanza. `instance` es la
- * línea que RECIBIÓ el mensaje (para pedirle el audio y mostrar "escribiendo…").
+ * SEGURIDAD / AISLAMIENTO: ¿de qué workspace son los DATOS que ve el doer en este
+ * grupo? Lo decide el GRUPO (quién lo posee), NO la instancia que lo recibió. Si el
+ * grupo es el mako.grupo_jid de un CLIENTE → ese cliente (ve SUS datos, jamás los del
+ * dueño ni los de otro cliente). Si es el grupo SuperAdmin o uno de prueba del dueño →
+ * OWNER_WS. Cualquier otro → null (no contestamos: fail-closed).
  */
-export async function manejarEntranteDoer(ws: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
-  return runWithWorkspace(ws, () => procesarDoer(ws, instance, data));
+async function wsDeGrupoJid(jid: string): Promise<number | null> {
+  // 1) ¿Grupo MaKo de algún cliente? → ESE workspace. Va PRIMERO: aunque el dueño lo
+  //    tenga en su allowlist, los datos se scopean al cliente dueño del grupo.
+  const { data } = await getSupabaseServer()
+    .from('app_settings').select('workspace_id').eq('key', KEY_GRUPO_JID).eq('value', jid).limit(1).maybeSingle();
+  const wsCliente = (data as { workspace_id?: number } | null)?.workspace_id;
+  if (wsCliente != null) return wsCliente;
+  // 2) Grupo SuperAdmin del dueño.
+  const superadmin = await runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN));
+  if (superadmin && jid === superadmin) return OWNER_WS;
+  // 3) Grupos de prueba del dueño (su allowlist), p.ej. "MaKo · Pruebas".
+  if ((await gruposDoer(OWNER_WS)).includes(jid)) return OWNER_WS;
+  return null;
 }
 
-async function procesarDoer(ws: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
+/**
+ * Procesa un mensaje entrante de grupo. Best-effort: nunca lanza. `instance` es la
+ * línea que RECIBIÓ el mensaje (para pedirle el audio y mostrar "escribiendo…").
+ * El control operativo (allowlist/modo/ventana) vive en la AGENCIA (OWNER_WS); los
+ * DATOS y la memoria se scopean al workspace DUEÑO DEL GRUPO (aislamiento).
+ */
+export async function manejarEntranteDoer(instance: string, data: MsgIn): Promise<ResultadoDoer> {
+  const jid = data.key?.remoteJid;
+  if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
+  // Control de la agencia: ¿el doer está habilitado en este grupo?
+  if (!(await gruposDoer(OWNER_WS)).includes(jid)) return { engaged: false, skip: 'grupo no habilitado' };
+  // Aislamiento: los datos son del workspace que POSEE el grupo.
+  const wsData = await wsDeGrupoJid(jid);
+  if (wsData == null) return { engaged: false, skip: 'grupo sin dueño reconocido' };
+  return runWithWorkspace(wsData, () => procesarDoer(wsData, instance, data));
+}
+
+async function procesarDoer(wsData: number, instance: string, data: MsgIn): Promise<ResultadoDoer> {
+  const OPS = OWNER_WS; // settings operativos del doer (agencia), keyeados por jid
   try {
     const key = data.key;
-    const jid = key?.remoteJid;
-    if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
+    const jid = key?.remoteJid ?? ''; // manejarEntranteDoer ya validó que es un grupo
     const textoDirecto = textoDe(data).trim();
     const audio = audioDe(data);
     if (!textoDirecto && !audio) return { engaged: false, skip: 'sin texto ni audio' };
 
-    // Allowlist PRIMERO (una lectura): la línea de voz suele ser el número personal
-    // del dueño (cientos de grupos); casi todos los mensajes no son para MaKo.
-    const grupos = await gruposDoer(ws);
-    if (!grupos.includes(jid)) return { engaged: false, skip: 'grupo no habilitado' };
-    if (!(await doerActivo(ws))) return { engaged: false, skip: 'doer desactivado' };
+    if (!(await doerActivo(OPS))) return { engaged: false, skip: 'doer desactivado' };
 
     const msgId = key?.id ?? '';
     // fromMe: en la línea de voz (número del dueño) el dueño Y MaKo escriben fromMe.
     // Si el id es de una respuesta nuestra, es un eco → saltar (anti-loop).
     if (key?.fromMe) {
-      const enviados = await idsEnviados(ws, jid);
+      const enviados = await idsEnviados(OPS, jid);
       if (msgId && enviados.includes(msgId)) return { engaged: false, skip: 'eco de mi propia respuesta' };
     }
     // Dedup de re-entregas.
     if (msgId) {
-      const last = await runWithWorkspace(ws, () => getSetting(KEY_LAST(jid)));
+      const last = await runWithWorkspace(OPS, () => getSetting(KEY_LAST(jid)));
       if (last === msgId) return { engaged: false, skip: 'ya tratado' };
     }
 
     // ¿Enganchamos? (antes de gastar STT / IA). En 'libre' siempre; en 'ventana' si
     // lo nombran, es nota de voz, hay ventana abierta o hay una acción pendiente.
-    const modo = await modoDoer(ws, jid);
+    const modo = await modoDoer(OPS, jid);
     const esAudio = !!audio;
-    const vigentes = await pendientesVigentes(ws, jid);
-    const abierta = modo === 'ventana' ? await ventanaVigente(ws, jid) : false;
+    const vigentes = await pendientesVigentes(wsData, jid);
+    const abierta = modo === 'ventana' ? await ventanaVigente(OPS, jid) : false;
     const enganchaTexto = modo === 'libre' || nombraAMaKo(textoDirecto) || abierta || vigentes.length > 0;
     if (!esAudio && !enganchaTexto) return { engaged: false, skip: 'no lo nombran / sin ventana / sin pendientes' };
 
     // Marcar tratado + renovar la ventana (sliding) ANTES de responder.
-    if (msgId) await runWithWorkspace(ws, () => setSetting(KEY_LAST(jid), msgId));
-    if (modo === 'ventana') await abrirVentana(ws, jid);
+    if (msgId) await runWithWorkspace(OPS, () => setSetting(KEY_LAST(jid), msgId));
+    if (modo === 'ventana') await abrirVentana(OPS, jid);
 
     // Feedback inmediato: "escribiendo…" mientras razona (best-effort).
     void enviarPresencia(instance, jid, 'composing', 12000);
@@ -210,31 +238,33 @@ async function procesarDoer(ws: number, instance: string, data: MsgIn): Promise<
       if (!texto) return { engaged: false, skip: 'audio vacío' };
     }
 
-    // Historial (memoria) + system.
-    const historial = await historialGrupo(ws, jid, 24);
-    const base = await runWithWorkspace(ws, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: texto }));
+    // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).
+    const historial = await historialGrupo(wsData, jid, 24);
+    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: texto }));
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usá confirmar_accion con el id que corresponda.`
       : '';
     const system = `${base}\n\n${DOER_WA_PREAMBLE}${ctxPend}`;
 
     const tools = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
-    const runnerAcciones = crearRunnerAcciones(ws, jid);
+    const runnerAcciones = crearRunnerAcciones(wsData, jid);
     const runTool = async (name: string, input: Record<string, unknown>) =>
       NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input);
 
     const msgs: RichMsg[] = [...saneaHistorial(historial), { role: 'user', content: texto }];
-    // Guardar el turno del dueño ANTES de la IA (así queda aunque falle).
-    await guardarTurno(ws, jid, 'user', texto, msgId);
+    // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
+    await guardarTurno(wsData, jid, 'user', texto, msgId);
 
+    // El loop de tool-use corre bajo wsData (procesarDoer ya está dentro de
+    // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
     const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
       feature: 'mako-doer-in', maxSteps: 8, motivo: `WhatsApp «${texto.slice(0, 80)}»`,
     });
     const respuesta = (text ?? '').trim();
     if (respuesta) {
       const env = await enviarAGrupoJid(jid, respuesta);
-      if (env.ok && env.id) await registrarEnviado(ws, jid, env.id);
-      await guardarTurno(ws, jid, 'assistant', respuesta, env.ok ? env.id : undefined);
+      if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await guardarTurno(wsData, jid, 'assistant', respuesta, env.ok ? env.id : undefined);
     }
     return { engaged: true, reply: respuesta };
   } catch (e) {
