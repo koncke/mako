@@ -20,21 +20,6 @@ const btn: CSSProperties = { padding: '9px 16px', borderRadius: 9, border: 'none
 const btnGhost: CSSProperties = { ...btn, background: 'transparent', color: 'var(--dim)', border: '1px solid var(--border-strong)' };
 const inp: CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontSize: 13.5, fontFamily: "'Geist', sans-serif", outline: 'none' };
 
-function Paso({ icono, titulo, detalle, tono = 'neutro' }: { icono: string; titulo: string; detalle?: string; tono?: 'neutro' | 'mako' | 'dueno' }) {
-  const bg = tono === 'mako' ? 'var(--primary-bg)' : 'var(--surface-2)';
-  const bd = tono === 'mako' ? 'var(--primary-weak)' : 'var(--border)';
-  return (
-    <div style={{ display: 'flex', gap: 11, alignItems: 'flex-start', padding: '11px 13px', borderRadius: 12, background: bg, border: `1px solid ${bd}` }}>
-      <span style={{ fontSize: 18, flex: 'none', lineHeight: 1.2 }}>{icono}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--ink)' }}>{titulo}</div>
-        {detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45 }}>{detalle}</div>}
-      </div>
-    </div>
-  );
-}
-const Flecha = () => <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--faint)', fontSize: 14, margin: '2px 0' }}>↓</div>;
-
 async function api(body: unknown): Promise<{ ok: boolean; plantilla?: PlantillaVista; texto?: string; borrada?: boolean }> {
   try { return await (await fetch('/api/admin/plantillas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json(); } catch { return { ok: false }; }
 }
@@ -70,7 +55,9 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
       {/* Topbar fija (no scrollea) */}
       <div style={{ flex: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
         <button onClick={onClose} title="Volver" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>← Volver</button>
-        {!crear && id && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{plantilla.esCustom ? 'Eliminar' : 'Desactivar'}</button>}
+        {/* Solo "Eliminar" para las personalizadas. El on/off de las del catálogo es
+            el toggle de abajo (no repetimos "Desactivar" acá). */}
+        {!crear && id && plantilla?.esCustom && <button onClick={eliminar} disabled={busy === 'del'} style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Eliminar</button>}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 560, margin: '0 auto' }}>
@@ -109,24 +96,14 @@ export function TemplateDetalleModal({ plantilla, onClose, onCambio }: { plantil
               </div>
             </div>
 
-            <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 10 }}>¿Cuándo se dispara?</div>
-            <div style={{ marginBottom: 20 }}>
-              <Paso icono="⚡" titulo="Se dispara cuando…" detalle={plantilla.disparador} />
-              <Flecha />
-              <Paso icono="🧠" titulo="MaKo lo detecta y ESCRIBE con IA" detalle="Toma esta referencia + los datos reales del evento y redacta el mensaje (libre de adaptarlo)." tono="mako" />
-              <Flecha />
-              <Paso icono="💬" titulo="Te llega al grupo de WhatsApp + al feed" tono="mako" />
-              {plantilla.requiereRespuesta && (<><Flecha /><Paso icono="🙋" titulo="Vos respondés" detalle="Espera tu OK/respuesta para seguir." tono="dueno" /><Flecha /><Paso icono="✅" titulo="MaKo actúa y te confirma" tono="mako" /></>)}
+            {/* El flujo se edita DIRECTO (no hay "convertir en flujo": ya es uno). */}
+            <div style={{ marginBottom: 20, border: '1px solid var(--border)', borderRadius: 12, padding: '16px 16px', background: 'var(--surface-2)' }}>
+              {id ? <FlujoEditor plantillaId={id} /> : <div style={{ fontSize: 12.5, color: 'var(--faint)' }}>Guardá la plantilla para editar su flujo.</div>}
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 15, flex: 'none' }}>🧠</span>
+                <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45 }}>Cuando dispara, MaKo <b>escribe cada mensaje con IA</b> (usa la referencia de abajo + los datos reales del evento) y te llega al grupo de WhatsApp.{plantilla.requiereRespuesta ? ' Espera tu OK para seguir.' : ''}</div>
+              </div>
             </div>
-
-            {id && (
-              <details style={{ marginBottom: 20, border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', background: 'var(--surface-2)' }}>
-                <summary style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', listStyle: 'none' }}>⚙️ Editar el flujo (avanzado) — disparador + pasos</summary>
-                <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-                  <FlujoEditor plantillaId={id} />
-                </div>
-              </details>
-            )}
 
             <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 8 }}>Referencia (MaKo la usa como guía, no literal)</div>
             <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={7} style={{ ...inp, resize: 'vertical', lineHeight: 1.5 }} />
