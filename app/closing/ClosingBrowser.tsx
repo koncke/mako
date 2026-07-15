@@ -13,7 +13,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Icon } from '../_components/icons';
 import type { ClosingViewData, ClosingAnalysisRow, ClosingDim, ClosingEvidence, DimGroup, Tone } from '@/lib/closing';
 import { Dropdown } from '../components/Dropdown';
@@ -113,6 +113,16 @@ export function ClosingBrowser({ data, errorMsg }: { data: ClosingViewData; erro
   const [selId, setSelId] = useState<number | null>(calls[0]?.recording_id ?? null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+
+  // Deep link: /closing?call=<recording_id> abre esa llamada directo (para que MaKo
+  // y cualquier link compartido lleven a la entidad, no solo a la tab).
+  const sp = useSearchParams();
+  useEffect(() => {
+    const call = Number(sp.get('call'));
+    if (Number.isInteger(call) && call > 0 && calls.some((c) => c.recording_id === call)) {
+      setSelId(call); setVista('llamadas');
+    }
+  }, [sp, calls]);
 
   // -- agregados del panorama (sobre las ventas reales)
   const ag = useMemo(() => {

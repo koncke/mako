@@ -14,6 +14,7 @@
 // sumemos escrituras irán por los callers ya gateados, nunca por el send* pelado.
 
 import 'server-only';
+import { getTenantDb } from './workspace';
 import type { ToolDef, ToolRunner } from './anthropic';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
@@ -176,8 +177,18 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     case 'reuniones_lead': {
       const lead = await requireLead(input);
       const r = await buscarReunionesAutomatico(lead).catch(() => null);
-      if (!r) return `No pude buscar reuniones para ${lead.nombre} en este momento.`;
-      return JSON.stringify(r);
+      // Llamadas analizadas por Closing Analyst → su recording_id sirve para el deep
+      // link /closing?call=<id> (MaKo puede mandar el link al análisis completo).
+      let analisis: Array<Record<string, unknown>> = [];
+      try {
+        const db = await getTenantDb();
+        const q = await db.from('closing_analyses')
+          .select('recording_id, tipo, score, outcome_tone')
+          .eq('lead_id', lead.id).eq('category', 'venta').order('started_at', { ascending: true });
+        analisis = (q.data ?? []) as Array<Record<string, unknown>>;
+      } catch { /* noop */ }
+      if (!r && !analisis.length) return `No pude buscar reuniones para ${lead.nombre} en este momento.`;
+      return JSON.stringify({ ...(r ?? {}), analisis_llamadas: analisis });
     }
 
     case 'buscar_conocimiento': {

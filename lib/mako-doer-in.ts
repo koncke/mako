@@ -168,7 +168,7 @@ CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hacelo", "confirmo") y hay una acció
 const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
 const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, dá el resumen corto y CERRÁ con un link para verlo (formato: "Mirá el detalle acá → URL"). No inventes rutas; usá estas (base ${APP_URL}):
 - Ficha 360 de un lead: ${APP_URL}/leads/{id}
-- Análisis de una llamada de ventas (Closing Analyst): ${APP_URL}/closing
+- Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tenés, ${APP_URL}/closing.
 - WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
 - Marketing / anuncios: ${APP_URL}/graphics · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (verdades validadas): ${APP_URL}/experimentos
