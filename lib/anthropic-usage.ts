@@ -23,7 +23,8 @@ export type UsageInfo = {
 };
 
 // Precios públicos por 1M de tokens (USD). cacheWrite ≈ 1.25× input (TTL 5m),
-// cacheRead ≈ 0.1× input. Si el modelo no está en la tabla, se asume Opus.
+// cacheRead ≈ 0.1× input. Incluye los modelos BARATOS (Groq/OpenAI) que usa
+// lib/ai-cheap.ts, para que su gasto también quede registrado con costo real.
 const PRICING: Record<string, { in: number; out: number }> = {
   'claude-opus-4-8': { in: 5, out: 25 },
   'claude-opus-4-7': { in: 5, out: 25 },
@@ -31,48 +32,69 @@ const PRICING: Record<string, { in: number; out: number }> = {
   'claude-sonnet-4-6': { in: 3, out: 15 },
   'claude-haiku-4-5': { in: 1, out: 5 },
   'claude-fable-5': { in: 10, out: 50 },
+  // Baratos (tareas simples)
+  'openai/gpt-oss-20b': { in: 0.075, out: 0.30 },   // Groq
+  'openai/gpt-oss-120b': { in: 0.15, out: 0.60 },   // Groq
+  'llama-3.3-70b-versatile': { in: 0.59, out: 0.79 }, // Groq
+  'gpt-4o-mini': { in: 0.15, out: 0.60 },           // OpenAI
 };
 const DEFAULT_PRICE = { in: 5, out: 25 };
+
+// STT: precio por SEGUNDO de audio (USD). El STT cobra por duración, no por tokens.
+const STT_PRICE_SEG: Record<string, number> = {
+  'whisper-large-v3-turbo': 0.04 / 3600,  // Groq
+  'whisper-large-v3': 0.111 / 3600,       // Groq
+  'whisper-1': 0.006 / 60,                // OpenAI
+};
 
 export function costFor(model: string, u: { input: number; output: number; cacheCreation: number; cacheRead: number }): number {
   const p = PRICING[model] ?? DEFAULT_PRICE;
   return (u.input * p.in + u.output * p.out + u.cacheCreation * p.in * 1.25 + u.cacheRead * p.in * 0.1) / 1_000_000;
 }
 
-/** Registra una llamada. Best-effort: nunca lanza. Devuelve el detalle para mostrarlo. */
-export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string): Promise<UsageInfo> {
-  const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
-  const input = Number(u.input_tokens ?? 0) || 0;
-  const output = Number(u.output_tokens ?? 0) || 0;
-  const cacheCreation = Number(u.cache_creation_input_tokens ?? 0) || 0;
-  const cacheRead = Number(u.cache_read_input_tokens ?? 0) || 0;
-  const costUsd = costFor(model, { input, output, cacheCreation, cacheRead });
-  const info: UsageInfo = { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
+async function insertUsage(row: Record<string, unknown>): Promise<void> {
   try {
-    // La API key de Anthropic es ÚNICA para toda la agencia (super-admin y Mauricio
-    // comparten el pool). Registramos SIEMPRE contra OWNER_WS con el cliente crudo —
-    // igual que getSaldo/getUsageSummary — para no fragmentar el gasto por tenant.
-    await getSupabaseServer().from('anthropic_usage').insert({
-      workspace_id: OWNER_WS,
-      feature: feature || 'otros',
-      motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null,
-      model,
-      input_tokens: input,
-      output_tokens: output,
-      cache_creation_tokens: cacheCreation,
-      cache_read_tokens: cacheRead,
-      cost_usd: costUsd,
-    });
+    // La API key es del pool de la agencia → registramos SIEMPRE contra OWNER_WS
+    // con el cliente crudo (no getTenantDb, que scopea) para no fragmentar el gasto.
+    await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: OWNER_WS, ...row });
   } catch (e) {
     console.warn(`[anthropic-usage] no se registró el uso: ${e instanceof Error ? e.message : String(e)}`);
   }
-  return info;
+}
+
+/**
+ * Registra una llamada por TOKENS. Best-effort. `provider` distingue Claude (que
+ * descuenta del saldo) del resto. rawUsage tolera el shape de Anthropic
+ * (input_tokens/output_tokens) o el de OpenAI-compat (prompt_tokens/completion_tokens).
+ */
+export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic'): Promise<UsageInfo> {
+  const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
+  const input = Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
+  const output = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
+  const cacheCreation = Number(u.cache_creation_input_tokens ?? 0) || 0;
+  const cacheRead = Number(u.cache_read_input_tokens ?? 0) || 0;
+  const costUsd = costFor(model, { input, output, cacheCreation, cacheRead });
+  await insertUsage({
+    feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
+    input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead, cost_usd: costUsd,
+  });
+  return { inputTokens: input, outputTokens: output, cacheCreation, cacheRead, costUsd, model };
+}
+
+/** Registra una transcripción (STT): cobra por SEGUNDOS de audio, no por tokens. */
+export async function recordSttUsage(feature: string, model: string, segundos: number, motivo?: string, provider = 'openai'): Promise<void> {
+  const seg = Math.max(0, Number(segundos) || 0);
+  const costUsd = (STT_PRICE_SEG[model] ?? STT_PRICE_SEG['whisper-1']) * seg;
+  await insertUsage({
+    feature: feature || 'stt', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
+    input_tokens: 0, output_tokens: 0, cache_creation_tokens: 0, cache_read_tokens: 0, cost_usd: costUsd,
+  });
 }
 
 type Saldo = { usd: number; setAt: string };
-type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
+type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; provider: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
 
-export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; tokens: number; costUsd: number };
+export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
 export type UsageSummary = {
   saldo: Saldo | null;
   gastadoMesUsd: number;
@@ -131,7 +153,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   try {
     const { data } = await getSupabaseServer()
       .from('anthropic_usage')
-      .select('created_at, feature, motivo, model, cost_usd, input_tokens, output_tokens')
+      .select('created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens')
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .limit(20000);
@@ -145,12 +167,14 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   for (const r of rows) {
     const c = Number(r.cost_usd) || 0;
     const tk = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
+    const esClaude = (r.provider ?? 'anthropic') === 'anthropic';
     if (r.created_at >= monthStart) {
-      gastadoMesUsd += c;
+      gastadoMesUsd += c; // gasto total de IA del mes (todos los proveedores)
       const f = feat.get(r.feature) ?? { costUsd: 0, tokens: 0 };
       f.costUsd += c; f.tokens += tk; feat.set(r.feature, f);
     }
-    if (saldo && r.created_at >= saldo.setAt) gastadoDesdeSaldoUsd += c;
+    // El SALDO prepago es solo de Claude → solo el gasto 'anthropic' lo descuenta.
+    if (saldo && esClaude && r.created_at >= saldo.setAt) gastadoDesdeSaldoUsd += c;
   }
 
   const last = rows[0] ?? null; // ya viene ordenado desc
@@ -158,7 +182,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
 
   // Historial cronológico (últimas 80 operaciones) con el motivo legible.
   const historial: UsageItem[] = rows.slice(0, 80).map((r) => ({
-    at: r.created_at, feature: r.feature, motivo: r.motivo ?? null, model: r.model ?? null,
+    at: r.created_at, feature: r.feature, motivo: r.motivo ?? null, model: r.model ?? null, provider: r.provider ?? 'anthropic',
     tokens: (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0), costUsd: Number(r.cost_usd) || 0,
   }));
 

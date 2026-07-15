@@ -12,6 +12,7 @@
 // razonamiento fino y el copywriting con voz de marca (lib/anthropic.ts).
 
 import 'server-only';
+import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 
 type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: string };
 
@@ -47,7 +48,7 @@ export function sttDisponible(): boolean { return proveedor() !== null; }
  * LLM barato para tareas simples. Devuelve el texto (o el JSON crudo si json=true).
  * NO usar para copywriting con voz de marca ni razonamiento fino → eso es chatClaude.
  */
-export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number }): Promise<string> {
+export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string }): Promise<string> {
   const p = proveedor();
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const res = await fetch(`${p.base}/chat/completions`, {
@@ -68,6 +69,8 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(`chatCheap(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}`);
+  // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
+  void recordUsage(opts.feature || 'ia-barata', p.chatModel, data.usage, opts.motivo, p.nombre);
   return (data.choices?.[0]?.message?.content ?? '').trim();
 }
 
@@ -90,7 +93,7 @@ const EXT_POR_MIME = (mime: string): string =>
  * Fuerza español por default (evita auto-detección errónea en clips cortos).
  * Endpoint OpenAI-compatible /audio/transcriptions (Groq Whisper u OpenAI Whisper).
  */
-export async function transcribirAudio(base64: string, mime: string, opts?: { language?: string; prompt?: string }): Promise<string> {
+export async function transcribirAudio(base64: string, mime: string, opts?: { language?: string; prompt?: string; feature?: string; motivo?: string }): Promise<string> {
   const p = proveedor();
   if (!p) throw new Error('Sin proveedor de STT (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const buf = Buffer.from(base64, 'base64');
@@ -99,6 +102,7 @@ export async function transcribirAudio(base64: string, mime: string, opts?: { la
   form.append('file', new Blob([new Uint8Array(buf)], { type: mime || 'audio/ogg' }), `nota.${EXT_POR_MIME(mime || '')}`);
   form.append('model', p.sttModel);
   form.append('language', opts?.language || 'es');
+  form.append('response_format', 'verbose_json'); // trae `duration` → costo real
   if (opts?.prompt) form.append('prompt', opts.prompt);
   const res = await fetch(`${p.base}/audio/transcriptions`, {
     method: 'POST',
@@ -109,5 +113,7 @@ export async function transcribirAudio(base64: string, mime: string, opts?: { la
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) throw new Error(`transcribirAudio(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}`);
+  // Registrar el gasto de STT (por segundos de audio).
+  void recordSttUsage(opts?.feature || 'stt-nota-voz', p.sttModel, Number(data.duration ?? 0), opts?.motivo, p.nombre);
   return (data.text ?? '').trim();
 }

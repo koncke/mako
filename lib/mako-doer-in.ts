@@ -205,7 +205,7 @@ async function procesarDoer(ws: number, instance: string, data: MsgIn): Promise<
         if (m) { b64 = m.base64; audio.mime = m.mimetype || audio.mime; }
       }
       if (!b64) { console.error('[mako-doer-in] audio sin base64'); return { engaged: false, skip: 'audio sin base64' }; }
-      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es' })).trim(); }
+      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo' })).trim(); }
       catch (e) { console.error('[mako-doer-in] STT:', e instanceof Error ? e.message : String(e)); return { engaged: false, skip: 'audio no transcribible' }; }
       if (!texto) return { engaged: false, skip: 'audio vacío' };
     }

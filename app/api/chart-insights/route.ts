@@ -39,7 +39,7 @@ async function generarTitulo(seed: string): Promise<string | null> {
     const sys = await getPromptText('chart_insights.titulo_generation', CHART_TITULO_DEFAULT);
     const user = seed.slice(0, 1500);
     let t: string;
-    try { t = await chatCheap({ system: sys, user, maxTokens: 30 }); }
+    try { t = await chatCheap({ system: sys, user, maxTokens: 30, feature: 'Título de chat', motivo: 'Generar título de sesión' }); }
     catch { t = await chatClaude(sys, [{ role: 'user', content: user }], { thinking: false, maxTokens: 30, feature: 'mako-chat' }); }
     const clean = t.replace(/^["'`]+|["'`.]+$/g, '').trim();
     return clean ? clean.slice(0, 70) : null;

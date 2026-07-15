@@ -10,12 +10,13 @@
 // volver a la pestaña y cada 60s (los nuevos gastos aparecen al toque).
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { MakoStar } from './MakoBrand';
 
 const MONO = "'Geist Mono', monospace";
 const CONSOLA_URL = 'https://console.anthropic.com/settings/billing';
 
+type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
   gastadoMesUsd: number;
@@ -23,6 +24,7 @@ type Resumen = {
   restanteUsd: number | null;
   ultimaOp: { tokens: number; costUsd: number; feature: string; at: string } | null;
   porFeature: Array<{ feature: string; costUsd: number; tokens: number }>;
+  historial?: Movimiento[];
 };
 
 const FEATURE_LABEL: Record<string, string> = {
@@ -30,13 +32,20 @@ const FEATURE_LABEL: Record<string, string> = {
   'script-analyst': 'Script Analyst',
   'script-valorador': 'Valorar guion',
   'mako-chat': 'MaKo (chat)',
+  'mako-doer': 'MaKo Doer',
+  'mako-doer-in': 'MaKo · WhatsApp',
+  'ia-barata': 'IA barata',
   closing: 'Closing Analyst',
   validador: 'Validador',
   otros: 'Otros',
 };
 
+// Etiqueta corta del proveedor, para distinguir el gasto de Claude del barato.
+const PROV_LABEL: Record<string, string> = { anthropic: 'Claude', groq: 'Groq', openai: 'OpenAI' };
+
 const usd = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(n >= 0.01 ? 3 : 4)}`);
 const fmtTokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+const fmtHora = (iso: string) => { try { return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 
 export function SaldoMaKo() {
   const [open, setOpen] = useState(false);
@@ -123,6 +132,27 @@ export function SaldoMaKo() {
                     <span style={{ fontFamily: MONO, color: 'var(--ink)' }}>{usd(f.costUsd)}</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {data?.historial && data.historial.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={label}>Últimos movimientos</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7, maxHeight: 190, overflowY: 'auto' }}>
+                  {data.historial.slice(0, 20).map((m, i) => (
+                    <div key={`${m.at}-${i}`} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <div style={{ ...row, fontSize: 12 }}>
+                        <span style={{ color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.motivo || FEATURE_LABEL[m.feature] || m.feature}</span>
+                        <span style={{ fontFamily: MONO, color: m.provider === 'anthropic' ? 'var(--ink)' : 'var(--good)', flex: 'none' }}>{usd(m.costUsd)}</span>
+                      </div>
+                      <div style={{ fontSize: 10.5, color: 'var(--faint)', display: 'flex', gap: 6 }}>
+                        <span>{fmtHora(m.at)}</span>
+                        <span>· {PROV_LABEL[m.provider] ?? m.provider}</span>
+                        {m.tokens > 0 && <span>· {fmtTokens(m.tokens)} tok</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
