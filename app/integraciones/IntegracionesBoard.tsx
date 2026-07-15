@@ -9,6 +9,7 @@ import { MakoStar } from '../_components/MakoBrand';
 import { Icon } from '../_components/icons';
 import { SaludBoard } from '../marketing/salud/SaludBoard';
 import type { MetaHealth } from '@/lib/meta-health-ui';
+import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -45,25 +46,25 @@ function IntegracionCard({ i, metaSev }: { i: Integracion; metaSev: string | nul
   );
 }
 
-// ── Saldo de IA (inline) ──────────────────────────────────────────────────────
-type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; tokens: number; costUsd: number };
+// ── Saldo de IA — vista completa (la fuente única; el chip de la sidebar linkea acá) ──
+type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
+type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
   gastadoMesUsd: number;
   restanteUsd: number | null;
-  ultimaOp: { tokens: number; costUsd: number; feature: string; at: string } | null;
-  historial?: UsageItem[];
+  porFeature?: Array<{ feature: string; costUsd: number; tokens: number }>;
+  porProveedor?: ProvSaldo[];
+  historial?: Movimiento[];
 };
 const usd = (n: number) => (n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(n >= 0.01 ? 3 : 4)}`);
 const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
-const FEATURE_LABEL: Record<string, string> = {
-  'mako-guardian': 'Perro Guardián', 'checklist-coach': 'MaKo (coach)', 'ads-rename': 'Ordenar nombres',
-  'script-analyst': 'Script Analyst', 'mako-chat': 'MaKo (chat)', closing: 'Closing Analyst', otros: 'Otros', tools: 'MaKo (acciones)',
-};
 const fmtHora = (iso: string) => { try { return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
+const chipMini: CSSProperties = { fontSize: 10.5, fontFamily: MONO, padding: '1px 7px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface-2)', color: 'var(--dim)', flex: 'none' };
 
 function SaldoIA() {
   const [data, setData] = useState<Resumen | null>(null);
+  const [editProv, setEditProv] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -72,57 +73,90 @@ function SaldoIA() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const guardar = async () => {
+  const guardar = async (provider: string) => {
     const v = Number(input);
     if (!Number.isFinite(v) || v < 0) return;
     setSaving(true);
-    try { const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v }) })).json(); if (j?.ok) { setData(j as Resumen); setInput(''); } }
+    try { const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) })).json(); if (j?.ok) { setData(j as Resumen); setInput(''); setEditProv(null); } }
     finally { setSaving(false); }
   };
 
-  const restante = data?.restanteUsd ?? null;
-  const low = restante !== null && restante <= 5;
+  const cap: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' };
+  const row: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 };
 
   return (
-    <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div id="saldo-ia" style={{ ...card, display: 'flex', flexDirection: 'column', gap: 16, scrollMarginTop: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <MakoStar size={15} color="var(--accent)" />
         <span style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)' }}>Saldo de IA</span>
+        <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 12, color: 'var(--dim)' }}>gasto del mes · {usd(data?.gastadoMesUsd ?? 0)}</span>
       </div>
-      <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Saldo restante</div>
-          <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 700, color: restante === null ? 'var(--faint)' : low ? 'var(--bad)' : 'var(--ink)', marginTop: 4 }}>{restante !== null ? usd(restante) : '—'}</div>
-        </div>
-        <div>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' }}>Gastado este mes</div>
-          <div style={{ fontFamily: MONO, fontSize: 26, fontWeight: 700, color: 'var(--ink)', marginTop: 4 }}>{usd(data?.gastadoMesUsd ?? 0)}</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" placeholder={data?.saldo ? `Actual: ${data.saldo.usd}` : 'Cargar saldo (USD)'} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 14, outline: 'none', width: 180 }} />
-        <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Guardar'}</button>
-        <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Ver saldo real ↗</a>
-      </div>
-      <span style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>La API de Anthropic no expone el saldo prepago. Pegá el de la consola y MaKo le resta el gasto de cada operación.</span>
+      <span style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.45 }}>
+        Las APIs no exponen el saldo prepago: pegá el de cada consola y MaKo le resta el gasto real de cada operación. Groq es gratis (limitado por rate); Claude descuenta del saldo prepago; OpenAI cargalo a mano.
+      </span>
 
-      {/* Historial de gasto: cada operación con su MOTIVO, tokens y costo */}
+      {/* Por proveedor: Claude / Groq / OpenAI */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 10 }}>
+        {(data?.porProveedor ?? []).map((p) => (
+          <div key={p.provider} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', background: 'var(--surface-2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={row}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{proveedorLegible(p.provider)}</span>
+              {p.gratis
+                ? <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--good)' }}>GRATIS</span>
+                : p.restanteUsd !== null
+                  ? <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: p.restanteUsd <= 5 ? 'var(--bad)' : 'var(--ink)' }}>{usd(p.restanteUsd)}</span>
+                  : <span style={{ fontSize: 11, color: 'var(--faint)' }}>sin saldo</span>}
+            </div>
+            <div style={{ ...cap, fontSize: 10 }}>{p.gratis ? 'Gasto del mes' : 'Restante · gastó ' + usd(p.costMesUsd)}</div>
+            {p.gratis
+              ? <span style={{ fontFamily: MONO, fontSize: 13, color: 'var(--dim)' }}>{usd(p.costMesUsd)}</span>
+              : editProv === p.provider ? (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={p.saldo ? String(p.saldo.usd) : 'Saldo USD'} style={{ flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
+                  <button onClick={() => guardar(p.provider)} disabled={saving || !input.trim()} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
+                </div>
+              ) : (
+                <button onClick={() => { setEditProv(p.provider); setInput(''); }} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>{p.saldo ? 'editar saldo' : 'cargar saldo'}</button>
+              )}
+          </div>
+        ))}
+      </div>
+      <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>Ver saldo real en la consola de Anthropic ↗</a>
+
+      {/* Gasto del mes por herramienta */}
+      {data?.porFeature && data.porFeature.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ ...cap, marginBottom: 2 }}>Gasto del mes por proceso</div>
+          {data.porFeature.slice(0, 8).map((f) => (
+            <div key={f.feature} style={{ ...row, fontSize: 13 }}>
+              <span style={{ color: 'var(--dim)' }}>{procesoLegible(f.feature)}</span>
+              <span style={{ fontFamily: MONO, color: 'var(--ink)' }}>{usd(f.costUsd)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Historial: cada operación con proceso + IA + MODELO + tokens + costo */}
       {data?.historial && data.historial.length > 0 && (
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 2 }}>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 10 }}>Historial de gasto · {data.historial.length} operaciones</div>
-          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 340, overflowY: 'auto' }}>
-            {data.historial.map((h, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 2px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.motivo || FEATURE_LABEL[h.feature] || h.feature}</span>
-                  <span style={{ display: 'block', fontSize: 11.5, color: 'var(--faint)', fontFamily: MONO }}>{FEATURE_LABEL[h.feature] ?? h.feature} · {fmtHora(h.at)}</span>
-                </span>
-                <span style={{ flex: 'none', textAlign: 'right' }}>
-                  <span style={{ display: 'block', fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{usd(h.costUsd)}</span>
-                  <span style={{ display: 'block', fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{fmtTok(h.tokens)} tok</span>
-                </span>
-              </div>
-            ))}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <div style={{ ...cap, marginBottom: 10 }}>Historial · {data.historial.length} operaciones</div>
+          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: 380, overflowY: 'auto' }}>
+            {data.historial.map((h, i) => {
+              const motivo = motivoLegible(h.motivo);
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 2px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{procesoLegible(h.feature)}</span>
+                      <span style={{ ...chipMini, color: h.provider === 'anthropic' ? 'var(--dim)' : 'var(--good)' }}>{proveedorLegible(h.provider)} · {modeloLegible(h.model)}</span>
+                    </span>
+                    {motivo && <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{motivo}</span>}
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--faint)', fontFamily: MONO, marginTop: 2 }}>{fmtHora(h.at)}{h.tokens > 0 ? ` · ${fmtTok(h.tokens)} tok` : ''}</span>
+                  </span>
+                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: h.provider === 'anthropic' ? 'var(--ink)' : 'var(--good)', flex: 'none' }}>{usd(h.costUsd)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
