@@ -22,6 +22,7 @@ import {
   type EstadoMadurez,
 } from './leads';
 import { hayPasoDeWizard, tabDeSolucion, type Step } from './stage-requirements';
+import { adjuntarFathomAutoThrottled } from './fathom-auto';
 
 export type MarketingWindow = {
   // Rango
@@ -1985,6 +1986,12 @@ export const getPendientesDeMarcar = cachedRead('getPendientesDeMarcar', _getPen
 async function _getPendientesDeMarcar(
   hoy: string = new Date().toISOString().slice(0, 10),
 ): Promise<Pendientes> {
+  // EVENT-DRIVEN (sin cron): cada vez que se calculan los "Datos sin marcar",
+  // intentamos enganchar solo las grabaciones de Fathom que ya estén disponibles
+  // (throttleado, fire-and-forget). Así una reunión que terminó se auto-resuelve
+  // apenas se abre el CRM, sin esperar al cron. Ver lib/fathom-auto.
+  void adjuntarFathomAutoThrottled();
+
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
     .from('leads')
