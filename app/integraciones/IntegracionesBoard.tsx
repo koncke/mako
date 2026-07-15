@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { MakoStar } from '../_components/MakoBrand';
+import { Dropdown } from '../components/Dropdown';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
 
@@ -119,10 +120,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
   useEffect(() => { cargar(); }, [cargar]);
 
   // El toast global (y el chip de la sidebar) linkean con ?ops=1 → abrimos el
-  // historial de operaciones directamente.
+  // historial de operaciones. Consumimos el flag al instante (router.replace) para
+  // que un segundo click del toast (mismo ?ops=1) vuelva a ser un cambio '' → 'ops=1'
+  // y reabra el modal aunque lo hayas cerrado con Escape.
   useEffect(() => {
-    if (searchParams.get('ops') === '1') setModal({ t: 'hist' });
-  }, [searchParams]);
+    if (searchParams.get('ops') === '1') {
+      setModal({ t: 'hist' });
+      router.replace('/integraciones#saldo-ia', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModal(null); };
@@ -132,15 +138,22 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
 
   const metaSev = health?.account.severidad ?? null;
   const total = integraciones.length;
-  const conectadas = integraciones.filter((i) => i.estado === 'conectada' && !(i.key === 'meta' && metaSev && metaSev !== 'verde')).length;
 
-  // Severidad efectiva de un servicio: Meta usa su semáforo en vivo; el resto,
-  // conectada (verde) / falta (rojo).
+  // Severidad efectiva de un servicio: Meta usa su semáforo en vivo (o 'bad' si el
+  // token está presente pero la lectura en vivo falló); el resto, conectada (verde)
+  // vs falta de config (ámbar "Por configurar", NO rojo: todavía no es un incidente).
   const sevOf = (i: Integracion): 'good' | 'warn' | 'bad' => {
-    if (i.key === 'meta' && metaSev) return metaSev === 'verde' ? 'good' : metaSev === 'ambar' ? 'warn' : 'bad';
-    return i.estado === 'conectada' ? 'good' : 'bad';
+    if (i.key === 'meta') {
+      if (metaSev) return metaSev === 'verde' ? 'good' : metaSev === 'ambar' ? 'warn' : 'bad';
+      if (metaError) return 'bad';
+    }
+    return i.estado === 'conectada' ? 'good' : 'warn';
   };
   const dotColor = (s: 'good' | 'warn' | 'bad') => (s === 'good' ? 'var(--good)' : s === 'warn' ? 'var(--warn-fill)' : 'var(--bad)');
+  const conectadas = integraciones.filter((i) => sevOf(i) === 'good').length;
+  // Incidentes de Meta abiertos AHORA (la lista de abajo es Meta-only) → el contador
+  // debe reflejar eso, no el total de servicios que requieren atención.
+  const metaAbiertos = (metaSev && metaSev !== 'verde') || (metaError && !health) ? 1 : 0;
 
   // ── Requiere atención: servicios en falta + Meta si no está verde ──
   // (Sin useMemo: el React Compiler memoiza; el useMemo manual con el closure
@@ -150,8 +163,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
     const s = sevOf(i);
     if (s === 'good') continue;
     let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
-    if (i.key === 'meta' && health) {
-      motivo = health.account.entregaFrenada ? 'Entrega frenada' : (health.account.disableReasonLabel || health.account.statusLabel || 'Requiere atención');
+    if (i.key === 'meta') {
+      motivo = health
+        ? (health.account.entregaFrenada ? 'Entrega frenada' : (health.account.disableReasonLabel || health.account.statusLabel || 'Requiere atención'))
+        : 'No se pudo leer el estado de Meta';
     }
     atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo });
   }
@@ -206,7 +221,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
                   <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: sev === 'bad' ? 'var(--bad)' : 'var(--warn)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{motivo}</div>
                   <div style={{ fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em', color: 'var(--ink)' }}>{i.nombre}</div>
                 </div>
-                <button type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ flex: 'none', border: sev === 'bad' ? 0 : '1px solid var(--border-strong)', borderRadius: 10, background: sev === 'bad' ? 'var(--primary)' : 'var(--surface)', color: sev === 'bad' ? '#fff' : 'var(--ink)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Resolver</button>
+                <button type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ flex: 'none', border: sev === 'bad' ? 0 : '1px solid var(--border-strong)', borderRadius: 10, background: sev === 'bad' ? 'var(--primary)' : 'var(--surface)', color: sev === 'bad' ? '#fff' : 'var(--ink)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{sev === 'bad' ? 'Resolver' : 'Configurar'}</button>
               </div>
             ))}
           </div>
@@ -243,7 +258,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
       <CostoMaKo usage={usage} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} />
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
-      <ProblemasHistorial historial={historial} atencion={atencion.length} />
+      <ProblemasHistorial historial={historial} abiertos={metaAbiertos} />
 
       {/* Google Calendar (OAuth propio) — conexión funcional, debajo del board. */}
       {googlePanel && <div style={{ marginTop: 20 }}>{googlePanel}</div>}
@@ -258,7 +273,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
         />
       )}
       {modal?.t === 'hist' && usage && (
-        <OperacionesModal usage={usage} onClose={() => { setModal(null); if (searchParams.get('ops')) router.replace('/integraciones#saldo-ia'); }} />
+        <OperacionesModal usage={usage} onClose={() => setModal(null)} />
       )}
     </main>
   );
@@ -364,12 +379,12 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo }: { usage: Resumen | null; 
 }
 
 // ── Historial de problemas (estados negativos de Meta) ────────────────────────
-function ProblemasHistorial({ historial, atencion }: { historial: MetaEstadoHist[]; atencion: number }) {
+function ProblemasHistorial({ historial, abiertos }: { historial: MetaEstadoHist[]; abiertos: number }) {
   return (
     <section style={{ ...card, marginTop: 20, padding: '22px 30px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginBottom: 6 }}>
         <h2 style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>Historial de problemas</h2>
-        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{atencion} abiertos</span>
+        <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{abiertos} {abiertos === 1 ? 'abierto' : 'abiertos'}</span>
       </div>
       {historial.length === 0 ? (
         <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Sin incidentes registrados. Acá van a quedar los momentos en que Meta estuvo en ámbar/rojo o con la entrega frenada.</div>
@@ -394,10 +409,16 @@ function ProblemasHistorial({ historial, atencion }: { historial: MetaEstadoHist
 }
 
 // ── Shell de modal ────────────────────────────────────────────────────────────
-function ModalShell({ w, onClose, children }: { w: number; onClose: () => void; children: ReactNode }) {
+function ModalShell({ w, label, onClose, children }: { w: number; label: string; onClose: () => void; children: ReactNode }) {
+  // Bloquea el scroll del fondo mientras el modal está abierto (como el diseño).
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,22,27,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', animation: 'mkFade .16s ease' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: w, maxWidth: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(20,22,27,.24)', animation: 'mkPop .2s cubic-bezier(.2,.7,.3,1)' }}>
+      <div role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()} style={{ width: w, maxWidth: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(20,22,27,.24)', animation: 'mkPop .2s cubic-bezier(.2,.7,.3,1)' }}>
         {children}
       </div>
     </div>
@@ -427,7 +448,9 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
       ? 'La cuenta no entrega hasta que regularices el pago en el Administrador de Anuncios.'
       : (a.disableReasonLabel || a.statusLabel || 'Estado de la cuenta publicitaria.');
     facts = [
-      { k: a.balanceMxn < 0 ? 'Adeudado' : 'Saldo', v: mxn(Math.abs(a.balanceMxn)), c: a.balanceMxn < 0 ? 'var(--bad)' : 'var(--ink)' },
+      // OJO: en Meta balanceMxn > 0 = dinero ADEUDADO (no saldo disponible);
+      // ver lib/meta-health.ts. Positivo → "Adeudado" en rojo.
+      { k: a.balanceMxn > 0 ? 'Adeudado' : 'Saldo', v: mxn(Math.abs(a.balanceMxn)), c: a.balanceMxn > 0 ? 'var(--bad)' : 'var(--ink)' },
       { k: 'Medio de pago', v: a.fundingCard ? `*${a.fundingCard}` : '—', c: 'var(--ink)' },
       { k: 'Total gastado', v: mxn(a.amountSpentMxn), c: 'var(--ink)' },
       { k: 'Tope', v: a.spendCapMxn ? mxn(a.spendCapMxn) : 'Sin tope', c: 'var(--ink)' },
@@ -449,7 +472,7 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
   }
 
   return (
-    <ModalShell w={500} onClose={onClose}>
+    <ModalShell w={500} label={i.nombre} onClose={onClose}>
       <div style={{ padding: '26px 28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 16 }}>
           <SvcIcon k={i.key} box={44} radius={12} size={25} />
@@ -503,43 +526,42 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
   );
 }
 
-// Dropdown nativo estilizado (a nivel módulo: no crear componentes en render).
-function FilterSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: Array<[string, string]> }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ appearance: 'none', border: '1px solid var(--border-strong)', borderRadius: 10, background: value !== 'todos' && value !== 'fecha' ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)', fontFamily: "'Geist', sans-serif", fontSize: 13.5, fontWeight: 600, padding: '9px 14px', cursor: 'pointer' }}>
-      {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-    </select>
-  );
-}
-
 // ── Modal de operaciones de IA (filtro + orden + lista) ───────────────────────
 function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => void }) {
   const all = useMemo(() => usage.historial ?? [], [usage.historial]);
   const [fProv, setFProv] = useState('todos');
   const [fModelo, setFModelo] = useState('todos');
+  const [fFeat, setFFeat] = useState('todos');
   const [sortBy, setSortBy] = useState<'fecha' | 'caro' | 'barato'>('fecha');
 
   const modelos = useMemo(() => {
-    const set = new Map<string, string>();
-    for (const o of all) { const l = modeloLegible(o.model); if (l !== '—') set.set(l, l); }
-    return [...set.keys()];
+    const set = new Set<string>();
+    for (const o of all) { const l = modeloLegible(o.model); if (l !== '—') set.add(l); }
+    return [...set];
+  }, [all]);
+  const features = useMemo(() => {
+    const set = new Set<string>();
+    for (const o of all) set.add(o.feature);
+    return [...set].map((f) => ({ value: f, label: procesoLegible(f) })).sort((a, b) => a.label.localeCompare(b.label));
   }, [all]);
 
   const ops = useMemo(() => {
     let r = all.slice();
     if (fProv !== 'todos') r = r.filter((o) => o.provider === fProv);
     if (fModelo !== 'todos') r = r.filter((o) => modeloLegible(o.model) === fModelo);
+    if (fFeat !== 'todos') r = r.filter((o) => o.feature === fFeat);
     if (sortBy === 'caro') r.sort((a, b) => b.costUsd - a.costUsd);
     else if (sortBy === 'barato') r.sort((a, b) => a.costUsd - b.costUsd);
     else r.sort((a, b) => (a.at < b.at ? 1 : -1));
     return r;
-  }, [all, fProv, fModelo, sortBy]);
+  }, [all, fProv, fModelo, fFeat, sortBy]);
 
   const sum = ops.reduce((t, o) => t + o.costUsd, 0);
-  const nFilters = (fProv !== 'todos' ? 1 : 0) + (fModelo !== 'todos' ? 1 : 0);
+  const nFilters = (fProv !== 'todos' ? 1 : 0) + (fModelo !== 'todos' ? 1 : 0) + (fFeat !== 'todos' ? 1 : 0);
+  const ddBtn: CSSProperties = { padding: '9px 12px', borderRadius: 10, fontSize: 13.5, borderColor: 'var(--border-strong)' };
 
   return (
-    <ModalShell w={680} onClose={onClose}>
+    <ModalShell w={680} label="Operaciones de IA" onClose={onClose}>
       <div style={{ padding: '22px 26px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <div>
@@ -550,10 +572,15 @@ function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => v
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-          <FilterSelect value={fProv} onChange={setFProv} options={[['todos', 'IA: todas'], ['anthropic', 'Claude'], ['openai', 'OpenAI'], ['groq', 'Groq']]} />
-          <FilterSelect value={fModelo} onChange={setFModelo} options={[['todos', 'Modelo: todos'], ...modelos.map((m) => [m, m] as [string, string])]} />
-          <FilterSelect value={sortBy} onChange={(v) => setSortBy(v as 'fecha' | 'caro' | 'barato')} options={[['fecha', 'Más recientes'], ['caro', 'Más caro'], ['barato', 'Más barato']]} />
-          {nFilters > 0 && <button type="button" onClick={() => { setFProv('todos'); setFModelo('todos'); }} style={{ border: 0, background: 'none', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 6 }}>Limpiar</button>}
+          <Dropdown ariaLabel="Filtrar por IA" value={fProv} onChange={setFProv} buttonStyle={ddBtn}
+            options={[{ value: 'todos', label: 'IA: todas' }, { value: 'anthropic', label: 'Claude' }, { value: 'openai', label: 'OpenAI' }, { value: 'groq', label: 'Groq' }]} />
+          <Dropdown ariaLabel="Filtrar por modelo" value={fModelo} onChange={setFModelo} buttonStyle={ddBtn}
+            options={[{ value: 'todos', label: 'Modelo: todos' }, ...modelos.map((m) => ({ value: m, label: m }))]} />
+          <Dropdown ariaLabel="Filtrar por operación" value={fFeat} onChange={setFFeat} buttonStyle={ddBtn}
+            options={[{ value: 'todos', label: 'Operación: todas' }, ...features]} />
+          <Dropdown ariaLabel="Ordenar" value={sortBy} onChange={(v) => setSortBy(v as 'fecha' | 'caro' | 'barato')} buttonStyle={ddBtn}
+            options={[{ value: 'fecha', label: 'Más recientes' }, { value: 'caro', label: 'Más caro' }, { value: 'barato', label: 'Más barato' }]} />
+          {nFilters > 0 && <button type="button" onClick={() => { setFProv('todos'); setFModelo('todos'); setFFeat('todos'); }} style={{ border: 0, background: 'none', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: 6 }}>Limpiar</button>}
         </div>
 
         <div style={{ maxHeight: 'calc(100vh - 320px)', minHeight: 180, overflow: 'hidden auto' }}>

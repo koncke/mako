@@ -8,17 +8,19 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsageSummary, setSaldo } from '@/lib/anthropic-usage';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esWorkspaceDueno, getRolWsEfectivo } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
 // El gasto/saldo de IA es de las cuentas de IA de la AGENCIA (globales). Lo ven el
 // DUEÑO (workspace principal) Y el ADMIN de la agencia (que también consume esas
-// keys). Un cliente closer/setter NO debe leer el gasto de toda la agencia.
+// keys). Un cliente closer/setter NO debe leer el gasto de toda la agencia — OJO:
+// un closer/setter del PROPIO workspace dueño (ws1) también pasa esWorkspaceDueno,
+// así que además exigimos rol_ws 'admin' cuando el gate se apoya en el workspace.
 async function soloDueno(): Promise<Response | null> {
-  if (await esWorkspaceDueno()) return null;
   if (await getSesionAdmin()) return null; // admin de agencia (aunque no impersone)
+  if ((await esWorkspaceDueno()) && (await getRolWsEfectivo()) === 'admin') return null;
   return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
 }
 
