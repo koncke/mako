@@ -34,6 +34,7 @@ import {
   undoStageMoveAction,
   markManualNutritionAction,
   markMeetingManualAction,
+  bulkFillLeadFieldAction,
 } from './actions';
 import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
@@ -133,6 +134,8 @@ export function CrmBoard({
   errorMsg,
   hoy,
   equipo = [],
+  settersUsados = [],
+  closersUsados = [],
 }: {
   leads: CrmLead[];
   stages: Stage[];
@@ -143,6 +146,8 @@ export function CrmBoard({
   errorMsg: string | null;
   hoy: string;
   equipo?: MiembroEquipo[];
+  settersUsados?: string[];
+  closersUsados?: string[];
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -569,7 +574,15 @@ export function CrmBoard({
 
       {/* DATOS SIN MARCAR */}
       {showSinMarcar ? (
-        <SinMarcar marcar={marcar} onSolucionar={solucionarMarcar} onQueHacer={(id) => { const l = leads.find((x) => x.id === id); setQueHacer({ leadId: id, name: l?.name ?? 'lead' }); }} />
+        <SinMarcar
+          marcar={marcar}
+          equipo={equipo}
+          settersUsados={settersUsados}
+          closersUsados={closersUsados}
+          onSolucionar={solucionarMarcar}
+          onQueHacer={(id) => { const l = leads.find((x) => x.id === id); setQueHacer({ leadId: id, name: l?.name ?? 'lead' }); }}
+          onBulkDone={() => router.refresh()}
+        />
       ) : view === 'kanban' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Bandas (multi-selección): mostrá las que quieras a la vez */}
@@ -808,17 +821,126 @@ export function CrmBoard({
   );
 }
 
+// ── Marcar en lote: rellena un dato que se repite (Setter/Closer) en todos ──
+// Los "Datos sin marcar" están dominados por datos que son iguales para muchos
+// leads (ej. el mismo Setter). En vez de abrir 400 fichas, se asignan de una.
+function dedup(xs: string[]): string[] { return [...new Set(xs.map((s) => s.trim()).filter(Boolean))]; }
+
+function BulkRow({ field, label, ids, options, pending, onApply }: {
+  field: 'setter' | 'closer';
+  label: string;
+  ids: number[];
+  options: string[];
+  pending: boolean;
+  onApply: (field: 'setter' | 'closer', value: string, ids: number[], done: () => void) => void;
+}) {
+  const OTRO = '__otro__';
+  const [sel, setSel] = useState<string>(options[0] ?? OTRO);
+  const [custom, setCustom] = useState('');
+  const [confirm, setConfirm] = useState(false);
+  const value = (sel === OTRO ? custom : sel).trim();
+  const opts = [...options.map((o) => ({ value: o, label: o })), { value: OTRO, label: '✏️ Otro…' }];
+  const btn: CSSProperties = { flex: 'none', padding: '9px 16px', borderRadius: 10, border: 'none', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '11px 0', borderTop: '1px solid var(--border)' }}>
+      <div style={{ minWidth: 150, fontSize: 14, color: 'var(--ink)' }}>
+        <b>{label}</b> · falta en <b style={{ color: 'var(--primary)' }}>{ids.length}</b>
+      </div>
+      <div style={{ minWidth: 190, flex: '0 1 220px' }}>
+        <Dropdown value={sel} options={opts} onChange={(v) => setSel(v)} />
+      </div>
+      {sel === OTRO && (
+        <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={`${label}…`} autoFocus
+          style={{ padding: '9px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontFamily: SANS, outline: 'none', minWidth: 160 }} />
+      )}
+      {!confirm ? (
+        <button type="button" disabled={!value || pending} onClick={() => setConfirm(true)}
+          style={{ ...btn, background: value && !pending ? 'var(--primary)' : 'var(--surface-2)', color: value && !pending ? '#fff' : 'var(--faint)', border: value ? 'none' : '1px solid var(--border)' }}>
+          Asignar a los {ids.length}
+        </button>
+      ) : (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: 'var(--dim)' }}>¿Asignar <b style={{ color: 'var(--ink)' }}>«{value}»</b> a {ids.length}?</span>
+          <button type="button" disabled={pending} onClick={() => onApply(field, value, ids, () => setConfirm(false))}
+            style={{ ...btn, background: 'var(--good)', color: '#fff' }}>{pending ? 'Asignando…' : 'Sí, asignar'}</button>
+          <button type="button" disabled={pending} onClick={() => setConfirm(false)}
+            style={{ ...btn, background: 'var(--surface)', color: 'var(--dim)', border: '1px solid var(--border-strong)' }}>Cancelar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BulkHigiene({ marcar, equipo, settersUsados, closersUsados, onDone }: {
+  marcar: CrmMarcar[];
+  equipo: MiembroEquipo[];
+  settersUsados: string[];
+  closersUsados: string[];
+  onDone: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const idsCon = (stepId: string) => marcar.filter((m) => m.faltantes?.some((f) => f.id === stepId)).map((m) => m.leadId);
+  const nombres = equipo.map((e) => e.nombre);
+  const grupos = ([
+    { field: 'setter', label: 'Setter', ids: idsCon('setter'), options: dedup([...settersUsados, ...nombres]) },
+    { field: 'closer', label: 'Closer', ids: idsCon('closer'), options: dedup([...closersUsados, ...nombres]) },
+  ] as const).filter((g) => g.ids.length > 0);
+
+  if (!grupos.length) return null;
+
+  const apply = (field: 'setter' | 'closer', value: string, ids: number[], done: () => void) => {
+    startTransition(async () => {
+      const nombreCampo = field === 'setter' ? 'Setter' : 'Closer';
+      try {
+        const r = await bulkFillLeadFieldAction(field, value, ids);
+        setFlash(r.updated === 0
+          ? `Sin cambios: esos leads ya tenían ${nombreCampo} cargado.`
+          : `✓ ${nombreCampo} «${value}» asignado a ${r.updated} lead${r.updated === 1 ? '' : 's'}.`);
+        done();
+        onDone();
+      } catch (e) {
+        setFlash(`No se pudo: ${e instanceof Error ? e.message : 'error'}`);
+      }
+    });
+  };
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--primary)', borderRadius: 16, padding: 'var(--card-pad)', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <span aria-hidden style={{ fontSize: 16 }}>⚡</span>
+        <h3 style={{ fontWeight: 700, fontSize: 17, margin: 0, color: 'var(--ink)' }}>Marcar en lote</h3>
+      </div>
+      <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 4px', lineHeight: 1.45 }}>
+        Muchos leads comparten el mismo dato. Asignalo a todos de una — solo rellena los que están vacíos (no pisa lo cargado a mano).
+      </p>
+      {grupos.map((g) => (
+        <BulkRow key={g.field} field={g.field} label={g.label} ids={g.ids} options={g.options} pending={pending} onApply={apply} />
+      ))}
+      {flash && <div style={{ marginTop: 10, fontSize: 13.5, fontWeight: 600, color: flash.startsWith('✓') ? 'var(--good)' : flash.startsWith('Sin cambios') ? 'var(--dim)' : 'var(--bad)' }}>{flash}</div>}
+    </div>
+  );
+}
+
 // ── Datos sin marcar (worklist) ──
 function SinMarcar({
-  marcar, onSolucionar, onQueHacer,
+  marcar, equipo, settersUsados, closersUsados, onSolucionar, onQueHacer, onBulkDone,
 }: {
   marcar: CrmMarcar[];
+  equipo: MiembroEquipo[];
+  settersUsados: string[];
+  closersUsados: string[];
   onSolucionar: (leadId: number) => void;
   onQueHacer: (leadId: number) => void;
+  onBulkDone: () => void;
 }) {
   const btn: CSSProperties = { flex: 'none', padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--bad)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
+    <div>
+      <BulkHigiene marcar={marcar} equipo={equipo} settersUsados={settersUsados} closersUsados={closersUsados} onDone={onBulkDone} />
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--bad)', borderRadius: 16, padding: 'var(--card-pad)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <h2 style={{ fontWeight: 600, fontSize: 23, letterSpacing: '-0.015em', margin: 0, color: 'var(--ink)' }}>Datos sin marcar</h2>
         <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: 'var(--bad-bg)', border: '1px solid var(--bad)', color: 'var(--bad)' }}>{marcar.length}</span>
@@ -840,6 +962,7 @@ function SinMarcar({
           </div>
         ))}
         {marcar.length === 0 && <div style={{ padding: 36, textAlign: 'center', color: 'var(--good)', fontSize: 15.5, fontWeight: 600 }}>✓ Todo marcado — datos al día.</div>}
+      </div>
       </div>
     </div>
   );

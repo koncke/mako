@@ -475,6 +475,59 @@ export async function setLeadStageAction(
   revalidatePath('/general');
 }
 
+/**
+ * Marca EN LOTE un dato de higiene que se repite en muchos leads del worklist
+ * "Datos sin marcar" — ej. "todos tienen el mismo Setter". Solo RELLENA los que
+ * están vacíos (nunca pisa un valor ya cargado a mano), scoped al workspace
+ * (getTenantDb + .in(id)), en chunks, y registra cada relleno en el historial.
+ * Devuelve cuántos se actualizaron de verdad.
+ */
+export async function bulkFillLeadFieldAction(
+  field: 'setter' | 'closer' | 'empresa',
+  value: string,
+  leadIds: number[],
+): Promise<{ updated: number }> {
+  const v = value.trim();
+  if (!v) throw new Error('Poné un valor para asignar.');
+  if (field !== 'setter' && field !== 'closer' && field !== 'empresa') throw new Error('Ese campo no se puede marcar en lote.');
+  const ids = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
+  if (!ids.length) return { updated: 0 };
+
+  const db = await getTenantDb();
+  const autor = await autorActual();
+  const campo = field === 'setter' ? 'Setter' : field === 'closer' ? 'Closer' : 'Empresa';
+  const patch: Record<string, unknown> = { [field]: v };
+  let updated = 0;
+
+  // Chunk para no pasar el límite de longitud del .in(). Seguimos aunque un chunk
+  // falle (no dejamos la mitad escrita sin reportar lo que sí se hizo).
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    try {
+      // ATÓMICO: el propio UPDATE re-chequea que el campo esté vacío (.is null) →
+      // nunca pisa un valor cargado a mano entre el read y el write (sin TOCTOU).
+      // `.select('id')` devuelve EXACTAMENTE las filas que se rellenaron.
+      const { data: upd, error: updErr } = await db
+        .from('leads').update(patch).in('id', chunk).is(field, null).select('id');
+      if (updErr) { console.error(`[bulk] update chunk falló: ${updErr.message}`); continue; }
+      const hechos = ((upd ?? []) as Array<{ id: number }>).map((r) => Number(r.id));
+      if (!hechos.length) continue;
+      // Historial (best-effort, pero chequeando el error retornado por supabase-js).
+      const { error: audErr } = await db.from('lead_audit')
+        .insert(hechos.map((id) => ({ lead_id: id, campo, valor_anterior: null, valor_nuevo: v, autor })));
+      if (audErr) console.error(`[bulk] audit falló: ${audErr.message}`);
+      updated += hechos.length;
+    } catch (e) {
+      console.error('[bulk] chunk excepción:', e);
+    }
+  }
+
+  bust(TAG.leads);
+  revalidatePath('/leads');
+  revalidatePath('/general');
+  return { updated };
+}
+
 /** Guarda Closer / Setter / links de Fathom / motivo desde la ficha. */
 export async function saveLeadMetaAction(id: number, meta: LeadMetaInput): Promise<void> {
   const before = await getLead(id).catch(() => null);

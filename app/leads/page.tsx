@@ -84,6 +84,12 @@ export default async function LeadsPage() {
 
   const equipo = await getEquipoAction().catch(() => [] as MiembroEquipo[]);
 
+  // Valores de Setter/Closer ya usados (para sugerirlos de un clic en "Marcar en lote").
+  const usados = (pick: (l: Lead) => string | null | undefined) =>
+    [...new Set(leads.map((l) => pick(l)?.trim()).filter((s): s is string => !!s))];
+  const settersUsados = usados((l) => l.setter);
+  const closersUsados = usados((l) => l.closer);
+
   return (
     <CrmBoard
       leads={crmLeads}
@@ -95,6 +101,8 @@ export default async function LeadsPage() {
       errorMsg={errorMsg}
       hoy={hoy}
       equipo={equipo}
+      settersUsados={settersUsados}
+      closersUsados={closersUsados}
     />
   );
 }
