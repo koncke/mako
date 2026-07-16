@@ -11,6 +11,11 @@ import { getSetting, setSetting } from './settings';
 
 export const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const TOKEN_KEY = 'google.calendar.refresh_token';
+// De QUIÉN es la agenda conectada. El token es UNO por workspace, y un workspace
+// puede tener varias cuentas (en ws1 hay 3, todas rol_ws=admin): sin esto, el
+// último en entrar con Google pisaba la agenda del anterior en silencio y el
+// buscador de reuniones pasaba a leer la del empleado equivocado.
+const EMAIL_KEY = 'google.calendar.email';
 
 /**
  * Redirect URI del OAuth de Google Calendar. DEBE coincidir EXACTAMENTE con una
@@ -28,11 +33,37 @@ export function googleRedirectUri(origin: string): string {
   return `${base}/api/integraciones/google-calendar/callback`;
 }
 
-export async function guardarRefreshTokenGoogle(rt: string): Promise<void> {
+export async function guardarRefreshTokenGoogle(rt: string, email?: string | null): Promise<void> {
   await setSetting(TOKEN_KEY, rt);
+  if (email?.trim()) await setSetting(EMAIL_KEY, email.trim());
 }
 export async function desconectarGoogleCalendar(): Promise<void> {
   await setSetting(TOKEN_KEY, '');
+  await setSetting(EMAIL_KEY, '');
+}
+/** Email de la cuenta cuya agenda usa este workspace, o null si no hay ninguna. */
+export async function googleCalendarDueno(): Promise<string | null> {
+  return (await getSetting(EMAIL_KEY))?.trim() || null;
+}
+
+/**
+ * De quién es este token: el `id` del calendario primario ES el email de la
+ * cuenta. Lo pedimos así (y no a /userinfo) porque el flujo manual solo tiene el
+ * scope de calendar.readonly. Best-effort: null si falla, y el token igual se
+ * guarda — solo quedaría sin saber de quién es la agenda.
+ */
+export async function emailDelCalendario(accessToken: string): Promise<string | null> {
+  try {
+    const r = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
+    });
+    const j = (await r.json()) as { id?: string };
+    return typeof j.id === 'string' && j.id.includes('@') ? j.id.toLowerCase() : null;
+  } catch {
+    return null;
+  }
 }
 export async function googleCalendarConectado(): Promise<boolean> {
   return !!(await getSetting(TOKEN_KEY))?.trim();

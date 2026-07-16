@@ -272,27 +272,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  {
-    key: 'google',
-    nombre: 'Google (login)',
-    categoria: 'Acceso',
-    paraQue: 'El botón "Continuar con Google" del login. Avanzado: si está mal configurado, el login con contraseña sigue funcionando.',
-    campos: [
-      { env: 'GOOGLE_CLIENT_ID', label: 'Client ID', placeholder: '…apps.googleusercontent.com' },
-      { env: 'GOOGLE_CLIENT_SECRET', label: 'Client secret', secreto: true, placeholder: 'GOCSPX-…' },
-    ],
-    tutorial: {
-      url: 'https://console.cloud.google.com/apis/credentials',
-      urlLabel: 'Google Cloud Console → Credentials',
-      pasos: [
-        'En console.cloud.google.com, andá a APIs y servicios → Credenciales.',
-        'Crear credenciales → ID de cliente de OAuth → tipo "Aplicación web".',
-        'En "URIs de redireccionamiento autorizados" agregá: https://TU-DOMINIO/api/auth/callback/google.',
-        'Copiá el Client ID y el Client secret.',
-        'Si el proyecto está en modo "Testing", agregá los emails de los usuarios en la pantalla de consentimiento de OAuth.',
-      ],
-    },
-  },
+  // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
+  // app OAuth de la AGENCIA (login + Google Calendar), infra compartida de la
+  // plataforma. Un cliente jamás crea su propia app OAuth ni pisa estas
+  // credenciales: conecta su agenda AUTORIZANDO (entra con Google, o el botón
+  // "Conectar Google Calendar" de /integraciones). Sigue en lib/integraciones.ts
+  // como "Google Calendar", medido por señal real (el refresh token del ws).
 ];
 
 export const servicioMetodo = (key: string): ServicioMetodo | undefined =>

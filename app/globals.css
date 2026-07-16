@@ -197,6 +197,35 @@ textarea.mako-field {
   resize: vertical;
 }
 
+/* ── Modal de servicio de /integraciones ──────────────────────────────────────
+   Dos columnas: izquierda el carrusel de "qué vas a poder hacer" + el aviso BYOK,
+   derecha toda la configuración. En pantalla angosta apilan (carrusel arriba) y
+   nunca hay scroll horizontal: `minmax(0,1fr)` deja que las columnas se achiquen
+   en vez de desbordar. */
+.mk-svc-modal {
+  display: grid;
+  grid-template-columns: 336px minmax(0, 1fr);
+}
+.mk-svc-aside {
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 18px 0 0 18px;
+}
+@media (max-width: 820px) {
+  .mk-svc-modal {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mk-svc-aside {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+  }
+  /* Apilado: el carrusel no se come la pantalla. */
+  .mk-svc-carrusel {
+    min-height: 0;
+  }
+}
+
 /* Fila de tabs de la ficha: scroll horizontal sin barra visible (una sola fila). */
 .lead-tabs-scroll { scrollbar-width: none; -ms-overflow-style: none; }
 .lead-tabs-scroll::-webkit-scrollbar { display: none; }

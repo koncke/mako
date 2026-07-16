@@ -4,7 +4,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { esWorkspaceDueno } from '@/lib/workspace';
-import { guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
+import { emailDelCalendario, guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +36,11 @@ export async function GET(req: NextRequest) {
       // Sin refresh_token (ya había consentido antes sin revocar): pedir de nuevo con prompt=consent ya lo fuerza.
       return fail('sin-refresh');
     }
-    await guardarRefreshTokenGoogle(tokens.refresh_token);
+    // Acá pisar SÍ es lo esperado (el dueño apretó "Conectar" a propósito), a
+    // diferencia del login, donde guardar la agenda es un efecto de costado.
+    // Registramos de quién es para poder mostrarlo y para que el login no la pise.
+    const email = tokens.access_token ? await emailDelCalendario(tokens.access_token) : null;
+    await guardarRefreshTokenGoogle(tokens.refresh_token, email);
     const res = NextResponse.redirect((() => { destino.searchParams.set('gcal', 'ok'); return destino; })());
     res.cookies.set({ name: 'gcal_state', value: '', maxAge: 0, path: '/' });
     return res;

@@ -15,10 +15,11 @@
 // POST { action:'guardar', servicio, valores } → whitelist estricta por campos.
 // POST { action:'borrar', env }                → elimina la fila cifrada.
 // POST { action:'verificar', servicio, valores } → "Probar conexión".
+// POST { action:'revelar', env }               → texto plano de UNA credencial.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
+import { credWs, eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -144,6 +145,21 @@ export async function POST(req: NextRequest) {
       if (!ENVS_METODO.has(env)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
       await eliminarCredencial(ctx.ws, env);
       return NextResponse.json({ ok: true });
+    }
+
+    // Revelar UNA credencial (el "ojito"). Va en su propia action a propósito:
+    // el GET del estado manda solo la máscara, así el texto plano nunca viaja
+    // por el solo hecho de abrir el modal — hay que pedirlo, y queda registrado.
+    // credWs scopea al ws del contexto: nunca se lee la credencial de otro.
+    if (body.action === 'revelar') {
+      const env = body.env ?? '';
+      if (!ENVS_METODO.has(env)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
+      const valor = await credWs(env, ctx.ws);
+      if (!valor) return NextResponse.json({ ok: false, error: 'sin credencial guardada' }, { status: 404 });
+      // Rastro de auditoría: quién miró qué secreto y de qué workspace. Sin el
+      // valor, obvio. Es warn para que salte en los logs entre el ruido.
+      console.warn(`[credenciales] ${ctx.autor ?? 'desconocido'} reveló ${env} del workspace ${ctx.ws}.`);
+      return NextResponse.json({ ok: true, valor }, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     if (body.action === 'verificar') {

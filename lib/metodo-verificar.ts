@@ -140,10 +140,10 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: nombre ? `Conectado como ${nombre}.` : 'Token válido.' };
   },
 
-  async google() {
-    // Las credenciales de OAuth solo se validan con un login real.
-    return { ok: true, detalle: 'Guardadas. Se validan al probar "Continuar con Google" en el login.' };
-  },
+  // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,
+  // no una credencial que el cliente cargue) → verificarServicio('google') corta
+  // antes, en servicioMetodo(). Su estado se mide en lib/integraciones.ts por
+  // señal real: existe el refresh token del workspace.
 };
 
 /**

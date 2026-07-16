@@ -50,18 +50,24 @@ const fmtHora = (iso: string) => { try { return new Date(iso).toLocaleString('es
 const mxn = (n: number) => `$${(Number(n) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // ── Iconos de marca por servicio (color de fondo + símbolo SVG) ──────────────
-type IconDef = { sym: string; bg: string; bd?: string };
+// REGLA: acá solo van logos OFICIALES, copiados tal cual de la fuente de la marca
+// (ver BrandDefs). Si no conseguimos el vector oficial de un servicio, NO se
+// dibuja uno "parecido": va un letter-mark (la inicial en Geist sobre el color de
+// marca real). Un logo inventado es peor que una inicial honesta.
+type IconDef = { sym?: string; letter?: string; bg: string; bd?: string; fg?: string };
 const ICON: Record<string, IconDef> = {
   meta: { sym: 'ic-meta', bg: '#0866FF' },
   whatsapp: { sym: 'ic-whatsapp', bg: '#25D366' },
-  email: { sym: 'ic-resend', bg: '#0A0A0A' },
+  email: { sym: 'ic-resend', bg: '#000000' },      // Resend brand: negro
   anthropic: { sym: 'ic-anthropic', bg: '#CC785C' },
   openai: { sym: 'ic-openai', bg: '#000000' },
   groq: { sym: 'ic-groq', bg: '#F55036' },
-  fathom: { sym: 'ic-fathom', bg: '#6151F5' },
+  fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   calendly: { sym: 'ic-calendly', bg: '#006BFF' },
   google: { sym: 'ic-google', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
-  panda: { sym: 'ic-panda', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  // Panda Video no publica su logo en vector (solo PNG). Letter-mark sobre su gris
+  // de marca real (#2F2F2F, muestreado de su ícono oficial) hasta tener el SVG.
+  panda: { letter: 'P', bg: '#2F2F2F' },
   youtube: { sym: 'ic-youtube', bg: '#FF0000' },
   supabase: { sym: 'ic-supabase', bg: '#1F2937' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
@@ -71,8 +77,12 @@ const iconFor = (k: string): IconDef => ICON[k] ?? { sym: 'ic-supabase', bg: '#1
 function SvcIcon({ k, size = 21, box = 34, radius = 9 }: { k: string; size?: number; box?: number; radius?: number }) {
   const ic = iconFor(k);
   return (
-    <span style={{ width: box, height: box, flex: 'none', borderRadius: radius, background: ic.bg, border: ic.bd, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>
+    // Decorativo: el nombre del servicio SIEMPRE va al lado. Sin esto, el
+    // letter-mark se lee doble ("P Panda Video").
+    <span aria-hidden style={{ width: box, height: box, flex: 'none', borderRadius: radius, background: ic.bg, border: ic.bd, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {ic.letter
+        ? <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: Math.round(box * 0.46), lineHeight: 1, letterSpacing: '-0.03em', color: ic.fg ?? '#fff' }}>{ic.letter}</span>
+        : <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>}
     </span>
   );
 }
@@ -84,15 +94,31 @@ function BrandDefs() {
       <linearGradient id="mkGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#F0C60A" /><stop offset="100%" stopColor="#C8870C" /></linearGradient>
       <symbol id="ic-meta" viewBox="0 0 24 24"><g transform="scale(1.5)"><path fill="#fff" fillRule="evenodd" d="M8.217 5.243C9.145 3.988 10.171 3 11.483 3 13.96 3 16 6.153 16.001 9.907c0 2.29-.986 3.725-2.757 3.725-1.543 0-2.395-.866-3.924-3.424l-.667-1.123-.118-.197a55 55 0 0 0-.53-.877l-1.178 2.08c-1.673 2.925-2.615 3.541-3.923 3.541C1.086 13.632 0 12.217 0 9.973 0 6.388 1.995 3 4.598 3q.477-.001.924.122c.31.086.611.22.913.407.577.359 1.154.915 1.782 1.714m1.516 2.224q-.378-.615-.727-1.133L9 6.326c.845-1.305 1.543-1.954 2.372-1.954 1.723 0 3.102 2.537 3.102 5.653 0 1.188-.39 1.877-1.195 1.877-.773 0-1.142-.51-2.61-2.87zM4.846 4.756c.725.1 1.385.634 2.34 2.001A212 212 0 0 0 5.551 9.3c-1.357 2.126-1.826 2.603-2.581 2.603-.777 0-1.24-.682-1.24-1.9 0-2.602 1.298-5.264 2.846-5.264q.137 0 .27.018" /></g></symbol>
       <symbol id="ic-whatsapp" viewBox="0 0 24 24"><path fill="#fff" d="M12 3.8a8.1 8.1 0 0 0-6.94 12.26L4 20.2l4.25-1.1A8.1 8.1 0 1 0 12 3.8zm4.72 11.43c-.2.56-1.17 1.07-1.62 1.11-.44.04-.86.2-2.9-.6-2.45-.97-4-3.46-4.12-3.62-.12-.16-.98-1.3-.98-2.48s.62-1.76.84-2c.22-.24.48-.3.64-.3h.46c.15 0 .35-.06.54.41l.66 1.6c.05.11.09.24.02.38l-.3.46-.32.35c-.1.1-.21.22-.09.43.12.2.54.9 1.16 1.45.8.71 1.47.93 1.68 1.04.2.11.32.09.44-.05l.63-.73c.16-.2.32-.16.54-.08l1.53.72c.22.11.37.16.42.25.06.09.06.53-.14 1.05z" /></symbol>
-      <symbol id="ic-resend" viewBox="0 0 24 24"><path fill="#fff" d="M6.5 4.5h6.2c2.6 0 4.4 1.5 4.4 3.9 0 1.7-.9 3-2.4 3.6l3 7.5h-3.4l-2.6-6.8H9.6v6.8H6.5zm3.1 2.6v3.2h2.7c1.1 0 1.8-.6 1.8-1.6s-.7-1.6-1.8-1.6z" /></symbol>
+      {/* Resend — logo oficial (simple-icons `resend`, fuente https://resend.com/brand). */}
+      <symbol id="ic-resend" viewBox="0 0 24 24"><path fill="#fff" d="M14.679 0c4.648 0 7.413 2.765 7.413 6.434s-2.765 6.434-7.413 6.434H12.33L24 24h-8.245l-8.88-8.44c-.636-.588-.93-1.273-.93-1.86 0-.831.587-1.565 1.713-1.883l4.574-1.224c1.737-.465 2.936-1.81 2.936-3.572 0-2.153-1.761-3.4-3.939-3.4H0V0z" /></symbol>
       <symbol id="ic-anthropic" viewBox="0 0 24 24"><path fill="#fff" d="M17.3041 3.541h-3.6718l6.696 16.918H24Zm-10.6082 0L0 20.459h3.7442l1.3693-3.5527h7.0052l1.3693 3.5528h3.7442L10.5363 3.541Zm-.3712 10.2223 2.2914-5.9456 2.2914 5.9456Z" /></symbol>
       <symbol id="ic-openai" viewBox="0 0 24 24"><path fill="#fff" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.1419.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997z" /></symbol>
       <symbol id="ic-groq" viewBox="0 0 24 24"><path fill="#fff" d="M12 3.4a5.9 5.9 0 0 0 0 11.8h1.9v-2.3H12a3.6 3.6 0 1 1 3.6-3.6v5.1c0 1.9-1.6 3.4-3.5 3.4a3.5 3.5 0 0 1-2.5-1l-1.6 1.6a5.8 5.8 0 0 0 4.1 1.7c3.2 0 5.8-2.5 5.8-5.7V9.2A5.9 5.9 0 0 0 12 3.4z" /></symbol>
-      <symbol id="ic-fathom" viewBox="0 0 24 24"><path fill="#fff" d="M6.5 4.5h11v2.9H9.7v3.3h6.9v2.9H9.7V19.5H6.5z" /></symbol>
-      <symbol id="ic-calendly" viewBox="0 0 24 24"><path fill="#fff" d="M17 3h-1V2h-2v1h-4V2H8v1H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H7V9h10v10zM7 7V5h10v2H7z" /><circle cx="9.5" cy="12.5" r="1.1" fill="#fff" /><circle cx="14.5" cy="12.5" r="1.1" fill="#fff" /><circle cx="9.5" cy="16" r="1.1" fill="#fff" /><circle cx="14.5" cy="16" r="1.1" fill="#fff" /></symbol>
+      {/* Fathom (fathom.video, el grabador de reuniones) — mark oficial, extraído de su
+          propio wordmark: cdn.prod.website-files.com/…/68e7961f4ff1cd5e326512f7_logo-wordmark-new.svg
+          Verificado contra su favicon (mark #00BEFF/#007299 sobre negro).
+          OJO: el "Fathom" de simple-icons es Fathom Analytics (usefathom.com), OTRA empresa.
+          El mark vive en x 141.42→165.88, y 0→24.95 del wordmark → lo encuadramos a 24×24. */}
+      <symbol id="ic-fathom" viewBox="0 0 24 24">
+        <g transform="translate(.24 0) scale(.962) translate(-141.42 .043)">
+          <path fill="#007299" d="M141.836 16.4481V21.3875C141.836 22.6831 142.645 23.8563 143.861 24.2456C145.927 24.9052 147.825 23.3578 147.825 21.3606V19.501L141.836 16.4481Z" />
+          <path fill="#00BEFF" d="M162.465 15.4261C162.015 15.4261 161.559 15.3237 161.128 15.1055L143.553 6.19528C142.097 5.45682 141.42 3.67948 142.099 2.17906C142.807 0.60815 144.65 -0.0430392 146.16 0.722275L163.733 9.63081C165.207 10.3777 165.882 12.249 165.144 13.7444C164.619 14.8101 163.562 15.4261 162.462 15.4261H162.465Z" />
+          <path fill="#00BEFF" d="M153.644 19.9273C153.194 19.9273 152.737 19.8249 152.307 19.6068L143.553 15.1693C142.097 14.4308 141.42 12.6535 142.099 11.153C142.807 9.58214 144.65 8.93095 146.162 9.69626L154.913 14.1321C156.387 14.8789 157.062 16.7502 156.324 18.2456C155.799 19.3114 154.742 19.9273 153.642 19.9273H153.644Z" />
+        </g>
+      </symbol>
+      {/* Calendly — logo oficial (simple-icons `calendly`, fuente https://calendly.com/newsroom). */}
+      <symbol id="ic-calendly" viewBox="0 0 24 24"><path fill="#fff" d="M19.655 14.262c.281 0 .557.023.828.064 0 .005-.005.01-.005.014-.105.267-.234.534-.381.786l-1.219 2.106c-1.112 1.936-3.177 3.127-5.411 3.127h-2.432c-2.23 0-4.294-1.191-5.412-3.127l-1.218-2.106a6.251 6.251 0 0 1 0-6.252l1.218-2.106C6.736 4.832 8.8 3.641 11.035 3.641h2.432c2.23 0 4.294 1.191 5.411 3.127l1.219 2.106c.147.252.271.519.381.786 0 .004.005.009.005.014-.267.041-.543.064-.828.064-1.816 0-2.501-.607-3.291-1.306-.764-.676-1.711-1.517-3.44-1.517h-1.029c-1.251 0-2.387.455-3.2 1.278-.796.805-1.233 1.904-1.233 3.099v1.411c0 1.196.437 2.295 1.233 3.099.813.823 1.949 1.278 3.2 1.278h1.034c1.729 0 2.676-.841 3.439-1.517.791-.703 1.471-1.306 3.287-1.301Zm.005-3.237c.399 0 .794-.036 1.179-.11-.002-.004-.002-.01-.002-.014-.073-.414-.193-.823-.349-1.218.731-.12 1.407-.396 1.986-.819 0-.004-.005-.013-.005-.018-.331-1.085-.832-2.101-1.489-3.03-.649-.915-1.435-1.719-2.331-2.395-1.867-1.398-4.088-2.138-6.428-2.138-1.448 0-2.855.28-4.175.841-1.273.543-2.423 1.315-3.407 2.299S2.878 6.552 2.341 7.83c-.557 1.324-.842 2.726-.842 4.175 0 1.448.281 2.855.842 4.174.542 1.274 1.314 2.423 2.298 3.407s2.129 1.761 3.407 2.299c1.324.556 2.727.841 4.175.841 2.34 0 4.561-.74 6.428-2.137a10.815 10.815 0 0 0 2.331-2.396c.652-.929 1.158-1.949 1.489-3.03 0-.004.005-.014.005-.018-.579-.423-1.255-.699-1.986-.819.161-.395.276-.804.349-1.218.005-.009.005-.014.005-.023.869.166 1.692.506 2.404 1.035.685.505.552 1.075.446 1.416C22.184 20.437 17.619 24 12.221 24c-6.625 0-12-5.375-12-12s5.37-12 12-12c5.398 0 9.963 3.563 11.471 8.464.106.341.239.915-.446 1.421-.717.529-1.535.873-2.404 1.034.128.716.128 1.45 0 2.166-.387-.074-.782-.11-1.182-.11-4.184 0-3.968 2.823-6.736 2.823h-1.029c-1.899 0-3.15-1.357-3.15-3.095v-1.411c0-1.738 1.251-3.094 3.15-3.094h1.034c2.768 0 2.552 2.823 6.731 2.827Z" /></symbol>
       <symbol id="ic-youtube" viewBox="0 0 24 24"><path fill="#fff" d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5 3z" /></symbol>
       <symbol id="ic-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.63-.06-1.25-.16-1.84H12v3.48h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.16z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.23-2.5c-.9.6-2.05.95-3.39.95-2.6 0-4.8-1.76-5.59-4.12H3.07v2.58A10 10 0 0 0 12 22z" /><path fill="#FBBC05" d="M6.41 13.91a5.99 5.99 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98z" /><path fill="#EA4335" d="M12 6.58c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.96 9.96 0 0 0 12 2 10 10 0 0 0 3.07 7.51l3.34 2.58C7.2 8.34 9.4 6.58 12 6.58z" /></symbol>
-      <symbol id="ic-panda" viewBox="0 0 24 24"><circle cx="6.6" cy="6.8" r="2.7" fill="#161616" /><circle cx="17.4" cy="6.8" r="2.7" fill="#161616" /><circle cx="12" cy="13" r="7.3" fill="#fff" stroke="#161616" strokeWidth="1.4" /><ellipse cx="9" cy="11.9" rx="1.7" ry="2.1" fill="#161616" /><ellipse cx="15" cy="11.9" rx="1.7" ry="2.1" fill="#161616" /><circle cx="12" cy="15.7" r="1.15" fill="#161616" /></symbol>
+      {/* Panda Video NO tiene símbolo acá a propósito: no publica su logo en vector
+          (su ícono oficial es un PNG). Antes había un panda dibujado a mano que no
+          era su logo → se fue. Va letter-mark (ver ICON.panda) hasta tener el SVG
+          real de la marca. */}
       <symbol id="ic-supabase" viewBox="0 0 24 24"><path fill="#3ECF8E" d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.233L2.203 12.424l-.401.562a1.04 1.04 0 0 0 .836 1.659H12v8.959a.396.396 0 0 0 .716.233l9.081-12.261.401-.562a1.04 1.04 0 0 0-.836-1.66z" /></symbol>
       {/* Landing: ventana de navegador con el play del VSL adentro. */}
       <symbol id="ic-landing" viewBox="0 0 24 24"><path fill="#fff" d="M4 3.5h16a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 19V5A1.5 1.5 0 0 1 4 3.5zm0 5V19h16V8.5zm1.6-3.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm2.6 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z" /><path fill="#7C5CFF" d="M10.4 11.3v4.9l4.3-2.45z" /></symbol>
@@ -656,7 +682,155 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
   );
 }
 
+// ── Carrusel del modal: qué vas a poder hacer con ESTA integración ────────────
+// REGLA DURA: cada slide describe algo que la app HACE HOY. Nada de features
+// planeadas. Al lado de cada una va el código que la respalda — si mañana se
+// borra ese código, se borra la slide.
+type Slide = { t: string; d: string };
+const SLIDES: Record<string, Slide[]> = {
+  meta: [
+    // lib/meta-ads.ts (fetchMetaInsights, level=ad) + app/api/cron/meta-daily
+    { t: 'Cada anuncio, todos los días', d: 'Gasto, CTR, CPC, leads y retención por cuartiles de cada anuncio. Entra solo, todos los días.' },
+    // lib/meta-health.ts (semáforo + recomendaciones fuente:'mako')
+    { t: 'El semáforo de la cuenta', d: 'Si Meta te frenó la entrega, te rechazó un anuncio o algo quedó en aprendizaje, lo ves acá — y MaKo te dice qué tocar.' },
+    // app/api/webhooks/meta-leads + lib/meta-leads.ts (poll de respaldo)
+    { t: 'Los leads entran solos', d: 'Cada Lead Ad cae en el CRM en el momento, con su hilo de WhatsApp ya abierto.' },
+    // lib/meta-capi.ts, disparado desde lib/leads.ts y el webhook de Calendly
+    { t: 'Meta se entera de lo que cierra', d: 'Cuando un lead califica o agenda, le devolvemos el evento por CAPI para que optimice con datos reales, no con clicks.' },
+  ],
+  whatsapp: [
+    // app/whatsapp/WhatsAppApp.tsx + lib/chatwoot.ts
+    { t: 'El inbox, acá adentro', d: 'Leé y contestá WhatsApp sin salir de MaKo: un hilo por lead, con adjuntos.' },
+    // lib/template-validator.ts + lib/meta-templates.ts (explicarRechazo)
+    { t: 'Plantillas que no te rechazan', d: 'MaKo las valida contra las reglas de Meta antes de mandarlas. Si igual te rechazan, te explica por qué en español.' },
+    // lib/nutricion.ts (ventana horaria, tope diario, 1 msg/lead cada 20h)
+    { t: 'Nutrición que cuida tu número', d: 'Ventana horaria, tope diario y un mensaje por lead cada 20 horas. Nada de ráfagas.' },
+    // app/api/webhooks/chatwoot → lib/nutricion.ts (pausarPorRespuesta)
+    { t: 'Contesta el lead, se corta sola', d: 'En cuanto responde, la secuencia se pausa: nunca le escribís encima a alguien que ya está hablando.' },
+  ],
+  email: [
+    // lib/nutricion.ts (mismo motor que WhatsApp, canal email)
+    { t: 'Secuencias que salen solas', d: 'El mismo motor de nutrición, por mail: pasos, variables y horarios.' },
+    // lib/email-marketing.ts (enviarBroadcast, prueba, programados)
+    { t: 'Broadcasts a un segmento', d: 'Borrador, envío de prueba y programado. Sin pegar direcciones a mano.' },
+    // lib/resend.ts (createResendDomain/verifyResendDomain) + DominioSetup
+    { t: 'Tu dominio, verificado desde acá', d: 'MaKo te da los registros DNS y chequea solo hasta que quede verificado. Sin dominio propio no sale nada.' },
+    // app/api/webhooks/resend (aperturas/clicks/rebotes + supresión)
+    { t: 'Quién abrió y quién clickeó', d: 'Aperturas, clicks y rebotes por paso. El que rebota duro se suprime solo y la baja es de un click.' },
+  ],
+  anthropic: [
+    { t: 'El motor de MaKo', d: 'Claude es quien analiza, sugiere y escribe. Sin esta llave, MaKo no piensa.' },
+    // lib/closing.ts (SPIN, objeciones, recomendaciones)
+    { t: 'Analiza tus llamadas', d: 'El Closing Analyst puntúa cada llamada de venta por SPIN, marca las objeciones y te deja recomendaciones.' },
+    // lib/model-registry.ts (modeloDeFeature, editable en /modelos-ia)
+    { t: 'Vos elegís el modelo', d: 'Opus para el análisis pesado, Sonnet para lo conversacional. Se cambia por tarea, sin tocar código.' },
+    // recordUsage → /api/anthropic-usage (Costo de MaKo)
+    { t: 'Cada peso, a la vista', d: 'Qué proceso gastó cuánto, con qué modelo y cuándo. Sin sorpresas a fin de mes.' },
+  ],
+  openai: [
+    // lib/transcribe.ts (whisper-1 + gpt-4o-mini) → alimenta lib/script-analyst.ts
+    { t: 'Escucha tus creativos', d: 'Transcribe el video de cada anuncio y lo parte en secciones. Eso es lo que después lee el Script Analyst.' },
+    // lib/transcribe.ts (transcribeMediaBuffer) → /conocimiento
+    { t: 'Tus clases, en texto', d: 'Subís la grabación de un curso y queda como conocimiento consultable de MaKo.' },
+    // lib/ai-cheap.ts: provDe('groq') ?? provDe('openai')
+    { t: 'El suplente de lo barato', d: 'Cuando no hay Groq, las tareas simples caen acá en vez de gastar Claude.' },
+  ],
+  groq: [
+    // lib/ai-cheap.ts (Groq gana si hay llave) + lib/model-registry.ts
+    { t: 'IA gratis para lo simple', d: 'Clasificar, extraer, titular. MaKo la prefiere sobre OpenAI cuando hay llave.' },
+    // lib/mako-doer-in.ts → transcribirAudio (whisper-large-v3-turbo)
+    { t: 'Tus notas de voz, en texto', d: 'Le mandás un audio a "Hola MaKo" por WhatsApp y lo entiende.' },
+    { t: 'Se mide en tokens, no en plata', d: 'El plan gratis limita por tokens/día y reinicia cada día. No hay saldo que se vacíe.' },
+  ],
+  fathom: [
+    // lib/closing.ts (triage barato → Claude: venta vs entrega, SPIN, objeciones)
+    { t: 'Cada llamada, puntuada', d: 'El Closing Analyst separa venta de entrega, puntúa por SPIN y marca las objeciones que aparecieron.' },
+    // app/closing/ClosingBrowser.tsx (iframe + transcript con deep-link al segundo)
+    { t: 'El video y el transcript, juntos', d: 'Player embebido y transcript clickeable: tocás una línea y el video salta a ese segundo.' },
+    // app/api/webhooks/fathom (inviteeSpoke → asistencia real) + lib/fathom-auto.ts
+    { t: 'La reunión se marca sola', d: 'Llega la grabación y el lead avanza: R1 o R2, y la asistencia se confirma según si el lead realmente habló.' },
+    // lib/closing.ts (reviseAnalysis / reviseWithMako, con edit_history)
+    { t: 'La última palabra es tuya', d: 'Corregís un puntaje a mano o le pedís a MaKo que re-analice con tu nota. Queda el historial.' },
+  ],
+  calendly: [
+    // app/api/webhooks/calendly (respuestas por frase, UTMs, visitor_id de la landing)
+    { t: 'La agenda se vuelve lead', d: 'Cada reserva entra al CRM con sus respuestas de calificación, sus UTMs y hasta el visitante anónimo que venía de la landing.' },
+    // route.ts: una J2 NUNCA crea lead; sin match → enqueueJ2SinMatch (revisión)
+    { t: 'R1 y R2, cada una en su lugar', d: 'Una R2 nunca crea un lead nuevo: se pega a la ficha que ya existe. Si no matchea, va a revisión en vez de duplicar.' },
+    // junta_1_at (ISO con hora) → lib/crm-auto.ts T1 (respeta la decisión humana)
+    { t: 'El No Show se detecta solo', d: 'Guardamos la hora exacta: si la reunión pasó y no hubo grabación, queda marcada — salvo que un humano ya lo haya decidido.' },
+    // lib/meta-capi.ts (Schedule, event_id determinístico para dedup con el píxel)
+    { t: 'Meta se entera del agendado', d: 'Cada reserva dispara un evento Schedule por CAPI, deduplicado contra el píxel del navegador.' },
+  ],
+  panda: [
+    // app/api/cron/panda-daily → marketing_metrics_daily (plataforma='panda')
+    { t: 'Los plays del VSL, al día', d: 'Reproducciones y espectadores únicos, todos los días, sin tocar nada.' },
+    // lib/queries.ts (cuadrosVsl: retención media + tiempo promedio)
+    { t: 'Hasta dónde llegan', d: 'Retención media y tiempo promedio de visualización, al lado del resto del funnel.' },
+    // app/marketing/page.tsx (KPI "Costo / VSL View")
+    { t: 'Cuánto te cuesta un view', d: 'El gasto de ads dividido por los views del VSL, como una métrica más del tablero.' },
+  ],
+  youtube: [
+    // lib/queries.ts: "YouTube aporta la historia, Panda el presente"
+    { t: 'La historia del VSL', d: 'Si tu VSL vivió en YouTube, sus views se unifican con los de Panda en una sola serie.' },
+    // OJO: la API key sola solo trae el título; las views diarias necesitan OAuth
+    // (lib/youtube-analytics.ts). Lo decimos en vez de prometer de más.
+    { t: 'Views diarias del canal', d: 'Con el OAuth cargado, MaKo trae las views día por día. Con la API key sola alcanza para el título del video.' },
+  ],
+  google: [
+    { t: 'Entrar con Google', d: 'El botón "Continuar con Google" del login. Si algo falla, la contraseña sigue andando.' },
+    // lib/auto-reuniones.ts:83 → buscarEventosGoogle (SOLO lectura)
+    { t: 'Calendar como tercera fuente', d: 'Al buscar las reuniones de un lead, MaKo también mira Google Calendar — además de Calendly y Fathom. Solo lee: no agenda ni toca nada.' },
+  ],
+  landing: [
+    // app/api/webhooks/calendly: utm_term transporta el UUID anónimo (nqe_visitor_id)
+    { t: 'El anónimo se vuelve lead', d: 'La landing le pone un ID a cada visita. Cuando esa persona agenda, MaKo ata la reserva con todo lo que hizo antes.' },
+    // lib/integraciones.ts: la única integración cuyo estado son eventos REALES
+    { t: 'La única que se prueba de verdad', d: 'Las demás se ven "conectadas" porque hay credencial. Esta se pone en verde solo cuando llega un evento real.' },
+  ],
+};
+
+function Carrusel({ slides }: { slides: Slide[] }) {
+  const [n, setN] = useState(0);
+  const [pausa, setPausa] = useState(false);
+  const total = slides.length;
+
+  // Autoavance suave; se frena si el mouse está encima o si tocaste un punto.
+  useEffect(() => {
+    if (pausa || total < 2) return;
+    const id = setTimeout(() => setN((v) => (v + 1) % total), 5200);
+    return () => clearTimeout(id);
+  }, [n, pausa, total]);
+
+  const s = slides[Math.min(n, total - 1)];
+  if (!s) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}
+      onMouseEnter={() => setPausa(true)} onMouseLeave={() => setPausa(false)}>
+      <div className="mk-svc-carrusel" style={{ flex: 1, minWidth: 0, minHeight: 150, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        {/* key={n} → se remonta y vuelve a correr el fade en cada slide */}
+        <div key={n} style={{ animation: 'mkFade .5s ease' }}>
+          <h4 style={{ margin: 0, fontWeight: 600, fontSize: 17, letterSpacing: '-0.018em', lineHeight: 1.25, color: 'var(--ink)' }}>{s.t}</h4>
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }}>{s.d}</p>
+        </div>
+      </div>
+      {total > 1 && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
+          {slides.map((sl, k) => (
+            <button key={sl.t} type="button" title={sl.t} aria-label={sl.t} aria-current={k === n}
+              onClick={() => { setN(k); setPausa(true); }}
+              style={{ flex: 1, height: 3, padding: 0, border: 0, borderRadius: 999, cursor: 'pointer', background: k === n ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .25s ease' }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Modal de servicio ─────────────────────────────────────────────────────────
+// Dos columnas: izquierda el carrusel (qué vas a poder hacer) + el aviso BYOK
+// SIEMPRE visible; derecha toda la configuración. En angosto apilan (ver
+// .mk-svc-modal en globals.css).
 function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClose }: {
   i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; snippetLanding?: string | null; onClose: () => void;
 }) {
@@ -670,19 +844,21 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
   const catalogo = servicioMetodo(i.key);
   const mostrarForm = !!catalogo && !catalogo.soloServidor;
 
-  // Facts + acciones por servicio.
-  let mako = false;
-  let line = i.descripcion;
+  // El carrusel manda la copy. Si un servicio todavía no tiene slides propias,
+  // cae al `paraQue` del catálogo — nunca inventamos una promesa para llenar.
+  const slides: Slide[] = SLIDES[i.key] ?? (catalogo?.paraQue ? [{ t: `Qué hace ${i.nombre}`, d: catalogo.paraQue }] : []);
+
+  // Estado EN VIVO (no descripción): solo Meta tiene algo que decir acá.
+  let alerta: string | null = null;
   let facts: Array<{ k: string; v: string; c: string }> = [];
   const actions: Array<{ label: string; href?: string; primary?: boolean; sameTab?: boolean }> = [];
   const faltan = i.estado === 'falta' ? i.detalle.replace(/^Falta configurar:\s*/, '') : '';
 
   if (i.key === 'meta' && health) {
-    mako = true;
     const a = health.account;
-    line = a.entregaFrenada
+    alerta = a.entregaFrenada
       ? 'La cuenta no entrega hasta que regularices el pago en el Administrador de Anuncios.'
-      : (a.disableReasonLabel || a.statusLabel || 'Estado de la cuenta publicitaria.');
+      : (a.disableReasonLabel || a.statusLabel || null);
     facts = [
       // OJO: en Meta balanceMxn > 0 = dinero ADEUDADO (no saldo disponible);
       // ver lib/meta-health.ts. Positivo → "Adeudado" en rojo.
@@ -693,9 +869,8 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
     ];
     actions.push({ label: 'Abrir Ads Manager ↗', href: 'https://adsmanager.facebook.com', primary: true });
   } else if (i.key === 'meta') {
-    line = metaError ? `No se pudo leer el estado de Meta: ${metaError}` : i.descripcion;
+    alerta = metaError ? `No se pudo leer el estado de Meta: ${metaError}` : null;
   } else if (i.key === 'anthropic' || i.key === 'openai') {
-    mako = i.key === 'anthropic';
     const prov = usage?.porProveedor?.find((p) => p.provider === i.key);
     if (prov) {
       facts = [
@@ -703,7 +878,6 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
         { k: 'Gasto del mes', v: usd(prov.costMesUsd), c: 'var(--ink)' },
       ];
     }
-    line = i.key === 'anthropic' ? 'El motor de casi todo lo que hace MaKo: análisis, chats y sugerencias.' : 'Transcripción de llamadas y tareas simples de IA.';
     actions.push({ label: i.key === 'anthropic' ? 'Ver saldo de Claude ↗' : 'Cargar saldo en OpenAI ↗', href: i.key === 'anthropic' ? 'https://console.anthropic.com/settings/billing' : 'https://platform.openai.com/settings/organization/billing', primary: i.key === 'openai' });
   } else if (i.key === 'groq') {
     const prov = usage?.porProveedor?.find((p) => p.provider === 'groq');
@@ -713,79 +887,93 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
         { k: 'Tokens del mes', v: `${fmtTok(prov.tokens)} tok`, c: 'var(--ink)' },
       ];
     }
-    line = 'IA rápida y gratis (Groq) para tareas simples y transcripción. No se mide en dinero: está limitada por tokens/día del plan gratuito.';
   } else if (i.key === 'google') {
     // El OAuth de Google Calendar es un redirect en la MISMA pestaña.
     actions.push({ label: 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
   }
-  // La landing se queda con su descripción del catálogo: el estado en vivo
-  // ("recibiendo eventos" / "todavía no llegó nada") lo dice el botón Verificar,
-  // no un párrafo que repita lo mismo.
 
   // La landing no se configura con credenciales: se configura copiando un código.
   const esLanding = i.key === 'landing';
 
   return (
-    <ModalShell w={500} label={i.nombre} onClose={onClose}>
-      <div style={{ padding: '26px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 11 }}>
-          <SvcIcon k={i.key} box={44} radius={12} size={25} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h3 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>{i.nombre}</h3>
-            <div style={{ ...capMono, fontSize: 10.5, letterSpacing: '.06em', marginTop: 3 }}>{i.categoria}</div>
+    <ModalShell w={940} label={i.nombre} onClose={onClose}>
+      <div className="mk-svc-modal">
+        {/* ═══ IZQUIERDA · qué vas a poder hacer + BYOK ═══ */}
+        <aside className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: '26px 24px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <MakoStar size={14} color="var(--accent)" />
+            <span style={{ ...capMono, fontSize: 10, letterSpacing: '.12em' }}>Con {i.nombre} conectado</span>
           </div>
-          <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: chip.bg, color: chip.fg }}>{chip.word}</span>
-          <button onClick={onClose} style={closeBtn}>✕</button>
-        </div>
 
-        {/* La descripción es una línea SUTIL bajo el título, no un apartado con caja. */}
-        {line && (
-          <p style={{ display: 'flex', alignItems: 'flex-start', gap: 7, margin: '0 0 16px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-            {mako && <span style={{ flex: 'none', marginTop: 2 }}><Spark size={12} /></span>}
-            <span>{line}</span>
-          </p>
-        )}
+          <Carrusel slides={slides} />
 
-        {facts.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 15 }}>
-            {facts.map((f) => (
-              <div key={f.k} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px' }}>
-                <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.09em', marginBottom: 6 }}>{f.k}</div>
-                <div style={{ fontFamily: MONO, fontWeight: 600, fontSize: 16, letterSpacing: '-0.01em', color: f.c }}>{f.v}</div>
-              </div>
-            ))}
+          {/* Aviso BYOK — FUERA del carrusel: se ve en todo momento. Mismo tono que
+              el que ya usa el wizard de /metodo. */}
+          <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 20, padding: '11px 13px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 14, lineHeight: 1.3 }}>🔒</span>
+            <span style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
+              <b style={{ color: 'var(--ink)' }}>Tus llaves son tuyas.</b> Se guardan <b>cifradas</b> en tu cuenta —nadie más las ve— y todo el consumo corre contra <b>tu propio proveedor</b>. Podés quitarlas cuando quieras.
+            </span>
           </div>
-        )}
+        </aside>
 
-        {esLanding ? (
-          <div style={{ marginBottom: 15 }}>
-            <CodigoLanding snippet={snippetLanding ?? null} />
+        {/* ═══ DERECHA · toda la configuración ═══ */}
+        <div style={{ padding: '22px 26px 26px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 16 }}>
+            <SvcIcon k={i.key} box={44} radius={12} size={25} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h3 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>{i.nombre}</h3>
+              <div style={{ ...capMono, fontSize: 10.5, letterSpacing: '.06em', marginTop: 3 }}>{i.categoria}</div>
+            </div>
+            <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: chip.bg, color: chip.fg }}>{chip.word}</span>
+            <button onClick={onClose} style={closeBtn} title="Cerrar" aria-label="Cerrar">✕</button>
           </div>
-        ) : mostrarForm ? (
-          <div style={{ marginBottom: 15 }}>
-            <ServicioConfigForm servicioKey={i.key} />
-          </div>
-        ) : i.estado === 'falta' && (
-          <div style={{ marginBottom: 15 }}>
-            <div style={{ ...capMono, fontSize: 10, letterSpacing: '.08em', marginBottom: 7 }}>Falta configurar</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {faltan.split(',').map((v) => v.trim()).filter(Boolean).map((v) => (
-                <code key={v} style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 9px' }}>{v}</code>
+
+          {/* Estado en vivo de Meta: es una alerta, no una descripción. */}
+          {alerta && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 15, padding: '11px 13px', borderRadius: 11, background: sev === 'good' ? 'var(--surface-2)' : sev === 'warn' ? 'var(--warn-bg)' : 'var(--bad-bg)', color: sev === 'good' ? 'var(--dim)' : sev === 'warn' ? 'var(--warn)' : 'var(--bad)', fontSize: 12.5, lineHeight: 1.5 }}>
+              <span style={{ flex: 'none', marginTop: 2 }}><Spark size={12} /></span>
+              <span>{alerta}</span>
+            </div>
+          )}
+
+          {facts.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 16 }}>
+              {facts.map((f) => (
+                <div key={f.k} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', minWidth: 0 }}>
+                  <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.09em', marginBottom: 6 }}>{f.k}</div>
+                  <div style={{ fontFamily: MONO, fontWeight: 600, fontSize: 16, letterSpacing: '-0.01em', color: f.c, overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.v}</div>
+                </div>
               ))}
             </div>
-            <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-              Cargá {faltan.includes(',') ? 'estas credenciales' : 'esta credencial'} desde acá y quedará conectado.
-            </p>
-          </div>
-        )}
+          )}
 
-        {actions.length > 0 && (
-          <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-            {actions.map((a) => (
-              <a key={a.label} href={a.href} target={a.sameTab ? undefined : '_blank'} rel={a.sameTab ? undefined : 'noopener noreferrer'} style={{ border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none' }}>{a.label}</a>
-            ))}
-          </div>
-        )}
+          {esLanding ? (
+            <CodigoLanding snippet={snippetLanding ?? null} />
+          ) : mostrarForm ? (
+            <ServicioConfigForm servicioKey={i.key} />
+          ) : i.estado === 'falta' && (
+            <div>
+              <div style={{ ...capMono, fontSize: 10, letterSpacing: '.08em', marginBottom: 7 }}>Falta configurar</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {faltan.split(',').map((v) => v.trim()).filter(Boolean).map((v) => (
+                  <code key={v} style={{ fontFamily: MONO, fontSize: 12, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 9px' }}>{v}</code>
+                ))}
+              </div>
+              <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
+                Cargá {faltan.includes(',') ? 'estas credenciales' : 'esta credencial'} desde acá y quedará conectado.
+              </p>
+            </div>
+          )}
+
+          {actions.length > 0 && (
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 16 }}>
+              {actions.map((a) => (
+                <a key={a.label} href={a.href} target={a.sameTab ? undefined : '_blank'} rel={a.sameTab ? undefined : 'noopener noreferrer'} style={{ border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none' }}>{a.label}</a>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </ModalShell>
   );

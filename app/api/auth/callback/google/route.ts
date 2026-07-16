@@ -11,11 +11,17 @@
 //     admin (bootstrap de una instancia nueva).
 //   · cualquier otro caso → no-autorizado. Los usuarios nuevos se agregan
 //     desde /admin.
+//
+// Además, si Google devuelve un refresh_token (el login pide el scope de
+// Calendar), se guarda en el workspace del usuario — best-effort: eso NUNCA
+// puede impedir que el login se complete.
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { EMAIL_COOKIE, SESSION_COOKIE, SESSION_DIAS, crearToken, destinoSeguro } from '@/lib/auth-session';
 import { buscarUsuarioPorEmail, contarUsuarios, crearUsuario, registrarLogin, type Usuario } from '@/lib/usuarios';
+import { googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
+import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +59,63 @@ async function resolverConFallback(email: string): Promise<Usuario | null> {
   }
 }
 
+/**
+ * Guarda el refresh_token de Google Calendar en el workspace DEL USUARIO que se
+ * está logueando. Todo acá es BEST-EFFORT: no lanza nunca (el caller está dentro
+ * del try que haría fallar el login, así que se traga todo y solo loguea).
+ *
+ * Por qué el workspace va EXPLÍCITO (runWithWorkspace) y no por cookies:
+ * setSetting resuelve el ws con getWorkspaceActual(), que lee la cookie de
+ * sesión — pero acá esa cookie recién se está seteando en la RESPUESTA, así que
+ * todavía no existe para este request y el resolver caería al dueño (OWNER_WS).
+ * Eso metería el token de un usuario en el workspace de otro.
+ *
+ * Sin workspace propio NO se guarda nada (jamás OWNER_WS de fallback). Pasa con
+ * el admin de agencia (workspace_id null: cruza workspaces impersonando) y con
+ * el admin de fallback de la base caída (id 0). Es el mismo criterio del flujo
+ * manual de /api/integraciones/google-calendar, que exige esWorkspaceDueno().
+ *
+ * Y solo conecta la agenda si el workspace no tiene ninguna, porque acá guardarla
+ * es un efecto de costado de loguearse, no una decisión. Cambiar de agenda se
+ * hace a propósito desde /integraciones (desconectar + conectar).
+ */
+async function guardarCalendarBestEffort(usuario: Usuario, refreshToken: string | undefined): Promise<void> {
+  // Sin refresh_token no hay nada que hacer y NO es error: Google solo lo manda
+  // en la primera autorización de este set de scopes. En los logins siguientes
+  // ya quedó guardado el de aquella vez.
+  if (!refreshToken) return;
+  try {
+    const ws = usuario.workspace_id;
+    if (ws == null || !Number.isInteger(ws) || ws <= 0) {
+      console.warn(`[auth] ${usuario.email}: refresh_token de Google pero el usuario no tiene workspace propio — no se guarda.`);
+      return;
+    }
+    // Un closer/setter nunca fija la agenda del workspace. (null = admin por
+    // backfill: misma convención que getRolWsEfectivo en lib/workspace.ts.)
+    const rolWs = usuario.rol_ws ?? 'admin';
+    if (rolWs !== 'admin') {
+      console.log(`[auth] ${usuario.email}: rol_ws=${rolWs} → no fija la agenda del workspace ${ws} (solo el admin).`);
+      return;
+    }
+    // El rol no alcanza: un workspace puede tener VARIOS admins (ws1 tiene 3), y
+    // el token de Calendar es UNO solo. Sin esto, el último en loguearse pisaba
+    // al anterior en silencio y el buscador de reuniones se mudaba a la agenda
+    // equivocada. Solo se guarda si no hay ninguna conectada, o si es la MISMA
+    // persona re-consintiendo. Para cambiar de agenda hay que desconectar primero.
+    await runWithWorkspace(ws, async () => {
+      const dueno = await googleCalendarDueno();
+      if (dueno && dueno.toLowerCase() !== usuario.email.toLowerCase()) {
+        console.log(`[auth] ${usuario.email}: el workspace ${ws} ya usa la agenda de ${dueno} — no se pisa.`);
+        return;
+      }
+      await guardarRefreshTokenGoogle(refreshToken, usuario.email);
+      console.log(`[auth] Google Calendar conectado para el workspace ${ws} (${usuario.email}).`);
+    });
+  } catch (e) {
+    console.error('[auth] no se pudo guardar el refresh_token de Google Calendar (el login sigue igual):', e);
+  }
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const loginUrl = new URL('/login', url.origin);
@@ -82,7 +145,7 @@ export async function GET(req: NextRequest) {
         code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code',
       }),
     });
-    const tokens = (await tokenRes.json()) as { access_token?: string };
+    const tokens = (await tokenRes.json()) as { access_token?: string; refresh_token?: string };
     if (!tokens.access_token) return fail('token');
 
     const uiRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
@@ -98,6 +161,10 @@ export async function GET(req: NextRequest) {
     // usuario.id === 0 es el admin de fallback (DB no disponible): no persiste
     // login y su sesión no se re-chequea contra la base (sub break-glass).
     if (usuario.id > 0) await registrarLogin(email, { nombre: ui.name, foto_url: ui.picture });
+
+    // Google Calendar: el login pide también el scope de la agenda, así que en
+    // la primera autorización viene el refresh_token. Nunca tumba el login.
+    await guardarCalendarBestEffort(usuario, tokens.refresh_token);
 
     const token = crearToken({
       sub: usuario.id > 0 ? String(usuario.id) : 'password',

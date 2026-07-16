@@ -43,6 +43,15 @@ const PATHS: Record<string, ReactNode> = {
   spy: (<g fill="currentColor" stroke="none"><ellipse cx="12" cy="8.7" rx="9" ry="2" /><path d="M7.9 8.7V6.3c0-1.5 1.85-2.7 4.1-2.7s4.1 1.2 4.1 2.7v2.4Z" /><path d="M9.3 12.1 4.7 15.3A4 4 0 0 0 3 18.6V21h6.1l1.2-6.6-1-2.3Z" /><path d="M14.7 12.1l4.6 3.2a4 4 0 0 1 1.7 3.3V21h-6.1l-1.2-6.6 1-2.3Z" /></g>),
   notepencil: (<><rect x="4" y="3" width="12" height="17" rx="2.4" /><path d="M7 7.5h.01M7 11h.01M7 14h.01" /><path d="M9.5 7.5h3.5M9.5 11h3.5M9.5 14h2.5" /><path d="M19 12.5l2 2-6 6-2.7.7.7-2.7Z" /></>),
   video: (<><rect x="3" y="6" width="18" height="12" rx="3.2" /><path d="M10.4 9.4l4.7 2.6-4.7 2.6Z" /></>),
+  // Enchufe con cable: "Probar conexión" en las filas de credenciales.
+  plug: (<><path d="M7 3v5M13 3v5" /><path d="M4.5 8h11v2.4a5.5 5.5 0 0 1-11 0V8Z" /><path d="M10 15.9v2.1a3 3 0 0 0 3 3h3a3 3 0 0 0 3-3v-3.5" /></>),
+  // Cruz: cancelar una edición en curso.
+  x: (<path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />),
+  // Tacho: "Quitar credencial".
+  trash: (<><path d="M4 6.5h16" /><path d="M9.5 6.5V5a1.3 1.3 0 0 1 1.3-1.3h2.4A1.3 1.3 0 0 1 14.5 5v1.5" /><path d="M6.6 6.5l.85 12.6a1.8 1.8 0 0 0 1.8 1.7h5.5a1.8 1.8 0 0 0 1.8-1.7l.85-12.6" /><path d="M10.4 10.5v6M13.6 10.5v6" /></>),
+  // Ojo / ojo tachado: revelar y volver a ocultar una credencial guardada.
+  eye: (<><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="3.1" /></>),
+  'eye-off': (<><path d="M10.7 6.7A7.9 7.9 0 0 1 12 6.6c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.9 3.7" /><path d="M6.4 7.9A16.9 16.9 0 0 0 2.5 13.1S6 19.6 12 19.6a8.9 8.9 0 0 0 3.8-.85" /><path d="M9.9 11a3.1 3.1 0 0 0 4.3 4.3" /><path d="M4 4l16 16" /></>),
   dot: (<circle cx="12" cy="12" r="3" />),
 };
 

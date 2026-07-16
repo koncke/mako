@@ -9,6 +9,7 @@
 import 'server-only';
 import { credWs } from './credenciales';
 import { landingRecibioEventos } from './landing-token';
+import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -37,7 +38,11 @@ const DEFS: Def[] = [
   { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida y gratis para tareas simples y transcripción.', envs: ['GROQ_API_KEY'], global: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
   { key: 'calendly', nombre: 'Calendly', categoria: 'Reuniones', descripcion: 'Agenda de reuniones (R1/R2) y asistencia.', envs: ['CALENDLY_API_TOKEN'] },
-  { key: 'google', nombre: 'Google (Calendar / Login)', categoria: 'Datos', descripcion: 'Agenda y login con Google.', envs: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'], global: true },
+  // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
+  // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
+  // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL
+  // (ver estadoGoogleCalendar), como la landing.
+  { key: 'google', nombre: 'Google Calendar', categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
   { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el
@@ -61,10 +66,31 @@ async function estadoLanding(): Promise<Pick<Integracion, 'estado' | 'detalle'>>
     : { estado: 'falta', detalle: 'Pegá el código en tu landing para empezar a medir.' };
 }
 
+// Google Calendar: tampoco hay env que chequear (la app OAuth es de la agencia y
+// está siempre configurada). La señal HONESTA de "conectada" es que exista el
+// refresh token de ESTE workspace: prueba que alguien entró con Google y
+// autorizó su agenda. Nunca lanza: es una tarjeta, no puede tumbar la página.
+// Decimos DE QUIÉN es la agenda porque el workspace puede tener varias cuentas y
+// el token es uno solo: sin el email, nadie podría saber cuál quedó conectada.
+async function estadoGoogleCalendar(): Promise<Pick<Integracion, 'estado' | 'detalle'>> {
+  try {
+    if (await googleCalendarConectado()) {
+      const dueno = await googleCalendarDueno();
+      return { estado: 'conectada', detalle: dueno ? `Cruzando las reuniones de ${dueno}.` : 'Conectada — cruzando tus reuniones.' };
+    }
+  } catch (e) {
+    console.error(`[integraciones] chequeo de Google Calendar falló: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return { estado: 'falta', detalle: 'Entrá con Google para conectar tu agenda.' };
+}
+
 export async function getIntegraciones(): Promise<Integracion[]> {
   return Promise.all(DEFS.map(async (d) => {
     if (d.key === 'landing') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
+    }
+    if (d.key === 'google') {
+      return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoGoogleCalendar()) };
     }
     // Servicios de plataforma: se evalúan contra el env global (agencia).
     // Per-cliente: contra las credenciales del workspace actual.
