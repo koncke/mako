@@ -20,6 +20,8 @@ export function SaldoMaKo() {
   const [cargado, setCargado] = useState(false);
 
   const cargar = useCallback(async () => {
+    // No pollear en pestañas de fondo (el chip solo importa si lo estás viendo).
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
     try {
       const j = await fetch('/api/anthropic-usage').then((r) => r.json());
       if (j?.ok) { setRestante(typeof j.restanteUsd === 'number' ? j.restanteUsd : null); setCargado(true); }

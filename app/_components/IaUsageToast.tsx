@@ -59,6 +59,10 @@ export function IaUsageToast() {
 
   const poll = useCallback(async () => {
     if (disabled.current) return;
+    // No pollear en pestañas de fondo: el toast solo tiene sentido si estás
+    // mirando. Al volver a la pestaña, el listener de abajo pollea al instante
+    // (y la baseline de localStorage muestra lo que pasó mientras no estabas).
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
     let res: Response;
     try { res = await fetch('/api/anthropic-usage'); } catch { return; } // offline → reintenta al próximo tick
     if (res.status === 403) { disabled.current = true; return; } // cliente sin permiso → basta
@@ -92,8 +96,14 @@ export function IaUsageToast() {
     poll();
     const t = setInterval(poll, POLL_MS);
     const onFocus = () => poll();
+    // visibilitychange cubre el cambio de pestaña (focus solo cubre la ventana).
     window.addEventListener('focus', onFocus);
-    return () => { clearInterval(t); window.removeEventListener('focus', onFocus); };
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [poll]);
 
   // Muestra el item de la cabeza SHOW_MS y lo descarta; el siguiente entra solo.
