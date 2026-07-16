@@ -23,7 +23,8 @@ const MONO = "'Geist Mono', monospace";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 type Integracion = { key: string; nombre: string; categoria: string; descripcion: string; estado: 'conectada' | 'falta'; detalle: string; tieneDetalle?: boolean };
-type MetaEstadoHist = { id: number; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; balanceMxn: number; detalle: string | null; createdAt: string };
+// Incidente con período: startedAt → resolvedAt (null = en curso). Viene del server.
+type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
 type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
 type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
@@ -110,15 +111,25 @@ const SYNTHETIC: Record<string, Integracion> = {
   groq: { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida y gratuita para tareas simples y transcripción. Limitada por rate (tokens/día del plan gratis), no por saldo.', estado: 'conectada', detalle: '' },
 };
 
-// Un incidente del "Historial de problemas": activo ahora, o registrado en el log.
-type Incidente = { id: string; key: string; svc: string; label: string; when: string; activo: boolean; sev: 'bad' | 'warn' };
+// Duración legible de un incidente (inicio → fin).
+function fmtDuracion(desde: string, hasta: string): string {
+  const ms = new Date(hasta).getTime() - new Date(desde).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'menos de 1 min';
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  if (h < 24) return m ? `${h} h ${m} min` : `${h} h`;
+  const d = Math.floor(h / 24), hr = h % 24;
+  return hr ? `${d} d ${hr} h` : `${d} d`;
+}
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, historial }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
-  historial: MetaEstadoHist[];
+  incidentes: Incidente[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -181,17 +192,6 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
     }
     atencion.push({ i, sev: s === 'bad' ? 'bad' : 'warn', motivo });
   }
-
-  // ── Historial de problemas: incidentes ACTIVOS ahora (todo lo que requiere
-  // atención) + los estados negativos de Meta ya registrados en el log. ──
-  const incidentes: Incidente[] = [
-    ...atencion.map((a) => ({ id: `act-${a.i.key}`, key: a.i.key, svc: a.i.nombre, label: a.motivo, when: 'ahora', activo: true, sev: a.sev })),
-    ...historial.map((h) => ({
-      id: `hist-${h.id}`, key: 'meta', svc: 'Meta Ads',
-      label: `${h.entregaFrenada ? 'Entrega frenada' : h.statusLabel}${h.disableReason ? ` · ${h.disableReason}` : ''}`,
-      when: fmtHora(h.createdAt), activo: false, sev: (h.severidad === 'rojo' ? 'bad' : 'warn') as 'bad' | 'warn',
-    })),
-  ];
 
   // ── Servicios por categoría ──
   const porCategoria = CAT_ORDER
@@ -280,7 +280,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, historial
       <CostoMaKo usage={usage} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} onOpenService={(key) => setModal({ t: 'svc', key })} />
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
-      <ProblemasHistorial incidentes={incidentes} />
+      <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
 
       {/* ═══ MODALES ═══ */}
       {modal?.t === 'svc' && svcByKey(modal.key) && (
@@ -404,9 +404,9 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: R
   );
 }
 
-// ── Historial de problemas (incidentes activos + estados de Meta registrados) ──
-function ProblemasHistorial({ incidentes }: { incidentes: Incidente[] }) {
-  const activos = incidentes.filter((x) => x.activo).length;
+// ── Historial de problemas (incidentes con inicio → fin) ──────────────────────
+function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[]; nombreDe: (service: string) => string }) {
+  const activos = incidentes.filter((x) => x.resolvedAt === null).length;
   return (
     <section style={{ ...card, marginTop: 20, padding: '22px 30px 12px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 11, marginBottom: 6 }}>
@@ -414,21 +414,28 @@ function ProblemasHistorial({ incidentes }: { incidentes: Incidente[] }) {
         <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{activos} {activos === 1 ? 'activo' : 'activos'}</span>
       </div>
       {incidentes.length === 0 ? (
-        <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Acá van a aparecer los servicios que requieran atención y los momentos en que Meta estuvo en ámbar/rojo o con la entrega frenada.</div>
+        <div style={{ color: 'var(--dim)', fontSize: 13.5, padding: '14px 0' }}>Todo en orden. Acá van a quedar los incidentes de cada servicio con su período: desde cuándo empezó el problema hasta que se resolvió.</div>
       ) : (
         incidentes.map((it, idx) => {
-          const st = it.activo
-            ? (it.sev === 'bad' ? { bg: 'var(--bad-bg)', fg: 'var(--bad)', label: 'En curso' } : { bg: 'var(--warn-bg)', fg: 'var(--warn)', label: 'En curso' })
-            : { bg: 'var(--surface-2)', fg: 'var(--dim)', label: 'Registrado' };
+          const activo = it.resolvedAt === null;
+          const st = activo
+            ? (it.severidad === 'rojo' ? { bg: 'var(--bad-bg)', fg: 'var(--bad)' } : { bg: 'var(--warn-bg)', fg: 'var(--warn)' })
+            : { bg: 'var(--surface-2)', fg: 'var(--dim)' };
+          const label = `${it.entregaFrenada ? 'Entrega frenada' : it.statusLabel}${it.disableReason ? ` · ${it.disableReason}` : ''}`;
+          // Período: "DD/MM HH:MM → DD/MM HH:MM · duró X" (resuelto) o
+          // "desde DD/MM HH:MM · en curso" (activo).
+          const periodo = activo
+            ? `desde ${fmtHora(it.startedAt)} · en curso`
+            : `${fmtHora(it.startedAt)} → ${fmtHora(it.resolvedAt as string)} · duró ${fmtDuracion(it.startedAt, it.resolvedAt as string)}`;
           return (
             <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '15px 0', borderTop: idx === 0 ? 'none' : '1px solid var(--surface-2)' }}>
-              <SvcIcon k={it.key} box={30} radius={8} size={18} />
+              <SvcIcon k={it.service} box={30} radius={8} size={18} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{it.svc}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{nombreDe(it.service)}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
               </div>
-              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{it.when}</span>
-              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: st.bg, color: st.fg, whiteSpace: 'nowrap' }}>{st.label}</span>
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', whiteSpace: 'nowrap' }}>{periodo}</span>
+              <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 999, background: st.bg, color: st.fg, whiteSpace: 'nowrap' }}>{activo ? 'En curso' : 'Resuelto'}</span>
             </div>
           );
         })

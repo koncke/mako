@@ -6,7 +6,7 @@
 
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
-import { getHistorialMeta, registrarEstadoMeta, type MetaEstadoHist } from '@/lib/meta-health-history';
+import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
@@ -25,17 +25,30 @@ export default async function IntegracionesPage() {
     // impersonar mostraría el Meta del dueño. health=null → estado "sin conexión".
     const metaConectado = await integracionConectada('meta');
     health = metaConectado ? await getMetaHealth() : null;
-    if (health) await registrarEstadoMeta(health.account); // registra si está negativo
   } catch (err) {
     metaError = err instanceof Error ? err.message : String(err);
   }
-  const historial: MetaEstadoHist[] = await getHistorialMeta(20);
+
+  // Reconciliar los incidentes (con inicio/fin) contra el estado actual: Meta
+  // (estado en vivo) + los servicios que están en 'falta' de configuración. El
+  // scope cubre todos esos servicios para que se cierren los que ya se resolvieron.
+  const problemas: ProblemaActual[] = [];
+  const pMeta = problemaMeta(health?.account ?? null, metaError);
+  if (pMeta) problemas.push(pMeta);
+  for (const i of integraciones) {
+    if (i.key === 'meta') continue; // Meta lo cubre problemaMeta (estado en vivo)
+    if (i.estado === 'falta') problemas.push({ service: i.key, severidad: 'ambar', statusLabel: 'Por configurar', disableReason: null, entregaFrenada: false, balanceMxn: null, detalle: i.detalle });
+  }
+  const scope = ['meta', ...integraciones.filter((i) => i.key !== 'meta').map((i) => i.key)];
+  await reconciliarIncidentes(problemas, scope);
+  const incidentes: Incidente[] = await getIncidentes(30);
+
   return (
     <IntegracionesBoard
       integraciones={integraciones}
       health={health}
       metaError={metaError}
-      historial={historial}
+      incidentes={incidentes}
     />
   );
 }
