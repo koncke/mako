@@ -3,19 +3,26 @@
 // =============================================================================
 // ServicioConfigForm — BYOK embebido en los modales de /integraciones
 // =============================================================================
-// TODA la lista de credenciales del servicio junta (no wizard de a un paso): una
-// fila por campo, con su estado y sus acciones como ÍCONOS en la misma línea
-// (Reconfigurar · Probar conexión · Quitar). Abajo, "Probar conexión" + "Guardar"
-// y el tutorial desplegable.
+// TODA la lista de credenciales del servicio junta (no wizard de a un paso), y
+// cada key se basta a sí misma: UNA barra por campo, del mismo alto siempre, con
+// el semáforo, el valor y sus acciones como íconos ADENTRO. No hay botones
+// globales de "Guardar"/"Probar" — se guarda y se prueba key por key, y el
+// resultado sale abajo de ESA key, no al final del modal.
+//
+// Sin lápiz de "reconfigurar": una credencial guardada se cambia BORRÁNDOLA
+// (con confirmación), y ahí el campo vuelve a estar en blanco. Es un camino
+// menos y hace imposible pisar una key sin querer.
+//
 // Reusa la infra de /metodo:
 //   · GET  /api/integraciones/credencial?servicio=<key>  → catálogo + estado
-//   · POST { action:'guardar'|'borrar'|'verificar', ... } → mismas reglas que /metodo
-// El estado (configurado / máscara / ilegible) manda el placeholder y los íconos;
-// solo se envían los campos TIPEADOS, así "vacío" nunca pisa una credencial guardada.
+//   · POST { action:'guardar'|'borrar'|'verificar'|'revelar', ... }
+// El estado por campo (configurado / máscara / ilegible) manda el semáforo y qué
+// íconos aparecen. Solo se envían los campos TIPEADOS: "vacío" nunca pisa nada.
 // OJO: no existe el concepto "configurada en el servidor" — TODO campo es editable.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -48,18 +55,8 @@ type Servicio = {
   tutorial: Tutorial;
   campos: Campo[];
 };
+type Msg = { ok: boolean; text: string };
 
-// Los inputs usan .mako-field (app/globals.css), el campo minimalista del
-// onboarding: relleno suave, sin borde duro y anillo sutil al foco. Es EL estilo
-// de campo de MaKo — no se reinventa acá con estilos en línea.
-const btnGhost: CSSProperties = {
-  padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)',
-  color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-};
-const btnPrimary: CSSProperties = {
-  padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)',
-  color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-};
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
 function calcConectada(campos: Campo[]): boolean {
@@ -67,72 +64,105 @@ function calcConectada(campos: Campo[]): boolean {
   return requeridos.length ? requeridos.every((c) => c.configurado) : campos.some((c) => c.configurado);
 }
 
-// Solo los campos con valor tipeado (input vacío sobre una guardada = "no la cambies").
-function tipeados(campos: Campo[], valores: Record<string, string>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const c of campos) {
-    const v = (valores[c.env] ?? '').trim();
-    if (v) out[c.env] = v;
-  }
-  return out;
+/**
+ * Una credencial está "cerrada" (máscara + ojito + tacho) solo si vive en la
+ * base. Si viniera del entorno del server —la ventana entre un deploy y la
+ * migración del boot— no hay fila que borrar: se muestra ABIERTA para poder
+ * pisarla. Sin esto quedaría sin tacho y sin lápiz, o sea imposible de cambiar.
+ */
+function estaCerrada(c: Campo): boolean {
+  return c.configurado && !c.ilegible && c.origen === 'panel';
 }
 
-// Estado de un campo, en UNA palabra (la máscara ••••xxxx se ve en la fila, no acá).
-// `origen` NO cambia lo que se muestra: una credencial configurada se ve igual
-// venga de donde venga.
-function estadoDe(c: Campo, tipeado: boolean): { texto: string; color: string } {
-  if (tipeado) return { texto: 'listo para guardar', color: 'var(--primary)' };
-  if (c.ilegible) return { texto: 'ilegible', color: 'var(--warn)' };
-  if (c.configurado) return { texto: 'guardada', color: 'var(--good)' };
-  if (c.opcional) return { texto: 'vacío · opcional', color: 'var(--faint)' };
-  return { texto: 'pendiente', color: 'var(--warn)' };
+// Semáforo + placeholder de cada fila. La barra NO cambia de tamaño entre
+// estados: lo único que cambia es el color del punto y el texto de adentro.
+function semaforo(c: Campo, tipeado: boolean): { color: string; texto: string; placeholder: string } {
+  if (tipeado) return { color: 'var(--primary)', texto: 'sin guardar', placeholder: '' };
+  if (c.ilegible) return { color: 'var(--bad)', texto: 'ilegible', placeholder: 'Volvé a pegarla' };
+  if (c.configurado) return { color: 'var(--good)', texto: 'guardada', placeholder: `••••${c.mask}` };
+  if (c.opcional) return { color: 'var(--faint)', texto: 'opcional', placeholder: 'Opcional' };
+  return { color: 'var(--warn-fill)', texto: 'pendiente', placeholder: 'Pendiente' };
 }
 
 // Acción de fila: ícono + tooltip. Sin texto — el `title` explica qué hace.
 function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
-  name: string; title: string; onClick: () => void; disabled?: boolean; tone?: 'dim' | 'bad' | 'primary';
+  name: string; title: string; onClick: () => void; disabled?: boolean; tone?: 'dim' | 'bad' | 'primary' | 'good';
 }) {
-  const color = tone === 'bad' ? 'var(--bad)' : tone === 'primary' ? 'var(--primary)' : 'var(--dim)';
+  const color = tone === 'bad' ? 'var(--bad)' : tone === 'primary' ? 'var(--primary)' : tone === 'good' ? 'var(--good)' : 'var(--dim)';
   return (
     <button type="button" title={title} aria-label={title} onClick={onClick} disabled={disabled}
       style={{
-        flex: 'none', width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color,
-        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1, padding: 0,
+        flex: 'none', width: 34, height: 34, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color,
+        cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, padding: 0,
       }}>
-      <Icon name={name} size={16} />
+      <Icon name={name} size={15} />
     </button>
   );
 }
 
-// ¿Cómo consigo esto? — colapsado por defecto, siempre a mano.
-function TutorialDesplegable({ tutorial, abierto, onToggle }: { tutorial: Tutorial; abierto: boolean; onToggle: () => void }) {
+// Bloque desplegable (tutorial y aviso de seguridad usan el mismo molde).
+function Desplegable({ titulo, abierto, onToggle, children }: {
+  titulo: React.ReactNode; abierto: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
   return (
     <div style={{ ...caja, overflow: 'hidden' }}>
       <button type="button" onClick={onToggle}
         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
-        ¿Cómo consigo esto?
-        <span style={{ color: 'var(--faint)', fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
+        {titulo}
+        <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
       </button>
-      {abierto && (
-        <div style={{ padding: '2px 14px 14px' }}>
-          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {tutorial.pasos.map((p, i) => (
-              <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                <span style={{ flex: 'none', width: 20, height: 20, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }}>{i + 1}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p}</span>
-              </li>
-            ))}
-          </ol>
-          {tutorial.url && (
-            <a href={tutorial.url} target="_blank" rel="noreferrer"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 11, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
-              {tutorial.urlLabel ?? tutorial.url} ↗
-            </a>
-          )}
-        </div>
-      )}
+      {abierto && <div style={{ padding: '2px 14px 14px' }}>{children}</div>}
     </div>
+  );
+}
+
+// Por qué esto es seguro, sin marketing: cada línea es algo que el código hace
+// de verdad. Ojo al mantenerlo — si cambia lib/credenciales.ts o el guard de
+// /api/integraciones/credencial, este texto pasa a ser mentira.
+function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () => void }) {
+  const b: CSSProperties = { color: 'var(--ink)', fontWeight: 600 };
+  return (
+    <Desplegable
+      abierto={abierto}
+      onToggle={onToggle}
+      titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, lineHeight: 1 }}>🔒</span>
+        Tus llaves son seguras.
+        <span style={{ fontWeight: 400, color: 'var(--faint)' }}>Cómo las guardamos</span>
+      </span>}
+    >
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+          <span style={b}>Los secretos se cifran antes de tocar la base.</span> AES-256-GCM, con un nonce distinto
+          en cada escritura y un tag de autenticación: se guarda el criptograma, no el token. Si alguien tocara esa
+          fila, el descifrado falla en vez de devolver algo alterado.
+        </li>
+        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+          <span style={b}>Los identificadores, no.</span> El ID de tu página, tu cuenta de Chatwoot o tus event
+          types de Calendly quedan legibles a propósito: son con lo que reconocemos de quién es cada webhook que
+          entra. No abren nada por sí solos.
+        </li>
+        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+          <span style={b}>La llave que descifra no vive en la base.</span> Está en el entorno del servidor, así que
+          una copia de la base, sola, no alcanza para leer tus secretos.
+        </li>
+        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+          <span style={b}>Se descifran solo en el servidor.</span> Esta pantalla recibe únicamente los últimos 4
+          caracteres. El valor completo no viaja al abrir: hay que pedirlo con el ojito, es una llamada aparte y
+          se vuelve a tapar a los 30 segundos.
+        </li>
+        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+          <span style={b}>Quién puede verlas.</span> Vos, como admin de tu espacio. Un closer o un setter recibe un
+          403. El equipo de MaKo también puede, desde administración de la plataforma. Cada vez que alguien mira una
+          llave queda registrado.
+        </li>
+        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+          <span style={b}>Son tuyas.</span> Cada espacio de trabajo tiene su propia fila, y las borrás cuando
+          quieras desde acá.
+        </li>
+      </ul>
+    </Desplegable>
   );
 }
 
@@ -144,31 +174,49 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [valores, setValores] = useState<Record<string, string>>({});
-  // "Reconfigurar" sobre una credencial ya guardada → habilita su input.
-  const [editando, setEditando] = useState<Record<string, boolean>>({});
-  const [guardando, setGuardando] = useState(false);
-  const [probando, setProbando] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [guardando, setGuardando] = useState<string | null>(null);
+  const [probando, setProbando] = useState<string | null>(null);
   const [quitando, setQuitando] = useState<string | null>(null);
-  const [probeMsg, setProbeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Mensajes POR KEY: el resultado sale abajo de la fila que lo pidió.
+  const [msg, setMsg] = useState<Record<string, Msg>>({});
   const [tutAbierto, setTutAbierto] = useState(false);
+  const [segAbierto, setSegAbierto] = useState(false);
   // Texto plano de las credenciales que el admin pidió ver. Nunca viene en la
   // carga del modal: se pide de a una (action 'revelar') y queda auditado.
   const [revelado, setRevelado] = useState<Record<string, string>>({});
   const [revelando, setRevelando] = useState<string | null>(null);
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Borrar es irreversible → confirmación. Guarda el campo a borrar.
+  const [aBorrar, setABorrar] = useState<Campo | null>(null);
+  // Lo último que sabe el de afuera. Solo se le avisa si CAMBIA: si avisáramos
+  // en cada carga, abrir el modal dispararía un refresh del board al pedo.
+  const conectadaRef = useRef<boolean | null>(null);
+  // Dos guardados en vuelo devuelven cada uno su foto del servicio, y la lenta
+  // puede llegar última con datos viejos y "despintar" la key que ya guardaste.
+  // Cada mutación se numera y solo se aplica la foto más nueva.
+  const seq = useRef(0);
+  const ultimaAplicada = useRef(0);
 
-  const aplicar = (s: Servicio) => {
+  const aplicar = (s: Servicio, n?: number) => {
+    if (n !== undefined) {
+      if (n < ultimaAplicada.current) return; // llegó tarde: ya hay algo más nuevo
+      ultimaAplicada.current = n;
+    }
     setServicio(s);
-    onEstado?.(calcConectada(s.campos));
+    const c = calcConectada(s.campos);
+    if (conectadaRef.current !== null && c !== conectadaRef.current) onEstado?.(c);
+    conectadaRef.current = c;
   };
 
   const cargar = () => {
+    // Entra en la misma numeración que los guardados: la recarga de después de
+    // borrar no puede pisar a un guardado más nuevo, ni al revés.
+    const n = ++seq.current;
     setErrorCarga(null);
     fetch(`/api/integraciones/credencial?servicio=${encodeURIComponent(servicioKey)}`)
       .then((r) => r.json())
       .then((j) => {
-        if (j.ok && j.servicio) aplicar(j.servicio as Servicio);
+        if (j.ok && j.servicio) aplicar(j.servicio as Servicio, n);
         else setErrorCarga(j.error === 'solo admin' ? 'Necesitás ser admin para configurar esta integración.' : (j.error ?? 'No se pudo cargar el estado.'));
       })
       .catch(() => setErrorCarga('No se pudo cargar. Revisá tu conexión y probá de nuevo.'))
@@ -183,13 +231,29 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
     return () => {
       for (const env of Object.keys(t)) { clearTimeout(t[env]); delete t[env]; }
       setRevelado({});
+      setMsg({});
     };
     // `cargar` se re-crea en cada render: incluirla recargaría en loop. El
     // servicio es lo único que debe disparar la recarga.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [servicioKey]);
 
-  const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 1800); };
+  // Escape con el confirm abierto: cancela SOLO el confirm. Va en captura y
+  // frena la propagación porque /integraciones tiene un listener global de
+  // Escape que si no cerraría el modal entero por debajo del diálogo.
+  useEffect(() => {
+    if (!aBorrar) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setABorrar(null);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [aBorrar]);
+
+  const ponerMsg = (env: string, m: Msg | null) =>
+    setMsg((v) => { const nv = { ...v }; if (m) nv[env] = m; else delete nv[env]; return nv; });
 
   const ocultar = (env: string) => {
     clearTimeout(timers.current[env]);
@@ -198,7 +262,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
   };
 
   const revelar = async (env: string) => {
-    setRevelando(env); setProbeMsg(null);
+    setRevelando(env); ponerMsg(env, null);
     try {
       const j = await fetch('/api/integraciones/credencial', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -207,57 +271,64 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
       if (j.ok && typeof j.valor === 'string') {
         setRevelado((r) => ({ ...r, [env]: j.valor as string }));
         timers.current[env] = setTimeout(() => ocultar(env), OCULTAR_MS);
-      } else setProbeMsg({ ok: false, text: j.error ?? 'No se pudo mostrar la credencial.' });
-    } catch { setProbeMsg({ ok: false, text: 'No se pudo mostrar la credencial. Probá de nuevo.' }); }
+      } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo mostrar la credencial.' });
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo mostrar la credencial. Probá de nuevo.' }); }
     finally { setRevelando(null); }
   };
 
-
-  const probar = async () => {
+  // Probar es del SERVICIO (el ping necesita todos los campos), pero el
+  // resultado se muestra en la fila desde la que lo pediste.
+  const probar = async (env: string) => {
     if (!servicio) return;
-    setProbando(true); setProbeMsg(null);
+    setProbando(env); ponerMsg(env, null);
     try {
+      const enviados: Record<string, string> = {};
+      for (const c of servicio.campos) {
+        const v = (valores[c.env] ?? '').trim();
+        if (v) enviados[c.env] = v;
+      }
       const j = await fetch('/api/integraciones/credencial', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verificar', servicio: servicio.key, valores: tipeados(servicio.campos, valores) }),
+        body: JSON.stringify({ action: 'verificar', servicio: servicio.key, valores: enviados }),
       }).then((r) => r.json());
-      setProbeMsg(j.ok ? { ok: true, text: j.detalle ?? 'Conexión OK.' } : { ok: false, text: j.error ?? 'No se pudo verificar.' });
-    } catch (e) { setProbeMsg({ ok: false, text: String(e) }); }
-    finally { setProbando(false); }
+      ponerMsg(env, j.ok ? { ok: true, text: j.detalle ?? 'Conexión OK.' } : { ok: false, text: j.error ?? 'No se pudo verificar.' });
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo verificar. Probá de nuevo.' }); }
+    finally { setProbando(null); }
   };
 
-  const guardar = async () => {
+  const guardarCampo = async (env: string) => {
     if (!servicio) return;
-    const vals = tipeados(servicio.campos, valores);
-    if (!Object.keys(vals).length) return;
-    setGuardando(true); setProbeMsg(null);
+    const v = (valores[env] ?? '').trim();
+    if (!v) return;
+    const n = ++seq.current;
+    setGuardando(env); ponerMsg(env, null);
     try {
       const j = await fetch('/api/integraciones/credencial', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'guardar', servicio: servicio.key, valores: vals }),
+        body: JSON.stringify({ action: 'guardar', servicio: servicio.key, valores: { [env]: v } }),
       }).then((r) => r.json());
       if (j.ok && j.servicio) {
-        aplicar(j.servicio as Servicio);
-        setValores((v) => { const nv = { ...v }; for (const env of Object.keys(vals)) delete nv[env]; return nv; });
-        setEditando({});
-        flash();
-      } else {
-        setProbeMsg({ ok: false, text: j.error ?? 'No se pudo guardar.' });
-      }
-    } catch (e) { setProbeMsg({ ok: false, text: String(e) }); }
-    finally { setGuardando(false); }
+        aplicar(j.servicio as Servicio, n);
+        setValores((val) => { const nv = { ...val }; delete nv[env]; return nv; });
+        ponerMsg(env, { ok: true, text: 'Guardada.' });
+      } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo guardar.' });
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo guardar. Probá de nuevo.' }); }
+    finally { setGuardando(null); }
   };
 
   const quitar = async (env: string) => {
-    setQuitando(env); setProbeMsg(null);
+    setQuitando(env); ponerMsg(env, null);
     try {
       const j = await fetch('/api/integraciones/credencial', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'borrar', env }),
       }).then((r) => r.json());
-      if (j.ok) { setValores((v) => { const nv = { ...v }; delete nv[env]; return nv; }); setEditando((e) => { const ne = { ...e }; delete ne[env]; return ne; }); cargar(); }
-      else setProbeMsg({ ok: false, text: j.error ?? 'No se pudo quitar.' });
-    } catch (e) { setProbeMsg({ ok: false, text: String(e) }); }
+      if (j.ok) {
+        ocultar(env);
+        setValores((v) => { const nv = { ...v }; delete nv[env]; return nv; });
+        cargar();
+      } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo quitar.' });
+    } catch { ponerMsg(env, { ok: false, text: 'No se pudo quitar. Probá de nuevo.' }); }
     finally { setQuitando(null); }
   };
 
@@ -268,102 +339,120 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
     return (
       <div style={{ ...caja, padding: '13px 15px' }}>
         <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginBottom: 8 }}>{errorCarga ?? 'No se pudo cargar la configuración.'}</div>
-        <button type="button" style={btnGhost} onClick={() => { setCargando(true); cargar(); }}>Reintentar</button>
+        <button type="button" onClick={() => { setCargando(true); cargar(); }}
+          style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          Reintentar
+        </button>
       </div>
     );
   }
 
-  const campos = servicio.campos;
-  const hayTipeado = Object.keys(tipeados(campos, valores)).length > 0;
-
-  const resultado = probeMsg && (
-    <div style={{ fontSize: 12.5, fontWeight: 500, color: probeMsg.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>
-      {probeMsg.ok ? '✓' : '✗'} {probeMsg.text}
-    </div>
-  );
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── La lista COMPLETA de credenciales del servicio, una fila por campo ── */}
+      {/* ── La lista COMPLETA de credenciales del servicio, una barra por campo ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {campos.map((c) => {
+        {servicio.campos.map((c) => {
           const tipeado = !!(valores[c.env] ?? '').trim();
-          const st = estadoDe(c, tipeado);
-          // `guardada` = configurada y legible, sin importar de dónde salga hoy.
-          const guardada = c.configurado && !c.ilegible;
-          const editar = editando[c.env] ?? !guardada;
-          // Solo hay fila que borrar si la credencial vive en la base.
-          const enBase = c.origen === 'panel' || c.ilegible;
+          const sem = semaforo(c, tipeado);
+          const cerrada = estaCerrada(c);
+          const verValor = revelado[c.env];
+          const m = msg[c.env];
+          const ocupada = guardando === c.env || probando === c.env || quitando === c.env || revelando === c.env;
           return (
             <div key={c.env}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 7 }}>
                 <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.label}</span>
-                <span style={{ flex: 'none', marginLeft: 'auto', fontFamily: MONO, fontSize: 10.5, color: st.color, whiteSpace: 'nowrap' }}>{st.texto}</span>
+                <span style={{ flex: 'none', marginLeft: 'auto', fontFamily: MONO, fontSize: 10.5, color: sem.color, whiteSpace: 'nowrap' }}>{sem.texto}</span>
               </div>
 
-              {/* Campo + acciones, TODO en la misma línea */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                {guardada && !editar ? (
-                  <div style={{ ...caja, flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 9, padding: '13px 15px', borderRadius: 13 }}>
-                    <span style={{ flex: 'none', width: 7, height: 7, borderRadius: 999, background: 'var(--good)' }} />
-                    {/* Revelada: se muestra ENTERA (para eso se pidió) y copiable;
-                        tapada: solo los últimos 4 en una línea. */}
-                    <span style={{
-                      flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13,
-                      ...(revelado[c.env]
-                        ? { color: 'var(--ink)', wordBreak: 'break-all', whiteSpace: 'normal', userSelect: 'all' as const }
-                        : { color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
-                    }}>{revelado[c.env] ?? `••••${c.mask}`}</span>
-                  </div>
+              {/* UNA barra: semáforo + valor + acciones, todo adentro */}
+              <div className="mk-key-row">
+                <span aria-hidden style={{ flex: 'none', width: 7, height: 7, borderRadius: 999, background: sem.color }} />
+
+                {cerrada && !verValor ? (
+                  <span style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    ••••{c.mask}
+                  </span>
                 ) : (
+                  // Revelada: input de solo lectura → se puede seleccionar y copiar,
+                  // y la barra mantiene EXACTAMENTE el mismo alto que en los demás estados.
                   <input
-                    className="mako-field"
-                    style={{ flex: 1, minWidth: 0 }}
-                    type={c.secreto ? 'password' : 'text'}
-                    value={valores[c.env] ?? ''}
-                    placeholder={c.configurado ? `••••${c.mask} — guardada` : (c.placeholder ?? '')}
+                    className="mk-key-input"
+                    readOnly={!!verValor}
+                    type={verValor || !c.secreto ? 'text' : 'password'}
+                    value={verValor ?? valores[c.env] ?? ''}
+                    placeholder={sem.placeholder}
                     autoComplete="off"
-                    onChange={(e) => setValores((v) => ({ ...v, [c.env]: e.target.value }))}
+                    spellCheck={false}
+                    aria-label={c.label}
+                    onFocus={verValor ? (e) => e.currentTarget.select() : undefined}
+                    onChange={verValor ? undefined : (e) => setValores((v) => ({ ...v, [c.env]: e.target.value }))}
+                    onKeyDown={verValor ? undefined : (e) => { if (e.key === 'Enter' && tipeado) guardarCampo(c.env); }}
                   />
                 )}
-                {guardada && !editar && (
-                  revelado[c.env]
-                    ? <IconBtn name="eye-off" title="Ocultar" tone="primary" onClick={() => ocultar(c.env)} />
-                    : <IconBtn name="eye" title="Ver la credencial (se oculta sola)" disabled={revelando === c.env} onClick={() => revelar(c.env)} />
-                )}
-                {guardada && (
-                  editar
-                    ? <IconBtn name="x" title="Cancelar y dejar la guardada"
-                        onClick={() => { setEditando((e) => ({ ...e, [c.env]: false })); setValores((v) => { const nv = { ...v }; delete nv[c.env]; return nv; }); }} />
-                    : <IconBtn name="pen" title="Reconfigurar — pegar una credencial nueva" tone="primary"
-                        onClick={() => { ocultar(c.env); setEditando((e) => ({ ...e, [c.env]: true })); }} />
-                )}
-                <IconBtn name="plug" title={probando ? 'Probando conexión…' : 'Probar conexión'} disabled={probando} onClick={probar} />
-                {enBase && (
-                  <IconBtn name="trash" title="Quitar credencial" tone="bad" disabled={quitando === c.env} onClick={() => quitar(c.env)} />
+
+                {cerrada ? (
+                  <>
+                    {verValor
+                      ? <IconBtn name="eye-off" title="Ocultar" tone="primary" onClick={() => ocultar(c.env)} />
+                      : <IconBtn name="eye" title="Ver la credencial (se oculta sola)" disabled={ocupada} onClick={() => revelar(c.env)} />}
+                    <IconBtn name="plug" title={probando === c.env ? 'Probando conexión…' : 'Probar conexión'} disabled={ocupada} onClick={() => probar(c.env)} />
+                    <IconBtn name="trash" title="Quitar credencial" tone="bad" disabled={ocupada} onClick={() => setABorrar(c)} />
+                  </>
+                ) : (
+                  <>
+                    <IconBtn name="check" title={guardando === c.env ? 'Guardando…' : 'Guardar esta credencial'} tone="good" disabled={!tipeado || ocupada} onClick={() => guardarCampo(c.env)} />
+                    <IconBtn name="plug" title={probando === c.env ? 'Probando conexión…' : 'Probar conexión'} disabled={ocupada} onClick={() => probar(c.env)} />
+                  </>
                 )}
               </div>
 
-              {c.nota && <p style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45, margin: '7px 0 0' }}>{c.nota}</p>}
+              {/* El resultado sale ACÁ, abajo de su propia key. */}
+              {m && (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', margin: '7px 0 0', fontSize: 12.5, fontWeight: 500, color: m.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>
+                  <span style={{ flex: 'none' }}>{m.ok ? '✓' : '✗'}</span>
+                  <span>{m.text}</span>
+                </div>
+              )}
               {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — volvé a pegarla.</div>}
+              {c.nota && <p style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45, margin: '7px 0 0' }}>{c.nota}</p>}
             </div>
           );
         })}
       </div>
 
-      {/* ── Acciones del servicio ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-        <button type="button" style={{ ...btnGhost, opacity: probando ? 0.6 : 1, cursor: probando ? 'default' : 'pointer' }} disabled={probando} onClick={probar}>
-          {probando ? 'Probando…' : 'Probar conexión'}
-        </button>
-        <button type="button" style={{ ...btnPrimary, opacity: hayTipeado && !guardando ? 1 : 0.45, cursor: hayTipeado && !guardando ? 'pointer' : 'default' }} disabled={!hayTipeado || guardando} onClick={guardar}>
-          {guardando ? 'Guardando…' : 'Guardar'}
-        </button>
-        {saved && <span style={{ fontSize: 12.5, color: 'var(--good)', fontWeight: 600 }}>Guardado ✓</span>}
-      </div>
+      <Desplegable titulo="¿Cómo consigo esto?" abierto={tutAbierto} onToggle={() => setTutAbierto((o) => !o)}>
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {servicio.tutorial.pasos.map((p, i) => (
+            <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+              <span style={{ flex: 'none', width: 20, height: 20, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }}>{i + 1}</span>
+              <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p}</span>
+            </li>
+          ))}
+        </ol>
+        {servicio.tutorial.url && (
+          <a href={servicio.tutorial.url} target="_blank" rel="noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 11, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
+            {servicio.tutorial.urlLabel ?? servicio.tutorial.url} ↗
+          </a>
+        )}
+      </Desplegable>
 
-      {resultado}
-      <TutorialDesplegable tutorial={servicio.tutorial} abierto={tutAbierto} onToggle={() => setTutAbierto((o) => !o)} />
+      <AvisoSeguridad abierto={segAbierto} onToggle={() => setSegAbierto((o) => !o)} />
+
+      {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
+          quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}
+      {aBorrar && (
+        <ConfirmDialog
+          zIndex={310}
+          tone="danger"
+          title={`¿Quitar ${aBorrar.label}?`}
+          message={<>Se borra de tu espacio y <b>{servicio.nombre} deja de funcionar</b> hasta que pegues una nueva. Es la única forma de cambiarla: no se puede pisar sin borrarla antes.</>}
+          confirmLabel="Quitar credencial"
+          onCancel={() => setABorrar(null)}
+          onConfirm={() => { const env = aBorrar.env; setABorrar(null); quitar(env); }}
+        />
+      )}
     </div>
   );
 }

@@ -325,6 +325,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           health={health} metaError={metaError} usage={usage}
           snippetLanding={snippetLanding}
           onClose={() => setModal(null)}
+          // `integraciones` viene del server component: al guardar/quitar una
+          // credencial hay que pedirle el estado de nuevo, si no el board sigue
+          // mostrando lo de antes. El modal no se cierra: `modal` guarda la key.
+          onCambio={() => router.refresh()}
         />
       )}
       {modal?.t === 'hist' && usage && (
@@ -481,7 +485,11 @@ function ProblemasHistorial({ incidentes, nombreDe }: { incidentes: Incidente[];
 }
 
 // ── Shell de modal ────────────────────────────────────────────────────────────
-function ModalShell({ w, label, onClose, children }: { w: number; label: string; onClose: () => void; children: ReactNode }) {
+// `h` (opcional) fija el alto: el modal deja de crecer con el contenido y pasa a
+// scrollear adentro. Va con overflow:hidden para que el contenido no se escape
+// por las esquinas redondeadas. Sin `h` el modal se comporta como siempre (lo
+// usa OperacionesModal) y el que scrollea es el overlay.
+function ModalShell({ w, h, label, onClose, children }: { w: number; h?: number | string; label: string; onClose: () => void; children: ReactNode }) {
   // Bloquea el scroll del fondo mientras el modal está abierto (como el diseño).
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -489,8 +497,8 @@ function ModalShell({ w, label, onClose, children }: { w: number; label: string;
     return () => { document.body.style.overflow = prev; };
   }, []);
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,22,27,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', animation: 'mkFade .16s ease' }}>
-      <div role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()} style={{ width: w, maxWidth: '100%', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(20,22,27,.24)', animation: 'mkPop .2s cubic-bezier(.2,.7,.3,1)' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(20,22,27,.5)', display: 'flex', alignItems: h ? 'center' : 'flex-start', justifyContent: 'center', padding: '48px 20px', overflowY: 'auto', animation: 'mkFade .16s ease' }}>
+      <div role="dialog" aria-modal="true" aria-label={label} onClick={(e) => e.stopPropagation()} style={{ width: w, maxWidth: '100%', height: h, overflow: h ? 'hidden' : undefined, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 24px 60px rgba(20,22,27,.24)', animation: 'mkPop .2s cubic-bezier(.2,.7,.3,1)' }}>
         {children}
       </div>
     </div>
@@ -807,11 +815,14 @@ function Carrusel({ slides }: { slides: Slide[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}
       onMouseEnter={() => setPausa(true)} onMouseLeave={() => setPausa(false)}>
-      <div className="mk-svc-carrusel" style={{ flex: 1, minWidth: 0, minHeight: 150, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      {/* Vive en el aside NEGRO: los colores son los del sidebar, no los del tema claro. */}
+      {/* El min-height va en .mk-svc-carrusel (globals.css), no acá: inline le
+          ganaría al min-height:0 del modo apilado y lo volvería letra muerta. */}
+      <div className="mk-svc-carrusel" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         {/* key={n} → se remonta y vuelve a correr el fade en cada slide */}
         <div key={n} style={{ animation: 'mkFade .5s ease' }}>
-          <h4 style={{ margin: 0, fontWeight: 600, fontSize: 17, letterSpacing: '-0.018em', lineHeight: 1.25, color: 'var(--ink)' }}>{s.t}</h4>
-          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }}>{s.d}</p>
+          <h4 style={{ margin: 0, fontWeight: 600, fontSize: 17, letterSpacing: '-0.018em', lineHeight: 1.25, color: 'var(--on-sidebar)' }}>{s.t}</h4>
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--sidebar-text)', lineHeight: 1.55 }}>{s.d}</p>
         </div>
       </div>
       {total > 1 && (
@@ -819,7 +830,7 @@ function Carrusel({ slides }: { slides: Slide[] }) {
           {slides.map((sl, k) => (
             <button key={sl.t} type="button" title={sl.t} aria-label={sl.t} aria-current={k === n}
               onClick={() => { setN(k); setPausa(true); }}
-              style={{ flex: 1, height: 3, padding: 0, border: 0, borderRadius: 999, cursor: 'pointer', background: k === n ? 'var(--accent)' : 'var(--border-strong)', transition: 'background .25s ease' }} />
+              style={{ flex: 1, height: 3, padding: 0, border: 0, borderRadius: 999, cursor: 'pointer', background: k === n ? 'var(--accent)' : 'rgba(255,255,255,.2)', transition: 'background .25s ease' }} />
           ))}
         </div>
       )}
@@ -828,11 +839,12 @@ function Carrusel({ slides }: { slides: Slide[] }) {
 }
 
 // ── Modal de servicio ─────────────────────────────────────────────────────────
-// Dos columnas: izquierda el carrusel (qué vas a poder hacer) + el aviso BYOK
-// SIEMPRE visible; derecha toda la configuración. En angosto apilan (ver
-// .mk-svc-modal en globals.css).
-function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClose }: {
-  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; snippetLanding?: string | null; onClose: () => void;
+// Dos columnas: izquierda (negra) el carrusel de qué vas a poder hacer; derecha
+// toda la configuración —incluido el aviso de seguridad, que vive dentro del
+// form—. Alto fijo y scroll adentro. En angosto apilan (ver .mk-svc-modal en
+// globals.css).
+function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClose, onCambio }: {
+  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; snippetLanding?: string | null; onClose: () => void; onCambio: () => void;
 }) {
   const chip = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
@@ -896,30 +908,25 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
   const esLanding = i.key === 'landing';
 
   return (
-    <ModalShell w={940} label={i.nombre} onClose={onClose}>
+    // Alto FIJO e igual para todos los servicios (el de 1 sola key y el de 6):
+    // lo que sobra scrollea adentro, en vez de que el modal salte de tamaño.
+    <ModalShell w={940} h="min(720px, calc(100dvh - 96px))" label={i.nombre} onClose={onClose}>
       <div className="mk-svc-modal">
-        {/* ═══ IZQUIERDA · qué vas a poder hacer + BYOK ═══ */}
-        <aside className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: '26px 24px', minWidth: 0 }}>
+        {/* ═══ IZQUIERDA (negra) · qué vas a poder hacer ═══ */}
+        <aside className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: '26px 24px', minWidth: 0, minHeight: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <MakoStar size={14} color="var(--accent)" />
-            <span style={{ ...capMono, fontSize: 10, letterSpacing: '.12em' }}>Con {i.nombre} conectado</span>
+            <span style={{ ...capMono, fontSize: 10, letterSpacing: '.12em', color: 'var(--sidebar-text)' }}>Con {i.nombre} conectado</span>
           </div>
 
           <Carrusel slides={slides} />
-
-          {/* Aviso BYOK — FUERA del carrusel: se ve en todo momento. Mismo tono que
-              el que ya usa el wizard de /metodo. */}
-          <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start', marginTop: 20, padding: '11px 13px', borderRadius: 10, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 14, lineHeight: 1.3 }}>🔒</span>
-            <span style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
-              <b style={{ color: 'var(--ink)' }}>Tus llaves son tuyas.</b> Se guardan <b>cifradas</b> en tu cuenta —nadie más las ve— y todo el consumo corre contra <b>tu propio proveedor</b>. Podés quitarlas cuando quieras.
-            </span>
-          </div>
         </aside>
 
-        {/* ═══ DERECHA · toda la configuración ═══ */}
-        <div style={{ padding: '22px 26px 26px', minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 16 }}>
+        {/* ═══ DERECHA · toda la configuración ═══
+            Header y acciones quedan fijos; scrollea SOLO el medio. Si el header no
+            estuviera pinado, el ✕ de cerrar se iría con el scroll. */}
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+          <div style={{ flex: 'none', display: 'flex', alignItems: 'center', gap: 13, padding: '22px 26px 16px' }}>
             <SvcIcon k={i.key} box={44} radius={12} size={25} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <h3 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>{i.nombre}</h3>
@@ -929,6 +936,8 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
             <button onClick={onClose} style={closeBtn} title="Cerrar" aria-label="Cerrar">✕</button>
           </div>
 
+          {/* ── El ÚNICO scroller ── */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 26px 22px' }}>
           {/* Estado en vivo de Meta: es una alerta, no una descripción. */}
           {alerta && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 15, padding: '11px 13px', borderRadius: 11, background: sev === 'good' ? 'var(--surface-2)' : sev === 'warn' ? 'var(--warn-bg)' : 'var(--bad-bg)', color: sev === 'good' ? 'var(--dim)' : sev === 'warn' ? 'var(--warn)' : 'var(--bad)', fontSize: 12.5, lineHeight: 1.5 }}>
@@ -951,7 +960,10 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
           {esLanding ? (
             <CodigoLanding snippet={snippetLanding ?? null} />
           ) : mostrarForm ? (
-            <ServicioConfigForm servicioKey={i.key} />
+            // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):
+            // sin esto el chip de acá arriba, el tile y el contador se quedaban en
+            // "Por configurar" después de guardar, hasta que apretaras F5.
+            <ServicioConfigForm servicioKey={i.key} onEstado={onCambio} />
           ) : i.estado === 'falta' && (
             <div>
               <div style={{ ...capMono, fontSize: 10, letterSpacing: '.08em', marginBottom: 7 }}>Falta configurar</div>
@@ -965,9 +977,11 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
               </p>
             </div>
           )}
+          </div>
 
+          {/* Footer fijo: las acciones no se van con el scroll. */}
           {actions.length > 0 && (
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 16 }}>
+            <div style={{ flex: 'none', display: 'flex', gap: 9, flexWrap: 'wrap', borderTop: '1px solid var(--border)', padding: '16px 26px 22px' }}>
               {actions.map((a) => (
                 <a key={a.label} href={a.href} target={a.sameTab ? undefined : '_blank'} rel={a.sameTab ? undefined : 'noopener noreferrer'} style={{ border: `1px solid ${a.primary ? 'var(--primary)' : 'var(--border-strong)'}`, borderRadius: 10, background: a.primary ? 'var(--primary)' : 'var(--surface)', color: a.primary ? '#fff' : 'var(--dim)', fontFamily: "'Geist', sans-serif", fontWeight: 600, fontSize: 13.5, padding: '10px 15px', cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'none' }}>{a.label}</a>
               ))}

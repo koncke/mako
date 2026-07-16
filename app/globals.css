@@ -198,32 +198,94 @@ textarea.mako-field {
 }
 
 /* ── Modal de servicio de /integraciones ──────────────────────────────────────
-   Dos columnas: izquierda el carrusel de "qué vas a poder hacer" + el aviso BYOK,
-   derecha toda la configuración. En pantalla angosta apilan (carrusel arriba) y
-   nunca hay scroll horizontal: `minmax(0,1fr)` deja que las columnas se achiquen
-   en vez de desbordar. */
+   Dos columnas: izquierda (NEGRA) el carrusel de "qué vas a poder hacer", derecha
+   toda la configuración. Nunca hay scroll horizontal: `minmax(0,1fr)` deja que las
+   columnas se achiquen en vez de desbordar.
+
+   El modal tiene alto FIJO (lo pone el dialog) y scrollea adentro. Para que eso
+   funcione hacen falta las dos líneas de acá abajo:
+   · `height:100%` — el dialog es display:block y un hijo grid NO hereda su alto:
+     sin esto se queda del alto del contenido y el overflow:hidden del dialog lo
+     RECORTA en vez de scrollearlo.
+   · `grid-template-rows: minmax(0,1fr)` — la fila implícita es `auto`, o sea
+     min-height:auto, y eso IMPIDE que los hijos se achiquen por debajo de su
+     contenido: el overflow:auto de la columna derecha no haría nada y la fila
+     desbordaría. El minmax(0,1fr) de las columnas resuelve el eje horizontal;
+     el vertical necesita el suyo. */
 .mk-svc-modal {
   display: grid;
   grid-template-columns: 336px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
 }
 .mk-svc-aside {
-  border-right: 1px solid var(--border);
-  background: var(--surface-2);
+  border-right: 1px solid #23262E;
+  background: var(--sidebar);
   border-radius: 18px 0 0 18px;
 }
+/* El piso del carrusel vive ACÁ y no en un style inline: un inline le gana a
+   cualquier regla de hoja sin !important, así que el min-height:0 del apilado
+   (más abajo) nunca podría pisarlo. */
+.mk-svc-carrusel {
+  min-height: 150px;
+}
+
 @media (max-width: 820px) {
+  /* Apilado: el carrusel arriba al alto de su contenido y la configuración
+     abajo quedándose con el resto y scrolleando. Sin redefinir las filas, la
+     única fila de arriba comprimiría las DOS columnas apiladas dentro de ella. */
   .mk-svc-modal {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
   }
   .mk-svc-aside {
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid #23262E;
     border-radius: 18px 18px 0 0;
   }
   /* Apilado: el carrusel no se come la pantalla. */
   .mk-svc-carrusel {
     min-height: 0;
   }
+}
+
+/* ── Fila de una credencial (BYOK) ────────────────────────────────────────────
+   UNA sola barra por key, del MISMO alto siempre (guardada, pendiente o
+   editándose): adentro van el semáforo, el valor/input y los íconos de acción.
+   El input va pelado y el anillo de foco lo pinta la barra (:focus-within), así
+   no se ve un campo adentro de otro campo. */
+.mk-key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 0 8px 0 15px;
+  border-radius: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.mk-key-row:focus-within {
+  border-color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.16);
+}
+.mk-key-input {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: var(--ink);
+  font-family: 'Geist Mono', monospace;
+  font-size: 13px;
+}
+.mk-key-input::placeholder {
+  color: var(--faint);
+}
+.mk-key-input:read-only {
+  cursor: default;
 }
 
 /* Fila de tabs de la ficha: scroll horizontal sin barra visible (una sola fila). */
