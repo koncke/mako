@@ -61,6 +61,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Solo si usás Lead Ads: token de página con leads_retrieval, para traer los leads de tus formularios de Meta.' },
       { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Solo si usás la Conversions API o el creador de campañas. Es el ID de tu píxel/dataset de eventos.' },
       { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Solo si usás CAPI: manda eventos server-side (ej. Purchase) a Meta para optimizar mejor las campañas. Se genera en Administrador de eventos → tu píxel → Configuración → Conversions API.' },
+      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, placeholder: '1234567890', nota: 'ID de tu página de Facebook — se usa para rutear los leads entrantes de formularios al workspace correcto.' },
     ],
     tutorial: {
       url: 'https://business.facebook.com/settings/system-users',
@@ -184,6 +185,8 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Grabaciones y transcripciones de llamadas de venta para el Closing Analyst.',
     campos: [
       { env: 'FATHOM_API_KEY', label: 'API key', secreto: true },
+      { env: 'FATHOM_HOST_EMAIL', label: 'Email de la cuenta que graba', opcional: true, placeholder: 'vos@tudominio.com', nota: 'Email de la cuenta de Fathom que graba (recorded_by) — rutea las grabaciones entrantes a tu workspace.' },
+      { env: 'FATHOM_WEBHOOK_SECRET', label: 'Secret del webhook', secreto: true, opcional: true, nota: 'Secret del webhook de Fathom, si configurás el tuyo.' },
     ],
     tutorial: {
       url: 'https://fathom.video/customize/integrations',
@@ -192,6 +195,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Entrá a fathom.video con tu cuenta (la que graba las llamadas).',
         'Andá a Settings → Integrations → API Access (requiere plan Team Edition o superior).',
         'Generá una API key y copiala.',
+        'Opcional: el email de la cuenta que graba (recorded_by) sirve para rutear las grabaciones entrantes al workspace correcto; y el secret del webhook, solo si configurás el tuyo.',
       ],
     },
   },
@@ -245,6 +249,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     paraQue: 'Lectura de agendas para respaldos y backfills (los webhooks se configuran aparte).',
     campos: [
       { env: 'CALENDLY_API_TOKEN', label: 'Personal access token', secreto: true },
+      { env: 'CALENDLY_EVENT_TYPE_J1', label: 'Event type de R1', opcional: true, placeholder: 'https://api.calendly.com/event_types/…', nota: 'URI del event type de Calendly para R1 — rutea las reuniones entrantes a tu workspace y las clasifica.' },
+      { env: 'CALENDLY_EVENT_TYPE_J2', label: 'Event type de R2', opcional: true, placeholder: 'https://api.calendly.com/event_types/…', nota: 'URI del event type de Calendly para R2 — rutea las reuniones entrantes a tu workspace y las clasifica.' },
+      { env: 'CALENDLY_WEBHOOK_SIGNING_KEY', label: 'Signing key del webhook', secreto: true, opcional: true, nota: 'Signing key del webhook de Calendly.' },
     ],
     tutorial: {
       url: 'https://calendly.com/integrations/api_webhooks',
@@ -253,6 +260,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Entrá a calendly.com → Integrations → API & Webhooks.',
         'En "Personal access tokens" tocá "Generate new token".',
         'Copiá el token — se muestra una sola vez.',
+        'Opcional: pegá las URIs de los event types de R1 y R2 (rutean y clasifican las reuniones entrantes) y la signing key del webhook, si configurás el tuyo.',
       ],
     },
   },

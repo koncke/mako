@@ -20,6 +20,7 @@ import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
 import { servicioMetodo } from './metodo-catalogo';
+import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs } from './webhook-routing';
 
 export type CredencialMeta = {
   clave: string;
@@ -145,6 +146,9 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
     );
   if (error) throw new Error(`credenciales: ${error.message}`);
   if (ws === OWNER_WS) aplicarAEnv(clave, valor);
+  // Espejo al índice de routing: si esta clave identifica webhooks entrantes,
+  // mapeamos identificador→workspace para que el evento sin sesión rutee bien.
+  if (ROUTING_CREDS[clave]) await upsertRouting(ROUTING_CREDS[clave], valor, ws);
 }
 
 export async function eliminarCredencial(ws: number, clave: string): Promise<void> {
@@ -154,6 +158,8 @@ export async function eliminarCredencial(ws: number, clave: string): Promise<voi
     delete process.env[clave];
     hidratadas.delete(clave);
   }
+  // Al quitar la credencial de routing de un ws, se van sus mapeos del servicio.
+  if (ROUTING_CREDS[clave]) await borrarRoutingDeWs(ROUTING_CREDS[clave], ws);
 }
 
 /** Metadatos (máscara, nunca el valor) de las credenciales cargadas en un workspace. */

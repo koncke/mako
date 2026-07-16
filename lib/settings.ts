@@ -9,6 +9,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
+import { upsertRouting } from './webhook-routing';
 
 // app_settings es per-workspace (PK compuesta workspace_id+key). Scopeamos
 // explícito: el default es el dueño (1) para crons/sistema, que leen la config
@@ -46,11 +47,17 @@ export async function getSettingNum(key: string): Promise<number | null> {
 /** Guarda (upsert) una setting en el workspace actual. */
 export async function setSetting(key: string, value: string): Promise<void> {
   const supabase = getSupabaseServer();
+  const ws = await wsActual();
   const { error } = await supabase
     .from('app_settings')
     .upsert(
-      { workspace_id: await wsActual(), key, value, updated_at: new Date().toISOString() },
+      { workspace_id: ws, key, value, updated_at: new Date().toISOString() },
       { onConflict: 'workspace_id,key' },
     );
   if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
+  // Espejo al índice de routing: el page_id de Meta rutea los leads entrantes de
+  // formularios al workspace correcto. Mismo ws que usó el setting. Best-effort.
+  if (key === 'meta_page_id' && value && value.trim()) {
+    await upsertRouting('meta', value, ws);
+  }
 }
