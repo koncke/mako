@@ -26,11 +26,10 @@ type OrigenCampo = 'servidor' | 'panel' | null;
 type CampoEstado = { env: string; configurado: boolean; origen: OrigenCampo; mask: string; ilegible: boolean };
 type ServicioEstado = { key: string; conectada: boolean; campos: CampoEstado[] };
 
-function Chip({ texto, tono }: { texto: string; tono: 'good' | 'warn' | 'servidor' }) {
+function Chip({ texto, tono }: { texto: string; tono: 'good' | 'warn' }) {
   const tonos: Record<typeof tono, CSSProperties> = {
     good: { background: 'var(--good-bg)', color: 'var(--good)' },
     warn: { background: 'var(--warn-bg)', color: 'var(--warn)' },
-    servidor: { background: 'var(--surface-2)', color: 'var(--dim)' },
   };
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 11px', borderRadius: 999, fontSize: 12, fontWeight: 600, fontFamily: SANS, ...tonos[tono] }}>{texto}</span>;
 }
@@ -79,13 +78,8 @@ export function MetodoWizard() {
 
   const campoEstado = (env: string): CampoEstado | undefined => est?.campos.find((c) => c.env === env);
 
-  // conectada y todo lo configurado viene de las envs de Vercel → la gestiona el admin
-  const configurados = est?.campos.filter((c) => c.configurado) ?? [];
-  const todoServidor = !!est?.conectada && configurados.length > 0 && configurados.every((c) => c.origen === 'servidor');
-  const gestionaAdmin = todoServidor || !!servicio.soloServidor;
-
   const chipEstado = est?.conectada
-    ? (todoServidor ? { texto: 'Configurada en el servidor', tono: 'servidor' as const } : { texto: 'Conectada', tono: 'good' as const })
+    ? { texto: 'Conectada', tono: 'good' as const }
     : { texto: 'Falta conectar', tono: 'warn' as const };
 
   const tutAbierto = tutOverride[servicio.key] ?? !est?.conectada;
@@ -208,9 +202,6 @@ export function MetodoWizard() {
             <Chip texto={chipEstado.texto} tono={chipEstado.tono} />
           </div>
           <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--dim)', margin: '0 0 8px' }}>{servicio.paraQue}</p>
-          {gestionaAdmin && (
-            <p style={{ textAlign: 'center', fontSize: 12.5, color: 'var(--faint)', margin: '0 0 8px' }}>Esta conexión la gestiona el administrador en Vercel (variables de entorno del proyecto).</p>
-          )}
 
           {/* tutorial: cómo conseguir el token */}
           <div style={{ ...card, padding: 0, overflow: 'hidden', marginTop: 12 }}>
@@ -243,25 +234,26 @@ export function MetodoWizard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 22 }}>
                 {servicio.campos.map((c) => {
                   const ce = campoEstado(c.env);
-                  const enServidor = ce?.origen === 'servidor';
-                  const enPanel = !!ce?.configurado && ce.origen === 'panel';
-                  const placeholder = enServidor ? 'Configurada en el servidor' : enPanel ? `••••${ce?.mask ?? ''} — guardada` : c.placeholder;
+                  // Todo campo es editable: la base manda sobre el entorno del
+                  // server. `origen` solo dice si hay fila que se pueda quitar.
+                  const guardada = !!ce?.configurado;
+                  const enBase = ce?.origen === 'panel' || !!ce?.ilegible;
+                  const placeholder = guardada ? `••••${ce?.mask ?? ''} — guardada` : c.placeholder;
                   return (
                     <div key={c.env}>
                       <label style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>
                         {c.label}{c.opcional && <span style={{ fontWeight: 400, color: 'var(--faint)' }}> · opcional</span>}
                       </label>
                       <input
-                        style={{ ...input, ...(enServidor ? { background: 'var(--surface-2)', color: 'var(--faint)', cursor: 'not-allowed' } : null) }}
+                        style={input}
                         type={c.secreto ? 'password' : 'text'}
                         value={valores[c.env] ?? ''}
                         placeholder={placeholder}
-                        disabled={enServidor}
                         autoComplete="off"
                         onChange={(e) => setValores((v) => ({ ...v, [c.env]: e.target.value }))}
                       />
                       {ce?.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6 }}>Guardada con una clave vieja — volvé a pegarla.</div>}
-                      {(enPanel || ce?.ilegible) && (
+                      {enBase && (
                         <button type="button" onClick={() => quitar(c.env)} disabled={quitando === c.env}
                           style={{ marginTop: 6, background: 'none', border: 'none', padding: 0, fontFamily: SANS, fontSize: 12, fontWeight: 600, color: 'var(--bad)', cursor: quitando === c.env ? 'default' : 'pointer', opacity: quitando === c.env ? 0.6 : 1 }}>
                           {quitando === c.env ? 'Quitando…' : 'Quitar credencial'}

@@ -40,7 +40,8 @@ const DEFS: Def[] = [
   { key: 'google', nombre: 'Google (Calendar / Login)', categoria: 'Datos', descripcion: 'Agenda y login con Google.', envs: ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'], global: true },
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
   { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
-  { key: 'supabase', nombre: 'Base de datos (Supabase)', categoria: 'Datos', descripcion: 'Almacena leads, métricas y configuración.', envs: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'], global: true },
+  // Supabase NO va acá: es la infra de la plataforma, no una integración que el
+  // cliente conecte (y su credencial no puede vivir dentro de la propia base).
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
   // estadoLanding). El usuario no pega credenciales: copia un <script> con su
   // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).

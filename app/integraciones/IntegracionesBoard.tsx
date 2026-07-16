@@ -568,7 +568,7 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
 
   // BYOK: si el servicio está en el catálogo de /metodo y NO es soloServidor,
   // embebemos el form de pegar/guardar/probar (reemplaza la lista de envs crudos).
-  // Los soloServidor (Supabase) y los servicios sin catálogo quedan informativos.
+  // Los servicios sin catálogo (p.ej. la landing) quedan informativos.
   const catalogo = servicioMetodo(i.key);
   const mostrarForm = !!catalogo && !catalogo.soloServidor;
 
@@ -674,7 +674,7 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
               ))}
             </div>
             <p style={{ margin: '10px 0 0', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
-              Cargá {faltan.includes(',') ? 'estas variables' : 'esta variable'} en las credenciales del workspace (o en el entorno de Vercel, para los servicios de la agencia) y quedará conectado.
+              Cargá {faltan.includes(',') ? 'estas credenciales' : 'esta credencial'} desde acá y quedará conectado.
             </p>
           </div>
         )}

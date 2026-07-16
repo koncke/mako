@@ -3,7 +3,7 @@
 // =============================================================================
 // Trae el "pegar + guardar + probar conexión" de /metodo a los modales del board
 // de integraciones, para que el admin de un workspace configure SUS credenciales
-// sin ir a /metodo ni a Vercel. Opera SIEMPRE sobre el workspace del request
+// sin salir de la app. Opera SIEMPRE sobre el workspace del request
 // (getWorkspaceActual) — nunca sobre un ws provisto por el cliente.
 //
 // GUARD (seguridad multi-tenant): permitido solo para el super-admin de agencia
@@ -130,8 +130,8 @@ export async function POST(req: NextRequest) {
         if (!envsDelServicio.has(env)) continue; // whitelist estricta: ignora envs ajenas
         const v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue; // input vacío nunca pisa una guardada
-        // Para el dueño, si la env de Vercel manda, no dejamos que el panel la pise.
-        if (ctx.ws === OWNER_WS && (await estadoCampo(env, ctx.ws)).origen === 'servidor') continue;
+        // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
+        // base manda (lib/credenciales.ts). Todo se configura desde la app.
         await guardarCredencial(ctx.ws, env, v, servicio.key, ctx.autor);
         guardadas++;
       }

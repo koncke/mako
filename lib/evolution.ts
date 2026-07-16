@@ -331,7 +331,7 @@ export async function estadoWebhook(): Promise<WebhookSalud> {
 export async function repararWebhook(): Promise<{ ok: boolean; estado: WebhookEstado; error?: string }> {
   const ws = await wsEstricto();
   const instance = instanceNameDeWs(ws);
-  if (!WEBHOOK_SECRET) return { ok: false, estado: 'sin_secret', error: 'Falta EVOLUTION_WEBHOOK_SECRET en el servidor. Configuralo en Vercel y volvé a intentar.' };
+  if (!WEBHOOK_SECRET) return { ok: false, estado: 'sin_secret', error: 'Falta el secret del webhook de Evolution en la configuración de la plataforma — avisá al equipo técnico.' };
   const set = await setWebhook(instance);
   if (!set.ok) return { ok: false, estado: 'error', error: set.error };
   const v = await estadoWebhook();

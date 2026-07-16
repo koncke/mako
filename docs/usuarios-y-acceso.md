@@ -52,11 +52,19 @@ los 30 días o al cerrar sesión.
 
 `instrumentation.ts` corre al arranque de cada instancia y vuelca las
 credenciales de la base a `process.env` — así las ~70 libs que leen env siguen
-funcionando sin refactor. Regla: **la env de Vercel gana**; lo cargado en
-/metodo solo aplica donde la env no está seteada. En una instancia nueva sin
-envs, todo sale de /metodo. Al guardar desde la UI, la instancia que atendió el
-request lo aplica al instante; el resto lo toma en su próximo cold start
-(minutos).
+funcionando sin refactor. Regla: **la base gana**; todo se configura desde la
+app. El env del server es solo el **respaldo de arranque del dueño**: en el
+mismo boot, `migrarEnvACredenciales()` copia a la base cifrada toda clave del
+catálogo que esté en el entorno y no tenga fila todavía (solo rellena huecos,
+nunca pisa la base). Después de esa primera corrida el dueño puede borrar las
+envs del server y gestionar todo desde /integraciones, como cualquier cliente.
+Al guardar desde la UI, la instancia que atendió el request lo aplica al
+instante; el resto lo toma en su próximo cold start (minutos).
+
+Excepción: la infra de la plataforma (`NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, y los secrets de cifrado) NO es configurable desde
+la app ni vive en el catálogo — sin ella no se puede leer/descifrar la propia
+tabla de credenciales.
 
 Secret de cifrado: `CREDENCIALES_SECRET` → `AUTH_COOKIE_VALUE` →
 `SUPABASE_SERVICE_ROLE_KEY` (el primero que exista). Si rota, lo guardado queda
@@ -107,8 +115,9 @@ dueño)**.
   cliente carga sus propios tokens (Meta, Chatwoot, Resend, Fathom, Panda,
   YouTube) en **/metodo** y ve sus datos en vivo con ellos (su inbox de WhatsApp,
   su salud/insights de Meta, su Closing). El resolver `credWs` (`lib/credenciales.ts`)
-  devuelve, para el **dueño** (workspace 1), el env de Vercel tal cual; para un
-  **cliente**, solo su fila cifrada — nunca el token del dueño. Anthropic/OpenAI/
+  devuelve la fila cifrada del workspace; para el **dueño** (workspace 1), si esa
+  fila todavía no existe, cae al env del server como respaldo de arranque. Un
+  **cliente** solo ve su fila — nunca el token del dueño. Anthropic/OpenAI/
   Telegram siguen compartidos (los provee la agencia).
 - **Fase 2b (pendiente):** **ingesta automática por cliente** — los 12 crons
   iterando por workspace + config por-workspace (qué video es el VSL, page id,

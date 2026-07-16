@@ -19,16 +19,17 @@ type Qr = { base64: string | null; code: string | null; pairingCode: string | nu
 type Resp<T> = { status: number; body: T };
 type WhEstado = 'ok' | 'sin_secret' | 'secret_prod' | 'no_registrado' | 'url_distinta' | 'error';
 
-// Explicación de cada estado del espejo de mensajes para el usuario. Los estados de
-// ENV (sin_secret/secret_prod/url_distinta) se arreglan en Vercel, no con "reparar".
+// Explicación de cada estado del espejo de mensajes para el usuario. Los estados
+// de ENV (sin_secret/secret_prod/url_distinta) son configuración de despliegue de
+// la plataforma: los resuelve el equipo técnico, no el botón "reparar".
 const MIRROR_MSG: Record<Exclude<WhEstado, 'ok'>, string> = {
-  sin_secret: 'Falta configurar EVOLUTION_WEBHOOK_SECRET en el servidor (Vercel). Sin eso los mensajes no llegan a la app — avisá al equipo técnico.',
-  secret_prod: 'El servidor en producción rechaza el secret del webhook. En Vercel, poné EVOLUTION_WEBHOOK_SECRET (igual al de tu .env) y volvé a desplegar. Después tocá «Reparar espejo».',
-  url_distinta: 'El servidor de la app no responde donde debería. Revisá APP_BASE_URL en Vercel (tiene que ser el dominio real de tu app) y volvé a desplegar.',
+  sin_secret: 'Falta el secret del webhook de Evolution en la configuración de la plataforma. Sin eso los mensajes no llegan a la app — avisá al equipo técnico.',
+  secret_prod: 'La app en producción rechaza el secret del webhook: la configuración de la plataforma quedó desalineada. Avisá al equipo técnico y después tocá «Reparar espejo».',
+  url_distinta: 'La app no responde donde debería: la dirección configurada en la plataforma no es la real. Avisá al equipo técnico.',
   no_registrado: 'El webhook no está activado en este número, por eso no aparecen los chats. Tocá «Reparar espejo» para activarlo.',
   error: 'No pude verificar el espejo ahora (Evolution no respondió). Probá «Reparar espejo».',
 };
-// Solo estos estados los arregla el botón (los de env se corrigen en Vercel).
+// Solo estos estados los arregla el botón (los de env los corrige el equipo técnico).
 const REPARABLE: WhEstado[] = ['no_registrado', 'error'];
 
 async function apiGet<T>(url: string): Promise<Resp<T>> {

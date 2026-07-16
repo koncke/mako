@@ -864,7 +864,7 @@ function DominioSetup({ dom, onUpdate, onClose }: { dom: DomState; onUpdate: (d:
       {err && <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--bad)', background: 'var(--bad-bg)', color: 'var(--bad)', fontSize: '13px' }}>{err}</div>}
       {!dom.resendConfigurado && (
         <div style={{ marginTop: '14px', padding: '9px 12px', borderRadius: '9px', border: '1px solid var(--warn-fill)', background: 'var(--warn-bg)', color: 'var(--warn)', fontSize: '12.5px' }}>
-          Falta la API key de Resend en el servidor — avisale a tu administrador de MaKo.
+          Falta la API key de Resend — cargala en <a href="/integraciones" style={{ color: 'inherit', fontWeight: 600 }}>Integraciones</a>.
         </div>
       )}
     </div>

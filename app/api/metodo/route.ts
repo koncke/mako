@@ -3,7 +3,8 @@
 // =============================================================================
 // Opera sobre el workspace ACTUAL (getWorkspaceActual): un admin que "entra
 // como" un cliente gestiona las credenciales de ESE cliente; sin impersonar,
-// las del dueño (donde la env de Vercel gana). Solo admin.
+// las del dueño. Solo admin. El dueño se trata como cualquier otro cliente: lo
+// que guarda acá va a la base cifrada y la base manda (lib/credenciales.ts).
 // GET  → por servicio, el estado de cada campo (configurado, origen, máscara).
 // POST → { action: 'guardar', servicio, valores } | { action: 'borrar', env }.
 
@@ -72,8 +73,8 @@ export async function POST(req: NextRequest) {
         if (!envsDelServicio.has(env)) continue; // whitelist estricta
         const v = typeof valor === 'string' ? valor.trim() : '';
         if (!v) continue;
-        // Para el dueño, si la env de Vercel manda, no dejamos que el panel la pise.
-        if (ws === OWNER_WS && (await estadoCampo(env, ws)).origen === 'servidor') continue;
+        // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
+        // base manda (lib/credenciales.ts). Todo se configura desde la app.
         // La sesión legacy trae el email de una cookie no firmada (editable) →
         // no lo usamos como atribución; guardamos el sub en su lugar.
         const autor = sesion.legacy ? sesion.sub : (sesion.email || sesion.sub);

@@ -42,7 +42,10 @@ export type ServicioMetodo = {
     url?: string;
     urlLabel?: string;
   };
-  /** true → se configura en el server (Vercel), la UI solo muestra estado. */
+  /** true → la UI solo muestra estado, sin inputs (no se carga desde la app).
+   *  HOY NINGÚN SERVICIO LO USA: Supabase era el único y salió del catálogo (es
+   *  infra de la plataforma, no una integración del cliente). Se mantiene el flag
+   *  por si vuelve a hacer falta; los call-sites que lo leen quedan inertes. */
   soloServidor?: boolean;
   /** true → sin esto el dashboard pierde funciones núcleo. */
   core?: boolean;
@@ -285,30 +288,14 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  {
-    key: 'supabase',
-    nombre: 'Base de datos (Supabase)',
-    categoria: 'Datos',
-    core: true,
-    soloServidor: true,
-    paraQue: 'Almacena leads, métricas y toda la configuración. Se configura en el server (Vercel) porque el resto de las credenciales dependen de ella.',
-    campos: [
-      { env: 'NEXT_PUBLIC_SUPABASE_URL', label: 'URL del proyecto' },
-      { env: 'SUPABASE_SERVICE_ROLE_KEY', label: 'Service role key', secreto: true },
-    ],
-    tutorial: {
-      url: 'https://supabase.com/dashboard',
-      urlLabel: 'Supabase Dashboard',
-      pasos: [
-        'Esta credencial la configura el administrador en Vercel (env vars del proyecto) — no se carga desde acá.',
-        'En supabase.com → tu proyecto → Settings → API están la URL y la service_role key.',
-      ],
-    },
-  },
 ];
 
 export const servicioMetodo = (key: string): ServicioMetodo | undefined =>
   SERVICIOS_METODO.find((s) => s.key === key);
+
+/** Servicio (key) al que pertenece una env del catálogo. */
+export const servicioDeEnv = (env: string): string | undefined =>
+  SERVICIOS_METODO.find((s) => s.campos.some((c) => c.env === env))?.key;
 
 /** Todas las envs administrables desde /metodo (whitelist del API). */
 export const ENVS_METODO = new Set(

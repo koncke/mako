@@ -88,10 +88,10 @@ function enMinuscula(label: string): string {
 }
 const preguntaDe = (c: Campo) => `Pegá tu ${enMinuscula(c.label)}`;
 
-// Estado de un campo para las listas de resumen.
+// Estado de un campo para las listas de resumen. `origen` NO cambia lo que se
+// muestra: una credencial configurada se ve igual venga de donde venga.
 function estadoDe(c: Campo, tipeado: boolean): { texto: string; color: string } {
   if (tipeado) return { texto: 'listo para guardar', color: 'var(--primary)' };
-  if (c.origen === 'servidor') return { texto: 'en el servidor', color: 'var(--dim)' };
   if (c.ilegible) return { texto: 'ilegible', color: 'var(--warn)' };
   if (c.configurado) return { texto: `••••${c.mask}`, color: 'var(--good)' };
   if (c.opcional) return { texto: 'vacío · opcional', color: 'var(--faint)' };
@@ -292,11 +292,13 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
   }
 
   // ── Wizard: una pregunta por paso; el último es el resumen ───────────────────
-  const enServidor = campo?.origen === 'servidor';
-  const enPanel = !!campo?.configurado && campo.origen === 'panel';
-  const guardada = enPanel && !campo?.ilegible;
+  // `guardada` = configurada y legible, sin importar de dónde salga hoy: todo
+  // campo es editable (la base manda sobre el entorno del server).
+  const guardada = !!campo?.configurado;
+  // Solo hay fila que borrar si la credencial vive en la base.
+  const enBase = campo?.origen === 'panel' || !!campo?.ilegible;
   const editar = campo ? (editando[campo.env] ?? !guardada) : false;
-  const mostrarOmitir = !!campo && campo.opcional && !enServidor && (!campo.configurado || campo.ilegible);
+  const mostrarOmitir = !!campo && campo.opcional && (!campo.configurado || campo.ilegible);
   const ayudaTexto = campo ? [campo.nota, campo.opcional ? 'Podés dejarlo vacío.' : null].filter(Boolean).join(' ') : '';
 
   return (
@@ -313,17 +315,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
           {ayudaTexto && <p style={ayuda}>{ayudaTexto}</p>}
 
           <div style={{ marginTop: 12 }}>
-            {enServidor ? (
-              <>
-                <div style={{ marginBottom: 7 }}>
-                  <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '3px 9px', borderRadius: 6 }}>
-                    Configurada en el servidor (Vercel)
-                  </span>
-                </div>
-                <input style={{ ...input, background: 'var(--surface-2)', color: 'var(--faint)', cursor: 'not-allowed' }}
-                  type={campo.secreto ? 'password' : 'text'} value="" placeholder="Configurada en el servidor" disabled readOnly />
-              </>
-            ) : guardada && !editar ? (
+            {guardada && !editar ? (
               <div style={{ ...caja, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
                 <span style={{ flex: 'none', width: 7, height: 7, borderRadius: 999, background: 'var(--good)' }} />
                 <span style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis' }}>••••{campo.mask} — guardada</span>
@@ -334,14 +326,14 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
                 style={input}
                 type={campo.secreto ? 'password' : 'text'}
                 value={valores[campo.env] ?? ''}
-                placeholder={enPanel && !campo.ilegible ? `••••${campo.mask} — guardada` : (campo.placeholder ?? '')}
+                placeholder={guardada ? `••••${campo.mask} — guardada` : (campo.placeholder ?? '')}
                 autoComplete="off"
                 onChange={(e) => setValores((v) => ({ ...v, [campo.env]: e.target.value }))}
               />
             )}
 
             {campo.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — volvé a pegarla.</div>}
-            {(enPanel || campo.ilegible) && (
+            {enBase && (
               <button type="button" onClick={() => quitar(campo.env)} disabled={quitando === campo.env}
                 style={{ ...btnLink, marginTop: 8, color: 'var(--bad)', cursor: quitando === campo.env ? 'default' : 'pointer', opacity: quitando === campo.env ? 0.6 : 1 }}>
                 {quitando === campo.env ? 'Quitando…' : 'Quitar credencial'}
