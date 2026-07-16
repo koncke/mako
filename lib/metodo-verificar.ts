@@ -88,6 +88,16 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida.' };
   },
 
+  async groq(v) {
+    // Groq es OpenAI-compatible: /openai/v1/models con Bearer.
+    const { status } = await fetchJson('https://api.groq.com/openai/v1/models', {
+      headers: { Authorization: `Bearer ${v.GROQ_API_KEY}` },
+    });
+    if (status === 401) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `Groq respondió ${status}.` };
+    return { ok: true, detalle: 'Key válida.' };
+  },
+
   async fathom(v) {
     const { status } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },

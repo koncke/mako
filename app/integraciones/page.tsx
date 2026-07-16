@@ -29,17 +29,15 @@ export default async function IntegracionesPage() {
     metaError = err instanceof Error ? err.message : String(err);
   }
 
-  // Reconciliar los incidentes (con inicio/fin) contra el estado actual: Meta
-  // (estado en vivo) + los servicios que están en 'falta' de configuración. El
-  // scope cubre todos esos servicios para que se cierren los que ya se resolvieron.
+  // Reconciliar los incidentes (con inicio/fin) contra el estado actual. Un
+  // incidente es un PROBLEMA REAL (hoy: la salud de Meta — rojo/ámbar/frenada o
+  // error de lectura). Un servicio "por configurar" (falta) NO es un incidente:
+  // eso vive en "Requiere tu atención", no en el historial de problemas.
+  // El scope cubre todos los servicios para CERRAR los que ya no tienen problema.
   const problemas: ProblemaActual[] = [];
   const pMeta = problemaMeta(health?.account ?? null, metaError);
   if (pMeta) problemas.push(pMeta);
-  for (const i of integraciones) {
-    if (i.key === 'meta') continue; // Meta lo cubre problemaMeta (estado en vivo)
-    if (i.estado === 'falta') problemas.push({ service: i.key, severidad: 'ambar', statusLabel: 'Por configurar', disableReason: null, entregaFrenada: false, balanceMxn: null, detalle: i.detalle });
-  }
-  const scope = ['meta', ...integraciones.filter((i) => i.key !== 'meta').map((i) => i.key)];
+  const scope = ['meta', ...integraciones.map((i) => i.key)];
   await reconciliarIncidentes(problemas, scope);
   const incidentes: Incidente[] = await getIncidentes(30);
 

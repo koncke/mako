@@ -58,8 +58,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     campos: [
       { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Token de usuario de sistema (no expira). Permisos: ads_read, ads_management, business_management.' },
       { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', placeholder: 'act_1234567890', nota: 'Con el prefijo act_.' },
-      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Token de página con leads_retrieval. Necesario para traer los leads de tus formularios de Meta.' },
-      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Solo si vas a usar la Conversions API y la creación de campañas.' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Solo si usás Lead Ads: token de página con leads_retrieval, para traer los leads de tus formularios de Meta.' },
+      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, placeholder: '1234567890', nota: 'Solo si usás la Conversions API o el creador de campañas. Es el ID de tu píxel/dataset de eventos.' },
+      { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Solo si usás CAPI: manda eventos server-side (ej. Purchase) a Meta para optimizar mejor las campañas. Se genera en Administrador de eventos → tu píxel → Configuración → Conversions API.' },
     ],
     tutorial: {
       url: 'https://business.facebook.com/settings/system-users',
@@ -69,8 +70,9 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Creá un usuario de sistema (rol Administrador) o elegí uno existente.',
         'En "Agregar activos", asignale tu cuenta publicitaria con control total.',
         'Tocá "Generar token": elegí tu app, marcá los permisos ads_read, ads_management y business_management, y poné expiración "Nunca".',
-        'Copiá el token y pegalo acá (empieza con EAAG…).',
-        'El ID de la cuenta publicitaria está en Administrador de anuncios, arriba a la izquierda: es el número que acompaña al nombre de la cuenta, con el prefijo act_.',
+        'Copiá el token y pegalo acá (empieza con EAAG…). Esto y el ID de cuenta son lo ÚNICO obligatorio.',
+        'El ID de la cuenta publicitaria está en Administrador de anuncios, arriba a la izquierda: el número que acompaña al nombre de la cuenta, con prefijo act_.',
+        'Los campos opcionales (píxel, token de CAPI, token de página) solo hacen falta si usás la Conversions API, el creador de campañas o los Lead Ads. Si no, dejalos vacíos.',
       ],
     },
   },
@@ -154,6 +156,24 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Cargá saldo en Settings → Billing.',
         'Andá a API keys → Create new secret key.',
         'Copiá la key (empieza con sk-) — se muestra una sola vez.',
+      ],
+    },
+  },
+  {
+    key: 'groq',
+    nombre: 'Groq',
+    categoria: 'Inteligencia',
+    paraQue: 'IA rápida y gratis para tareas simples (clasificar, extraer, titular) y transcripción de notas de voz (Whisper). MaKo la prefiere sobre OpenAI cuando hay key: se limita por tokens/día, no por saldo.',
+    campos: [
+      { env: 'GROQ_API_KEY', label: 'API key', secreto: true, placeholder: 'gsk_…' },
+    ],
+    tutorial: {
+      url: 'https://console.groq.com/keys',
+      urlLabel: 'Groq Console → API Keys',
+      pasos: [
+        'Entrá a console.groq.com y creá una cuenta (el plan gratis alcanza; el límite es por tokens/día, no por dinero).',
+        'Andá a API Keys → Create API Key, poné un nombre (ej. "dashboard") y creala.',
+        'Copiá la key (empieza con gsk_) — se muestra una sola vez.',
       ],
     },
   },
