@@ -106,7 +106,6 @@ export async function setContactoReportes(c: Partial<ContactoReportes>): Promise
 export type CanalPrefs = {
   activo: boolean;
   wa: boolean;
-  telegram: boolean;
   email: boolean;
 };
 
@@ -123,9 +122,9 @@ export type NotifPrefs = {
 };
 
 export const DEFAULT_PREFS: NotifPrefs = {
-  horario: { activo: true, wa: true, telegram: false, email: false },
-  diario: { activo: true, wa: true, telegram: false, email: true },
-  semanal: { activo: true, wa: true, telegram: false, email: true },
+  horario: { activo: true, wa: true, email: false },
+  diario: { activo: true, wa: true, email: true },
+  semanal: { activo: true, wa: true, email: true },
   secciones: { semaforo: true, ads: true, wins: true, pendientes: true },
 };
 
@@ -136,7 +135,6 @@ function mergeCanal(base: CanalPrefs, over: unknown): CanalPrefs {
   return {
     activo: typeof o.activo === 'boolean' ? o.activo : base.activo,
     wa: typeof o.wa === 'boolean' ? o.wa : base.wa,
-    telegram: typeof o.telegram === 'boolean' ? o.telegram : base.telegram,
     email: typeof o.email === 'boolean' ? o.email : base.email,
   };
 }

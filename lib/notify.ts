@@ -2,7 +2,7 @@
 // notify — dispatcher: reparte un reporte a los canales según las preferencias
 // =============================================================================
 // El centro de notificaciones in-app (tabla notificaciones) SIEMPRE registra el
-// reporte. Además, según prefs, lo empuja por Telegram / email / WhatsApp.
+// reporte. Además, según prefs, lo empuja por email / WhatsApp.
 //
 // WhatsApp: se manda como TEXTO LIBRE (multilínea), que solo llega dentro de la
 // ventana de 24h. Si la ventana está cerrada, el reporte queda con canal_wa =
@@ -13,14 +13,10 @@ import 'server-only';
 import type { Reporte } from './reportes';
 import type { CanalPrefs, ContactoReportes } from './perfil';
 import { crearNotificacion, setCanalWa, pendientesWhatsapp } from './notificaciones';
-import { notificarTelegram } from './telegram';
 import { sendEmail, renderEmailHtml } from './resend';
 import { sendTextToPhone } from './chatwoot';
 
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-// El texto usa *negrita* estilo WhatsApp; para Telegram/email/feed quitamos los *.
+// El texto usa *negrita* estilo WhatsApp; para email/feed quitamos los *.
 function sinMarcas(s: string): string {
   return s.replace(/\*(.+?)\*/g, '$1');
 }
@@ -28,7 +24,6 @@ function sinMarcas(s: string): string {
 export type ResultadoDespacho = {
   notifId: number | null;
   wa: 'enviado' | 'pendiente' | 'no';
-  telegram: boolean;
   email: boolean;
 };
 
@@ -48,14 +43,9 @@ export async function despacharReporte(rep: Reporte, canal: CanalPrefs, perfil: 
     origen: `cron:${rep.tipo}`,
   });
 
-  const res: ResultadoDespacho = { notifId, wa: waQuiere ? 'pendiente' : 'no', telegram: false, email: false };
+  const res: ResultadoDespacho = { notifId, wa: waQuiere ? 'pendiente' : 'no', email: false };
 
-  // 2) Telegram.
-  if (canal.telegram) {
-    res.telegram = await notificarTelegram(`<b>${escapeHtml(rep.titulo)}</b>\n${escapeHtml(sinMarcas(rep.texto))}`);
-  }
-
-  // 3) Email.
+  // 2) Email.
   if (canal.email && perfil.email) {
     const r = await sendEmail({
       to: perfil.email,

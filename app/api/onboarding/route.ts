@@ -26,7 +26,7 @@ import { getEstadoOnboarding, patchEstadoOnboarding, type OnboardingState } from
 export const dynamic = 'force-dynamic';
 
 // Servicios que el CLIENTE conecta en su wizard. Infra de la agencia (anthropic,
-// openai, supabase, google, telegram) NO se le pide al cliente — es global.
+// openai, supabase, google) NO se le pide al cliente — es global.
 // 'email' NO está: con la cuenta única de Resend (Opción A) el cliente no carga
 // API key — verifica su dominio desde el mini-onboarding de la tab /email.
 const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'fathom', 'panda', 'youtube', 'calendly']);

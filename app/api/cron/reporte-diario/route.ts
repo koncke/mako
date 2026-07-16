@@ -4,7 +4,7 @@
 // Vercel lo invoca ~7:00 AM Tijuana (14:00 UTC). Flujo:
 //   1) asegura la plantilla "reporte_mako" en Meta (idempotente).
 //   2) si está aprobada, manda la apertura del día (abre la ventana de 24h al tocar).
-//   3) compone el digest diario y lo despacha (feed + WhatsApp/Telegram/email según prefs).
+//   3) compone el digest diario y lo despacha (feed + WhatsApp/email según prefs).
 // Auth: Bearer CRON_SECRET.
 // =============================================================================
 

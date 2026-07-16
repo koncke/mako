@@ -21,7 +21,7 @@ export type Reporte = {
   tipo: 'reporte_horario' | 'reporte_diario' | 'reporte_semanal';
   titulo: string;       // 1 línea, para el feed y el asunto del email
   descripcion: string;  // resumen corto para el feed
-  texto: string;        // cuerpo multilínea (WhatsApp / Telegram / email)
+  texto: string;        // cuerpo multilínea (WhatsApp / email)
   severidad: NotifSeveridad;
   urgente: boolean;     // solo horario: si amerita push
 };

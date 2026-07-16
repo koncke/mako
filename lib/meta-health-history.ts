@@ -5,7 +5,7 @@
 // problema) → resolved_at (cuándo se recuperó; NULL = en curso). Se reconcilia
 // contra el estado actual: abre uno por servicio cuando aparece el problema,
 // actualiza sus campos mientras persiste, y lo cierra cuando el servicio vuelve a
-// estar sano. Generaliza a cualquier servicio (meta, openai, telegram, ...).
+// estar sano. Generaliza a cualquier servicio (meta, openai, fathom, ...).
 //
 // Nunca rompe al caller: si la tabla no existe todavía (migración 0089 sin
 // aplicar), loguea y no-opea.
@@ -17,7 +17,7 @@ import type { MetaAccountHealth } from './meta-health';
 
 // Un problema ACTIVO ahora, tal como lo detecta quien reconcilia.
 export type ProblemaActual = {
-  service: string;               // 'meta' | 'openai' | 'telegram' | ...
+  service: string;               // 'meta' | 'openai' | 'fathom' | ...
   severidad: 'rojo' | 'ambar';
   statusLabel: string;
   disableReason: string | null;

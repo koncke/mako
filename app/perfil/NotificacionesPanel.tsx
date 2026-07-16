@@ -5,14 +5,14 @@
 // =============================================================================
 // Autocontenido: lee/guarda /api/perfil (prefs) y gestiona la plantilla de
 // WhatsApp vía /api/perfil/plantilla. Por reporte (horario/diario/semanal)
-// elegís canales (WhatsApp/Telegram/Email) y qué secciones incluir.
+// elegís canales (WhatsApp/Email) y qué secciones incluir.
 
 import { useEffect, useState, type CSSProperties } from 'react';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type CanalPrefs = { activo: boolean; wa: boolean; telegram: boolean; email: boolean };
+type CanalPrefs = { activo: boolean; wa: boolean; email: boolean };
 type Secciones = { semaforo: boolean; ads: boolean; wins: boolean; pendientes: boolean };
 type NotifPrefs = { horario: CanalPrefs; diario: CanalPrefs; semanal: CanalPrefs; secciones: Secciones };
 
@@ -59,7 +59,6 @@ function BloqueReporte({ titulo, sub, canal, onChange }: { titulo: string; sub: 
           <div style={{ ...labelStyle, marginBottom: 8 }}>Cómo te aviso</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Chip label="WhatsApp" on={canal.wa} onChange={(v) => onChange({ ...canal, wa: v })} />
-            <Chip label="Telegram" on={canal.telegram} onChange={(v) => onChange({ ...canal, telegram: v })} />
             <Chip label="Email" on={canal.email} onChange={(v) => onChange({ ...canal, email: v })} />
           </div>
         </div>

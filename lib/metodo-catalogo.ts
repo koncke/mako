@@ -196,26 +196,6 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
-    key: 'telegram',
-    nombre: 'Telegram',
-    categoria: 'Mensajería',
-    paraQue: 'Avisos internos: mensajes nuevos de leads y reportes diarios al celular.',
-    campos: [
-      { env: 'TELEGRAM_MB_BOT_TOKEN', label: 'Token del bot', secreto: true, placeholder: '123456:ABC-…' },
-      { env: 'TELEGRAM_MB_CHAT_ID', label: 'ID del chat', placeholder: '-100123456 o 123456', nota: 'El chat (o grupo) donde el bot manda los avisos.' },
-    ],
-    tutorial: {
-      url: 'https://t.me/BotFather',
-      urlLabel: '@BotFather en Telegram',
-      pasos: [
-        'En Telegram, abrí @BotFather y mandá /newbot. Elegí nombre y usuario para tu bot.',
-        'BotFather te devuelve el token (formato 123456:ABC-…). Copialo.',
-        'Escribile cualquier mensaje a tu bot nuevo (o agregalo a un grupo si querés los avisos ahí).',
-        'Abrí en el navegador: api.telegram.org/bot<TU_TOKEN>/getUpdates — el número en "chat":{"id":…} es tu ID de chat.',
-      ],
-    },
-  },
-  {
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',

@@ -107,17 +107,6 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida.' };
   },
 
-  async telegram(v) {
-    const me = await fetchJson(`https://api.telegram.org/bot${v.TELEGRAM_MB_BOT_TOKEN}/getMe`);
-    if (!me.body.ok) return { ok: false, error: 'Token del bot inválido.' };
-    const username = (me.body.result as { username?: string } | undefined)?.username ?? 'bot';
-    if (v.TELEGRAM_MB_CHAT_ID) {
-      const chat = await fetchJson(`https://api.telegram.org/bot${v.TELEGRAM_MB_BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(v.TELEGRAM_MB_CHAT_ID)}`);
-      if (!chat.body.ok) return { ok: false, error: `Bot @${username} OK, pero el chat no responde — ¿le mandaste un mensaje al bot?` };
-    }
-    return { ok: true, detalle: `Bot @${username} conectado.` };
-  },
-
   async youtube(v) {
     const id = v.YOUTUBE_VSL_VIDEO_ID || 'dQw4w9WgXcQ'; // cualquier video público valida la key
     const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(v.YOUTUBE_API_KEY)}`;

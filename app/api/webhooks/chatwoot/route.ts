@@ -3,7 +3,7 @@
 // =============================================================================
 // Cuando un lead manda un mensaje ENTRANTE:
 //   1) pausa su nutrición (pausarPorRespuesta) — no le seguimos mandando secuencia.
-//   2) avisa a Mauricio por Telegram con un link para atender.
+//   2) avisa a Mauricio por el grupo de WhatsApp del dueño (+ feed in-app) con un link para atender.
 //
 // Chatwoot no firma sus webhooks. Opcional: CHATWOOT_WEBHOOK_SECRET → exige
 // ?secret=… en la URL del webhook. Configurá la URL en Chatwoot:
@@ -14,7 +14,6 @@ import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { pausarPorRespuesta } from '@/lib/nutricion';
-import { notificarTelegram } from '@/lib/telegram';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
 
@@ -66,7 +65,7 @@ async function buscarLeadPorTelefono(d: string): Promise<number | null> {
 
 export async function POST(req: NextRequest) {
   // Auth FAIL-CLOSED: este webhook es público y MUTA datos (pausa nutrición,
-  // reescribe pipeline_stage, dispara Telegram), así que exigimos el secret.
+  // reescribe pipeline_stage, dispara avisos), así que exigimos el secret.
   // Sin CHATWOOT_WEBHOOK_SECRET: en prod se rechaza (cerrado antes que abierto);
   // en local/dev se permite para poder testear. Mismo criterio que el gate global.
   const secret = process.env.CHATWOOT_WEBHOOK_SECRET;
@@ -151,16 +150,10 @@ export async function POST(req: NextRequest) {
       console.error(`[webhook:chatwoot] stage manual: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 2) Avisar a Mauricio por Telegram.
+    // 2) Avisar a Mauricio por el grupo de WhatsApp del dueño + feed in-app. Best-effort.
     const base = (process.env.CHATWOOT_BASE_URL || '').replace(/\/$/, '');
     const acc = process.env.CHATWOOT_ACCOUNT_ID || '3';
     const link = convId && base ? `${base}/app/accounts/${acc}/conversations/${convId}` : '';
-    await notificarTelegram(
-      `💬 <b>Nuevo mensaje de WhatsApp</b>\n${nombre}${phone ? ` (${phone})` : ''}\n<i>${content.slice(0, 300)}</i>${link ? `\n${link}` : ''}`,
-    );
-
-    // Además del Telegram: aviso por el grupo de WhatsApp del dueño + feed in-app
-    // (suma el canal, no reemplaza). Best-effort.
     await emitirDelCatalogo('wa-mensaje-entrante', {
       texto: `💬 *Mensaje nuevo* de ${nombre}${phone ? ` (${phone})` : ''}: "${content.slice(0, 200)}".${link ? `\n${link}` : ''}\n— MaKo`,
     });
