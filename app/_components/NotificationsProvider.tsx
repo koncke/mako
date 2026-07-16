@@ -213,11 +213,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const baselineReadyRef = useRef(false); // no notificar hasta tener la línea base
   const tickRef = useRef(0);               // cada N ticks, resync de la lista completa
-  // Contadores para DESACELERAR el poll cuando la pestaña está en segundo plano
-  // (1 de cada 5 ticks). No lo cortamos: el aviso de mensaje nuevo tiene que
-  // llegar igual aunque estés en otra pestaña — solo baja la frecuencia.
-  const ocultoOfRef = useRef(0);
-  const ocultoNoOfRef = useRef(0);
   // Estado de plantillas en Meta: para avisar cuando una se aprueba/rechaza.
   const approvedSnapRef = useRef<Set<string>>(new Set());
   const rejectedSnapRef = useRef<Set<string>>(new Set());
@@ -355,11 +350,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const tick = async () => {
       if (pathRef.current.startsWith('/login')) return; // sin sesión no polleamos
-      // Pestaña oculta → 1 de cada 5 ticks (6s → 30s).
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        ocultoOfRef.current = (ocultoOfRef.current + 1) % 5;
-        if (ocultoOfRef.current !== 0) return;
-      }
       try {
         tickRef.current += 1;
         // Status de plantillas: siembra al 1er tick, después ~cada 30s.
@@ -415,11 +405,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const tick = async () => {
       if (pathRef.current.startsWith('/login')) return;
-      // Pestaña oculta → 1 de cada 5 ticks (12s → 60s).
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
-        ocultoNoOfRef.current = (ocultoNoOfRef.current + 1) % 5;
-        if (ocultoNoOfRef.current !== 0) return;
-      }
       try {
         const r = await fetch('/api/whatsapp/evolution/mensajes?resumen=1');
         const j = await r.json();
