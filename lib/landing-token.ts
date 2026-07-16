@@ -100,7 +100,10 @@ async function espejarSiHaceFalta(token: string, ws: number): Promise<void> {
  * genera solo), así que "tiene token" no prueba nada. Que haya llegado un
  * pageview sí prueba que el código está pegado y el ruteo funciona.
  *
- * Barato: 1 fila con LIMIT 1 sobre un índice, sin COUNT.
+ * Barato: 1 fila con LIMIT 1 sobre un índice, sin COUNT y sin ORDER. Lo corre
+ * CADA carga de /integraciones (el semáforo del board) → se mantiene así de
+ * chico a propósito. Si además necesitás CUÁNDO fue el último evento, usá
+ * landingUltimoEvento(), que ordena y es a demanda.
  */
 export async function landingRecibioEventos(): Promise<boolean> {
   try {
@@ -114,6 +117,37 @@ export async function landingRecibioEventos(): Promise<boolean> {
   } catch (err) {
     console.error(`[landing-token] chequeo de eventos error: ${err instanceof Error ? err.message : String(err)}`);
     return false;
+  }
+}
+
+/** Resultado del "Verificar" de la landing: si llegó algo y cuándo fue lo último. */
+export type LandingEstado = { recibio: boolean; ultima: string | null };
+
+/**
+ * Igual que landingRecibioEventos pero devolviendo la fecha del ÚLTIMO evento,
+ * para que el "Verificar" del modal pueda decir "recibiendo eventos (última hace
+ * X)" en vez de un sí/no pelado.
+ *
+ * Va aparte porque ordena (ORDER BY created_at DESC LIMIT 1) y esto se pide a
+ * demanda —cuando el usuario toca el botón—, no en cada render del board.
+ */
+export async function landingUltimoEvento(): Promise<LandingEstado> {
+  try {
+    const supabase = await getTenantDb(); // scopea landing_visits por workspace
+    const { data, error } = await supabase
+      .from('landing_visits')
+      .select('created_at')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (error) {
+      console.error(`[landing-token] último evento falló: ${error.message}`);
+      return { recibio: false, ultima: null };
+    }
+    const ultima = (data?.[0] as { created_at?: string } | undefined)?.created_at ?? null;
+    return { recibio: ultima != null, ultima };
+  } catch (err) {
+    console.error(`[landing-token] último evento error: ${err instanceof Error ? err.message : String(err)}`);
+    return { recibio: false, ultima: null };
   }
 }
 

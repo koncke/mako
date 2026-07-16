@@ -44,10 +44,9 @@ type Servicio = {
   campos: Campo[];
 };
 
-const input: CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)',
-  background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13.5, outline: 'none',
-};
+// Los inputs usan .mako-field (app/globals.css), el campo minimalista del
+// onboarding: relleno suave, sin borde duro y anillo sutil al foco. Es EL estilo
+// de campo de MaKo — no se reinventa acá con estilos en línea.
 const btnGhost: CSSProperties = {
   padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -323,7 +322,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
               </div>
             ) : (
               <input
-                style={input}
+                className="mako-field"
                 type={campo.secreto ? 'password' : 'text'}
                 value={valores[campo.env] ?? ''}
                 placeholder={guardada ? `••••${campo.mask} — guardada` : (campo.placeholder ?? '')}

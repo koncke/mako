@@ -200,9 +200,13 @@ export async function listarCredenciales(ws: number): Promise<CredencialMeta[]> 
 }
 
 /**
- * Hidrata al process.env global SOLO las credenciales del workspace dueño.
- * Corre en instrumentation.ts (boot). Los tokens de los clientes NUNCA tocan
- * el process.env global: se resuelven por-request con credWs().
+ * Boot (instrumentation.ts). Hace los DOS sentidos, en este orden:
+ *   1. base → process.env: hidrata SOLO las credenciales del workspace dueño,
+ *      para que las ~70 libs que leen env vean lo mismo que credWs.
+ *   2. process.env → base: `migrarEnvACredenciales()` copia lo que todavía viva
+ *      solo en el entorno del dueño (ver ahí).
+ * Los tokens de los clientes NUNCA tocan el process.env global: se resuelven
+ * por-request con credWs().
  */
 export async function hidratarCredenciales(): Promise<void> {
   if (!supabaseConfigurado()) return;

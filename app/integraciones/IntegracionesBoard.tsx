@@ -477,17 +477,98 @@ const closeBtn: CSSProperties = { flex: 'none', width: 30, height: 30, border: '
 // WordPress, HTML plano). No le pedimos credenciales de nada: le damos SU
 // <script> con su token embebido y que lo pegue. Mismo estilo minimalista que el
 // wizard de ServicioConfigForm (una instrucción + un bloque + el desplegable).
-const DONDE_PEGAR = [
-  'Copiá el código de acá arriba.',
-  'Abrí tu landing y pegalo justo antes de </body>, en todas las páginas que quieras medir.',
-  'En Lovable: pedile "pegá este script antes del </body>". En Framer: Settings → Custom Code → End of <body>. En Webflow: Project Settings → Custom Code → Footer Code. En WordPress: un plugin de "insert headers and footers" (footer). En HTML plano: antes del </body>.',
-  'Publicá los cambios y entrá a tu landing una vez. En cuanto llegue la primera visita, esta integración se pone en verde.',
+// Los pasos son una secuencia; las plataformas son ALTERNATIVAS del paso 2 (una
+// línea por plataforma, no una oración corrida con todas adentro).
+type PasoPegar = { paso: string; plataformas?: Array<[string, string]> };
+const DONDE_PEGAR: PasoPegar[] = [
+  { paso: 'Copiá el código de acá arriba.' },
+  {
+    paso: 'Abrí tu landing y pegalo justo antes de </body>, en todas las páginas que quieras medir.',
+    plataformas: [
+      ['Lovable, Claude Code, o cualquier editor web por prompt', 'pedile "pegá este script antes del </body>".'],
+      ['Framer', 'Settings → Custom Code → End of <body>.'],
+      ['Webflow', 'Project Settings → Custom Code → Footer Code.'],
+      ['WordPress', 'un plugin de "insert headers and footers" (footer).'],
+      ['HTML plano', 'antes del </body>.'],
+    ],
+  },
+  { paso: 'Publicá los cambios y entrá a tu landing una vez. En cuanto llegue la primera visita, esta integración se pone en verde.' },
 ];
+
+// ── Resaltador de código mínimo, propio (sin dependencias) ───────────────────
+// Un scanner de UNA pasada sobre el <script>: tags, atributos, strings,
+// comentarios, palabras clave y números; todo lo demás cae al color base. No es
+// un parser de JS y no pretende serlo — alcanza para que el bloque se reconozca
+// como CÓDIGO al toque. Va sobre el oscuro nativo del repo (el de la sidebar),
+// que ya convive con el resto de la UI clara.
+const CODE = {
+  bg: 'var(--sidebar)',
+  bd: 'var(--sidebar-2)',
+  base: 'var(--on-sidebar)',
+  com: 'var(--sidebar-text)',
+  num: 'var(--accent-soft)',
+  tag: '#7EE787',
+  attr: '#9DBBF5',
+  str: '#A5D6FF',
+  kw: '#FF9492',
+};
+
+const RE_CODE = new RegExp([
+  '(<\\/?[A-Za-z][\\w-]*)',                                  // 1 apertura de tag: <script, </script
+  '(\\/?>)',                                                 // 2 cierre de tag (solo cuenta dentro de un tag)
+  '(\\/\\/[^\\n]*)',                                         // 3 comentario de línea
+  '(\'(?:[^\'\\\\\\n]|\\\\.)*\'|"(?:[^"\\\\\\n]|\\\\.)*")',  // 4 string
+  '\\b(var|function|return|if|else|for|while|new|try|catch|typeof|instanceof|void|true|false|null)\\b', // 5 palabra clave
+  '\\b(\\d+(?:\\.\\d+)?)\\b',                                // 6 número
+  '([A-Za-z_$][\\w$]*)',                                     // 7 identificador (dentro de un tag = atributo)
+].join('|'), 'g');
+
+function resaltar(code: string): Array<{ t: string; c: string }> {
+  const out: Array<{ t: string; c: string }> = [];
+  const push = (t: string, c: string) => { if (t) out.push({ t, c }); };
+  let last = 0;
+  let enTag = false; // dentro de <script …> los identificadores son atributos
+  RE_CODE.lastIndex = 0;
+  for (let m = RE_CODE.exec(code); m; m = RE_CODE.exec(code)) {
+    push(code.slice(last, m.index), CODE.base); // espacios y puntuación
+    if (m[1]) { enTag = true; push(m[1], CODE.tag); }
+    // Un '>' suelto es una comparación (h >= 5), no el cierre de un tag.
+    else if (m[2]) { if (enTag) { enTag = false; push(m[2], CODE.tag); } else push(m[2], CODE.base); }
+    else if (m[3]) push(m[3], CODE.com);
+    else if (m[4]) push(m[4], CODE.str);
+    else if (m[5]) push(m[5], enTag ? CODE.attr : CODE.kw);
+    else if (m[6]) push(m[6], CODE.num);
+    else push(m[7], enTag ? CODE.attr : CODE.base);
+    last = m.index + m[0].length;
+  }
+  push(code.slice(last), CODE.base);
+  return out;
+}
 
 function CodigoLanding({ snippet }: { snippet: string | null }) {
   const [copiado, setCopiado] = useState(false);
   const [errorCopia, setErrorCopia] = useState(false);
   const [abierto, setAbierto] = useState(false);
+  const [verificando, setVerificando] = useState(false);
+  const [estado, setEstado] = useState<{ ok: boolean; text: string } | null>(null);
+  const tokens = useMemo(() => (snippet ? resaltar(snippet) : []), [snippet]);
+
+  // "Verificar" = el "Probar conexión" de la landing. No hay API ajena contra la
+  // cual probar: la única prueba honesta es que ya hayan llegado eventos.
+  const verificar = async () => {
+    setVerificando(true); setEstado(null);
+    try {
+      const j = await (await fetch('/api/integraciones/landing/estado')).json();
+      if (j?.ok) {
+        setEstado(j.recibio
+          ? { ok: true, text: `Recibiendo eventos${j.ultima ? ` (última hace ${fmtDuracion(j.ultima, new Date().toISOString())})` : ''}.` }
+          : { ok: false, text: 'Todavía no llegó ningún evento — pegá el código en tu landing y recargala.' });
+      } else {
+        setEstado({ ok: false, text: j?.error === 'solo admin' ? 'Necesitás ser admin para verificar esta integración.' : (j?.error ?? 'No se pudo verificar.') });
+      }
+    } catch { setEstado({ ok: false, text: 'No se pudo verificar. Revisá tu conexión y probá de nuevo.' }); }
+    finally { setVerificando(false); }
+  };
 
   const copiar = async () => {
     if (!snippet) return;
@@ -512,17 +593,14 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-      <div>
-        <h4 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
-          Pegá este código en tu landing
-        </h4>
-        <p style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5, margin: '7px 0 0' }}>
-          Ya trae tu identificador adentro. No hay nada que configurar: sirva donde sirva tu landing, pegalo antes de <code style={{ fontFamily: MONO, fontSize: 11.5 }}>&lt;/body&gt;</code> y listo.
-        </p>
-      </div>
+      <h4 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
+        Pegá este código en tu landing
+      </h4>
 
-      <pre style={{ margin: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', maxHeight: 190, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.55, color: 'var(--dim)', whiteSpace: 'pre', userSelect: 'all' }}>
-        {snippet}
+      <pre style={{ margin: 0, minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '13px 15px', maxHeight: 210, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre', userSelect: 'all' }}>
+        <code style={{ fontFamily: MONO }}>
+          {tokens.map((tk, n) => <span key={n} style={{ color: tk.c }}>{tk.t}</span>)}
+        </code>
       </pre>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
@@ -530,9 +608,18 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
           style={{ padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
           {copiado ? '¡Copiado!' : 'Copiar código'}
         </button>
-        {copiado && <span style={{ fontSize: 12.5, color: 'var(--good)', fontWeight: 600 }}>Pegalo antes de &lt;/body&gt; ✓</span>}
+        <button type="button" onClick={verificar} disabled={verificando}
+          style={{ padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: verificando ? 'default' : 'pointer', opacity: verificando ? 0.6 : 1 }}>
+          {verificando ? 'Verificando…' : 'Verificar'}
+        </button>
         {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — seleccionalo y copialo a mano.</span>}
       </div>
+
+      {estado && (
+        <div style={{ fontSize: 12.5, fontWeight: 500, color: estado.ok ? 'var(--good)' : 'var(--bad)', lineHeight: 1.45 }}>
+          {estado.ok ? '✓' : '✗'} {estado.text}
+        </div>
+      )}
 
       {/* ¿Dónde lo pego? — mismo desplegable que "¿Cómo consigo esto?" del wizard */}
       <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -547,7 +634,18 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
               {DONDE_PEGAR.map((p, n) => (
                 <li key={n} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
                   <span style={{ flex: 'none', width: 20, height: 20, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }}>{n + 1}</span>
-                  <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p.paso}</span>
+                    {p.plataformas && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
+                        {p.plataformas.map(([donde, como]) => (
+                          <div key={donde} style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.45 }}>
+                            <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{donde}:</span> {como}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </li>
               ))}
             </ol>
@@ -619,11 +717,10 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
   } else if (i.key === 'google') {
     // El OAuth de Google Calendar es un redirect en la MISMA pestaña.
     actions.push({ label: 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
-  } else if (i.key === 'landing') {
-    line = i.estado === 'conectada'
-      ? 'Tu landing está mandando eventos: las visitas y la retención del VSL caen en este workspace.'
-      : 'Todavía no llegó ningún evento. Pegá el código de abajo en tu landing y entrá una vez para verlo en verde.';
   }
+  // La landing se queda con su descripción del catálogo: el estado en vivo
+  // ("recibiendo eventos" / "todavía no llegó nada") lo dice el botón Verificar,
+  // no un párrafo que repita lo mismo.
 
   // La landing no se configura con credenciales: se configura copiando un código.
   const esLanding = i.key === 'landing';
@@ -631,7 +728,7 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
   return (
     <ModalShell w={500} label={i.nombre} onClose={onClose}>
       <div style={{ padding: '26px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 11 }}>
           <SvcIcon k={i.key} box={44} radius={12} size={25} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h3 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.014em', margin: 0, color: 'var(--ink)' }}>{i.nombre}</h3>
@@ -641,10 +738,13 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
           <button onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 15 }}>
-          {mako && <span style={{ marginTop: 3 }}><Spark /></span>}
-          <p style={{ margin: 0, fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.5, fontWeight: mako ? 600 : 400 }}>{line}</p>
-        </div>
+        {/* La descripción es una línea SUTIL bajo el título, no un apartado con caja. */}
+        {line && (
+          <p style={{ display: 'flex', alignItems: 'flex-start', gap: 7, margin: '0 0 16px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
+            {mako && <span style={{ flex: 'none', marginTop: 2 }}><Spark size={12} /></span>}
+            <span>{line}</span>
+          </p>
+        )}
 
         {facts.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 9, marginBottom: 15 }}>
