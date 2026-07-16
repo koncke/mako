@@ -55,6 +55,23 @@ function claveCifrado(): Buffer | null {
   return crypto.createHash('sha256').update(sec).digest();
 }
 
+/**
+ * Cifrado de secretos que NO viven en la tabla `credenciales` pero merecen el
+ * mismo trato: hoy el refresh_token de Google Calendar, que va en app_settings
+ * (lib/google-calendar.ts). Exportados a propósito para que no exista la excusa
+ * de guardar un token en claro "porque está en otra tabla".
+ * Mismo formato `gcm1.iv.tag.cuerpo` y misma clave que el resto.
+ */
+export function cifrarSecreto(valor: string): string {
+  return cifrar(valor);
+}
+export function descifrarSecreto(valorEnc: string): string | null {
+  // Compat: lo guardado ANTES de cifrar esto quedó en claro. Si no tiene el
+  // prefijo del formato, es un valor viejo → se devuelve tal cual en vez de
+  // romper la integración de quien ya lo tenía conectado.
+  return valorEnc.startsWith('gcm1.') ? descifrar(valorEnc) : valorEnc;
+}
+
 function cifrar(valor: string): string {
   const key = claveCifrado();
   if (!key) throw new Error('credenciales: sin secret de cifrado (CREDENCIALES_SECRET / AUTH_COOKIE_VALUE)');

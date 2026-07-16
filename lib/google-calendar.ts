@@ -7,6 +7,7 @@
 // es global del dueño (como Chatwoot/Fathom), guardada en app_settings.
 
 import 'server-only';
+import { cifrarSecreto, descifrarSecreto } from './credenciales';
 import { getSetting, setSetting } from './settings';
 
 export const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -33,8 +34,12 @@ export function googleRedirectUri(origin: string): string {
   return `${base}/api/integraciones/google-calendar/callback`;
 }
 
+// El refresh_token es una credencial de larga vida (acceso a la agenda del
+// cliente) y app_settings no cifra nada: sin esto quedaba EN CLARO en la base, a
+// un SELECT de distancia, mientras el resto de las llaves van cifradas. El email
+// sí va en claro: es un identificador, no un secreto (y se muestra en la UI).
 export async function guardarRefreshTokenGoogle(rt: string, email?: string | null): Promise<void> {
-  await setSetting(TOKEN_KEY, rt);
+  await setSetting(TOKEN_KEY, cifrarSecreto(rt));
   if (email?.trim()) await setSetting(EMAIL_KEY, email.trim());
 }
 export async function desconectarGoogleCalendar(): Promise<void> {
@@ -71,7 +76,8 @@ export async function googleCalendarConectado(): Promise<boolean> {
 
 // refresh_token → access_token (corto). null si no está conectado o falla.
 async function accessTokenGoogle(): Promise<string | null> {
-  const rt = (await getSetting(TOKEN_KEY))?.trim();
+  const guardado = (await getSetting(TOKEN_KEY))?.trim();
+  const rt = guardado ? descifrarSecreto(guardado)?.trim() : null;
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!rt || !clientId || !clientSecret) return null;

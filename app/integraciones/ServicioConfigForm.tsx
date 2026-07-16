@@ -61,6 +61,17 @@ type Msg = { ok: boolean; text: string };
 
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
+// Solo los campos con valor tipeado: un input vacío sobre una guardada significa
+// "no la toques", nunca "borrala".
+function tipeados(campos: Campo[], valores: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const c of campos) {
+    const v = (valores[c.env] ?? '').trim();
+    if (v) out[c.env] = v;
+  }
+  return out;
+}
+
 function calcConectada(campos: Campo[]): boolean {
   const requeridos = campos.filter((c) => !c.opcional);
   return requeridos.length ? requeridos.every((c) => c.configurado) : campos.some((c) => c.configurado);
@@ -165,9 +176,9 @@ function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () 
           se vuelve a tapar a los 30 segundos.
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>Quién puede verlas.</span> Vos, como admin de tu espacio. Un closer o un setter recibe un
-          403. El equipo de MaKo también puede, desde administración de la plataforma. Cada vez que alguien mira una
-          llave queda registrado.
+          <span style={b}>Solo vos las ves.</span> El ojito se lo habilitamos únicamente al admin de este espacio:
+          un closer, un setter o alguien de otro espacio reciben un 403, y el soporte de MaKo tampoco puede
+          destaparlas desde el panel. Cada vez que se mira una llave queda registrado.
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
           <span style={b}>Son tuyas.</span> Cada espacio de trabajo tiene su propia fila, y las borrás cuando
@@ -309,6 +320,17 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
     finally { setProbando(null); }
   };
 
+  /**
+   * El tilde NO es solo "guardar": primero prueba la credencial contra el
+   * proveedor y, si no funciona, NO la guarda. Una key rota no entra: el usuario
+   * no tiene que acordarse de apretar otro botón para enterarse.
+   *
+   * Con una salvedad honesta: el ping es del SERVICIO, no del campo. Si todavía
+   * faltan otros campos obligatorios no hay contra qué probar —Meta pide token
+   * Y cuenta— así que se guarda igual y se dice qué falta para poder probarla.
+   * Sin esto, la primera key de un servicio de varios campos sería imposible de
+   * guardar: siempre fallaría por culpa de las que todavía no cargaste.
+   */
   const guardarCampo = async (env: string) => {
     if (!servicio) return;
     const v = (valores[env] ?? '').trim();
@@ -316,6 +338,26 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
     const n = ++seq.current;
     setGuardando(env); ponerMsg(env, null);
     try {
+      const enviados = tipeados(servicio.campos, valores);
+      const faltan = servicio.campos.filter((c) => !c.opcional && !c.configurado && !enviados[c.env]);
+      // Espejo del guard anti-SSRF de lib/metodo-verificar.ts: si el host lo trae
+      // el request y algún secreto sale de la base, ese ping se rechaza. No es que
+      // la key esté mal — no se puede probar todavía.
+      const hostTipeado = servicio.campos.some((c) => c.host && enviados[c.env]);
+      const secretoGuardado = servicio.campos.some((c) => c.secreto && !enviados[c.env] && c.configurado);
+      const motivoSinProbar = faltan.length
+        ? `Falta ${faltan.map((c) => c.label).join(', ')} para poder probarla.`
+        : (hostTipeado && secretoGuardado ? 'Para probarla con una URL nueva, volvé a pegar también las credenciales secretas.' : null);
+
+      if (!motivoSinProbar) {
+        const p = await fetch('/api/integraciones/credencial', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verificar', servicio: servicio.key, valores: enviados }),
+        }).then((r) => r.json());
+        // No funciona → no se guarda. Es el punto de que el tilde valide.
+        if (!p.ok) { ponerMsg(env, { ok: false, text: `${p.error ?? 'No se pudo validar.'} No la guardé.` }); return; }
+      }
+
       const j = await fetch('/api/integraciones/credencial', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'guardar', servicio: servicio.key, valores: { [env]: v } }),
@@ -323,7 +365,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
       if (j.ok && j.servicio) {
         aplicar(j.servicio as Servicio, n);
         setValores((val) => { const nv = { ...val }; delete nv[env]; return nv; });
-        ponerMsg(env, { ok: true, text: 'Guardada.' });
+        ponerMsg(env, { ok: true, text: motivoSinProbar ? `Guardada. ${motivoSinProbar}` : 'Guardada y probada — funciona.' });
       } else ponerMsg(env, { ok: false, text: j.error ?? 'No se pudo guardar.' });
     } catch { ponerMsg(env, { ok: false, text: 'No se pudo guardar. Probá de nuevo.' }); }
     finally { setGuardando(null); }
@@ -409,7 +451,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
 
                 {/* Qué botones tiene cada estado:
                     · guardada       → ver · probar · quitar
-                    · algo tipeado   → ayuda · guardar · probar
+                    · algo tipeado   → ayuda · guardar (el tilde YA prueba antes
+                                       de guardar, así que un "probar" aparte
+                                       sobra y confunde)
                     · vacía          → ayuda, y nada más: sin key no hay nada que
                                        guardar ni que probar. */}
                 {cerrada ? (
@@ -426,10 +470,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
                       tone={ayudaAbierta[c.env] ? 'primary' : 'dim'}
                       onClick={() => setAyudaAbierta((a) => ({ ...a, [c.env]: !a[c.env] }))} />
                     {tipeado && (
-                      <>
-                        <IconBtn name="check" title={guardando === c.env ? 'Guardando…' : 'Guardar esta credencial'} tone="good" disabled={ocupada} onClick={() => guardarCampo(c.env)} />
-                        <IconBtn name="plug" title={probando === c.env ? 'Probando conexión…' : 'Probar conexión'} disabled={ocupada} onClick={() => probar(c.env)} />
-                      </>
+                      <IconBtn name="check" title={guardando === c.env ? 'Probando y guardando…' : 'Probar y guardar esta credencial'} tone="good" disabled={ocupada} onClick={() => guardarCampo(c.env)} />
                     )}
                   </>
                 )}

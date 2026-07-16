@@ -61,6 +61,27 @@ function autorDe(sesion: Awaited<ReturnType<typeof getUsuarioActual>>): string |
   return sesion.legacy ? sesion.sub : (sesion.email || sesion.sub);
 }
 
+/**
+ * Guard EXTRA solo para 'revelar' (BYOK): ver una credencial en claro queda
+ * reservado al admin del PROPIO workspace. La agencia no, ni impersonando.
+ *
+ * Por qué no alcanza el guard general: getRolWsEfectivo() devuelve 'admin' para
+ * cualquiera con rol global 'admin' ANTES de mirar su rol_ws real
+ * (lib/workspace.ts), y getWorkspaceActual() devuelve el ws impersonado. O sea
+ * que "es admin de este workspace" da true para la agencia y no filtra nada.
+ * El discriminante duro es `sesion.rol`: 'admin' = agencia; el cliente es
+ * 'usuario' con su ws propio en `sesion.ws`. Las sesiones legacy/break-glass
+ * (contraseña maestra, dev-login) tampoco pasan: no son de nadie en particular.
+ *
+ * Escribir SÍ sigue permitido a la agencia (configurar integraciones en el
+ * onboarding es parte del laburo). Lo que se cierra es la LECTURA.
+ */
+function puedeRevelar(sesion: NonNullable<Awaited<ReturnType<typeof getUsuarioActual>>>, ws: number): boolean {
+  if (sesion.legacy || sesion.rol === 'admin') return false;
+  if (sesion.ws == null || sesion.ws !== ws) return false;
+  return (sesion.rolWs ?? 'admin') === 'admin';
+}
+
 // Estado de un servicio (catálogo + estado por campo) para el ws objetivo.
 async function estadoServicio(servicioKey: string, ws: number) {
   const s = servicioMetodo(servicioKey);
@@ -157,6 +178,12 @@ export async function POST(req: NextRequest) {
     if (body.action === 'revelar') {
       const env = body.env ?? '';
       if (!ENVS_METODO.has(env)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
+      // getUsuarioActual está cacheada por request: volver a pedirla no cuesta.
+      const sesion = await getUsuarioActual();
+      if (!sesion || !puedeRevelar(sesion, ctx.ws)) {
+        console.warn(`[credenciales] ${ctx.autor ?? 'desconocido'} intentó revelar ${env} del workspace ${ctx.ws} y NO es admin de ese workspace.`);
+        return NextResponse.json({ ok: false, error: 'Solo el admin de este espacio puede ver una credencial.' }, { status: 403 });
+      }
       const valor = await credWs(env, ctx.ws);
       if (!valor) return NextResponse.json({ ok: false, error: 'sin credencial guardada' }, { status: 404 });
       // Rastro de auditoría: quién miró qué secreto y de qué workspace. Sin el

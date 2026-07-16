@@ -815,23 +815,27 @@ const SLIDES: Record<string, Slide[]> = {
 // hacia MaKo. El desfase de la de vuelta evita que marchen en espejo perfecto.
 function EnlaceMaKo({ k, nombre }: { k: string; nombre: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 22 }}
       role="img" aria-label={`MaKo intercambia datos con ${nombre}`}>
       <MakoLogo size={40} />
-      {/* viewBox ancho y `meet`: si el aside se estira (apilado) el enlace se
-          centra en vez de deformarse y quedar con flechas ovaladas. */}
-      <svg viewBox="0 0 200 34" width="100%" height="34" style={{ flex: 1, minWidth: 0 }} aria-hidden focusable="false">
-        <path className="mk-enlace-linea" d="M4 12 H186" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <path d="M193 12 l-7 -4 v8 z" fill="var(--accent)" />
-        <path className="mk-enlace-linea" style={{ animationDelay: '-.45s' }} d="M196 24 H14" stroke="var(--sidebar-text)" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <path d="M7 24 l7 -4 v8 z" fill="var(--sidebar-text)" />
+      {/* Tramo corto y de ancho FIJO: los dos logos tienen que leerse como un par,
+          no como dos cosas lejanas unidas por un cable. Por eso no va flex:1. */}
+      <svg viewBox="0 0 96 34" width="96" height="34" style={{ flex: 'none' }} aria-hidden focusable="false">
+        <path className="mk-enlace-linea" d="M3 12 H83" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M92 12 l-8 -4.5 v9 z" fill="var(--accent)" />
+        <path className="mk-enlace-linea" style={{ animationDelay: '-.45s' }} d="M93 24 H13" stroke="var(--sidebar-text)" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M4 24 l8 -4.5 v9 z" fill="var(--sidebar-text)" />
       </svg>
       <SvcIcon k={k} box={40} radius={11} size={23} />
     </div>
   );
 }
 
-function Carrusel({ slides }: { slides: Slide[] }) {
+// `arriba` va DENTRO del bloque centrado, no antes: así el enlace MaKo⇄servicio
+// queda a media altura del panel junto al texto que acompaña, en vez de pegado
+// al techo. Queda fuera del div con key={n} para que no se re-monte (y vuelva a
+// hacer el fade) en cada slide.
+function Carrusel({ slides, arriba }: { slides: Slide[]; arriba?: ReactNode }) {
   const [n, setN] = useState(0);
   const [pausa, setPausa] = useState(false);
   const total = slides.length;
@@ -852,6 +856,7 @@ function Carrusel({ slides }: { slides: Slide[] }) {
       {/* El min-height va en .mk-svc-carrusel (globals.css), no acá: inline le
           ganaría al min-height:0 del modo apilado y lo volvería letra muerta. */}
       <div className="mk-svc-carrusel" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        {arriba}
         {/* key={n} → se remonta y vuelve a correr el fade en cada slide */}
         <div key={n} style={{ animation: 'mkFade .5s ease' }}>
           <h4 style={{ margin: 0, fontWeight: 600, fontSize: 17, letterSpacing: '-0.018em', lineHeight: 1.25, color: 'var(--on-sidebar)' }}>{s.t}</h4>
@@ -947,14 +952,12 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
       <div className="mk-svc-modal">
         {/* ═══ IZQUIERDA (negra) · qué vas a poder hacer ═══ */}
         <aside className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: '26px 24px', minWidth: 0, minHeight: 0 }}>
-          <EnlaceMaKo k={i.key} nombre={i.nombre} />
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <MakoStar size={14} color="var(--accent)" />
             <span style={{ ...capMono, fontSize: 10, letterSpacing: '.12em', color: 'var(--sidebar-text)' }}>Con {i.nombre} conectado</span>
           </div>
 
-          <Carrusel slides={slides} />
+          <Carrusel slides={slides} arriba={<EnlaceMaKo k={i.key} nombre={i.nombre} />} />
         </aside>
 
         {/* ═══ DERECHA · toda la configuración ═══
