@@ -18,6 +18,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { MakoStar } from '../_components/MakoBrand';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
+import { servicioMetodo } from '@/lib/metodo-catalogo';
+import ServicioConfigForm from './ServicioConfigForm';
 
 const MONO = "'Geist Mono', monospace";
 
@@ -472,6 +474,12 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
     : { bg: 'var(--bad-bg)', fg: 'var(--bad)', word: 'Requiere atención' };
 
+  // BYOK: si el servicio está en el catálogo de /metodo y NO es soloServidor,
+  // embebemos el form de pegar/guardar/probar (reemplaza la lista de envs crudos).
+  // Los soloServidor (Supabase) y los servicios sin catálogo quedan informativos.
+  const catalogo = servicioMetodo(i.key);
+  const mostrarForm = !!catalogo && !catalogo.soloServidor;
+
   // Facts + acciones por servicio.
   let mako = false;
   let line = i.descripcion;
@@ -550,7 +558,11 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
           </div>
         )}
 
-        {i.estado === 'falta' && (
+        {mostrarForm ? (
+          <div style={{ marginBottom: 15 }}>
+            <ServicioConfigForm servicioKey={i.key} />
+          </div>
+        ) : i.estado === 'falta' && (
           <div style={{ marginBottom: 15 }}>
             <div style={{ ...capMono, fontSize: 10, letterSpacing: '.08em', marginBottom: 7 }}>Falta configurar</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
