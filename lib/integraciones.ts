@@ -8,6 +8,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
+import { landingRecibioEventos } from './landing-token';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -40,12 +41,30 @@ const DEFS: Def[] = [
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
   { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
   { key: 'supabase', nombre: 'Base de datos (Supabase)', categoria: 'Datos', descripcion: 'Almacena leads, métricas y configuración.', envs: ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'], global: true },
+  // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
+  // estadoLanding). El usuario no pega credenciales: copia un <script> con su
+  // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).
+  { key: 'landing', nombre: 'Landing / VSL', categoria: 'Datos', descripcion: 'Mide visitas y retención del VSL desde tu landing, esté donde esté.', envs: [] },
 ];
 
 const envGlobalReal = (k: string) => Boolean(process.env[k] && String(process.env[k]).trim());
 
+// Landing: no hay env que chequear. La señal HONESTA de "conectada" es que YA
+// hayan llegado eventos de esa landing: el token se autogenera para todos al
+// abrir /integraciones, así que "tiene token" no probaría nada. Un pageview
+// recibido sí prueba que el código está pegado y que el ruteo funciona.
+async function estadoLanding(): Promise<Pick<Integracion, 'estado' | 'detalle'>> {
+  const activa = await landingRecibioEventos();
+  return activa
+    ? { estado: 'conectada', detalle: 'Recibiendo eventos de tu landing.' }
+    : { estado: 'falta', detalle: 'Pegá el código en tu landing para empezar a medir.' };
+}
+
 export async function getIntegraciones(): Promise<Integracion[]> {
   return Promise.all(DEFS.map(async (d) => {
+    if (d.key === 'landing') {
+      return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
+    }
     // Servicios de plataforma: se evalúan contra el env global (agencia).
     // Per-cliente: contra las credenciales del workspace actual.
     const faltan: string[] = [];

@@ -8,6 +8,8 @@ import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
+import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
+import { getWorkspaceActual } from '@/lib/workspace';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 
@@ -41,12 +43,20 @@ export default async function IntegracionesPage() {
   await reconciliarIncidentes(problemas, scope);
   const incidentes: Incidente[] = await getIncidentes(30);
 
+  // Código copiable de la landing. El token NO es secreto (va en el HTML de una
+  // página pública, como cualquier pixel): solo identifica al workspace, así que
+  // se resuelve acá y baja como prop. Idempotente: se genera la primera vez.
+  // Sin workspace (admin de agencia sin impersonar) no hay landing que medir.
+  const ws = await getWorkspaceActual();
+  const snippetLanding = ws == null ? null : landingSnippet(await getOrCreateLandingToken(ws));
+
   return (
     <IntegracionesBoard
       integraciones={integraciones}
       health={health}
       metaError={metaError}
       incidentes={incidentes}
+      snippetLanding={snippetLanding}
     />
   );
 }

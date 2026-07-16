@@ -1,128 +1,71 @@
-# Snippet de tracking para la landing (Lovable)
+# Snippet de tracking para la landing
 
-Reemplaza **todo** el código de tracking actual de la landing por este bloque.
-Pegalo una sola vez, al final del `<body>` (o como script global del proyecto
-en Lovable). Es autosuficiente: crea la cookie del visitante, manda la visita
-y escucha al player de Panda.
+> **El snippet ya no se copia de acá.** Vive en la app, con el token de cada
+> workspace embebido: **/integraciones → Landing / VSL → "Copiar código"**.
+> Pegalo antes de `</body>` en tu landing (Lovable, Framer, Webflow, WordPress,
+> HTML plano — da igual). Este documento explica cómo funciona por dentro.
 
-Qué agrega sobre la versión anterior:
+## Por qué hay un token
 
-- **pageview** con `landing_url` (URL exacta → pruebas A/B de landing) y `referrer`.
-- **video_id + vsl_titulo** en cada evento del VSL (pruebas A/B de VSL en la
-  misma landing; el título se lee del atributo `title` del iframe de Panda).
-- **exit** con el % exacto donde estaba el video al salir (no el máximo visto).
-- Camino 1 (`?l=<token>` del link de WhatsApp) se sigue mandando igual.
-- Usa `fetch(..., { keepalive: true })` en vez de `sendBeacon` para que el JSON
-  pase CORS y el evento de salida no se pierda.
+El beacon (`POST /api/track/vsl`) llega **sin sesión**: es un `<script>` en una
+página pública. La única pista de a qué cliente pertenece cada evento es un
+identificador en claro dentro del payload. Ese identificador es el campo `t`:
+el **token público de landing** del workspace (`mko_` + 32 hex).
 
-Único paso manual: poné el dominio real del dashboard en `ENDPOINT`.
+- Se guarda en `app_settings.landing_token` (por workspace) y se espeja a
+  `webhook_routing('landing', <token>, <ws>)` — el mismo índice de plataforma
+  que usan los webhooks de Meta / Chatwoot / Calendly / Fathom.
+- El beacon resuelve `wsPorIdentificador('landing', t)` y escribe **todo**
+  (`landing_visits`, `vsl_events`, el stamp del Camino 1) dentro de
+  `runWithWorkspace(ws)`.
+- **NO es un secreto**: viaja en el HTML de una página pública, como cualquier
+  pixel. Solo *identifica* al workspace; no autoriza a leer nada.
 
-```html
-<script>
-(function () {
-  var ENDPOINT = 'https://TU-DOMINIO/api/track/vsl'; // ← dominio del dashboard (Vercel)
+## Fail-closed
 
-  // ── visitor_id persistente (cookie de 1 año) ──────────────────────────────
-  function getCookie(name) {
-    var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-    return m ? decodeURIComponent(m[1]) : null;
-  }
-  var visitorId = getCookie('nqe_visitor_id');
-  if (!visitorId) {
-    visitorId = (window.crypto && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : String(Date.now()) + '-' + Math.random().toString(36).slice(2);
-    document.cookie = 'nqe_visitor_id=' + visitorId + '; max-age=31536000; path=/; SameSite=Lax';
-  }
+Un beacon **sin token**, o con un token que no resuelve, **no escribe nada**:
+responde `200 {ok:true, ignored:'sin workspace'}` y loguea un `console.warn`.
+Responde 200 a propósito — un fallo de tracking nunca debe romper la landing del
+cliente.
 
-  // Camino 1: token de identidad del link de WhatsApp (?l=<meta_lead_id>)
-  var leadToken = new URLSearchParams(location.search).get('l') || null;
+Antes de esto, el beacon caía a `getTenantDb()` sin sesión → workspace del dueño
+(ws 1), y con más de un cliente la analítica de landing de **todos** se mezclaba
+ahí. Un token que no resuelve **nunca** cae al dueño: sería exactamente el
+misrouteo que esto vino a arreglar.
 
-  function enviar(data) {
-    data.visitor_id = visitorId;
-    if (leadToken) data.l = leadToken;
-    try {
-      fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        keepalive: true, // sobrevive a la navegación (evento exit)
-      }).catch(function () {});
-    } catch (e) { /* el tracking nunca rompe la landing */ }
-  }
+### Migración de una landing con el snippet viejo
 
-  // ── pageview: URL exacta (multi-landing) + referrer ───────────────────────
-  enviar({
-    tipo_evento: 'pageview',
-    landing_url: location.href,
-    referrer: document.referrer || null,
-  });
+El snippet anterior (el que estaba en este documento) **no manda `t`** → con
+fail-closed sus eventos se descartan. Para migrar: copiá el código nuevo de
+/integraciones y reemplazá el bloque viejo.
 
-  // ── VSL (Panda) ────────────────────────────────────────────────────────────
-  // El título se lee del atributo title del iframe de Panda (si Lovable lo
-  // renderiza sin title, agregale title="<nombre del VSL>" al embed y listo).
-  function tituloVsl(videoId) {
-    var iframes = document.querySelectorAll('iframe');
-    for (var i = 0; i < iframes.length; i++) {
-      var f = iframes[i];
-      if (videoId && (f.src || '').indexOf(videoId) !== -1 && f.title) return f.title;
-    }
-    for (var j = 0; j < iframes.length; j++) {
-      if (/pandavideo/i.test(iframes[j].src || '') && iframes[j].title) return iframes[j].title;
-    }
-    return null;
-  }
+Si necesitás una ventana sin apagar la analítica mientras hacés el cambio,
+seteá `VSL_LEGACY_OWNER_FALLBACK=1` en el entorno: los beacons **sin token**
+(solo esos) siguen ruteando al dueño, respetando `VSL_ALLOWED_ORIGINS`. Apagá el
+flag cuando termines de pegar el snippet nuevo. Default: apagado (fail-closed).
 
-  var yaPlay = false;
-  var hitos = {};      // pNN ya enviados (cada 5%)
-  var pctActual = 0;   // posición actual del video (para exit exacto)
-  var duracion = 0;
-  var lastVideoId = null;
-  var lastTitulo = null;
+## Contrato del payload
 
-  window.addEventListener('message', function (ev) {
-    var d = ev.data;
-    if (!d || typeof d !== 'object' || String(d.message || '').indexOf('panda_') !== 0) return;
-    if (d.video || d.videoId) {
-      lastVideoId = d.video || d.videoId;
-      lastTitulo = tituloVsl(lastVideoId) || lastTitulo;
-    }
+No cambió, salvo el agregado de `t`:
 
-    if (d.message === 'panda_play' && !yaPlay) {
-      yaPlay = true;
-      enviar({ tipo_evento: 'play', porcentaje: 0, video_id: lastVideoId, vsl_titulo: lastTitulo });
-    }
+| Evento | Payload |
+| --- | --- |
+| Visita | `{ t, visitor_id, tipo_evento:'pageview', landing_url, referrer }` |
+| Play | `{ t, visitor_id, tipo_evento:'play', porcentaje:0, video_id, vsl_titulo }` |
+| Retención | `{ t, visitor_id, tipo_evento:'p05'…'p100', porcentaje, video_id, vsl_titulo }` |
+| Abandono | `{ t, visitor_id, tipo_evento:'exit', porcentaje, video_id, vsl_titulo }` |
 
-    if (d.message === 'panda_timeupdate' && d.currentTime != null) {
-      if (d.duration) duracion = d.duration;
-      if (!duracion) return;
-      pctActual = Math.min(100, Math.round((d.currentTime / duracion) * 100));
-      var hito = Math.floor(pctActual / 5) * 5; // hito de retención cada 5%
-      if (hito >= 5 && !hitos[hito]) {
-        hitos[hito] = true;
-        enviar({ tipo_evento: 'p' + hito, porcentaje: pctActual, video_id: lastVideoId, vsl_titulo: lastTitulo });
-      }
-    }
-  });
+- `visitor_id`: UUID anónimo de la cookie `nqe_visitor_id` (1 año). El mismo UUID
+  llega como `utm_term` al agendar en Calendly → así se cruza comportamiento por
+  persona.
+- `l` (opcional): Camino 1 — el `meta_lead_id` que el link de WhatsApp pega como
+  `?l=…`. Cose el `visitor_id` anónimo al lead conocido en el acto.
+- El token también se acepta como `ws_token` en el body o `?t=` en la query.
 
-  // ── exit: punto exacto de abandono al salir de la página ──────────────────
-  var exitEnviado = false;
-  function alSalir() {
-    if (exitEnviado || !yaPlay) return;
-    exitEnviado = true;
-    enviar({ tipo_evento: 'exit', porcentaje: pctActual, video_id: lastVideoId, vsl_titulo: lastTitulo });
-  }
-  window.addEventListener('pagehide', alSalir);
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'hidden') alSalir();
-  });
-})();
-</script>
-```
+## CORS
 
-## Recomendado (opcional, del lado del dashboard)
-
-En Vercel, setear `VSL_ALLOWED_ORIGINS` con el/los dominios de la landing
-(separados por coma, ej. `https://landing.lovable.app,https://tudominio.com`)
-para que nadie pueda envenenar las métricas desde otro sitio. Si no está
-seteado, el endpoint acepta cualquier origen (comportamiento actual).
+`Access-Control-Allow-Origin: *`, sin credenciales: cada cliente sirve su landing
+desde **su** dominio, así que no hay allowlist de origins que valga para todos.
+El token es el que identifica al workspace. `VSL_ALLOWED_ORIGINS` sigue
+existiendo pero **solo aplica a los beacons legacy sin token** (ver arriba):
+aplicárselo a un beacon con token bloquearía a todos los clientes.

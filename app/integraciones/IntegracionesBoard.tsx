@@ -64,6 +64,7 @@ const ICON: Record<string, IconDef> = {
   panda: { sym: 'ic-panda', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   youtube: { sym: 'ic-youtube', bg: '#FF0000' },
   supabase: { sym: 'ic-supabase', bg: '#1F2937' },
+  landing: { sym: 'ic-landing', bg: '#7C5CFF' },
 };
 const iconFor = (k: string): IconDef => ICON[k] ?? { sym: 'ic-supabase', bg: '#1F2937' };
 
@@ -93,6 +94,8 @@ function BrandDefs() {
       <symbol id="ic-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.63-.06-1.25-.16-1.84H12v3.48h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.16z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.23-2.5c-.9.6-2.05.95-3.39.95-2.6 0-4.8-1.76-5.59-4.12H3.07v2.58A10 10 0 0 0 12 22z" /><path fill="#FBBC05" d="M6.41 13.91a5.99 5.99 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98z" /><path fill="#EA4335" d="M12 6.58c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.96 9.96 0 0 0 12 2 10 10 0 0 0 3.07 7.51l3.34 2.58C7.2 8.34 9.4 6.58 12 6.58z" /></symbol>
       <symbol id="ic-panda" viewBox="0 0 24 24"><circle cx="6.6" cy="6.8" r="2.7" fill="#161616" /><circle cx="17.4" cy="6.8" r="2.7" fill="#161616" /><circle cx="12" cy="13" r="7.3" fill="#fff" stroke="#161616" strokeWidth="1.4" /><ellipse cx="9" cy="11.9" rx="1.7" ry="2.1" fill="#161616" /><ellipse cx="15" cy="11.9" rx="1.7" ry="2.1" fill="#161616" /><circle cx="12" cy="15.7" r="1.15" fill="#161616" /></symbol>
       <symbol id="ic-supabase" viewBox="0 0 24 24"><path fill="#3ECF8E" d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.233L2.203 12.424l-.401.562a1.04 1.04 0 0 0 .836 1.659H12v8.959a.396.396 0 0 0 .716.233l9.081-12.261.401-.562a1.04 1.04 0 0 0-.836-1.66z" /></symbol>
+      {/* Landing: ventana de navegador con el play del VSL adentro. */}
+      <symbol id="ic-landing" viewBox="0 0 24 24"><path fill="#fff" d="M4 3.5h16a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 19V5A1.5 1.5 0 0 1 4 3.5zm0 5V19h16V8.5zm1.6-3.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm2.6 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z" /><path fill="#7C5CFF" d="M10.4 11.3v4.9l4.3-2.45z" /></symbol>
     </defs></svg>
   );
 }
@@ -129,11 +132,13 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   incidentes: Incidente[];
+  /** <script> con el token del workspace, listo para copiar. null = admin sin impersonar. */
+  snippetLanding?: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -292,6 +297,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           i={svcByKey(modal.key)!}
           sev={sevOf(svcByKey(modal.key)!)}
           health={health} metaError={metaError} usage={usage}
+          snippetLanding={snippetLanding}
           onClose={() => setModal(null)}
         />
       )}
@@ -466,9 +472,95 @@ function ModalShell({ w, label, onClose, children }: { w: number; label: string;
 }
 const closeBtn: CSSProperties = { flex: 'none', width: 30, height: 30, border: '1px solid var(--border-strong)', borderRadius: 8, background: 'var(--surface)', color: 'var(--dim)', fontSize: 15, cursor: 'pointer', lineHeight: 1 };
 
+// ── Landing: código copiable en vez de form de credenciales ───────────────────
+// La landing del cliente puede estar en cualquier lado (Lovable, Framer, Webflow,
+// WordPress, HTML plano). No le pedimos credenciales de nada: le damos SU
+// <script> con su token embebido y que lo pegue. Mismo estilo minimalista que el
+// wizard de ServicioConfigForm (una instrucción + un bloque + el desplegable).
+const DONDE_PEGAR = [
+  'Copiá el código de acá arriba.',
+  'Abrí tu landing y pegalo justo antes de </body>, en todas las páginas que quieras medir.',
+  'En Lovable: pedile "pegá este script antes del </body>". En Framer: Settings → Custom Code → End of <body>. En Webflow: Project Settings → Custom Code → Footer Code. En WordPress: un plugin de "insert headers and footers" (footer). En HTML plano: antes del </body>.',
+  'Publicá los cambios y entrá a tu landing una vez. En cuanto llegue la primera visita, esta integración se pone en verde.',
+];
+
+function CodigoLanding({ snippet }: { snippet: string | null }) {
+  const [copiado, setCopiado] = useState(false);
+  const [errorCopia, setErrorCopia] = useState(false);
+  const [abierto, setAbierto] = useState(false);
+
+  const copiar = async () => {
+    if (!snippet) return;
+    try {
+      await navigator.clipboard.writeText(snippet);
+      setErrorCopia(false);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1800);
+    } catch {
+      // Sin permiso de portapapeles (o contexto no seguro): que lo copie a mano.
+      setErrorCopia(true);
+    }
+  };
+
+  if (!snippet) {
+    return (
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>
+        Entrá a un cliente para ver su código de landing.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+      <div>
+        <h4 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', lineHeight: 1.3, margin: 0 }}>
+          Pegá este código en tu landing
+        </h4>
+        <p style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5, margin: '7px 0 0' }}>
+          Ya trae tu identificador adentro. No hay nada que configurar: sirva donde sirva tu landing, pegalo antes de <code style={{ fontFamily: MONO, fontSize: 11.5 }}>&lt;/body&gt;</code> y listo.
+        </p>
+      </div>
+
+      <pre style={{ margin: 0, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', maxHeight: 190, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.55, color: 'var(--dim)', whiteSpace: 'pre', userSelect: 'all' }}>
+        {snippet}
+      </pre>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+        <button type="button" onClick={copiar}
+          style={{ padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          {copiado ? '¡Copiado!' : 'Copiar código'}
+        </button>
+        {copiado && <span style={{ fontSize: 12.5, color: 'var(--good)', fontWeight: 600 }}>Pegalo antes de &lt;/body&gt; ✓</span>}
+        {errorCopia && <span style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>No pudimos copiarlo solos — seleccionalo y copialo a mano.</span>}
+      </div>
+
+      {/* ¿Dónde lo pego? — mismo desplegable que "¿Cómo consigo esto?" del wizard */}
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+        <button type="button" onClick={() => setAbierto((o) => !o)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
+          ¿Dónde lo pego?
+          <span style={{ color: 'var(--faint)', fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
+        </button>
+        {abierto && (
+          <div style={{ padding: '2px 14px 14px' }}>
+            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+              {DONDE_PEGAR.map((p, n) => (
+                <li key={n} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                  <span style={{ flex: 'none', width: 20, height: 20, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }}>{n + 1}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Modal de servicio ─────────────────────────────────────────────────────────
-function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
-  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; onClose: () => void;
+function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClose }: {
+  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; snippetLanding?: string | null; onClose: () => void;
 }) {
   const chip = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
@@ -527,7 +619,14 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
   } else if (i.key === 'google') {
     // El OAuth de Google Calendar es un redirect en la MISMA pestaña.
     actions.push({ label: 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
+  } else if (i.key === 'landing') {
+    line = i.estado === 'conectada'
+      ? 'Tu landing está mandando eventos: las visitas y la retención del VSL caen en este workspace.'
+      : 'Todavía no llegó ningún evento. Pegá el código de abajo en tu landing y entrá una vez para verlo en verde.';
   }
+
+  // La landing no se configura con credenciales: se configura copiando un código.
+  const esLanding = i.key === 'landing';
 
   return (
     <ModalShell w={500} label={i.nombre} onClose={onClose}>
@@ -558,7 +657,11 @@ function ServicioModal({ i, sev, health, metaError, usage, onClose }: {
           </div>
         )}
 
-        {mostrarForm ? (
+        {esLanding ? (
+          <div style={{ marginBottom: 15 }}>
+            <CodigoLanding snippet={snippetLanding ?? null} />
+          </div>
+        ) : mostrarForm ? (
           <div style={{ marginBottom: 15 }}>
             <ServicioConfigForm servicioKey={i.key} />
           </div>

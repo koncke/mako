@@ -1,10 +1,20 @@
 // =============================================================================
-// Tracking del VSL — recibe eventos de la landing (Lovable)
+// Tracking del VSL — recibe eventos de la landing del CLIENTE (Lovable, etc.)
 // =============================================================================
-// La landing escucha el evento panda_timeupdate y reenvía acá la profundidad
-// de visualización:
-//   { visitor_id, tipo_evento: 'play'|'pNN'(cada 5%)|'exit', porcentaje, video_id }
+// La landing manda acá la visita y la profundidad de visualización del VSL:
+//   { t, visitor_id, tipo_evento: 'pageview'|'play'|'pNN'(cada 5%)|'exit', porcentaje, video_id }
 // 'exit' lleva el % EXACTO de abandono. Compat: payload viejo { event, play_count }.
+//
+// RUTEO (lo que hace multi-tenant a este beacon): `t` es el token público de
+// landing del workspace (mko_ + 32 hex), que el usuario copia de /integraciones
+// → Landing y pega en su landing. webhook_routing('landing', t) → workspace_id,
+// el mismo índice de plataforma que usan los webhooks de Meta/Chatwoot/Calendly.
+// TODA escritura va dentro de runWithWorkspace(ws) → los eventos caen en el
+// workspace dueño de esa landing, no en el del dueño de la app.
+//
+// FAIL-CLOSED: sin token que resuelva, NO se escribe nada. Antes, este beacon
+// caía a OWNER_WS (getTenantDb sin sesión → dueño) y la analítica de landing de
+// TODOS los clientes se mezclaba en el workspace 1.
 //
 // El visitor_id es un UUID anónimo de la cookie nqe_visitor_id. El mismo
 // UUID llega como utm_term cuando la persona agenda en Calendly — el
@@ -15,22 +25,33 @@
 // meta_lead_id que el link de WhatsApp pegó como ?l=…. Si viene, cosemos el
 // visitor_id anónimo al lead conocido en el acto, sin esperar a la agenda.
 //
-// Diseño: errores SIEMPRE silenciosos hacia el cliente (200 con ok:false a
-// lo sumo). Un fallo de tracking jamás debe romper la experiencia de la
-// landing ni filtrar detalles internos.
+// Diseño: errores SIEMPRE silenciosos hacia el cliente (200 a lo sumo con
+// ok:false / ignored). Un fallo de tracking jamás debe romper la experiencia de
+// la landing ni filtrar detalles internos — por eso hasta el rechazo por
+// workspace responde 200.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getTenantDb } from '@/lib/workspace';
+import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
+import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-// Origins permitidos de la landing (coma-separados) — opcional. Si está seteado,
-// rechazamos beacons cuyo Origin/Referer no matchee (corta el envenenamiento de
-// métricas desde otros sitios). Si NO está seteado, no se fuerza (compat).
+// Origins permitidos (coma-separados) — SOLO se aplica a los beacons LEGACY (sin
+// token). Un beacon CON token trae su propio identificador de workspace, y su
+// landing vive en el dominio del cliente (lovable.app, dominio propio, …), que
+// esta lista —un env de plataforma -- no puede conocer. Aplicárselo bloquearía a
+// todos los clientes.
 const ALLOWED_ORIGINS = (process.env.VSL_ALLOWED_ORIGINS || '')
   .split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
+
+// Escape hatch de migración: mientras alguna landing siga con el snippet VIEJO
+// (sin token), VSL_LEGACY_OWNER_FALLBACK=1 la sigue ruteando al dueño en vez de
+// descartarla. Default OFF = fail-closed. Solo aplica cuando NO viene token:
+// un token presente que no resuelve jamás cae al dueño (sería un misrouteo).
+const LEGACY_OWNER_FALLBACK = process.env.VSL_LEGACY_OWNER_FALLBACK === '1';
 
 function origenPermitido(req: NextRequest): boolean {
   if (!ALLOWED_ORIGINS.length) return true;
@@ -41,16 +62,23 @@ function origenPermitido(req: NextRequest): boolean {
 
 // Un visitor_id legítimo es un UUID/token de cookie: solo [A-Za-z0-9_-].
 const VISITOR_RE = /^[\w-]{8,128}$/;
+// Sanity check del token antes de pegarle a la base (la autoridad es la tabla,
+// por eso no se valida contra el formato canónico: si el formato cambia, el
+// mapeo sigue mandando).
+const TOKEN_RE = /^[\w-]{8,64}$/;
 
 // La landing vive en otro dominio — CORS abierto. Endpoint de tracking
-// anónimo sin credenciales ni datos sensibles, '*' es aceptable y evita
-// romper si el dominio de la landing cambia (lovable.app ↔ dominio propio).
+// anónimo sin credenciales ni datos sensibles, '*' es aceptable y necesario:
+// cada cliente sirve su landing desde SU dominio.
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
 };
+
+const json = (body: Record<string, unknown>) =>
+  Response.json(body, { status: 200, headers: CORS_HEADERS });
 
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -65,11 +93,9 @@ export async function OPTIONS() {
 // por diseño: un fallo acá jamás debe tumbar el tracking.
 async function stampVisitorOnLead(token: string, visitorId: string): Promise<void> {
   try {
-    // getTenantDb scopea `leads` por workspace. Este beacon es público (sin sesión)
-    // → getWorkspaceActual resuelve al dueño (OWNER_WS), así que el match por
-    // meta_lead_id queda confinado a los leads del dueño (antes, con el cliente
-    // crudo, matcheaba GLOBAL). El VSL por-cliente —que la landing mande el
-    // workspace— es Fase 2.
+    // Corre dentro de runWithWorkspace(ws del token) → getTenantDb scopea `leads`
+    // al workspace dueño de la landing: el match por meta_lead_id no puede tocar
+    // los leads de otro cliente.
     const supabase = await getTenantDb();
     const { data: lead, error } = await supabase
       .from('leads')
@@ -92,42 +118,77 @@ async function stampVisitorOnLead(token: string, visitorId: string): Promise<voi
   }
 }
 
+type Payload = {
+  t?: unknown;           // token público de landing (mko_…) → workspace
+  ws_token?: unknown;    // alias de `t`
+  visitor_id?: unknown;
+  tipo_evento?: unknown;
+  porcentaje?: unknown;
+  video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
+  vsl_titulo?: unknown;  // título del video de Panda, si la landing lo puede leer
+  landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
+  referrer?: unknown;
+  event?: unknown;       // legacy
+  play_count?: unknown;  // legacy
+  l?: unknown;           // Camino 1: token de identidad (meta_lead_id) del link de WhatsApp
+};
+
 export async function POST(request: NextRequest) {
-  // Anti-abuso: origen permitido (si está configurado) + límite de flood por IP.
-  // Silencioso (200 ok:false) para no dar señal ni romper la landing.
-  if (!origenPermitido(request)) {
-    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
-  }
+  // Anti-flood por IP. Silencioso (200 ok:false) para no dar señal ni romper la landing.
   const ip = clientIp(request);
-  if (!rateLimit(`vsl:${ip}`, 300, 60_000)) {
-    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
-  }
+  if (!rateLimit(`vsl:${ip}`, 300, 60_000)) return json({ ok: false });
 
-  let payload: {
-    visitor_id?: unknown;
-    tipo_evento?: unknown;
-    porcentaje?: unknown;
-    video_id?: unknown;    // id del video de Panda (pruebas A/B de VSL)
-    vsl_titulo?: unknown;  // título del video de Panda, si la landing lo puede leer
-    landing_url?: unknown; // URL exacta de la landing (pruebas A/B de landing)
-    referrer?: unknown;
-    event?: unknown;       // legacy
-    play_count?: unknown;  // legacy
-    l?: unknown;           // Camino 1: token de identidad (meta_lead_id) del link de WhatsApp
-  };
-
+  let payload: Payload;
   try {
     payload = await request.json();
   } catch {
-    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+    return json({ ok: false });
   }
 
-  const visitorId =
-    typeof payload.visitor_id === 'string' ? payload.visitor_id.trim() : '';
-  if (!VISITOR_RE.test(visitorId)) {
-    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+  const visitorId = typeof payload.visitor_id === 'string' ? payload.visitor_id.trim() : '';
+  if (!VISITOR_RE.test(visitorId)) return json({ ok: false });
+
+  // ── Ruteo: token → workspace ───────────────────────────────────────────────
+  // Se acepta del body (`t` o `ws_token`) o del query (?t=…).
+  const crudo =
+    (typeof payload.t === 'string' && payload.t) ||
+    (typeof payload.ws_token === 'string' && payload.ws_token) ||
+    request.nextUrl.searchParams.get('t') ||
+    '';
+  const token = crudo.trim();
+
+  let ws: number | null = null;
+  if (token && TOKEN_RE.test(token)) {
+    ws = await wsPorIdentificador(LANDING_SERVICIO, token);
   }
 
+  if (ws == null) {
+    // Legacy (snippet viejo, sin token): solo con el escape hatch prendido y
+    // respetando la allowlist de origins del dueño. Nunca para un token que no
+    // resuelve — eso es typo o abuso, y mandarlo al dueño sería el misrouteo que
+    // este beacon vino a arreglar.
+    if (!token && LEGACY_OWNER_FALLBACK && origenPermitido(request)) {
+      ws = OWNER_WS;
+      console.warn(
+        `[track:vsl] beacon LEGACY sin token → ws ${OWNER_WS} por VSL_LEGACY_OWNER_FALLBACK. ` +
+        `Pegá el código de /integraciones → Landing y apagá el flag. origin=${request.headers.get('origin') ?? '—'}`,
+      );
+    } else {
+      console.warn(
+        `[track:vsl] beacon descartado (fail-closed): token=${token || '(ninguno)'} ` +
+        `origin=${request.headers.get('origin') ?? '—'} — sin workspace mapeado. ` +
+        `El código de la landing se copia en /integraciones → Landing.`,
+      );
+      return json({ ok: true, ignored: 'sin workspace' });
+    }
+  }
+
+  // Desde acá, TODA escritura cae en el workspace dueño de la landing.
+  return runWithWorkspace(ws, () => procesar(payload, visitorId, ip));
+}
+
+// Todo lo que escribe. Corre SIEMPRE dentro de runWithWorkspace.
+async function procesar(payload: Payload, visitorId: string, ip: string): Promise<Response> {
   // Camino 1: si el beacon trae `l` (meta_lead_id pegado por el link de
   // WhatsApp), cosemos el visitor_id al lead conocido. Se evalúa antes de la
   // rama 'pageview' para que el PRIMER beacon (la visita al cargar) ya conecte.
@@ -161,7 +222,7 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error(`[track:vsl] landing_visits error: ${err instanceof Error ? err.message : String(err)}`);
     }
-    return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS });
+    return json({ ok: true });
   }
 
   if (!tipoEvento) tipoEvento = 'play';
@@ -207,15 +268,15 @@ export async function POST(request: NextRequest) {
     });
     if (error) {
       console.error(`[track:vsl] insert falló: ${error.message}`);
-      return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+      return json({ ok: false });
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[track:vsl] error: ${msg}`);
-    return Response.json({ ok: false }, { status: 200, headers: CORS_HEADERS });
+    return json({ ok: false });
   }
 
-  return Response.json({ ok: true }, { status: 200, headers: CORS_HEADERS });
+  return json({ ok: true });
 }
 
 // Healthcheck
@@ -224,7 +285,7 @@ export async function GET() {
     {
       ok: true,
       endpoint: 'vsl tracking',
-      usage: "POST { visitor_id, tipo_evento: 'play'|'p10'..'p100', porcentaje, video_id }",
+      usage: "POST { t: 'mko_…', visitor_id, tipo_evento: 'pageview'|'play'|'p10'..'p100', porcentaje, video_id }",
     },
     { headers: CORS_HEADERS },
   );

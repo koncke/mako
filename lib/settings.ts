@@ -55,9 +55,17 @@ export async function setSetting(key: string, value: string): Promise<void> {
       { onConflict: 'workspace_id,key' },
     );
   if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
-  // Espejo al índice de routing: el page_id de Meta rutea los leads entrantes de
-  // formularios al workspace correcto. Mismo ws que usó el setting. Best-effort.
-  if (key === 'meta_page_id' && value && value.trim()) {
-    await upsertRouting('meta', value, ws);
+  // Espejo al índice de routing: identificadores en claro que vienen en payloads
+  // SIN sesión y deciden a qué workspace pertenece el evento. Mismo ws que usó el
+  // setting. Best-effort (si falla el espejo, no se pierde el setting).
+  //   · meta_page_id  → rutea los leads entrantes de formularios de Meta.
+  //   · landing_token → rutea el beacon de la landing (/api/track/vsl).
+  const ROUTING_SETTINGS: Record<string, string> = {
+    meta_page_id: 'meta',
+    landing_token: 'landing',
+  };
+  const servicio = ROUTING_SETTINGS[key];
+  if (servicio && value && value.trim()) {
+    await upsertRouting(servicio, value, ws);
   }
 }
