@@ -22,7 +22,7 @@ import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { credWs, eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
-import { ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
+import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +77,9 @@ async function estadoServicio(servicioKey: string, ws: number) {
       opcional: !!c.opcional,
       nota: c.nota ?? null,
       host: !!c.host,
+      // Cómo se consigue ESTE campo. El modal ya no muestra un tutorial por
+      // servicio: cada credencial se saca de un lado distinto.
+      ayuda: ayudaDeCampo(c.env),
       ...est,
     };
   }));

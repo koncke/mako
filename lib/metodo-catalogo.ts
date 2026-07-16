@@ -291,3 +291,319 @@ export const servicioDeEnv = (env: string): string | undefined =>
 export const ENVS_METODO = new Set(
   SERVICIOS_METODO.filter((s) => !s.soloServidor).flatMap((s) => s.campos.map((c) => c.env)),
 );
+
+// =============================================================================
+// AYUDA_CAMPO — "¿cómo consigo ESTA key?", una por credencial
+// =============================================================================
+// El botón "?" de /integraciones despliega estos pasos debajo de su propia fila.
+// Existe porque el `tutorial` de arriba es UNO por servicio y no alcanza: un
+// servicio pide varias credenciales y casi nunca se sacan del mismo lado (youtube
+// pide 5 campos y su tutorial tiene 4 pasos que ni mencionan el OAuth).
+//
+// Va como mapa aparte y no como campo de CampoCredencial para no volver ilegibles
+// las líneas del catálogo, que ya son largas. Si un env no está acá, la UI cae al
+// `tutorial` del servicio.
+//
+// OJO al editar: estos pasos nombran pantallas REALES de cada proveedor. Si no
+// verificaste un paso contra la doc oficial, no lo escribas: un tutorial inventado
+// hace perder más tiempo que no tener tutorial.
+const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: string }> = {
+  META_ACCESS_TOKEN: {
+    pasos: [
+      'Entrá a Meta Business Suite → Configuración del negocio → Usuarios → Usuarios del sistema.',
+      'Creá un usuario de sistema con rol Administrador, o elegí uno que ya tengas.',
+      'En "Agregar activos", asignale tu cuenta publicitaria con control total.',
+      'Tocá "Generar token", elegí tu app y marcá ads_read, ads_management y business_management.',
+      'Poné expiración "Nunca", copiá el token (empieza con EAAG…) y pegalo acá.',
+    ],
+    url: 'https://business.facebook.com/settings/system-users',
+    urlLabel: 'Configuración del negocio → Usuarios del sistema',
+  },
+  META_AD_ACCOUNT_ID: {
+    pasos: [
+      'Abrí el Administrador de anuncios con la cuenta que querés conectar.',
+      'Arriba a la izquierda, mirá el número que acompaña al nombre de la cuenta.',
+      'Pegalo acá con el prefijo act_ (ej. act_1234567890).',
+    ],
+    url: 'https://adsmanager.facebook.com/adsmanager',
+    urlLabel: 'Administrador de anuncios',
+  },
+  META_PAGE_ACCESS_TOKEN: {
+    pasos: [
+      'Solo si usás Lead Ads y querés que traigamos los leads de tus formularios. Si no, dejalo vacío.',
+      'En Configuración del negocio → Usuarios del sistema, abrí "Agregar activos" y sumale tu página de Facebook.',
+      'Tocá "Generar token" y marcá leads_retrieval, pages_show_list, pages_read_engagement y pages_manage_ads.',
+      'Con ese token, abrí el Explorador de la API Graph y hacé un GET a /me/accounts.',
+      'Buscá tu página en la respuesta y copiá su access_token — ese es el token de la página.',
+    ],
+    url: 'https://business.facebook.com/settings/system-users',
+    urlLabel: 'Configuración del negocio → Usuarios del sistema',
+  },
+  META_PIXEL_ID: {
+    pasos: [
+      'Solo si vas a usar la Conversions API o el creador de campañas. Si no, dejalo vacío.',
+      'Entrá al Administrador de eventos y elegí tu píxel en la lista de orígenes de datos.',
+      'Copiá el número que figura junto al nombre del píxel — solo dígitos, sin comillas.',
+      'Guardá el mismo píxel a mano: de ahí sacás el token de Conversions API del campo de abajo.',
+    ],
+    url: 'https://business.facebook.com/events_manager2',
+    urlLabel: 'Administrador de eventos',
+  },
+  META_CAPI_TOKEN: {
+    pasos: [
+      'Solo si usás CAPI para mandar eventos server-side (ej. Purchase). Si no, dejalo vacío.',
+      'Entrá al Administrador de eventos y elegí el mismo píxel del campo anterior.',
+      'Abrí la pestaña Configuración y bajá hasta la sección Conversions API.',
+      'En "Configurar manualmente", tocá "Generar token de acceso" y seguí el pop-up.',
+      'Copiá el token y pegalo acá. Si no ves el link, pedí rol de desarrollador en el negocio.',
+    ],
+    url: 'https://business.facebook.com/events_manager2',
+    urlLabel: 'Administrador de eventos',
+  },
+  META_PAGE_ID: {
+    pasos: [
+      'Solo si usás Lead Ads: con esto ruteamos los leads de tus formularios a tu workspace.',
+      'Si ya sacaste el token de la página, la misma respuesta de /me/accounts trae el id de cada página.',
+      'Si no, abrí el Explorador de la API Graph y hacé un GET a /me/accounts.',
+      'Copiá el id de tu página y pegalo acá: solo dígitos, sin act_ ni comillas.',
+    ],
+    url: 'https://developers.facebook.com/tools/explorer',
+    urlLabel: 'Explorador de la API Graph',
+  },
+  CHATWOOT_BASE_URL: {
+    pasos: [
+      'Entrá a tu Chatwoot y mirá la barra de direcciones del navegador.',
+      'Copiá solo el dominio, hasta antes de /app (si usás la nube de Chatwoot es https://app.chatwoot.com; si es self-hosted, tu propio dominio).',
+      'Pegalo acá sin barra final.',
+    ],
+    url: 'https://app.chatwoot.com',
+    urlLabel: 'Chatwoot',
+  },
+  CHATWOOT_ACCOUNT_ID: {
+    pasos: [
+      'Entrá a tu Chatwoot con tu usuario.',
+      'Mirá la URL: es del estilo app.chatwoot.com/app/accounts/3/…',
+      'Copiá el número que va justo después de /accounts/ — ese es el ID de la cuenta.',
+    ],
+    url: 'https://app.chatwoot.com',
+    urlLabel: 'Chatwoot',
+  },
+  CHATWOOT_API_TOKEN: {
+    pasos: [
+      'Logueate con un usuario administrador — el token solo se le muestra a los admins.',
+      'Tocá tu foto de perfil, abajo a la izquierda.',
+      'Entrá a Configuración del perfil.',
+      'Bajá hasta el final de la página, hasta "Access Token".',
+      'Copiá el token y pegalo acá.',
+    ],
+    url: 'https://www.chatwoot.com/hc/user-guide/articles/1757445004-how-to-find-your-personal-access-token-in-chatwoot',
+    urlLabel: 'Chatwoot → Cómo encontrar tu token',
+  },
+  CHATWOOT_WA_INBOX_ID: {
+    pasos: [
+      'Solo hace falta si vas a usar plantillas o nutrición automática; si no, dejalo vacío.',
+      'Andá a Configuración → Bandejas de entrada.',
+      'Abrí la bandeja de WhatsApp.',
+      'Copiá el número que aparece en la URL después de /inboxes/ (…/inboxes/2).',
+    ],
+    url: 'https://app.chatwoot.com',
+    urlLabel: 'Chatwoot → Bandejas de entrada',
+  },
+  RESEND_API_KEY: {
+    pasos: [
+      'Creá tu cuenta en resend.com — el plan gratis alcanza para arrancar.',
+      'Andá a API Keys → Create API Key.',
+      'Ponele un nombre y elegí el permiso Full access: con Sending access falla el botón Probar conexión, que consulta tus dominios.',
+      'Copiá la key apenas se genere: empieza con re_ y Resend no te la muestra de nuevo.',
+    ],
+    url: 'https://resend.com/api-keys',
+    urlLabel: 'Resend → API Keys',
+  },
+  RESEND_FROM: {
+    pasos: [
+      'Cargalo si querés escribirle a tus leads: sin esto los emails salen desde onboarding@resend.dev, que solo entrega a tu propia casilla.',
+      'Andá a Domains → Add Domain y cargá tu dominio.',
+      'Copiá los registros SPF y DKIM que te da y pegalos en el DNS de tu proveedor de dominio.',
+      'Esperá a que el dominio figure Verified; si sigue en pending, tocá Verify DNS Records.',
+      'Escribí el remitente como Nombre <correo@tudominio.com>, con el dominio ya verificado.',
+    ],
+    url: 'https://resend.com/domains',
+    urlLabel: 'Resend → Domains',
+  },
+  ANTHROPIC_API_KEY: {
+    pasos: [
+      'Entrá a console.anthropic.com y creá una cuenta (o logueate).',
+      'Cargá saldo en Settings → Billing (la API es prepaga).',
+      'Andá a Settings → API Keys → Create Key, poné un nombre (ej. "dashboard") y creala.',
+      'Copiá la key (empieza con sk-ant-) — se muestra una sola vez.',
+    ],
+    url: 'https://console.anthropic.com/settings/keys',
+    urlLabel: 'Anthropic Console → API Keys',
+  },
+  OPENAI_API_KEY: {
+    pasos: [
+      'Entrá a platform.openai.com y logueate (es la plataforma de API, no ChatGPT).',
+      'Cargá saldo en Settings → Billing.',
+      'Andá a API keys → Create new secret key.',
+      'Copiá la key (empieza con sk-) — se muestra una sola vez.',
+    ],
+    url: 'https://platform.openai.com/api-keys',
+    urlLabel: 'OpenAI Platform → API keys',
+  },
+  GROQ_API_KEY: {
+    pasos: [
+      'Entrá a console.groq.com y creá una cuenta (el plan gratis alcanza: el límite es por tokens/día, no por dinero).',
+      'Andá a API Keys → Create API Key y poné un nombre (ej. "dashboard").',
+      'Copiá la key que empieza con gsk_ — se muestra una sola vez.',
+    ],
+    url: 'https://console.groq.com/keys',
+    urlLabel: 'Groq Console → API Keys',
+  },
+  FATHOM_API_KEY: {
+    pasos: [
+      'Entrá a fathom.video con la cuenta que graba las llamadas (requiere plan Team Edition o superior).',
+      'Andá a User Settings → API Access.',
+      'Tocá Generate API Key y copiala.',
+      'Generala con la cuenta que graba: la key queda scopeada a ese usuario y solo ve sus grabaciones o las compartidas con su Team.',
+    ],
+    url: 'https://fathom.video/customize#api-access-header',
+    urlLabel: 'Fathom → API Access',
+  },
+  FATHOM_HOST_EMAIL: {
+    pasos: [
+      'Solo hace falta si vas a registrar el webhook: sin este email las grabaciones entrantes se ignoran y no llegan a tu workspace.',
+      'Usá el email de la cuenta de Fathom que graba las llamadas — el mismo con el que entrás a fathom.video.',
+      'Si graban varias personas, cargá el de la cuenta dueña de la grabación (la que Fathom reporta como recorded_by).',
+      'Pegalo tal cual, sin espacios — se compara en minúscula contra el recorded_by de cada webhook.',
+    ],
+  },
+  FATHOM_WEBHOOK_SECRET: {
+    pasos: [
+      'Solo hace falta si registrás el webhook de Fathom, para que la asistencia a las reuniones se marque sola.',
+      'En fathom.video andá a User Settings → API Access → Manage → Add Webhook.',
+      'Poné como destino la URL de tu app: https://<tu-dominio>/api/webhooks/fathom',
+      'Activá include_transcript — la app lo usa para confirmar que el invitado habló.',
+      'Copiá el secret que Fathom te muestra al crear el webhook (empieza con whsec_).',
+    ],
+    url: 'https://fathom.video/customize#api-access-header',
+    urlLabel: 'Fathom → API Access',
+  },
+  PANDA_API_KEY: {
+    pasos: [
+      'Entrá a dashboard.pandavideo.com con tu cuenta.',
+      'En el menú lateral andá a Settings → Advanced.',
+      'Tocá "Generate new API key".',
+      'Copiá la key que aparece (empieza con panda-) y pegala acá.',
+      'Guardala aparte: si después generás una nueva, la anterior deja de funcionar.',
+    ],
+    url: 'https://dashboard.pandavideo.com',
+    urlLabel: 'Panda Video → Settings → Advanced',
+  },
+  PANDA_VSL_VIDEO_IDS: {
+    pasos: [
+      'Completalo solo si querés las métricas de reproducción del VSL: sin IDs, el cron diario de Panda no trae nada.',
+      'En el dashboard andá a Videos y abrí el video de tu VSL.',
+      'Tocá el botón Embed (arriba a la derecha) y en Platform elegí Custom.',
+      'Copiá el UUID que va después de ?v= en el código del player — ese es el ID que necesitamos, no el ID interno.',
+      'Si tenés varias variantes del VSL, repetí con cada una y pegá todos los IDs separados por coma.',
+    ],
+    url: 'https://dashboard.pandavideo.com',
+    urlLabel: 'Panda Video → Videos → Embed',
+  },
+  YOUTUBE_API_KEY: {
+    pasos: [
+      'Entrá a console.cloud.google.com y creá un proyecto (o usá uno existente).',
+      'En "APIs y servicios" → Biblioteca, buscá "YouTube Data API v3" y habilitala.',
+      'Andá a Credenciales → Crear credenciales → Clave de API.',
+      'Copiá la key (empieza con AIza).',
+    ],
+    url: 'https://console.cloud.google.com/apis/credentials',
+    urlLabel: 'Google Cloud Console → Credenciales',
+  },
+  YOUTUBE_VSL_VIDEO_ID: {
+    pasos: [
+      'Cargalo solo si tu VSL vive en YouTube: sin esto la key funciona igual, pero no trackeamos las views del VSL.',
+      'Abrí el video del VSL en youtube.com.',
+      'De la URL, copiá lo que va después de v= (cortá en el & si hay más parámetros).',
+    ],
+  },
+  YOUTUBE_OAUTH_CLIENT_ID: {
+    pasos: [
+      'Cargalo solo si querés YouTube Analytics del canal propio (retención y views diarias): para las views acumuladas alcanza con la API key.',
+      'En el mismo proyecto, "APIs y servicios" → Biblioteca, habilitá "YouTube Analytics API".',
+      'Andá a console.cloud.google.com/auth/clients → Crear cliente → tipo "Aplicación web".',
+      'En "URIs de redireccionamiento autorizados" agregá https://developers.google.com/oauthplayground y creá el cliente.',
+      'Copiá el Client ID (termina en .apps.googleusercontent.com).',
+    ],
+    url: 'https://console.cloud.google.com/auth/clients',
+    urlLabel: 'Google Cloud → Clientes OAuth',
+  },
+  YOUTUBE_OAUTH_CLIENT_SECRET: {
+    pasos: [
+      'Va en el mismo par que el Client ID: si no vas a usar YouTube Analytics, saltealo.',
+      'Apenas creás el cliente OAuth del campo anterior, Google te muestra el secret en pantalla.',
+      'Copiálo ahí mismo (empieza con GOCSPX-).',
+      'Si ya cerraste esa pantalla, creá un cliente OAuth nuevo: Google no te deja volver a verlo.',
+    ],
+    url: 'https://console.cloud.google.com/auth/clients',
+    urlLabel: 'Google Cloud → Clientes OAuth',
+  },
+  YOUTUBE_OAUTH_REFRESH_TOKEN: {
+    pasos: [
+      'Va junto con el Client ID y el secret: si no vas a usar YouTube Analytics, saltealo.',
+      'Entrá al OAuth Playground → engranaje (arriba a la derecha) → tildá "Use your own OAuth credentials" y pegá tu Client ID y tu secret.',
+      'Chequeá que "Access type" quede en "Offline": si no, Google no devuelve refresh token.',
+      'En "Step 1" pegá el scope https://www.googleapis.com/auth/yt-analytics.readonly, dale "Authorize APIs" y autorizá con la cuenta dueña del canal.',
+      'En "Step 2" tocá "Exchange authorization code for tokens" y copiá el "Refresh token".',
+    ],
+    url: 'https://developers.google.com/oauthplayground',
+    urlLabel: 'OAuth 2.0 Playground',
+  },
+  CALENDLY_API_TOKEN: {
+    pasos: [
+      'Entrá a calendly.com → Integrations → API & Webhooks.',
+      'En "Personal access tokens" tocá "Generate new token".',
+      'Copiá el token — se muestra una sola vez.',
+      'Pegalo acá y tocá "Probar conexión": MaKo te dice con qué cuenta quedó conectado.',
+    ],
+    url: 'https://calendly.com/integrations/api_webhooks',
+    urlLabel: 'Calendly → API & Webhooks',
+  },
+  CALENDLY_EVENT_TYPE_J1: {
+    pasos: [
+      'Llenalo solo si tenés event types separados para R1 y R2 y querés que MaKo distinga cada reunión.',
+      'Con el personal access token de arriba, llamá a https://api.calendly.com/users/me y copiá el "uri" de tu usuario.',
+      'Llamá a https://api.calendly.com/event_types?user=<ese uri> con el mismo token.',
+      'Buscá el event type de tu R1 y copiá su campo "uri" (https://api.calendly.com/event_types/…).',
+      'Atajo: si no querés tocar la API, pegá el nombre del event type tal cual figura en Calendly — MaKo también matchea por nombre.',
+    ],
+    url: 'https://developer.calendly.com/api-docs/e17ac52b4b6f0-list-user-s-event-types',
+    urlLabel: 'Calendly → List Event Types',
+  },
+  CALENDLY_EVENT_TYPE_J2: {
+    pasos: [
+      'Llenalo solo si tu R2 se agenda con un event type distinto al de R1.',
+      'Con el personal access token de arriba, llamá a https://api.calendly.com/users/me y copiá el "uri" de tu usuario.',
+      'Llamá a https://api.calendly.com/event_types?user=<ese uri> con el mismo token.',
+      'Buscá el event type de tu R2 y copiá su campo "uri" (https://api.calendly.com/event_types/…).',
+      'Atajo: si no querés tocar la API, pegá el nombre del event type tal cual figura en Calendly — MaKo también matchea por nombre.',
+    ],
+    url: 'https://developer.calendly.com/api-docs/e17ac52b4b6f0-list-user-s-event-types',
+    urlLabel: 'Calendly → List Event Types',
+  },
+  CALENDLY_WEBHOOK_SIGNING_KEY: {
+    pasos: [
+      'Llenalo solo si el webhook de Calendly lo creás vos; si lo configuró tu agencia, pedile la signing key a quien lo creó.',
+      'El webhook se crea por API, no hay pantalla: POST https://api.calendly.com/webhook_subscriptions con tu personal access token.',
+      'Mandá en el body el campo "signing_key" con un secreto largo elegido por vos.',
+      'Pegá acá ese mismo valor, idéntico: con él MaKo verifica la firma de cada webhook y rechaza los que no coinciden.',
+    ],
+    url: 'https://developer.calendly.com/api-docs/b3A6NTkxNDI1-create-webhook-subscription',
+    urlLabel: 'Calendly → Create Webhook Subscription',
+  },
+};
+
+/** Pasos para conseguir ESA credencial. null → la UI cae al tutorial del servicio. */
+export function ayudaDeCampo(env: string): { pasos: string[]; url?: string; urlLabel?: string } | null {
+  return AYUDA_CAMPO[env] ?? null;
+}

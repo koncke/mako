@@ -230,6 +230,30 @@ textarea.mako-field {
   min-height: 150px;
 }
 
+/* ── Enlace MaKo ⇄ servicio (cabecera del modal de servicio) ──────────────────
+   Las rayitas "marchan" corriendo el dashoffset. Cada línea está dibujada HACIA
+   su propia flecha, así que el mismo desplazamiento negativo mueve la de arriba
+   hacia el servicio y la de abajo hacia MaKo: se lee como datos yendo y
+   viniendo, no como una sola línea dudando.
+   El ciclo tiene que ser un múltiplo EXACTO del patrón (3+4=7 → 14) o el bucle
+   pega un salto visible al reiniciar. */
+@keyframes mkMarcha {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+.mk-enlace-linea {
+  stroke-dasharray: 3 4;
+  animation: mkMarcha 0.9s linear infinite;
+}
+/* Respeta a quien pidió menos movimiento: quedan las líneas punteadas quietas,
+   que igual comunican el ida y vuelta. */
+@media (prefers-reduced-motion: reduce) {
+  .mk-enlace-linea {
+    animation: none;
+  }
+}
+
 @media (max-width: 820px) {
   /* Apilado: el carrusel arriba al alto de su contenido y la configuración
      abajo quedándose con el resto y scrolleando. Sin redefinir las filas, la

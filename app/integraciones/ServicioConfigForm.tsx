@@ -32,6 +32,7 @@ const SANS = "'Geist', sans-serif";
 const OCULTAR_MS = 30_000;
 
 type OrigenCampo = 'servidor' | 'panel' | null;
+type Tutorial = { pasos: string[]; url?: string; urlLabel?: string };
 type Campo = {
   env: string;
   label: string;
@@ -44,8 +45,9 @@ type Campo = {
   origen: OrigenCampo;
   mask: string;
   ilegible: boolean;
+  /** Cómo se consigue ESTA credencial. Si falta, cae al tutorial del servicio. */
+  ayuda: Tutorial | null;
 };
-type Tutorial = { pasos: string[]; url?: string; urlLabel?: string };
 type Servicio = {
   key: string;
   nombre: string;
@@ -101,18 +103,26 @@ function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
   );
 }
 
-// Bloque desplegable (tutorial y aviso de seguridad usan el mismo molde).
-function Desplegable({ titulo, abierto, onToggle, children }: {
-  titulo: React.ReactNode; abierto: boolean; onToggle: () => void; children: React.ReactNode;
-}) {
+// "¿Cómo consigo ESTA key?" — se despliega bajo su propia fila. Va en azul suave
+// para que no se confunda ni con la barra gris de la key ni con el aviso de
+// seguridad de arriba.
+function PasosAyuda({ ayuda }: { ayuda: Tutorial }) {
   return (
-    <div style={{ ...caja, overflow: 'hidden' }}>
-      <button type="button" onClick={onToggle}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '11px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600, color: 'var(--ink)', textAlign: 'left' }}>
-        {titulo}
-        <span style={{ flex: 'none', color: 'var(--faint)', fontSize: 11 }}>{abierto ? '▲' : '▼'}</span>
-      </button>
-      {abierto && <div style={{ padding: '2px 14px 14px' }}>{children}</div>}
+    <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', animation: 'mkFade .18s ease' }}>
+      <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {ayuda.pasos.map((p, i) => (
+          <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <span style={{ flex: 'none', width: 19, height: 19, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--primary-weak)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10, color: 'var(--primary-strong)' }}>{i + 1}</span>
+            <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p}</span>
+          </li>
+        ))}
+      </ol>
+      {ayuda.url && (
+        <a href={ayuda.url} target="_blank" rel="noreferrer"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', textDecoration: 'none' }}>
+          {ayuda.urlLabel ?? 'Abrir'} ↗
+        </a>
+      )}
     </div>
   );
 }
@@ -120,18 +130,20 @@ function Desplegable({ titulo, abierto, onToggle, children }: {
 // Por qué esto es seguro, sin marketing: cada línea es algo que el código hace
 // de verdad. Ojo al mantenerlo — si cambia lib/credenciales.ts o el guard de
 // /api/integraciones/credencial, este texto pasa a ser mentira.
+//
+// Va ARRIBA de todo y a propósito NO usa la caja gris de las filas de key: es un
+// encabezado (candado + línea + link), no un campo más para completar.
 function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () => void }) {
   const b: CSSProperties = { color: 'var(--ink)', fontWeight: 600 };
   return (
-    <Desplegable
-      abierto={abierto}
-      onToggle={onToggle}
-      titulo={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 13, lineHeight: 1 }}>🔒</span>
-        Tus llaves son seguras.
-        <span style={{ fontWeight: 400, color: 'var(--faint)' }}>Cómo las guardamos</span>
-      </span>}
-    >
+    <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: abierto ? 15 : 0 }}>
+      <button type="button" onClick={onToggle} aria-expanded={abierto}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '0 0 13px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}>
+        <span aria-hidden style={{ flex: 'none', width: 27, height: 27, borderRadius: 999, background: 'var(--good-bg)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, lineHeight: 1 }}>🔒</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Tus llaves son seguras.</span>
+        <span style={{ flex: 'none', fontSize: 12.5, fontWeight: 600, color: 'var(--primary)' }}>{abierto ? 'Ocultar' : 'Cómo las guardamos'}</span>
+      </button>
+      {abierto && (
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
           <span style={b}>Los secretos se cifran antes de tocar la base.</span> AES-256-GCM, con un nonce distinto
@@ -162,7 +174,8 @@ function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () 
           quieras desde acá.
         </li>
       </ul>
-    </Desplegable>
+      )}
+    </div>
   );
 }
 
@@ -179,8 +192,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
   const [quitando, setQuitando] = useState<string | null>(null);
   // Mensajes POR KEY: el resultado sale abajo de la fila que lo pidió.
   const [msg, setMsg] = useState<Record<string, Msg>>({});
-  const [tutAbierto, setTutAbierto] = useState(false);
   const [segAbierto, setSegAbierto] = useState(false);
+  const [ayudaAbierta, setAyudaAbierta] = useState<Record<string, boolean>>({});
   // Texto plano de las credenciales que el admin pidió ver. Nunca viene en la
   // carga del modal: se pide de a una (action 'revelar') y queda auditado.
   const [revelado, setRevelado] = useState<Record<string, string>>({});
@@ -349,6 +362,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Arriba de todo: qué pasa con lo que estás por pegar. */}
+      <AvisoSeguridad abierto={segAbierto} onToggle={() => setSegAbierto((o) => !o)} />
+
       {/* ── La lista COMPLETA de credenciales del servicio, una barra por campo ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {servicio.campos.map((c) => {
@@ -391,6 +407,11 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
                   />
                 )}
 
+                {/* Qué botones tiene cada estado:
+                    · guardada       → ver · probar · quitar
+                    · algo tipeado   → ayuda · guardar · probar
+                    · vacía          → ayuda, y nada más: sin key no hay nada que
+                                       guardar ni que probar. */}
                 {cerrada ? (
                   <>
                     {verValor
@@ -401,8 +422,15 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
                   </>
                 ) : (
                   <>
-                    <IconBtn name="check" title={guardando === c.env ? 'Guardando…' : 'Guardar esta credencial'} tone="good" disabled={!tipeado || ocupada} onClick={() => guardarCampo(c.env)} />
-                    <IconBtn name="plug" title={probando === c.env ? 'Probando conexión…' : 'Probar conexión'} disabled={ocupada} onClick={() => probar(c.env)} />
+                    <IconBtn name="help" title={ayudaAbierta[c.env] ? 'Ocultar la ayuda' : `¿Cómo consigo ${c.label.toLowerCase()}?`}
+                      tone={ayudaAbierta[c.env] ? 'primary' : 'dim'}
+                      onClick={() => setAyudaAbierta((a) => ({ ...a, [c.env]: !a[c.env] }))} />
+                    {tipeado && (
+                      <>
+                        <IconBtn name="check" title={guardando === c.env ? 'Guardando…' : 'Guardar esta credencial'} tone="good" disabled={ocupada} onClick={() => guardarCampo(c.env)} />
+                        <IconBtn name="plug" title={probando === c.env ? 'Probando conexión…' : 'Probar conexión'} disabled={ocupada} onClick={() => probar(c.env)} />
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -415,30 +443,14 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
                 </div>
               )}
               {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — volvé a pegarla.</div>}
-              {c.nota && <p style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45, margin: '7px 0 0' }}>{c.nota}</p>}
+
+              {/* Ayuda de ESTA key. Reemplaza a la nota suelta que había debajo:
+                  cada credencial se consigue en un lado distinto. */}
+              {ayudaAbierta[c.env] && <PasosAyuda ayuda={c.ayuda ?? servicio.tutorial} />}
             </div>
           );
         })}
       </div>
-
-      <Desplegable titulo="¿Cómo consigo esto?" abierto={tutAbierto} onToggle={() => setTutAbierto((o) => !o)}>
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
-          {servicio.tutorial.pasos.map((p, i) => (
-            <li key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-              <span style={{ flex: 'none', width: 20, height: 20, borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border-strong)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--dim)' }}>{i + 1}</span>
-              <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{p}</span>
-            </li>
-          ))}
-        </ol>
-        {servicio.tutorial.url && (
-          <a href={servicio.tutorial.url} target="_blank" rel="noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 11, fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>
-            {servicio.tutorial.urlLabel ?? servicio.tutorial.url} ↗
-          </a>
-        )}
-      </Desplegable>
-
-      <AvisoSeguridad abierto={segAbierto} onToggle={() => setSegAbierto((o) => !o)} />
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}

@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MakoStar } from '../_components/MakoBrand';
+import { MakoLogo, MakoStar } from '../_components/MakoBrand';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
@@ -65,9 +65,9 @@ const ICON: Record<string, IconDef> = {
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   calendly: { sym: 'ic-calendly', bg: '#006BFF' },
   google: { sym: 'ic-google', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
-  // Panda Video no publica su logo en vector (solo PNG). Letter-mark sobre su gris
-  // de marca real (#2F2F2F, muestreado de su ícono oficial) hasta tener el SVG.
-  panda: { letter: 'P', bg: '#2F2F2F' },
+  // Panda: su logo es oscuro sobre claro y trae blancos macizos → tile blanco con
+  // borde (igual que google). Con un bg de color el logo se rompe.
+  panda: { sym: 'ic-panda', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   youtube: { sym: 'ic-youtube', bg: '#FF0000' },
   supabase: { sym: 'ic-supabase', bg: '#1F2937' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
@@ -115,10 +115,17 @@ function BrandDefs() {
       <symbol id="ic-calendly" viewBox="0 0 24 24"><path fill="#fff" d="M19.655 14.262c.281 0 .557.023.828.064 0 .005-.005.01-.005.014-.105.267-.234.534-.381.786l-1.219 2.106c-1.112 1.936-3.177 3.127-5.411 3.127h-2.432c-2.23 0-4.294-1.191-5.412-3.127l-1.218-2.106a6.251 6.251 0 0 1 0-6.252l1.218-2.106C6.736 4.832 8.8 3.641 11.035 3.641h2.432c2.23 0 4.294 1.191 5.411 3.127l1.219 2.106c.147.252.271.519.381.786 0 .004.005.009.005.014-.267.041-.543.064-.828.064-1.816 0-2.501-.607-3.291-1.306-.764-.676-1.711-1.517-3.44-1.517h-1.029c-1.251 0-2.387.455-3.2 1.278-.796.805-1.233 1.904-1.233 3.099v1.411c0 1.196.437 2.295 1.233 3.099.813.823 1.949 1.278 3.2 1.278h1.034c1.729 0 2.676-.841 3.439-1.517.791-.703 1.471-1.306 3.287-1.301Zm.005-3.237c.399 0 .794-.036 1.179-.11-.002-.004-.002-.01-.002-.014-.073-.414-.193-.823-.349-1.218.731-.12 1.407-.396 1.986-.819 0-.004-.005-.013-.005-.018-.331-1.085-.832-2.101-1.489-3.03-.649-.915-1.435-1.719-2.331-2.395-1.867-1.398-4.088-2.138-6.428-2.138-1.448 0-2.855.28-4.175.841-1.273.543-2.423 1.315-3.407 2.299S2.878 6.552 2.341 7.83c-.557 1.324-.842 2.726-.842 4.175 0 1.448.281 2.855.842 4.174.542 1.274 1.314 2.423 2.298 3.407s2.129 1.761 3.407 2.299c1.324.556 2.727.841 4.175.841 2.34 0 4.561-.74 6.428-2.137a10.815 10.815 0 0 0 2.331-2.396c.652-.929 1.158-1.949 1.489-3.03 0-.004.005-.014.005-.018-.579-.423-1.255-.699-1.986-.819.161-.395.276-.804.349-1.218.005-.009.005-.014.005-.023.869.166 1.692.506 2.404 1.035.685.505.552 1.075.446 1.416C22.184 20.437 17.619 24 12.221 24c-6.625 0-12-5.375-12-12s5.37-12 12-12c5.398 0 9.963 3.563 11.471 8.464.106.341.239.915-.446 1.421-.717.529-1.535.873-2.404 1.034.128.716.128 1.45 0 2.166-.387-.074-.782-.11-1.182-.11-4.184 0-3.968 2.823-6.736 2.823h-1.029c-1.899 0-3.15-1.357-3.15-3.095v-1.411c0-1.738 1.251-3.094 3.15-3.094h1.034c2.768 0 2.552 2.823 6.731 2.827Z" /></symbol>
       <symbol id="ic-youtube" viewBox="0 0 24 24"><path fill="#fff" d="M21.6 7.2c-.2-.9-.9-1.6-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4c-.9.2-1.6.9-1.8 1.8C2 8.8 2 12 2 12s0 3.2.4 4.8c.2.9.9 1.6 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4c.9-.2 1.6-.9 1.8-1.8.4-1.6.4-4.8.4-4.8s0-3.2-.4-4.8zM10 15V9l5 3z" /></symbol>
       <symbol id="ic-google" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.63-.06-1.25-.16-1.84H12v3.48h5.4a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.16z" /><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.42l-3.23-2.5c-.9.6-2.05.95-3.39.95-2.6 0-4.8-1.76-5.59-4.12H3.07v2.58A10 10 0 0 0 12 22z" /><path fill="#FBBC05" d="M6.41 13.91a5.99 5.99 0 0 1 0-3.82V7.51H3.07a10 10 0 0 0 0 8.98z" /><path fill="#EA4335" d="M12 6.58c1.47 0 2.79.5 3.83 1.5l2.86-2.87A9.96 9.96 0 0 0 12 2 10 10 0 0 0 3.07 7.51l3.34 2.58C7.2 8.34 9.4 6.58 12 6.58z" /></symbol>
-      {/* Panda Video NO tiene símbolo acá a propósito: no publica su logo en vector
-          (su ícono oficial es un PNG). Antes había un panda dibujado a mano que no
-          era su logo → se fue. Va letter-mark (ver ICON.panda) hasta tener el SVG
-          real de la marca. */}
+      {/* Panda Video — logo OFICIAL. Salió del SVG inline de su sitio: es un sitio
+          Framer y el logo vive dentro del sprite #svg-templates, no como archivo
+          suelto (ojo: los .svg de framerusercontent son un PNG envuelto en <image>,
+          no son vectores). Se le sacó el wordmark "pandavideo" y quedó la marca; el
+          viewBox es su bbox real medida con getBBox, no estimada.
+          OJO: los paths BLANCOS son rellenos macizos (tapan por debajo de las orejas
+          y del triángulo), así que este logo NECESITA fondo claro — por eso ICON.panda
+          va con bg blanco + borde, como google. Sobre un tile de color se rompe.
+          Su color de marca es #232536 (no #2F2F2F): verificado decodificando la
+          paleta PLTE de su favicon oficial. */}
+      <symbol id="ic-panda" viewBox="-0.3 0.1 38.45 38.45"><path d="M15.7855 4.28538L15.7844 4.28463L15.7813 4.28268C13.3171 2.65747 10.3959 2.67473 8.0982 3.78454C5.79881 4.89514 4 7.17406 4 10.1354V28.8665C4 31.8281 5.79908 34.1058 8.09847 35.2158C10.3873 36.3208 13.2947 36.3419 15.7529 34.7381L30.7398 25.9877L30.7472 25.9833L30.7541 25.9788L30.7736 25.9658C35.0748 23.1343 35.0754 17.0928 30.7757 14.2603L30.7734 14.2588L15.7855 4.28538Z" fill="white" /><path fillRule="evenodd" clipRule="evenodd" d="M16.1641 1.69433L16.1807 1.70428L16.2022 1.71864L32.7824 12.416L32.9208 12.5006L32.9362 12.5159C38.4804 16.1868 38.4332 23.923 32.7945 27.5246L32.7918 27.5263L32.7688 27.5411L32.7316 27.5648L32.6862 27.5908L16.1129 36.973C12.9239 38.9741 9.17164 38.935 6.22709 37.5568C3.25831 36.1672 0.822266 33.2498 0.822266 29.3778V9.25698C0.822266 5.38547 3.25764 2.4668 6.22651 1.07646C9.18676 -0.309869 12.964 -0.342469 16.1641 1.69433ZM14.5666 4.2337C12.3105 2.79099 9.62402 2.79804 7.49884 3.7933C5.37272 4.78897 3.82227 6.7663 3.82227 9.25698V29.3778C3.82227 31.8684 5.37264 33.8444 7.49886 34.8397C9.61595 35.8306 12.2905 35.8412 14.5414 34.4173L14.5724 34.3977L31.1797 24.9962C34.9001 22.6198 35.0153 17.7207 31.5259 15.1879H31.3655L31.0389 14.8613L14.585 4.24542L14.5666 4.2337Z" fill="white" /><path fillRule="evenodd" clipRule="evenodd" d="M7.01009 2.7532C9.45819 1.60668 12.5673 1.59083 15.1875 3.2663L15.1909 3.2684L31.7976 13.9829L31.7997 13.9843C36.3476 16.8891 36.3469 23.0617 31.7976 25.9655L31.776 25.9793L15.1644 35.3833C12.5492 37.0413 9.45119 37.0223 7.01029 35.88C4.56059 34.7334 2.67139 32.3965 2.67139 29.3778V9.2571C2.67139 6.2385 4.56039 3.9004 7.01009 2.7532ZM7.83069 4.537C5.92749 5.4283 4.62049 7.1501 4.62049 9.2571V29.3778C4.62049 31.4846 5.92719 33.2051 7.83049 34.0959C9.73539 34.9876 12.1366 34.989 14.1447 33.7071L14.1665 33.6933L30.7767 24.2902C34.096 22.1529 34.089 17.7726 30.7557 15.6449L30.7515 15.6423L14.1441 4.9274L14.1425 4.9263C12.135 3.6435 9.73499 3.6452 7.83069 4.537Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M12.339 14.7021C14.1568 14.7021 15.6258 16.1893 15.6258 18.0183C15.6258 21.2603 13.0269 23.8827 9.81379 23.8775H3.17139V14.7021H12.339ZM11.4523 20.4355C10.3942 20.5818 9.41949 19.8354 9.27449 18.7679C9.12949 17.7002 9.86919 16.7168 10.9274 16.5705C11.9855 16.424 12.9602 17.1706 13.1053 18.2383C13.2503 19.3058 12.5105 20.2892 11.4523 20.4355Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M24.8926 14.7021C23.0798 14.7021 21.6108 16.1893 21.6108 18.0183C21.6108 21.2603 24.2099 23.8827 27.413 23.8775H32.3456C32.8812 23.8775 33.3922 23.6646 33.7704 23.2828C34.1489 22.906 34.36 22.3904 34.36 21.8503V17.9689C34.36 17.1062 34.0211 16.2735 33.412 15.6589C32.8074 15.0442 31.982 14.7021 31.1224 14.7021H24.8926ZM25.313 20.2742C26.3711 20.4205 27.3457 19.6744 27.4908 18.6067C27.6367 17.5324 26.897 16.5487 25.8379 16.4093C24.7797 16.263 23.8051 17.0093 23.6601 18.077C23.5151 19.1447 24.2548 20.128 25.313 20.2742Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M13.4985 8.766C14.0001 8.4776 14.2887 7.9208 14.2292 7.338C14.1697 6.7553 13.7798 6.2671 13.2287 6.0856C11.7669 5.6041 10.1814 5.7284 8.81227 6.4299C7.44307 7.1313 6.40657 8.3543 5.93087 9.8245L5.69297 10.5596C5.50697 11.1345 5.69727 11.7604 6.17187 12.1305C6.64647 12.5006 7.29297 12.531 7.80057 12.208C9.19797 11.3073 10.5073 10.4715 10.5073 10.4715C10.5073 10.4715 12.0138 9.6171 13.4985 8.766Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M19.7902 23.4977C19.7902 23.3008 19.7123 23.1139 19.5775 22.9753C19.4397 22.837 19.2537 22.7593 19.0589 22.7593C18.5822 22.7593 17.9586 22.7593 17.4821 22.7593C17.287 22.7593 17.1013 22.837 16.9635 22.9753C16.8254 23.1139 16.7505 23.3008 16.7505 23.4977C16.7505 23.6919 16.8285 23.8815 16.9635 24.0201C17.1013 24.1584 17.287 24.2361 17.4821 24.2361C17.9586 24.2361 18.5822 24.2361 19.0589 24.2361C19.2537 24.2361 19.4397 24.1584 19.5775 24.0201C19.7123 23.8815 19.7902 23.6945 19.7902 23.4977Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M16.8182 22.8305C16.9942 22.6539 17.232 22.5542 17.4821 22.5542H19.0589C19.3086 22.5542 19.5468 22.6539 19.7228 22.8305L19.7245 22.8323C19.8959 23.0085 19.9953 23.2465 19.9953 23.4977C19.9953 23.7488 19.8959 23.9868 19.7245 24.163L19.7228 24.1648C19.5468 24.3415 19.3086 24.4411 19.0589 24.4411H17.4821C17.232 24.4411 16.9942 24.3414 16.8182 24.1648L16.8166 24.1632C16.6447 23.9867 16.5454 23.7459 16.5454 23.4977C16.5454 23.2484 16.6406 23.0089 16.8182 22.8305ZM17.4821 22.9643C17.3419 22.9643 17.2084 23.02 17.1088 23.12C17.0102 23.2189 16.9556 23.3532 16.9556 23.4977C16.9556 23.6375 17.012 23.7755 17.1096 23.8762C17.2091 23.9756 17.3423 24.031 17.4821 24.031H19.0589C19.1984 24.031 19.3319 23.9756 19.4314 23.8762C19.529 23.7753 19.5851 23.6398 19.5851 23.4977C19.5851 23.3555 19.529 23.22 19.4314 23.1191C19.3319 23.0197 19.1984 22.9643 19.0589 22.9643H17.4821Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M14.1666 25.8098C14.1666 25.8098 14.6248 26.3471 15.3458 26.6664C15.7853 26.8611 16.3134 26.976 16.8923 26.8822C17.6251 26.7626 18.153 26.4293 18.5229 25.9928C18.9204 25.5212 19.1323 24.9157 19.1623 24.2775C19.1856 23.7823 18.8066 23.3598 18.3157 23.3364C17.825 23.3128 17.4065 23.6954 17.3832 24.193C17.3716 24.4252 17.3134 24.6553 17.1667 24.8266C17.0436 24.9719 16.8553 25.0658 16.6111 25.1058C16.4063 25.1386 16.2203 25.0894 16.0643 25.019C15.7296 24.871 15.5108 24.6269 15.5108 24.6269C15.1876 24.2539 14.6248 24.2141 14.2526 24.5403C13.8805 24.8664 13.8433 25.4365 14.1666 25.8098Z" fill="#232536" /><path fillRule="evenodd" clipRule="evenodd" d="M21.0334 24.6269C21.0334 24.6269 20.8171 24.871 20.4799 25.019C20.3241 25.0871 20.1379 25.1386 19.9333 25.1058C19.6891 25.0658 19.5006 24.9719 19.3775 24.8266C19.2308 24.6529 19.1729 24.4252 19.1612 24.193C19.1379 23.6978 18.7192 23.3128 18.2285 23.3364C17.7378 23.3598 17.3586 23.7823 17.3819 24.2775C17.4122 24.9157 17.6217 25.5212 18.0216 25.9928C18.3891 26.4293 18.9194 26.7626 19.6519 26.8822C20.231 26.976 20.759 26.8611 21.1987 26.6664C21.9219 26.3472 22.3779 25.8098 22.3779 25.8098C22.7012 25.4365 22.6639 24.8664 22.2917 24.5403C21.9195 24.2141 21.3567 24.2539 21.0334 24.6269Z" fill="#232536" /><path d="M28 4C26.5 4 24 4.5 22.5 6.5L30 12.5C30.8333 13.1667 32.9802 14.5198 34 13.5C35 12.5 35.3438 11.3751 35 10C34 6 30.5 4 28 4Z" fill="white" /><path fillRule="evenodd" clipRule="evenodd" d="M25.373 8.76318C24.873 8.47948 24.589 7.92118 24.6439 7.33988C24.7003 6.76338 25.0901 6.27518 25.6411 6.09368C27.1029 5.61218 28.6978 5.73348 30.0686 6.43968C31.4392 7.14578 32.4804 8.36718 32.9575 9.84218L33.1924 10.5679C33.3784 11.1428 33.188 11.7686 32.7134 12.1388C32.239 12.5089 31.5923 12.5393 31.0847 12.2163C29.6874 11.3156 28.3783 10.4797 28.3783 10.4797C28.3783 10.4797 26.8625 9.61278 25.373 8.76318Z" fill="#232536" /></symbol>
       <symbol id="ic-supabase" viewBox="0 0 24 24"><path fill="#3ECF8E" d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.233L2.203 12.424l-.401.562a1.04 1.04 0 0 0 .836 1.659H12v8.959a.396.396 0 0 0 .716.233l9.081-12.261.401-.562a1.04 1.04 0 0 0-.836-1.66z" /></symbol>
       {/* Landing: ventana de navegador con el play del VSL adentro. */}
       <symbol id="ic-landing" viewBox="0 0 24 24"><path fill="#fff" d="M4 3.5h16a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 19V5A1.5 1.5 0 0 1 4 3.5zm0 5V19h16V8.5zm1.6-3.1a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm2.6 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z" /><path fill="#7C5CFF" d="M10.4 11.3v4.9l4.3-2.45z" /></symbol>
@@ -798,6 +805,32 @@ const SLIDES: Record<string, Slide[]> = {
   ],
 };
 
+// ── MaKo ⇄ servicio ───────────────────────────────────────────────────────────
+// Cabecera del aside negro: el logo de MaKo, el del servicio, y en el medio dos
+// líneas punteadas marchando en sentidos opuestos — los datos van y vienen.
+// Son DOS líneas y no una sola oscilando: una que va y vuelve se lee como algo
+// dudando; dos en paralelo se leen como un intercambio.
+// Cada línea está dibujada HACIA su flecha, así el mismo dashoffset negativo
+// (mkMarcha, globals.css) mueve la de arriba hacia el servicio y la de abajo
+// hacia MaKo. El desfase de la de vuelta evita que marchen en espejo perfecto.
+function EnlaceMaKo({ k, nombre }: { k: string; nombre: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}
+      role="img" aria-label={`MaKo intercambia datos con ${nombre}`}>
+      <MakoLogo size={40} />
+      {/* viewBox ancho y `meet`: si el aside se estira (apilado) el enlace se
+          centra en vez de deformarse y quedar con flechas ovaladas. */}
+      <svg viewBox="0 0 200 34" width="100%" height="34" style={{ flex: 1, minWidth: 0 }} aria-hidden focusable="false">
+        <path className="mk-enlace-linea" d="M4 12 H186" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M193 12 l-7 -4 v8 z" fill="var(--accent)" />
+        <path className="mk-enlace-linea" style={{ animationDelay: '-.45s' }} d="M196 24 H14" stroke="var(--sidebar-text)" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M7 24 l7 -4 v8 z" fill="var(--sidebar-text)" />
+      </svg>
+      <SvcIcon k={k} box={40} radius={11} size={23} />
+    </div>
+  );
+}
+
 function Carrusel({ slides }: { slides: Slide[] }) {
   const [n, setN] = useState(0);
   const [pausa, setPausa] = useState(false);
@@ -914,6 +947,8 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
       <div className="mk-svc-modal">
         {/* ═══ IZQUIERDA (negra) · qué vas a poder hacer ═══ */}
         <aside className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: '26px 24px', minWidth: 0, minHeight: 0 }}>
+          <EnlaceMaKo k={i.key} nombre={i.nombre} />
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
             <MakoStar size={14} color="var(--accent)" />
             <span style={{ ...capMono, fontSize: 10, letterSpacing: '.12em', color: 'var(--sidebar-text)' }}>Con {i.nombre} conectado</span>
