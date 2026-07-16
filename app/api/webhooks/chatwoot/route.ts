@@ -116,7 +116,10 @@ export async function POST(req: NextRequest) {
   const accountId = body.account?.id != null ? String(body.account.id) : null;
   const ws = await wsPorIdentificador('chatwoot', accountId);
   if (ws == null) {
-    console.warn(`[webhook:chatwoot] sin workspace para account_id=${accountId ?? '—'} — ignorado`);
+    // Diagnóstico: si el account_id NO vino donde lo esperamos, logueamos las
+    // claves del payload para ubicarlo sin adivinar (Chatwoot varía por evento).
+    const pistas = accountId == null ? ` payload_keys=[${Object.keys(body).join(',')}]` : '';
+    console.warn(`[webhook:chatwoot] sin workspace para account_id=${accountId ?? '—'} — ignorado${pistas}`);
     return Response.json({ ok: true, ignored: 'sin workspace' });
   }
 
