@@ -32,33 +32,18 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
+import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { wsPorIdentificador } from '@/lib/webhook-routing';
 import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
-// Origins permitidos (coma-separados) — SOLO se aplica a los beacons LEGACY (sin
-// token). Un beacon CON token trae su propio identificador de workspace, y su
-// landing vive en el dominio del cliente (lovable.app, dominio propio, …), que
-// esta lista —un env de plataforma -- no puede conocer. Aplicárselo bloquearía a
-// todos los clientes.
-const ALLOWED_ORIGINS = (process.env.VSL_ALLOWED_ORIGINS || '')
-  .split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean);
-
-// Escape hatch de migración: mientras alguna landing siga con el snippet VIEJO
-// (sin token), VSL_LEGACY_OWNER_FALLBACK=1 la sigue ruteando al dueño en vez de
-// descartarla. Default OFF = fail-closed. Solo aplica cuando NO viene token:
-// un token presente que no resuelve jamás cae al dueño (sería un misrouteo).
-const LEGACY_OWNER_FALLBACK = process.env.VSL_LEGACY_OWNER_FALLBACK === '1';
-
-function origenPermitido(req: NextRequest): boolean {
-  if (!ALLOWED_ORIGINS.length) return true;
-  const origin = (req.headers.get('origin') || '').replace(/\/$/, '');
-  const referer = req.headers.get('referer') || '';
-  return ALLOWED_ORIGINS.some((a) => origin === a || referer.startsWith(a));
-}
+// El TOKEN es lo único que identifica al workspace. NO hay allowlist de origins
+// ni escape hatch por env: la landing de cada cliente vive en SU dominio
+// (lovable.app, el propio, …) y nada de esto se configura en el servidor — se
+// resuelve pegando el código que da /integraciones → Landing, igual para el
+// dueño que para cualquier cliente nuevo.
 
 // Un visitor_id legítimo es un UUID/token de cookie: solo [A-Za-z0-9_-].
 const VISITOR_RE = /^[\w-]{8,128}$/;
@@ -163,24 +148,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (ws == null) {
-    // Legacy (snippet viejo, sin token): solo con el escape hatch prendido y
-    // respetando la allowlist de origins del dueño. Nunca para un token que no
-    // resuelve — eso es typo o abuso, y mandarlo al dueño sería el misrouteo que
-    // este beacon vino a arreglar.
-    if (!token && LEGACY_OWNER_FALLBACK && origenPermitido(request)) {
-      ws = OWNER_WS;
-      console.warn(
-        `[track:vsl] beacon LEGACY sin token → ws ${OWNER_WS} por VSL_LEGACY_OWNER_FALLBACK. ` +
-        `Pegá el código de /integraciones → Landing y apagá el flag. origin=${request.headers.get('origin') ?? '—'}`,
-      );
-    } else {
-      console.warn(
-        `[track:vsl] beacon descartado (fail-closed): token=${token || '(ninguno)'} ` +
-        `origin=${request.headers.get('origin') ?? '—'} — sin workspace mapeado. ` +
-        `El código de la landing se copia en /integraciones → Landing.`,
-      );
-      return json({ ok: true, ignored: 'sin workspace' });
-    }
+    // Fail-CLOSED, sin excepciones: sin token que resuelva no escribimos nada.
+    // Mandarlo al dueño sería el misrouteo que este beacon vino a arreglar.
+    console.warn(
+      `[track:vsl] beacon descartado (fail-closed): token=${token || '(ninguno)'} ` +
+      `origin=${request.headers.get('origin') ?? '—'} — sin workspace mapeado. ` +
+      `El código de la landing se copia en /integraciones → Landing.`,
+    );
+    return json({ ok: true, ignored: 'sin workspace' });
   }
 
   // Desde acá, TODA escritura cae en el workspace dueño de la landing.

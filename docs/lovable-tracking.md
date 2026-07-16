@@ -37,12 +37,12 @@ misrouteo que esto vino a arreglar.
 
 El snippet anterior (el que estaba en este documento) **no manda `t`** → con
 fail-closed sus eventos se descartan. Para migrar: copiá el código nuevo de
-/integraciones y reemplazá el bloque viejo.
+/integraciones → Landing y reemplazá el bloque viejo.
 
-Si necesitás una ventana sin apagar la analítica mientras hacés el cambio,
-seteá `VSL_LEGACY_OWNER_FALLBACK=1` en el entorno: los beacons **sin token**
-(solo esos) siguen ruteando al dueño, respetando `VSL_ALLOWED_ORIGINS`. Apagá el
-flag cuando termines de pegar el snippet nuevo. Default: apagado (fail-closed).
+No hay flags ni variables de entorno para esto: el camino es el mismo para el
+dueño que para cualquier cliente nuevo — pegar el código. Mientras el snippet
+viejo siga puesto, sus eventos se descartan (queda el warning en el log), así
+que conviene hacer el cambio apenas deployás.
 
 ## Contrato del payload
 
