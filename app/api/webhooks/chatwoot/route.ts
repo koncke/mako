@@ -12,10 +12,12 @@
 
 import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
 import { pausarPorRespuesta } from '@/lib/nutricion';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
+import { credWs } from '@/lib/credenciales';
+import { wsPorIdentificador } from '@/lib/webhook-routing';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,15 +37,20 @@ type ChatwootHook = {
   event?: string;
   message_type?: string | number;
   content?: string;
-  conversation?: { id?: number; meta?: { sender?: { name?: string; phone_number?: string } } };
+  conversation?: { id?: number; inbox_id?: number; meta?: { sender?: { name?: string; phone_number?: string } } };
   conversation_id?: number;
   sender?: { name?: string; phone_number?: string };
+  // Identificadores de ruteo: el account_id de Chatwoot mapea al workspace
+  // (webhook_routing, servicio 'chatwoot'). inbox opcional (por si más adelante
+  // se rutea a nivel de inbox).
+  account?: { id?: number };
+  inbox?: { id?: number };
 };
 
 // El matcheo va por getTenantDb → scopeado al workspace del contexto. Este webhook
-// se corre dentro de runWithWorkspace(OWNER_WS), así que solo matchea/escribe leads
-// del dueño (no cruza al lead de otro cliente con el mismo teléfono). El routing
-// real por cliente (mapear account_id/inbox de Chatwoot → workspace) es Fase 2.
+// se corre dentro de runWithWorkspace(ws) con el workspace RESUELTO por el
+// account_id del payload, así que solo matchea/escribe leads de ESE cliente (no
+// cruza al lead de otro cliente con el mismo teléfono).
 async function buscarLeadPorTelefono(d: string): Promise<number | null> {
   if (!d) return null;
   const supabase = await getTenantDb();
@@ -103,11 +110,18 @@ export async function POST(req: NextRequest) {
   const content = body.content ?? '';
   const convId = body.conversation?.id ?? body.conversation_id ?? null;
 
-  // Todo el matcheo/escritura de leads corre confinado al workspace DUEÑO: sin un
-  // mapeo inbox→workspace, un WhatsApp entrante no debe poder tocar el lead de OTRO
-  // cliente con el mismo teléfono. Mismo criterio que los webhooks de Calendly/
-  // Fathom/Meta (que van por lib/leads → getTenantDb → OWNER_WS).
-  return runWithWorkspace(OWNER_WS, async () => {
+  // Resolver el workspace por el account_id de Chatwoot (webhook_routing). Fail-
+  // CLOSED: sin mapeo, NO tocamos datos (nunca cae al dueño) — un WhatsApp entrante
+  // no debe poder tocar el lead de OTRO cliente con el mismo teléfono.
+  const accountId = body.account?.id != null ? String(body.account.id) : null;
+  const ws = await wsPorIdentificador('chatwoot', accountId);
+  if (ws == null) {
+    console.warn(`[webhook:chatwoot] sin workspace para account_id=${accountId ?? '—'} — ignorado`);
+    return Response.json({ ok: true, ignored: 'sin workspace' });
+  }
+
+  // Todo el matcheo/escritura de leads + avisos corre confinado al workspace resuelto.
+  return runWithWorkspace(ws, async () => {
     // 1) Pausar nutrición del lead que respondió.
     let leadId: number | null = null;
     try {
@@ -150,9 +164,10 @@ export async function POST(req: NextRequest) {
       console.error(`[webhook:chatwoot] stage manual: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 2) Avisar a Mauricio por el grupo de WhatsApp del dueño + feed in-app. Best-effort.
-    const base = (process.env.CHATWOOT_BASE_URL || '').replace(/\/$/, '');
-    const acc = process.env.CHATWOOT_ACCOUNT_ID || '3';
+    // 2) Avisar al dueño del workspace por WhatsApp + feed in-app. Best-effort. El
+    //    link se arma con las credenciales de Chatwoot DE ESTE workspace (credWs).
+    const base = ((await credWs('CHATWOOT_BASE_URL', ws)) || '').replace(/\/$/, '');
+    const acc = (await credWs('CHATWOOT_ACCOUNT_ID', ws)) || accountId || '3';
     const link = convId && base ? `${base}/app/accounts/${acc}/conversations/${convId}` : '';
     await emitirDelCatalogo('wa-mensaje-entrante', {
       texto: `💬 *Mensaje nuevo* de ${nombre}${phone ? ` (${phone})` : ''}: "${content.slice(0, 200)}".${link ? `\n${link}` : ''}\n— MaKo`,

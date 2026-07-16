@@ -16,6 +16,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { OWNER_WS } from './auth-session';
 
 /** Normaliza un identificador entrante: trim; lowercase SOLO para emails. */
 export function normalizar(id: string): string {
@@ -105,5 +106,26 @@ export async function borrarRoutingDeWs(servicio: string, ws: number): Promise<v
       .eq('workspace_id', ws);
   } catch (e) {
     console.error('[webhook-routing] borrarRoutingDeWs falló:', e);
+  }
+}
+
+/**
+ * Siembra el routing del DUEÑO (OWNER_WS) desde el env, en cada boot. Las
+ * credenciales del dueño viven en el env de Vercel (nunca pasan por
+ * guardarCredencial → no auto-espejan), así que sin esto sus webhooks quedarían
+ * sin fila y se ignorarían (fail-closed). Idempotente y best-effort; corre en
+ * hidratarCredenciales (instrumentation.ts).
+ */
+export async function seedRoutingDelDueno(): Promise<void> {
+  const real = (v: string | undefined): v is string => Boolean(v && v.trim() && !v.trim().startsWith('PENDING'));
+  const pares: Array<[string, string | undefined]> = [
+    ['meta', process.env.META_PAGE_ID],
+    ['chatwoot', process.env.CHATWOOT_ACCOUNT_ID],
+    ['calendly', process.env.CALENDLY_EVENT_TYPE_J1],
+    ['calendly', process.env.CALENDLY_EVENT_TYPE_J2],
+    ['fathom', process.env.FATHOM_HOST_EMAIL],
+  ];
+  for (const [servicio, val] of pares) {
+    if (real(val)) await upsertRouting(servicio, val, OWNER_WS);
   }
 }

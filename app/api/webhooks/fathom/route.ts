@@ -18,6 +18,8 @@ import { findLeadByContacto, applyFathomRecording } from '@/lib/leads';
 import { isoToFechaTijuana } from '@/lib/calendly';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
+import { runWithWorkspace } from '@/lib/workspace';
+import { wsPorIdentificador } from '@/lib/webhook-routing';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,8 +51,19 @@ export async function POST(request: NextRequest) {
   try { body = JSON.parse(rawBody) as FathomWebhookPayload; }
   catch { return Response.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
 
-  // 3) Matchear lead + aplicar
-  try {
+  // 2.5) Resolver el workspace por el email de la cuenta que grabó (recorded_by).
+  //      Fail-CLOSED: sin mapeo (webhook_routing), NO tocamos datos — nunca cae al
+  //      dueño (evita matchear la grabación de un cliente contra leads ajenos).
+  const hostEmail = body.recorded_by?.email ?? null;
+  const ws = await wsPorIdentificador('fathom', hostEmail);
+  if (ws == null) {
+    console.warn(`[webhook:fathom] sin workspace para recorded_by=${hostEmail ?? '—'} — ignorado`);
+    return Response.json({ ok: true, ignored: 'sin workspace' });
+  }
+
+  // 3) Matchear lead + aplicar — TODO confinado al workspace resuelto.
+  return runWithWorkspace(ws, async () => {
+   try {
     const invitee = externalInvitee(body);
     if (!invitee?.email) {
       console.warn('[webhook:fathom] sin invitado externo con email — ignorado');
@@ -93,11 +106,12 @@ export async function POST(request: NextRequest) {
     const ms = Date.now() - tStart;
     console.log(`[webhook:fathom] lead id=${lead.id} ${which} asistencia=${res.markedAsistencia} link=${res.addedLink} attended=${attended ?? 'desconocido'} ms=${ms}`);
     return Response.json({ ok: true, lead_id: lead.id, which, ...res, ms });
-  } catch (err) {
+   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[webhook:fathom] error procesando: ${message}`);
     return Response.json({ ok: false, error: 'processing', message }, { status: 500 });
-  }
+   }
+  });
 }
 
 // Healthcheck por GET.

@@ -201,6 +201,11 @@ export async function hidratarCredenciales(): Promise<void> {
       if (valor !== null && aplicarAEnv(r.clave as string, valor)) aplicadas++;
     }
     if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) del dueño hidratadas`);
+    // Sembrar el índice de ruteo de webhooks del dueño desde el env (idempotente):
+    // sus credenciales viven en Vercel, no pasan por guardarCredencial → sin esto
+    // sus webhooks quedarían sin fila en webhook_routing y se ignorarían.
+    const { seedRoutingDelDueno } = await import('./webhook-routing');
+    await seedRoutingDelDueno();
   } catch (e) {
     console.error('[credenciales] hidratación falló:', e);
   }

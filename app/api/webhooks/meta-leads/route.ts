@@ -24,6 +24,9 @@ import { ensureContactoWhatsapp } from '@/lib/chatwoot';
 import { parseLeadFields, META_GRAPH_VERSION } from '@/lib/meta-leads';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
+import { credWs } from '@/lib/credenciales';
+import { wsPorIdentificador } from '@/lib/webhook-routing';
+import { runWithWorkspace } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,8 +104,10 @@ type GraphLeadResponse = {
   error?: { code?: number; message?: string };
 };
 
-async function fetchLeadFromGraph(leadgenId: string): Promise<GraphLeadResponse> {
-  const token = process.env.META_PAGE_ACCESS_TOKEN;
+async function fetchLeadFromGraph(leadgenId: string, ws: number): Promise<GraphLeadResponse> {
+  // Token de página POR WORKSPACE: el lead se lee con las credenciales del
+  // cliente dueño de la página. Para ws1 (dueño) credWs cae al env — mismo valor.
+  const token = await credWs('META_PAGE_ACCESS_TOKEN', ws);
   if (!token || token.startsWith('PENDING')) {
     throw new Error('META_PAGE_ACCESS_TOKEN no configurado (o placeholder)');
   }
@@ -160,67 +165,84 @@ export async function POST(request: NextRequest) {
     return Response.json({ ok: false, error: 'bad_json' }, { status: 400 });
   }
 
-  // 3) Juntar todos los leadgen_id del payload (puede venir más de uno)
-  const leadgenIds: string[] = [];
+  // 3) Juntar (leadgen_id, page_id) del payload. Puede venir más de un lead, y
+  //    de más de UNA página (distintos workspaces) en un mismo POST — resolvemos
+  //    el workspace por cada uno, no asumimos uno solo. page_id viene en
+  //    changes[].value.page_id y/o, como fallback, en entry[].id.
+  const items: Array<{ leadgenId: string; pageId: string | null }> = [];
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {
       if (change.field === 'leadgen' && change.value?.leadgen_id) {
-        leadgenIds.push(change.value.leadgen_id);
+        items.push({
+          leadgenId: change.value.leadgen_id,
+          pageId: change.value.page_id ?? entry.id ?? null,
+        });
       }
     }
   }
 
-  if (leadgenIds.length === 0) {
+  if (items.length === 0) {
     console.log('[webhook:meta-leads] POST sin leadgen_id — ignorado');
     return Response.json({ ok: true, ignored: true });
   }
 
-  // 4) Procesar cada lead — un error individual NO bloquea a los demás.
-  //    Devolvemos 200 siempre que el request fue legítimo: si devolvemos
-  //    error, Meta reintenta TODO el batch (duplicaría el trabajo).
+  // 4) Procesar cada lead en el workspace de SU página — un error individual NO
+  //    bloquea a los demás. Devolvemos 200 siempre que el request fue legítimo:
+  //    si devolvemos error, Meta reintenta TODO el batch (duplicaría el trabajo).
   const results: Array<{ leadgen_id: string; status: string; lead_id?: number }> = [];
 
-  for (const leadgenId of leadgenIds) {
+  for (const { leadgenId, pageId } of items) {
+    // Fail-CLOSED: sin page_id mapeado a un workspace (webhook_routing), NO
+    // ingerimos el lead. NUNCA cae al dueño (evita misrutear leads de un cliente).
+    const ws = await wsPorIdentificador('meta', pageId);
+    if (ws == null) {
+      console.warn(`[webhook:meta-leads] sin workspace para page_id=${pageId ?? '—'} leadgen=${leadgenId} — ignorado`);
+      results.push({ leadgen_id: leadgenId, status: 'ignored: sin workspace' });
+      continue;
+    }
     try {
-      const graphLead = await fetchLeadFromGraph(leadgenId);
-      const { email, nombre, telefono, empresa } = parseLeadFields(graphLead.field_data);
+      // Todo el procesamiento (Graph, upsert, chat, aviso, flujo) confinado al ws.
+      await runWithWorkspace(ws, async () => {
+        const graphLead = await fetchLeadFromGraph(leadgenId, ws);
+        const { email, nombre, telefono, empresa } = parseLeadFields(graphLead.field_data);
 
-      const { created, lead } = await upsertLeadFromMeta({
-        email,
-        nombre,
-        telefono,
-        empresa,
-        meta_lead_id: leadgenId,
-        meta_ad_id: graphLead.ad_id ?? null,
-        meta_ad_name: graphLead.ad_name ?? null,
-        meta_campaign_name: graphLead.campaign_name ?? null,
-        meta_adset_name: graphLead.adset_name ?? null,
-      });
-
-      console.log(
-        `[webhook:meta-leads] ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} leadgen=${leadgenId} ad=${graphLead.ad_name ?? '—'} ms=${Date.now() - tStart}`,
-      );
-      results.push({ leadgen_id: leadgenId, status: created ? 'created' : 'updated', lead_id: lead.id });
-
-      // Alta del chat: contacto + conversación en Chatwoot para que el 100% de
-      // los leads tenga su hilo de WhatsApp desde el día cero (silencioso).
-      if (created && lead.telefono) {
-        await ensureContactoWhatsapp(lead.nombre, lead.telefono);
-      }
-
-      // Aviso al dueño: entró un lead nuevo por formulario de Meta (solo en INSERT,
-      // para no re-avisar si Meta reenvía el batch). Best-effort, no bloquea.
-      if (created) {
-        const campaña = graphLead.campaign_name ?? graphLead.ad_name ?? null;
-        await emitirDelCatalogo('lead-formulario-meta', {
-          texto: `📥 Entró un lead por formulario de Meta: *${lead.nombre}*${campaña ? `, campaña "${campaña}"` : ''}. Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
+        const { created, lead } = await upsertLeadFromMeta({
+          email,
+          nombre,
+          telefono,
+          empresa,
+          meta_lead_id: leadgenId,
+          meta_ad_id: graphLead.ad_id ?? null,
+          meta_ad_name: graphLead.ad_name ?? null,
+          meta_campaign_name: graphLead.campaign_name ?? null,
+          meta_adset_name: graphLead.adset_name ?? null,
         });
-        // Flujos configurados por el dueño: disparar 'lead.form_meta'.
-        await dispararEvento('lead.form_meta', { leadId: lead.id, leadNombre: lead.nombre });
-      }
+
+        console.log(
+          `[webhook:meta-leads] ws=${ws} ${created ? 'INSERT' : 'UPDATE'} lead id=${lead.id} page=${pageId ?? '—'} leadgen=${leadgenId} ad=${graphLead.ad_name ?? '—'} ms=${Date.now() - tStart}`,
+        );
+        results.push({ leadgen_id: leadgenId, status: created ? 'created' : 'updated', lead_id: lead.id });
+
+        // Alta del chat: contacto + conversación en Chatwoot para que el 100% de
+        // los leads tenga su hilo de WhatsApp desde el día cero (silencioso).
+        if (created && lead.telefono) {
+          await ensureContactoWhatsapp(lead.nombre, lead.telefono);
+        }
+
+        // Aviso al dueño del workspace: entró un lead nuevo por formulario de Meta
+        // (solo en INSERT, para no re-avisar si Meta reenvía el batch). Best-effort.
+        if (created) {
+          const campaña = graphLead.campaign_name ?? graphLead.ad_name ?? null;
+          await emitirDelCatalogo('lead-formulario-meta', {
+            texto: `📥 Entró un lead por formulario de Meta: *${lead.nombre}*${campaña ? `, campaña "${campaña}"` : ''}. Todavía no agendó.\n\n¿Le disparo la nutrición de bienvenida por WhatsApp? — MaKo`,
+          });
+          // Flujos configurados por el dueño: disparar 'lead.form_meta'.
+          await dispararEvento('lead.form_meta', { leadId: lead.id, leadNombre: lead.nombre });
+        }
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[webhook:meta-leads] error procesando leadgen=${leadgenId}: ${message}`);
+      console.error(`[webhook:meta-leads] error procesando leadgen=${leadgenId} page=${pageId ?? '—'}: ${message}`);
       results.push({ leadgen_id: leadgenId, status: `error: ${message}` });
     }
   }

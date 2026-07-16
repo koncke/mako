@@ -33,13 +33,9 @@ import { hoyEnTijuana } from '@/lib/date-utils';
 import { sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { dispararEvento } from '@/lib/flujos';
-
-// Identificadores de los event types de Calendly (Fase 10). Si no están
-// seteados, todo cae al flujo J1 actual (compatibilidad).
-const CFG_JUNTAS = {
-  j1: process.env.CALENDLY_EVENT_TYPE_J1 ?? null,
-  j2: process.env.CALENDLY_EVENT_TYPE_J2 ?? null,
-};
+import { runWithWorkspace } from '@/lib/workspace';
+import { credWs } from '@/lib/credenciales';
+import { wsPorIdentificador } from '@/lib/webhook-routing';
 
 const KEYWORDS_TEL = ['tel', 'phone', 'celular', 'móvil', 'movil'];
 
@@ -90,8 +86,35 @@ export async function POST(request: NextRequest) {
 
   const ms = Date.now() - tStart;
 
-  // 4) Dispatch por tipo de evento
-  switch (body.event) {
+  // 3.5) Resolver el workspace por el event type del scheduled_event — el MISMO
+  //      campo que clasificarJunta usa para distinguir R1/R2. En webhook_routing el
+  //      identificador de calendly es el valor EXACTO de CALENDLY_EVENT_TYPE_J1/J2,
+  //      así que probamos event_type → name → uri contra el índice y tomamos el
+  //      primero que resuelva (J1 y J2 del mismo cliente apuntan al mismo ws).
+  //      Fail-CLOSED: sin mapeo, NO tocamos datos (nunca cae al dueño). Esto corta
+  //      que el Schedule de un cliente vaya al píxel/CRM del dueño.
+  const scheduled = body.payload?.scheduled_event;
+  const candidatosWs = [scheduled?.event_type, scheduled?.name, scheduled?.uri].filter(
+    (c): c is string => !!c && c.trim() !== '',
+  );
+  let ws: number | null = null;
+  for (const c of candidatosWs) {
+    const r = await wsPorIdentificador('calendly', c);
+    if (r != null) { ws = r; break; }
+  }
+  if (ws == null) {
+    console.warn(`[webhook:calendly] sin workspace para event_type=${candidatosWs[0] ?? '—'} evento=${body.event} — ignorado`);
+    return Response.json({ ok: true, event: body.event, ignored: 'sin workspace' });
+  }
+
+  // 4) Dispatch por tipo de evento — TODO confinado al workspace resuelto.
+  return runWithWorkspace(ws, async () => {
+   // Config de clasificación R1/R2 POR WORKSPACE (dueño → env; cliente → su fila).
+   const cfgJuntas = {
+     j1: await credWs('CALENDLY_EVENT_TYPE_J1', ws),
+     j2: await credWs('CALENDLY_EVENT_TYPE_J2', ws),
+   };
+   switch (body.event) {
     case 'invitee.created': {
       const payload = body.payload;
       if (!payload) {
@@ -102,7 +125,7 @@ export async function POST(request: NextRequest) {
       }
 
       // ── Ruteo J1/J2 (Fase 10) ──
-      const tipoJunta = clasificarJunta(payload.scheduled_event, CFG_JUNTAS);
+      const tipoJunta = clasificarJunta(payload.scheduled_event, cfgJuntas);
       if (tipoJunta === 'j2') {
         const emailJ2 = payload.email?.trim() || null;
         const nombreJ2 = (payload.name || `${payload.first_name ?? ''} ${payload.last_name ?? ''}`.trim()).trim() || null;
@@ -304,7 +327,7 @@ export async function POST(request: NextRequest) {
         const fechaCancelada = isoToFechaTijuana(startTimeIso);
         const cambio = await cancelarJuntaEnLead(lead, fechaCancelada, hoyEnTijuana());
         // Aviso al dueño: reunión cancelada → sugerir reagendar (best-effort).
-        const tipoCancelada = clasificarJunta(payload.scheduled_event, CFG_JUNTAS) === 'j2' ? 'R2' : 'R1';
+        const tipoCancelada = clasificarJunta(payload.scheduled_event, cfgJuntas) === 'j2' ? 'R2' : 'R1';
         await emitirDelCatalogo('reunion-cancelada', {
           texto: `🔄 *Se canceló* la ${tipoCancelada} con ${lead.nombre} que era para el ${fmtFechaHoraTijuana(startTimeIso)} y todavía no reagendó. ¿Le mando un WhatsApp para conseguir otro horario antes de que se enfríe? — MaKo`,
         });
@@ -322,7 +345,8 @@ export async function POST(request: NextRequest) {
     default:
       console.log(`[webhook:calendly] evento no manejado: ${body.event}`);
       return Response.json({ ok: true, event: body.event, ignored: true });
-  }
+   }
+  });
 }
 
 // Healthcheck simple por GET (útil para probar que el endpoint existe)
