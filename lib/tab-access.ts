@@ -44,12 +44,36 @@ export async function guardOnboarding(): Promise<void> {
 }
 
 /**
+ * Fail-closed de sesión, compartido por TODOS los guards de página.
+ *
+ * rol null = no hay sesión resuelta CONTRA LA BASE: suspendido, borrado, firma
+ * inválida o vencida. El proxy no alcanza como red: valida el token con cripto
+ * pura sin tocar la base, así que la cookie de un suspendido sigue siendo válida
+ * hasta 30 días. Una red que depende enteramente de otra red no es una red.
+ *
+ * Devuelve el rol ya no-null para que el caller no lo re-chequee. No cuesta una
+ * query extra: getUsuarioActual está cacheada por request (lib/auth.ts).
+ */
+export async function requireSesion(): Promise<RolWorkspace> {
+  const rol = await getRolWsEfectivo();
+  if (rol == null) redirect('/login');
+  return rol;
+}
+
+/**
  * Exige que la CAPA del cliente incluya esta tab. `nav` es la key de nav.ts
  * (ej. 'general', 'crm', 'closing'). Si no la compró → a su casa.
  * Se llama solo desde requireRolWs; exportada para las pocas páginas que no lo
  * usan (el whitelist de closer/setter).
+ *
+ * El requireSesion() de acá NO es redundante: 7 páginas (leads, leads/[id],
+ * leads/new, mako, mako-doer, whatsapp, plan) NO pasan por requireRolWs —son el
+ * whitelist de closer/setter— y esta es la primera puerta que sí atraviesan. Sin
+ * esto, un suspendido con la cookie viva las renderizaba: no veía datos de nadie
+ * (el scoping resuelve ws null → 0 filas) pero entraba igual a la app.
  */
 export async function requireCapa(nav: string): Promise<void> {
+  await requireSesion();
   const capa = await getCapaActual();
   if (!tabEnCapa(nav, capa)) redirect(homeDeCapa(capa));
 }
@@ -70,12 +94,7 @@ export async function requireRolWs(
   permitidos: RolWorkspace[],
   opts?: { gateOnboarding?: boolean; nav?: string },
 ): Promise<void> {
-  const rol = await getRolWsEfectivo();
-  // Fail-closed: rol null = sin sesión resuelta. El proxy ya exige login, pero
-  // valida el token con cripto sin tocar la base, así que un usuario suspendido
-  // o borrado con la cookie todavía firmada llegaba hasta acá y la página
-  // renderizaba. Una red que depende enteramente de otra red no es una red.
-  if (rol == null) redirect('/login');
+  const rol = await requireSesion();
   if (rol !== 'admin' && !permitidos.includes(rol)) redirect(homeDeCapa(await getCapaActual()));
   if (opts?.nav) await requireCapa(opts.nav);
   if (opts?.gateOnboarding !== false) await guardOnboarding();
