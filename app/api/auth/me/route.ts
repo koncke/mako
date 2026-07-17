@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUsuarioActual } from '@/lib/auth';
-import { getCapaActual, getWorkspace, getWorkspaceActual, getRolWsEfectivo, IMPERSONATE_COOKIE } from '@/lib/workspace';
+import { getWorkspace, getWorkspaceActual, getRolWsEfectivo, IMPERSONATE_COOKIE } from '@/lib/workspace';
 import { leerImpersonacion } from '@/lib/auth-session';
 
 export const dynamic = 'force-dynamic';
@@ -38,9 +38,6 @@ export async function GET() {
     // Rol dentro del negocio + workspace efectivo (para que el Sidebar filtre tabs).
     rolWs: await getRolWsEfectivo(),
     ws: await getWorkspaceActual(),
-    // Capa que compró el cliente (lib/capas.ts): el Sidebar esconde lo que no
-    // incluye. Es cosmético — el enforcement real es requireCapa server-side.
-    capa: await getCapaActual(),
     legacy: sesion.sub === 'legacy',
     impersonando,
     clienteNombre,
