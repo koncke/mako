@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { uploadAdImage, uploadAdVideoByUrl, waitForVideoReady, metaErrorEnvelope, ADS_CREATIVES_BUCKET as BUCKET } from '@/lib/meta-ads-create';
 import type { UploadResult } from '@/lib/campaign-types';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esDuenoAdmin } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300; // el procesado de video puede tardar
@@ -23,7 +23,7 @@ const MAX_IMG = 30 * 1024 * 1024; // Meta: imagen 30MB
 
 export async function POST(req: NextRequest) {
   // Fase 1: subir creativos empuja media a la cuenta de Meta global del dueño.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await esDuenoAdmin())) {
     return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
   }
 

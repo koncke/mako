@@ -3,7 +3,7 @@
 // Estado / desconexión de la integración de Google Calendar (solo el dueño).
 
 import { headers } from 'next/headers';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esDuenoAdmin } from '@/lib/workspace';
 import { googleCalendarConectado, desconectarGoogleCalendar, googleRedirectUri } from '@/lib/google-calendar';
 
 export async function getGoogleCalendarStatusAction(): Promise<{ conectado: boolean; puede: boolean; redirectUri: string }> {
@@ -12,12 +12,12 @@ export async function getGoogleCalendarStatusAction(): Promise<{ conectado: bool
   const host = h.get('x-forwarded-host') ?? h.get('host') ?? '';
   const proto = h.get('x-forwarded-proto') ?? 'https';
   const redirectUri = googleRedirectUri(host ? `${proto}://${host}` : '');
-  const puede = await esWorkspaceDueno();
+  const puede = await esDuenoAdmin();
   if (!puede) return { conectado: false, puede: false, redirectUri };
   return { conectado: await googleCalendarConectado(), puede: true, redirectUri };
 }
 
 export async function disconnectGoogleCalendarAction(): Promise<void> {
-  if (!(await esWorkspaceDueno())) throw new Error('Solo el workspace principal.');
+  if (!(await esDuenoAdmin())) throw new Error('Solo un admin del workspace principal puede desconectar la agenda.');
   await desconectarGoogleCalendar();
 }

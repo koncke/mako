@@ -23,7 +23,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
-import { getUsuarioActual } from './auth';
+import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 
@@ -89,6 +89,28 @@ export async function getWorkspaceActual(): Promise<number | null> {
  */
 export async function esWorkspaceDueno(): Promise<boolean> {
   return (await getWorkspaceActual()) === OWNER_WS;
+}
+
+/**
+ * Guard para acciones de la AGENCIA sobre su propia cuenta: mover plata en Meta,
+ * leer el gasto de IA, conectar la agenda del dueño.
+ *
+ * Por qué NO alcanza esWorkspaceDueno() a secas: solo dice "el workspace actual
+ * es el principal", y NO mira el rol. El workspace principal tiene closers y
+ * setters adentro (ws1 tiene 3 cuentas), así que cualquiera de ellos pasaba ese
+ * gate y llegaba a publicar, pausar, renombrar, cambiar presupuesto y BORRAR
+ * campañas con plata puesta. No es cross-tenant: es plata real.
+ *
+ * Pasan dos: el admin de la agencia (aunque no impersone) y el admin del
+ * workspace principal. Un closer/setter, no.
+ *
+ * Vive acá y no copiado en cada ruta a propósito: el bug fue justamente que el
+ * chequeo del rol estaba en UN solo lugar (/api/anthropic-usage) y las otras 14
+ * puertas se olvidaron de repetirlo.
+ */
+export async function esDuenoAdmin(): Promise<boolean> {
+  if (await getSesionAdmin()) return true;
+  return (await esWorkspaceDueno()) && (await getRolWsEfectivo()) === 'admin';
 }
 
 /** true si un admin está impersonando a un cliente (cookie de impersonación activa).

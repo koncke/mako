@@ -1,8 +1,22 @@
 // =============================================================================
 // /api/mako/knowledge — CRUD del conocimiento de MaKo (RAG) + cursos curados
 // =============================================================================
+// SOLO AGENCIA (getSesionAdmin, el rol GLOBAL). Sus dos consumidores —
+// /conocimiento y /contexto— ya son páginas solo-agencia, así que gatear la ruta
+// entera no le saca nada a nadie.
+//
+// Por qué importa: antes esto tenía login y NADA más. Cualquier logueado —incluido
+// un closer o un setter, a quien la página le rebota— hacía GET del catálogo
+// curado de la agencia y POST seed_curso para importarse las entradas enteras a su
+// workspace y leerlas en texto plano. Arreglar el guard de la PÁGINA era teatro:
+// la fuga estaba acá.
+//
+// OJO con el matiz: que la IA use el método del dueño para responderle a un
+// cliente es A PROPÓSITO (el RAG sirve las filas del dueño a todos, ver wsParaRag
+// en lib/mako-knowledge.ts). Lo que se cierra es la EXPORTACIÓN en texto, no el uso.
 
 import type { NextRequest } from 'next/server';
+import { getSesionAdmin } from '@/lib/auth';
 import {
   listKnowledge, createKnowledge, updateKnowledge, deleteKnowledge, reindexKnowledge,
   setCursoActivo, cursoExiste,
@@ -13,7 +27,15 @@ export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** null = puede pasar. Response = cortado. */
+async function soloAgencia(): Promise<Response | null> {
+  if (await getSesionAdmin()) return null;
+  return Response.json({ error: 'forbidden' }, { status: 403 });
+}
+
 export async function GET() {
+  const no = await soloAgencia();
+  if (no) return no;
   try {
     const entries = await listKnowledge();
     // Cursos curados listos para importar (con flag de si ya se bajaron a tierra).
@@ -31,6 +53,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const no = await soloAgencia();
+  if (no) return no;
   let body: {
     action?: string; id?: number; clave?: string;
     titulo?: string; categoria?: string | null; cuerpo?: string;

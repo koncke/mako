@@ -6,13 +6,13 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esDuenoAdmin } from '@/lib/workspace';
 import { GCAL_SCOPE, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  if (!(await esWorkspaceDueno())) {
+  if (!(await esDuenoAdmin())) {
     return NextResponse.json({ ok: false, error: 'Solo el workspace principal puede conectar Google Calendar.' }, { status: 403 });
   }
   const clientId = process.env.GOOGLE_CLIENT_ID;

@@ -3,7 +3,7 @@
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esDuenoAdmin } from '@/lib/workspace';
 import { emailDelCalendario, guardarRefreshTokenGoogle, googleRedirectUri } from '@/lib/google-calendar';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const destino = new URL('/integraciones', url.origin);
   const fail = (motivo: string) => { destino.searchParams.set('gcal', motivo); return NextResponse.redirect(destino); };
 
-  if (!(await esWorkspaceDueno())) return fail('no-permitido');
+  if (!(await esDuenoAdmin())) return fail('no-permitido');
 
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');

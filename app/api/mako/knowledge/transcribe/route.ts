@@ -7,11 +7,17 @@
 // así el usuario ve/edita la transcripción antes de embeberla.
 // =============================================================================
 
+// SOLO AGENCIA, igual que /api/mako/knowledge y la página /conocimiento que la
+// consume. Antes no tenía NINGÚN chequeo: cualquier logueado subía un archivo y
+// gastaba la cuota de OpenAI de la agencia, sin dejar rastro de quién fue.
+
+import { getSesionAdmin } from '@/lib/auth';
 import { transcribeMediaBuffer } from '@/lib/transcribe';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  if (!(await getSesionAdmin())) return Response.json({ ok: false, error: 'forbidden' }, { status: 403 });
   try {
     const form = await req.formData();
     const file = form.get('file');

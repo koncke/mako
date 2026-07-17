@@ -7,7 +7,7 @@
 // GATE de permisos (Fase 1: escribir a Meta es del dueño) + parseo del body.
 
 import type { NextRequest } from 'next/server';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esDuenoAdmin } from '@/lib/workspace';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   // Fase 1: escribir a Meta (pausar/activar, presupuesto, nombre, borrar) es una
   // acción sobre la cuenta global del dueño. Solo el dueño puede mutarla.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await esDuenoAdmin())) {
     return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
   }
 

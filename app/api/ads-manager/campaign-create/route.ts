@@ -14,14 +14,14 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { createCampaign, createAdSet, createAdCreative, createAd, deleteEntity, metaErrorEnvelope } from '@/lib/meta-ads-create';
 import { type CampaignSpec, objetivoDef } from '@/lib/campaign-types';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { esWorkspaceDueno } from '@/lib/workspace';
+import { esDuenoAdmin } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   // Fase 1: crear campañas escribe en la cuenta de Meta global del dueño.
-  if (!(await esWorkspaceDueno())) {
+  if (!(await esDuenoAdmin())) {
     return Response.json({ ok: false, error: 'Esta acción solo está disponible en el workspace principal por ahora.' }, { status: 403 });
   }
 

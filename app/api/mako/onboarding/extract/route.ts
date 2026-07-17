@@ -4,8 +4,14 @@
 // Recibe un archivo (.txt / .md / .docx) + la lista de campos de la fase, saca
 // el texto y le pide a OpenAI que mapee el texto a los valores de cada campo.
 
+// Mismo piso que su hermana /api/mako/onboarding: admin del workspace. Antes no
+// tenía NINGÚN chequeo — cualquier logueado subía un archivo y quemaba la cuota de
+// OpenAI de la agencia. No filtra datos de nadie (procesa lo que le mandás), pero
+// es plata y no dejaba rastro de quién.
+
 import type { NextRequest } from 'next/server';
 import { extractAnswersFromText } from '@/lib/onboarding';
+import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -13,6 +19,9 @@ export const runtime = 'nodejs';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export async function POST(req: NextRequest) {
+  if ((await getRolWsEfectivo()) !== 'admin') {
+    return Response.json({ error: 'Solo el admin del workspace puede completar el onboarding.' }, { status: 403 });
+  }
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ error: 'Subida inválida' }, { status: 400 }); }
 
