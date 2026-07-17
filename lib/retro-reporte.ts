@@ -69,6 +69,9 @@ export type PlanStatus = {
   estado: 'aceptada' | 'pospuesta' | 'descartada';
   motivo?: string;            // motivo del descarte
   experimento_id?: number;    // si aceptar creó un experimento real
+  tarea_id?: number;          // si aceptar creó una tarea real (experimento_tareas).
+                              // Es lo que deja al seguimiento leer si la tarea se HIZO
+                              // en vez de asumir que "aceptada" = hecha.
   at: string;                 // ISO
 };
 

@@ -26,7 +26,8 @@ import { calcularDestacados, type Retro, type RetroDestacado } from './retro';
 import { recolectarFuentes, type AreaKey, type Fuente } from './retro-fuentes';
 import { recolectarDatos, type RetroDatos } from './retro-datos';
 import { crearExperimento, listExperimentos, metricaDef } from './experimentos';
-import { crearTarea, crearTareasDesde } from './todo';
+import { crearTarea, crearTareasDesde, listTareasDeRetro } from './todo';
+import { seguimientoDeItem } from './retro-seguimiento';
 import {
   RETRO_FASES,
   type AreaId, type Evidencia, type RetroCoberturaItem, type RetroFaseId, type RetroFinding,
@@ -160,24 +161,11 @@ async function armarSeguimiento(): Promise<RetroSeguimientoItem[]> {
     const plan = prev?.reporte?.plan ?? [];
     if (!plan.length) return [];
 
-    const exps = await listExperimentos().catch(() => []);
-    return plan.slice(0, 6).map((item): RetroSeguimientoItem => {
-      const st = item.status?.estado;
-      if (st === 'aceptada') {
-        const exp = item.status?.experimento_id ? exps.find((e) => e.id === item.status?.experimento_id) : null;
-        if (exp?.estado === 'cerrado') {
-          const v = exp.veredicto;
-          return { st: 'done', title: item.titulo, estado: 'Hecho',
-            fx: v === 'validada' ? 'validada' : v === 'refutada' ? 'refutada' : 'no concluyente',
-            fxT: v === 'validada' ? 'good' : v === 'refutada' ? 'bad' : 'warn' };
-        }
-        if (item.kind === 'tarea') return { st: 'done', title: item.titulo, estado: 'Aceptada', fx: 'en To-do', fxT: 'good' };
-        return { st: 'curso', title: item.titulo, estado: 'En curso', fx: 'midiendo', fxT: 'warn' };
-      }
-      if (st === 'pospuesta') return { st: 'no', title: item.titulo, estado: 'Pospuesta', fx: 'sin efecto', fxT: 'gris' };
-      if (st === 'descartada') return { st: 'no', title: item.titulo, estado: `Descartada${item.status?.motivo ? ' · ' + item.status.motivo : ''}`, fx: 'sin efecto', fxT: 'gris' };
-      return { st: 'no', title: item.titulo, estado: 'Sin tocar', fx: 'sin efecto', fxT: 'gris' };
-    });
+    const [exps, tareasPrev] = await Promise.all([
+      listExperimentos().catch(() => []),
+      prev?.id != null ? listTareasDeRetro(prev.id).catch(() => []) : Promise.resolve([]),
+    ]);
+    return plan.slice(0, 6).map((item) => seguimientoDeItem(item, exps, tareasPrev));
   } catch { return []; }
 }
 
@@ -569,6 +557,7 @@ export async function aplicarPlan(retroId: number, itemId: string, op: PlanOp, m
     if (item.status?.estado === 'aceptada') return reporte;
 
     let experimentoId: number | undefined;
+    let tareaId: number | undefined;
     if (item.kind === 'exp' && item.experimento) {
       if (item.expCreado) {
         // Una aceptación previa (deshecha) ya creó el experimento: reusarlo.
@@ -598,7 +587,7 @@ export async function aplicarPlan(retroId: number, itemId: string, op: PlanOp, m
         }
       }
     } else if (!item.expCreado) {
-      await crearTarea({
+      const creada = await crearTarea({
         titulo: item.titulo,
         detalle: item.tarea?.detalle ?? item.why,
         prioridad: item.prio ?? 'media',
@@ -606,8 +595,10 @@ export async function aplicarPlan(retroId: number, itemId: string, op: PlanOp, m
         retro_id: retroId,
       });
       item.expCreado = -1; // marca "ya creé la tarea" (re-aceptar no duplica)
+      tareaId = creada.id;  // el vínculo exacto: sin esto el seguimiento tiene que
+                            // adivinar por título cuál de las tareas era ésta.
     }
-    item.status = { estado: 'aceptada', experimento_id: experimentoId, at: new Date().toISOString() };
+    item.status = { estado: 'aceptada', experimento_id: experimentoId, tarea_id: tareaId, at: new Date().toISOString() };
   } else {
     throw new Error('op inválida');
   }

@@ -114,6 +114,18 @@ const dateOk = (d: unknown): string | null =>
 const catsOk = (c: unknown): number[] =>
   Array.isArray(c) ? c.map(Number).filter((n) => Number.isFinite(n)) : [];
 
+/**
+ * Las tareas que nacieron de UNA retro. Es el insumo de la rendición de cuentas:
+ * la Retro necesita saber qué pasó DE VERDAD con lo que propuso la vez pasada, no
+ * si tocaste "Aceptar". Scopeada por workspace como todo lo demás (getTenantDb).
+ */
+export async function listTareasDeRetro(retroId: number): Promise<Tarea[]> {
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase.from('experimento_tareas').select(COLS).eq('retro_id', retroId);
+  if (error) throw new Error(`listTareasDeRetro: ${error.message}`);
+  return ((data ?? []) as Record<string, unknown>[]).map(rowTo);
+}
+
 export async function listTareas(): Promise<Tarea[]> {
   const supabase = (await getTenantDb());
   const { data, error } = await supabase
