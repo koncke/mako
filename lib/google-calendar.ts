@@ -7,8 +7,10 @@
 // es global del dueño (como Chatwoot/Fathom), guardada en app_settings.
 
 import 'server-only';
+import { OWNER_WS } from './auth-session';
 import { cifrarSecreto, descifrarSecreto } from './credenciales';
 import { getSetting, setSetting } from './settings';
+import { getWorkspaceActual } from './workspace';
 
 export const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const TOKEN_KEY = 'google.calendar.refresh_token';
@@ -38,8 +40,16 @@ export function googleRedirectUri(origin: string): string {
 // cliente) y app_settings no cifra nada: sin esto quedaba EN CLARO en la base, a
 // un SELECT de distancia, mientras el resto de las llaves van cifradas. El email
 // sí va en claro: es un identificador, no un secreto (y se muestra en la UI).
+// El ws va explícito en el cifrado (clave derivada + AAD), así que tiene que ser
+// el MISMO que usa setSetting para elegir la fila. Los dos resuelven por
+// getWorkspaceActual, y el callback del login llama a esto dentro de
+// runWithWorkspace — o sea que ven el mismo workspace.
+async function wsDelSetting(): Promise<number> {
+  return (await getWorkspaceActual()) ?? OWNER_WS;
+}
+
 export async function guardarRefreshTokenGoogle(rt: string, email?: string | null): Promise<void> {
-  await setSetting(TOKEN_KEY, cifrarSecreto(rt));
+  await setSetting(TOKEN_KEY, cifrarSecreto(rt, await wsDelSetting(), TOKEN_KEY));
   if (email?.trim()) await setSetting(EMAIL_KEY, email.trim());
 }
 export async function desconectarGoogleCalendar(): Promise<void> {
@@ -70,14 +80,29 @@ export async function emailDelCalendario(accessToken: string): Promise<string | 
     return null;
   }
 }
+/**
+ * Conectada = el token existe Y SE PUEDE ABRIR. Chequear solo que no esté vacío
+ * dejaba que el semáforo mintiera: si el token quedaba ilegible (rotación de
+ * secreto, migración a medias), el tile seguía en verde diciendo "cruzando tus
+ * reuniones" mientras el buscador devolvía vacío para siempre y en silencio.
+ * A diferencia de la tabla `credenciales`, acá no hay estado "ilegible" que
+ * avise: si no abre, no está conectada.
+ */
 export async function googleCalendarConectado(): Promise<boolean> {
-  return !!(await getSetting(TOKEN_KEY))?.trim();
+  return (await refreshTokenGoogle()) !== null;
+}
+
+// El token en claro, o null si no está o no abre. Único lugar que lo descifra.
+async function refreshTokenGoogle(): Promise<string | null> {
+  const guardado = (await getSetting(TOKEN_KEY))?.trim();
+  if (!guardado) return null;
+  const rt = descifrarSecreto(guardado, await wsDelSetting(), TOKEN_KEY)?.trim();
+  return rt || null;
 }
 
 // refresh_token → access_token (corto). null si no está conectado o falla.
 async function accessTokenGoogle(): Promise<string | null> {
-  const guardado = (await getSetting(TOKEN_KEY))?.trim();
-  const rt = guardado ? descifrarSecreto(guardado)?.trim() : null;
+  const rt = await refreshTokenGoogle();
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   if (!rt || !clientId || !clientSecret) return null;

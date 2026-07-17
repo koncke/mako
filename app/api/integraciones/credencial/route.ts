@@ -19,7 +19,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { credWs, eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
+import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -158,6 +158,7 @@ export async function POST(req: NextRequest) {
         // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
         // base manda (lib/credenciales.ts). Todo se configura desde la app.
         await guardarCredencial(ctx.ws, env, v, servicio.key, ctx.autor);
+        await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
         guardadas++;
       }
       const estado = await estadoServicio(servicio.key, ctx.ws);
@@ -168,6 +169,7 @@ export async function POST(req: NextRequest) {
       const env = body.env ?? '';
       if (!ENVS_METODO.has(env)) return NextResponse.json({ ok: false, error: 'clave inválida' }, { status: 400 });
       await eliminarCredencial(ctx.ws, env);
+      await auditarCredencial(ctx.ws, env, 'borrar', ctx.autor);
       return NextResponse.json({ ok: true });
     }
 
@@ -181,14 +183,13 @@ export async function POST(req: NextRequest) {
       // getUsuarioActual está cacheada por request: volver a pedirla no cuesta.
       const sesion = await getUsuarioActual();
       if (!sesion || !puedeRevelar(sesion, ctx.ws)) {
-        console.warn(`[credenciales] ${ctx.autor ?? 'desconocido'} intentó revelar ${env} del workspace ${ctx.ws} y NO es admin de ese workspace.`);
+        // El intento RECHAZADO también se audita: es la señal más interesante.
+        await auditarCredencial(ctx.ws, env, 'revelar', ctx.autor, { permitido: false, motivo: 'no es admin de este workspace' });
         return NextResponse.json({ ok: false, error: 'Solo el admin de este espacio puede ver una credencial.' }, { status: 403 });
       }
       const valor = await credWs(env, ctx.ws);
       if (!valor) return NextResponse.json({ ok: false, error: 'sin credencial guardada' }, { status: 404 });
-      // Rastro de auditoría: quién miró qué secreto y de qué workspace. Sin el
-      // valor, obvio. Es warn para que salte en los logs entre el ruido.
-      console.warn(`[credenciales] ${ctx.autor ?? 'desconocido'} reveló ${env} del workspace ${ctx.ws}.`);
+      await auditarCredencial(ctx.ws, env, 'revelar', ctx.autor);
       return NextResponse.json({ ok: true, valor }, { headers: { 'Cache-Control': 'no-store' } });
     }
 

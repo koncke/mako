@@ -18,7 +18,9 @@
 // lo marca para re-pegar.
 
 import 'server-only';
-import crypto from 'node:crypto';
+// El cifrado vive en su propio módulo (sin server-only ni Next) para que se pueda
+// testear suelto: scripts/test-cripto.mjs. Es el código más caro de equivocar.
+import { cifrar, descifrar, versionCripto } from './cripto-credenciales';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { OWNER_WS } from './auth-session';
@@ -49,10 +51,33 @@ export type EstadoCampo = {
 const g = globalThis as typeof globalThis & { __makoCredsHidratadas?: Set<string> };
 const hidratadas = (g.__makoCredsHidratadas ??= new Set<string>());
 
-function claveCifrado(): Buffer | null {
-  const sec = process.env.CREDENCIALES_SECRET || process.env.AUTH_COOKIE_VALUE || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!sec || !sec.trim()) return null;
-  return crypto.createHash('sha256').update(sec).digest();
+/**
+ * Deja constancia de quién tocó qué llave, EN LA BASE (migración 0091) y no en
+ * un log de la plataforma: un rastro que solo puede leer la agencia no le sirve
+ * de nada al cliente para auditar su propio espacio.
+ *
+ * Nunca guarda el valor. Best-effort: si la auditoría falla no se rompe la
+ * operación, pero SÍ queda el console.error — perder el rastro es un incidente.
+ */
+export async function auditarCredencial(
+  ws: number,
+  clave: string,
+  accion: 'revelar' | 'guardar' | 'borrar',
+  autor: string | null,
+  opts: { permitido?: boolean; motivo?: string } = {},
+): Promise<void> {
+  const permitido = opts.permitido ?? true;
+  // Se loguea igual: durante el deploy de la migración la tabla puede no existir.
+  console.warn(`[credenciales] ${autor ?? 'desconocido'} · ${accion} ${clave} · ws ${ws} · ${permitido ? 'ok' : 'RECHAZADO'}${opts.motivo ? ` (${opts.motivo})` : ''}`);
+  if (!supabaseConfigurado()) return;
+  try {
+    const { error } = await getSupabaseServer()
+      .from('credenciales_auditoria')
+      .insert({ workspace_id: ws, clave, accion, permitido, autor, motivo: opts.motivo ?? null });
+    if (error) throw new Error(error.message);
+  } catch (e) {
+    console.error('[credenciales] no se pudo auditar (¿falta la migración 0091?):', e instanceof Error ? e.message : e);
+  }
 }
 
 /**
@@ -60,40 +85,18 @@ function claveCifrado(): Buffer | null {
  * mismo trato: hoy el refresh_token de Google Calendar, que va en app_settings
  * (lib/google-calendar.ts). Exportados a propósito para que no exista la excusa
  * de guardar un token en claro "porque está en otra tabla".
- * Mismo formato `gcm1.iv.tag.cuerpo` y misma clave que el resto.
+ * El (ws, clave) tiene que ser el MISMO al guardar y al leer: en v2 es parte de
+ * la clave derivada y del AAD.
  */
-export function cifrarSecreto(valor: string): string {
-  return cifrar(valor);
+export function cifrarSecreto(valor: string, ws: number, clave: string): string {
+  return cifrar(valor, ws, clave);
 }
-export function descifrarSecreto(valorEnc: string): string | null {
-  // Compat: lo guardado ANTES de cifrar esto quedó en claro. Si no tiene el
-  // prefijo del formato, es un valor viejo → se devuelve tal cual en vez de
-  // romper la integración de quien ya lo tenía conectado.
-  return valorEnc.startsWith('gcm1.') ? descifrar(valorEnc) : valorEnc;
-}
-
-function cifrar(valor: string): string {
-  const key = claveCifrado();
-  if (!key) throw new Error('credenciales: sin secret de cifrado (CREDENCIALES_SECRET / AUTH_COOKIE_VALUE)');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const enc = Buffer.concat([cipher.update(valor, 'utf8'), cipher.final()]);
-  return `gcm1.${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${enc.toString('base64url')}`;
-}
-
-function descifrar(valorEnc: string): string | null {
-  const key = claveCifrado();
-  if (!key) return null;
-  const partes = valorEnc.split('.');
-  if (partes.length !== 4 || partes[0] !== 'gcm1') return null;
-  try {
-    const [, iv, tag, cuerpo] = partes;
-    const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-    decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-    return Buffer.concat([decipher.update(Buffer.from(cuerpo, 'base64url')), decipher.final()]).toString('utf8');
-  } catch {
-    return null; // secret rotado o fila corrupta
-  }
+export function descifrarSecreto(valorEnc: string, ws: number, clave: string): string | null {
+  // Compat: lo guardado ANTES de que esto se cifrara quedó en claro. Sin prefijo
+  // conocido → es un valor viejo y se devuelve tal cual, en vez de romperle la
+  // integración a quien ya la tenía conectada.
+  const v = versionCripto(valorEnc);
+  return v === 'otro' ? valorEnc : descifrar(valorEnc, ws, clave);
 }
 
 const supabaseConfigurado = () =>
@@ -112,7 +115,7 @@ async function credDeBase(ws: number, clave: string): Promise<string | null> {
   if (!supabaseConfigurado()) return null;
   const { data } = await getSupabaseServer()
     .from('credenciales').select('valor_enc').eq('workspace_id', ws).eq('clave', clave).maybeSingle();
-  return data ? descifrar(data.valor_enc as string) : null;
+  return data ? descifrar(data.valor_enc as string, ws, clave) : null;
 }
 
 /**
@@ -156,7 +159,7 @@ export async function estadoCampo(clave: string, ws?: number): Promise<EstadoCam
     const { data } = await getSupabaseServer()
       .from('credenciales').select('valor_enc').eq('workspace_id', w).eq('clave', clave).maybeSingle();
     if (data) {
-      const v = descifrar(data.valor_enc as string);
+      const v = descifrar(data.valor_enc as string, w, clave);
       if (esValorReal(v)) return { configurado: true, origen: 'panel', mask: v!.slice(-4), ilegible: false };
       // Guardada pero ilegible (rotó el secret) → re-pegar, aunque el dueño siga
       // andando con el respaldo del entorno.
@@ -177,7 +180,7 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
   const { error } = await getSupabaseServer()
     .from('credenciales')
     .upsert(
-      { workspace_id: ws, clave, valor_enc: cifrar(valor), servicio, updated_by: updatedBy, updated_at: new Date().toISOString() },
+      { workspace_id: ws, clave, valor_enc: cifrar(valor, ws, clave), servicio, updated_by: updatedBy, updated_at: new Date().toISOString() },
       { onConflict: 'workspace_id,clave' },
     );
   if (error) throw new Error(`credenciales: ${error.message}`);
@@ -204,7 +207,7 @@ export async function listarCredenciales(ws: number): Promise<CredencialMeta[]> 
     .from('credenciales').select('clave, servicio, valor_enc, updated_by, updated_at').eq('workspace_id', ws);
   if (error) throw new Error(`credenciales: ${error.message}`);
   return (data ?? []).map((r) => {
-    const valor = descifrar(r.valor_enc as string);
+    const valor = descifrar(r.valor_enc as string, ws, r.clave as string);
     return {
       clave: r.clave as string,
       servicio: r.servicio as string,
@@ -237,7 +240,7 @@ export async function hidratarCredenciales(): Promise<void> {
     }
     let aplicadas = 0;
     for (const r of data ?? []) {
-      const valor = descifrar(r.valor_enc as string);
+      const valor = descifrar(r.valor_enc as string, OWNER_WS, r.clave as string);
       if (valor !== null && aplicarAEnv(r.clave as string, valor)) aplicadas++;
     }
     if (aplicadas) console.log(`[credenciales] ${aplicadas} credencial(es) del dueño hidratadas`);
