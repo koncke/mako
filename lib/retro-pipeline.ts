@@ -26,7 +26,9 @@ import { calcularDestacados, type Retro, type RetroDestacado } from './retro';
 import { recolectarFuentes, type AreaKey, type Fuente } from './retro-fuentes';
 import { recolectarDatos, type RetroDatos } from './retro-datos';
 import { crearExperimento, listExperimentos, metricaDef } from './experimentos';
-import { crearTarea, crearTareasDesde, listTareasDeRetro } from './todo';
+import { crearTarea, crearTareasDesde, listTareas, listTareasDeRetro, type Prioridad } from './todo';
+import { puntuarPlan } from './mako-guardian';
+import { prioFromScore } from '../app/plan/board/types';
 import { seguimientoDeItem } from './retro-seguimiento';
 import {
   RETRO_FASES,
@@ -151,6 +153,42 @@ Devolvé SOLO: {"drop":[ids de hallazgos a eliminar], "fixes":[{"id","short"?,"i
 // ─────────────────────────────────────────────────────────────────────────────
 // Fase 0 — memoria: seguimiento del retro anterior (código puro)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * El Perro Guardián le pone la prioridad a las tareas que la Retro está por meter
+ * al tablero. Antes iban con 'alta' CLAVADA, y eso hacía de la Retro el único
+ * productor de tareas del sistema que se salteaba el filtro que existe justamente
+ * para que el tablero no se llene: la regla de oro del Perro es la pirámide ("como
+ * mucho ~15% en Alta"), y la Retro la rompía de entrada, en lote y cada semana.
+ *
+ * Puntúa comparando contra las tareas ABIERTAS del tablero — un score sin con qué
+ * compararse no significa nada, y es lo que el propio prompt del Perro exige.
+ *
+ * Best-effort a propósito: si el Perro falla, las tareas entran igual en 'media'.
+ * Perder la priorización es aceptable; perder la tarea que aceptaste, no.
+ */
+async function prioridadesDelPerro(titulos: string[], contexto: string): Promise<Prioridad[]> {
+  const fallback = (): Prioridad[] => titulos.map(() => 'media');
+  try {
+    const abiertas = (await listTareas()).filter((t) => t.progreso < 100).slice(0, 60);
+    const out = await puntuarPlan(
+      [],
+      [
+        ...abiertas.map((t) => ({ id: `b${t.id}`, titulo: t.titulo, detalle: t.detalle ?? '', avance: t.progreso })),
+        ...titulos.map((titulo, i) => ({ id: `n${i}`, titulo, detalle: `Tarea para poder probar: ${contexto}` })),
+      ],
+      'Las tareas "n…" son las que la Retro quiere agregar para poder correr un experimento. Puntualas comparándolas contra lo que ya está en el tablero.',
+      'Retro: prioridad de las tareas del experimento',
+    );
+    // Solo se usan los scores de las tareas NUEVAS: re-priorizar el tablero entero
+    // sin que el usuario lo pida sería MaKo ejecutando solo.
+    const prios = titulos.map((_, i) => {
+      const s = out.tareas.find((x) => x.id === `n${i}`);
+      return s ? prioFromScore(s.score) : 'media';
+    });
+    return prios;
+  } catch { return fallback(); }
+}
 
 async function armarSeguimiento(): Promise<RetroSeguimientoItem[]> {
   try {
@@ -580,8 +618,9 @@ export async function aplicarPlan(retroId: number, itemId: string, op: PlanOp, m
         experimentoId = exp.id;
         item.expCreado = exp.id;
         if (item.chain?.length) {
+          const prios = await prioridadesDelPerro(item.chain, item.titulo);
           await crearTareasDesde(
-            item.chain.map((titulo) => ({ titulo, prioridad: 'alta' as const })),
+            item.chain.map((titulo, i) => ({ titulo, prioridad: prios[i] })),
             { origen: 'retro', retro_id: retroId, experimento_id: exp.id },
           ).catch(() => 0);
         }
