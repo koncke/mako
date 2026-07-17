@@ -6,6 +6,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { getUsuarioActual } from '@/lib/auth';
 import { puntuarPlan, debatirPrioridad, debatirProyecto, decidirEliminar, buscarDuplicados, type GuardProjIn, type GuardTaskIn } from '@/lib/mako-guardian';
 
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,11 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 type DupTarea = { id: string; titulo: string; detalle?: string };
 export async function POST(req: NextRequest) {
+  // El guardián razona con effort 'high' y hasta 8000 tokens por pedido: sin sesión
+  // es un quemador de saldo abierto a internet. Mismo gate que /api/plan-fathom.
+  const sesion = await getUsuarioActual();
+  if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
+
   let body: { action?: string; proyectos?: GuardProjIn[]; tareas?: GuardTaskIn[]; contexto?: string; tarea?: string; proyecto?: string; scoreActual?: number; argumento?: string; plan?: string; tipo?: string; que?: string; motivo?: string; otras?: DupTarea[]; uso?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;   // razón legible para el historial de gasto
