@@ -289,6 +289,18 @@ export type WebhookSalud = { estado: WebhookEstado; urlActual: string | null; ur
 
 const sinQuery = (u: string) => u.split('?')[0];
 
+/**
+ * La URL del webhook lleva el secreto EN LA QUERY (webhookUrl()), y
+ * EVOLUTION_WEBHOOK_SECRET es de PLATAFORMA: lo comparten todos los clientes.
+ * Devolverla tal cual en WebhookSalud se la entregaba en claro a cualquier admin
+ * de workspace —el guard de /api/whatsapp/evolution es 'admin del workspace', o
+ * sea cualquier cliente— y con ese secreto se forjan webhooks de CUALQUIER otro.
+ *
+ * La UI solo usa `estado` (app/whatsapp/EvolutionConnect.tsx): las URLs viajaban
+ * al browser sin que nadie las mirara. Se recortan acá, en el origen.
+ */
+const sinSecreto = (u: string | null): string | null => (u == null ? null : sinQuery(u));
+
 // Verificación REAL de extremo a extremo: pingeamos NUESTRO propio receiver con el
 // secret actual. Detecta lo que la comparación interna no ve — drift de secret entre
 // deploys, o APP_BASE_URL apuntando a un dominio que no sirve esta app. El receiver
@@ -308,23 +320,23 @@ export async function estadoWebhook(): Promise<WebhookSalud> {
   const ws = await wsEstricto();
   const instance = instanceNameDeWs(ws);
   const esperada = webhookUrl();
-  if (!WEBHOOK_SECRET) return { estado: 'sin_secret', urlActual: null, urlEsperada: esperada };
+  if (!WEBHOOK_SECRET) return { estado: 'sin_secret', urlActual: null, urlEsperada: sinQuery(esperada) };
 
   // 1) ¿El deploy en APP_BASE_URL acepta nuestro secret? (test real de reachability)
   //    Si esto falla, "reparar" no sirve: el problema está en el env de Vercel.
   const ping = await pingReceiver(esperada);
-  if (ping === 401) return { estado: 'secret_prod', urlActual: null, urlEsperada: esperada };
-  if (ping !== 200) return { estado: 'url_distinta', urlActual: null, urlEsperada: esperada };
+  if (ping === 401) return { estado: 'secret_prod', urlActual: null, urlEsperada: sinQuery(esperada) };
+  if (ping !== 200) return { estado: 'url_distinta', urlActual: null, urlEsperada: sinQuery(esperada) };
 
   // 2) El receiver está OK; ahora chequeamos que el webhook esté puesto en la instancia.
   const r = await evFetch<{ enabled?: boolean; url?: string; events?: string[] } | null>(`/webhook/find/${encodeURIComponent(instance)}`);
-  if (!r.ok) return { estado: 'error', urlActual: null, urlEsperada: esperada };
+  if (!r.ok) return { estado: 'error', urlActual: null, urlEsperada: sinQuery(esperada) };
   const cfg = r.data;
-  if (!cfg || !cfg.enabled || !cfg.url) return { estado: 'no_registrado', urlActual: cfg?.url ?? null, urlEsperada: esperada };
-  if (sinQuery(cfg.url) !== sinQuery(esperada)) return { estado: 'no_registrado', urlActual: cfg.url, urlEsperada: esperada };
+  if (!cfg || !cfg.enabled || !cfg.url) return { estado: 'no_registrado', urlActual: sinSecreto(cfg?.url ?? null), urlEsperada: sinQuery(esperada) };
+  if (sinQuery(cfg.url) !== sinQuery(esperada)) return { estado: 'no_registrado', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };
   const events = (cfg.events ?? []).map((e) => String(e).toUpperCase());
-  if (!events.includes('MESSAGES_UPSERT')) return { estado: 'no_registrado', urlActual: cfg.url, urlEsperada: esperada };
-  return { estado: 'ok', urlActual: cfg.url, urlEsperada: esperada };
+  if (!events.includes('MESSAGES_UPSERT')) return { estado: 'no_registrado', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };
+  return { estado: 'ok', urlActual: sinSecreto(cfg.url), urlEsperada: sinQuery(esperada) };
 }
 
 // (Re)registra el webhook y verifica que quedó. Lo usa el botón "Reparar espejo".
