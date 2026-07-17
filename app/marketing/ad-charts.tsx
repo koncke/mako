@@ -751,7 +751,11 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
           {TABS.map((t) => <button key={t.key} type="button" onClick={() => setTab(t.key)} style={tabBtn(tab === t.key)}>{t.label}</button>)}
         </div>
 
-        <div style={{ padding: '20px 28px 26px', maxHeight: '62vh', overflowY: 'auto' }}>
+        {/* El tope de alto + scroll propio es SOLO del modal: ahí la card flota sobre
+            la tabla y no puede pasarse de la pantalla. En inline la página entera ES
+            el anuncio, así que scrollea el documento y no hay scroll adentro de otro
+            scroll. */}
+        <div style={inline ? { padding: '20px 28px 26px' } : { padding: '20px 28px 26px', maxHeight: '62vh', overflowY: 'auto' }}>
           {tab === 'rendimiento' && (err ? <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', color: 'var(--bad)', fontSize: 13 }}>No se pudo cargar de Meta: {err}</div> : data && p ? <RendimientoBody data={data} cierres={head.cierres} cashUsd={head.cashUsd} /> : loadingBox)}
           {tab === 'audiencia' && (err ? <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '12px 16px', color: 'var(--bad)', fontSize: 13 }}>No se pudo cargar de Meta: {err}</div> : data ? <BreakdownCharts demograficos={data.demograficos} plataformas={data.plataformas} regiones={data.regiones} /> : loadingBox)}
           {tab === 'guion' && (
