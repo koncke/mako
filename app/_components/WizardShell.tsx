@@ -95,14 +95,28 @@ export function WizardShell({
 
   // Fullscreen: dos pantallas. El escenario a la izquierda no es decoración —
   // es lo que MaKo ya sabe del negocio, apareciendo mientras el cliente contesta.
+  // Fullscreen: UNA tarjeta partida — el mismo grid `.mk-svc-modal` que el modal
+  // de /integraciones y que el PanelActivacion de cada tab. No son dos cajas
+  // sueltas a propósito: el aside negro tiene que leerse como parte de la misma
+  // pieza (por eso su borde y su radio los pone .mk-svc-aside), y así el cliente
+  // reconoce la MISMA pantalla en los tres lugares.
   if (fullscreen) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS }}>
-        <div style={{ display: 'grid', gridTemplateColumns: escenario ? 'minmax(0,44fr) minmax(0,56fr)' : '1fr', gap: 18, maxWidth: 1180, margin: '0 auto', padding: 'clamp(16px,4vh,44px) 20px', minHeight: '100vh', alignItems: 'center' }}>
-          {escenario && <div style={{ minWidth: 0 }}>{escenario}</div>}
-          <div style={{ minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px,3vh,36px) 20px' }}>
+        <div
+          className={escenario ? 'mk-svc-modal' : undefined}
+          style={{
+            width: '100%', maxWidth: escenario ? 980 : 620,
+            minHeight: escenario ? 560 : undefined,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 18, overflow: 'hidden',
+            ...(escenario ? {} : { display: 'flex', flexDirection: 'column' }),
+          }}
+        >
+          {escenario}
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {header}
-            <div style={{ flex: 1 }}>{cuerpo}</div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{cuerpo}</div>
             {footer}
           </div>
         </div>

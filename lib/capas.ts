@@ -80,7 +80,13 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     navKeys: null,
     userNavKeys: null,
     onboarding: ['integraciones', 'tabs', 'negocio', 'retro'],
-    briefGrupos: null,
+    // Solo el grupo base, igual que 'pm'. NO el esquema entero: son 18 campos
+    // (oferta + avatar + personaje de marca) y el wizard pregunta de a UNA por
+    // pantalla — 18 pantallas para entrar a un producto es exactamente lo que
+    // estamos tratando de matar. El perfil completo se llena después, sin
+    // bloquear, en Configuraciones → Onboarding, que ya tiene el formulario
+    // largo bien resuelto (y hasta lo extrae de un documento con IA).
+    briefGrupos: ['negocio'],
     integracionesRequeridas: ['meta', 'whatsapp'],
     seedBoardVsl: true,
   },
