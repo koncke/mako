@@ -608,8 +608,14 @@ export function scriptViewToHead(sv: ScriptView): AdHead {
 
 type TabKey = 'rendimiento' | 'audiencia' | 'guion';
 
-export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, avatares, defaultTab = 'rendimiento', onClose }: {
-  senal?: SenalRecon; scriptView?: ScriptView | null; desde: string; hasta: string; angles?: AngleDef[]; avatares?: AvatarDef[]; defaultTab?: TabKey; onClose: () => void;
+export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, avatares, defaultTab = 'rendimiento', onClose, inline = false }: {
+  senal?: SenalRecon; scriptView?: ScriptView | null; desde: string; hasta: string; angles?: AngleDef[]; avatares?: AvatarDef[]; defaultTab?: TabKey;
+  /** Modal (default): cerrar con ✕, clic afuera o Escape. En `inline` no aplica. */
+  onClose?: () => void;
+  /** `inline`: sin overlay ni ✕ — la card se planta en el flujo de la página.
+   *  Es lo que usa /anuncio/<ad_id>, donde el anuncio ES la página y no hay
+   *  nada atrás que tapar ni a dónde volver al cerrar. */
+  inline?: boolean;
 }) {
   const router = useRouter();
   // Cada origen pasa su objeto nativo; acá se normaliza a un AdHead (así los
@@ -720,9 +726,8 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
   const tabBtn = (on: boolean): CSSProperties => ({ padding: '9px 16px', borderRadius: '10px 10px 0 0', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, fontWeight: on ? 600 : 500, border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, background: 'transparent', color: on ? 'var(--ink)' : 'var(--dim)' });
   const loadingBox = <div style={{ fontSize: 13.5, color: 'var(--faint)', padding: '8px 0' }}>Cargando datos de Meta…</div>;
 
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+  const card = (
+      <div onClick={inline ? undefined : (e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 1040, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: inline ? 'none' : '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 7 }}>
@@ -734,7 +739,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 'none' }}>
             {data && p && <MakoButton chartKey={`ad-detail-${head.adId}`} titulo={head.adName ?? 'Anuncio'} contexto={ctxAd} sugerencias={['¿Apago este anuncio o lo escalo?', '¿Por qué no convierte?', '¿Qué dice el creativo vs los números?', '¿Qué le cambiarías al guion?']} />}
-            <button aria-label="Cerrar" onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>
+            {onClose && <button aria-label="Cerrar" onClick={onClose} style={{ width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 17, cursor: 'pointer', fontFamily: SANS }}>✕</button>}
           </div>
         </div>
 
@@ -754,7 +759,9 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
               <div style={{ fontSize: 13.5, color: 'var(--faint)', padding: '8px 0' }}>Cargando el guion…</div>
             ) : sv ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <FunnelModal embedded sel={sv} onClose={onClose} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} onSetAvatar={setAvatarOverride} />
+                {/* embedded → el onClose de FunnelModal no se usa (no dibuja su
+                    propio shell); en inline no hay modal padre al que volver. */}
+                <FunnelModal embedded sel={sv} onClose={onClose ?? (() => {})} onReanalizar={reanalizar} reMsg={reMsg} onSetAngle={setAngleOverride} onSetAvatar={setAvatarOverride} />
                 {data && <TranscriptSection key={head.adId} adId={head.adId} initialTr={data.transcript} />}
               </div>
             ) : (
@@ -767,6 +774,13 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
           )}
         </div>
       </div>
+  );
+
+  // inline: la card sola, en el flujo. Modal: la misma card sobre el overlay.
+  if (inline) return card;
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      {card}
     </div>
   );
 }

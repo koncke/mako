@@ -26,6 +26,7 @@ import {
 
 type ProblemAd = { id: string; name: string; issues: Issue[]; statusLabel: string };
 import type { CrossData } from './EntityDetalle';
+import { resolverAd, synthSenal } from './ad-resolver';
 
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 const EntityDetalle = dynamic(() => import('./EntityDetalle').then((m) => m.EntityDetalle), { ssr: false });
@@ -112,18 +113,6 @@ type Row = {
   campName: string | null;
   adsetName: string | null;
 };
-
-// Senal sintética para abrir AdDetalle en anuncios sin gasto en el rango.
-function synthSenal(node: NodoEstado, campana: string | null, adset: string | null): SenalRecon {
-  return {
-    ad_id: node.id, ad_name: node.name, campana, adset_name: adset,
-    spend_usd: 0, leads: 0, meta_leads: 0, dias_corriendo: 0,
-    ritmo: 'sin_datos' as RitmoEstado, ritmo_dias: [], veredicto: 'explorando' as ReconVeredicto,
-    agendas: 0, cierres: 0, cash_usd: 0, hook_rate: null, hold_rate: null, ctr_link: null,
-    cpl_usd: null, frequency: null, impressions: 0, link_clicks: 0, cpm_usd: null, cpc_usd: null,
-    ad_thumbnail_url: null, ad_permalink: null, ad_creative_sin_enlace: true,
-  };
-}
 
 const th: CSSProperties = { padding: '11px 14px', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--surface)' };
 const td: CSSProperties = { padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
@@ -238,16 +227,7 @@ export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { s
   // de los filtros: un link tiene que abrir el anuncio aunque estés parado en
   // Campañas. Si el anuncio no tuvo gasto en el rango no está en `senales`, así
   // que cae a la señal sintética — el mismo fallback que el click en la fila.
-  const senalDeAd = useCallback((adId: string): SenalRecon | null => {
-    const conGasto = senales.find((s) => s.ad_id === adId);
-    if (conGasto) return conGasto;
-    const node = (health?.ads ?? []).find((a) => a.id === adId);
-    if (!node) return null;
-    const adsetId = node.parentId;
-    const adset = adsetId ? adsetsById.get(adsetId) : undefined;
-    const camp = adset?.parentId ? campaignsById.get(adset.parentId) : undefined;
-    return synthSenal(node, camp?.name ?? null, adset?.name ?? null);
-  }, [senales, health, adsetsById, campaignsById]);
+  const senalDeAd = useCallback((adId: string) => resolverAd(adId, senales, health), [senales, health]);
 
   // Abrir/cerrar SIEMPRE por acá: mantiene la URL y el modal en el mismo estado.
   const abrirAd = useCallback((senal: SenalRecon | null, syncUrl = true) => {
