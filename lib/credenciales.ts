@@ -175,8 +175,28 @@ export async function estadoCampo(clave: string, ws?: number): Promise<EstadoCam
   return { configurado: false, origen: null, mask: '', ilegible: false };
 }
 
+/** Se pidió guardar un identificador que ya reclamó otro workspace. */
+export class IdentificadorOcupadoError extends Error {
+  constructor(public clave: string) {
+    super(`El identificador de ${clave} ya está en uso por otro espacio de trabajo.`);
+    this.name = 'IdentificadorOcupadoError';
+  }
+}
+
 /** Guarda cifrado en el workspace. Solo el dueño refleja el cambio a process.env. */
 export async function guardarCredencial(ws: number, clave: string, valor: string, servicio: string, updatedBy: string | null): Promise<void> {
+  // Si esta clave identifica webhooks entrantes, RECLAMAR PRIMERO. El orden no es
+  // capricho: guardar y espejar después dejaba la credencial escrita aunque el
+  // identificador fuera de otro, o sea una credencial que no rutea a ningún lado.
+  // Y sin el fail-closed, pegar el identificador de otro le secuestraba los
+  // webhooks — los identificadores son públicos, no hace falta robar nada.
+  if (ROUTING_CREDS[clave]) {
+    const r = await upsertRouting(ROUTING_CREDS[clave], valor, ws);
+    if (r === 'ocupado') throw new IdentificadorOcupadoError(clave);
+    // 'error' NO frena el guardado: es un problema de base, no del usuario. La
+    // credencial se guarda y el índice se re-siembra en el próximo boot.
+  }
+
   const { error } = await getSupabaseServer()
     .from('credenciales')
     .upsert(
@@ -185,9 +205,6 @@ export async function guardarCredencial(ws: number, clave: string, valor: string
     );
   if (error) throw new Error(`credenciales: ${error.message}`);
   if (ws === OWNER_WS) aplicarAEnv(clave, valor);
-  // Espejo al índice de routing: si esta clave identifica webhooks entrantes,
-  // mapeamos identificador→workspace para que el evento sin sesión rutee bien.
-  if (ROUTING_CREDS[clave]) await upsertRouting(ROUTING_CREDS[clave], valor, ws);
 }
 
 export async function eliminarCredencial(ws: number, clave: string): Promise<void> {

@@ -19,7 +19,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
-import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial } from '@/lib/credenciales';
+import { auditarCredencial, credWs, eliminarCredencial, estadoCampo, guardarCredencial, IdentificadorOcupadoError } from '@/lib/credenciales';
 import { getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { ayudaDeCampo, ENVS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -157,7 +157,18 @@ export async function POST(req: NextRequest) {
         if (!v) continue; // input vacío nunca pisa una guardada
         // Sin excepciones para el dueño: guardar SIEMPRE escribe en la base, y la
         // base manda (lib/credenciales.ts). Todo se configura desde la app.
-        await guardarCredencial(ctx.ws, env, v, servicio.key, ctx.autor);
+        try {
+          await guardarCredencial(ctx.ws, env, v, servicio.key, ctx.autor);
+        } catch (e) {
+          // Reclamar el identificador de otro workspace no es un error del
+          // sistema: es un intento de secuestro de webhooks. Se rechaza con su
+          // motivo y queda auditado.
+          if (e instanceof IdentificadorOcupadoError) {
+            await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor, { permitido: false, motivo: 'identificador ya reclamado por otro workspace' });
+            return NextResponse.json({ ok: false, error: e.message }, { status: 409 });
+          }
+          throw e;
+        }
         await auditarCredencial(ctx.ws, env, 'guardar', ctx.autor);
         guardadas++;
       }

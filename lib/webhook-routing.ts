@@ -64,32 +64,67 @@ export async function wsPorIdentificador(
  * Mapea (servicio, identificador) → ws (upsert). Best-effort (no lanza). Si el
  * identificador ya estaba mapeado a OTRO ws, loguea un warning antes de pisar.
  */
-export async function upsertRouting(servicio: string, id: string, ws: number): Promise<void> {
-  if (!id || !id.trim()) return;
+/**
+ * Resultado de reclamar un identificador.
+ *  · 'ok'      → es tuyo (lo reclamaste ahora, o ya lo eras).
+ *  · 'ocupado' → lo tiene OTRO workspace. NO se pisa.
+ *  · 'error'   → no se pudo escribir (problema de base).
+ */
+export type ResultadoRouting = 'ok' | 'ocupado' | 'error';
+
+/**
+ * Reclama un identificador para un workspace. PRIMER RECLAMANTE GANA.
+ *
+ * Antes esto detectaba la colisión, escribía un console.warn… y pisaba igual. Era
+ * un secuestro cross-tenant servido: los identificadores NO son secretos (el ID
+ * de una página de Facebook es público, y lo mismo el event type de Calendly o el
+ * mail del host de Fathom). Un admin de cliente pegaba el identificador de otro y
+ * desde ese momento los webhooks le entregaban a SU CRM los leads, los chats y
+ * las reuniones de la víctima — que además dejaba de recibirlos.
+ *
+ * Ahora falla cerrado: si el identificador ya es de otro workspace, no se toca.
+ *
+ * La atomicidad importa: leer-y-después-escribir tiene una ventana donde dos
+ * workspaces leen "libre" y los dos escriben. Por eso va INSERT ... ON CONFLICT
+ * DO NOTHING (ignoreDuplicates) y DESPUÉS se lee quién quedó dueño: gana el que
+ * llegó primero, lo decide la base y no una carrera.
+ */
+export async function upsertRouting(servicio: string, id: string, ws: number): Promise<ResultadoRouting> {
+  if (!id || !id.trim()) return 'ok';
   const ident = normalizar(id);
   try {
     const supabase = getSupabaseServer();
-    // Leer antes para detectar reasignación (mismo identificador, otro ws).
-    const { data: previo } = await supabase
+    // Inserta solo si está libre. Si ya existe (de quien sea), no toca nada.
+    const { error } = await supabase
+      .from('webhook_routing')
+      .upsert(
+        { servicio, identificador: ident, workspace_id: ws, created_at: new Date().toISOString() },
+        { onConflict: 'servicio,identificador', ignoreDuplicates: true },
+      );
+    if (error) throw new Error(error.message);
+
+    // ¿Quién quedó dueño? Es la única fuente de verdad después de la carrera.
+    const { data } = await supabase
       .from('webhook_routing')
       .select('workspace_id')
       .eq('servicio', servicio)
       .eq('identificador', ident)
       .maybeSingle();
-    const wsPrevio = (previo as { workspace_id?: number } | null)?.workspace_id ?? null;
-    if (wsPrevio != null && wsPrevio !== ws) {
-      console.warn(
-        `[webhook-routing] colisión: ${servicio}/${ident} reasignado de ws ${wsPrevio} a ws ${ws}`,
-      );
-    }
-    await supabase
-      .from('webhook_routing')
-      .upsert(
-        { servicio, identificador: ident, workspace_id: ws, created_at: new Date().toISOString() },
-        { onConflict: 'servicio,identificador' },
-      );
+    // Number(): workspace_id es BIGINT. supabase-js hoy lo devuelve como número
+    // (verificado), pero una comparación estricta contra un string haría que NADIE
+    // pudiera reclamar un identificador nunca más, y en silencio. El modo de falla
+    // no justifica confiar en el tipado del driver.
+    const raw = (data as { workspace_id?: number | string } | null)?.workspace_id;
+    const dueno = raw == null ? null : Number(raw);
+
+    if (dueno === ws) return 'ok';
+    console.warn(
+      `[webhook-routing] ${servicio}/${ident} ya es del ws ${dueno}: el ws ${ws} NO lo reclama (primer reclamante gana).`,
+    );
+    return 'ocupado';
   } catch (e) {
     console.error('[webhook-routing] upsertRouting falló:', e);
+    return 'error';
   }
 }
 
