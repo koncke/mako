@@ -1,0 +1,39 @@
+// =============================================================================
+// /plan/agencia — el plan de ejecución de MaKo (solo la agencia)
+// =============================================================================
+// Vive en su PROPIO segmento y no adentro de /plan a propósito, y no es cosmético:
+// PlanBoard es 'use client' y trae el seed adentro (proyectos, scoring, fechas y
+// el razonamiento estratégico crudo). Next bundlea por ruta, así que mientras
+// /plan/page.tsx lo importaba —aunque solo lo renderizara para el admin— su chunk
+// viajaba en el JS de /plan para TODOS: cualquier cliente lo leía en DevTools →
+// Sources. Y no era solo el roadmap: el detalle del proyecto de auditoría describe
+// por escrito los agujeros abiertos, o sea que era un mapa de ataque.
+//
+// next/dynamic NO alcanzaba: el chunk se emite igual. Lo único que saca el código
+// del bundle de una ruta es que esa ruta no lo importe.
+//
+// El guard es el mismo que tenía /plan: super-admin de la agencia SIN impersonar.
+// Un admin impersonando a un cliente ve el tablero del cliente, no este.
+// localStorage es por ORIGEN, no por path: el board conserva sus datos (mako_plan_v2)
+// al mudarse de /plan a /plan/agencia.
+// =============================================================================
+
+import { redirect } from 'next/navigation';
+import { getUsuarioActual } from '@/lib/auth';
+import { estaImpersonando } from '@/lib/workspace';
+import { getPerfil } from '@/lib/perfil';
+import { PlanBoard } from '../PlanBoard';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function PlanAgenciaPage() {
+  const sesion = await getUsuarioActual();
+  if (sesion?.rol !== 'admin' || (await estaImpersonando())) redirect('/plan');
+
+  // Nombre + foto del usuario logueado (para el change history del board).
+  let user = { nombre: '', avatarUrl: '' };
+  try { const p = await getPerfil(); user = { nombre: p.nombre, avatarUrl: p.avatarUrl }; } catch { /* fallback vacío */ }
+
+  return <PlanBoard user={user} />;
+}

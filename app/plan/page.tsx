@@ -5,6 +5,7 @@
 // localStorage, privado). Cliente (o admin impersonando) → su tablero kanban de
 // tareas (TodoBoard, tenant-scoped por DB). Un mismo /todo, distinta vista por rol.
 
+import { redirect } from 'next/navigation';
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
 import { seedTodoBoardSiVacio } from '@/lib/todo-seeds';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
@@ -12,7 +13,6 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, getWorkspace, estaImpersonando } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
 import { TodoBoard } from './TodoBoard';
-import { PlanBoard } from './PlanBoard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -23,11 +23,15 @@ export default async function TodoPage() {
   let user = { nombre: '', avatarUrl: '' };
   try { const p = await getPerfil(); user = { nombre: p.nombre, avatarUrl: p.avatarUrl }; } catch { /* fallback vacío */ }
 
-  // Super-admin (Martín) SIN impersonar → su plan de ejecución (PlanBoard).
+  // Super-admin (Martín) SIN impersonar → su plan de ejecución, que vive en
+  // /plan/agencia. Se REDIRIGE en vez de renderizarlo acá: PlanBoard es 'use
+  // client' y trae el seed adentro, así que importarlo desde esta página metía su
+  // chunk —roadmap, scoring y el detalle de los agujeros de seguridad— en el JS
+  // que se le manda a TODOS los clientes, aunque solo se renderizara para el admin.
   // Si un admin IMPERSONA a un cliente (incl. Mauricio/ws1), cae al tablero del
   // cliente — Mauricio es un cliente más, no el dueño.
   const sesion = await getUsuarioActual();
-  if (sesion?.rol === 'admin' && !(await estaImpersonando())) return <PlanBoard user={user} />;
+  if (sesion?.rol === 'admin' && !(await estaImpersonando())) redirect('/plan/agencia');
 
   // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
   await requireCapa('todo');
