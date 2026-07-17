@@ -23,7 +23,30 @@ async function fetchJson(url: string, init: RequestInit = {}): Promise<{ status:
   return { status: r.status, body };
 }
 
-export type ResultadoVerificacion = { ok: boolean; detalle?: string; error?: string };
+/**
+ * `facts` = los datos REALES que el ping ya trajo, estructurados en vez de
+ * interpolados en el string de `detalle`. Son la prueba de que quedó bien
+ * conectado: un "ok ✓" no prueba nada, pero "Última llamada: Discovery con Juan"
+ * hace que el cliente reconozca SU cuenta. Los pinta el aside negro
+ * (PanelMarketing), que al recibirlos reemplaza el carrusel de marketing.
+ *
+ * Es aditivo: quien solo lee `detalle` no se entera.
+ */
+export type Fact = { k: string; v: string; c?: string };
+export type ResultadoVerificacion = { ok: boolean; detalle?: string; error?: string; facts?: Fact[] };
+
+/** Fecha corta y humana para los facts ("hace 2 días"). */
+function haceCuanto(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const dias = Math.floor((Date.now() - t) / 86400000);
+  if (dias <= 0) return 'hoy';
+  if (dias === 1) return 'ayer';
+  if (dias < 30) return `hace ${dias} días`;
+  const meses = Math.floor(dias / 30);
+  return meses === 1 ? 'hace un mes' : `hace ${meses} meses`;
+}
 
 // ── un ping barato por servicio, con el estilo de auth real de cada lib ─────
 const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
@@ -39,7 +62,16 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       if (err.code === 190) return { ok: false, error: 'Token inválido o expirado. Generá uno nuevo de usuario de sistema.' };
       return { ok: false, error: `Meta: ${err.message ?? 'error desconocido'}` };
     }
-    return { ok: true, detalle: `Cuenta "${String(body.name ?? cuenta)}" encontrada.` };
+    // account_status 1 = activa; 3 = con restricción de pago (lib/meta-health).
+    const activa = Number(body.account_status) === 1;
+    return {
+      ok: true,
+      detalle: `Cuenta "${String(body.name ?? cuenta)}" encontrada.`,
+      facts: [
+        { k: 'Tu cuenta de ads', v: String(body.name ?? cuenta) },
+        { k: 'Estado', v: activa ? 'Activa' : 'Con restricción', c: activa ? 'var(--good)' : 'var(--warn)' },
+      ],
+    };
   },
 
   async whatsapp(v) {
@@ -50,8 +82,13 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     if (status === 401) return { ok: false, error: 'Access token inválido.' };
     if (status === 404) return { ok: false, error: 'Cuenta no encontrada — revisá la URL base y el ID de cuenta.' };
     if (status >= 400) return { ok: false, error: `Chatwoot respondió ${status}.` };
-    const inboxes = (body.payload as unknown[] | undefined) ?? [];
-    return { ok: true, detalle: `Conectado — ${inboxes.length} bandeja(s) de entrada.` };
+    const inboxes = (body.payload as Array<{ name?: string; channel_type?: string; phone_number?: string }> | undefined) ?? [];
+    // El de WhatsApp es el que importa: es el que va a espejar los chats.
+    const wa = inboxes.find((i) => (i.channel_type ?? '').includes('whatsapp')) ?? inboxes[0];
+    const facts: Fact[] = [{ k: 'Bandejas', v: String(inboxes.length) }];
+    if (wa?.name) facts.unshift({ k: 'Tu bandeja de WhatsApp', v: wa.name });
+    if (wa?.phone_number) facts.push({ k: 'Número conectado', v: wa.phone_number });
+    return { ok: true, detalle: `Conectado — ${inboxes.length} bandeja(s) de entrada.`, facts };
   },
 
   async email(v) {
@@ -67,6 +104,10 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
       detalle: verificados.length
         ? `Key válida — dominio(s) verificado(s): ${verificados.join(', ')}.`
         : 'Key válida, pero sin dominios verificados todavía (los envíos saldrán en modo sandbox).',
+      facts: verificados.length
+        ? [{ k: 'Tu dominio verificado', v: verificados.join(', '), c: 'var(--good)' }]
+        : [{ k: 'Dominios verificados', v: 'Ninguno todavía', c: 'var(--warn)' },
+           { k: 'Mientras tanto', v: 'Los envíos salen en modo sandbox' }],
     };
   },
 
@@ -99,12 +140,21 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   },
 
   async fathom(v) {
-    const { status } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
+    const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },
     });
     if (status === 401 || status === 403) return { ok: false, error: 'API key inválida (¿tu plan de Fathom incluye API?).' };
     if (status >= 400) return { ok: false, error: `Fathom respondió ${status}.` };
-    return { ok: true, detalle: 'Key válida — llamadas accesibles.' };
+    // Ya teníamos la reunión en la mano y la tirábamos. Que vea el título de SU
+    // última llamada confirma al toque que la key ve las grabaciones correctas.
+    const items = (body.items as Array<{ title?: string; meeting_title?: string; created_at?: string; started_at?: string }> | undefined) ?? [];
+    const u = items[0];
+    const titulo = u?.title ?? u?.meeting_title;
+    const cuando = haceCuanto(u?.created_at ?? u?.started_at);
+    const facts: Fact[] = titulo
+      ? [{ k: 'Tu última llamada grabada', v: cuando ? `${titulo} · ${cuando}` : titulo, c: 'var(--good)' }]
+      : [{ k: 'Llamadas accesibles', v: 'Sí, pero todavía no hay ninguna grabada' , c: 'var(--warn)' }];
+    return { ok: true, detalle: 'Key válida — llamadas accesibles.', facts };
   },
 
   async panda(v) {
@@ -114,7 +164,14 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     });
     if (status === 401 || status === 403) return { ok: false, error: 'API key inválida.' };
     if (status >= 400 || !('videos' in body)) return { ok: false, error: `Panda respondió ${status}.` };
-    return { ok: true, detalle: 'Key válida.' };
+    const vids = (body.videos as Array<{ title?: string }> | undefined) ?? [];
+    return {
+      ok: true,
+      detalle: 'Key válida.',
+      facts: vids[0]?.title
+        ? [{ k: 'Tu último video', v: vids[0].title!, c: 'var(--good)' }]
+        : [{ k: 'Biblioteca', v: 'Key válida, sin videos todavía', c: 'var(--warn)' }],
+    };
   },
 
   async youtube(v) {
@@ -136,8 +193,12 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     });
     if (status === 401) return { ok: false, error: 'Token inválido.' };
     if (status >= 400) return { ok: false, error: `Calendly respondió ${status}.` };
-    const nombre = (body.resource as { name?: string } | undefined)?.name;
-    return { ok: true, detalle: nombre ? `Conectado como ${nombre}.` : 'Token válido.' };
+    const r = body.resource as { name?: string; email?: string; scheduling_url?: string } | undefined;
+    const facts: Fact[] = [];
+    if (r?.name) facts.push({ k: 'Conectado como', v: r.name, c: 'var(--good)' });
+    if (r?.email) facts.push({ k: 'Cuenta', v: r.email });
+    if (r?.scheduling_url) facts.push({ k: 'Tu agenda', v: r.scheduling_url.replace(/^https?:\/\//, '') });
+    return { ok: true, detalle: r?.name ? `Conectado como ${r.name}.` : 'Token válido.', facts };
   },
 
   // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,

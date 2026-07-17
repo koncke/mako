@@ -191,9 +191,15 @@ function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () 
   );
 }
 
-export default function ServicioConfigForm({ servicioKey, onEstado }: {
+export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
   servicioKey: string;
   onEstado?: (conectada: boolean) => void;
+  /**
+   * Los datos reales que devolvió el ping al probar. Los usa el aside negro
+   * (PanelMarketing) para cambiar el carrusel de marketing por la prueba de que
+   * quedó conectado, en el momento exacto en que el cliente aprieta el tilde.
+   */
+  onFacts?: (facts: Array<{ k: string; v: string; c?: string }>) => void;
 }) {
   const [servicio, setServicio] = useState<Servicio | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -347,6 +353,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
         body: JSON.stringify({ action: 'verificar', servicio: servicio.key, valores: enviados }),
       }).then((r) => r.json());
       ponerMsg(env, j.ok ? { ok: true, text: j.detalle ?? 'Conexión OK.' } : { ok: false, text: j.error ?? 'No se pudo verificar.' });
+      if (j.ok && Array.isArray(j.facts) && j.facts.length) onFacts?.(j.facts);
     } catch { ponerMsg(env, { ok: false, text: 'No se pudo verificar. Probá de nuevo.' }); }
     finally { setProbando(null); }
   };
@@ -387,6 +394,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
         }).then((r) => r.json());
         // No funciona → no se guarda. Es el punto de que el tilde valide.
         if (!p.ok) { ponerMsg(env, { ok: false, text: `${p.error ?? 'No se pudo validar.'} No la guardé.` }); return; }
+        if (Array.isArray(p.facts) && p.facts.length) onFacts?.(p.facts);
       }
 
       const j = await fetch('/api/integraciones/credencial', {
