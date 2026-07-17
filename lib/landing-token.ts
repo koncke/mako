@@ -57,7 +57,7 @@ function generarLandingToken(): string {
  * NO cambia los tokens ya emitidos ni apaga la analítica de nadie.
  */
 function tokenDeterminista(ws: number): string {
-  const secret = process.env.AUTH_SECRET || process.env.AUTH_COOKIE_VALUE || process.env.DASHBOARD_PASSWORD;
+  const secret = process.env.AUTH_SECRET;
   if (!secret) return generarLandingToken(); // sin secret, mejor azar que predecible
   return `mko_${createHmac('sha256', secret).update(`landing:${ws}`).digest('hex').slice(0, 32)}`;
 }

@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
   const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol: 'admin' });
   if (!token) {
-    return NextResponse.json({ ok: false, error: 'falta AUTH_SECRET / AUTH_COOKIE_VALUE / DASHBOARD_PASSWORD en .env.local' }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'falta AUTH_SECRET en .env.local' }, { status: 500 });
   }
   const next = destinoSeguro(req.nextUrl.searchParams.get('next'));
   const res = NextResponse.redirect(new URL(next, req.url));

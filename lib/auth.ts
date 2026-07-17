@@ -16,7 +16,7 @@ import 'server-only';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import {
-  EMAIL_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE,
+  OWNER_WS, SESSION_COOKIE,
   gateConfigurado, verificarToken, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
@@ -53,12 +53,11 @@ export const getUsuarioActual = cache(async (): Promise<Sesion | null> => {
     return firmada;
   }
 
-  // Cookie compartida vieja: es el login del dueño → admin sobre el workspace 1.
-  const esperado = process.env.AUTH_COOKIE_VALUE;
-  if (esperado && store.get(LEGACY_COOKIE)?.value === esperado) {
-    const email = store.get(EMAIL_COOKIE)?.value ?? '';
-    return { sub: 'legacy', email, nombre: '', rol: 'admin', exp: 0, legacy: true, ws: OWNER_WS, rolWs: 'admin' };
-  }
+  // Acá vivía la cookie compartida (mako_auth === AUTH_COOKIE_VALUE), que daba
+  // admin sobre el workspace del dueño. Se fue, y no solo porque el login ahora
+  // es con Google: su valor ERA el secreto, así que viajaba al browser, y como
+  // además firmaba las sesiones, cualquiera que la tuviera se fabricaba un token
+  // de admin a mano. Una cookie no puede ser su propia llave.
 
   // Gate sin configurar (local/dev): el proxy deja pasar todo → sesión dev dueño.
   const esProd = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';

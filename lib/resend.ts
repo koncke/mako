@@ -78,7 +78,7 @@ export const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://dashboard-mark
 // presente server-side, así que es un fallback estable y NO público (a diferencia
 // de una constante hardcodeada). Si no hay ningún secreto → fail-closed.
 function unsubSecret(): string {
-  return process.env.UNSUBSCRIBE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.AUTH_COOKIE_VALUE || '';
+  return process.env.UNSUBSCRIBE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 }
 export function unsubscribeToken(leadId: number): string {
   return crypto.createHmac('sha256', unsubSecret()).update(`unsub:${leadId}`).digest('hex').slice(0, 32);

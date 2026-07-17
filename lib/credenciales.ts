@@ -13,9 +13,9 @@
 // otro cliente. Los clientes NUNCA leen process.env: sus tokens salen solo de su
 // fila en la tabla (aislamiento estricto).
 //
-// Cifrado: clave = SHA-256 del secret (CREDENCIALES_SECRET → AUTH_COOKIE_VALUE
-// → SUPABASE_SERVICE_ROLE_KEY). Si rota, lo guardado queda ilegible y /metodo
-// lo marca para re-pegar.
+// Cifrado: AES-256-GCM con clave derivada por (workspace, clave) desde
+// CREDENCIALES_SECRET — ver lib/cripto-credenciales.ts. Si el secreto rota, lo
+// guardado queda ilegible y la UI lo marca para re-pegar.
 
 import 'server-only';
 // El cifrado vive en su propio módulo (sin server-only ni Next) para que se pueda
@@ -319,11 +319,9 @@ const INFRA_ENV = new Set([
   'NEXT_PUBLIC_SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'CREDENCIALES_SECRET',
-  'AUTH_COOKIE_VALUE',
   // Acceso de la plataforma: la app OAuth con la que TODOS entran, y el secreto
   // que firma las sesiones. No son de ningún cliente.
   'AUTH_SECRET',
-  'DASHBOARD_PASSWORD',
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
 ]);

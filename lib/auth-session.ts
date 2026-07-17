@@ -46,15 +46,33 @@ export const SESSION_DIAS = 30;
 /** Workspace dueño: contiene todos los datos previos al multi-inquilino. */
 export const OWNER_WS = 1;
 
-/** Secret de firma. En prod existe AUTH_COOKIE_VALUE (el gate lo exige). */
+/**
+ * Secret de firma de las sesiones. SOLO AUTH_SECRET, sin cadena de fallbacks.
+ *
+ * Antes era `AUTH_SECRET || AUTH_COOKIE_VALUE || DASHBOARD_PASSWORD`, y eso era
+ * una vulnerabilidad, no un detalle: AUTH_SECRET no estaba seteado, así que
+ * firmaba con AUTH_COOKIE_VALUE — que es el valor que se compara CONTRA la cookie
+ * del browser, o sea que viajaba al cliente. Cualquiera con esa cookie conocía la
+ * llave HMAC y se forjaba un token con rol:'admin' (y con sub:'password', que
+ * ademas saltea el re-chequeo contra la base en lib/auth.ts). Un secreto de firma
+ * no puede tener un fallback hacia algo que el cliente ve.
+ */
 function secret(): string | null {
-  const s = process.env.AUTH_SECRET || process.env.AUTH_COOKIE_VALUE || process.env.DASHBOARD_PASSWORD;
+  const s = process.env.AUTH_SECRET;
   return s && s.trim() ? s : null;
 }
 
-/** Mismo criterio que el gate viejo: sin estas envs, el login está inactivo. */
+/**
+ * ¿Se puede verificar una sesión? Es lo ÚNICO que el gate necesita saber.
+ *
+ * Antes preguntaba por DASHBOARD_PASSWORD && AUTH_COOKIE_VALUE, que era mirar el
+ * login viejo: borrar cualquiera de las dos dejaba afuera a TODOS —incluso con
+ * Google— porque el proxy es fail-closed. Las credenciales de Google solo hacen
+ * falta para EMITIR una sesión, y esas rutas son públicas; para VERIFICARLA
+ * alcanza con el secreto de firma. Si algún día falta, sigue cerrando (no abre).
+ */
 export function gateConfigurado(): boolean {
-  return Boolean(process.env.DASHBOARD_PASSWORD && process.env.AUTH_COOKIE_VALUE);
+  return secret() !== null;
 }
 
 /**

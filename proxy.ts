@@ -1,24 +1,25 @@
 // =============================================================================
-// Gate de acceso al dashboard (sesión por usuario + legacy compartida)
+// Gate de acceso al dashboard
 // =============================================================================
 // Antes era middleware.ts (convención deprecada en Next 16 → proxy.ts, corre
 // en runtime Node). Protege páginas + APIs internas; exime los endpoints
 // públicos que llaman servicios externos (webhooks, beacon del VSL, crons —
 // todos con su propia auth por firma/secret).
 //
-// Sesiones aceptadas:
-//   1. mako_session — token firmado por usuario (lib/auth-session.ts). Dice
-//      quién es y su rol; /admin y /api/admin exigen rol admin.
-//   2. mako_auth === AUTH_COOKIE_VALUE — la cookie compartida vieja, para no
-//      desloguear a nadie tras el deploy. Cuenta como admin (antes daba todo).
+// Se entra de UNA sola forma: mako_session, el token firmado por usuario
+// (lib/auth-session.ts), que se emite con Google. Dice quién es y su rol; /admin
+// y /api/admin exigen rol admin.
 //
-// Activación: igual que siempre, con DASHBOARD_PASSWORD + AUTH_COOKIE_VALUE.
-// Si falta alguna: en local/dev el gate queda INACTIVO; en producción
-// FAIL-CLOSED (dashboard cerrado antes que abierto).
+// Acá también se aceptaba `mako_auth === AUTH_COOKIE_VALUE`, la cookie
+// compartida. Se fue: su valor ERA el secreto de firma, así que quien la tenía
+// podía fabricarse un token de admin a mano.
+//
+// Activación: AUTH_SECRET. Sin él, en local/dev el gate queda INACTIVO; en
+// producción FAIL-CLOSED (dashboard cerrado antes que abierto).
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { LEGACY_COOKIE, SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
+import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-session';
 
 // Prefijos públicos (no requieren login).
 // '/vsl' es la landing pública de venta de MaKo (no figura en el sidebar) y
@@ -66,24 +67,18 @@ export function proxy(req: NextRequest) {
     const esProd =
       process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
     if (!esProd) return NextResponse.next();
-    console.error(
-      '[gate] DASHBOARD_PASSWORD/AUTH_COOKIE_VALUE sin setear en producción → negando rutas protegidas',
-    );
+    console.error('[gate] AUTH_SECRET sin setear en producción → negando rutas protegidas');
     return denegar(req, pathname);
   }
 
   const esAdminRoute = SOLO_ADMIN.some((p) => pathname === p || pathname.startsWith(p + '/'));
 
-  // 1) Sesión firmada por usuario.
+  // Sesión firmada. Es el ÚNICO camino: la cookie compartida ya no existe (era
+  // una cookie cuyo valor ERA el secreto — el que la tenía podía firmarse una
+  // sesión de admin a mano). Se entra con Google y nada más.
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
-    return NextResponse.next();
-  }
-
-  // 2) Cookie compartida legacy (pre-usuarios): acceso total, como siempre.
-  const esperado = process.env.AUTH_COOKIE_VALUE;
-  if (esperado && req.cookies.get(LEGACY_COOKIE)?.value === esperado) {
     return NextResponse.next();
   }
 

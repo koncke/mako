@@ -29,40 +29,7 @@ export type VersionCripto = 'gcm1' | 'gcm2' | 'otro';
 const V2_INFO = (ws: number, clave: string) => `mako:cred:v2|ws=${ws}|k=${clave}`;
 const V2_AAD = (ws: number, clave: string) => Buffer.from(`${ws}:${clave}`, 'utf8');
 
-/**
- * Clave del formato VIEJO. CONGELADA a propósito: NO mira CREDENCIALES_SECRET.
- * Si lo mirara, el día que se setee las filas gcm1 dejarían de abrir EN SILENCIO
- * — que es justo el accidente que esta migración existe para evitar. Su único
- * trabajo es leer lo que ya está escrito.
- *
- * OJO — POR QUÉ ESTO URGE: AUTH_COOKIE_VALUE no es un secreto de servidor. El
- * login compartido compara la cookie CONTRA ESE VALOR TAL CUAL (lib/auth.ts), o
- * sea que está en el browser de cualquiera que haya entrado con la contraseña
- * maestra. Todo lo cifrado en v1 está protegido por un secreto repartido. Por eso
- * v1 es una rampa de salida, no un formato: cuanto antes quede en cero, mejor.
- */
-function claveV1(): Buffer | null {
-  const sec = process.env.AUTH_COOKIE_VALUE || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!sec || !sec.trim()) return null;
-  return crypto.createHash('sha256').update(sec).digest();
-}
-
-/**
- * '1' → el lector RECHAZA gcm1. Es el paso final de la migración, pero como flag
- * y no como borrado de código: se prende apenas el backfill da cero y se apaga
- * en dos minutos si algo salió mal.
- *
- * No es cosmético. Mientras v1 se acepte, el AAD de v2 NO garantiza nada: el
- * formato lo elige el criptograma, así que a una fila ya migrada se le puede
- * plantar un blob gcm1 forjado (sin AAD, sin clave por workspace) y el lector lo
- * toma. La promesa "un criptograma no se puede mover de fila" recién es cierta
- * con esto prendido.
- */
-function v1Apagado(): boolean {
-  return process.env.CREDENCIALES_V1_OFF === '1';
-}
-
-/** Secreto del formato nuevo. SOLO CREDENCIALES_SECRET: sin cadena de fallbacks. */
+/** Secreto del cifrado. SOLO CREDENCIALES_SECRET: sin cadena de fallbacks. */
 function secretoV2(): string | null {
   const sec = process.env.CREDENCIALES_SECRET;
   return sec && sec.trim() ? sec.trim() : null;
@@ -74,16 +41,6 @@ function claveV2(salt: Buffer, ws: number, clave: string): Buffer | null {
   return Buffer.from(crypto.hkdfSync('sha256', Buffer.from(sec, 'utf8'), salt, Buffer.from(V2_INFO(ws, clave), 'utf8'), 32));
 }
 
-/**
- * true → los guardados nuevos nacen v2. El flag va SEPARADO del secreto para que
- * el rollback sea apagarlo y listo: el secreto se queda, así lo ya escrito en v2
- * se sigue leyendo. Si estuvieran juntos, "revertir" volvería ilegible todo lo
- * guardado en el medio.
- */
-export function escribeV2(): boolean {
-  return process.env.CREDENCIALES_V2 === '1' && secretoV2() !== null;
-}
-
 /** ¿Con qué formato está escrita esta fila? Lo usa el backfill. */
 export function versionCripto(valorEnc: string): VersionCripto {
   const v = valorEnc.split('.')[0];
@@ -93,7 +50,7 @@ export function versionCripto(valorEnc: string): VersionCripto {
 export function cifrarV2(valor: string, ws: number, clave: string): string {
   const salt = crypto.randomBytes(16);
   const key = claveV2(salt, ws, clave);
-  if (!key) throw new Error('credenciales: CREDENCIALES_V2=1 pero falta CREDENCIALES_SECRET');
+  if (!key) throw new Error('credenciales: falta CREDENCIALES_SECRET');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   cipher.setAAD(V2_AAD(ws, clave));
@@ -101,53 +58,42 @@ export function cifrarV2(valor: string, ws: number, clave: string): string {
   return `gcm2.${salt.toString('base64url')}.${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${enc.toString('base64url')}`;
 }
 
-export function cifrarV1(valor: string): string {
-  const key = claveV1();
-  if (!key) throw new Error('credenciales: sin secret de cifrado (AUTH_COOKIE_VALUE)');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const enc = Buffer.concat([cipher.update(valor, 'utf8'), cipher.final()]);
-  return `gcm1.${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${enc.toString('base64url')}`;
-}
-
 /**
- * Cifra para la fila (ws, clave). El (ws, clave) NO es decorativo: en v2 entra en
- * la derivación de la clave y en el AAD, así que el criptograma solo abre en su
+ * Cifra para la fila (ws, clave). El (ws, clave) NO es decorativo: entra en la
+ * derivación de la clave y en el AAD, así que el criptograma solo abre en su
  * propia fila.
  */
 export function cifrar(valor: string, ws: number, clave: string): string {
-  if (escribeV2()) return cifrarV2(valor, ws, clave);
-  // Fail-closed: con v1 apagado, escribir v1 sería escribir algo que este mismo
-  // proceso no puede volver a leer. Mejor explotar acá que guardar basura.
-  if (v1Apagado()) throw new Error('credenciales: CREDENCIALES_V1_OFF=1 pero no se puede escribir v2 (¿falta CREDENCIALES_SECRET o CREDENCIALES_V2=1?)');
-  return cifrarV1(valor);
+  return cifrarV2(valor, ws, clave);
 }
 
-/** Lector DUAL: entiende los dos formatos. null = no se pudo abrir. */
+/**
+ * Descifra. SOLO gcm2: la rama que leía el formato viejo se fue.
+ *
+ * Por qué se fue y no quedó "por las dudas": mientras se aceptara gcm1, el AAD no
+ * garantizaba nada. El formato lo elige el criptograma, así que a una fila ya
+ * migrada se le podía plantar un blob gcm1 forjado —sin AAD, sin clave por
+ * workspace— y el lector lo tomaba. Y la clave de gcm1 salía de
+ * AUTH_COOKIE_VALUE, que viajaba al browser de cualquiera que usara el login
+ * compartido. Aceptar el formato viejo era aceptar un downgrade con una llave
+ * repartida.
+ *
+ * OJO si restaurás un backup anterior al 2026-07-16: sus filas son gcm1 y NO
+ * abren. Se re-pegan las credenciales desde /integraciones (o
+ * scripts/recifrar-credenciales.mjs con la llave vieja, resucitando esta rama a
+ * mano en una branch).
+ */
 export function descifrar(valorEnc: string, ws: number, clave: string): string | null {
   const partes = valorEnc.split('.');
+  if (partes[0] !== 'gcm2' || partes.length !== 5) return null;
   try {
-    if (partes[0] === 'gcm2') {
-      if (partes.length !== 5) return null;
-      const [, salt, iv, tag, cuerpo] = partes;
-      const key = claveV2(Buffer.from(salt, 'base64url'), ws, clave);
-      if (!key) return null;
-      const d = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-      d.setAAD(V2_AAD(ws, clave));
-      d.setAuthTag(Buffer.from(tag, 'base64url'));
-      return Buffer.concat([d.update(Buffer.from(cuerpo, 'base64url')), d.final()]).toString('utf8');
-    }
-    if (partes[0] === 'gcm1') {
-      // Con v1 apagado no hay downgrade posible: un gcm1 forjado no entra.
-      if (v1Apagado() || partes.length !== 4) return null;
-      const key = claveV1();
-      if (!key) return null;
-      const [, iv, tag, cuerpo] = partes;
-      const d = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
-      d.setAuthTag(Buffer.from(tag, 'base64url'));
-      return Buffer.concat([d.update(Buffer.from(cuerpo, 'base64url')), d.final()]).toString('utf8');
-    }
-    return null;
+    const [, salt, iv, tag, cuerpo] = partes;
+    const key = claveV2(Buffer.from(salt, 'base64url'), ws, clave);
+    if (!key) return null;
+    const d = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+    d.setAAD(V2_AAD(ws, clave));
+    d.setAuthTag(Buffer.from(tag, 'base64url'));
+    return Buffer.concat([d.update(Buffer.from(cuerpo, 'base64url')), d.final()]).toString('utf8');
   } catch {
     return null; // secret rotado, fila corrupta, o criptograma movido de fila (AAD)
   }
