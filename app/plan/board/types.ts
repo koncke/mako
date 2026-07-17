@@ -6,7 +6,18 @@
 // useBoard tiene toda la lógica (optimista + change history + undo).
 
 export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
-export type Actor = 'user' | 'ia';
+// Quién tocó algo. Los dos últimos son IA pero NO son lo mismo, y confundirlos es
+// mentir sobre el producto:
+//   'ia'   = MaKo, la IA que corre DENTRO de la app (el Perro puntuando, el doer,
+//            la Retro creando tareas). Es una función del producto: le pasa igual
+//            al cliente.
+//   'code' = Claude Code, el agente de desarrollo que edita el repo y despliega.
+//            Nada de lo que hace acá lo puede hacer MaKo, ni le pasa a un cliente.
+// Firmar como 'ia' algo que hizo 'code' hace parecer que el Perro trabaja cuando
+// en realidad lo escribió un dev con un deploy.
+export type Actor = 'user' | 'ia' | 'code';
+export const esIA = (a: Actor) => a !== 'user';
+export const ACTOR_LABEL: Record<Actor, string> = { user: '', ia: 'MaKo', code: 'Claude Code' };
 export type Check = { id: string; text: string; done: boolean };
 export type UndoInfo = { field: string; prev: unknown };
 export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: UndoInfo; kind?: 'task' };

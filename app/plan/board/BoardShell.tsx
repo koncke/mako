@@ -29,7 +29,7 @@ import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
 import { RichText, stripHtml, sanitizeHtml } from './RichText';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -417,12 +417,22 @@ function ScoreBadge({ score }: { score: number }) {
   const c = PCOLOR[prioFromScore(score)];
   return <span title="Prioridad del guardián (1-100)" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px 1px 4px' }}><ScoreIcon size={10} color={c} />{score}</span>;
 }
-// Chip de origen: solo para tareas creadas por MaKo (✦ Origen IA), al lado del tag.
+// Chip de origen: para lo que no escribió el usuario. Distingue a MaKo (la IA del
+// producto) de Claude Code (el agente de desarrollo), porque no es lo mismo que una
+// tarjeta la haya sacado el Perro de tus datos a que la haya escrito un dev en el SEED.
 function OrigenChip({ origen }: { origen: Actor }) {
-  if (origen !== 'ia') return null;
-  return <span title="Creada por MaKo" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'var(--surface)', border: '1px solid var(--primary-weak)', borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}>✦ Origen IA</span>;
+  if (origen === 'user') return null;
+  const code = origen === 'code';
+  return (
+    <span
+      title={code ? 'Escrita en el código y desplegada — no la creó MaKo' : 'Creada por MaKo'}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: code ? 'var(--dim)' : 'var(--accent)', background: 'var(--surface)', border: `1px solid ${code ? 'var(--border-strong)' : 'var(--primary-weak)'}`, borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}
+    >
+      {code ? '‹╱› Claude Code' : '✦ Origen IA'}
+    </span>
+  );
 }
-// El alta se muestra con una frase que nombra al autor ("Creada por la IA") en vez
+// El alta se muestra con una frase que nombra al autor ("Creada por MaKo") en vez
 // del texto crudo. Pero cuando MaKo además dejó asentado QUÉ hizo (todo lo que va
 // después del " — "), ese porqué tiene que sobrevivir: si no, una tanda entera de
 // tarjetas creadas por la IA queda sin rastro de dónde salió.
@@ -431,9 +441,19 @@ function partirCreacion(text: string, prefijo: string): { esCreacion: boolean; p
   return { esCreacion: true, porque: text.slice(prefijo.length).replace(/^\s*—\s*/, '').trim() };
 }
 
-// Avatar para el change history: IA → ✦ MaKo; usuario → foto de perfil o inicial.
+// Quién figura como autor de una entrada del historial.
+const autorDe = (actor: Actor, nombre: string) => ACTOR_LABEL[actor] || nombre || 'Usuario';
+// La frase del alta. 'code' se nombra distinto A PROPÓSITO: que una tarjeta la haya
+// escrito un dev en el SEED no es lo mismo que la haya sacado MaKo de tus datos.
+const frasePorAlta = (actor: Actor, nombre: string, genero: 'a' | 'o') =>
+  actor === 'ia' ? `Cread${genero} por MaKo`
+    : actor === 'code' ? `Cread${genero} desde el código, no por MaKo`
+      : `Cread${genero} por ${nombre || 'vos'}`;
+
+// Avatar para el change history: MaKo → ✦; Claude Code → ‹╱›; usuario → foto o inicial.
 function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; nombre: string; avatarUrl: string; size?: number }) {
   if (actor === 'ia') return <span title="MaKo" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--accent)' + '1f', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.55, flex: 'none' }}>✦</span>;
+  if (actor === 'code') return <span title="Claude Code — el agente de desarrollo, no MaKo" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontFamily: MONO, fontWeight: 700, flex: 'none' }}>╱</span>;
   if (avatarUrl) /* eslint-disable-next-line @next/next/no-img-element */
     return <img src={avatarUrl} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />;
   const ini = (nombre || 'U').trim().slice(0, 1).toUpperCase();
@@ -669,12 +689,12 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creada por la IA' : `Creada por ${nombre || 'vos'}`) : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{autorDe(h.actor, nombre)}</strong> · {esCreacion ? frasePorAlta(h.actor, nombre, "a") : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
             {/* solo el ÚLTIMO cambio se puede deshacer (1 en 1, tipo ctrl-z) */}
             {/* #10: no se puede deshacer un cambio de MaKo / el perro — sería saltearse el sistema */}
-            {i === 0 && h.undo && h.actor !== 'ia' && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer el último cambio" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
+            {i === 0 && h.undo && h.actor === 'user' && <button onClick={() => ask('Se revierte este cambio y se borra del historial. ¿Seguir?', () => board.undoHist(t.id, h))} title="Deshacer el último cambio" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '4px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶ Deshacer</button>}
           </div>
         );
       })}
@@ -820,11 +840,11 @@ function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTa
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={24} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{autorDe(h.actor, nombre)}</strong> · {esCreacion ? frasePorAlta(h.actor, nombre, "o") : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
             {/* solo el último cambio del usuario se puede deshacer (nunca los de MaKo) */}
-            {i === 0 && h.undo && h.actor !== 'ia' && onUndo && <button onClick={() => onUndo(h)} title="Deshacer" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '3px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶</button>}
+            {i === 0 && h.undo && h.actor === 'user' && onUndo && <button onClick={() => onUndo(h)} title="Deshacer" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '3px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶</button>}
           </div>
         );
       })}
@@ -853,7 +873,7 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '1px 7px 1px 5px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color, marginRight: 6, verticalAlign: 'middle' }}>{l.emoji} {l.name}</span>
-                <strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}
+                <strong style={{ fontWeight: 600 }}>{autorDe(h.actor, nombre)}</strong> · {esCreacion ? frasePorAlta(h.actor, nombre, "o") : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>

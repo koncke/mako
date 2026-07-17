@@ -13,7 +13,11 @@ import { getTenantDb } from './workspace';
 export type EstadoTarea = 'por_hacer' | 'en_curso' | 'hecho';
 export type Prioridad = 'alta' | 'media' | 'baja' | 'futuro';
 export type OrigenTarea = 'manual' | 'mako' | 'retro' | 'experimento';
-export type Actor = 'user' | 'ia';
+// Espeja app/plan/board/types.ts: 'ia' = MaKo (la IA del producto), 'code' = Claude
+// Code (el agente de desarrollo). En el board del CLIENTE 'code' no se genera —
+// ningún dev le escribe tarjetas— pero el tipo lo acepta para que una entrada así
+// no se degrade a 'user' al leerla (diría que la escribió el cliente: peor mentira).
+export type Actor = 'user' | 'ia' | 'code';
 export type ChecklistItem = { id: string; text: string; done: boolean };
 export type HistUndo = { field: string; prev: unknown };
 export type HistEntry = { id: string; ts: number; actor: Actor; text: string; undo?: HistUndo; kind?: 'task' };
@@ -82,7 +86,10 @@ const histOk = (h: unknown): HistEntry[] =>
     ? h.filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
         .map((o) => {
           const ts = Number(o.ts) || 0;
-          const e: HistEntry = { id: typeof o.id === 'string' && o.id ? o.id : 'h' + ts, ts, actor: o.actor === 'ia' ? 'ia' : 'user', text: String(o.text ?? '') };
+          // La autoría se preserva tal cual: degradar un 'code' a 'user' diría que el
+          // cambio lo hizo el cliente, que es peor mentira que no saber quién fue.
+          const actor: Actor = o.actor === 'ia' ? 'ia' : o.actor === 'code' ? 'code' : 'user';
+          const e: HistEntry = { id: typeof o.id === 'string' && o.id ? o.id : 'h' + ts, ts, actor, text: String(o.text ?? '') };
           const u = o.undo as Record<string, unknown> | undefined;
           if (u && typeof u === 'object' && typeof u.field === 'string') e.undo = { field: u.field, prev: u.prev };
           if (o.kind === 'task') e.kind = 'task';
