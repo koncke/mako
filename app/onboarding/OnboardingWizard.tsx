@@ -53,6 +53,7 @@ type WizardData = {
   requeridos: string[];
   pasos: Paso[];
   capa: { id: string; nombre: string };
+  esAdmin?: boolean;
   brief: BriefCampo[];
   briefAnswers: Record<string, string>;
   settings: Record<string, string>;
@@ -282,7 +283,24 @@ export function OnboardingWizard() {
 
   const campoBrief = p.key.startsWith('brief:') ? data.brief.find((c) => c.key === p.key.slice(6)) : null;
   const servicioReq = p.servicio && data.requeridos.includes(p.servicio);
-  const puedeAvanzar = servicioReq ? Boolean(conectadas[p.servicio!]) : true;
+  // El super-admin (impersonando un cliente de prueba) puede adelantar sin
+  // conectar: está recorriendo el flujo, no dando de alta un cliente real.
+  const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin)) : true;
+
+  // Simular con las llaves de Mauricio: copia sus credenciales al workspace de
+  // prueba y arranca la extracción, para ver el WOW real (los facts, el histórico)
+  // sin tener que pegar una key. Solo super-admin.
+  const simular = async () => {
+    setPending(true);
+    try {
+      const j = await post('/api/onboarding', { action: 'simular' });
+      if (!j.ok) { setError(String(j.error ?? 'No se pudo simular.')); return; }
+      const con = (j.conectados as string[]) ?? [];
+      setConectadas((c) => ({ ...c, ...Object.fromEntries(con.map((k) => [k, true])) }));
+      if (con.includes('meta')) arrancarExtraccion();
+      await cargar(); // refresca facts/estado de servicios
+    } finally { setPending(false); }
+  };
 
   return (
     <>
@@ -318,6 +336,23 @@ export function OnboardingWizard() {
             style={{ background: 'none', border: 'none', padding: 0, color: 'var(--faint)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline' }}>
             Completar después
           </button>
+        ) : undefined}
+        adminBar={data.esAdmin ? (
+          <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 8px 8px 16px' }}>
+            <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5C4A17' }}>
+              Modo agencia · estás viendo el onboarding de {data.capa.nombre}
+            </span>
+            {p.servicio && servicioReq && !conectadas[p.servicio] && (
+              <button type="button" onClick={simular} disabled={pending}
+                style={{ marginLeft: 'auto', padding: '7px 13px', borderRadius: 9, border: 'none', background: '#171511', color: '#F3F0E7', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+                ✦ Usar las llaves de Mauricio
+              </button>
+            )}
+            <button type="button" onClick={async () => { await fetch('/api/admin/impersonate', { method: 'DELETE' }); window.location.href = '/admin'; }}
+              style={{ marginLeft: p.servicio && servicioReq && !conectadas[p.servicio] ? 0 : 'auto', padding: '7px 13px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+              Salir de la vista
+            </button>
+          </div>
         ) : undefined}
         escenario={
           <PanelMarketing

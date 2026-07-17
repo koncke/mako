@@ -28,7 +28,7 @@ export function WizardShell({
   titulo, total, idx, pregunta, sub, children, error,
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
   atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
-  fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter,
+  fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   total: number; idx: number;
@@ -51,6 +51,8 @@ export function WizardShell({
   siguienteLabel?: string;
   /** Slot a la izquierda del footer (ej. "Completar después"). */
   extraFooter?: ReactNode;
+  /** Barra fija arriba del overlay fullscreen (ej. "Salir de la vista" del admin). */
+  adminBar?: ReactNode;
 }) {
   const dots = (
     <div style={{ display: 'flex', gap: 6 }}>
@@ -102,22 +104,27 @@ export function WizardShell({
   // reconoce la MISMA pantalla en los tres lugares.
   if (fullscreen) {
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px,3vh,36px) 20px' }}>
-        <div
-          className={escenario ? 'mk-svc-modal' : undefined}
-          style={{
-            width: '100%', maxWidth: escenario ? 980 : 620,
-            minHeight: escenario ? 560 : undefined,
-            background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 18, overflow: 'hidden',
-            ...(escenario ? {} : { display: 'flex', flexDirection: 'column' }),
-          }}
-        >
-          {escenario}
-          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            {header}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{cuerpo}</div>
-            {footer}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'var(--bg)', overflowY: 'auto', fontFamily: SANS, display: 'flex', flexDirection: 'column', padding: 'clamp(12px,3vh,36px) 20px' }}>
+        {/* Barra del admin: por encima del overlay (que si no tapa el banner de
+            impersonación), para poder salir de la vista sin terminar el wizard. */}
+        {adminBar && <div style={{ flex: 'none', marginBottom: 14 }}>{adminBar}</div>}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
+          <div
+            className={escenario ? 'mk-svc-modal' : undefined}
+            style={{
+              width: '100%', maxWidth: escenario ? 980 : 620,
+              minHeight: escenario ? 560 : undefined,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 18, overflow: 'hidden',
+              ...(escenario ? {} : { display: 'flex', flexDirection: 'column' }),
+            }}
+          >
+            {escenario}
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              {header}
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{cuerpo}</div>
+              {footer}
+            </div>
           </div>
         </div>
       </div>

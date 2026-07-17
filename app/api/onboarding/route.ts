@@ -10,12 +10,12 @@
 //        | 'contacto' | 'paso' , ... }.
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getUsuarioActual } from '@/lib/auth';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { setNumeroDuenoYSync } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
-import { estadoCampo, guardarCredencial, integracionConectada } from '@/lib/credenciales';
+import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { getSetting, setSetting } from '@/lib/settings';
 import { saveFunnel } from '@/lib/leads';
@@ -104,6 +104,10 @@ export async function GET() {
       pasos: capa.onboarding,
       capa: { id: capa.id, nombre: capa.nombre },
       requeridos: capa.integracionesRequeridas,
+      // ¿Quien mira es el super-admin de la agencia (impersonando un cliente de
+      // prueba)? El wizard le muestra atajos: saltar sin conectar, usar las
+      // llaves de Mauricio para simular, y salir de la vista.
+      esAdmin: Boolean(await getSesionAdmin()),
       // El brief se pregunta de a UNA por pantalla, así que viaja aplanado y ya
       // filtrado por la capa: el wizard no tiene que saber de grupos.
       brief: brief.flatMap((g) => g.fields.map((f) => ({
@@ -264,6 +268,37 @@ export async function POST(req: NextRequest) {
           }
         });
         return NextResponse.json({ ok: true, estado });
+      }
+
+      // Simular: copiar las credenciales de Mauricio (ws1) al workspace de
+      // prueba, para recorrer el onboarding con datos reales sin cargar una key.
+      // SOLO super-admin de la agencia — un cliente no puede robarle las llaves
+      // al dueño. Se salta las credenciales de ruteo (page id, event types): las
+      // reclama ws1 y el reclamo ahora falla cerrado (tarea 162), así que
+      // copiarlas tiraría; el sim no las necesita.
+      case 'simular': {
+        if (!(await getSesionAdmin())) {
+          return NextResponse.json({ ok: false, error: 'Solo la agencia puede simular.' }, { status: 403 });
+        }
+        const quien = (await getUsuarioActual())?.email || 'simulacion';
+        const conectados: string[] = [];
+        for (const s of SERVICIOS_METODO) {
+          if (!SERVICIOS_CLIENTE.has(s.key)) continue;
+          let algo = false;
+          for (const campo of s.campos) {
+            const valor = await credWs(campo.env, OWNER_WS);
+            if (!valor) continue;
+            try {
+              await guardarCredencial(ws, campo.env, valor, s.key, quien);
+              algo = true;
+            } catch (e) {
+              // Credencial de ruteo ya reclamada por ws1 → se salta, no es fatal.
+              if (!(e instanceof IdentificadorOcupadoError)) throw e;
+            }
+          }
+          if (algo && (await integracionConectada(s.key))) conectados.push(s.key);
+        }
+        return NextResponse.json({ ok: true, conectados });
       }
 
       default:
