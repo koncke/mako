@@ -13,6 +13,7 @@
 
 import 'server-only';
 import { META_PAGE_ID } from './config';
+import { getWorkspaceActual, OWNER_WS } from './workspace';
 import {
   type CampaignSpec,
   type AdSetSpec,
@@ -69,7 +70,37 @@ export function metaErrorEnvelope(err: unknown): {
 }
 
 // POST form-urlencoded a una edge de la cuenta; inspecciona body.error (HTTP 200).
+/**
+ * CANDADO DE LA MINA (tarea #170). Este lib está cableado a la cuenta del DUEÑO:
+ * META_PAGE_ID es una constante literal (lib/config.ts) y el token/cuenta salen de
+ * getEnv(), o sea process.env crudo — que el boot hidrata con las credenciales del
+ * dueño. No pasa por credWs ni por workspace.
+ *
+ * Hoy no explota porque todas sus puertas exigen esDuenoAdmin(). El día que
+ * alguien abra Ads Manager a los clientes, sin esto crearía campañas y públicos
+ * de un cliente SOBRE LA PÁGINA Y LA CUENTA DE MAURICIO, en silencio y con plata
+ * de por medio.
+ *
+ * Esto no arregla el cableado —eso es recablear el archivo entero a credWs, que es
+ * async y toca 8 usos + getEnv—, pero convierte una mina silenciosa en un error
+ * ruidoso. Cuando se abra Ads Manager, esto va a gritar antes de gastar un peso.
+ *
+ * ws === OWNER_WS  → el dueño, o un cron/webhook sin sesión.
+ * ws === null      → admin de agencia sin impersonar: administra la cuenta del dueño.
+ * ws === otro      → un cliente. Acá NO.
+ */
+async function assertCuentaDelDueno(): Promise<void> {
+  const ws = await getWorkspaceActual();
+  if (ws !== null && ws !== OWNER_WS) {
+    throw new MetaWriteError(
+      `meta-ads-create está cableado a la cuenta de Meta del dueño y se lo llamó desde el workspace ${ws}. ` +
+      'Antes de abrir Ads Manager a clientes hay que recablear META_PAGE_ID/token a credWs por workspace (tarea #170).',
+    );
+  }
+}
+
 async function graphPost(path: string, params: Record<string, string | number | undefined>): Promise<Record<string, unknown>> {
+  await assertCuentaDelDueno();
   const body = new URLSearchParams();
   for (const [k, val] of Object.entries(params)) {
     if (val === undefined || val === null || val === '') continue;
@@ -95,6 +126,7 @@ async function graphPost(path: string, params: Record<string, string | number | 
 
 // GET con inspección de body.error (para leer creativos de ganadores / formularios).
 async function graphGet(url: string): Promise<Record<string, unknown>> {
+  await assertCuentaDelDueno();
   const res = await fetch(url, { cache: 'no-store' });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & { error?: { code?: number; error_subcode?: number; message?: string } };
   if (data && data.error) {
@@ -452,6 +484,7 @@ export async function searchInterests(q: string): Promise<Array<{ id: string; na
 
 /** Sube una imagen a act_<id>/adimages → devuelve image_hash (+ url/medidas). */
 export async function uploadAdImage(bytes: ArrayBuffer, filename: string): Promise<{ image_hash: string; url: string | null; width: number | null; height: number | null }> {
+  await assertCuentaDelDueno(); // fetch crudo: no pasa por graphPost
   const form = new FormData();
   form.append('access_token', token());
   form.append('filename', new Blob([bytes]), filename);
@@ -466,6 +499,7 @@ export async function uploadAdImage(bytes: ArrayBuffer, filename: string): Promi
 
 /** Sube un video a act_<id>/advideos (multipart) → devuelve video_id. */
 export async function uploadAdVideo(bytes: ArrayBuffer, filename: string, mime: string): Promise<{ video_id: string }> {
+  await assertCuentaDelDueno(); // fetch crudo: no pasa por graphPost
   const form = new FormData();
   form.append('access_token', token());
   form.append('name', filename);
@@ -745,6 +779,7 @@ export async function updateAdCopy(adId: string, edited: { primary_text?: string
  * y anuncios; los creativos son a nivel cuenta y se borran aparte.
  */
 export async function deleteEntity(id: string): Promise<void> {
+  await assertCuentaDelDueno(); // fetch crudo, y es el que BORRA
   const url = `${GRAPH_BASE}/${ver()}/${id}?access_token=${encodeURIComponent(token())}`;
   await fetch(url, { method: 'DELETE', cache: 'no-store' });
 }
