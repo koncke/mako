@@ -21,12 +21,17 @@ const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
 // tarjeta": mentiría sobre la fecha y no diría de dónde salió. Ese rastro es lo
 // único que hace auditable un board donde la IA escribe.
 const CARGA_16J = Date.parse('2026-07-16T18:00:00Z');
+const CARGA_17J = Date.parse('2026-07-17T17:30:00Z'); // reconciliación del board con el trabajo hecho
 const HIST_DICTADAS = 'Creó la tarjeta — de las 7 grandes tareas que dictaste el 16/7';
 const HIST_AUDITORIA = 'Creó la tarjeta — hallazgo de la auditoría del 16/7';
+// 175-184: trabajo real del 16-17/7 que no tenía tarjeta. Se cardó el 17/7 al cruzar
+// los commits contra el board (verificado tarea por tarea, adversarialmente).
+const HIST_RECONCILE = 'Creó la tarjeta — trabajo del 16-17/7 que no tenía tarjeta; Claude Code lo cardó al reconciliar el board';
 // Las dos tandas del 16/7: 132-161 las dictó Martín; 162-173 salieron de la auditoría.
 const histDeCarga = (num: number): { ts: number; text: string } | null =>
   num >= 132 && num <= 161 ? { ts: CARGA_16J, text: HIST_DICTADAS }
     : num >= 162 && num <= 173 ? { ts: CARGA_16J, text: HIST_AUDITORIA }
+    : num >= 175 && num <= 184 ? { ts: CARGA_17J, text: HIST_RECONCILE }
       : null;
 
 const P = (id: string, emoji: string, name: string, color: string, score: number, impacto: number, esfuerzo: number, scoreRazon: string, detalle: string, deadline: string, hist?: { ts: number; text: string }): Label =>
@@ -280,6 +285,21 @@ const SEED: Row[] = [
   [172, "Comprar el chip y darle voz propia a MaKo", ["mako-en-whatsapp", "infraestructura-propia-e"], 60, 0, 68, 10, "Prerequisito, no mejora: hoy MaKo le habla a los clientes desde el número personal de Martín. Con tres clientes desde el viernes, todos los grupos salen de tu celular — si te banean, se cae el WOW de todos a la vez. Barato en esfuerzo, alto en riesgo evitado; el perro decide contra qué compite.", "La instancia de voz por default es mako_ws1, o sea tu línea. Ya existe el canal dedicado (mako_superadmin) y la función para usarlo como voz: falta el chip y escanear el QR una vez. Mientras no esté, cada grupo de cliente que se crea y cada mensaje que MaKo manda sale de tu número, con el riesgo de ban de WhatsApp que eso implica y sin separación entre tu vida y el producto."],
   [173, "Tabs precarias: MaKo Doer y Ads Writer", ["diseno-simple", "tooluse-core-de"], 45, 0, 50, 35, "Son dos tabs que un cliente PUEDE abrir hoy y que no están a la altura del resto: no rompen nada, pero desentonan. No urgente frente a las fugas y el arranque, pero conviene antes de mostrárselas a alguien que paga.", "/mako-doer y /ads-writer están muy por detrás del resto de la app. El doer web tiene 6 tools de lectura pero contesta 'no encontré leads' a la mitad de las preguntas en un cliente nuevo (honesto pero inútil), vive aislado en su tab y no está embebido en ninguna pantalla. Ads Writer funciona para cualquier workspace (es de las pocas que anda sin config) pero es un generador pelado. Definir para cada una: o se llevan al estándar del producto, o se esconden hasta que estén."],
   [174, "Calendly: el cliente conecta, no entra nada y no hay ningún error", ["cerrar-la-auditora", "cimientos-de-datos", "arranque-del-cliente"], 84, 0, 80, 25, "Es el mismo patrón que la key de IA — se guarda, se pinta verde, no se usa — pero este además rompe el producto en silencio: sin agendas no hay cohortes, ni funnel, ni SCL, ni revenue. Un cliente que sigue el tutorial al pie de la letra termina con Comercial vacío y sin una sola pista de por qué. Alto impacto, esfuerzo medio-bajo: es cablear lo que ya existe.", "Dos agujeros en el mismo camino. (1) La signing key que el cliente pega se guarda cifrada y el catálogo le promete que 'con él MaKo verifica la firma de cada webhook' — pero el webhook lee SOLO process.env.CALENDLY_WEBHOOK_SIGNING_KEY: su webhook propio devolvería 401 para siempre. (2) Los event types de R1/R2 están marcados opcionales pero el ruteo los exige: sin ellos wsPorIdentificador devuelve null y el route corta fail-closed devolviendo 200 OK y descartando el evento, o sea 'Calendly conectado' + cero agendas + ningún error. El fix: leer credWs con fallback al env, y resolver el workspace ANTES de verificar la firma para saber contra qué llave verificar; y des-opcionalizar los event types o avisar. Mientras tanto el catálogo de activación de tabs lo dice en criollo en vez de prometer 'entra solo'."],
+
+  // ── 175-184 · trabajo del 16-17/7 que no tenía tarjeta (cardado al reconciliar) ──
+  // Score bajo a propósito: casi todo ya está HECHO (progreso alto), así que como
+  // pendiente pesa poco. La excepción es #177 (la persistencia del board), que NO
+  // está hecha y es el cuello de todo el loop de accountability.
+  [175, "El historial del board dice quién y qué (MaKo vs Claude Code) + buscar por #id", ["board-plan-perro"], 24, 100, 30, 20, "Cerrado. El board firmaba 'MaKo' todo lo que en realidad escribió un agente de dev, y el renderer tiraba el texto del alta: dos mentiras chicas que erosionaban la única fuente de auditoría del backlog.", "Se separó el actor 'code' (Claude Code, todo el SEED) del 'ia' (MaKo, la IA del producto), con partirCreacion/autorDe/frasePorAlta en los 3 renderers, histDeCarga firmando cada tanda con su fecha real, y la migración del localStorage ya escrito. Además: buscar por #id en kanban y Proyectos (antes passes() nunca miraba t.num), y una pasada de minimalismo (fuera la descripción de Prioridades, el 'Por qué es el norte', el chip de origen del kanban que estaba en 173/173 tarjetas, la descripción de Proyectos)."],
+  [176, "Fathom: el selector de reuniones trae el histórico completo", ["board-plan-perro"], 20, 100, 25, 15, "Cerrado. Un detalle que hacía parecer que Fathom 'no tenía' las reuniones viejas.", "listReunionesRecientes() pedía UNA página (30) y el selector mostraba solo eso. Ahora usa fetchAllMeetings(), el paginador por cursor que ya corría en prod para el Closing Analyst; sigue trayendo metadata liviana (el transcript se baja recién al elegir una)."],
+  [177, "El board de Martín no se persiste en el servidor (vive en localStorage)", ["board-plan-perro", "retro-real-rendicin"], 70, 0, 78, 55, "El cuello de TODO el loop de accountability. La Retro puede escribirle tareas al board del CLIENTE (experimento_tareas) y verificar si las hizo — pero el board de Martín vive en el localStorage de su navegador con los 6 métodos del Repo en no-op, así que ningún código de servidor sabe si él completó algo. Sin esto, el gate de la Retro no puede existir para el dueño.", "Hoy /plan/agencia renderiza PlanBoard, que persiste TODO en localStorage (K9='mako_plan_v9') y cuyo Repo es literal no-op (createTask/saveTask/deleteTask vacíos). El TodoBoard del cliente sí persiste en experimento_tareas vía lib/todo.ts. Migrar el board del dueño a la base es el prerequisito no escrito de #154 (loop Retro⇄Plan) y del factor tiempo (#158): recién cuando el servidor pueda LEER el plan de Martín, la Retro puede reclamarle lo que no hizo."],
+  [178, "El aside del onboarding muestra datos reales del cliente al conectar (FACTS)", ["arranque-del-cliente"], 30, 100, 45, 25, "Cerrado. 'La promesa se reemplaza por la prueba': apenas conectás una integración, el carrusel de marketing del panel negro se cae y aparece tu propio dato.", "lib/metodo-verificar.ts suma el tipo Fact {k,v,c} a ResultadoVerificacion (aditivo) en 6 servicios: meta (nombre de la cuenta + estado), whatsapp (bandeja + número), fathom (última llamada + 'hace 2 días'), calendly (conectado como + agenda), email (dominio verificado o sandbox), panda (último video). El dato ya venía en la respuesta y se descartaba. ServicioConfigForm los emite con onFacts y PanelActivacion los pinta. Complementa #166 (que cubría la pantalla partida, pero no los facts)."],
+  [179, "Borrar /koncke: un copiloto con datos de OTRO inquilino y sin guard", ["cerrar-la-auditora"], 26, 100, 55, 10, "Cerrado. Ruta huérfana en prod, sin ningún guard: cualquier usuario logueado de cualquier workspace la abría tecleando la URL y veía chips verdes afirmando 'Koncke usa tu data en vivo' sobre leads y campañas de otro cliente.", "/koncke era un port del prototipo design-reference que quedó vivo: sin LLM, matcheaba keywords contra respuestas hardcodeadas que citaban 'Salvador Loza' y '286 leads'. 291 líneas borradas; su sucesor real (/mako y /mako-doer) ya está en prod. Prima de #173 ('Tabs precarias'), que solo nombraba /mako-doer y /ads-writer."],
+  [180, "Escalada a super-admin: la llave de firma de sesión viajaba al browser", ["cerrar-la-auditora"], 40, 100, 92, 20, "Cerrado — era la vulnerabilidad más grave del lote. Cualquiera con la cookie de la contraseña maestra se forjaba un token de super-admin de la agencia.", "El token es v1.<payload>.<HMAC> con el rol adentro, y secret() era AUTH_SECRET || AUTH_COOKIE_VALUE || DASHBOARD_PASSWORD. Con AUTH_SECRET inexistente en Vercel, la llave de firma ERA AUTH_COOKIE_VALUE, que se compara tal cual contra la cookie del browser: estaba en el navegador de todos, y tieneFila() saltea el re-chequeo contra la base cuando sub==='password'. Se contuvo seteando un AUTH_SECRET de 256 bits (el deslogueo masivo ES el parche). Suma INFRA_ENV protegiendo AUTH_SECRET/DASHBOARD_PASSWORD/GOOGLE_CLIENT_ID/SECRET y el borrado de filas zombie de credenciales que se pisaban sobre el entorno en cada boot."],
+  [181, "Cifrado de credenciales v2 (HKDF por workspace + AAD)", ["cerrar-la-auditora"], 32, 100, 70, 40, "Cerrado (código + migración + tests). La llave que cifraba las 30 credenciales era AUTH_COOKIE_VALUE, que viaja al browser: con un dump de la base, quien tuviera esa cookie las leía.", "lib/cripto-credenciales.ts (fuera de server-only, testeable) con dos formatos conviviendo: gcm1 (sha256 del secreto, sin sal) y gcm2 (HKDF-SHA256 por workspace+clave, con AAD), lector dual + escritor detrás de flag. Suma mig 0091 (auditoría durable de quién tocó qué llave, con los rechazados y nunca el valor), runbook, scripts/recifrar-credenciales.mjs y 18 tests. La revisión adversarial atajó dos bugs reales: el backfill se comía en silencio el refresh_token de Google Calendar (vive en app_settings, no en credenciales) y googleCalendarConectado() no descifraba."],
+  [182, "Fuga del EVOLUTION_WEBHOOK_SECRET (secreto de plataforma) al browser del cliente", ["cerrar-la-auditora"], 34, 100, 80, 15, "Cerrado. Un secreto compartido por TODOS los clientes viajaba en claro: con él se forjan webhooks de WhatsApp de cualquier workspace (mensajes inventados en el CRM ajeno).", "webhookUrl() metía EVOLUTION_WEBHOOK_SECRET en la query y estadoWebhook() devolvía esa URL entera; el guard de /api/whatsapp/evolution es 'admin del workspace' = cualquier cliente. Un admin de cliente pedía 'webhook-estado' y se llevaba el secreto. La UI solo leía `estado`: el secreto viajaba sin que nadie lo mirara. Se recortan los 8 returns con el sinQuery que ya existía. Del mismo barrido: el logout no limpiaba la cookie de impersonación (mako_ws, 12h), así que un admin que impersonaba y cerraba sesión volvía metido en el workspace del cliente."],
+  [183, "Gate de sesión en rutas que queman IA de la agencia a cuenta de cualquiera", ["cerrar-la-auditora"], 24, 100, 45, 10, "Cerrado. Rutas de IA cara sin chequeo propio de sesión.", "/api/mako-guardian entraba de req.json() directo a razonar con effort 'high' y maxTokens 8000 sin gate propio (no abierta a internet —proxy.ts la cubre— pero era la única del par sin el chequeo; su hermana /api/plan-fathom sí lo tenía). Se le puso getUsuarioActual(). En el mismo espíritu se cerraron /api/mako/knowledge/transcribe (Whisper) y /api/mako/onboarding/extract."],
+  [184, "Incidente: nadie podía entrar con Google (scope sensible de Calendar en el login)", ["cuentas-roles-y"], 28, 100, 85, 15, "Cerrado — era un incidente de producción en vivo. El login quedó restringido a testers aprobados y todo el resto recibía 403 access_denied.", "El login pedía GCAL_SCOPE (calendar.readonly), un scope SENSIBLE de Google: una app que lo pide y no está verificada solo la usan los testers. Se combinó con el parche de AUTH_SECRET (que deslogueó a todos y destapó la pared). El fix saca el scope de la puerta de calle (login → 'openid email profile') y quita access_type=offline (sin el scope no hay nada que refrescar, y pedirlo devolvería un refresh_token sin permiso de agenda que el callback guardaría como si fuera el de Calendar). La agenda se conecta aparte, en /api/integraciones/google-calendar."],
 ];
 
 const SEED_CL: Record<number, Array<[string, boolean]>> = {
@@ -307,7 +327,7 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   22: [["Panel de agencia + crear/pausar/renombrar cliente", true], ["Entrar como cliente con cookie firmada + cartel", true]],
   23: [["Token por cliente, con respaldo al de la casa solo para el interno", true], ["Vistas en vivo solo si la integración está conectada", true], ["La ingesta recorre cada cliente aislando errores", true]],
   24: [["Recorre el negocio por áreas y da veredictos", true], ["Lee la ejecución en vivo recorriendo las pantallas", true], ["Aceptar crea los experimentos y tareas sin duplicar", true]],
-  25: [["Cruzar cada tarea con la Retro que la originó", false], ["Distinguir 'lo acepté' de 'lo hice de verdad'", false], ["Reclamarte solo lo que quedó sin hacer", false], ["No volver a proponer lo que ya ignoraste", false]],
+  25: [["Cruzar cada tarea con la Retro que la originó", true], ["Distinguir 'lo acepté' de 'lo hice de verdad'", true], ["Reclamarte solo lo que quedó sin hacer", false], ["No volver a proponer lo que ya ignoraste", false]],
   26: [["Definir los patrones de fuga y que la IA los juzgue con criterio", false], ["Probar con datos reales de un cliente", false], ["Traer las objeciones que se repiten en las llamadas", false]],
   27: [["Bloques de datos por pantalla listos", true], ["Precomputar la conclusión de cada tab tras la ingesta diaria", false], ["Mostrar el veredicto al abrir cada tab", false]],
   28: [["Bloque 'Hoy' base ya en Vista General", true], ["Chequeo diario barato que lee lo que se hizo de verdad", false], ["Reclamo por campanita y WhatsApp", false]],
@@ -417,9 +437,9 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   // ── Grandes tareas para finalizar (16/7) ──
   132: [["Escribir qué incluye la capa que se vende HOY", false], ["Escribir qué queda explícitamente para después", false], ["Filtro: si un cliente no lo puede tocar solo el viernes, no entra", false]],
   133: [["Workspace + admin de Leila", false], ["Workspace + admin de Leandro", false], ["Conectar lo mínimo de su capa", false], ["Verificar que cada uno ve SUS datos y no los de Mauricio", false]],
-  134: [["La oferta/capa como atributo del cliente, no rama del código", false], ["Entrar como cliente de otra oferta", false], ["Que las pantallas se acomoden a la capa comprada", false]],
-  135: [["Por capa: qué se le pide y en qué orden", false], ["Qué se puede saltear y qué se rellena solo", false], ["Que la capa más chica no tenga que conectar nada", false]],
-  136: [["Partir el wizard en módulos por capa", false], ["Cada módulo salteable si no aplica", false], ["Que deje de bloquear de más", false]],
+  134: [["La oferta/capa como atributo del cliente, no rama del código", true], ["Entrar como cliente de otra oferta", true], ["Que las pantallas se acomoden a la capa comprada", true]],
+  135: [["Por capa: qué se le pide y en qué orden", true], ["Qué se puede saltear y qué se rellena solo", false], ["Que la capa más chica no tenga que conectar nada", true]],
+  136: [["Partir el wizard en módulos por capa", true], ["Cada módulo salteable si no aplica", false], ["Que deje de bloquear de más", false]],
   137: [["Keys de INTEGRACIONES por cliente (bloqueante del viernes)", false], ["Key de IA del cliente: usarla de verdad (hoy paga la agencia)", false], ["Dejar de pintar en verde lo que no se usa", false]],
   138: [["Crear workspace desechable", false], ["Pasar el onboarding sin atajos de super-admin", false], ["Anotar cada punto donde te trabaste", false], ["Borrar el workspace de prueba", false]],
   140: [["Detectar que hay build nuevo desplegado", false], ["Refrescar sin romper lo que estabas haciendo", false]],
@@ -432,15 +452,23 @@ const SEED_CL: Record<number, Array<[string, boolean]>> = {
   147: [["Arreglar el apilado en borrar historial", false], ["Arreglar el apilado en desconectar", false], ["Revisar los demás pop-up sobre pop-up", false]],
   149: [["Enchufar el Perro Guardián (ya existe) a la Retro", false], ["Que priorice lo que propone", false], ["Que evite la lista de 20 cosas que no vas a hacer", false]],
   151: [["Ajustar el algoritmo para detectar más oportunidades", false], ["Cuidar el equilibrio con el gate de #155", false]],
-  152: [["Guardar fecha de creación", false], ["Guardar fecha de ejecución", false], ["Mostrarlas en la Retro", false]],
+  152: [["Guardar fecha de creación", true], ["Guardar fecha de ejecución", false], ["Mostrarlas en la Retro", true]],
   153: [["Cadencia propia, sin que la pidas", false], ["Avisarte cuando hay algo para mirar", false]],
-  154: [["El Plan sabe qué hiciste y cuándo", false], ["La Retro lo lee (no pregunta si tocaste 'Aceptar')", false], ["MaKo te lo reclama por WhatsApp", false]],
-  155: [["Detectar tareas y experimentos sin completar de la Retro anterior", false], ["Bloquear la nueva Retro y empujar a terminar lo de antes", false], ["Forzar solo debatiendo por qué lo ignoraste", false], ["Registrar esa respuesta", false]],
+  154: [["El Plan sabe qué hiciste y cuándo", false], ["La Retro lo lee (no pregunta si tocaste 'Aceptar')", true], ["MaKo te lo reclama por WhatsApp", false]],
+  155: [["Detectar tareas y experimentos sin completar de la Retro anterior", true], ["Bloquear la nueva Retro y empujar a terminar lo de antes", false], ["Forzar solo debatiendo por qué lo ignoraste", false], ["Registrar esa respuesta", false]],
   157: [["Reproducir los bugs en la vista de cliente (no la de agencia)", false], ["Revisar permisos y datos que la vista asume", false]],
   158: [["Fecha de creación y para cuándo es cada tarea", false], ["Cuánto lleva parada", false], ["Que MaKo haga seguimiento sobre eso", false]],
   159: [["Toggle Avanzado a nivel app", false], ["SIMPLE por default en todas las tabs", false]],
   160: [["Script Analyst: veredicto arriba, tabla en Avanzado", false], ["Closing Analyst: veredicto arriba, tabla en Avanzado", false]],
   161: [["Auditar tab por tab: ¿simple o solo acostumbrado?", false], ["Lo que no pasa: se simplifica o va a Avanzado", false]],
+  // Auditoría del 16/7 (162-173): estas tarjetas nacieron sin checklist. Se les
+  // agrega uno ahora para poder reflejar lo que los commits del 16-17/7 ya cerraron
+  // (verificado tarea por tarea, adversarialmente). Lo pendiente queda en false.
+  162: [["Ruteo de webhooks fail-closed y atómico (PK + ON CONFLICT DO NOTHING)", true], ["Primer-reclamante-gana, protegido para todos los callers (409 + aviso)", true], ["Verificar posesión con el token del propio workspace", false]],
+  163: [["PlanBoard movido a /plan/agencia; /plan ya no baja el chunk con el seed sensible", true]],
+  166: [["Las tabs que dependen de conexión muestran la pantalla partida, no vacías", true]],
+  167: [["Borrar campañas de Meta gateado con esDuenoAdmin() (closer/setter ya no puede)", true]],
+  169: [["requireRolWs corta al usuario suspendido (fail-closed en getRolWsEfectivo)", true]],
 };
 const buildCL = (n: number): BoardTask['checklist'] => (SEED_CL[n] ?? []).map(([text, done], i) => ({ id: `sc${n}_${i}`, text, done }));
 const clProgress = (cl: BoardTask['checklist'], fallback: number) => (cl.length ? Math.round((cl.filter((c) => c.done).length / cl.length) * 100) : fallback);
@@ -482,7 +510,7 @@ function loadLabels(): Label[] {
 
 // Agregar ideas nuevas SIN pisar tus ediciones: bumpeo MERGE_VERSION y en el próximo
 // load se AGREGA al localStorage solo lo que falte (por id/num). No resetea.
-const MERGE_VERSION = 'v5';
+const MERGE_VERSION = 'v6';
 function mergeExtras(tasks: BoardTask[], labels: Label[]): { tasks: BoardTask[]; labels: Label[] } {
   try {
     if (localStorage.getItem('mako_plan_merge9') === MERGE_VERSION) return { tasks, labels };
@@ -540,12 +568,14 @@ function fixHistorialDeAltas(tasks: BoardTask[], labels: Label[]): { tasks: Boar
 // Reconciliar UNA vez el checklist de tareas puntuales al SEED corregido (marcar lo
 // que ya se hizo). A diferencia de mergeExtras (que solo AGREGA tareas nuevas), esto
 // pisa el checklist —y por ende el avance, que se deriva de él— SOLO de estas tareas,
-// dejando intacto el resto del board, y DEJA RASTRO en el historial (actor 'ia' = MaKo)
-// de cada ítem que MaKo completó en la tanda autónoma. Bump de versión para re-correrlo.
-const RECONCILE_VERSION = 'v2';
-const RECONCILE_TS = Date.parse('2026-07-13T21:00:00-06:00'); // cuándo MaKo lo hizo (TJ)
-// Por tarea: los ítems que MaKo COMPLETÓ en esta tanda (los que pasaron a hecho ahora;
-// no incluye los que ya estaban tildados). Alimenta el historial + son la allowlist.
+// dejando intacto el resto del board, y DEJA RASTRO en el historial de cada ítem que
+// se completó, con actor 'code' (Claude Code: esto lo cierra un agente de desarrollo
+// desde el repo, no MaKo). Bump de versión para re-correrlo.
+const RECONCILE_VERSION = 'v3';
+const RECONCILE_TS = Date.parse('2026-07-13T21:00:00-06:00'); // la tanda vieja (TJ)
+const RECONCILE_TS_17J = Date.parse('2026-07-17T11:30:00-06:00'); // la tanda del 17/7
+// Por tarea: los ítems que se COMPLETARON (los que pasaron a hecho en una tanda; no
+// incluye los que ya estaban tildados). Alimenta el historial + son la allowlist.
 const RECONCILE_DONE: Record<number, string[]> = {
   10: ['El webhook de Chatwoot busca el lead acotado al cliente', 'Tracking del VSL y la landing sin conexión cruda', 'La columna de cliente en las vistas de datos (mig 0084)', 'Auditoría de las 131 rutas + gates de rol que faltaban'],
   12: ['Tests de que cada consulta queda acotada al cliente (contrato TENANT_TABLES)', 'Más tests: scoring del guardián, fechas, Calendly, anti-inyección, journey'],
@@ -555,15 +585,43 @@ const RECONCILE_DONE: Record<number, string[]> = {
   92: ['Tab Graphics del board (matriz impacto×esfuerzo, pirámide, avance, salud)'],
   95: ['Migrar los desplegables nativos que quedaban', 'Los textos R1/R2 visibles ya están todos migrados'],
 };
+// Lo que se cerró el 17/7 cruzando los commits de las dos tandas de agentes contra
+// el board. Fechado en su día (RECONCILE_TS_17J), no en el de la tanda vieja: el
+// historial no puede mentir sobre cuándo. Los `id` llevan sufijo 'b' para no chocar
+// con los de RECONCILE_DONE si una misma tarea aparece en las dos tandas.
+const RECONCILE_DONE_17J: Record<number, string[]> = {
+  // Retro (verificado en ac7fecc, f5b5dde, 993cb45, e749994, 48e8ed6):
+  25: ['Cruzar cada tarea con la Retro que la originó', "Distinguir 'lo acepté' de 'lo hice de verdad'"],
+  152: ['Guardar fecha de creación', 'Mostrarlas en la Retro'],
+  154: ["La Retro lo lee (no pregunta si tocaste 'Aceptar')"],
+  155: ['Detectar tareas y experimentos sin completar de la Retro anterior'],
+  // Capas / onboarding (verificado en dedc0c0, 4317f6c):
+  134: ['La oferta/capa como atributo del cliente, no rama del código', 'Entrar como cliente de otra oferta', 'Que las pantallas se acomoden a la capa comprada'],
+  135: ['Por capa: qué se le pide y en qué orden', 'Que la capa más chica no tenga que conectar nada'],
+  136: ['Partir el wizard en módulos por capa'],
+  // Auditoría de seguridad (verificado en ef29469, faca09a, ca7e137/90f9f11, 1668c46, a3602e7):
+  162: ['Ruteo de webhooks fail-closed y atómico (PK + ON CONFLICT DO NOTHING)', 'Primer-reclamante-gana, protegido para todos los callers (409 + aviso)'],
+  163: ['PlanBoard movido a /plan/agencia; /plan ya no baja el chunk con el seed sensible'],
+  166: ['Las tabs que dependen de conexión muestran la pantalla partida, no vacías'],
+  167: ['Borrar campañas de Meta gateado con esDuenoAdmin() (closer/setter ya no puede)'],
+  169: ['requireRolWs corta al usuario suspendido (fail-closed en getRolWsEfectivo)'],
+};
+
 function reconcileChecklists(tasks: BoardTask[]): BoardTask[] {
   try {
     if (localStorage.getItem('mako_plan_reconcile') === RECONCILE_VERSION) return tasks;
     localStorage.setItem('mako_plan_reconcile', RECONCILE_VERSION);
     return tasks.map((t) => {
-      const hechos = RECONCILE_DONE[t.num];
+      const viejos = RECONCILE_DONE[t.num] ?? [];
+      const nuevos = RECONCILE_DONE_17J[t.num] ?? [];
       const cl = buildCL(t.num);
-      if (!hechos || !cl.length) return t;
-      const entries: Hist[] = hechos.map((text, i) => ({ id: 'rec' + t.num + '_' + i, ts: RECONCILE_TS - i * 1000, actor: 'code', text: `Completó ""`, kind: 'task' }));
+      if ((!viejos.length && !nuevos.length) || !cl.length) return t;
+      const mk = (text: string, i: number, ts: number, sfx: string): Hist =>
+        ({ id: 'rec' + sfx + t.num + '_' + i, ts: ts - i * 1000, actor: 'code', text: `Completó "${text}"`, kind: 'task' });
+      const entries: Hist[] = [
+        ...nuevos.map((text, i) => mk(text, i, RECONCILE_TS_17J, 'b')),
+        ...viejos.map((text, i) => mk(text, i, RECONCILE_TS, '')),
+      ];
       return { ...t, checklist: cl, progress: clProgress(cl, t.progress), historial: [...entries, ...t.historial].slice(0, HIST_CAP) };
     });
   } catch { return tasks; }
