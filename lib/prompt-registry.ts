@@ -70,6 +70,7 @@ import {
 } from './checklist-coach';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
+import { GATE_SYSTEM_TEMPLATE, GATE_USER_TEMPLATE } from './retro-gate';
 import {
   EXP_SUGGEST_SYSTEM_DEFAULT, EXP_SUGGEST_USER_DEFAULT,
   EXP_IDEAS_SYSTEM_DEFAULT, EXP_IDEAS_USER_DEFAULT,
@@ -628,6 +629,20 @@ export const REGISTRY: Group[] = [
         variables: [v('scoreActual', 'prioridad actual 1-10'), v('proyecto', 'el proyecto'), v('plan', 'los demás proyectos'), v('argumento', 'lo que argumenta el usuario')], scope: 'full', sensitive: false,
         default: GUARDIAN_PROJ_DEBATE_USER_TEMPLATE,
         context: 'Le pasa el proyecto, los demás proyectos y el argumento. No borres los slots {{scoreActual}}/{{proyecto}}/{{plan}}/{{argumento}}.',
+      },
+      {
+        key: 'retro.gate.system', source: 'override',
+        label: 'Gate de la Retro: juzgar la excusa (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
+        default: GATE_SYSTEM_TEMPLATE,
+        context: 'Cuando querés correr una Retro nueva dejando cosas sin hacer de la anterior, el Perro decide si tu motivo se sostiene. Bajale el filo y el gate se vuelve decorativo. No borres el slot {{jsonShape}}.',
+      },
+      {
+        key: 'retro.gate.user', source: 'override',
+        label: 'Gate de la Retro: la deuda y el motivo (user)', kind: 'user', dynamic: true,
+        variables: [v('dias', 'días desde la última Retro'), v('total', 'cuántas aceptaste'), v('hechas', 'cuántas completaste'), v('pendientes', 'cuántas quedaron'), v('pendiente', 'los títulos que quedaron colgados'), v('motivo', 'por qué querés correr una igual')], scope: 'full', sensitive: false,
+        default: GATE_USER_TEMPLATE,
+        context: 'Le pasa la deuda real de la Retro anterior y tu motivo. No borres los slots {{dias}}/{{total}}/{{hechas}}/{{pendientes}}/{{pendiente}}/{{motivo}}.',
       },
       {
         key: 'guardian.eliminar.system', source: 'override',

@@ -12,7 +12,8 @@
 
 import type { NextRequest } from 'next/server';
 import { listRetros, borrarRetro, periodoDefault, periodoHistorico } from '@/lib/retro';
-import { generarRetroV3, aplicarPlan, type PlanOp, type OpcionesRetroV3 } from '@/lib/retro-pipeline';
+import { generarRetroV3, aplicarPlan, seguimientoUltimaRetro, type PlanOp, type OpcionesRetroV3 } from '@/lib/retro-pipeline';
+import { evaluarGate, debatirGate } from '@/lib/retro-gate';
 import type { RetroStreamEvent } from '@/lib/retro-reporte';
 import { esFechaValida } from '@/lib/date-utils';
 
@@ -37,6 +38,7 @@ type Body = {
   action?: string; id?: number; desde?: string; hasta?: string; historico?: boolean;
   perspectiva?: string; areas?: string[];
   itemId?: string; op?: PlanOp; motivo?: string;
+  forzar?: boolean; motivoForzar?: string;   // gate del punto 7
 };
 
 export async function POST(req: NextRequest) {
@@ -66,7 +68,43 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // El estado del gate, para que la UI sepa ANTES de ofrecer el botón si hay deuda.
+  if (body.action === 'gate') {
+    try {
+      const { items, corridaISO } = await seguimientoUltimaRetro();
+      return Response.json({ ok: true, gate: await evaluarGate(items, corridaISO) });
+    } catch (err) {
+      return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
+  }
+
   if (body.action !== 'generar') return Response.json({ ok: false, error: 'action inválida' }, { status: 400 });
+
+  // ── GATE (punto 7): no se corre una Retro nueva sobre una anterior sin terminar.
+  // Va ANTES de resolver el período y de arrancar el stream: la Retro cuesta hasta
+  // 9 llamadas a Opus y 800s, así que si no va a correr, no se empieza a pagar.
+  // Para pasar hay que escribir un motivo Y convencer al Perro — un gate que se
+  // saltea con un flag no es un gate.
+  try {
+    const { items, corridaISO } = await seguimientoUltimaRetro();
+    const gate = await evaluarGate(items, corridaISO);
+    if (gate.bloquea) {
+      const motivo = String(body.motivoForzar ?? '').trim();
+      if (!body.forzar || !motivo) {
+        return Response.json({ ok: false, error: 'gate', gate }, { status: 409 });
+      }
+      const v = await debatirGate(gate, motivo);
+      if (v.veredicto === 'no_deja') {
+        return Response.json({ ok: false, error: 'gate', gate, veredicto: v }, { status: 409 });
+      }
+    }
+  } catch (err) {
+    // Un gate que se cae NO puede dejar a nadie sin poder correr su Retro: si no se
+    // puede evaluar, se deja pasar y queda el rastro. Es el criterio inverso al de
+    // debatirGate (donde fail-closed es lo correcto): allá el gate ya decidió que
+    // hay deuda; acá ni siquiera sabemos si la hay.
+    console.error('[api:retro] gate no evaluable, se deja pasar:', err);
+  }
 
   // Período (histórico o rango).
   let desde: string, hasta: string;

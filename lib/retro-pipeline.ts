@@ -190,6 +190,28 @@ async function prioridadesDelPerro(titulos: string[], contexto: string): Promise
   } catch { return fallback(); }
 }
 
+/**
+ * El destino REAL del plan de la última retro + cuándo se corrió. Exportada porque
+ * el gate (lib/retro-gate.ts) necesita exactamente lo mismo que la fase Memoria:
+ * qué prometiste y qué hiciste. Una sola fuente para las dos cosas.
+ */
+export async function seguimientoUltimaRetro(): Promise<{ items: RetroSeguimientoItem[]; corridaISO: string | null }> {
+  try {
+    const supabase = await getTenantDb();
+    const { data } = await supabase.from('retros').select('*').not('reporte', 'is', null)
+      .order('created_at', { ascending: false }).limit(1);
+    const prev = data && data[0] ? (data[0] as unknown as Retro) : null;
+    if (!prev) return { items: [], corridaISO: null };
+    const plan = prev.reporte?.plan ?? [];
+    if (!plan.length) return { items: [], corridaISO: prev.created_at ?? null };
+    const [exps, tareasPrev] = await Promise.all([
+      listExperimentos().catch(() => []),
+      listTareasDeRetro(prev.id).catch(() => []),
+    ]);
+    return { items: plan.map((item) => seguimientoDeItem(item, exps, tareasPrev)), corridaISO: prev.created_at ?? null };
+  } catch { return { items: [], corridaISO: null }; }
+}
+
 async function armarSeguimiento(): Promise<RetroSeguimientoItem[]> {
   try {
     const supabase = (await getTenantDb());
