@@ -11,7 +11,7 @@
 //   - fila de anuncio  → modal AdDetalle. campaña/conjunto → EntityDetalle.
 //   - botón "Analizar (Meta)" → /api/meta-recommendations (sin MaKo).
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
@@ -128,7 +128,22 @@ function synthSenal(node: NodoEstado, campana: string | null, adset: string | nu
 const th: CSSProperties = { padding: '11px 14px', fontFamily: MONO, fontSize: 10.5, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--dim)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)', background: 'var(--surface)' };
 const td: CSSProperties = { padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' };
 
-export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon[]; desde: string; hasta: string }) {
+// El detalle de un anuncio es direccionable: /ads-manager/<ad_id>. La URL se
+// mantiene sincronizada con lo que tenés abierto, así el link se puede copiar,
+// compartir y MaKo puede mandarte el anuncio exacto en vez de dejarte en la tab.
+// Se usa la History API nativa (Next 16 la sincroniza con su router) en vez de
+// router.push: navegar de verdad remontaría el browser y perdería el árbol de
+// Meta que ya se bajó — abrir un modal no puede costar una recarga.
+const urlDeAd = (adId: string | null) => {
+  const qs = typeof window === 'undefined' ? '' : window.location.search;
+  return `/ads-manager${adId ? `/${adId}` : ''}${qs}`;
+};
+const adIdDeLaUrl = (): string | null => {
+  const m = /^\/ads-manager\/([^/?#]+)/.exec(window.location.pathname);
+  return m ? decodeURIComponent(m[1]) : null;
+};
+
+export function CampanasBrowser({ senales, desde, hasta, adInicial = null }: { senales: SenalRecon[]; desde: string; hasta: string; adInicial?: string | null }) {
   const [health, setHealth] = useState<MetaHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -217,6 +232,57 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
   }, [health, adsetsById]);
   const campName = (id: string | null) => (id ? campaignsById.get(id)?.name ?? null : null);
   const adsetCampId = (adsetId: string | null) => (adsetId ? adsetsById.get(adsetId)?.parentId ?? null : null);
+
+  // ── Deep link a un anuncio (/ads-manager/<ad_id>) ──────────────────────────
+  // Resuelve un ad_id de Meta contra el árbol YA cargado. No depende de la tab ni
+  // de los filtros: un link tiene que abrir el anuncio aunque estés parado en
+  // Campañas. Si el anuncio no tuvo gasto en el rango no está en `senales`, así
+  // que cae a la señal sintética — el mismo fallback que el click en la fila.
+  const senalDeAd = useCallback((adId: string): SenalRecon | null => {
+    const conGasto = senales.find((s) => s.ad_id === adId);
+    if (conGasto) return conGasto;
+    const node = (health?.ads ?? []).find((a) => a.id === adId);
+    if (!node) return null;
+    const adsetId = node.parentId;
+    const adset = adsetId ? adsetsById.get(adsetId) : undefined;
+    const camp = adset?.parentId ? campaignsById.get(adset.parentId) : undefined;
+    return synthSenal(node, camp?.name ?? null, adset?.name ?? null);
+  }, [senales, health, adsetsById, campaignsById]);
+
+  // Abrir/cerrar SIEMPRE por acá: mantiene la URL y el modal en el mismo estado.
+  const abrirAd = useCallback((senal: SenalRecon | null, syncUrl = true) => {
+    setAdSel(senal);
+    if (!syncUrl) return;
+    const destino = urlDeAd(senal?.ad_id ?? null);
+    if (window.location.pathname + window.location.search !== destino) window.history.pushState(null, '', destino);
+  }, []);
+
+  // El link entrante: espera a que baje el árbol y abre. `adAbierto` recuerda cuál
+  // ya se consumió, para no reabrirlo si lo cerraste (la prop no cambia).
+  //
+  // Si el anuncio no aparece (id viejo, borrado en Meta, o sin datos en el rango de
+  // fechas), NO se abre nada y quedás en la tabla: el link degrada a la tab, que es
+  // exactamente donde estabas antes de que existiera esta ruta. No rompe.
+  const adAbierto = useRef<string | null>(null);
+  useEffect(() => {
+    if (!health || !adInicial || adAbierto.current === adInicial) return;
+    adAbierto.current = adInicial;
+    const s = senalDeAd(adInicial);
+    if (s) abrirAd(s, false);            // ya estamos en la URL: no la re-escribas
+  }, [health, adInicial, senalDeAd, abrirAd]);
+
+  // Atrás/adelante del navegador: la URL manda. Sin esto, cerrar con ← dejaba el
+  // modal abierto sobre una URL que decía lo contrario.
+  useEffect(() => {
+    const onPop = () => {
+      const id = adIdDeLaUrl();
+      if (!id) { setAdSel(null); return; }
+      const s = senalDeAd(id);
+      if (s) setAdSel(s);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [senalDeAd]);
 
   const accountFrozen = !!health && (health.account.severidad === 'rojo' || health.account.status === 3);
 
@@ -418,7 +484,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
 
   // ── abrir modales ──
   const abrir = (r: Row) => {
-    if (r.level === 'ad') { setAdSel(r.senal ?? synthSenal(r.node, r.campName, r.adsetName)); return; }
+    if (r.level === 'ad') { abrirAd(r.senal ?? synthSenal(r.node, r.campName, r.adsetName)); return; }
     setEntSel({ node: r.node, level: r.level as 'campaign' | 'adset', cross: { cierres: r.perf.cierres, cash_usd: r.perf.cash_usd, agendasCrm: r.perf.agendas } });
   };
 
@@ -590,7 +656,7 @@ export function CampanasBrowser({ senales, desde, hasta }: { senales: SenalRecon
         </div>
       )}
 
-      {adSel && <AdDetailTabs key={adSel.ad_id} senal={adSel} desde={desde} hasta={hasta} defaultTab="rendimiento" onClose={() => setAdSel(null)} />}
+      {adSel && <AdDetailTabs key={adSel.ad_id} senal={adSel} desde={desde} hasta={hasta} defaultTab="rendimiento" onClose={() => abrirAd(null)} />}
       {entSel && (
         <EntityDetalle id={entSel.node.id} level={entSel.level} name={entSel.node.name} statusLabel={entSel.node.statusLabel} semaforo={entSel.node.semaforo}
           desde={desde} hasta={hasta} cross={entSel.cross} recosMeta={entSel.node.recosMeta} presupuestoMxn={entSel.node.dailyBudgetMxn ?? null} onClose={() => setEntSel(null)} />
