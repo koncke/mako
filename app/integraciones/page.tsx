@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function IntegracionesPage() {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'integraciones' });
   const integraciones = await getIntegraciones();
   let health: MetaHealth | null = null;
   let metaError: string | null = null;

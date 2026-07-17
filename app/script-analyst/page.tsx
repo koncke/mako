@@ -30,7 +30,7 @@ const EMPTY: ScriptAnalystView = {
 };
 
 export default async function ScriptAnalystPage() {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'script' });
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let drafts: ScriptDraft[] = [];

@@ -13,6 +13,7 @@ import { setSetting } from '@/lib/settings';
 import { estadoInicial, setEstadoOnboarding } from '@/lib/onboarding-state';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { seedNutricionTemplates } from '@/lib/nutricion-templates';
+import { CAPA_DEFAULT, capaDef, esCapaValida } from '@/lib/capas';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ export async function GET() {
   }
 }
 
-type Body = { action?: string; id?: number; nombre?: string; estado?: 'activo' | 'pausado'; adminEmail?: string; adminNombre?: string };
+type Body = { action?: string; id?: number; nombre?: string; estado?: 'activo' | 'pausado'; capa?: string; adminEmail?: string; adminNombre?: string };
 
 export async function POST(req: NextRequest) {
   const admin = await getSesionAdmin();
@@ -55,16 +56,26 @@ export async function POST(req: NextRequest) {
           const existe = (await listarUsuarios()).some((u) => u.email === adminEmail);
           if (existe) return NextResponse.json({ ok: false, error: 'Ya existe un usuario con ese email.' }, { status: 400 });
         }
-        const ws = await crearWorkspace(nombre);
-        // Seed inicial del workspace: onboarding pendiente (su admin cae al
-        // wizard en el primer login) + objetivo_desde = hoy (sin esto, el
-        // progreso del objetivo usaría la fecha de arranque del dueño).
+        const capa = (body.capa ?? CAPA_DEFAULT).trim();
+        if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Elegí un tipo de cliente válido.' }, { status: 400 });
+        const def = capaDef(capa);
+        const ws = await crearWorkspace(nombre, capa);
+        // Seed inicial del workspace, SEGÚN LA CAPA: solo se siembra lo que el
+        // cliente compró. A uno de Project Manager no le sirve una secuencia de
+        // nutrición ni un objetivo de cierres — no tiene ni ads ni CRM.
         try {
           await runWithWorkspace(ws.id, async () => {
             await setEstadoOnboarding(estadoInicial('pending'));
-            await setSetting('objetivo_desde', hoyEnTijuana());
-            // MaKo deja la nutrición lista sin config manual (gateada por el flag de envío).
-            await seedNutricionTemplates();
+            if (def.integracionesRequeridas.includes('meta')) {
+              // objetivo_desde ancla el progreso del objetivo en /general; sin
+              // esto usaría la fecha de arranque del dueño.
+              await setSetting('objetivo_desde', hoyEnTijuana());
+            }
+            // La nutrición vive en las capas con canales. Sembrarla en una capa
+            // que no los tiene deja 5 secuencias muertas que nadie va a ver.
+            if (def.navKeys == null || def.navKeys.includes('whatsapp') || def.navKeys.includes('email')) {
+              await seedNutricionTemplates();
+            }
           });
         } catch (e) {
           console.error('[admin/workspaces] seed onboarding falló (no fatal):', e);
@@ -90,6 +101,15 @@ export async function POST(req: NextRequest) {
         if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
         if (body.estado !== 'activo' && body.estado !== 'pausado') return NextResponse.json({ ok: false, error: 'estado inválido' }, { status: 400 });
         return NextResponse.json({ ok: true, workspace: await actualizarWorkspace(body.id, { estado: body.estado }) });
+      }
+      // Cambiar de capa = el cliente pasa a otra oferta (subir o bajar de nivel).
+      // Solo mueve la columna: las tabs, el onboarding y los seeds se derivan de
+      // ella en cada request, así que el cambio se ve en el próximo load.
+      case 'capa': {
+        if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
+        const capa = (body.capa ?? '').trim();
+        if (!esCapaValida(capa)) return NextResponse.json({ ok: false, error: 'Tipo de cliente inválido.' }, { status: 400 });
+        return NextResponse.json({ ok: true, workspace: await actualizarWorkspace(body.id, { capa }) });
       }
       default:
         return NextResponse.json({ ok: false, error: 'action inválida' }, { status: 400 });

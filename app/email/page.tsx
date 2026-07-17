@@ -10,6 +10,6 @@ import { requireRolWs } from '@/lib/tab-access';
 import { EmailApp } from './EmailApp';
 
 export default async function Page() {
-  await requireRolWs(['setter']);
+  await requireRolWs(['setter'], { nav: 'email' });
   return <EmailApp />;
 }

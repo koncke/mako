@@ -12,7 +12,7 @@ import {
   type PendienteItem,
 } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
-import { guardOnboarding } from '@/lib/tab-access';
+import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { mapToCrmLead } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
@@ -21,6 +21,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function LeadsPage() {
+  await requireCapa('crm');
   await guardOnboarding();
   const hoy = hoyEnTijuana();
 

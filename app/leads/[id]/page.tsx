@@ -21,7 +21,7 @@ import { deriveStageKey, stageMeta, DEFAULT_STAGES, nutricionPositivaDe, type St
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getPagosByLead } from '@/lib/pagos';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd } from '@/lib/queries';
-import { guardOnboarding } from '@/lib/tab-access';
+import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { buildJourney } from '@/lib/journey';
 import { JourneyTimeline } from '../JourneyTimeline';
 import { DealDetailsCard } from './DealDetailsCard';
@@ -46,6 +46,7 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--dim)' };
 
 export default async function LeadDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; edit?: string; solucionar?: string }> }) {
+  await requireCapa('crm');
   await guardOnboarding();
   const [{ id: idStr }, { tab, edit, solucionar }] = await Promise.all([params, searchParams]);
   const idNum = Number(idStr);

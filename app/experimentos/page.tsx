@@ -27,7 +27,7 @@ const EMPTY_VIEW: ExperimentosView = {
 };
 
 export default async function ExperimentosPage() {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'experimentos' });
   let view: ExperimentosView = EMPTY_VIEW;
   let retros: Retro[] = [];
   let errorMsg: string | null = null;

@@ -3,12 +3,13 @@
 // =============================================================================
 
 import { MakoDoerTab } from './MakoDoerTab';
-import { guardOnboarding } from '@/lib/tab-access';
+import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function MakoDoerPage() {
+  await requireCapa('mako-doer');
   await guardOnboarding();
   return <MakoDoerTab />;
 }

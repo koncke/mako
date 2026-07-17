@@ -26,7 +26,7 @@ const EMPTY: ClosingViewData = {
 };
 
 export default async function ClosingPage() {
-  await requireRolWs(['closer']);
+  await requireRolWs(['closer'], { nav: 'closing' });
   let data: ClosingViewData = EMPTY;
   let errorMsg: string | null = null;
   try {

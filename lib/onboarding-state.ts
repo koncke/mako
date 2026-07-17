@@ -8,7 +8,8 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
-import { getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
+import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, OWNER_WS } from './workspace';
+import { capaDef, type PasoOnboarding } from './capas';
 
 export const ONBOARDING_KEY = 'onboarding.state';
 
@@ -41,15 +42,23 @@ export type OnboardingState = {
   version: 1;
   status: OnboardingStatus;
   /** paso actual del wizard (para retomar donde quedó). */
-  step: 'integraciones' | 'tabs' | 'negocio' | 'retro';
+  step: PasoOnboarding;
   startedAt?: string | null;
   completedAt?: string | null;
   completedBy?: string | null;
+  /**
+   * Estado de CADA paso posible, no de los de una capa. Qué pasos se le muestran
+   * al cliente lo decide su capa (lib/capas.ts → capaDef().onboarding); acá
+   * guardamos todos para que cambiar de capa no pierda lo ya hecho: un cliente
+   * que pasa de Project Manager a Completo conserva su 'negocio' y solo le
+   * aparecen los pasos nuevos.
+   */
   steps: {
     integraciones: { done: boolean };
     tabs: { done: boolean };
     negocio: { done: boolean };
     retro: { done: boolean; retroId?: number | null };
+    plan: { done: boolean };
   };
   extraction: ExtractionState;
 };
@@ -70,6 +79,7 @@ export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingS
       tabs: { done: false },
       negocio: { done: false },
       retro: { done: false, retroId: null },
+      plan: { done: false },
     },
     extraction: { status: 'idle', startedAt: null, finishedAt: null, jobs },
   };
@@ -120,6 +130,14 @@ export async function onboardingPendiente(): Promise<boolean> {
   if (ws == null || ws === OWNER_WS) return false;
   const rol = await getRolWsEfectivo();
   if (rol !== 'admin') return false;
+  // Una capa sin pasos entra directo a la app: no hay wizard que completar, y
+  // mandarlo a un overlay vacío sería un callejón sin salida.
+  if ((await pasosDeCapaActual()).length === 0) return false;
   const s = await getEstadoOnboarding();
   return s.status === 'pending' || s.status === 'in_progress';
+}
+
+/** Los pasos del wizard que le tocan al workspace actual, según su capa. */
+export async function pasosDeCapaActual(): Promise<PasoOnboarding[]> {
+  return capaDef(await getCapaActual()).onboarding;
 }

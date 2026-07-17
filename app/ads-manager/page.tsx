@@ -23,7 +23,7 @@ export default async function AdsManagerPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'ads-manager' });
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;

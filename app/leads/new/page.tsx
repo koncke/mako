@@ -5,7 +5,7 @@
 // =============================================================================
 
 import Link from 'next/link';
-import { guardOnboarding } from '@/lib/tab-access';
+import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { NewLeadForm } from './NewLeadForm';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
 const SANS = "'Geist', sans-serif";
 
 export default async function NewLeadPage() {
+  await requireCapa('crm');
   await guardOnboarding();
   return (
     <main style={{ minHeight: '100vh', width: '100%', background: 'var(--bg)', color: 'var(--ink)', fontFamily: SANS, padding: 'clamp(20px,4vw,44px)' }}>

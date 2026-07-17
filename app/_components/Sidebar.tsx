@@ -14,6 +14,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { TOP_NAV, NAV_GROUPS, USER_NAV, MAKO_ITEM, ADS_MANAGER_ITEM, ADMIN_NAV, type NavItem } from './nav';
+import { tabEnCapa } from '@/lib/capas';
 import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
@@ -83,6 +84,7 @@ export function Sidebar() {
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>('');
   const [rolWs, setRolWs] = useState<string>('');
+  const [capa, setCapa] = useState<string>('');
   const [impersonando, setImpersonando] = useState(false);
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
   const [flyout, setFlyout] = useState<{ key: string; top: number; left: number } | null>(null);
@@ -130,6 +132,7 @@ export function Sidebar() {
         if (!alive || !j?.ok || !j.autenticado) return;
         setRol((j.rol as string) || '');
         setRolWs((j.rolWs as string) || '');
+        setCapa((j.capa as string) || '');
         setImpersonando(Boolean(j.impersonando));
       })
       .catch(() => {});
@@ -140,11 +143,16 @@ export function Sidebar() {
   // marketing). Impersonando o siendo usuario, ve el dashboard normal.
   const adminShell = rol === 'admin' && !impersonando;
 
-  // Filtro de tabs por rol-de-workspace. El admin-cliente (o mientras carga)
-  // ve todo; closer/setter solo las tabs anotadas con su rol en nav.ts.
+  // Filtro de tabs, dos ejes independientes:
+  //  · ROL  — closer/setter solo ven las tabs anotadas con su rol en nav.ts.
+  //  · CAPA — qué compró el cliente (lib/capas.ts). Aplica a TODOS, incluido el
+  //           admin-cliente: no es un permiso, es lo que contrató.
+  // Mientras `capa` carga vacío, capaDef() cae al default (completo) → se ve
+  // todo por un instante. Es cosmético: el gate real es requireCapa server-side.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
   const puedeVer = (it: NavItem) =>
-    !rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true;
+    (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(rolWs) === true)
+    && tabEnCapa(it.key, capa || undefined);
 
   // Shell de admin: entrar como el workspace dueño (ws1) y abrir la tab. Reusa la
   // impersonación firmada; el reload deja al Sidebar leer el nuevo estado.

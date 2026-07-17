@@ -57,7 +57,7 @@ type Nivel = 'rojo' | 'ambar' | 'verde';
 type Alerta = { nivel: Nivel; titulo: string; detalle: string; href: string; hrefLabel: string; desglose?: DesgloseData };
 
 export default async function GeneralPage() {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'general' });
   const hoy = hoyEnTijuana();
   const ayer = ayerEnTijuana();
 

@@ -84,7 +84,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'graphics' });
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;

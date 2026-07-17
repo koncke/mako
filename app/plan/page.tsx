@@ -7,7 +7,7 @@
 
 import { listTareas, listCategorias, type Tarea, type Categoria } from '@/lib/todo';
 import { seedTodoBoardSiVacio } from '@/lib/todo-seeds';
-import { guardOnboarding } from '@/lib/tab-access';
+import { guardOnboarding, requireCapa } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual, getWorkspace, estaImpersonando } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
@@ -30,6 +30,7 @@ export default async function TodoPage() {
   if (sesion?.rol === 'admin' && !(await estaImpersonando())) return <PlanBoard user={user} />;
 
   // Cliente (o admin impersonando un cliente): tablero de tareas del negocio.
+  await requireCapa('todo');
   await guardOnboarding();
   let tareas: Tarea[] = [];
   let categorias: Categoria[] = [];

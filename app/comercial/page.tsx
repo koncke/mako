@@ -133,7 +133,7 @@ export default async function ComercialPage({
 }: {
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'graphics' });
   const hoyReal = hoyEnTijuana();
 
   // Filtro global (Fase C): el rango acota las cohortes y el período de Revenue.

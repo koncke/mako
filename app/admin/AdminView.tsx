@@ -18,12 +18,13 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { Dropdown } from '../components/Dropdown';
+import { CAPA_DEFAULT, CAPAS_LISTA, capaDef, type CapaId } from '@/lib/capas';
 import type { Usuario } from '@/lib/usuarios';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type Workspace = { id: number; nombre: string; slug: string | null; estado: 'activo' | 'pausado'; created_at: string; usuarios: number };
+type Workspace = { id: number; nombre: string; slug: string | null; estado: 'activo' | 'pausado'; capa: CapaId; created_at: string; usuarios: number };
 type Sesion = { email: string; legacy: boolean };
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
@@ -162,6 +163,7 @@ export function AdminView() {
 // =============================================================================
 function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace[]; usuarios: Usuario[]; recargar: () => Promise<void> }) {
   const [nombre, setNombre] = useState('');
+  const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
   const [adminEmail, setAdminEmail] = useState('');
   const [adminNombre, setAdminNombre] = useState('');
   const [creando, setCreando] = useState(false);
@@ -189,7 +191,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
     if (creando) return;
     setErrCrear(null); setHintCrear(null); setCreando(true);
     try {
-      const j = await postWs({ action: 'crear', nombre: nombre.trim(), adminEmail: adminEmail.trim(), adminNombre: adminNombre.trim() });
+      const j = await postWs({ action: 'crear', nombre: nombre.trim(), capa, adminEmail: adminEmail.trim(), adminNombre: adminNombre.trim() });
       if (!j.ok) { setErrCrear(j.error ?? 'No se pudo crear el cliente.'); return; }
       setNombre(''); setAdminEmail(''); setAdminNombre('');
       setHintCrear(adminEmail.trim()
@@ -247,11 +249,20 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
       {/* ── Agregar cliente (crea workspace + su admin) ─────────────────────── */}
       <div style={card}>
         <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 4 }}>Agregar cliente</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Cada cliente es un espacio de datos aislado. El email del admin es opcional: si lo ponés, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configurás vos con &ldquo;Entrar como&rdquo;.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.4fr 1fr auto', gap: 12, alignItems: 'end' }}>
+        <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Cada cliente es un espacio de datos aislado. El <b>tipo</b> define qué compró: de él salen las tabs que ve, qué le pide el onboarding y qué se le siembra. El email del admin es opcional: si lo ponés, esa persona entra con Google y arma su equipo (Closer/Setter); si no, lo configurás vos con &ldquo;Entrar como&rdquo;.</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.4fr 1fr auto', gap: 12, alignItems: 'end' }}>
           <div>
             <label style={labelStyle}>Nombre del cliente</label>
             <input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Elevate" onKeyDown={(e) => { if (e.key === 'Enter' && puedeCrear) crear(); }} />
+          </div>
+          <div>
+            <label style={labelStyle}>Tipo</label>
+            <Dropdown
+              value={capa} ariaLabel="Tipo de cliente"
+              buttonStyle={{ padding: '10px 12px', fontSize: 14, borderRadius: 11, width: '100%' }}
+              options={CAPAS_LISTA.map((c) => ({ value: c.id, label: c.nombre }))}
+              onChange={(v) => setCapa(v as CapaId)}
+            />
           </div>
           <div>
             <label style={labelStyle}>Email del admin <span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--faint)' }}>(opcional)</span></label>
@@ -263,6 +274,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
           </div>
           <button style={{ ...btnDark, opacity: puedeCrear ? 1 : 0.5 }} disabled={!puedeCrear} onClick={crear}>{creando ? 'Creando…' : 'Crear cliente'}</button>
         </div>
+        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.5 }}>{capaDef(capa).descripcion}</div>
         {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}</div>}
         {hintCrear && <div style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600, marginTop: 12 }}>{hintCrear}</div>}
       </div>
@@ -290,6 +302,7 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.nombre}</span>
                       {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
+                      <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
                     </div>
                     <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginTop: 2 }}>{w.slug ?? '—'}</div>
                   </div>
@@ -304,12 +317,18 @@ function TabClientes({ workspaces, usuarios, recargar }: { workspaces: Workspace
                     buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
                     options={[
                       { value: 'renombrar', label: 'Renombrar…' },
+                      // Cambiar de capa = mover al cliente a otra oferta. Al dueño
+                      // no: ws1 es la agencia y corre siempre con todo.
+                      ...(esDueno ? [] : CAPAS_LISTA
+                        .filter((c) => c.id !== w.capa)
+                        .map((c) => ({ value: `capa:${c.id}`, label: `Pasar a ${c.nombre}` }))),
                       esDueno
                         ? { value: 'nopausar', label: 'No se puede pausar al dueño', disabled: true }
                         : { value: 'estado', label: w.estado === 'pausado' ? 'Activar' : 'Pausar' },
                     ]}
                     onChange={(v) => {
                       if (v === 'renombrar') { setNombreEdit(w.nombre); setRenombrando(w); }
+                      else if (v.startsWith('capa:')) accionWs({ action: 'capa', id: w.id, capa: v.slice(5) });
                       else if (v === 'estado') accionWs({ action: 'estado', id: w.id, estado: w.estado === 'pausado' ? 'activo' : 'pausado' });
                     }}
                   />

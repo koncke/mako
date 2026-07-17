@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ConfiguracionesPage() {
-  await requireRolWs([]);
+  await requireRolWs([], { nav: 'configuraciones' });
 
   // Paneles embebidos (misma data que sus rutas propias, resuelta server-side).
   const { pipeline, suppressed } = await getFunnel();

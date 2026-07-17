@@ -10,7 +10,8 @@ import 'server-only';
 // Idempotente: solo siembra si el cliente todavía no tiene ni proyectos ni tareas.
 // =============================================================================
 
-import { getTenantDb } from './workspace';
+import { getCapaActual, getTenantDb } from './workspace';
+import { capaDef } from './capas';
 import type { Categoria } from './todo';
 import { SEED_CATEGORIAS, buildCatRows, buildTarRows } from './todo-seeds-data';
 
@@ -20,8 +21,15 @@ export { SEED_CATEGORIAS } from './todo-seeds-data';
  * Siembra el board por defecto (proyectos finitos + tareas) SOLO si el cliente todavía
  * no tiene ninguno. Idempotente: re-chequea antes de insertar. Si `esMauricio`, marca
  * hechas las tareas que él ya tiene armadas. Devuelve las categorías creadas.
+ *
+ * OJO — el seed es el de un negocio que vende con ads + funnel VSL ("Conectar Meta
+ * Ads", "Encontrar el primer anuncio ganador"…). Para una capa que NO compró eso,
+ * son 8 proyectos y 34 tareas del negocio de otro: le dicen que su trabajo es algo
+ * que no hace. Esas capas arrancan con el board limpio y crean sus proyectos con
+ * MaKo (que ya sabe proponerlos). Lo decide capas.ts, no un `if` acá.
  */
 export async function seedTodoBoardSiVacio(esMauricio = false): Promise<Categoria[]> {
+  if (!capaDef(await getCapaActual()).seedBoardVsl) return [];
   const supabase = await getTenantDb();
   const [{ data: cats0, error: e1 }, { data: tar0, error: e2 }] = await Promise.all([
     supabase.from('tarea_categorias').select('id').limit(1),

@@ -11,7 +11,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
+import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
+import { capaDef } from '@/lib/capas';
 import { setNumeroDuenoYSync } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { estadoCampo, guardarCredencial, integracionConectada } from '@/lib/credenciales';
@@ -30,8 +31,9 @@ export const dynamic = 'force-dynamic';
 // 'email' NO está: con la cuenta única de Resend (Opción A) el cliente no carga
 // API key — verifica su dominio desde el mini-onboarding de la tab /email.
 const SERVICIOS_CLIENTE = new Set(['meta', 'whatsapp', 'fathom', 'panda', 'youtube', 'calendly']);
-/** Core del cliente: sin esto el dashboard no tiene datos → obligatorios. */
-const SERVICIOS_REQUERIDOS = ['meta', 'whatsapp'];
+// Qué integraciones son OBLIGATORIAS ya no es una constante: sale de la capa
+// del cliente (lib/capas.ts → integracionesRequeridas). Una capa sin ads ni CRM
+// no tiene nada que conectar.
 
 // Settings no-secretas que el wizard puede setear (whitelist).
 const SETTINGS_WIZARD = new Set([
@@ -52,14 +54,14 @@ async function guard(): Promise<{ ws: number } | { error: NextResponse }> {
   return { ws };
 }
 
-async function serviciosParaWizard() {
+async function serviciosParaWizard(requeridos: string[]) {
   const servicios = SERVICIOS_METODO.filter((s) => SERVICIOS_CLIENTE.has(s.key));
   return Promise.all(servicios.map(async (s) => ({
     key: s.key,
     nombre: s.nombre,
     categoria: s.categoria,
     paraQue: s.paraQue,
-    requerido: SERVICIOS_REQUERIDOS.includes(s.key),
+    requerido: requeridos.includes(s.key),
     conectada: await integracionConectada(s.key),
     tutorial: s.tutorial,
     campos: await Promise.all(s.campos.map(async (c) => {
@@ -74,9 +76,10 @@ export async function GET() {
   if ('error' in g) return g.error;
   try {
     const sesion = await getUsuarioActual();
+    const capa = capaDef(await getCapaActual());
     const [estado, servicios, contacto, metaPageId, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
       getEstadoOnboarding(),
-      serviciosParaWizard(),
+      serviciosParaWizard(capa.integracionesRequeridas),
       getContactoReportes(),
       getSetting('meta_page_id'),
       getSetting('youtube_vsl_video_id'),
@@ -90,7 +93,12 @@ export async function GET() {
       ok: true,
       estado,
       servicios,
-      requeridos: SERVICIOS_REQUERIDOS,
+      // Los pasos y los servicios obligatorios salen de la CAPA, no de una
+      // constante: un cliente de Project Manager no conecta nada, así que su
+      // wizard no tiene ni paso de integraciones.
+      pasos: capa.onboarding,
+      capa: { id: capa.id, nombre: capa.nombre },
+      requeridos: capa.integracionesRequeridas,
       settings: {
         meta_page_id: metaPageId ?? '',
         youtube_vsl_video_id: ytVsl ?? '',
@@ -119,7 +127,7 @@ type Body = {
   settings?: Record<string, unknown>;
   templateId?: string;
   contacto?: { nombre?: string; email?: string; telefono?: string };
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'retro';
+  step?: 'integraciones' | 'tabs' | 'negocio' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;

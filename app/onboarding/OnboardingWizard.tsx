@@ -37,13 +37,16 @@ type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<
 type Conteos = { metricas_filas: number; metricas_desde: string | null; metricas_hasta: string | null; leads: number; transcripts: number; scripts: number; llamadas: number; vsl_filas: number };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
-  steps: { integraciones: { done: boolean }; tabs: { done: boolean }; negocio: { done: boolean }; retro: { done: boolean; retroId?: number | null } };
+  steps: { integraciones: { done: boolean }; tabs: { done: boolean }; negocio: { done: boolean }; retro: { done: boolean; retroId?: number | null }; plan: { done: boolean } };
   extraction: Extraction;
 };
 type WizardData = {
   estado: Estado;
   servicios: Servicio[];
   requeridos: string[];
+  /** Los pasos que le tocan a ESTE cliente, según su capa (lib/capas.ts). */
+  pasos: Paso[];
+  capa: { id: string; nombre: string };
   settings: Record<string, string>;
   contacto: { nombre: string; email: string; telefono: string };
   usuario: { nombre: string; email: string };
@@ -51,13 +54,16 @@ type WizardData = {
 };
 type RetroRow = { id: number; periodo_desde: string; periodo_hasta: string; reporte: RetroReporte | null };
 
-const PASOS = ['integraciones', 'tabs', 'negocio', 'retro'] as const;
-type Paso = (typeof PASOS)[number];
+// El wizard ya NO tiene los pasos clavados: el servidor manda cuáles según la
+// capa que compró el cliente. Uno de Project Manager no conecta integraciones,
+// así que su wizard son dos pantallas y adentro.
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'retro' | 'plan';
 const PASO_TITULO: Record<Paso, string> = {
   integraciones: 'Conectá tus integraciones',
   tabs: 'Los datos de tus tabs',
   negocio: 'Tu negocio',
   retro: 'Tu primera Retro',
+  plan: 'Tu plan',
 };
 
 const JOB_LABELS: Record<string, string> = {
@@ -109,9 +115,10 @@ export function OnboardingWizard() {
       const d = j as unknown as WizardData & { ok: boolean };
       setData(d);
       setExt(d.estado.extraction);
-      // Retomar en el primer paso incompleto.
-      const pendiente = PASOS.find((p) => !d.estado.steps[p].done) ?? 'retro';
-      setPaso(pendiente);
+      // Retomar en el primer paso incompleto DE SU CAPA (el estado guarda todos
+      // los pasos posibles, pero solo se muestran los que le tocan).
+      const pendiente = d.pasos.find((p) => !d.estado.steps[p]?.done) ?? d.pasos[d.pasos.length - 1];
+      if (pendiente) setPaso(pendiente);
       return d;
     } catch (e) {
       setErrCarga(e instanceof Error ? e.message : String(e));
@@ -175,13 +182,19 @@ export function OnboardingWizard() {
 
   const marcarPaso = async (step: Paso) => {
     await post('/api/onboarding', { action: 'paso', step, done: true });
-    const idx = PASOS.indexOf(step);
-    if (idx < PASOS.length - 1) setPaso(PASOS[idx + 1]);
+    const pasos = data?.pasos ?? [];
+    const idx = pasos.indexOf(step);
+    if (idx >= 0 && idx < pasos.length - 1) setPaso(pasos[idx + 1]);
   };
+
+  // Adónde sale del wizard. NO es siempre /general: una capa que no compró los
+  // tableros no puede verlo (requireCapa lo rebotaría), así que su casa es el
+  // board. Espeja homeDeCapa() de lib/tab-access.
+  const home = data?.pasos.includes('integraciones') ? '/general' : '/plan';
 
   const completarDespues = async () => {
     await post('/api/onboarding', { action: 'paso', skip: true });
-    window.location.href = '/general';
+    window.location.href = home;
   };
 
   if (errCarga) {
@@ -199,8 +212,10 @@ export function OnboardingWizard() {
     );
   }
 
-  const pasoIdx = PASOS.indexOf(paso);
-  const mostrarPanel = ext != null && ext.status !== 'idle';
+  const pasos = data.pasos;
+  const pasoIdx = pasos.indexOf(paso);
+  // El panel de extracción solo tiene sentido en una capa que extrae histórico.
+  const mostrarPanel = ext != null && ext.status !== 'idle' && pasos.includes('integraciones');
 
   return (
     <Overlay>
@@ -209,11 +224,11 @@ export function OnboardingWizard() {
         <MakoLogo size={34} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 17, color: 'var(--ink)', lineHeight: 1.1 }}>Configuremos tu negocio</div>
-          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginTop: 3 }}>Paso {pasoIdx + 1} de {PASOS.length} — {PASO_TITULO[paso]}</div>
+          <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginTop: 3 }}>Paso {pasoIdx + 1} de {pasos.length} — {PASO_TITULO[paso]}</div>
         </div>
         <div style={{ display: 'flex', gap: 7, marginLeft: 24 }}>
-          {PASOS.map((p, i) => (
-            <span key={p} style={{ width: i === pasoIdx ? 22 : 7, height: 7, borderRadius: 999, background: i === pasoIdx ? 'var(--primary)' : data.estado.steps[p].done ? 'var(--good)' : 'var(--border-strong)', transition: 'all .2s' }} />
+          {pasos.map((p, i) => (
+            <span key={p} style={{ width: i === pasoIdx ? 22 : 7, height: 7, borderRadius: 999, background: i === pasoIdx ? 'var(--primary)' : data.estado.steps[p]?.done ? 'var(--good)' : 'var(--border-strong)', transition: 'all .2s' }} />
           ))}
         </div>
         <button type="button" onClick={completarDespues} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--faint)', fontFamily: SANS, fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline' }}>Completar después</button>
@@ -247,6 +262,12 @@ export function OnboardingWizard() {
                 await post('/api/onboarding', { action: 'paso', step: 'retro', done: true, retroId });
               }}
             />
+          )}
+          {paso === 'plan' && (
+            <PasoPlan onFinalizar={async () => {
+              await post('/api/onboarding', { action: 'paso', step: 'plan', done: true });
+              window.location.href = '/plan';
+            }} />
           )}
         </div>
 
@@ -506,6 +527,53 @@ function PasoTabs({ data, onContinuar, onVolver }: { data: WizardData; onContinu
         <button style={btnGhost} onClick={onVolver}>← Anterior</button>
         <button style={{ ...btnDark, opacity: guardando ? 0.6 : 1 }} disabled={guardando} onClick={continuar}>{guardando ? 'Guardando…' : 'Continuar →'}</button>
       </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Paso — Tu plan (cierre de la capa Project Manager)
+// =============================================================================
+// La capa 'pm' no conecta nada ni corre Retro: su cierre es presentar al Perro
+// Guardián y soltarlo en el board. El board arranca LIMPIO a propósito (el seed
+// por defecto es el de un negocio que vende con ads: ver lib/todo-seeds.ts), así
+// que lo primero que hace el cliente es crear su primer proyecto con MaKo.
+function PasoPlan({ onFinalizar }: { onFinalizar: () => Promise<void> }) {
+  const [yendo, setYendo] = useState(false);
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
+        <MakoStar size={22} color="var(--accent)" />
+        <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: 0 }}>Tu plan</h2>
+      </div>
+      <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 18px', maxWidth: 640, lineHeight: 1.6 }}>
+        Ya sé de qué se trata tu negocio. De acá en adelante, el <b>Perro Guardián</b> se encarga de
+        que tu plan no se llene de cosas que no mueven la aguja: vos cargás lo que hay para hacer y
+        él decide qué es prioritario y por qué. Si no estás de acuerdo, se lo discutís.
+      </p>
+
+      <div style={{ ...card, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[
+            ['Vos cargás, él prioriza', 'No elegís la prioridad a mano: MaKo compara cada tarea contra todo el resto y le pone un puntaje con su razón.'],
+            ['Un solo objetivo a la vez', 'El proyecto más importante manda. Las tareas de los demás no pueden colarse en Alta, salvo una emergencia real.'],
+            ['Te lo discute', 'Si creés que se equivocó, debatís. Te va a pedir argumentos — y tiene la última palabra.'],
+          ].map(([t, d]) => (
+            <div key={t} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--good)', fontSize: 15, lineHeight: 1.4, flex: 'none' }}>✓</span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{t}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 }}>{d}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button style={{ ...btnDark, opacity: yendo ? 0.6 : 1 }} disabled={yendo}
+        onClick={async () => { setYendo(true); try { await onFinalizar(); } finally { setYendo(false); } }}>
+        {yendo ? 'Abriendo…' : 'Crear mi primer proyecto →'}
+      </button>
     </div>
   );
 }

@@ -24,6 +24,7 @@ import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from './supabase';
 import { getUsuarioActual } from './auth';
+import { CAPA_DEFAULT, capaDef, esCapaValida, type CapaId } from './capas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 
 export { firmarImpersonacion, IMPERSONATE_COOKIE, OWNER_WS };
@@ -180,10 +181,12 @@ export type Workspace = {
   nombre: string;
   slug: string | null;
   estado: 'activo' | 'pausado';
+  /** Qué capa de la oferta compró (mig 0092). El catálogo vive en lib/capas.ts. */
+  capa: CapaId;
   created_at: string;
 };
 
-const WS_COLS = 'id, nombre, slug, estado, created_at';
+const WS_COLS = 'id, nombre, slug, estado, capa, created_at';
 
 export async function listarWorkspaces(): Promise<Workspace[]> {
   const { data, error } = await getSupabaseServer()
@@ -203,18 +206,35 @@ const slugify = (s: string) =>
   s.toLowerCase().normalize('NFD')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'cliente';
 
-export async function crearWorkspace(nombre: string): Promise<Workspace> {
+export async function crearWorkspace(nombre: string, capa: CapaId = CAPA_DEFAULT): Promise<Workspace> {
+  // Fail-closed: una capa inventada haría que el gating la trate como 'completo'
+  // (capaDef cae al default) y el cliente vería tabs que no compró.
+  if (!esCapaValida(capa)) throw new Error(`capa inválida: ${capa}`);
   const { data, error } = await getSupabaseServer()
     .from('workspaces')
-    .insert({ nombre: nombre.trim(), slug: slugify(nombre), estado: 'activo' })
+    .insert({ nombre: nombre.trim(), slug: slugify(nombre), estado: 'activo', capa })
     .select(WS_COLS).single();
   if (error) throw new Error(`workspaces: ${error.message}`);
   return data as Workspace;
 }
 
+/**
+ * Capa del workspace ACTUAL — de acá salen las tabs visibles, los pasos del
+ * onboarding y los seeds. Sin workspace (agencia sin impersonar, cron) → la capa
+ * completa: el dueño ve todo. `cache` = una sola query por request.
+ */
+export const getCapaActual = cache(async (): Promise<CapaId> => {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return CAPA_DEFAULT;
+  const { data } = await getSupabaseServer()
+    .from('workspaces').select('capa').eq('id', ws).maybeSingle();
+  return capaDef((data as { capa?: string } | null)?.capa).id;
+});
+
 export async function actualizarWorkspace(
-  id: number, patch: Partial<Pick<Workspace, 'nombre' | 'estado'>>,
+  id: number, patch: Partial<Pick<Workspace, 'nombre' | 'estado' | 'capa'>>,
 ): Promise<Workspace> {
+  if (patch.capa != null && !esCapaValida(patch.capa)) throw new Error(`capa inválida: ${patch.capa}`);
   const { data, error } = await getSupabaseServer()
     .from('workspaces')
     .update({ ...patch, updated_at: new Date().toISOString() })
