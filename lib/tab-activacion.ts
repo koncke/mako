@@ -159,6 +159,40 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     ],
   },
 
+  marketing: {
+    key: 'marketing',
+    titulo: 'Marketing',
+    servicio: 'meta',
+    eyebrow: '✦ Con Meta conectado',
+    queFalta: 'Conectá tu cuenta de Meta y este tablero se llena con tu gasto, tus costos y tu embudo de tráfico de todos los días.',
+    ademas: 'El histórico entra en las próximas horas y crece solo cada día. Las etapas que dependen del CRM (agenda, cierre) van a decir "fuente pendiente" hasta que conectes también la agenda — no es un cero, es que todavía no las medís.',
+    slides: [
+      // lib/queries.ts getMarketingWindow — KPIs TOFU
+      { t: 'CAC, ROAS y CPL, al día', d: 'Gasto, costo por lead, CAC real y ROAS sobre lo vendido y lo cobrado — no sobre clics, sobre plata.' },
+      // getFunnelEtapas + lib/sources.ts — embudo con fuente honesta
+      { t: 'Tu embudo, sin mentiras', d: 'Impresión → clic → landing → VSL con el % de paso de cada tramo, y lo que todavía no medís queda marcado como pendiente, no como cero.' },
+      // ResumenCreativos — breakdowns live de Meta
+      { t: 'Quién ve tus anuncios', d: 'Edad, género, plataforma y región de toda tu cuenta, en vivo desde Meta — para saber a quién le estás pegando.' },
+    ],
+  },
+
+  experimentos: {
+    key: 'experimentos',
+    titulo: 'Experiments',
+    servicio: 'meta',
+    eyebrow: '✦ Con Meta conectado',
+    queFalta: 'La Retro y los experimentos necesitan tus números de Meta para tener contra qué medir. Conectala y corré tu primera Retro.',
+    ademas: 'La Retro rinde más mientras más fuentes conectes (llamadas, cobranza, VSL), pero arranca con lo que haya. Es a demanda: la disparás vos cuando querés.',
+    slides: [
+      // lib/retro-pipeline.ts — 8 fases, diagnóstico + plan
+      { t: 'Un diagnóstico de tu negocio', d: 'MaKo cruza todo tu histórico y te dice dónde se te va la plata, qué funciona y el plan priorizado para arrancar.' },
+      // aplicarPlan → crearExperimento/crearTareasDesde
+      { t: 'Del informe al plan, solo', d: 'Aceptás una idea de la Retro y se crea sola en tu plan como experimento o tarea — no queda en un PDF que nadie abre.' },
+      // lib/experimentos.ts — baseline + medición + veredicto
+      { t: 'Es el único que concluye', d: 'Una hipótesis se vuelve experimento con línea de base, medición automática y veredicto al cerrar: acá MaKo afirma con datos, no opina.' },
+    ],
+  },
+
   comercial: {
     key: 'comercial',
     titulo: 'Comercial',

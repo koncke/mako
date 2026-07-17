@@ -17,6 +17,9 @@ import { getExperimentosView, type ExperimentosView } from '@/lib/experimentos';
 import { listRetros, type Retro } from '@/lib/retro';
 import { ExperimentosApp } from './ExperimentosApp';
 import { requireRolWs } from '@/lib/tab-access';
+import { integracionConectada } from '@/lib/credenciales';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -28,6 +31,11 @@ const EMPTY_VIEW: ExperimentosView = {
 
 export default async function ExperimentosPage() {
   await requireRolWs([], { nav: 'experimentos' });
+
+  // La Retro (el corazón de esta tab) necesita métricas de Meta para tener
+  // contra qué medir; sin ellas sale vacía. El panel pide Meta y ofrece correrla.
+  const tabExp = tabActivacion('experimentos');
+  if (tabExp && !(await integracionConectada('meta'))) return <PanelActivacion tab={tabExp} />;
   let view: ExperimentosView = EMPTY_VIEW;
   let retros: Retro[] = [];
   let errorMsg: string | null = null;

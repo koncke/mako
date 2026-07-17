@@ -39,6 +39,9 @@ import { DesgloseTrigger, type DesgloseItem, type DesgloseData } from '../_compo
 import { ResumenCreativos } from './ResumenCreativos';
 import { GraphicsTabs } from '../_components/GraphicsTabs';
 import { requireRolWs } from '@/lib/tab-access';
+import { integracionConectada } from '@/lib/credenciales';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -85,6 +88,12 @@ export default async function Page({
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
   await requireRolWs([], { nav: 'graphics' });
+
+  // Sin Meta los KPIs salen en cero. El sistema de fuentes hace honesto el
+  // embudo, pero un tablero de marketing sin gasto es una bienvenida vacía: el
+  // panel muestra qué se llena al conectar, y con Meta puesto no aparece.
+  const tabMkt = tabActivacion('marketing');
+  if (tabMkt && !(await integracionConectada('meta'))) return <PanelActivacion tab={tabMkt} />;
   const ayerReal = ayerEnTijuana();
   const hoyReal = hoyEnTijuana();
   const params = await searchParams;
