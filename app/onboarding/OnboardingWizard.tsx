@@ -29,6 +29,7 @@ import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { GuardianIcon } from '../plan/board/GuardianIcon';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
+import { FASES, faseDef, diagnosticar, repartoTexto, type Diagnostico, type Pregunta } from '@/lib/fase-diagnostico';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
@@ -40,7 +41,7 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'retro' | 'plan';
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'fase' | 'retro' | 'plan';
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
@@ -56,6 +57,8 @@ type WizardData = {
   esAdmin?: boolean;
   brief: BriefCampo[];
   briefAnswers: Record<string, string>;
+  fasePreguntas: Pregunta[];
+  faseDiag: Diagnostico | null;
   settings: Record<string, string>;
   contacto: { nombre: string; email: string; telefono: string };
   usuario: { nombre: string; email: string };
@@ -111,6 +114,8 @@ type Pantalla = {
   servicio?: string;
   nombre?: string;
   eyebrow?: string;
+  /** Diagnóstico de fase: índice de pregunta (0-5), o -1 = pantalla de resultado. */
+  faseQ?: number;
 };
 
 // =============================================================================
@@ -127,6 +132,9 @@ export function OnboardingWizard() {
   const [cierres, setCierres] = useState('');
   const [cash, setCash] = useState('');
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
+  // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
+  const [faseResp, setFaseResp] = useState<number[]>([]);
+  const [faseDiag, setFaseDiag] = useState<Diagnostico | null>(null);
 
   // Facts por servicio: lo que devolvió el ping al probar la credencial.
   const [facts, setFacts] = useState<Record<string, Fact[]>>({});
@@ -135,6 +143,7 @@ export function OnboardingWizard() {
   const [retro, setRetro] = useState<RetroRow | null>(null);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const tickeando = useRef(false);
+  const retomado = useRef(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -153,11 +162,33 @@ export function OnboardingWizard() {
       });
       setExt(d.estado.extraction);
       setConectadas(Object.fromEntries(d.servicios.map((s) => [s.key, s.conectada])));
+      setFaseDiag(d.faseDiag ?? null);
+      setFaseResp(d.faseDiag?.respuestas ?? new Array(d.fasePreguntas?.length ?? 6).fill(-1));
     } catch (e) {
       setErrCarga(e instanceof Error ? e.message : String(e));
     }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Retomar donde quedó: si el cliente ya cerró unos pasos (conectó Meta, cargó
+  // el brief) y vuelve a entrar, arranca en el primer paso incompleto, no desde
+  // cero. Corre una sola vez, cuando llegan los datos.
+  useEffect(() => {
+    if (!data || retomado.current) return;
+    retomado.current = true;
+    const cuenta = (paso: Paso): number =>
+      paso === 'integraciones' ? data.requeridos.length
+      : paso === 'tabs' ? 3
+      : paso === 'negocio' ? data.brief.length
+      : paso === 'fase' ? data.fasePreguntas.length + 1
+      : 1;
+    let acc = 0;
+    for (const paso of data.pasos) {
+      if (!data.estado.steps[paso]?.done) break;
+      acc += cuenta(paso);
+    }
+    if (acc > 0) setIdx(acc);
+  }, [data]);
 
   // ── Extracción: arranca al verificar Meta y sigue en background ────────────
   const loopTicks = useCallback(async () => {
@@ -213,6 +244,12 @@ export function OnboardingWizard() {
       for (const c of data.brief) {
         pantallas.push({ key: `brief:${c.key}`, paso, pregunta: c.label, slides: SLIDES_MAKO });
       }
+    } else if (paso === 'fase') {
+      // Una pantalla por pregunta (6) + la pantalla del diagnóstico.
+      data.fasePreguntas.forEach((q, i) => {
+        pantallas.push({ key: `fase:${i}`, paso, faseQ: i, pregunta: q.texto, slides: SLIDES_MAKO });
+      });
+      pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico de fase', slides: SLIDES_MAKO });
     } else if (paso === 'retro') {
       pantallas.push({ key: 'retro', paso, pregunta: 'Tu primera Retro', sub: 'Cruzo todo lo que extraje y te digo dónde se te va la plata.', slides: SLIDES['meta'] ?? SLIDES_MAKO, servicio: 'meta' });
     } else if (paso === 'plan') {
@@ -283,9 +320,21 @@ export function OnboardingWizard() {
 
   const campoBrief = p.key.startsWith('brief:') ? data.brief.find((c) => c.key === p.key.slice(6)) : null;
   const servicioReq = p.servicio && data.requeridos.includes(p.servicio);
+  const esFaseQuiz = p.faseQ != null && p.faseQ >= 0;
   // El super-admin (impersonando un cliente de prueba) puede adelantar sin
   // conectar: está recorriendo el flujo, no dando de alta un cliente real.
-  const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin)) : true;
+  const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
+    : esFaseQuiz ? faseResp[p.faseQ!] >= 0
+    : true;
+
+  // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
+  const guardarFase = async () => {
+    const local = diagnosticar(faseResp);
+    setFaseDiag(local); // instantáneo, para que el resultado aparezca al toque
+    const j = await post('/api/onboarding', { action: 'fase', faseRespuestas: faseResp });
+    if (j.ok && j.diagnostico) setFaseDiag(j.diagnostico as Diagnostico);
+    return j;
+  };
 
   // Simular con las llaves de Mauricio: copia sus credenciales al workspace de
   // prueba y arranca la extracción, para ver el WOW real (los facts, el histórico)
@@ -317,7 +366,7 @@ export function OnboardingWizard() {
         puedeAvanzar={puedeAvanzar}
         enUltimo={enUltimo}
         confirmLabel={data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ir a mi dashboard →'}
-        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : 'Siguiente →'}
+        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
         pending={pending}
         atrasLabel="Atrás"
         hideAtras={idx === 0}
@@ -327,6 +376,8 @@ export function OnboardingWizard() {
           if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel', templateId: tpl }));
           if (p.key === 'metas') return avanzar(() => post('/api/onboarding', { action: 'config', settings: { objetivo_cierres: cierres.trim(), objetivo_cash_usd: cash.trim() } }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
+          // Última pregunta del diagnóstico: persistir antes de mostrar el resultado.
+          if (esFaseQuiz && p.faseQ === data.fasePreguntas.length - 1) return avanzar(guardarFase);
           return avanzar();
         }}
         onConfirmar={() => avanzar()}
@@ -355,14 +406,17 @@ export function OnboardingWizard() {
           </div>
         ) : undefined}
         escenario={
-          <PanelMarketing
-            servicioKey={p.servicio ?? 'landing'}
-            nombre={p.nombre ?? 'MaKo'}
-            slides={p.slides}
-            facts={factsDePantalla()}
-            eyebrow={p.eyebrow ?? (p.servicio ? `✦ Con ${p.nombre} conectado` : '✦ Así trabaja MaKo')}
-            nota={p.servicio === 'meta' && ext && ext.status !== 'idle' ? undefined : undefined}
-          />
+          p.faseQ != null ? (
+            <FasePanel modo={p.faseQ >= 0 ? 'quiz' : 'result'} qIdx={p.faseQ} total={data.fasePreguntas.length} diag={faseDiag} />
+          ) : (
+            <PanelMarketing
+              servicioKey={p.servicio ?? 'landing'}
+              nombre={p.nombre ?? 'MaKo'}
+              slides={p.slides}
+              facts={factsDePantalla()}
+              eyebrow={p.eyebrow ?? (p.servicio ? `✦ Con ${p.nombre} conectado` : '✦ Así trabaja MaKo')}
+            />
+          )
         }
       >
         {/* ── Servicio: el mismo form de /integraciones, sin reinventar nada ── */}
@@ -422,6 +476,17 @@ export function OnboardingWizard() {
             <div><Label>WhatsApp</Label><input style={wizardInput} value={contacto.telefono} onChange={(e) => setContacto((c) => ({ ...c, telefono: e.target.value }))} placeholder="+52 1 686…" /></div>
           </div>
         )}
+
+        {/* ── Diagnóstico de fase: quiz (una pregunta, 5 opciones) ── */}
+        {esFaseQuiz && (
+          <FaseQuiz
+            emoji={data.fasePreguntas[p.faseQ!].emoji}
+            opciones={data.fasePreguntas[p.faseQ!].opciones}
+            value={faseResp[p.faseQ!]}
+            onPick={(i) => setFaseResp((r) => { const c = [...r]; c[p.faseQ!] = i; return c; })}
+          />
+        )}
+        {p.key === 'fase:result' && faseDiag && <FaseResultado diag={faseDiag} />}
 
         {/* ── Retro ── */}
         {p.key === 'retro' && <PantallaRetro ext={ext} onListo={setRetro} />}
@@ -490,6 +555,100 @@ function PantallaRetro({ ext, onListo }: { ext: Extraction | null; onListo: (r: 
       <button style={{ ...btnPrimary, opacity: gen || !listo ? 0.4 : 1 }} disabled={gen || !listo} onClick={generar}>
         {gen ? 'Generando…' : '✦ Generar mi primera Retro'}
       </button>
+    </div>
+  );
+}
+
+// ── Diagnóstico de fase ──────────────────────────────────────────────────────
+// Las 5 opciones votan a una fase (índice = fase). Single-select, estilo cards.
+function FaseQuiz({ emoji, opciones, value, onPick }: { emoji: string; opciones: string[]; value: number; onPick: (i: number) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 30, textAlign: 'center', marginBottom: 2 }}>{emoji}</div>
+      {opciones.map((o, i) => {
+        const on = value === i;
+        return (
+          <button key={i} type="button" onClick={() => onPick(i)}
+            style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14, padding: '12px 15px', borderRadius: 12, lineHeight: 1.4,
+              border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', color: 'var(--ink)',
+              display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ flex: 'none', width: 16, height: 16, borderRadius: '50%', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', boxShadow: on ? 'inset 0 0 0 2.5px var(--surface)' : 'none' }} />
+            {o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// El resultado: qué priorizar (el Norte). El aside negro (FasePanel) muestra la
+// fase; acá va el objetivo, las acciones críticas y el "no hacer ahora".
+function FaseResultado({ diag }: { diag: Diagnostico }) {
+  const f = faseDef(diag.fase);
+  return (
+    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {diag.mixto && (
+        <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: 4 }}>Diagnóstico mixto ({repartoTexto(diag.reparto)})</div>
+          <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>Tus respuestas se reparten entre fases: avanzaste en una dimensión y te quedaste atrás en otra. Trabajá primero el cuello de tu fase más baja antes de saltar adelante.</div>
+        </div>
+      )}
+      <div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Tu Norte: enfocá todo en {f.cuelloLabel}</div>
+        <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55 }}>{f.objetivo}</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {f.acciones.map((a, i) => (
+          <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: i < f.criticas ? 'var(--good-bg)' : 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px' }}>
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: i < f.criticas ? 'var(--good)' : 'var(--faint)', flex: 'none', marginTop: 2 }}>{i < f.criticas ? 'CLAVE' : `${i + 1}`}</span>
+            <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{a}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px', fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>
+        <b style={{ color: 'var(--bad)' }}>No hagas ahora:</b> {f.noHacer}
+      </div>
+    </div>
+  );
+}
+
+// El aside negro del diagnóstico: durante el quiz muestra la escalera de fases;
+// en el resultado, la fase diagnosticada grande.
+function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx: number; total: number; diag: Diagnostico | null }) {
+  if (modo === 'result' && diag) {
+    const f = faseDef(diag.fase);
+    return (
+      <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 26, minWidth: 0, textAlign: 'center' }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 16 }}>✦ Tu diagnóstico</div>
+        <div style={{ fontSize: 54, marginBottom: 6 }}>{f.emoji}</div>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', color: 'var(--sidebar-text)' }}>FASE {f.id}</div>
+        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--on-sidebar)', margin: '2px 0 8px' }}>{f.nombre}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--sidebar-text)', lineHeight: 1.5 }}>{f.rango}</div>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 14 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: 'rgba(255,255,255,.08)', color: 'var(--on-sidebar)' }}>Cuello: {f.cuelloLabel}</span>
+          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: 'rgba(255,255,255,.08)', color: 'var(--sidebar-text)' }}>Consistencia {diag.consistencia}%</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: 26, minWidth: 0 }}>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>✦ Diagnóstico de fase</div>
+      <div style={{ fontSize: 13, color: 'var(--sidebar-text)', lineHeight: 1.55, marginBottom: 18 }}>
+        Seis preguntas rápidas sobre tu situación real. Al final sé en qué fase estás y qué tenés que priorizar — todos los negocios comparten los mismos problemas según su etapa.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {FASES.map((f, i) => (
+          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: i === Math.min(qIdx, 4) ? 1 : 0.45 }}>
+            <span style={{ fontSize: 18, flex: 'none' }}>{f.emoji}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)' }}>Fase {f.id} · {f.nombre}</div>
+              <div style={{ fontSize: 11, color: 'var(--sidebar-text)' }}>Cuello: {f.cuelloLabel}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 'auto', paddingTop: 16, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{qIdx + 1} / {total}</div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import 'server-only';
 import { MAKO_NUCLEO, getActivePersona } from './mako-prompts';
 import { getFaseInstruccion } from './mako-fases';
 import { perfilNegocioTexto } from './onboarding';
+import { faseNegocioTexto } from './fase-store';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { META_RULES_TEXT } from './meta-rules';
@@ -68,9 +69,10 @@ async function resumenFunnel(): Promise<string> {
 export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string }): Promise<string> {
   const { chartKey, titulo, contexto, query } = opts;
 
-  const [persona, perfil, fase, knowledge] = await Promise.all([
+  const [persona, perfil, faseNegocio, fase, knowledge] = await Promise.all([
     getActivePersona().catch(() => ''),
     perfilNegocioTexto().catch(() => ''),
+    faseNegocioTexto().catch(() => ''),
     getFaseInstruccion(chartKey).catch(() => ''),
     searchKnowledge(query, 4).catch(() => [] as Array<{ titulo: string; cuerpo: string }>),
   ]);
@@ -79,6 +81,10 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
   let base = `${persona}\n\n${nucleo}`.trim();
   if (perfil) base += `\n\nNEGOCIO DE MARTÍN (perfil del cliente):\n${perfil}`;
+  // La FASE del negocio (diagnóstico de onboarding): es el Norte. MaKo prioriza
+  // y aconseja según la etapa real — no le propone escalar a quien todavía no
+  // convierte, ni high-ticket a quien no tiene tráfico.
+  if (faseNegocio) base += `\n\nEN QUÉ FASE ESTÁ EL NEGOCIO (su Norte — priorizá según esto):\n${faseNegocio}`;
   if (fase) base += `\n\nQUÉ TENÉS QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);
   if (know) base += `\n\nTU METODOLOGÍA (lo más relevante a esta consulta):\n${know}`;

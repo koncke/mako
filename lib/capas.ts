@@ -16,7 +16,7 @@
 // =============================================================================
 
 /** Los pasos posibles del wizard. Cada capa elige cuáles y en qué orden. */
-export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'retro' | 'plan';
+export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'fase' | 'retro' | 'plan';
 
 export type CapaId = 'pm' | 'completo';
 
@@ -64,9 +64,9 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Sin /integraciones: no tiene nada que conectar y la tab sería una lista de
     // rojos que le hace creer que le falta algo. Sin /contexto (es de agencia).
     userNavKeys: ['perfil', 'configuraciones'],
-    // Un solo paso: quién es y en qué está trabajando. Alimenta al Perro Guardián
-    // para que priorice con criterio de SU negocio, no genérico.
-    onboarding: ['negocio', 'plan'],
+    // Negocio → diagnóstico de fase (el Norte) → plan. La fase alimenta al Perro
+    // Guardián para que priorice con el criterio de la etapa real del negocio.
+    onboarding: ['negocio', 'fase', 'plan'],
     // Solo el grupo base: 3 preguntas. Es lo que el Perro Guardián necesita para
     // priorizar con criterio de SU negocio.
     briefGrupos: ['negocio'],
@@ -79,7 +79,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     descripcion: 'Todo el producto: ads, CRM, analistas, chats, Retro y Plan.',
     navKeys: null,
     userNavKeys: null,
-    onboarding: ['integraciones', 'tabs', 'negocio', 'retro'],
+    onboarding: ['integraciones', 'tabs', 'negocio', 'fase', 'retro'],
     // Solo el grupo base, igual que 'pm'. NO el esquema entero: son 18 campos
     // (oferta + avatar + personaje de marca) y el wizard pregunta de a UNA por
     // pantalla — 18 pantallas para entrar a un producto es exactamente lo que

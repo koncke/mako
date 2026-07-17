@@ -23,6 +23,8 @@ import { FUNNEL_TEMPLATES } from '@/lib/pipeline';
 import { seedNutricionTemplates } from '@/lib/nutricion-templates';
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
+import { PREGUNTAS } from '@/lib/fase-diagnostico';
+import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
 import { getEstadoOnboarding, pasosDeCapaActual, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
 
 export const dynamic = 'force-dynamic';
@@ -114,6 +116,10 @@ export async function GET() {
         key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label,
       }))),
       briefAnswers,
+      // Diagnóstico de fase (el "Norte" del negocio): las 6 preguntas + el
+      // resultado guardado, si el cliente ya lo respondió.
+      fasePreguntas: PREGUNTAS,
+      faseDiag: await getDiagnosticoFase(),
       settings: {
         meta_page_id: metaPageId ?? '',
         youtube_vsl_video_id: ytVsl ?? '',
@@ -143,7 +149,8 @@ type Body = {
   templateId?: string;
   contacto?: { nombre?: string; email?: string; telefono?: string };
   brief?: Record<string, unknown>;
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'retro' | 'plan';
+  faseRespuestas?: number[];
+  step?: 'integraciones' | 'tabs' | 'negocio' | 'fase' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;
@@ -193,6 +200,17 @@ export async function POST(req: NextRequest) {
         const previas = await getAnswers();
         await saveAnswers({ ...previas, ...limpio });
         return NextResponse.json({ ok: true });
+      }
+
+      // Diagnóstico de fase: guarda las 6 respuestas y devuelve el diagnóstico
+      // recomputado en el server (no se confía del cliente).
+      case 'fase': {
+        const resp = Array.isArray(body.faseRespuestas) ? body.faseRespuestas.map((n) => Number(n) | 0) : [];
+        if (resp.length !== PREGUNTAS.length) {
+          return NextResponse.json({ ok: false, error: 'Faltan respuestas del diagnóstico.' }, { status: 400 });
+        }
+        const diagnostico = await setDiagnosticoFase(resp);
+        return NextResponse.json({ ok: true, diagnostico });
       }
 
       // Settings no-secretas (page id, ids de video, objetivos).
