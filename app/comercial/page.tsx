@@ -55,6 +55,9 @@ import {
 import { FechaFiltro } from '../_components/FechaFiltro';
 import { CobrarTable } from './CobrarTable';
 import { requireRolWs } from '@/lib/tab-access';
+import { getTenantDb } from '@/lib/workspace';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -134,6 +137,22 @@ export default async function ComercialPage({
   searchParams: Promise<{ desde?: string; hasta?: string }>;
 }) {
   await requireRolWs([], { nav: 'graphics' });
+
+  // Comercial es la tab que más se lee como ROTA cuando está vacía: renderiza
+  // seis secciones densas, todas en $0/0/'—', con un gráfico plano y un timeline
+  // sin puntos. A diferencia de Marketing, no tiene sistema de fuentes que
+  // distinga "no está conectado" de "dice cero". Sin un solo cierre cargado, el
+  // panel explica de dónde sale la vista en vez de gritar ceros.
+  const tabCom = tabActivacion('comercial');
+  if (tabCom) {
+    const db = await getTenantDb();
+    const [{ count: ganados }, { count: cobros }] = await Promise.all([
+      db.from('leads').select('id', { count: 'exact', head: true }).eq('estado_lead', 'ganado'),
+      db.from('pagos').select('id', { count: 'exact', head: true }),
+    ]);
+    if (!ganados && !cobros) return <PanelActivacion tab={tabCom} />;
+  }
+
   const hoyReal = hoyEnTijuana();
 
   // Filtro global (Fase C): el rango acota las cohortes y el período de Revenue.

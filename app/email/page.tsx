@@ -7,9 +7,15 @@
 // =============================================================================
 
 import { requireRolWs } from '@/lib/tab-access';
+import { integracionConectada } from '@/lib/credenciales';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 import { EmailApp } from './EmailApp';
 
 export default async function Page() {
   await requireRolWs(['setter'], { nav: 'email' });
+
+  const tabEmail = tabActivacion('email');
+  if (tabEmail && !(await integracionConectada('email'))) return <PanelActivacion tab={tabEmail} />;
   return <EmailApp />;
 }

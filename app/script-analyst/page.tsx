@@ -17,6 +17,9 @@ import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { ScriptsBrowser } from './ScriptsBrowser';
 import { Icon } from '../_components/icons';
 import { requireRolWs } from '@/lib/tab-access';
+import { integracionConectada } from '@/lib/credenciales';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -31,6 +34,9 @@ const EMPTY: ScriptAnalystView = {
 
 export default async function ScriptAnalystPage() {
   await requireRolWs([], { nav: 'script' });
+
+  const tabScript = tabActivacion('script');
+  if (tabScript && !(await integracionConectada('meta'))) return <PanelActivacion tab={tabScript} />;
   let data: ScriptAnalystView = EMPTY;
   let errorMsg: string | null = null;
   let drafts: ScriptDraft[] = [];

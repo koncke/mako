@@ -13,6 +13,9 @@ import {
 } from '@/lib/queries';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { guardOnboarding, requireCapa } from '@/lib/tab-access';
+import { integracionConectada } from '@/lib/credenciales';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 import { CrmBoard, type CrmLead, type CrmJunta, type CrmMarcar } from './CrmBoard';
 import { mapToCrmLead } from './crm-map';
 import { getEquipoAction, type MiembroEquipo } from './actions';
@@ -22,6 +25,13 @@ export const revalidate = 0;
 
 export default async function LeadsPage() {
   await requireCapa('crm');
+
+  // Sin NINGUNA fuente de leads el Kanban es una bienvenida muerta, y encima es
+  // la primera tab de todos los roles (FALLBACK de tab-access).
+  const tabCrm = tabActivacion('crm');
+  if (tabCrm && !(await integracionConectada('calendly')) && !(await integracionConectada('meta'))) {
+    return <PanelActivacion tab={tabCrm} />;
+  }
   await guardOnboarding();
   const hoy = hoyEnTijuana();
 

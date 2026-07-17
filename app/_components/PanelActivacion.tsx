@@ -34,6 +34,9 @@ export function PanelActivacion({ tab, facts }: {
   // Al conectar desde acá, recargamos: la tab pasa a tener su integración y la
   // page (server) ya puede renderizar el contenido real en vez de este panel.
   const [conectando, setConectando] = useState(false);
+  // Los facts que devuelve el ping al probar la credencial. Apenas llegan, el
+  // aside negro deja el carrusel y muestra los datos reales del cliente.
+  const [factsVivos, setFactsVivos] = useState<Fact[] | undefined>(undefined);
 
   return (
     <div style={{ padding: 'clamp(12px,3vh,28px) 0', fontFamily: SANS }}>
@@ -47,14 +50,14 @@ export function PanelActivacion({ tab, facts }: {
         }}
       >
         <PanelMarketing
-          servicioKey={tab.servicio}
+          servicioKey={tab.servicio ?? tab.icono ?? 'landing'}
           nombre={tab.titulo}
           slides={tab.slides}
-          facts={facts}
+          facts={factsVivos ?? facts}
           eyebrow={tab.eyebrow}
         />
 
-        {/* Columna derecha: por qué está apagada + el form de la credencial. */}
+        {/* Columna derecha: por qué está apagada + cómo se prende. */}
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ padding: '24px 26px 4px' }}>
             <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
@@ -69,17 +72,29 @@ export function PanelActivacion({ tab, facts }: {
           </div>
 
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 26px 22px' }}>
-            <ServicioConfigForm
-              servicioKey={tab.servicio}
-              onEstado={(conectada) => {
-                // Recién cuando quedó conectada de verdad: recargar para que la
-                // page sirva la tab real. Sin esto el cliente conecta y sigue
-                // mirando el panel, que se lee como que no funcionó.
-                if (!conectada || conectando) return;
-                setConectando(true);
-                window.location.reload();
-              }}
-            />
+            {tab.servicio ? (
+              <ServicioConfigForm
+                servicioKey={tab.servicio}
+                onFacts={setFactsVivos}
+                onEstado={(conectada) => {
+                  // Recién cuando quedó conectada de verdad: recargar para que la
+                  // page sirva la tab real. Sin esto el cliente conecta y sigue
+                  // mirando el panel, que se lee como que no funcionó.
+                  if (!conectada || conectando) return;
+                  setConectando(true);
+                  // Un respiro para que alcance a ver sus datos aparecer a la
+                  // izquierda antes de que la tab se cargue: es la recompensa.
+                  setTimeout(() => window.location.reload(), 1400);
+                }}
+              />
+            ) : (
+              tab.cta && (
+                <a href={tab.cta.href}
+                  style={{ display: 'inline-block', border: '1px solid var(--primary)', borderRadius: 10, background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontWeight: 600, fontSize: 13.5, padding: '10px 15px', textDecoration: 'none' }}>
+                  {tab.cta.label}
+                </a>
+              )
+            )}
             {tab.ademas && (
               <div style={{ marginTop: 16, background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px', fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>
                 {tab.ademas}

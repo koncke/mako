@@ -14,6 +14,9 @@
 import { getClosingViewData, type ClosingViewData } from '@/lib/closing';
 import { ClosingBrowser } from './ClosingBrowser';
 import { requireRolWs } from '@/lib/tab-access';
+import { integracionConectada } from '@/lib/credenciales';
+import { PanelActivacion } from '../_components/PanelActivacion';
+import { tabActivacion } from '@/lib/tab-activacion';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -27,6 +30,13 @@ const EMPTY: ClosingViewData = {
 
 export default async function ClosingPage() {
   await requireRolWs(['closer'], { nav: 'closing' });
+
+  // Sin Fathom esta tab no tiene NADA que mostrar: el sync devuelve 403 y la
+  // vista queda en ceros, prolija pero muda sobre la causa. En vez de eso, la
+  // misma pantalla partida del onboarding pidiendo la key.
+  const tab = tabActivacion('closing');
+  if (tab && !(await integracionConectada('fathom'))) return <PanelActivacion tab={tab} />;
+
   let data: ClosingViewData = EMPTY;
   let errorMsg: string | null = null;
   try {
