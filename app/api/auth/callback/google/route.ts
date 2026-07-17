@@ -162,8 +162,11 @@ export async function GET(req: NextRequest) {
     // login y su sesión no se re-chequea contra la base (sub break-glass).
     if (usuario.id > 0) await registrarLogin(email, { nombre: ui.name, foto_url: ui.picture });
 
-    // Google Calendar: el login pide también el scope de la agenda, así que en
-    // la primera autorización viene el refresh_token. Nunca tumba el login.
+    // Google Calendar: el login ya NO pide el scope de la agenda (un scope sensible
+    // acá deja la app restringida a testers y nadie puede entrar), así que en el
+    // login normal esto no recibe refresh_token y sale de una. Se conserva porque
+    // el mismo callback atiende el consentimiento incremental: si el usuario vuelve
+    // habiendo aceptado la agenda, el token se guarda igual. Nunca tumba el login.
     await guardarCalendarBestEffort(usuario, tokens.refresh_token);
 
     const token = crearToken({
