@@ -139,7 +139,7 @@ export function BoardShell({ board }: { board: Board }) {
     setWizardId(null);
   };
 
-  const passes = (t: BoardTask) => (!q || (t.title + ' ' + t.detalle).toLowerCase().includes(q.toLowerCase())) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && pasaEstado(t.progress, doneFilter);
+  const passes = (t: BoardTask) => (!q || matchTexto(t, q)) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -232,11 +232,11 @@ export function BoardShell({ board }: { board: Board }) {
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {view === 'kanban' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar o #132…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
         {view === 'proyectos' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar o #132…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
         </>}
         {repo.fathomExtract && (
@@ -322,6 +322,19 @@ function PlanIcon({ size = 24 }: { size?: number }) {
 }
 // formatea tokens (12300 → "12,3k") para el toast de consumo de IA
 function fmtTokens(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n); }
+// Búsqueda: texto libre sobre título/detalle + por NÚMERO de tarjeta. El #num es
+// cómo se referencian las tareas entre sí (y como las nombra MaKo cuando marca un
+// duplicado), así que tiene que ser buscable: sin esto el id no sirve para nada.
+// "#132" busca SOLO por número (exacto); "132" busca por número o por texto.
+function matchTexto(t: BoardTask, q: string): boolean {
+  const s = q.trim().toLowerCase();
+  if (!s) return true;
+  const soloNum = /^#\s*(\d+)$/.exec(s);
+  if (soloNum) return t.num === Number(soloNum[1]);
+  if (/^\d+$/.test(s) && t.num === Number(s)) return true;
+  return (t.title + ' ' + t.detalle).toLowerCase().includes(s);
+}
+
 // filtro por estado (2ª capa del botón Filtrar): Todas / Activas / Comenzadas / Completadas
 type DoneFilter = 'all' | 'activas' | 'comenzadas' | 'hechas';
 const ESTADO_OPS: Array<[DoneFilter, string]> = [['all', 'Todas'], ['activas', 'Activas'], ['comenzadas', 'Comenzadas'], ['hechas', 'Completadas']];
@@ -409,6 +422,15 @@ function OrigenChip({ origen }: { origen: Actor }) {
   if (origen !== 'ia') return null;
   return <span title="Creada por MaKo" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: 'var(--accent)', background: 'var(--surface)', border: '1px solid var(--primary-weak)', borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}>✦ Origen IA</span>;
 }
+// El alta se muestra con una frase que nombra al autor ("Creada por la IA") en vez
+// del texto crudo. Pero cuando MaKo además dejó asentado QUÉ hizo (todo lo que va
+// después del " — "), ese porqué tiene que sobrevivir: si no, una tanda entera de
+// tarjetas creadas por la IA queda sin rastro de dónde salió.
+function partirCreacion(text: string, prefijo: string): { esCreacion: boolean; porque: string } {
+  if (!text.startsWith(prefijo)) return { esCreacion: false, porque: '' };
+  return { esCreacion: true, porque: text.slice(prefijo.length).replace(/^\s*—\s*/, '').trim() };
+}
+
 // Avatar para el change history: IA → ✦ MaKo; usuario → foto de perfil o inicial.
 function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; nombre: string; avatarUrl: string; size?: number }) {
   if (actor === 'ia') return <span title="MaKo" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--accent)' + '1f', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.55, flex: 'none' }}>✦</span>;
@@ -642,12 +664,12 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {t.historial.map((h, i) => {
-        const esCreacion = h.text.startsWith('Creó la tarjeta');
+        const { esCreacion, porque } = partirCreacion(h.text, 'Creó la tarjeta');
         return (
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creada por la IA' : `Creada por ${nombre || 'vos'}`) : h.text}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creada por la IA' : `Creada por ${nombre || 'vos'}`) : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
             {/* solo el ÚLTIMO cambio se puede deshacer (1 en 1, tipo ctrl-z) */}
@@ -793,12 +815,12 @@ function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTa
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
       {historial.map((h, i) => {
-        const esCreacion = h.text.startsWith('Creó el proyecto');
+        const { esCreacion, porque } = partirCreacion(h.text, 'Creó el proyecto');
         return (
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={24} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}</div>
+              <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
             {/* solo el último cambio del usuario se puede deshacer (nunca los de MaKo) */}
@@ -824,14 +846,14 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
       {rows.map(({ h, l }) => {
-        const esCreacion = h.text.startsWith('Creó el proyecto');
+        const { esCreacion, porque } = partirCreacion(h.text, 'Creó el proyecto');
         return (
           <div key={h.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={24} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '1px 7px 1px 5px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color, marginRight: 6, verticalAlign: 'middle' }}>{l.emoji} {l.name}</span>
-                <strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}
+                <strong style={{ fontWeight: 600 }}>{h.actor === 'ia' ? 'MaKo' : (nombre || 'Usuario')}</strong> · {esCreacion ? (h.actor === 'ia' ? 'Creado por la IA' : `Creado por ${nombre || 'vos'}`) : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}
               </div>
               <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
             </div>
