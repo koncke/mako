@@ -358,7 +358,11 @@ export function RetroReport({ reporte, periodo, alcance, onPlan, busyPlanId }: {
   onPlan: (item: RetroPlanItem, op: 'aceptar' | 'posponer' | 'descartar' | 'deshacer', motivo?: string) => void;
   busyPlanId: string | null;       // item del plan en vuelo (deshabilitar botones)
 }) {
-  const [view, setViewState] = useState<View>('overview');
+  // Abre en el PLAN, no en el resumen. El plan es lo único de la Retro que produce
+  // trabajo, y estaba detrás de una pestaña: en prod hay 3 retros con 13 items y
+  // CERO aceptados. Un motor de 9 llamadas a Opus que termina en un documento que
+  // nadie convierte en tarea no falló por el análisis, falló por dónde aterriza.
+  const [view, setViewState] = useState<View>('plan');
   const [tool, setTool] = useState<ToolId>('closing');
   const [fTipo, setFTipo] = useState<FindingTipo | 'todos'>('todos');
   const [modal, setModal] = useState<ModalRef>(null);

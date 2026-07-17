@@ -100,7 +100,10 @@ export function RetroTab({
 
   // ── Detalle ──
   if (sel) {
-    const periodo = `${fmtFechaLarga(sel.periodo_desde)} – ${fmtFechaLarga(sel.periodo_hasta)}`;
+    // Cuándo se corrió + qué período miró. Las dos fechas son distintas y las dos
+    // importan: una Retro corrida hace 3 semanas sobre un período viejo es una foto
+    // vencida, y sin la primera no hay forma de darse cuenta.
+    const periodo = `Corrida el ${fmtFechaLarga(sel.created_at)} · analiza ${fmtFechaLarga(sel.periodo_desde)} – ${fmtFechaLarga(sel.periodo_hasta)}`;
     const alcance = alcanceLabel(sel);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -161,14 +164,22 @@ function RetroFila({ retro, onOpen, onBorrar }: { retro: Retro; onOpen: () => vo
   const [hover, setHover] = useState(false);
   const plan = retro.reporte?.plan ?? [];
   const n = plan.length || (retro.recomendaciones?.length ?? 0);
-  const aplicadas = plan.filter((p) => p.status?.estado === 'aceptada').length;
+  // "Aceptadas", no "✓ aplicadas": aceptar es decir que sí, no es haberlo hecho.
+  // El ✓ verde acá contaba el click y hacía creer que el trabajo estaba hecho —
+  // la misma mentira que la fase Memoria le contaba al cerebro (ver
+  // lib/retro-seguimiento.ts). Lo hecho de verdad se ve al abrir la Retro.
+  const aceptadas = plan.filter((p) => p.status?.estado === 'aceptada').length;
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onClick={onOpen}
       style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', transition: 'border-color .15s, box-shadow .15s', borderColor: hover ? 'var(--border-strong)' : 'var(--border)', boxShadow: hover ? '0 6px 18px rgba(18,21,27,.06)' : 'none' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 4 }}>{retro.titulo}</div>
         <div style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>
-          {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)} · {alcanceLabel(retro)} · {n} {n === 1 ? 'recomendación' : 'recomendaciones'}{aplicadas > 0 ? ` · ✓ ${aplicadas} aplicada${aplicadas === 1 ? '' : 's'}` : ''}
+          {/* Corrida el … = created_at, la fecha que Martín daba por inexistente. El
+              dato está desde la mig 0051 y ya ordena esta lista: solo no se pintaba.
+              Va PRIMERO porque "¿cuándo fue la última Retro?" es la pregunta que se
+              le hace a esta lista; el período analizado es el segundo dato. */}
+          Corrida el {fmtFechaLarga(retro.created_at)} · analiza {fmtFechaLarga(retro.periodo_desde)} – {fmtFechaLarga(retro.periodo_hasta)} · {alcanceLabel(retro)} · {n} {n === 1 ? 'recomendación' : 'recomendaciones'}{aceptadas > 0 ? ` · ${aceptadas} aceptada${aceptadas === 1 ? '' : 's'}` : ''}
         </div>
       </div>
       <button type="button" onClick={(e) => { e.stopPropagation(); onBorrar(); }} aria-label="Eliminar"
