@@ -299,15 +299,33 @@ export async function migrarEnvACredenciales(ws: number = OWNER_WS): Promise<num
   }
 }
 
-// Infra de la plataforma: NUNCA se pisa desde la base. Sin estas claves no se
-// puede leer/descifrar la propia tabla de credenciales (huevo y gallina), así que
-// no son configurables desde la app y no viven en el catálogo. Este es el único
-// choke point que escribe process.env → el guard va acá.
+// Infra de la plataforma: NUNCA se pisa desde la base. Este es el único choke
+// point que escribe process.env → el guard va acá.
+//
+// Dos motivos para estar en esta lista:
+//  1. Huevo y gallina: sin la clave no se puede leer/descifrar la propia tabla de
+//     credenciales, así que no puede vivir adentro de ella.
+//  2. Es de la PLATAFORMA y sostiene el acceso de todos. Si la base la pudiera
+//     pisar, una fila mala tumbaría el login o las sesiones de todo el mundo.
+//
+// El caso 2 no es hipotético: `credenciales` tenía filas zombie de
+// GOOGLE_CLIENT_ID/SECRET (las escribió una versión vieja del catálogo, cuando
+// Google figuraba como si fuera una credencial de cliente). El catálogo ya no las
+// tiene, ninguna UI las muestra, pero hidratarCredenciales NO filtra por catálogo
+// —agarra todas las filas del dueño— así que igual pisaban el entorno en cada
+// boot. O sea: el login de la plataforma colgaba de dos filas invisibles.
 const INFRA_ENV = new Set([
+  // Huevo y gallina.
   'NEXT_PUBLIC_SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'CREDENCIALES_SECRET',
   'AUTH_COOKIE_VALUE',
+  // Acceso de la plataforma: la app OAuth con la que TODOS entran, y el secreto
+  // que firma las sesiones. No son de ningún cliente.
+  'AUTH_SECRET',
+  'DASHBOARD_PASSWORD',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
 ]);
 
 /**

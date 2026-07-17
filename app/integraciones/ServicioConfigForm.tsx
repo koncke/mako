@@ -27,9 +27,10 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-// El "ojito" muestra el secreto un rato y lo vuelve a tapar solo: que una
-// credencial no quede a la vista en una pantalla compartida o grabada.
-const OCULTAR_MS = 30_000;
+// El "ojito" muestra el secreto un rato corto y lo vuelve a tapar solo: que una
+// credencial no quede a la vista en una pantalla compartida o grabada. Además se
+// tapa sola si te vas de la pestaña — no hace falta que el reloj llegue al final.
+const OCULTAR_MS = 8_000;
 
 type OrigenCampo = 'servidor' | 'panel' | null;
 type Tutorial = { pasos: string[]; url?: string; urlLabel?: string };
@@ -285,6 +286,36 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
     setRevelado((r) => { const nr = { ...r }; delete nr[env]; return nr; });
   };
 
+  const taparTodo = () => {
+    for (const env of Object.keys(timers.current)) { clearTimeout(timers.current[env]); delete timers.current[env]; }
+    setRevelado({});
+  };
+
+  // Si te vas de la pestaña o la ventana pierde el foco, se tapa sola sin esperar
+  // al reloj: irse a otro lado con un token a la vista es justo lo que queremos
+  // evitar. (Salir de /integraciones desmonta el componente → lo limpia el otro
+  // efecto.) Solo escucha mientras haya algo revelado.
+  const hayRevelado = Object.keys(revelado).length > 0;
+  useEffect(() => {
+    if (!hayRevelado) return;
+    const onVis = () => { if (document.visibilityState === 'hidden') taparTodo(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('blur', taparTodo);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('blur', taparTodo);
+    };
+  }, [hayRevelado]);
+
+  const copiar = async (env: string, valor: string) => {
+    try {
+      await navigator.clipboard.writeText(valor);
+      ponerMsg(env, { ok: true, text: 'Copiada al portapapeles.' });
+    } catch {
+      ponerMsg(env, { ok: false, text: 'El navegador no dejó copiar — seleccionala a mano.' });
+    }
+  };
+
   const revelar = async (env: string) => {
     setRevelando(env); ponerMsg(env, null);
     try {
@@ -431,21 +462,31 @@ export default function ServicioConfigForm({ servicioKey, onEstado }: {
                   <span style={{ flex: 1, minWidth: 0, fontFamily: MONO, fontSize: 13, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     ••••{c.mask}
                   </span>
+                ) : verValor ? (
+                  // Revelada: NO se edita, se copia. Va como botón y no como input
+                  // para que quede claro que no es un campo — y sigue siendo del
+                  // mismo alto que el resto de los estados.
+                  <button type="button" onClick={() => copiar(c.env, verValor)}
+                    title="Clic para copiar" aria-label={`Copiar ${c.label}`}
+                    style={{
+                      flex: 1, minWidth: 0, alignSelf: 'stretch', border: 0, background: 'transparent',
+                      padding: 0, textAlign: 'left', cursor: 'pointer',
+                      fontFamily: MONO, fontSize: 13, color: 'var(--ink)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                    {verValor}
+                  </button>
                 ) : (
-                  // Revelada: input de solo lectura → se puede seleccionar y copiar,
-                  // y la barra mantiene EXACTAMENTE el mismo alto que en los demás estados.
                   <input
                     className="mk-key-input"
-                    readOnly={!!verValor}
-                    type={verValor || !c.secreto ? 'text' : 'password'}
-                    value={verValor ?? valores[c.env] ?? ''}
+                    type={c.secreto ? 'password' : 'text'}
+                    value={valores[c.env] ?? ''}
                     placeholder={sem.placeholder}
                     autoComplete="off"
                     spellCheck={false}
                     aria-label={c.label}
-                    onFocus={verValor ? (e) => e.currentTarget.select() : undefined}
-                    onChange={verValor ? undefined : (e) => setValores((v) => ({ ...v, [c.env]: e.target.value }))}
-                    onKeyDown={verValor ? undefined : (e) => { if (e.key === 'Enter' && tipeado) guardarCampo(c.env); }}
+                    onChange={(e) => setValores((v) => ({ ...v, [c.env]: e.target.value }))}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && tipeado) guardarCampo(c.env); }}
                   />
                 )}
 
