@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.action === 'reuniones') {
-      const reuniones = await listReunionesRecientes(30);
+      const reuniones = await listReunionesRecientes(); // histórico completo (paginado)
       return Response.json({ ok: true, reuniones });
     }
     if (body.action === 'extraer') {

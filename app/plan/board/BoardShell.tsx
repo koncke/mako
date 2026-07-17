@@ -27,7 +27,7 @@ import { ReunionExtractModal } from './ReunionExtractModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
 import { ScoreIcon } from './guardian-form';
-import { RichText, stripHtml, sanitizeHtml } from './RichText';
+import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
 import { type BoardTask, type Label, type Prio, type Check, type Actor, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
 
@@ -603,7 +603,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
 }
 
 // Card del Objetivo Principal (izquierda de Prioridades). Alto, clickeable → abre el
-// proyecto. Muestra el detalle y el POR QUÉ es el norte (lo escribe el perro).
+// proyecto. Solo emoji + nombre + score: el detalle y el porqué viven adentro.
 function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => void }) {
   return (
     <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '20px 22px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}

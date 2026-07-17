@@ -22,6 +22,7 @@ import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import type { UsageInfo } from './anthropic-usage';
 import {
+  fetchAllMeetings,
   listMeetingsPage,
   fetchRecordingSummary,
   fetchRecordingTranscript,
@@ -51,10 +52,13 @@ export type TareaCandidata = {
 
 export type ProyectoRef = { id: string; emoji: string; nombre: string };
 
-// ── Listado de reuniones recientes (metadata liviana para el selector) ────────
-export async function listReunionesRecientes(limit = 30): Promise<ReunionMeta[]> {
-  const page = await listMeetingsPage({ limit });
-  return (page.items ?? [])
+// ── Listado de reuniones para el selector (metadata liviana: sin transcript) ──
+// Trae el HISTÓRICO completo paginando por cursor, no la primera página: con una
+// sola página el selector mostraba ~30 reuniones y parecía que Fathom "no tenía"
+// las demás. El transcript (lo caro) se baja recién al elegir una.
+export async function listReunionesRecientes(limit = 0): Promise<ReunionMeta[]> {
+  const items = limit > 0 ? (await listMeetingsPage({ limit })).items ?? [] : await fetchAllMeetings();
+  return items
     .map((m: FathomMeeting) => ({
       recordingId: m.recording_id,
       titulo: meetingTitle(m) || 'Reunión sin título',
