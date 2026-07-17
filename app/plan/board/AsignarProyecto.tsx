@@ -6,7 +6,7 @@
 // cambiás de X a Y / agregás A, B, C). El motivo queda en el historial (feedback #19).
 
 import { useState, type CSSProperties } from 'react';
-import { WizardShell } from '../../leads/WizardShell';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { IntroBody, textareaStyle } from './guardian-form';
 import { type BoardTask, type Label } from './types';
 

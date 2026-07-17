@@ -22,7 +22,8 @@ import { saveFunnel } from '@/lib/leads';
 import { FUNNEL_TEMPLATES } from '@/lib/pipeline';
 import { seedNutricionTemplates } from '@/lib/nutricion-templates';
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
-import { getEstadoOnboarding, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
+import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
+import { getEstadoOnboarding, pasosDeCapaActual, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,10 +78,12 @@ export async function GET() {
   try {
     const sesion = await getUsuarioActual();
     const capa = capaDef(await getCapaActual());
-    const [estado, servicios, contacto, metaPageId, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
+    const [estado, servicios, contacto, schema, briefAnswers, metaPageId, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
       getEstadoOnboarding(),
       serviciosParaWizard(capa.integracionesRequeridas),
       getContactoReportes(),
+      getSchema(),
+      getAnswers(),
       getSetting('meta_page_id'),
       getSetting('youtube_vsl_video_id'),
       getSetting('youtube_thanks_video_id'),
@@ -89,6 +92,8 @@ export async function GET() {
       getSetting('objetivo_cierres'),
       getSetting('objetivo_cash_usd'),
     ]);
+    // El esquema es editable, así que se filtra por key de grupo (no por índice).
+    const brief = capa.briefGrupos == null ? schema : schema.filter((g) => capa.briefGrupos!.includes(g.key));
     return NextResponse.json({
       ok: true,
       estado,
@@ -99,6 +104,12 @@ export async function GET() {
       pasos: capa.onboarding,
       capa: { id: capa.id, nombre: capa.nombre },
       requeridos: capa.integracionesRequeridas,
+      // El brief se pregunta de a UNA por pantalla, así que viaja aplanado y ya
+      // filtrado por la capa: el wizard no tiene que saber de grupos.
+      brief: brief.flatMap((g) => g.fields.map((f) => ({
+        key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label,
+      }))),
+      briefAnswers,
       settings: {
         meta_page_id: metaPageId ?? '',
         youtube_vsl_video_id: ytVsl ?? '',
@@ -127,6 +138,7 @@ type Body = {
   settings?: Record<string, unknown>;
   templateId?: string;
   contacto?: { nombre?: string; email?: string; telefono?: string };
+  brief?: Record<string, unknown>;
   step?: 'integraciones' | 'tabs' | 'negocio' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
@@ -163,6 +175,20 @@ export async function POST(req: NextRequest) {
       case 'verificar': {
         const resultado = await verificarServicio(body.servicio ?? '', body.valores ?? {});
         return NextResponse.json(resultado);
+      }
+
+      // Brief del negocio: el wizard lo manda de a una respuesta por pantalla,
+      // así que esto MERGEA sobre lo guardado en vez de pisar el objeto entero
+      // (si pisara, volver Atrás y avanzar borraría lo ya contestado).
+      case 'brief': {
+        const patch = body.brief && typeof body.brief === 'object' ? body.brief : {};
+        const limpio: Record<string, string> = {};
+        for (const [k, v] of Object.entries(patch)) {
+          if (typeof v === 'string') limpio[k] = v.trim();
+        }
+        const previas = await getAnswers();
+        await saveAnswers({ ...previas, ...limpio });
+        return NextResponse.json({ ok: true });
       }
 
       // Settings no-secretas (page id, ids de video, objetivos).
@@ -213,6 +239,12 @@ export async function POST(req: NextRequest) {
       // Avance del wizard: marcar paso, saltar todo, o completar.
       case 'paso': {
         const quien = (await getUsuarioActual())?.email || 'admin-cliente';
+        // El onboarding se da por terminado al cerrar el ÚLTIMO paso DE SU CAPA,
+        // no al cerrar 'retro'. Clavarlo a 'retro' dejaba a cualquier capa que no
+        // termine ahí (ej. Project Manager, que cierra en 'plan') en in_progress
+        // para siempre → guardOnboarding la rebotaba al wizard en loop.
+        const pasos = await pasosDeCapaActual();
+        const ultimo = pasos[pasos.length - 1];
         const estado: OnboardingState = await patchEstadoOnboarding((s) => {
           if (s.status === 'pending') { s.status = 'in_progress'; s.startedAt = s.startedAt ?? new Date().toISOString(); }
           if (body.skip) { s.status = 'skipped'; return; }
@@ -222,6 +254,8 @@ export async function POST(req: NextRequest) {
               s.steps[body.step].done = true;
               if (body.step === 'retro') {
                 s.steps.retro.retroId = typeof body.retroId === 'number' ? body.retroId : s.steps.retro.retroId ?? null;
+              }
+              if (body.step === ultimo) {
                 s.status = 'done';
                 s.completedAt = new Date().toISOString();
                 s.completedBy = quien;

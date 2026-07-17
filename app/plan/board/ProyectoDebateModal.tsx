@@ -7,7 +7,7 @@
 // ¿por qué? → el perro decide. Si dice "No", sale una consolación (0 tokens).
 
 import { useMemo, useState, type CSSProperties } from 'react';
-import { WizardShell } from '../../leads/WizardShell';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon, textareaStyle } from './guardian-form';
 import { type Label } from './types';

@@ -7,7 +7,7 @@
 // Al crear, se abre el detalle y se sugiere optimizarla con "MaKo te ayuda".
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { WizardShell, wizardInput } from '../../leads/WizardShell';
+import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { IntroBody, ChoiceBody, textareaStyle, ScoreIcon } from './guardian-form';
 import { GuardianIcon } from './GuardianIcon';
 import { EmojiPickerMini } from './EmojiPicker';

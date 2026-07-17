@@ -35,6 +35,13 @@ export type CapaDef = {
   userNavKeys: string[] | null;
   /** Pasos del wizard, en orden. Vacío = el cliente entra directo, sin wizard. */
   onboarding: PasoOnboarding[];
+  /**
+   * Qué grupos del brief del negocio pide el paso 'negocio' (keys del esquema en
+   * lib/onboarding.ts). null = todos. Una capa chica solo necesita el grupo base
+   * ('negocio'): pedirle a un Project Manager su "avatar" y su "personaje de
+   * marca" es hacerle llenar el formulario de un negocio que no tiene.
+   */
+  briefGrupos: string[] | null;
   /** Integraciones que el cliente DEBE conectar y probar para salir del paso 1. */
   integracionesRequeridas: string[];
   /**
@@ -60,6 +67,9 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Un solo paso: quién es y en qué está trabajando. Alimenta al Perro Guardián
     // para que priorice con criterio de SU negocio, no genérico.
     onboarding: ['negocio', 'plan'],
+    // Solo el grupo base: 3 preguntas. Es lo que el Perro Guardián necesita para
+    // priorizar con criterio de SU negocio.
+    briefGrupos: ['negocio'],
     integracionesRequeridas: [],
     seedBoardVsl: false,
   },
@@ -70,6 +80,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     navKeys: null,
     userNavKeys: null,
     onboarding: ['integraciones', 'tabs', 'negocio', 'retro'],
+    briefGrupos: null,
     integracionesRequeridas: ['meta', 'whatsapp'],
     seedBoardVsl: true,
   },

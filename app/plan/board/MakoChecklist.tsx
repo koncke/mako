@@ -6,7 +6,7 @@
 // checklist (elegís qué aplicar). onApply recibe { titulo?, detalle?, items }.
 
 import { useState, type CSSProperties } from 'react';
-import { WizardShell } from '../../leads/WizardShell';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { IntroBody, ChoiceBody } from './guardian-form';
 
 const SANS = "'Geist', sans-serif";

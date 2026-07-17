@@ -41,7 +41,7 @@ import { LeadEditModal } from './LeadEditModal';
 import { StageMoveDialog, leadToMoveInfo, type StageMoveTarget } from './StageMoveDialog';
 import type { Step } from '@/lib/stage-requirements';
 import type { MiembroEquipo } from './actions';
-import { WizardShell, wizardInput } from './WizardShell';
+import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { sectionForStage } from './edit-logic';
 import { missingForStage, funnelReqInfo } from '@/lib/stage-requirements';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';

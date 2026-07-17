@@ -5,7 +5,7 @@
 // De a una pregunta (WizardShell), con ayuda opcional de MaKo para la checklist.
 
 import { useState } from 'react';
-import { WizardShell, wizardInput } from '../../leads/WizardShell';
+import { WizardShell, wizardInput } from '@/app/_components/WizardShell';
 import { MakoChecklistModal } from './MakoChecklist';
 import { type BoardTask, type Check, type Prio, uid, PLABEL } from './types';
 

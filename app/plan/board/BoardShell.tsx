@@ -241,7 +241,7 @@ export function BoardShell({ board }: { board: Board }) {
         </>}
         {repo.fathomExtract && (
           <button type="button" onClick={() => setExtraerReunion(true)} title="MaKo lee una reunión de Fathom y saca las tareas del equipo"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: 'none' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--ink)'; }}>
             🎙️ Extraer de una reunión
           </button>
@@ -425,7 +425,7 @@ function OrigenChip({ origen }: { origen: Actor }) {
   const code = origen === 'code';
   return (
     <span
-      title={code ? 'Escrita en el código y desplegada — no la creó MaKo' : 'Creada por MaKo'}
+      title={code ? 'Escrita en el código y desplegada' : 'Creada por MaKo'}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: code ? 'var(--dim)' : 'var(--accent)', background: 'var(--surface)', border: `1px solid ${code ? 'var(--border-strong)' : 'var(--primary-weak)'}`, borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}
     >
       {code ? '‹╱› Claude Code' : '✦ Origen IA'}
@@ -447,13 +447,13 @@ const autorDe = (actor: Actor, nombre: string) => ACTOR_LABEL[actor] || nombre |
 // escrito un dev en el SEED no es lo mismo que la haya sacado MaKo de tus datos.
 const frasePorAlta = (actor: Actor, nombre: string, genero: 'a' | 'o') =>
   actor === 'ia' ? `Cread${genero} por MaKo`
-    : actor === 'code' ? `Cread${genero} desde el código, no por MaKo`
+    : actor === 'code' ? `Cread desde el código`
       : `Cread${genero} por ${nombre || 'vos'}`;
 
 // Avatar para el change history: MaKo → ✦; Claude Code → ‹╱›; usuario → foto o inicial.
 function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; nombre: string; avatarUrl: string; size?: number }) {
   if (actor === 'ia') return <span title="MaKo" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--accent)' + '1f', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.55, flex: 'none' }}>✦</span>;
-  if (actor === 'code') return <span title="Claude Code — el agente de desarrollo, no MaKo" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontFamily: MONO, fontWeight: 700, flex: 'none' }}>╱</span>;
+  if (actor === 'code') return <span title="Claude Code" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontFamily: MONO, fontWeight: 700, flex: 'none' }}>╱</span>;
   if (avatarUrl) /* eslint-disable-next-line @next/next/no-img-element */
     return <img src={avatarUrl} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />;
   const ini = (nombre || 'U').trim().slice(0, 1).toUpperCase();
@@ -473,9 +473,11 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
       {/* título primero (protagonista); los proyectos van abajo, compactos y topeados */}
       <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
+      {/* Sin chip de origen acá: una marca que aparece en TODAS las tarjetas no
+          distingue nada, solo hace ruido y empuja la card a dos líneas. Quién la
+          creó se ve al abrirla (chip + historial), que es cuando importa. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
         <LabelChips chips={chips} max={1} cap={150} />
-        <OrigenChip origen={t.origen} />
       </div>
       <span style={{ flex: 1 }} />
       {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
@@ -573,8 +575,9 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', flexWrap: 'wrap' }}><LabelChips chips={chips} max={2} cap={200} /></div>
                   <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
                 </div>
-                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: t.detalle ? 10 : 14 }}>{t.title}</div>
-                {t.detalle && <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, marginBottom: 14, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{stripHtml(t.detalle)}</div>}
+                {/* Sin descripción: en Prioridades solo van las 3 jugadas del día y el
+                    título tiene que alcanzar. El detalle está a un clic, en la tarjeta. */}
+                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 14 }}>{t.title}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
                   <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
@@ -611,18 +614,11 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
         <ProjScore score={objetivo.score} color={objetivo.color} />
       </div>
       <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 8 }}>{objetivo.emoji}</div>
-      <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25, marginBottom: 12 }}>{objetivo.name}</div>
-      {objetivo.detalle && <div className="mako-rt" style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(objetivo.detalle) }} />}
+      <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25 }}>{objetivo.name}</div>
+      {/* Ni el detalle ni el "por qué es el norte": Prioridades es la vista de un
+          vistazo, y el texto largo la vuelve un muro. Los dos viven en el detalle
+          del proyecto, a un clic de acá. */}
       <span style={{ flex: 1 }} />
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--primary)" style={{ flex: 'none' }}><path d="M12 2.2l7 2.9v5.6c0 4.6-3 8-7 9.1-4-1.1-7-4.5-7-9.1V5.1l7-2.9z" /></svg>
-          <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700 }}>Por qué es el norte</span>
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.55, fontStyle: objetivo.scoreRazon ? 'italic' : 'normal' }}>
-          {objetivo.scoreRazon ? `“${objetivo.scoreRazon}”` : 'El perro todavía no escribió por qué. Se completa en la próxima re-priorización.'}
-        </div>
-      </div>
     </div>
   );
 }
@@ -921,7 +917,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { 
                 </div>
                 <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
                 {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
-                {l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{stripHtml(l.detalle)}</div>}
+                {/* Sin descripción: la grilla de proyectos es para barrer de un vistazo. El detalle vive adentro. */}
                 <span style={{ flex: 1 }} />
                 {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
                 <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{prog.total ? `${prog.done}/${prog.total} · ${prog.pct}%` : 'sin tareas'}</div>

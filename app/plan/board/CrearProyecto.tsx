@@ -6,7 +6,7 @@
 // detalle (editable). Guarda BORRADOR. onCrear(nombre, emoji, detalle, score).
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import { WizardShell } from '../../leads/WizardShell';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { IntroBody, textareaStyle, inputStyle, ScoreIcon } from './guardian-form';
 import { GuardianIcon } from './GuardianIcon';
 import { EmojiPickerMini } from './EmojiPicker';

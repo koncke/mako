@@ -8,7 +8,7 @@
 // personalizado que lo alienta a terminar sus prioridades. El perro NO es complaciente.
 
 import { useState, useMemo, type CSSProperties } from 'react';
-import { WizardShell } from '../../leads/WizardShell';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon, textareaStyle } from './guardian-form';
 import { type BoardTask, prioFromScore, PLABEL, PCOLOR, scoreFromPrio } from './types';

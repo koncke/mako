@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoStar } from '../_components/MakoBrand';
 import { OnboardingForm } from './OnboardingForm';
+import { OnboardingPM, type BriefCampo } from './OnboardingPM';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent, RetroFaseId } from '@/lib/retro-reporte';
 
@@ -47,6 +48,9 @@ type WizardData = {
   /** Los pasos que le tocan a ESTE cliente, según su capa (lib/capas.ts). */
   pasos: Paso[];
   capa: { id: string; nombre: string };
+  /** Brief del negocio ya filtrado por la capa (aplanado, en orden). */
+  brief: BriefCampo[];
+  briefAnswers: Record<string, string>;
   settings: Record<string, string>;
   contacto: { nombre: string; email: string; telefono: string };
   usuario: { nombre: string; email: string };
@@ -209,6 +213,20 @@ export function OnboardingWizard() {
       <Overlay>
         <div style={{ ...card, maxWidth: 560, margin: '120px auto', color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando tu onboarding…</div>
       </Overlay>
+    );
+  }
+
+  // La capa Project Manager tiene su propio arranque: 3 preguntas de a una por
+  // pantalla, sin nada que conectar. No es un caso raro de este wizard — es otro
+  // producto, y meterlo acá a fuerza de ifs ensuciaría los dos.
+  if (data.capa?.id === 'pm') {
+    return (
+      <OnboardingPM
+        brief={data.brief ?? []}
+        answersIniciales={data.briefAnswers ?? {}}
+        nombreUsuario={data.usuario.nombre}
+        onSaltear={completarDespues}
+      />
     );
   }
 

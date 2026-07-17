@@ -14,6 +14,16 @@ export type Field = { key: string; label: string; type: FieldType; placeholder?:
 export type Group = { key: string; label: string; fields: Field[] };
 
 export const DEFAULT_SCHEMA: Group[] = [
+  // Grupo base: las 3 preguntas que sirven para CUALQUIER negocio, venda como
+  // venda. Es el único brief que se le pide a las capas chicas (ej. Project
+  // Manager, que no tiene oferta VSL ni avatar) y le alcanza al Perro Guardián
+  // para priorizar con criterio del negocio en vez de genérico. Qué grupos ve
+  // cada capa lo decide lib/capas.ts → briefGrupos.
+  { key: 'negocio', label: 'Tu negocio', fields: [
+    { key: 'negocio_que_hace', label: '¿A qué se dedica tu negocio?', type: 'text', placeholder: 'Consultoría de operaciones para PyMEs' },
+    { key: 'negocio_objetivo', label: '¿Cuál es tu objetivo para los próximos 90 días?', type: 'textarea', placeholder: 'Cerrar 10 clientes nuevos sin sumar gente al equipo' },
+    { key: 'negocio_freno', label: '¿Qué es lo que más te está frenando hoy?', type: 'textarea', placeholder: 'Todo pasa por mí y no llego a nada' },
+  ] },
   { key: 'oferta', label: 'Oferta', fields: [
     { key: 'oferta_nombre', label: '¿Cómo se llama tu oferta?', type: 'text', placeholder: 'Negocio que Escala™' },
     { key: 'oferta_ticket', label: 'Precio / ticket (USD)', type: 'number', placeholder: '5000' },

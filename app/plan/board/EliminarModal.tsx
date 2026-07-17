@@ -7,7 +7,7 @@
 // si vale la pena borrar o conservar. Flechas atrás/adelante en todos los pasos.
 
 import { useMemo, useState, type CSSProperties } from 'react';
-import { WizardShell } from '../../leads/WizardShell';
+import { WizardShell } from '@/app/_components/WizardShell';
 import { GuardianIcon } from './GuardianIcon';
 import { IntroBody, textareaStyle } from './guardian-form';
 
