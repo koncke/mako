@@ -30,6 +30,7 @@ import { crearTarea, crearTareasDesde, listTareas, listTareasDeRetro, type Prior
 import { puntuarPlan } from './mako-guardian';
 import { prioFromScore } from '../app/plan/board/types';
 import { seguimientoDeItem } from './retro-seguimiento';
+import { emitirDelCatalogo } from './avisos';
 import {
   RETRO_FASES,
   type AreaId, type Evidencia, type RetroCoberturaItem, type RetroFaseId, type RetroFinding,
@@ -585,7 +586,30 @@ export async function generarRetroV3(
     model: 'claude-opus-4-8',
   }).select('*').single();
   if (error) throw new Error(`generarRetroV3: ${error.message}`);
-  return data as unknown as Retro;
+  const retro = data as unknown as Retro;
+
+  // La Retro deja de morir adentro de la pestaña. Hasta acá no emitía NADA (cero
+  // hits de emitirAviso en los 5 lib/retro-*.ts): un motor de 9 llamadas a Opus
+  // producía un documento que solo existía si te quedabas mirando la pantalla.
+  // La entrada 'retro-lista' del catálogo ya estaba escrita en la voz de MaKo y
+  // declaraba este disparador textual — pero era código muerto, sin un solo
+  // call-site. Faltaba el cable, no el mensaje.
+  //
+  // Va por `contexto` y no por `texto`: MaKo redacta con los datos reales de ESTA
+  // retro usando la plantilla como referencia editable. Best-effort — emitirAviso
+  // nunca lanza, así que un WhatsApp caído no te tira abajo la Retro que ya está
+  // guardada. Y respeta plantillaActiva: si la apagaste en /configuraciones, no sale.
+  await emitirDelCatalogo('retro-lista', {
+    contexto: [
+      `Título: ${retro.titulo}`,
+      `Tesis: ${out.tesis.texto}`,
+      `Período analizado: ${desde} a ${hasta}`,
+      `Propuestas en el plan: ${reporte.plan.length}`,
+      `Fugas/focos: ${reporte.plan.slice(0, 3).map((p) => p.titulo).join(' · ') || '—'}`,
+    ].join('\n'),
+  });
+
+  return retro;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

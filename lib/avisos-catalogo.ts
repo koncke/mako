@@ -275,7 +275,7 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   // ── METAS / RETRO / INSIGHTS ───────────────────────────────────────────────
   {
     id: 'retro-lista', titulo: 'Retro semanal lista (con PDF)', categoria: 'pregunta',
-    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'si',
     disparador: 'retro-pipeline genera la retro de la semana.',
     ejemplo: `🪞 Tu *Retro de la semana* está lista: qué funcionó, qué no y 3 focos para la que viene. Te la mando en PDF acá mismo 👇\n\n¿O preferís que te la resuma en un mensaje? — MaKo`,
   },
