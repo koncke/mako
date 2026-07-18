@@ -232,18 +232,20 @@ export function BoardShell({ board }: { board: Board }) {
         {view === 'prioridades' && <AvgChip avg={prioAvg} hechas={enPrio.length} total={MAX_PRIORIDAD} label="en prioridad" />}
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {view === 'kanban' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar o #132…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
         {view === 'proyectos' && <>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar o #132…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
         </>}
+        {/* Solo ícono (feedback jul-17): el texto largo se partía en dos líneas. El
+            micrófono se lee como "reunión grabada"; el qué-hace va en el tooltip. */}
         {repo.fathomExtract && (
-          <button type="button" onClick={() => setExtraerReunion(true)} title="MaKo lee una reunión de Fathom y saca las tareas del equipo"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flex: 'none' }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--ink)'; }}>
-            🎙️ Extraer de una reunión
+          <button type="button" onClick={() => setExtraerReunion(true)} aria-label="Extraer tareas de una reunión" title="Extraer tareas de una reunión (MaKo lee la transcripción de Fathom)"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 17, cursor: 'pointer', flex: 'none' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
+            🎙️
           </button>
         )}
       </header>
@@ -466,24 +468,21 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 }) {
   const done = t.progress >= 100;
   const clDone = t.checklist.filter((c) => c.done).length;
-  const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
   return (
     <div onClick={() => onOpen(t.id)}
       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-      {/* título primero (protagonista); los proyectos van abajo, compactos y topeados */}
-      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', marginBottom: 8, wordBreak: 'break-word' }}>{t.title}</div>
-      {/* Sin chip de origen acá: una marca que aparece en TODAS las tarjetas no
-          distingue nada, solo hace ruido y empuja la card a dos líneas. Quién la
-          creó se ve al abrirla (chip + historial), que es cuando importa. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
-        <LabelChips chips={chips} max={1} cap={150} />
+      {/* Preview unificada: emoji + #id + título en una línea, la prioridad al final.
+          Sin tag de proyecto (feedback jul-17): el proyecto se ve al abrir. */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 8 }}>
+        <span style={{ fontSize: 15, lineHeight: 1.3, flex: 'none' }}>{t.emoji}</span>
+        <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', lineHeight: 1.9, flex: 'none' }}>#{t.num}</span>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', wordBreak: 'break-word' }}>{t.title}</span>
+        <ScoreBadge score={t.score} />
       </div>
       <span style={{ flex: 1 }} />
       {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
-        <ScoreBadge score={t.score} />
-        <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)' }}>#{t.num}</span>
         {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
         {t.checklist.length > 0 && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>}
         <span style={{ flex: 1 }} />
@@ -551,7 +550,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
         <style>{`@media (max-width:840px){.mako-prio{flex-direction:column!important}.mako-prio-obj{flex:none!important;width:auto!important}}`}</style>
         {/* IZQUIERDA — Objetivo Principal (card alto, clickeable) */}
         <div className="mako-prio-obj" style={{ flex: '0 0 336px', display: 'flex' }}>
-          {objetivo ? <ObjetivoCard objetivo={objetivo} onOpen={() => onOpenProj(objetivo.id)} /> : (
+          {objetivo ? <ObjetivoCard objetivo={objetivo} prog={projProgress(board.tasks, objetivo.id)} onOpen={() => onOpenProj(objetivo.id)} /> : (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, border: '1px dashed var(--border-strong)', borderRadius: 16, padding: 24 }}>Todavía no hay un Objetivo Principal. Creá un proyecto y el perro elige el norte.</div>
           )}
         </div>
@@ -564,20 +563,20 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
             </div>
           )}
           {tasks.map((t, i) => {
-            const chips = t.labels.map((id) => board.labelById(id)).filter((l): l is Label => l != null);
             const clDone = t.checklist.filter((c) => c.done).length;
             const open = expand.has(t.id);
             return (
               <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                {/* Ranking (1-2-3) + emoji + #id + título + prioridad, todo en la línea.
+                    Sin tag de proyecto (feedback jul-17): se ve al abrir. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden', flexWrap: 'wrap' }}><LabelChips chips={chips} max={2} cap={200} /></div>
-                  <span style={{ flex: 1 }} /><ScoreBadge score={t.score} />
+                  <span style={{ fontSize: 19, lineHeight: 1, flex: 'none' }}>{t.emoji}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
+                  <span style={{ flex: 1, fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', minWidth: 0 }}>{t.title}</span>
+                  <ScoreBadge score={t.score} />
                 </div>
-                {/* Sin descripción: en Prioridades solo van las 3 jugadas del día y el
-                    título tiene que alcanzar. El detalle está a un clic, en la tarjeta. */}
-                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 14 }}>{t.title}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
                   <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
@@ -604,7 +603,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
 
 // Card del Objetivo Principal (izquierda de Prioridades). Alto, clickeable → abre el
 // proyecto. Solo emoji + nombre + score: el detalle y el porqué viven adentro.
-function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => void }) {
+function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () => void; prog: { total: number; done: number; pct: number } }) {
   return (
     <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '20px 22px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = objetivo.color)} onMouseLeave={(e) => (e.currentTarget.style.borderColor = objetivo.color + '59')}>
@@ -613,12 +612,18 @@ function ObjetivoCard({ objetivo, onOpen }: { objetivo: Label; onOpen: () => voi
         <span style={{ flex: 1 }} />
         <ProjScore score={objetivo.score} color={objetivo.color} />
       </div>
-      <div style={{ fontSize: 26, lineHeight: 1, marginBottom: 8 }}>{objetivo.emoji}</div>
+      {/* emoji + id (mismo tamaño/color que en el kanban) antes del nombre */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 26, lineHeight: 1 }}>{objetivo.emoji}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{objetivo.pid}</span>
+      </div>
       <div style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em', lineHeight: 1.25 }}>{objetivo.name}</div>
-      {/* Ni el detalle ni el "por qué es el norte": Prioridades es la vista de un
-          vistazo, y el texto largo la vuelve un muro. Los dos viven en el detalle
-          del proyecto, a un clic de acá. */}
       <span style={{ flex: 1 }} />
+      {/* Barra de progreso del proyecto (feedback jul-17): igual que en la grilla. */}
+      <div style={{ marginTop: 16 }}>
+        <MiniBar v={prog.pct} />
+        <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{prog.total ? `${prog.done}/${prog.total} tareas · ${prog.pct}%` : 'sin tareas'}</div>
+      </div>
     </div>
   );
 }
@@ -911,6 +916,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { 
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 22 }}>{l.emoji}</span>
+                  <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{l.pid}</span>
                   <span style={{ flex: 1 }} />
                   {completo(prog) && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
                   <ProjScore score={l.score} color={l.color} />

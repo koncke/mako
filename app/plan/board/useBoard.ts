@@ -57,7 +57,9 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
     const labels0 = labelsIn && labelsIn.length ? labelsIn : (repo.labelMode === 'single' && labels[0] ? [labels[0].id] : []);
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
+    // El emoji nace heredado del proyecto elegido (o 📌); editable después.
+    const emoji0 = labels.find((l) => l.id === labels0[0])?.emoji || '📌';
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);

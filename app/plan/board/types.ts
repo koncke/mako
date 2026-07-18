@@ -25,6 +25,7 @@ export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: 
 export type BoardTask = {
   id: string;
   num: number;              // #n visible
+  emoji: string;            // ícono de la tarjeta (antes del título, como el proyecto)
   title: string;
   detalle: string;
   priority: Prio;           // DERIVADA del score (prioFromScore); no la fija el usuario
@@ -41,7 +42,10 @@ export type BoardTask = {
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; historial: Hist[] };
+export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; historial: Hist[] };
+// El id VISIBLE de un proyecto (P1, P2…): distinto del #num de las tareas a propósito,
+// para que de un vistazo se sepa si un id es de tarea o de proyecto. Estable por orden.
+export const pidDe = (l: { pid?: string }, i: number) => l.pid || `P${i + 1}`;
 export type BoardUser = { nombre: string; avatarUrl: string };
 
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.

@@ -13,7 +13,9 @@ import { type BoardTask, type Label, type Repo, type BoardUser, prioFromScore, s
 import type { Tarea, Categoria } from '@/lib/todo';
 
 const toBoard = (t: Tarea): BoardTask => ({
-  id: String(t.id), num: t.id, title: t.titulo, detalle: t.detalle ?? '',
+  // El board del cliente (experimento_tareas) todavía no persiste emoji por tarea:
+  // default 📌. El emoji-por-tarea con memoria vive en el board del dueño (SEED).
+  id: String(t.id), num: t.id, emoji: '📌', title: t.titulo, detalle: t.detalle ?? '',
   priority: prioFromScore(t.score || scoreFromPrio[t.prioridad]), score: t.score || scoreFromPrio[t.prioridad],
   scoreRazon: t.score_razon ?? undefined,
   progress: t.progreso, deadline: t.deadline ?? '',

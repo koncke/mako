@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, prioFromScore, clampScore, HIST_CAP } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, prioFromScore, clampScore, pidDe, HIST_CAP } from './board/types';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -479,10 +479,17 @@ const histTarjeta = (num: number): Hist => {
   return { id: 'seed' + num, ts: h?.ts ?? SEED_TS, actor: 'code', text: h?.text ?? 'Creó la tarjeta' };
 };
 
+// El emoji de una tarea: por default hereda el del proyecto principal, así toda
+// tarjeta nace con un ícono relevante y consistente sin tener que elegir 184 a mano.
+// Es editable (picker en crear/detalle): quien quiera lo cambia.
+const EMOJI_PROY = new Map(PROJS_DEFAULT.map((p) => [p.id, p.emoji]));
+const emojiDeTarea = (labels: string[], actual?: string): string =>
+  (actual && actual.trim()) || EMOJI_PROY.get(labels[0]) || '📌';
+
 const seedTasks = (): BoardTask[] => SEED.map((d) => {
   const checklist = buildCL(d[0]);
   return {
-    id: 't' + d[0], num: d[0], title: d[1], detalle: d[8], priority: prioFromScore(d[3]), score: d[3], progress: clProgress(checklist, d[4]),
+    id: 't' + d[0], num: d[0], emoji: emojiDeTarea(d[2]), title: d[1], detalle: d[8], priority: prioFromScore(d[3]), score: d[3], progress: clProgress(checklist, d[4]),
     impacto: d[5], esfuerzo: d[6], scoreRazon: d[7] || undefined, deadline: '', labels: d[2], checklist, enPrioridad: false, origen: 'code' as const,
     historial: [histTarjeta(d[0])],
   };
@@ -495,17 +502,18 @@ const normHist = (h: unknown[]): Hist[] => (Array.isArray(h) ? h : []).map((e) =
 const normTask = (t: BoardTask): BoardTask => {
   const s = typeof t.score === 'number' && t.score > 0 ? clampScore(t.score) : 50;
   const checklist = Array.isArray(t.checklist) ? t.checklist : [];
-  return { ...t, score: s, priority: prioFromScore(s), labels: Array.isArray(t.labels) ? t.labels : [], checklist, historial: normHist(t.historial as unknown[]) };
+  const labels = Array.isArray(t.labels) ? t.labels : [];
+  return { ...t, score: s, priority: prioFromScore(s), labels, emoji: emojiDeTarea(labels, t.emoji), checklist, historial: normHist(t.historial as unknown[]) };
 };
-const normLabel = (l: Label): Label => ({ ...l, score: typeof l.score === 'number' && l.score >= 1 ? Math.min(100, Math.round(l.score)) : 50, detalle: typeof l.detalle === 'string' ? l.detalle : '', historial: normHist((l.historial as unknown[]) || []) });
+const normLabel = (l: Label, i = 0): Label => ({ ...l, pid: pidDe(l, i), score: typeof l.score === 'number' && l.score >= 1 ? Math.min(100, Math.round(l.score)) : 50, detalle: typeof l.detalle === 'string' ? l.detalle : '', historial: normHist((l.historial as unknown[]) || []) });
 
 function loadTasks(): BoardTask[] {
   try { const v = localStorage.getItem(K9); if (v) return (JSON.parse(v) as BoardTask[]).map(normTask); } catch { /* seed */ }
   return seedTasks();
 }
 function loadLabels(): Label[] {
-  try { const p = localStorage.getItem(K_PROJS); if (p) return (JSON.parse(p) as Label[]).map(normLabel); } catch { /* default */ }
-  return PROJS_DEFAULT;
+  try { const p = localStorage.getItem(K_PROJS); if (p) return (JSON.parse(p) as Label[]).map((l, i) => normLabel(l, i)); } catch { /* default */ }
+  return PROJS_DEFAULT.map((l, i) => normLabel(l, i));
 }
 
 // Agregar ideas nuevas SIN pisar tus ediciones: bumpeo MERGE_VERSION y en el próximo
