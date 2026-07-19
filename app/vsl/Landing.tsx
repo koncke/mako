@@ -57,23 +57,42 @@ export default function Landing() {
     root.querySelectorAll('.mk-deep[id^="m-"]').forEach((s) => s.remove());
 
     // (2) Card nueva: Prioridades — El Perro Guardián, justo tras Experimentos.
+    // Las 9 features que no vienen en el HTML del diseño se inyectan como card
+    // [slug, después-de]. El orden respeta las dependencias (cada "después-de" ya
+    // tiene que existir cuando se inserta el siguiente).
+    const INJECT: Array<[string, string]> = [
+      ['onboarding', 'funnel'], ['graphics', 'onboarding'],
+      ['prioridades', 'experimentos'], ['retro', 'prioridades'], ['fase-norte', 'retro'],
+      ['conocimiento', 'email'], ['integraciones', 'mako'], ['equipo', 'integraciones'],
+      ['perfil-reportes', 'equipo'],
+    ];
     const featGrid = root.querySelector<HTMLElement>('.mk-feature-grid');
-    if (featGrid && !featGrid.querySelector('a[data-feature="prioridades"]')) {
-      const pri = SHOWCASE_BY_SLUG['prioridades'];
-      const paths = pri.icon.map((d) => `<path d="${d}" />`).join('');
-      const card = document.createElement('a');
-      card.setAttribute('href', '#m-prioridades');
-      card.style.cssText =
+    const makeCard = (slug: string): HTMLAnchorElement => {
+      const f = SHOWCASE_BY_SLUG[slug];
+      const paths = f.icon.map((d) => `<path d="${d}" />`).join('');
+      const title = f.name.split(' — ')[0]; // "Prioridades — El Perro Guardián" → "Prioridades"
+      const a = document.createElement('a');
+      a.setAttribute('href', '#m-' + slug);
+      a.setAttribute('data-feature', slug);
+      a.style.cssText =
         'display:flex;flex-direction:column;background:#fff;border:1px solid #EAECF1;border-radius:12px;padding:28px 26px;min-height:206px;text-decoration:none;box-shadow:0 1px 2px rgba(16,19,25,.03);transition:box-shadow .22s ease,transform .22s ease';
-      card.innerHTML =
+      a.innerHTML =
         '<div style="width:46px;height:46px;border-radius:12px;background:#EAF1FE;display:flex;align-items:center;justify-content:center;margin-bottom:18px">' +
         `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;color:#2F6FED">${paths}</svg>` +
         '</div>' +
-        '<div style="font-size:17px;font-weight:600;color:#12151B;letter-spacing:-0.01em;line-height:1.25">Prioridades</div>' +
-        `<div style="font-size:14px;line-height:1.55;color:#6B7280;margin-top:9px">${pri.hook}</div>`;
-      const expCard = featGrid.querySelector<HTMLElement>('a[href="#m-experimentos"]');
-      if (expCard) expCard.insertAdjacentElement('afterend', card);
-      else featGrid.appendChild(card);
+        `<div style="font-size:17px;font-weight:600;color:#12151B;letter-spacing:-0.01em;line-height:1.25">${title}</div>` +
+        `<div style="font-size:14px;line-height:1.55;color:#6B7280;margin-top:9px">${f.hook}</div>`;
+      return a;
+    };
+    if (featGrid) {
+      for (const [slug, after] of INJECT) {
+        if (!SHOWCASE_BY_SLUG[slug]) continue;
+        if (featGrid.querySelector(`a[data-feature="${slug}"]`)) continue; // idempotente
+        const prev = featGrid.querySelector<HTMLElement>(`a[href="#m-${after}"]`);
+        const card = makeCard(slug);
+        if (prev) prev.insertAdjacentElement('afterend', card);
+        else featGrid.appendChild(card);
+      }
     }
 
     // (3) Cada card: subtítulo = hook nuevo + href real a su landing /vsl/<slug>.

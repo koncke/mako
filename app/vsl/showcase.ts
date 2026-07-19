@@ -16,17 +16,18 @@ export type ShowcaseFeature = {
   name: string;      // eyebrow / nombre en la card
   icon: string[];    // paths SVG (viewBox 0 0 24 24, stroke) salvo star
   star?: boolean;    // mako: estrella dorada rellena (viewBox propio)
-  hook: string;      // H3 del modal + subtítulo de la card
-  intro: string;     // párrafo de apertura (HTML: <strong>/<em>)
-  points: string[];  // capacidades (HTML) — los "Tab 1/2/3" del copy
+  hook: string;      // subtítulo de la card (+ H3 del viejo pop-up)
+  intro?: string;    // (legacy del pop-up; hoy sin uso — la landing vive en features.ts)
+  points?: string[]; // (legacy del pop-up)
   nota?: string;     // estado honesto (en activación / construcción / preparación)
 };
 
-// Orden de las cards en la grilla (= orden de landing-html.ts + prioridades tras experimentos).
+// Orden de las cards en la grilla de /vsl (24 features). Las 8 nuevas + prioridades
+// se inyectan en runtime desde Landing.tsx en estas posiciones.
 export const SHOWCASE_ORDER = [
-  'funnel', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
-  'cobranza', 'contrato', 'customer', 'semaforo', 'experimentos',
-  'prioridades', 'whatsapp', 'email', 'mako',
+  'funnel', 'onboarding', 'graphics', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
+  'cobranza', 'contrato', 'customer', 'semaforo', 'experimentos', 'prioridades', 'retro', 'fase-norte',
+  'whatsapp', 'email', 'conocimiento', 'mako', 'integraciones', 'equipo', 'perfil-reportes',
 ];
 
 export const SHOWCASE: ShowcaseFeature[] = [
@@ -274,6 +275,57 @@ export const SHOWCASE: ShowcaseFeature[] = [
       'Pregúntale lo que sea, o toca su botón sobre cualquier gráfico y recibe <strong>una decisión, no un número más</strong>.',
       'Te avisa lo urgente, te manda tu <strong>reporte semanal</strong> y <strong>aplica los cambios por ti</strong> cuando le das luz verde. Cuanto más te conoce, más afilado te diagnostica.',
     ],
+  },
+
+  // ── Features nuevas (2026-07-19): sus cards se inyectan en /vsl y su landing
+  //    rica vive en _detalle/features.ts. Acá solo va lo que la CARD necesita. ──
+  {
+    slug: 'onboarding',
+    name: 'Onboarding',
+    icon: ['M4 13a8 8 0 0 1 7 7a6 6 0 0 0 3 -5a9 9 0 0 0 6 -8a3 3 0 0 0 -3 -3a9 9 0 0 0 -8 6a6 6 0 0 0 -5 3', 'M7 14a6 6 0 0 0 -3 6a6 6 0 0 0 6 -3', 'M15 9m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0'],
+    hook: 'Tu primer login ya conoce tu negocio.',
+  },
+  {
+    slug: 'graphics',
+    name: 'Graphics',
+    icon: ['M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M9 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M15 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M4 20l14 0'],
+    hook: 'Gráficos que te dicen qué hacer, no solo qué pasó.',
+  },
+  {
+    slug: 'retro',
+    name: 'Retro',
+    icon: ['M9 17v-5', 'M12 17v-3', 'M15 17v-1', 'M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z'],
+    hook: 'Cruza tus 6 tabs y te da una tesis + la fuga en dólares.',
+  },
+  {
+    slug: 'fase-norte',
+    name: 'Fase / Norte',
+    icon: ['M8 16l2 -6l6 -2l-2 6l-6 2', 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0', 'M12 3l0 2', 'M12 19l0 2', 'M3 12l2 0', 'M19 12l2 0'],
+    hook: 'Antes de escalar, MaKo te dice en qué fase estás.',
+  },
+  {
+    slug: 'conocimiento',
+    name: 'Conocimiento',
+    icon: ['M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0', 'M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0', 'M3 6l0 13', 'M12 6l0 13', 'M21 6l0 13'],
+    hook: 'Tu método adentro de la IA, no genéricos de ChatGPT.',
+  },
+  {
+    slug: 'integraciones',
+    name: 'Integraciones',
+    icon: ['M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1 -4.069 0l-.301 -.301l-6.558 6.558a2 2 0 0 1 -1.239 .578l-.175 .008h-1.977a1 1 0 0 1 -.993 -.883l-.007 -.117v-1.977a2 2 0 0 1 .467 -1.284l.119 -.13l.414 -.414h2v-2h2v-2l2.144 -2.144l-.301 -.301a2.877 2.877 0 0 1 0 -4.069l2.643 -2.643a2.877 2.877 0 0 1 4.069 0z', 'M15 9h.01'],
+    hook: 'Tus llaves, tu embudo y tu saldo de IA, a la vista.',
+  },
+  {
+    slug: 'equipo',
+    name: 'Equipo',
+    icon: ['M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0', 'M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2', 'M16 3.13a4 4 0 0 1 0 7.75', 'M21 21v-2a4 4 0 0 0 -3 -3.85'],
+    hook: 'Cada rol ve exactamente su herramienta. Nada más.',
+  },
+  {
+    slug: 'perfil-reportes',
+    name: 'Reportes',
+    icon: ['M10 5a2 2 0 0 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6', 'M9 17v1a3 3 0 0 0 6 0v-1'],
+    hook: 'Tu dashboard te habla por WhatsApp cuando urge.',
   },
 ];
 
