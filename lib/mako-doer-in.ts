@@ -288,6 +288,20 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Feedback inmediato: "escribiendo…" mientras razona (best-effort).
     void enviarPresencia(instance, jid, 'composing', 12000);
 
+    // ACUSE INSTANTÁNEO (feedback jul-19): la primera respuesta tiene que ser CASI
+    // inmediata. Antes salía DESPUÉS de armar el system/contexto (buildSystemPrompt
+    // tarda) y CON el "escribiendo…" (delay anti-ban de ~3s) → se sentía colgado.
+    // Ahora lo mandamos ACÁ, lo primero, y con delay 0 (sin simular tipeo). Solo para
+    // texto (audio/adjunto se resuelven aparte) y si NO hay una charla pendiente.
+    if (!audio && !adjunto && textoDirecto.length > 10 && vigentes.length === 0) {
+      const rutaAck = rutearDoer(textoDirecto, { hayMedia: false, hayPendientes: false });
+      if (rutaAck.tier !== 'cheap' || esCargaDePlan(textoDirecto)) {
+        const ackTxt = esCargaDePlan(textoDirecto) ? 'Dale, anoto eso 👇 dame un segundo.' : 'Recibido 👍 dame un momento y te contesto.';
+        const ack = await enviarAGrupoJid(jid, ackTxt, 0);
+        if (ack.ok && ack.id) await registrarEnviado(OPS, jid, ack.id);
+      }
+    }
+
     // Resolver el texto: si vino como NOTA DE VOZ, transcribir (pidiendo el base64 a
     // la instancia si el webhook no lo adjuntó inline).
     let texto = textoDirecto;
@@ -345,13 +359,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
     await guardarTurno(wsData, jid, 'user', texto, msgId);
 
-    // Acuse instantáneo (punto 10): si es una carga de tareas al plan y NO es una
-    // confirmación (sin pendientes), mandamos ya un "recibido" para que no parezca
-    // colgado mientras el modelo razona (el loop con tools tarda). MaKo NO re-acusa.
-    if (!mediaBlocks && vigentes.length === 0 && texto.length > 25 && esCargaDePlan(texto)) {
-      const ack = await enviarAGrupoJid(jid, 'Dale, anoto eso 👇 dame un segundo.');
-      if (ack.ok && ack.id) await registrarEnviado(OPS, jid, ack.id);
-    }
+    // (el acuse instantáneo ya salió arriba, antes de armar el contexto)
 
     // Router: elegí el modelo por TURNO (no todo a Opus). Saludo/charla sin dato →
     // barato (Groq, sin tools). Dato/acción → Sonnet con tools. Razonamiento/copy/

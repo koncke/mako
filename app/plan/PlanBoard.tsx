@@ -680,7 +680,7 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
 export function PlanBoard({ user }: { user: BoardUser }) {
   const repo: Repo = {
     labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
-    dismissableGauntlet: true, fathomExtract: true,
+    fathomExtract: true,
     createTask: async (d) => d, saveTask: async () => {}, deleteTask: async () => {},
     createLabel: async (l) => l, saveLabel: async () => {}, deleteLabel: async () => {},
   };

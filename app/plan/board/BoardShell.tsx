@@ -14,7 +14,6 @@ import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
 import { EmojiPickerMini } from './EmojiPicker';
-import { PriorizarWizard } from './PriorizarWizard';
 import { MakoChecklistModal } from './MakoChecklist';
 import { DebateModal } from './DebateModal';
 import { CrearTareaModal } from './CrearTareaModal';
@@ -24,7 +23,7 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
 import { ReunionExtractModal } from './ReunionExtractModal';
-import { SinDeadlineModal } from './SinDeadlineModal';
+import { DatosModal, DatosConfirm, type FaltanteItem } from './DatosModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
 import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
@@ -57,20 +56,22 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const [projFilter, setProjFilter] = useState<DoneFilter>('all');  // filtrar por estado (proyectos)
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
-  const [wizardId, setWizardId] = useState<string | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
   const [reunionArchivo, setReunionArchivo] = useState<File | null>(null); // subir archivo (punto 7): entra al mismo modal
-  const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [usageFlash, setUsageFlash] = useState<{ tokens: number; cost: number; feature: string } | null>(null);
-  // Deadline opcional (feedback jul-19): modal batch de "sin deadline" en vez del gauntlet.
-  const [sinDlOpen, setSinDlOpen] = useState(false);
-  const [dlDismiss, setDlDismiss] = useState<Set<string>>(new Set()); // "no volver a pedir" por tarea
-  const [dlOff, setDlOff] = useState(false);                          // "no volver a pedir por ninguna"
-  const [dlLoaded, setDlLoaded] = useState(false);                    // ya leí localStorage (evita auto-abrir antes de tiempo)
-  const dlAutoRef = useRef(false);                                    // auto-abrir una sola vez por sesión
+  // "Datos sin marcar" (feedback jul-19): UN modal batch para deadline + checklist, en
+  // vez del gauntlet card-by-card. Ver DatosModal. El 2do pop-up (DatosConfirm) decide
+  // si seguir recordándolo; aparece al CERRARSE este (nunca apilados).
+  const [datosOpen, setDatosOpen] = useState(false);
+  const [datosAuto, setDatosAuto] = useState(false);   // ¿se abrió solo? (define si al cerrar sale el 2do pop-up)
+  const [datosConfirm, setDatosConfirm] = useState(false);
+  const [dlDismiss, setDlDismiss] = useState<Set<string>>(new Set()); // deadline ignorado por tarea
+  const [clDismiss, setClDismiss] = useState<Set<string>>(new Set()); // checklist ignorada por tarea
+  const [datosOff, setDatosOff] = useState(false);                    // "no volver a pedir todos"
+  const [dlLoaded, setDlLoaded] = useState(false);                    // ya leí localStorage
+  const datosAutoRef = useRef(false);                                 // auto-abrir una sola vez por MONTAJE (no por sesión)
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   useEffect(() => { if (!usageFlash) return; const t = setTimeout(() => setUsageFlash(null), 6000); return () => clearTimeout(t); }, [usageFlash]);
@@ -84,43 +85,74 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // (Alta solo para el proyecto top / sin proyecto / emergencia).
   const objetivoPrincipal = labels.length ? labels.slice().sort((a, b) => b.score - a.score)[0] : null;
   const topProjectId = objetivoPrincipal?.id ?? null;
-  // El gauntlet (bloqueante) auto-salta SOLO por checklist: el deadline dejó de ser
-  // obligatorio (feedback jul-19). Lo del deadline se resuelve en el modal batch.
-  const esAltaIncompleta = (t: BoardTask) => displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && t.checklist.length === 0;
-
-  // ── MaKo perro guardián: NINGUNA tarea puede quedar en Alta sin deadline+
-  // checklist. Si hay alguna, se abre el form bloqueante (gauntlet). ──
-  useEffect(() => {
-    if (wizardId) return;
-    const pend = tasks.find((t) => esAltaIncompleta(t) && !dismissed.has(t.id));
-    if (pend) setWizardId(pend.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, wizardId, dismissed, topProjectId]);
-
-  // ── Deadline opcional (feedback jul-19): en vez del gauntlet card-by-card, un
-  // modal batch con TODAS las tareas sin fecha. Persistimos el "no volver a pedir". ──
+  // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA
+  // MaKo), en UN modal batch. Reemplaza al gauntlet card-by-card que auto-popeaba de a
+  // una y pedía los pasos a mano. Persistimos qué se ignoró y el "no volver a pedir". ──
+  // Las keys se scopean por workspace (autoloadScope): impersonando distintos clientes,
+  // las preferencias NO se mezclan en el mismo navegador.
+  const dlKey = (base: string) => `${base}${autoloadScope ? '_' + autoloadScope : ''}`;
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('mako_plan_dl_dismiss');
-      if (raw) setDlDismiss(new Set(JSON.parse(raw) as string[]));
-      setDlOff(localStorage.getItem('mako_plan_dl_off') === '1');
+      const dl = localStorage.getItem(dlKey('mako_plan_dl_dismiss'));
+      if (dl) setDlDismiss(new Set(JSON.parse(dl) as string[]));
+      const cl = localStorage.getItem(dlKey('mako_plan_cl_dismiss'));
+      if (cl) setClDismiss(new Set(JSON.parse(cl) as string[]));
+      setDatosOff(localStorage.getItem(dlKey('mako_plan_datos_off')) === '1');
     } catch { /* localStorage no disponible */ }
     setDlLoaded(true);
-  }, []);
-  const sinDeadline = tasks.filter((t) => t.progress < 100 && !t.deadline && !dlDismiss.has(t.id)).sort((a, b) => b.score - a.score);
-  const descartarDl = (id: string) => setDlDismiss((s) => { const n = new Set(s).add(id); try { localStorage.setItem('mako_plan_dl_dismiss', JSON.stringify([...n])); } catch { /* ignore */ } return n; });
-  const apagarDl = () => { setDlOff(true); try { localStorage.setItem('mako_plan_dl_off', '1'); } catch { /* ignore */ } };
-  // Auto-abrir UNA vez por sesión, y solo si hay alguna importante (alta/media) sin fecha.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoloadScope]);
+  const faltantes: FaltanteItem[] = tasks
+    .filter((t) => t.progress < 100)
+    .map((t) => ({
+      task: t,
+      needDl: !t.deadline && !dlDismiss.has(t.id),
+      // Solo ofrecemos armar checklist en tareas SIN empezar: en una tarea con avance
+      // manual (>0%) crear la checklist pisaría el progreso a 0 (lo deriva la checklist).
+      needCl: displayPrio(t, topProjectId) === 'alta' && t.checklist.length === 0 && t.progress === 0 && !clDismiss.has(t.id),
+    }))
+    .filter((x) => x.needDl || x.needCl)
+    .sort((a, b) => b.task.score - a.task.score);
+  const hayImportante = faltantes.some((x) => x.task.score >= 50); // dispara el auto-open
+  const persistSet = (key: string, s: Set<string>) => { try { localStorage.setItem(dlKey(key), JSON.stringify([...s])); } catch { /* ignore */ } };
+  const ignorarDl = (id: string) => setDlDismiss((s) => { const n = new Set(s).add(id); persistSet('mako_plan_dl_dismiss', n); return n; });
+  const ignorarCl = (id: string) => setClDismiss((s) => { const n = new Set(s).add(id); persistSet('mako_plan_cl_dismiss', n); return n; });
+  const apagarDatos = () => { setDatosOff(true); try { localStorage.setItem(dlKey('mako_plan_datos_off'), '1'); } catch { /* ignore */ } };
+  // MaKo ARMA la checklist (sin preguntarle los pasos al usuario; solo si NO puede, se
+  // hace a mano). Historial firmado como actor 'ia' (regla: la IA siempre deja rastro).
+  const generarChecklist = async (id: string): Promise<boolean> => {
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return false;
+    const tarea = (t.title + (t.detalle ? `\n\n${stripHtml(t.detalle)}` : '')).trim();
+    try {
+      const r = await fetch('/api/checklist-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'propose', tarea, respuestas: '', uso: 'plan' }) });
+      const j = await r.json();
+      const items: string[] = Array.isArray(j?.items) ? j.items.map((x: { texto?: string } | string) => (typeof x === 'string' ? x : x?.texto || '')).filter(Boolean) : [];
+      if (!items.length) return false;
+      if (j.usage) showUsage(j.usage, 'MaKo arma la checklist');
+      board.setChecklist(id, items.map((text) => ({ id: uid(), text, done: false })), `MaKo armó la checklist (${items.length})`, 'ia');
+      return true;
+    } catch { return false; }
+  };
+  // Cerrar el DatosModal: si se abrió SOLO y todavía faltan datos, disparamos el 2do
+  // pop-up (DESPUÉS de cerrar este → nunca apilados). Si lo abrí yo con el ⚠, no molesta.
+  const cerrarDatos = () => { setDatosOpen(false); if (datosAuto && faltantes.length > 0) setDatosConfirm(true); };
+  // Abrir a mano (⚠) consume el "una vez por montaje" para que el auto-open no reaparezca
+  // después y nague con el 2do pop-up algo que ya revisaste vos.
+  const abrirDatosManual = () => { datosAutoRef.current = true; setDatosAuto(false); setDatosOpen(true); };
+  // Auto-abrir UNA vez por MONTAJE (no por sesión → reaparece al reentrar a la tab, que
+  // es lo que se espera si no apretaste "no volver a pedir"), si hay algo importante y NO
+  // hay ya otro modal abierto (deep-link ?tarea=/?proyecto= → nunca apilar dos).
   useEffect(() => {
-    if (!dlLoaded || dlAutoRef.current || dlOff || sinDlOpen) return;
-    try { if (sessionStorage.getItem('mako_plan_dl_shown')) { dlAutoRef.current = true; return; } } catch { /* ignore */ }
-    if (sinDeadline.some((t) => t.score >= 50)) {
-      dlAutoRef.current = true;
-      try { sessionStorage.setItem('mako_plan_dl_shown', '1'); } catch { /* ignore */ }
-      setSinDlOpen(true);
+    if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm) return;
+    if (openId || openProj || peekProjId) return; // hay un detalle abierto: no apilar
+    if (hayImportante) {
+      datosAutoRef.current = true;
+      setDatosAuto(true);
+      setDatosOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlLoaded, sinDeadline.length, dlOff]);
+  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId]);
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -169,13 +201,6 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSig]);
-  // al cerrar el form de un pase-a-Alta: cartel de 5s para DESHACER TODO (el movimiento
-  // + el deadline/checklist que se acaban de cargar) restaurando el snapshot previo.
-  const cerrarWizard = () => {
-    if (altaUndo && altaUndo.id === wizardId) { const snap = altaUndo.snap; board.showUndo('Movida a Alta', () => board.replaceTask(snap)); setAltaUndo(null); }
-    setWizardId(null);
-  };
-
   const passes = (t: BoardTask) => (!q || matchTexto(t, q)) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
@@ -193,7 +218,6 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const avgProj = projConTareas.length ? Math.round(projConTareas.reduce((s, p) => s + p.pct, 0) / projConTareas.length) : 0;
   const hechosProj = projAgg.filter((p) => p.total > 0 && p.done === p.total).length;
   const openTask = tasks.find((t) => t.id === openId) ?? null;
-  const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
   const peekProj = labels.find((l) => l.id === peekProjId) ?? null;
@@ -294,11 +318,13 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
-        {view === 'kanban' && sinDeadline.length > 0 && !dlOff && (
-          <button type="button" onClick={() => setSinDlOpen(true)} title="Ver las tareas sin deadline (el deadline es opcional)"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', flex: 'none', fontFamily: 'inherit' }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
-            <span style={{ fontSize: 14, lineHeight: 1 }}>◷</span>{sinDeadline.length} sin deadline
+        {/* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
+            activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
+            está apagado no titila (queda gris), para no naguear. */}
+        {faltantes.length > 0 && (
+          <button type="button" onClick={abrirDatosManual} title={`${faltantes.length} tarea${faltantes.length === 1 ? '' : 's'} con datos sin marcar (deadline / checklist)`} aria-label="Datos sin marcar"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}>
+            <WarnMark title="" size={15} blink={!datosOff} />
           </button>
         )}
         {view === 'proyectos' && <>
@@ -362,19 +388,16 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       {asignarTask && <AsignarProyectoModal task={asignarTask} labels={labels}
         onAsignar={(ids, motivo) => { const snap = asignarTask; board.setTaskLabels(asignarTask.id, ids, `${ids.length ? `Asignó a ${ids.map((id) => board.labelById(id)?.name).filter(Boolean).join(', ')}` : 'Quitó el proyecto'}${motivo ? ` — ${motivo.slice(0, 80)}` : ''}`); board.showUndo('Proyecto actualizado', () => board.replaceTask(snap)); }}
         onClose={() => setAsignarTaskId(null)} />}
-      {wizardTask && <PriorizarWizard task={wizardTask}
-        dismissable={repo.dismissableGauntlet}
-        onDismiss={() => { setDismissed((s) => new Set(s).add(wizardTask.id)); setAltaUndo(null); setWizardId(null); }}
-        onSetDeadline={(d) => board.setDeadline(wizardTask.id, d, wizardTask.deadline)}
-        onSetChecklist={(c) => board.setChecklist(wizardTask.id, c, `Definió el checklist (${c.length})`)}
-        onDowngrade={(p) => { board.moveTo(wizardTask.id, p); setAltaUndo(null); }}
-        onDone={cerrarWizard} />}
-      {sinDlOpen && <SinDeadlineModal tareas={sinDeadline}
-        onSet={(id, fecha) => board.setDeadline(id, fecha, '')}
-        onAbrir={(id) => { setSinDlOpen(false); setOpenId(id); }}
-        onDescartarUna={descartarDl}
-        onDescartarTodas={apagarDl}
-        onClose={() => setSinDlOpen(false)} />}
+      {datosOpen && <DatosModal items={faltantes}
+        onSetDeadline={(id, fecha) => board.setDeadline(id, fecha, '')}
+        onGenChecklist={generarChecklist}
+        onAbrir={(id) => { setDatosOpen(false); setDatosConfirm(false); setOpenId(id); }}
+        onIgnorarDl={ignorarDl}
+        onIgnorarCl={ignorarCl}
+        onClose={cerrarDatos} />}
+      {datosConfirm && <DatosConfirm
+        onNoPreguntar={() => { setDatosConfirm(false); apagarDatos(); }}
+        onLuego={() => setDatosConfirm(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       {usageFlash && <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 250, display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 12px 32px rgba(18,21,27,.18)', fontFamily: SANS }}>
         <span style={{ fontSize: 18, lineHeight: 1 }}>🪙</span>
@@ -451,20 +474,25 @@ function AvgChip({ avg, hechas, total, label }: { avg: number; hechas: number; t
   );
 }
 
-function LabelChip({ l, cap = 190 }: { l: Label; cap?: number }) {
-  return <span title={l.name} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none' }}><span style={{ flex: 'none' }}>{l.emoji}</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span></span>;
+// Chip de proyecto. Si trae onOpen, es CLICKEABLE (feedback jul-19: el chip del header
+// del detalle también debe abrir el proyecto, igual que los del sidebar).
+function LabelChip({ l, cap = 190, onOpen }: { l: Label; cap?: number; onOpen?: (id: string) => void }) {
+  const style: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap', maxWidth: cap, overflow: 'hidden', textOverflow: 'ellipsis', flex: 'none', fontFamily: SANS };
+  const inner = <><span style={{ flex: 'none' }}>{l.emoji}</span><span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span></>;
+  if (onOpen) return <button type="button" title={`Abrir «${l.name}»`} onClick={() => onOpen(l.id)} style={{ ...style, cursor: 'pointer' }}>{inner}</button>;
+  return <span title={l.name} style={style}>{inner}</span>;
 }
 // Chips de proyecto con tope: muestra `max` (truncados) + un "+N" si hay más. Evita
 // que las tareas con varios proyectos rompan el layout o le coman protagonismo al título.
-function LabelChips({ chips, max = 2, cap = 190 }: { chips: Label[]; max?: number; cap?: number }) {
+function LabelChips({ chips, max = 2, cap = 190, onOpen }: { chips: Label[]; max?: number; cap?: number; onOpen?: (id: string) => void }) {
   const shown = chips.slice(0, max);
   const rest = chips.slice(max);
-  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} />)}{rest.length > 0 && <MasChip extra={rest} />}</>;
+  return <>{shown.map((l) => <LabelChip key={l.id} l={l} cap={cap} onOpen={onOpen} />)}{rest.length > 0 && <MasChip extra={rest} onOpen={onOpen} />}</>;
 }
 // "+N" con desplegable HOVER (diseño nuestro): muestra los proyectos ocultos con su
 // color + emoji. Se renderiza en un PORTAL (fixed) para que NO lo tape ni lo recorte
 // ninguna card/columna con overflow, y muestra el NOMBRE COMPLETO (sin cortar).
-function MasChip({ extra }: { extra: Label[] }) {
+function MasChip({ extra, onOpen }: { extra: Label[]; onOpen?: (id: string) => void }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -480,9 +508,13 @@ function MasChip({ extra }: { extra: Label[] }) {
       {pos && createPortal(
         <span onMouseEnter={abrir} onMouseLeave={cerrarPronto} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: 5, width: 300, maxWidth: '92vw', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, boxShadow: '0 16px 40px rgba(18,21,27,.24)', padding: 8, fontFamily: SANS }}>
           <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '0 2px 2px' }}>También en</span>
-          {extra.map((l) => (
-            <span key={l.id} style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', lineHeight: 1.35 }}><span style={{ flex: 'none' }}>{l.emoji}</span><span>{l.name}</span></span>
-          ))}
+          {extra.map((l) => {
+            const est: CSSProperties = { display: 'inline-flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', lineHeight: 1.35, textAlign: 'left', fontFamily: SANS };
+            const cont = <><span style={{ flex: 'none' }}>{l.emoji}</span><span>{l.name}</span></>;
+            return onOpen
+              ? <button key={l.id} type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`} style={{ ...est, cursor: 'pointer', width: '100%' }}>{cont}</button>
+              : <span key={l.id} style={est}>{cont}</span>;
+          })}
         </span>,
         document.body,
       )}
@@ -583,10 +615,10 @@ const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.lab
 
 // Aviso rojo tintineante (falta deadline/checklist). En la preview va al lado de la
 // prioridad y es clickeable (abre el wizard); en el detalle, al lado del label.
-function WarnMark({ title, onClick, size = 15 }: { title: string; onClick?: (e: import('react').MouseEvent) => void; size?: number }) {
+function WarnMark({ title, onClick, size = 15, blink = true }: { title: string; onClick?: (e: import('react').MouseEvent) => void; size?: number; blink?: boolean }) {
   return (
     <span title={title} aria-label={title} role={onClick ? 'button' : undefined} onClick={onClick}
-      style={{ display: 'inline-flex', flex: 'none', color: 'var(--bad)', cursor: onClick ? 'pointer' : 'default', animation: 'makoWarnBlink 1s ease-in-out infinite' }}>
+      style={{ display: 'inline-flex', flex: 'none', color: blink ? 'var(--bad)' : 'var(--faint)', cursor: onClick ? 'pointer' : 'default', animation: blink ? 'makoWarnBlink 1s ease-in-out infinite' : 'none' }}>
       <style>{'@keyframes makoWarnBlink{0%,100%{opacity:1}50%{opacity:.2}}'}</style>
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
     </span>
@@ -877,7 +909,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
           {onBack && <button onClick={onBack} title="Volver al proyecto" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← Volver</button>}
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600, flex: 'none' }}>#{t.num}</span>
           {/* en el header, compacto (la lista completa está en el sidebar "Proyectos") */}
-          <LabelChips chips={chips} max={1} cap={230} />
+          <LabelChips chips={chips} max={1} cap={230} onOpen={onOpenProj} />
           <FuenteChip fuente={fuenteEfectiva(t)} />
           <span style={{ flex: 1 }} />
           <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
