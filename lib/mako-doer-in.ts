@@ -186,10 +186,11 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
 - Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, andá al grano.
 - MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Cada pregunta = un mensaje aparte. Nada de un chorizo largo.
 1. PRIMERO usá 'ver_plan' para ver los proyectos y las tareas que ya existen. Con eso, SIN preguntarle al dueño:
-   · ASIGNÁ cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible. Creá un proyecto nuevo SOLO si de verdad ninguno encaja (y ahí avisá cuál vas a crear).
+   · ASIGNÁ cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible.
+   · CRITERIO PARA CREAR PROYECTO: si las tareas son un TEMA nuevo y coherente que NINGÚN proyecto existente cubre (varias cosas del mismo asunto), NO las tires sueltas: creá un PROYECTO nuevo con un buen nombre y metelas ahí. Un proyecto AGRUPA; una tarea es una acción. Para asignar a un proyecto nuevo, poné ese nombre en el campo "proyecto" de cada tarea (se crea solo). Avisá en una línea qué proyecto creás.
    · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
 2. Preguntá SOLO lo que de verdad no podés deducir (una fecha clave, si dos cosas son una o dos tareas). Si preguntás, decí cuántas ("Tengo 2 preguntas") y hacelas DE A UNA (una por mensaje, separadas con ---). Si está todo claro, NO preguntes: pasá directo a proponer.
-3. Cuando tenés todo, llamá a 'proponer_tareas_plan' con la lista final (cada tarea con su "proyecto"), mostrá corto qué vas a crear y pedí el "sí". NUNCA confirmes en el mismo mensaje que proponés: proponés y FRENÁS; el "sí" viene aparte.
+3. Cuando tenés todo, LLAMÁ a la tool 'proponer_tareas_plan' con la lista final (cada tarea con su "proyecto"). ESTO ES OBLIGATORIO: si solo DESCRIBÍS la lista en texto sin LLAMAR la tool, no queda nada pendiente y el "sí" del dueño no crea NADA. Después de llamarla, en tu mensaje mostrá corto qué vas a crear y pedí el "sí". NUNCA confirmes en el mismo mensaje que proponés: proponés y FRENÁS; el "sí" viene aparte.
 4. Con el "sí", 'confirmar_accion' las crea y te devuelve el/los link(s): pasáselos tal cual (uno por tarea). Si asignaste a un proyecto que ya existía, sumá su link (lo tenés de ver_plan).`;
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con

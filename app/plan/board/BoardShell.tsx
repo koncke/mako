@@ -1053,6 +1053,9 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, on
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
           <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
           {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+          {/* origen del proyecto (feedback jul-19): igual que en las tareas. La fuente sale
+              de proj.fuente o se deriva del autor del alta (Claude Code, MaKo, vos). */}
+          <FuenteChip fuente={fuenteEfectiva({ origen: proj.historial[proj.historial.length - 1]?.actor ?? 'user', fuente: proj.fuente })} />
           <span style={{ flex: 1 }} />
           <button onClick={onMako} title="MaKo te ayuda a mejorar el nombre y el detalle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>✦ MaKo te ayuda</button>
           <button aria-label="Cerrar" onClick={onClose} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 22, lineHeight: 1, color: 'var(--faint)', padding: '2px 6px' }}>×</button>
