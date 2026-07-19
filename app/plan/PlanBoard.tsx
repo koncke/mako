@@ -8,7 +8,7 @@
 // combina (1-100, comparado contra todo el resto) y una RAZÓN que lo explica. Las
 // tareas pueden vivir en varios proyectos. Toda la UI vive en board/BoardShell.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
 import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
@@ -721,6 +721,27 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K9, JSON.stringify(board.tasks)); } catch { /* no-op */ } }, [board.tasks, hydrated]);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(board.labels)); } catch { /* no-op */ } }, [board.labels, hydrated]);
+
+  // Foto liviana del board para que MaKo (por WhatsApp) vea proyectos + tareas abiertas
+  // y auto-asigne/deduplique en vez de preguntar. snapRef siempre tiene la última foto.
+  const snapRef = useRef<() => { proyectos: unknown[]; tareas: unknown[] }>(() => ({ proyectos: [], tareas: [] }));
+  snapRef.current = () => ({
+    proyectos: board.labels.map((l) => ({ id: l.id, pid: l.pid ?? '', nombre: l.name })),
+    tareas: board.tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, num: t.num, titulo: t.title, proyecto: board.labels.find((l) => l.id === t.labels[0])?.name ?? '' })),
+  });
+  // Push debounced en cada cambio (1.5s) — fresco para el dedup/auto-asignar de MaKo.
+  useEffect(() => {
+    if (!hydrated) return;
+    const id = setTimeout(() => { void fetch('/api/plan/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(snapRef.current()) }).catch(() => {}); }, 1500);
+    return () => clearTimeout(id);
+  }, [board.tasks, board.labels, hydrated]);
+  // Flush al cerrar/ocultar la pestaña (sobrevive el unmount): si había un cambio con el
+  // push pendiente, lo mandamos YA por sendBeacon para que la foto no quede vieja.
+  useEffect(() => {
+    const flush = () => { try { navigator.sendBeacon?.('/api/plan/snapshot', new Blob([JSON.stringify(snapRef.current())], { type: 'application/json' })); } catch { /* no-op */ } };
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, []);
 
   if (!hydrated) return <main style={{ flex: 1 }} />;
   // Scope del auto-load: el board de la agencia es SIEMPRE del super-admin sin

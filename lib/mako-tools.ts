@@ -14,8 +14,11 @@
 // sumemos escrituras irán por los callers ya gateados, nunca por el send* pelado.
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
 import type { ToolDef, ToolRunner } from './anthropic';
+import { leerSnapshot } from './plan-snapshot';
+import { leerBandeja } from './plan-inbox';
+import { listCategorias, listTareas } from './todo';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
   normalizarTelefono, getFunnel, type Lead,
@@ -132,6 +135,11 @@ export const MAKO_TOOLS: ToolDef[] = [
       properties: { dias: { type: 'number', description: 'ventana hacia atrás en días (default 21, máx 90).' } },
     },
   },
+  {
+    name: 'ver_plan',
+    description: 'Muestra el PLAN/tablero del negocio: los proyectos y las tareas ABIERTAS (con su id). Usalo ANTES de agregar tareas al plan (proponer_tareas_plan) para: (1) asignar cada tarea a un proyecto que YA existe en vez de preguntar; (2) crear un proyecto nuevo solo si de verdad no encaja ninguno; (3) DETECTAR si una tarea que te piden YA existe (título parecido) → NO la dupliques: avisá que ya está, pasá su id y ofrecé enriquecerla. No requiere parámetros.',
+    input_schema: { type: 'object', properties: {} },
+  },
 ];
 
 // ── ejecutor: enruta cada herramienta a su lib (todo lectura, tenant-scoped) ───
@@ -242,6 +250,38 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       rs.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
       if (!rs.length) return `No encontré reuniones en los últimos ${dias} días ni en la próxima semana.`;
       return JSON.stringify(rs.slice(0, 15));
+    }
+
+    case 'ver_plan': {
+      // El dueño (OWNER_WS) tiene el board en localStorage → leemos la FOTO que empuja
+      // PlanBoard, y sus links van a /plan/agencia. Los clientes van a la base (todo.ts)
+      // y sus links a /plan. Incluimos el link armado para que MaKo lo copie tal cual.
+      const ws = await getWorkspaceActual();
+      const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+      const esDueno = ws === OWNER_WS;
+      const rutaPlan = esDueno ? '/plan/agencia' : '/plan';
+      const linkTarea = (id: string) => `${APP_URL}${rutaPlan}?tarea=${id}`;
+      const linkProy = (id: string) => `${APP_URL}${rutaPlan}?proyecto=${id}`;
+      if (esDueno) {
+        const [s, inbox] = await Promise.all([leerSnapshot(), leerBandeja().catch(() => [])]);
+        const delBoard = s.tareas.slice(0, 300).map((t) => ({ id: t.id, titulo: t.titulo, proyecto: t.proyecto, link: linkTarea(t.id) }));
+        // Sumamos las de la BANDEJA (que MaKo agregó recién y todavía no se mergearon a
+        // ningún board) para que el dedup no las vuelva a crear.
+        const delInbox = inbox.map((t) => ({ id: t.refId, titulo: t.titulo, proyecto: t.proyecto ?? '', link: linkTarea(t.refId), recien_agregada: true }));
+        if (!s.proyectos.length && !delBoard.length && !delInbox.length) return 'Todavía no tengo la foto del tablero del dueño (se actualiza cuando abre /plan/agencia). No veo proyectos: proponé uno y creá la tarea ahí.';
+        return JSON.stringify({
+          // qué tan vieja es la foto del board (null = sin foto). Si es alta, hedgeá.
+          foto_actualizada_hace_min: s.ts ? Math.round((Date.now() - s.ts) / 60_000) : null,
+          proyectos: s.proyectos.map((p) => ({ id: p.id, nombre: p.nombre, link: linkProy(p.id) })),
+          tareas_abiertas: [...delBoard, ...delInbox],
+        });
+      }
+      const [cats, tareas] = await Promise.all([listCategorias().catch(() => []), listTareas().catch(() => [])]);
+      const catById = new Map(cats.map((c) => [c.id, c.nombre]));
+      return JSON.stringify({
+        proyectos: cats.map((c) => ({ id: String(c.id), nombre: c.nombre, link: linkProy(String(c.id)) })),
+        tareas_abiertas: tareas.filter((t) => t.estado !== 'hecho').slice(0, 300).map((t) => ({ id: String(t.id), titulo: t.titulo, proyecto: catById.get(t.categorias[0]) ?? '', link: linkTarea(String(t.id)) })),
+      });
     }
 
     default:

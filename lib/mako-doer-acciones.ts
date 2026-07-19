@@ -267,7 +267,10 @@ export const NOMBRES_ACCION = new Set(MAKO_ACCION_TOOLS.map((t) => t.name));
 
 const TTL_MIN = 120; // 2h de vigencia para el "sí".
 
-export function crearRunnerAcciones(ws: number, grupoJid: string): ToolRunner {
+// `turnStart` = Date.now() del arranque del turno. Sirve para bloquear el auto-confirm:
+// una pendiente creada EN ESTE turno (createdAt >= turnStart) no puede confirmarse en el
+// mismo turno; el "sí" del dueño siempre llega en un mensaje aparte (otro turno posterior).
+export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0): ToolRunner {
   const proponer = async (tipo: string, payload: Record<string, unknown>, resumen: string): Promise<string> => {
     const id = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen: 'hola-mako', ttlMin: TTL_MIN });
     if (id == null) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
@@ -384,6 +387,12 @@ export function crearRunnerAcciones(ws: number, grupoJid: string): ToolRunner {
         if (name === 'cancelar_accion') {
           await resolverPendiente(ws, target.id, 'cancelada');
           return `Cancelada: ${target.resumen}`;
+        }
+        // Guard anti auto-confirm: si la pendiente se creó en ESTE mismo turno, no la
+        // ejecutamos. El "sí" del dueño es un mensaje aparte (turno posterior). 1.5s de
+        // margen por el skew reloj-app/DB. Bloquea que el modelo proponga Y confirme solo.
+        if (turnStart && target.createdAt && Date.parse(target.createdAt) >= turnStart - 1500) {
+          return 'Recién propuse esa acción en este mismo mensaje. NO la confirmes vos: frená y esperá a que el dueño mande un "sí" aparte.';
         }
         const res = await ejecutarAccion(ws, target.tipo, target.payload);
         await resolverPendiente(ws, target.id, res.ok ? 'ejecutada' : 'error', res.resumen);

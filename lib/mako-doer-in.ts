@@ -49,9 +49,16 @@ async function idsEnviados(ws: number, jid: string): Promise<string[]> {
   });
 }
 async function registrarEnviado(ws: number, jid: string, id: string): Promise<void> {
-  if (!id) return;
+  return registrarEnviados(ws, jid, [id]);
+}
+// Registra VARIOS ids en UN solo read-modify-write. Importante con los mensajes
+// separados (punto 10): antes eran N escrituras concurrentes sobre la misma key
+// (lost-update → MaKo procesaba su propio eco); ahora la respuesta se registra de una.
+async function registrarEnviados(ws: number, jid: string, ids: string[]): Promise<void> {
+  const nuevos = ids.filter(Boolean);
+  if (!nuevos.length) return;
   const prev = await idsEnviados(ws, jid);
-  const next = [...prev.filter((x) => x !== id), id].slice(-30); // ring buffer chico
+  const next = [...prev.filter((x) => !nuevos.includes(x)), ...nuevos].slice(-40); // ring buffer
   await runWithWorkspace(ws, () => setSetting(KEY_SENT(jid), JSON.stringify(next)));
 }
 
@@ -142,6 +149,16 @@ function nombraAMaKo(texto: string): boolean {
   return false;
 }
 
+/** ¿Es una CARGA de tareas al plan? (para el acuse instantáneo, punto 10). MUY estricto
+ *  a propósito: "anotá/apuntá" (casi siempre = anotar en el plan), "al plan/a la lista",
+ *  o una lista de ≥2 ítems. NADA de sumá/agregá/cargá: son ambiguos (sumar=totalizar,
+ *  agregar un contacto, cargar un reporte) y dispararían el acuse fuera de lugar. Ante la
+ *  duda NO acusamos (el pedido igual se procesa igual, solo sin el "recibido" instantáneo). */
+function esCargaDePlan(texto: string): boolean {
+  if (/\b(anot[aá]|apunt[aá])|al plan\b|a la lista\b/i.test(norm(texto))) return true;
+  return (texto.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\S/g) ?? []).length >= 2;
+}
+
 /** Sanea el historial para la Messages API: arranca en 'user' y no repite rol. */
 function saneaHistorial(turnos: Array<{ role: 'user' | 'assistant'; content: string }>): RichMsg[] {
   const out: RichMsg[] = [];
@@ -165,11 +182,15 @@ CUANDO TE PIDEN ACCIONES (cambiar la etapa de un lead, activar/pausar una nutric
 
 CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hacelo", "confirmo") y hay una acción pendiente: llamá 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usá 'listar_pendientes' y preguntá.
 
-CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anotá esto", "agregá al plan", varias cosas juntas en un mensaje):
-1. Primero CONFIRMÁ en una línea que recibiste el pedido y lo vas a procesar ("Dale, anoto eso 👇").
-2. Fijate si te falta info para cargarlas bien (¿a qué proyecto va cada una?, ¿tiene fecha?, ¿eso son una o varias tareas?). Si algo NO te queda claro, decí cuántas preguntas tenés ("Tengo 2 preguntas") y hacelas DE A UNA: una pregunta, esperás la respuesta, y recién ahí la siguiente. Como un formulario, pero charlando. NO las tires todas juntas ni adivines. Si está todo claro, no preguntes nada.
-3. Cuando ya tenés todo, llamá a 'proponer_tareas_plan' con la lista final, mostrá qué vas a crear y pedí el "sí". NUNCA confirmes en el mismo mensaje en que proponés: proponés y FRENÁS ahí; el "sí" tiene que venir del dueño en un mensaje aparte.
-4. Recién con ese "sí", 'confirmar_accion' las crea y te devuelve el/los link(s). Pasáselos al dueño tal cual (uno por tarea/proyecto): "Listo, las agregué → link".`;
+CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anotá esto", "agregá al plan", varias cosas juntas):
+- Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, andá al grano.
+- MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Cada pregunta = un mensaje aparte. Nada de un chorizo largo.
+1. PRIMERO usá 'ver_plan' para ver los proyectos y las tareas que ya existen. Con eso, SIN preguntarle al dueño:
+   · ASIGNÁ cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible. Creá un proyecto nuevo SOLO si de verdad ninguno encaja (y ahí avisá cuál vas a crear).
+   · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
+2. Preguntá SOLO lo que de verdad no podés deducir (una fecha clave, si dos cosas son una o dos tareas). Si preguntás, decí cuántas ("Tengo 2 preguntas") y hacelas DE A UNA (una por mensaje, separadas con ---). Si está todo claro, NO preguntes: pasá directo a proponer.
+3. Cuando tenés todo, llamá a 'proponer_tareas_plan' con la lista final (cada tarea con su "proyecto"), mostrá corto qué vas a crear y pedí el "sí". NUNCA confirmes en el mismo mensaje que proponés: proponés y FRENÁS; el "sí" viene aparte.
+4. Con el "sí", 'confirmar_accion' las crea y te devuelve el/los link(s): pasáselos tal cual (uno por tarea). Si asignaste a un proyecto que ya existía, sumá su link (lo tenés de ver_plan).`;
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
 // un link cuando hay una vista más rica (para eso están las tabs). {id} = id del lead.
@@ -312,7 +333,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${DEEP_LINKS}${ctxPend}`;
 
     const tools = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
-    const runnerAcciones = crearRunnerAcciones(wsData, jid);
+    const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now()); // turnStart: bloquea el auto-confirm en el mismo turno
     const runTool = async (name: string, input: Record<string, unknown>) =>
       NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input);
 
@@ -322,6 +343,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     const msgs: RichMsg[] = [...saneaHistorial(historial), { role: 'user', content: userContent }];
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
     await guardarTurno(wsData, jid, 'user', texto, msgId);
+
+    // Acuse instantáneo (punto 10): si es una carga de tareas al plan y NO es una
+    // confirmación (sin pendientes), mandamos ya un "recibido" para que no parezca
+    // colgado mientras el modelo razona (el loop con tools tarda). MaKo NO re-acusa.
+    if (!mediaBlocks && vigentes.length === 0 && texto.length > 25 && esCargaDePlan(texto)) {
+      const ack = await enviarAGrupoJid(jid, 'Dale, anoto eso 👇 dame un segundo.');
+      if (ack.ok && ack.id) await registrarEnviado(OPS, jid, ack.id);
+    }
 
     // Router: elegí el modelo por TURNO (no todo a Opus). Saludo/charla sin dato →
     // barato (Groq, sin tools). Dato/acción → Sonnet con tools. Razonamiento/copy/
@@ -355,9 +384,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       respuesta = (text ?? '').trim();
     }
     if (respuesta) {
-      const env = await enviarAGrupoJid(jid, respuesta);
-      if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
-      await guardarTurno(wsData, jid, 'assistant', respuesta, env.ok ? env.id : undefined);
+      // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
+      // cada parte como un mensaje aparte con una pausa chica (se lee como conversación,
+      // no un chorizo). Registramos cada id enviado para el anti-eco.
+      const partes = respuesta.split(/\n\s*-{3,}\s*\n/).map((p) => p.trim()).filter(Boolean);
+      const idsEnv: string[] = [];
+      for (let i = 0; i < partes.length; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 700));
+        const env = await enviarAGrupoJid(jid, partes[i]);
+        if (env.ok && env.id) idsEnv.push(env.id);
+      }
+      await registrarEnviados(OPS, jid, idsEnv); // un solo write para toda la respuesta
+      await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
     }
     return { engaged: true, reply: respuesta };
   } catch (e) {
