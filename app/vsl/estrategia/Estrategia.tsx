@@ -155,22 +155,6 @@ const CHANNELS: Channel[] = [
   },
 ];
 
-const DECISIONES = [
-  'Precios finales de los tres niveles (los de este doc son los últimos indicados).',
-  'Duración de MaKo Solo: ¿4 meses o no?',
-  'Single-pay de por vida: ¿sí o no?',
-  'Presupuesto inicial de ads (septiembre en adelante).',
-  'Modelo de la sociedad: rev-share 30–40% para arrancar, o bundle directo.',
-  'Nombre real del aliado de ads.',
-  'Palabra disparadora del lead magnet (ej. FUNNEL / DIAGNOSTICO).',
-  'Cómo y cuándo pasar a evergreen.',
-];
-
-const PREOCUPACIONES = [
-  'No quiere hacer webinars todos los meses → prefiere evergreen.',
-  'MaKo no está adaptado a webinars: no puede usarlo para su propia adquisición.',
-];
-
 // ── Iconos mínimos ───────────────────────────────────────────────────────────
 
 function Ic({ d, size = 18 }: { d: string[]; size?: number }) {
@@ -422,27 +406,6 @@ export default function Estrategia() {
           </div>
         </section>
 
-        {/* ── Decisiones abiertas ──────────────────────────────────────────── */}
-        <section className="s-sec s-band">
-          <div className="s-sec-hd">
-            <h2 className="s-h2">Lo que falta definir</h2>
-            <Tag k="open" />
-          </div>
-          <div className="s-two">
-            <div>
-              <span className="s-open-k">Decisiones pendientes</span>
-              <ul className="s-open-list">
-                {DECISIONES.map((d) => <li key={d}><Ic d={I.circle} size={15} />{d}</li>)}
-              </ul>
-            </div>
-            <div>
-              <span className="s-open-k">Preocupaciones planteadas</span>
-              <ul className="s-open-list s-open-warn">
-                {PREOCUPACIONES.map((p) => <li key={p}><Ic d={I.circle} size={15} />{p}</li>)}
-              </ul>
-            </div>
-          </div>
-        </section>
       </main>
 
       <footer className="s-foot">
@@ -452,7 +415,7 @@ export default function Estrategia() {
             <span className="s-logo-txt">MaKo</span>
           </span>
           <p className="s-foot-tag">Documento interno de oferta y estrategia de marketing · Martín Koncke</p>
-          <p className="s-foot-src">Fuente: brief maestro + llamada Martín&nbsp;+&nbsp;Leila (17 jul 2026). No distribuir.</p>
+          <p className="s-foot-src">No distribuir.</p>
         </div>
       </footer>
     </div>
@@ -637,14 +600,6 @@ body:has(.mk-str) aside { display: none !important; }
 .s-lever-cols li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #E0870A; }
 .s-lever-cols b { color: #10131A; font-weight: 600; }
 .s-lever-cols .s-num { color: #10131A; font-weight: 600; }
-
-/* Decisiones abiertas */
-.s-open-k { display: block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6B7482; margin-bottom: 14px; }
-.s-open-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
-.s-open-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; line-height: 1.5; color: #454C58; }
-.s-open-list svg { flex: none; margin-top: 2px; color: #A9B2BF; }
-.s-open-warn li { color: #7A5406; }
-.s-open-warn svg { color: #D4930C; }
 
 /* Footer */
 .s-foot { border-top: 1px solid #ECEEF2; background: #F5F7FA; }
