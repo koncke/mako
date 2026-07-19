@@ -11,17 +11,20 @@ import { ScoreIcon } from './guardian-form';
 import { Dropdown } from '../../components/Dropdown';
 import { type Label, type Prio, PLABEL } from './types';
 import { TIPO_REUNION_UI, type TipoReunion } from '@/lib/reunion-clasificar';
+import { frenoDeScope, type FrenoScope } from '@/lib/reunion-gate';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type ReunionMeta = { recordingId: number; titulo: string; fecha: string | null; durMin: number | null; url: string | null; involucrados: string[]; tipo: TipoReunion };
-type Candidata = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null };
-type Fila = Candidata & { incluir: boolean };
+type Candidata = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; dueño?: string; esDeOtro?: boolean };
+type Existente = { id: string; titulo: string; detalle: string };
+// enriquece = ya existe en el plan; el Perro sugiere sumarle a esa tarjeta en vez de duplicar.
+type Fila = Candidata & { incluir: boolean; enriquece?: { id: string; razon: string } };
 
 const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'media' ? '#C8870C' : p === 'baja' ? '#1E9E57' : '#98A0AC');
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; tareas?: Candidata[]; usage?: unknown; error?: string }> {
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; tareas?: Candidata[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; usage?: unknown; error?: string }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -31,8 +34,9 @@ function fmtFecha(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; }
 }
 
-export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
+export function ReunionExtractModal({ labels, existentes, onCrear, onUsage, onClose }: {
   labels: Label[];
+  existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
   onCrear: (cands: Candidata[]) => void;
   onUsage?: (u: unknown) => void;
   onClose: () => void;
@@ -69,17 +73,55 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
     return reuniones.filter((r) => (r.titulo + ' ' + r.involucrados.join(' ')).toLowerCase().includes(n));
   }, [q, reuniones]);
 
+  const [freno, setFreno] = useState<FrenoScope>(null);   // aviso del Perro por tipo (punto 8)
+
+  // Anota las candidatas: reparto mío/de-otro (viene del backend), y el cruce del
+  // Perro contra el plan (dedup, punto 8). Al de-otro lo destildo por default: tu
+  // tablero es tuyo, las de otros se bajan como md.
+  const procesar = async (tareas: Candidata[]) => {
+    const filasNuevas: Fila[] = tareas.map((t) => ({ ...t, incluir: !t.esDeOtro }));
+    // Dedup contra el plan (best-effort: apiFathom nunca lanza; si el server falla, ok:false).
+    const jc = await apiFathom({ action: 'cruzar', candidatas: tareas.map((t) => ({ titulo: t.titulo, detalle: t.detalle })), existentes, uso: 'Cruzar con el plan' });
+    if (jc.ok && Array.isArray(jc.cruces)) {
+      for (const c of jc.cruces) if (filasNuevas[c.i]) filasNuevas[c.i] = { ...filasNuevas[c.i], enriquece: { id: c.idExistente!, razon: c.razon }, incluir: false };
+    }
+    setFilas(filasNuevas); setFase('revisar');
+  };
+
   const extraer = async (r: ReunionMeta) => {
-    setElegida(r); setFase('extrayendo'); setErr('');
+    setElegida(r); setFase('extrayendo'); setErr(''); setFreno(frenoDeScope(r.tipo));
     const proyectos = labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }));
     const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, proyectos, uso: 'Extraer tareas de reunión' });
     if (j.usage) onUsage?.(j.usage);
-    if (j.ok && j.tareas) { setFilas(j.tareas.map((t) => ({ ...t, incluir: true }))); setFase('revisar'); }
+    if (j.ok && j.tareas) await procesar(j.tareas);
     else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
   };
 
+  // Subir un archivo (md/txt/transcript) → mismo pipeline (punto 5).
+  const subirArchivo = async (file: File) => {
+    setElegida(null); setFase('extrayendo'); setErr(''); setFreno(null);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
+    const j = await fetch('/api/plan-fathom', { method: 'POST', body: fd }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+    if (j.usage) onUsage?.(j.usage);
+    if (j.ok && j.tareas) await procesar(j.tareas);
+    else { setErr(j.error || 'No pude leer el archivo.'); setFase('lista'); }
+  };
+
   const nIncluidas = useMemo(() => filas.filter((f) => f.incluir).length, [filas]);
-  const confirmar = () => { onCrear(filas.filter((f) => f.incluir).map(({ incluir: _i, ...c }) => c)); onClose(); };
+  const deOtros = useMemo(() => filas.filter((f) => f.esDeOtro), [filas]);
+
+  // Baja las tareas de otros como .md, para pasárselas a esa persona (punto 5).
+  const descargarDeOtros = () => {
+    const md = ['# Tareas de la reunión' + (elegida ? ` — ${elegida.titulo}` : ''), '', ...deOtros.map((f) => `- [ ] **${f.dueño || 'Alguien'}:** ${f.titulo}${f.detalle ? `\n  ${f.detalle}` : ''}`)].join('\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'tareas-de-otros.md'; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const confirmar = () => { onCrear(filas.filter((f) => f.incluir).map(({ incluir: _i, enriquece: _e, ...c }) => c)); onClose(); };
   const setFila = (i: number, patch: Partial<Fila>) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)));
 
   return (
@@ -105,6 +147,13 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
           {/* lista de reuniones */}
           {fase === 'lista' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* subir un archivo en vez de una reunión de Fathom (punto 5) */}
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px', borderRadius: 10, border: '1px dashed var(--border-strong)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+                📄 Subir un archivo (.md, .txt, transcript)
+                <input type="file" accept=".md,.txt,.vtt,.srt" style={{ display: 'none' }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirArchivo(f); e.currentTarget.value = ''; }} />
+              </label>
+              <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', textAlign: 'center' }}>— o elegí una reunión —</div>
               {/* búsqueda + filtro por fecha (punto 9) */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por título o email…"
@@ -155,9 +204,19 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
           {/* revisar candidatos */}
           {fase === 'revisar' && (
             filas.length === 0
-              ? <Vacio texto="MaKo no encontró action items concretos del equipo en esta reunión." />
+              ? <Vacio texto="MaKo no encontró action items concretos en esta reunión." />
               : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 2 }}>Elegí cuáles agregar. El perro guardián les pone la prioridad final cuando entren al plan.</div>
+                  {/* Freno del Perro por tipo de reunión (punto 8): ventas/entrega no son del plan */}
+                  {freno && (
+                    <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg, var(--surface-2))' }}>
+                      <GuardianIcon size={26} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)' }}>🐕 {freno.titulo}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.5 }}>{freno.detalle}</div>
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 2 }}>Elegí cuáles agregar a TU plan. Las de otras personas van destildadas — bajalas como .md desde abajo. El perro les pone la prioridad final.</div>
                   {filas.map((f, i) => (
                     <div key={i} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: f.incluir ? 1 : 0.6 }}>
                       <button type="button" onClick={() => setFila(i, { incluir: !f.incluir })} aria-label="Incluir"
@@ -165,6 +224,13 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{f.titulo}</div>
                         {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+                        {/* dueño (punto 5) + "ya existe" del Perro (punto 8) */}
+                        {(f.esDeOtro || f.enriquece) && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                            {f.esDeOtro && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 6, padding: '2px 7px' }}>👤 de {f.dueño || 'otra persona'} — no es tuya</span>}
+                            {f.enriquece && <span title={f.enriquece.razon} style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 6, padding: '2px 7px' }}>⚠ ya existe en el plan · {f.enriquece.razon.slice(0, 50)}</span>}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: banda(f.prioridad), fontFamily: MONO }}><ScoreIcon size={11} color={banda(f.prioridad)} />{PLABEL[f.prioridad]}</span>
                           <Dropdown
@@ -187,12 +253,20 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
 
         {/* footer */}
         {fase === 'revisar' && filas.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-            <button type="button" onClick={() => { setFase('lista'); setElegida(null); setFilas([]); }} style={ghostBtn}>← Otra reunión</button>
-            <button type="button" onClick={confirmar} disabled={nIncluidas === 0}
-              style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas ? 'pointer' : 'default', fontFamily: SANS }}>
-              {nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => { setFase('lista'); setElegida(null); setFilas([]); setFreno(null); }} style={ghostBtn}>← Otra reunión</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* las de otros se bajan como .md para pasárselas (punto 5) */}
+              {deOtros.length > 0 && (
+                <button type="button" onClick={descargarDeOtros} style={{ ...ghostBtn, fontSize: 13 }}>
+                  ⬇ {deOtros.length} de otros (.md)
+                </button>
+              )}
+              <button type="button" onClick={confirmar} disabled={nIncluidas === 0}
+                style={{ padding: '12px 24px', borderRadius: 11, border: 'none', background: nIncluidas ? 'var(--primary)' : 'var(--border)', color: nIncluidas ? '#fff' : 'var(--faint)', fontSize: 14, fontWeight: 700, cursor: nIncluidas ? 'pointer' : 'default', fontFamily: SANS }}>
+                {nIncluidas ? `Agregar ${nIncluidas} al plan →` : 'Elegí al menos una'}
+              </button>
+            </div>
           </div>
         )}
       </div>
