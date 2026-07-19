@@ -246,10 +246,11 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
             reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
         {repo.fathomExtract && <>
+          {/* El botón ES el logo de Fathom (feedback jul-18): sin contenedor blanco. Mismo 38×38 que el de subir. */}
           <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); }} aria-label="Extraer tareas de una reunión de Fathom" title="Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
-            <SvcIcon k="fathom" size={17} box={28} radius={7} />
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
+            <SvcIcon k="fathom" size={22} box={38} radius={9} />
           </button>
           <label aria-label="Subir un archivo de reunión (.md, .txt, transcript)" title="Subir un archivo de reunión (.md, .txt, transcript) y extraer tareas"
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: 'var(--dim)' }}
@@ -478,6 +479,25 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
 }
 
 // ── tarjeta (cuadrada, estilo CRM; la columna la decide el guardián, no se arrastra) ─
+// El emoji de una tarea = el de su proyecto principal (feedback jul-18): más simple
+// y coherente que un emoji propio por tarea. Sin proyecto → 📌.
+const emojiTarea = (board: Board, t: BoardTask): string => board.labelById(t.labels[0])?.emoji || t.emoji || '📌';
+
+// Aviso rojo tintineante (falta deadline/checklist). En la preview va al lado de la
+// prioridad y es clickeable (abre el wizard); en el detalle, al lado del label.
+function WarnMark({ title, onClick, size = 15 }: { title: string; onClick?: (e: import('react').MouseEvent) => void; size?: number }) {
+  return (
+    <span title={title} aria-label={title} role={onClick ? 'button' : undefined} onClick={onClick}
+      style={{ display: 'inline-flex', flex: 'none', color: 'var(--bad)', cursor: onClick ? 'pointer' : 'default', animation: 'makoWarnBlink 1s ease-in-out infinite' }}>
+      <style>{'@keyframes makoWarnBlink{0%,100%{opacity:1}50%{opacity:.2}}'}</style>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+    </span>
+  );
+}
+
+// Tarjeta de tarea: ALTURA FIJA para que todas midan igual (feedback jul-18). El
+// título se recorta a 2 líneas; el toggle de completar es compacto (inline), no una
+// píldora que agrandaba unas cards más que otras.
 function CardTile({ t, board, warn, onOpen, onWarn }: {
   t: BoardTask; board: Board; warn: boolean; onOpen: (id: string) => void; onWarn: (id: string) => void;
 }) {
@@ -485,36 +505,34 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
   const clDone = t.checklist.filter((c) => c.done).length;
   return (
     <div onClick={() => onOpen(t.id)}
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 104, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 14px', cursor: 'pointer', opacity: done ? 0.62 : 1, height: 138, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-      {/* Preview como los proyectos (feedback jul-18): arriba el emoji + #id + prioridad;
-          el título abajo, en su línea. Tarjetas más planas y anchas (proyectos = altos).
-          Sin tag de proyecto (feedback jul-17): el proyecto se ve al abrir. */}
+      {/* header: emoji (del proyecto) + #id + [aviso] + prioridad */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
-        <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{t.emoji}</span>
+        <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>
         <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
         <span style={{ flex: 1 }} />
+        {warn && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} />}
         <ScoreBadge score={t.score} />
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', wordBreak: 'break-word', marginBottom: 8 }}>{t.title}</div>
+      {/* título a 2 líneas máx (recortado) → todas las cards miden igual */}
+      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word' }}>{t.title}</div>
       <span style={{ flex: 1 }} />
-      {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
+      {/* footer fijo: deadline + (checklist o completar) a la izquierda; % a la derecha */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, minHeight: 16 }}>
         {t.deadline && <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--dim)' }}>◷ {t.deadline.slice(5)}</span>}
-        {t.checklist.length > 0 && <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>}
+        {t.checklist.length > 0
+          ? <span style={{ fontSize: 10.5, color: 'var(--faint)' }}>☑ {clDone}/{t.checklist.length}</span>
+          : <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }} title={done ? 'Marcar sin completar' : 'Marcar completada'}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: SANS, fontSize: 10.5, fontWeight: 700, color: done ? 'var(--good)' : 'var(--faint)' }}>
+              <span style={{ width: 13, height: 13, borderRadius: 4, border: `1px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{done ? '✓' : ''}</span>
+              {done ? 'Hecha' : 'Completar'}
+            </button>}
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
       </div>
-      {/* avance: SIEMPRE derivado (feedback #17). Con checklist sale de ella; sin
-          checklist, se marca "Completada" (0↔100) — nunca a mano. */}
+      {/* avance SIEMPRE derivado (feedback #17): con checklist sale de ella; sin ella, el toggle de arriba */}
       <MiniBar v={t.progress} />
-      {t.checklist.length === 0 && (
-        <button onClick={(e) => { e.stopPropagation(); board.toggleDone(t.id); }}
-          style={{ marginTop: 8, alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, border: `1px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good-bg, var(--surface))' : 'var(--surface)', color: done ? 'var(--good)' : 'var(--dim)', borderRadius: 999, padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
-          <span style={{ width: 13, height: 13, borderRadius: 4, border: `1px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{done ? '✓' : ''}</span>
-          {done ? 'Completada' : 'Completar'}
-        </button>
-      )}
     </div>
   );
 }
@@ -589,9 +607,10 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
                     #id + prioridad; el título abajo, en su línea. Sin tag de proyecto. */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{t.emoji}</span>
+                  <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{emojiTarea(board, t)}</span>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
                   <span style={{ flex: 1 }} />
+                  {(!t.deadline || t.checklist.length === 0) && <WarnMark title={`Falta ${!t.deadline ? 'el deadline' : 'la checklist'}`} size={16} />}
                   <ScoreBadge score={t.score} />
                 </div>
                 <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12 }}>{t.title}</div>
@@ -624,7 +643,7 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
 function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () => void; prog: { total: number; done: number; pct: number } }) {
   return (
     <div onClick={onOpen} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: `1px solid ${objetivo.color}59`, borderTop: `4px solid ${objetivo.color}`, borderRadius: 16, padding: '20px 22px', cursor: 'pointer', boxShadow: '0 1px 2px rgba(18,21,27,.05)', transition: 'border-color .12s' }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = objetivo.color)} onMouseLeave={(e) => (e.currentTarget.style.borderColor = objetivo.color + '59')}>
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = objetivo.color; e.currentTarget.style.borderTopColor = objetivo.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = objetivo.color + '59'; e.currentTarget.style.borderTopColor = objetivo.color; }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <span style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: objetivo.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>
         <span style={{ flex: 1 }} />
@@ -640,7 +659,10 @@ function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () 
       {/* Barra de progreso del proyecto (feedback jul-17): igual que en la grilla. */}
       <div style={{ marginTop: 16 }}>
         <MiniBar v={prog.pct} />
-        <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{prog.total ? `${prog.done}/${prog.total} tareas · ${prog.pct}%` : 'sin tareas'}</div>
+        {/* avance/porcentaje en cada extremo, como en la grilla de proyectos (feedback jul-18) */}
+        <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>
+          {prog.total ? <><span>{prog.done}/{prog.total} tareas</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
+        </div>
       </div>
     </div>
   );
@@ -817,7 +839,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
               <button onClick={onDebate} style={cambiarBtn}><MakoStar size={15} color="var(--primary)" /> Cambiar prioridad</button>
             </div>
             {/* #5: deadline en el sidebar */}
-            <div><label style={rowLabel}>Deadline</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
+            <div><label style={{ ...rowLabel, display: 'inline-flex', alignItems: 'center', gap: 6 }}>Deadline {!t.deadline && <WarnMark title="Falta el deadline" size={13} />}</label><input type="date" value={t.deadline} onChange={(e) => board.setDeadline(t.id, e.target.value, t.deadline)} style={selStyle} /></div>
             <div>
               <label style={rowLabel}>{board.repo.labelPlural}</label>
               {/* Los chips ya no se sacan con una × acá: cambiar de proyecto pasa por el
@@ -907,7 +929,7 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
-  const TOPE = 9; // #1: total de celdas de arranque = el "+" (cuenta como 1) + 8 proyectos reales
+  const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
   const REALES = TOPE - 1;
   const needle = q.trim().toLowerCase();
   const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
@@ -922,16 +944,19 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { 
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {/* #1: "Crear proyecto" PRIMERO y del mismo tamaño que el resto (cuenta como 1 celda) */}
-          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 184, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
+          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 360, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>
             <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
           </button>
           {visibles.map(({ l, prog }) => {
             const isTop = l.id === topProjectId;
+            // Alto (feedback jul-18): el doble de una tarea, para diferenciarlos de un vistazo.
+            // OJO hover: re-fijamos borderTopColor porque tocar borderColor (shorthand, en el
+            // handler) le borraba el color de arriba al pasar el cursor.
             return (
-              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 184, transition: 'border-color .12s' }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)')}>
+              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 22 }}>{l.emoji}</span>
                   <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{l.pid}</span>
