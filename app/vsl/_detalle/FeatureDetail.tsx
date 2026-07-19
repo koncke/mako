@@ -89,7 +89,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
       </header>
 
       <main className="mk-det-main">
-        <a href="/vsl" className="mk-back">
+        <a href={`/vsl#feat-${slug}`} className="mk-back">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
           Todas las funcionalidades
         </a>

@@ -77,6 +77,7 @@ export default function Landing() {
     }
 
     // (3) Cada card: subtítulo = hook nuevo + href real a su landing /vsl/<slug>.
+    // El id `feat-<slug>` permite volver EXACTAMENTE a esta card desde el detalle.
     root.querySelectorAll<HTMLAnchorElement>('.mk-feature-grid a[href^="#m-"]').forEach((a) => {
       const slug = a.getAttribute('href')!.replace('#m-', '');
       const f = SHOWCASE_BY_SLUG[slug];
@@ -84,8 +85,41 @@ export default function Landing() {
       const sub = a.querySelector<HTMLElement>(':scope > div:last-child');
       if (sub) sub.textContent = f.hook;
       a.setAttribute('data-feature', slug);
+      a.id = 'feat-' + slug;
       a.setAttribute('href', '/vsl/' + slug); // click → landing dedicada de la feature
     });
+
+    // (5) "Volver" desde una landing (/vsl#feat-<slug>): al cargar, devolver el
+    // scroll a la card de donde salió el usuario. Los ids se agregan recién arriba,
+    // así que el scroll nativo no la encuentra. Además .vsl-root tiene
+    // scroll-behavior:smooth, que anima (y a veces pisa) el scrollTop — por eso lo
+    // forzamos a 'auto', calculamos el destino a mano y reintentamos tras el layout.
+    const hash = window.location.hash;
+    if (hash.startsWith('#feat-')) {
+      // scrollIntoView centra la card en SU posición actual (se auto-corrige, no
+      // sobrepasa). Forzamos scroll-behavior:auto (el smooth de .vsl-root animaba
+      // y pisaba el scroll) y reintentamos mientras el layout asienta (fuentes,
+      // videos del hero, reveal). Se corta si el usuario empieza a scrollear.
+      let userScrolled = false;
+      const onUser = () => { userScrolled = true; };
+      root.addEventListener('wheel', onUser, { passive: true });
+      root.addEventListener('touchmove', onUser, { passive: true });
+      const centerCard = () => {
+        if (userScrolled) return;
+        const target = document.getElementById(hash.slice(1));
+        if (!target) return;
+        const prev = root.style.scrollBehavior;
+        root.style.scrollBehavior = 'auto';
+        target.scrollIntoView({ block: 'center' });
+        root.style.scrollBehavior = prev;
+      };
+      requestAnimationFrame(centerCard);
+      [120, 320, 650].forEach((ms) => window.setTimeout(centerCard, ms));
+      window.setTimeout(() => {
+        root.removeEventListener('wheel', onUser);
+        root.removeEventListener('touchmove', onUser);
+      }, 800);
+    }
 
     // ── Realce de la sección CTA (#beta): escasez + oferta a la vista ────────
     // Override en runtime (no en landing-html.ts auto-generado). Idempotente.
