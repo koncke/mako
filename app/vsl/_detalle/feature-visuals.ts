@@ -1,7 +1,7 @@
 // =============================================================================
 // Specs de graficos por feature (hero + uno por capacidad) para /vsl/<slug>.
 // =============================================================================
-// Generado desde el contenido real de cada landing (textos acotados para SVG).
+// Generado desde el contenido real (texto corto; Visual.tsx recorta por las dudas).
 // Biblioteca de tipos + params: ./Visual.tsx.
 
 import type { VisualSpec } from './Visual';
@@ -12,215 +12,81 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "funnel": {
     "hero": {
       "type": "funnel",
-      "title": "Del primer clic al contrato firmado",
+      "title": "Tu funnel entero",
       "stages": [
         {
-          "label": "Meta / Anuncio",
-          "w": 1,
-          "trg": "auto"
+          "label": "Clics",
+          "w": 1
         },
         {
           "label": "VSL",
-          "w": 0.62,
-          "trg": "auto"
+          "w": 0.7
         },
         {
-          "label": "Agenda R1",
-          "w": 0.4,
-          "trg": "auto"
+          "label": "Agenda",
+          "w": 0.42
         },
         {
-          "label": "Grupo WhatsApp",
-          "w": 0.28,
-          "trg": "mako"
-        },
-        {
-          "label": "Pago",
-          "w": 0.16,
-          "trg": "manual"
+          "label": "R1",
+          "w": 0.24
         },
         {
           "label": "Cierre",
-          "w": 0.1,
-          "trg": "manual"
+          "w": 0.12
         }
       ]
     },
     "groups": [
       {
-        "type": "pyramid",
-        "title": "Editás una banda, derivás las otras dos",
-        "tiers": [
-          {
-            "label": "Activo — lo editás…",
-            "tone": "green"
-          },
-          {
-            "label": "Nutrición negativa…",
-            "tone": "amber"
-          },
-          {
-            "label": "Descartado — fija p…",
-            "tone": "red"
-          }
-        ]
-      },
-      {
-        "type": "signalFlow",
-        "title": "Quién dispara cada paso",
-        "nodes": [
-          {
-            "label": "Formulario",
-            "sub": "Meta instant forms",
-            "tone": "green"
-          },
-          {
-            "label": "Agenda",
-            "sub": "Calendly",
-            "tone": "green"
-          },
-          {
-            "label": "Pago / Asistencia",
-            "sub": "por marcado",
-            "tone": "amber"
-          }
-        ],
-        "badges": [
-          "⚡ automático",
-          "◐ automatizable…",
-          "✋ requiere marca…"
-        ]
-      },
-      {
-        "type": "diffCard",
-        "rows": [
-          {
-            "field": "Pipeline",
-            "before": "Hoja en blanco",
-            "after": "VSL+Webinar"
-          },
-          {
-            "field": "Grupo WhatsApp",
-            "before": "—",
-            "after": "Etapa tipo grupo"
-          },
-          {
-            "field": "Plantillas",
-            "before": "Ninguna",
-            "after": "High-Ticket · Simple…"
-          }
-        ]
-      },
-      {
         "type": "kanban",
         "cols": [
           {
-            "label": "Entrada",
-            "cards": 24,
-            "tone": "blue"
+            "label": "Activo",
+            "cards": 4,
+            "tone": "green"
           },
           {
-            "label": "Reunión R1",
-            "cards": 8,
-            "tone": "amber"
-          },
-          {
-            "label": "Cierre",
+            "label": "Nutrición",
             "cards": 3,
-            "tone": "green"
-          }
-        ]
-      }
-    ]
-  },
-  "onboarding": {
-    "hero": {
-      "type": "splitLoad",
-      "loading": [
-        "Métricas de 365 días",
-        "Leads de formularios",
-        "Transcripciones de tus…",
-        "Análisis de guiones",
-        "Llamadas de Fathom",
-        "Métricas del VSL"
-      ]
-    },
-    "groups": [
-      {
-        "type": "statTiles",
-        "title": "Conteos reales entrando en background",
-        "tiles": [
-          {
-            "label": "Métricas",
-            "value": "365 días",
-            "tone": "blue"
-          },
-          {
-            "label": "Leads",
-            "value": "1.240",
-            "tone": "green"
-          },
-          {
-            "label": "Transcripts",
-            "value": "86",
-            "tone": "violet"
-          }
-        ],
-        "rows": [
-          {
-            "name": "Guiones analizados",
-            "amount": "42",
             "tone": "amber"
           },
           {
-            "name": "Llamadas de Fathom",
-            "amount": "57",
-            "tone": "blue"
-          },
-          {
-            "name": "Filas de VSL",
-            "amount": "310",
-            "tone": "green"
+            "label": "Descartado",
+            "cards": 2,
+            "tone": "red"
           }
         ]
       },
       {
         "type": "roleMatrix",
         "roles": [
-          "Project Man…",
-          "Completo"
+          "Auto",
+          "Manual"
         ],
         "tools": [
           {
-            "tool": "Brief (3 pregunta…",
+            "tool": "Formulario",
             "on": [
               true,
-              true
+              false
             ]
           },
           {
-            "tool": "Conectar Meta",
+            "tool": "Agenda",
+            "on": [
+              true,
+              false
+            ]
+          },
+          {
+            "tool": "Pago",
             "on": [
               false,
               true
             ]
           },
           {
-            "tool": "Conectar WhatsApp",
-            "on": [
-              false,
-              true
-            ]
-          },
-          {
-            "tool": "Diagnóstico Norte",
-            "on": [
-              true,
-              true
-            ]
-          },
-          {
-            "tool": "Elegir funnel",
+            "tool": "Asistencia",
             "on": [
               false,
               true
@@ -230,87 +96,224 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       },
       {
         "type": "phaseLadder",
-        "title": "Tu Norte: en qué fase estás",
+        "title": "Plantilla VSL",
         "phases": [
-          "Validación",
+          "VSL",
+          "Agenda",
+          "Webinar",
+          "Grupo",
+          "Cierre"
+        ],
+        "current": 2
+      },
+      {
+        "type": "signalFlow",
+        "title": "Fuente de verdad",
+        "nodes": [
+          {
+            "label": "Config",
+            "sub": "funnel",
+            "tone": "blue"
+          },
+          {
+            "label": "CRM",
+            "sub": "Kanban",
+            "tone": "violet"
+          },
+          {
+            "label": "MaKo",
+            "sub": "contexto",
+            "tone": "green"
+          }
+        ]
+      }
+    ]
+  },
+  "onboarding": {
+    "hero": {
+      "type": "splitLoad",
+      "left": "Contestás 3",
+      "right": "Se cargan solos",
+      "loading": [
+        "Meta 365d",
+        "Leads",
+        "Guiones",
+        "Llamadas"
+      ]
+    },
+    "groups": [
+      {
+        "type": "statTiles",
+        "title": "Extracción 365d",
+        "tiles": [
+          {
+            "label": "Métricas",
+            "value": "18k",
+            "tone": "blue"
+          },
+          {
+            "label": "Leads",
+            "value": "1.2k",
+            "tone": "green"
+          },
+          {
+            "label": "Llamadas",
+            "value": "340",
+            "tone": "amber"
+          }
+        ]
+      },
+      {
+        "type": "roleMatrix",
+        "roles": [
+          "PM",
+          "Completo"
+        ],
+        "tools": [
+          {
+            "tool": "Brief",
+            "on": [
+              true,
+              true
+            ]
+          },
+          {
+            "tool": "Meta",
+            "on": [
+              false,
+              true
+            ]
+          },
+          {
+            "tool": "WhatsApp",
+            "on": [
+              false,
+              true
+            ]
+          },
+          {
+            "tool": "Funnel",
+            "on": [
+              false,
+              true
+            ]
+          }
+        ]
+      },
+      {
+        "type": "phaseLadder",
+        "title": "Tu fase",
+        "phases": [
+          "Validar",
           "Tracción",
           "Escala",
-          "Optimización",
+          "Optimizar",
           "Sistema"
         ],
         "current": 1
       },
       {
-        "type": "thesisCard",
-        "tabs": [
-          "Métricas",
-          "Leads",
-          "Guiones",
-          "Llamadas",
-          "VSL",
-          "Funnel"
-        ],
-        "thesis": "Tu cuello está en la conversión de R1, no en…",
-        "leak": "$9.400"
+        "type": "chatThread",
+        "title": "MaKo <> Elevate",
+        "msgs": [
+          {
+            "from": "in",
+            "text": "Grupo creado ✓"
+          },
+          {
+            "from": "in",
+            "text": "Leí tus 365 días"
+          },
+          {
+            "from": "in",
+            "text": "Reactivá 8 no-shows"
+          },
+          {
+            "from": "out",
+            "text": "Dale, sumalo"
+          }
+        ]
       },
       {
-        "type": "semaphore",
-        "lit": "green",
-        "verdict": "Fail-closed: si tu token de Meta cae a mitad, MaKo co…"
+        "type": "alertCard",
+        "text": "Si tu token de Meta cae a mitad, MaKo corta. Nunca sigue con datos que no son tuyos."
       }
     ]
   },
   "graphics": {
     "hero": {
       "type": "dashboardMock",
-      "title": "Salud del Funnel + ✨ MaKo",
+      "title": "Marketing",
       "points": [
-        0.35,
+        0.3,
         0.5,
         0.42,
         0.66,
-        0.58,
-        0.78,
-        0.7,
-        0.88
+        0.8
+      ],
+      "kpis": [
+        {
+          "v": "4.2x",
+          "k": "ROAS"
+        },
+        {
+          "v": "$182",
+          "k": "CAC"
+        },
+        {
+          "v": "2.4%",
+          "k": "CTR"
+        }
       ]
     },
     "groups": [
       {
-        "type": "makoAnswer",
-        "q": "¿Apago este anuncio o lo escalo?",
-        "a": "Escalalo",
-        "detail": "MaKo razona sobre tus números exactos —impresiones, clicks, CTR, CPC, spend— no sobre la imagen, y con tu Norte y funnel_config real."
+        "type": "chatThread",
+        "title": "✨ MaKo · este gráfico",
+        "msgs": [
+          {
+            "from": "out",
+            "text": "¿Apago este anuncio?"
+          },
+          {
+            "from": "in",
+            "text": "Gastó $340, 0 cierres"
+          },
+          {
+            "from": "out",
+            "text": "¿Y el otro?"
+          },
+          {
+            "from": "in",
+            "text": "Escalalo: ROAS 4.2x"
+          }
+        ]
       },
       {
         "type": "funnel",
-        "title": "Salud del Funnel (Meta)",
+        "title": "Embudo Meta",
         "stages": [
           {
             "label": "Impresión",
-            "w": 1,
-            "trg": "auto"
+            "w": 1
           },
           {
             "label": "Click",
-            "w": 0.6,
-            "trg": "auto"
+            "w": 0.42
           },
           {
             "label": "Landing",
-            "w": 0.34,
-            "trg": "auto"
+            "w": 0.28
           },
           {
             "label": "VSL",
-            "w": 0.18,
-            "trg": "auto"
+            "w": 0.12
           }
         ]
       },
       {
         "type": "statTiles",
-        "title": "Revenue: de agendar a cobrar",
+        "title": "Revenue",
         "tiles": [
           {
             "label": "Sold",
@@ -323,15 +326,8 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
             "tone": "green"
           },
           {
-            "label": "Outstanding",
+            "label": "Falta",
             "value": "$17k",
-            "tone": "amber"
-          }
-        ],
-        "rows": [
-          {
-            "name": "SCL · ciclo agenda→pago",
-            "amount": "22 días",
             "tone": "amber"
           }
         ]
@@ -339,28 +335,28 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "semaphore",
         "lit": "amber",
-        "verdict": "Hay gasto pero la cohorte no cerró: ROAS y CAC dicen…"
+        "verdict": "Aún sin datos"
       },
       {
         "type": "barChart",
-        "title": "Audiencia por edad (México)",
+        "title": "Audiencia · edad",
         "bars": [
+          {
+            "label": "18-24",
+            "v": 0.3
+          },
           {
             "label": "25-34",
             "v": 0.9,
-            "tone": "blue"
+            "tone": "green"
           },
           {
             "label": "35-44",
-            "v": 0.62
+            "v": 0.6
           },
           {
-            "label": "18-24",
-            "v": 0.4
-          },
-          {
-            "label": "45-54",
-            "v": 0.25
+            "label": "45+",
+            "v": 0.35
           }
         ]
       }
@@ -371,46 +367,46 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       "type": "kanban",
       "cols": [
         {
-          "label": "No Show R1/R2",
-          "cards": 8,
+          "label": "No Show",
+          "cards": 3,
           "tone": "red"
         },
         {
           "label": "Nutrición",
-          "cards": 14,
+          "cards": 2,
           "tone": "amber"
         },
         {
           "label": "Reactivación",
-          "cards": 6,
-          "tone": "blue"
+          "cards": 2
+        },
+        {
+          "label": "Ganado",
+          "cards": 1,
+          "tone": "green"
         }
       ]
     },
     "groups": [
       {
-        "type": "funnel",
-        "title": "Cuatro reglas, cero tarjetas arrastradas",
-        "stages": [
+        "type": "emailSequence",
+        "title": "Reglas por tiempo",
+        "steps": [
           {
-            "label": "Agenda Calendly",
-            "w": 1,
-            "trg": "auto"
+            "day": "3 h",
+            "subject": "Fathom → asistió o No Show"
           },
           {
-            "label": "Asistió / No Show R…",
-            "w": 0.78,
-            "trg": "auto"
+            "day": "Día 2",
+            "subject": "→ Nutrición No Agenda"
           },
           {
-            "label": "Nutrición - No Agen…",
-            "w": 0.52,
-            "trg": "mako"
+            "day": "Día 7",
+            "subject": "→ Reactivación"
           },
           {
-            "label": "Reactivación · 7-30…",
-            "w": 0.3,
-            "trg": "mako"
+            "day": "Día 30",
+            "subject": "Reactiva fríos"
           }
         ]
       },
@@ -418,110 +414,72 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "diffCard",
         "rows": [
           {
-            "field": "Estado del lead",
+            "field": "Estado",
             "before": "Agendó",
-            "after": "No Show R1"
-          },
-          {
-            "field": "Etapa pipeline",
-            "before": "R1 agendada",
             "after": "No Show"
           },
           {
-            "field": "Motivo de pérdida",
-            "before": "—",
-            "after": "No asistió"
+            "field": "Etapa",
+            "before": "R1",
+            "after": "Reactivación"
           },
           {
-            "field": "Link Fathom",
+            "field": "Fathom",
             "before": "—",
-            "after": "fathom.video/call/…"
+            "after": "✓ link"
+          }
+        ]
+      },
+      {
+        "type": "statTiles",
+        "title": "Anti-loop",
+        "tiles": [
+          {
+            "label": "Cupo",
+            "value": "25",
+            "tone": "blue"
+          },
+          {
+            "label": "Dedup",
+            "value": "✓",
+            "tone": "green"
+          },
+          {
+            "label": "Reintenta",
+            "value": "↻",
+            "tone": "amber"
           }
         ]
       },
       {
         "type": "makoAnswer",
-        "q": "¿Te vuelvo a proponer el No Show que…",
-        "a": "No.",
-        "detail": "Cada acción tiene clave única (T1:j1, T3, T6…). Precargo todas tus confirmaciones en una query y respeto tu criterio. Tope de 25 llamadas por corrida; el guard anti-carrera nunca reabre un Ganado o Perdido."
+        "q": "¿Qué hago con Ana?",
+        "a": "Cerrá en R2 hoy",
+        "detail": "Vino del ad Dashboard, vio 80% del VSL, objeción de precio ya resuelta en R1. Sin cobranza pendiente."
       },
       {
-        "type": "signalFlow",
-        "title": "Un botón: Claude cruza 7 fuentes → próxima acción",
-        "nodes": [
+        "type": "docExtract",
+        "doc": "Ganado — requisitos",
+        "fields": [
           {
-            "label": "7 fuentes",
-            "sub": "ficha, Calendly, Cl…",
-            "tone": "blue"
+            "k": "R1",
+            "v": "✓ marcada"
           },
           {
-            "label": "Claude",
-            "sub": "terceros delimitado…",
-            "tone": "violet"
+            "k": "Calificado",
+            "v": "✓"
           },
           {
-            "label": "Próxima acción",
-            "sub": "dolor · objeciones…",
-            "tone": "green"
-          }
-        ],
-        "badges": [
-          "Ficha CRM",
-          "Calendly R1/R2",
-          "Closing Analyst",
-          "WhatsApp",
-          "Anuncio Meta",
-          "Tracking VSL",
-          "Cobranza"
-        ]
-      },
-      {
-        "type": "roleMatrix",
-        "roles": [
-          "R1",
-          "R2",
-          "Ganado"
-        ],
-        "tools": [
-          {
-            "tool": "R1 marcada",
-            "on": [
-              true,
-              false,
-              true
-            ]
+            "k": "Fathom",
+            "v": "✓ link"
           },
           {
-            "tool": "Calificado",
-            "on": [
-              true,
-              false,
-              true
-            ]
+            "k": "R2",
+            "v": "✓ marcada"
           },
           {
-            "tool": "Fathom adjunto",
-            "on": [
-              true,
-              false,
-              true
-            ]
-          },
-          {
-            "tool": "R2 marcada",
-            "on": [
-              false,
-              true,
-              true
-            ]
-          },
-          {
-            "tool": "Monto + Deal Deta…",
-            "on": [
-              false,
-              false,
-              true
-            ]
+            "k": "Monto",
+            "v": "$12k"
           }
         ]
       }
@@ -530,54 +488,41 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "api": {
     "hero": {
       "type": "signalFlow",
-      "title": "MaKo le devuelve a Meta la conversión real",
+      "title": "Señal a Meta",
       "nodes": [
         {
           "label": "CRM",
-          "sub": "calificado=true",
+          "sub": "califica",
           "tone": "blue"
         },
         {
           "label": "SHA-256",
-          "sub": "email + teléfono",
+          "sub": "hash",
           "tone": "violet"
         },
         {
-          "label": "Meta CAPI",
-          "sub": "conversión real",
+          "label": "Meta",
+          "sub": "optimiza",
           "tone": "green"
         }
-      ],
-      "badges": [
-        "server-side",
-        "event_id determi…",
-        "action_source=we…"
       ]
     },
     "groups": [
       {
         "type": "funnel",
-        "title": "El evento se dispara desde el CRM, no desde el form…",
+        "title": "Eventos CAPI",
         "stages": [
           {
-            "label": "Formulario lleno",
-            "w": 1,
-            "trg": "auto"
+            "label": "Leads",
+            "w": 1
           },
           {
-            "label": "Lead · calificado=t…",
-            "w": 0.55,
-            "trg": "mako"
+            "label": "Calificó",
+            "w": 0.5
           },
           {
-            "label": "QualifiedLead · asi…",
-            "w": 0.32,
-            "trg": "mako"
-          },
-          {
-            "label": "Schedule · reserva…",
-            "w": 0.18,
-            "trg": "manual"
+            "label": "Agendó",
+            "w": 0.28
           }
         ]
       },
@@ -586,76 +531,57 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "rows": [
           {
             "field": "Email",
-            "before": "mauricio@elevate.…",
-            "after": "9f2a…c71 · SHA-256"
+            "before": "ana@mail",
+            "after": "SHA-256"
           },
           {
-            "field": "Teléfono",
-            "before": "+52 55 1234 5678",
-            "after": "3b8e…a02 · SHA-256"
-          },
-          {
-            "field": "Pixel bloqueado",
-            "before": "señal perdida",
-            "after": "llega server-side"
+            "field": "Pixel",
+            "before": "bloqueado",
+            "after": "✓ llega"
           }
         ]
       },
       {
         "type": "semaphore",
         "lit": "green",
-        "verdict": "Meta puede estar caído: sendMetaCAPIEvent nunca lanza…"
+        "verdict": "Venta nunca se cae"
       },
       {
         "type": "retentionCurve",
-        "title": "En qué segundo se cae el espectador de tu VSL, crea…",
+        "title": "Retención VSL",
         "points": [
           1,
-          0.78,
           0.6,
           0.42,
           0.28,
           0.15
         ],
-        "dropIndex": 3,
-        "beats": [
-          "Video 3s",
-          "ThruPlay",
-          "p25",
-          "p50",
-          "p75",
-          "p100"
-        ]
+        "dropIndex": 1
       },
       {
-        "type": "signalFlow",
-        "title": "Lead Ads con doble red",
-        "nodes": [
+        "type": "statTiles",
+        "title": "Doble red",
+        "tiles": [
           {
             "label": "Webhook",
-            "sub": "HMAC-SHA256",
+            "value": "live",
             "tone": "blue"
           },
           {
-            "label": "Cron polling",
-            "sub": "últimos 90 días",
+            "label": "Polling",
+            "value": "90d",
             "tone": "amber"
           },
           {
-            "label": "MaKo + Chatwoot",
-            "sub": "avisos + alta WA",
+            "label": "Dupes",
+            "value": "0",
             "tone": "green"
           }
-        ],
-        "badges": [
-          "timingSafeEqual",
-          "dedup meta_lead_…",
-          "backfill ?dias=90"
         ]
       },
       {
         "type": "byokKey",
-        "account": "Meta Ads · Elevate MX (BYOK…"
+        "account": "Meta · Elevate MX"
       }
     ]
   },
@@ -664,61 +590,43 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       "type": "adRow",
       "rows": [
         {
-          "name": "003. Ventas / Dolor - J…",
+          "name": "VSL Dolor",
           "cash": "$182k",
           "roas": "5.1x",
           "tone": "green"
         },
         {
-          "name": "007. Ventas / Prueba so…",
-          "cash": "$94k",
-          "roas": "3.8x",
-          "tone": "blue"
-        },
-        {
-          "name": "012. Ventas / Urgencia…",
-          "cash": "$21k",
-          "roas": "1.4x",
+          "name": "Testimonio",
+          "cash": "$74k",
+          "roas": "2.3x",
           "tone": "amber"
         },
         {
-          "name": "015. Ventas / Aspiracio…",
+          "name": "Reels frío",
           "cash": "$0",
-          "roas": "0.0x",
+          "roas": "0x",
           "tone": "red"
         }
       ]
     },
     "groups": [
       {
-        "type": "statTiles",
-        "title": "Estado + rendimiento + CRM en una fila",
-        "tiles": [
+        "type": "signalFlow",
+        "title": "3 fuentes · 1 fila",
+        "nodes": [
           {
-            "label": "Gasto",
-            "value": "$34k",
+            "label": "Meta",
+            "sub": "estado vivo",
             "tone": "blue"
           },
           {
-            "label": "CPL",
-            "value": "$180",
-            "tone": "amber"
+            "label": "Rango",
+            "sub": "CPL · CTR",
+            "tone": "violet"
           },
           {
-            "label": "Agendas",
-            "value": "47",
-            "tone": "green"
-          }
-        ],
-        "rows": [
-          {
-            "name": "Anuncio 003 · ganado",
-            "amount": "$182k",
-            "tone": "green"
-          },
-          {
-            "name": "Anuncio 007 · ganado",
-            "amount": "$94k",
+            "label": "CRM",
+            "sub": "cash real",
             "tone": "green"
           }
         ]
@@ -727,223 +635,216 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "diffCard",
         "rows": [
           {
-            "field": "Nombre",
-            "before": "Copia de anuncio 3",
-            "after": "003. Ventas / Dolor -…"
-          },
-          {
-            "field": "Presupuesto",
-            "before": "$500/día",
-            "after": "$800/día"
-          },
-          {
             "field": "Estado",
             "before": "Activo",
             "after": "Pausado"
+          },
+          {
+            "field": "Nombre",
+            "before": "AD 003",
+            "after": "003 · Dolor"
+          },
+          {
+            "field": "Budget",
+            "before": "$500",
+            "after": "$800"
           }
         ]
       },
       {
-        "type": "splitLoad",
-        "loading": [
-          "Campaña creada · PAUSED",
-          "Conjunto · CBO",
-          "Creativo subido",
-          "Anuncio · en revisión"
+        "type": "chatThread",
+        "title": "Crear campaña",
+        "msgs": [
+          {
+            "from": "out",
+            "text": "Subí creativo ganador"
+          },
+          {
+            "from": "in",
+            "text": "¿Objetivo y presupuesto?"
+          },
+          {
+            "from": "out",
+            "text": "Leads · $600/día"
+          },
+          {
+            "from": "in",
+            "text": "✓ Árbol en PAUSA"
+          }
+        ]
+      },
+      {
+        "type": "scoreCard",
+        "chrome": "Ads Writer",
+        "title": "Ángulos",
+        "items": [
+          {
+            "label": "Dolor",
+            "v": 0.9
+          },
+          {
+            "label": "Prueba",
+            "v": 0.72
+          },
+          {
+            "label": "Urgencia",
+            "v": 0.6
+          },
+          {
+            "label": "Aspiracional",
+            "v": 0.48
+          }
+        ]
+      },
+      {
+        "type": "kanban",
+        "cols": [
+          {
+            "label": "Engagement",
+            "cards": 2
+          },
+          {
+            "label": "Video 75%",
+            "cards": 3,
+            "tone": "green"
+          },
+          {
+            "label": "Pixel Lead",
+            "cards": 1
+          }
         ]
       },
       {
         "type": "barChart",
-        "title": "3 a 5 variantes, un ángulo psicológico cada una",
+        "title": "Budget diario",
         "bars": [
           {
-            "label": "Dolor",
+            "label": "Lun",
+            "v": 0.4
+          },
+          {
+            "label": "Mar",
+            "v": 0.55
+          },
+          {
+            "label": "Mié",
+            "v": 0.5
+          },
+          {
+            "label": "Jue",
+            "v": 0.7
+          },
+          {
+            "label": "Vie",
             "v": 0.9,
-            "tone": "red"
-          },
-          {
-            "label": "Prueba social",
-            "v": 0.75,
-            "tone": "blue"
-          },
-          {
-            "label": "Urgencia",
-            "v": 0.6,
-            "tone": "amber"
-          },
-          {
-            "label": "Aspiracional",
-            "v": 0.7,
-            "tone": "violet"
-          },
-          {
-            "label": "Contraintuitivo",
-            "v": 0.8,
             "tone": "green"
           }
         ]
-      },
-      {
-        "type": "signalFlow",
-        "title": "El UTM empalma el clic con el lead",
-        "nodes": [
-          {
-            "label": "Clic en el ad",
-            "sub": "UTMs inyectados",
-            "tone": "blue"
-          },
-          {
-            "label": "{{ad.name}}",
-            "sub": "source/medium/conte…",
-            "tone": "violet"
-          },
-          {
-            "label": "Funnel",
-            "sub": "empalma con el lead",
-            "tone": "green"
-          }
-        ],
-        "badges": [
-          "Retargeting sin…",
-          "Segmentación no…",
-          "Repara rechazados"
-        ]
-      },
-      {
-        "type": "ragIndex",
-        "title": "mp4 → Whisper → embeddings"
       }
     ]
   },
   "script": {
     "hero": {
-      "type": "retentionCurve",
-      "title": "Tu guion, con la retención real de Meta encima",
-      "points": [
-        1,
-        0.92,
-        0.74,
-        0.58,
-        0.38,
-        0.3,
-        0.22
-      ],
-      "dropIndex": 4,
-      "beats": [
-        "Gancho",
-        "Contexto",
-        "Problema",
-        "Mecanismo",
-        "Prueba",
-        "Objeción",
-        "CTA"
+      "type": "adRow",
+      "rows": [
+        {
+          "name": "Dashboard ad",
+          "cash": "$18k",
+          "roas": "4.2x",
+          "tone": "green"
+        },
+        {
+          "name": "Testimonio",
+          "cash": "$6k",
+          "roas": "1.1x",
+          "tone": "amber"
+        },
+        {
+          "name": "Promesa",
+          "cash": "$3k",
+          "roas": "0.4x",
+          "tone": "red"
+        }
       ]
     },
     "groups": [
       {
-        "type": "barChart",
-        "title": "Retención interpolada bloque por bloque",
-        "bars": [
-          {
-            "label": "Gancho",
-            "v": 0.95,
-            "tone": "green"
-          },
-          {
-            "label": "Contexto",
-            "v": 0.78
-          },
-          {
-            "label": "Problema",
-            "v": 0.62
-          },
-          {
-            "label": "Mecanismo",
-            "v": 0.4,
-            "tone": "red"
-          },
-          {
-            "label": "Prueba",
-            "v": 0.34
-          },
-          {
-            "label": "CTA",
-            "v": 0.28
-          }
-        ]
+        "type": "retentionCurve",
+        "title": "Retención x beat",
+        "points": [
+          1,
+          0.82,
+          0.55,
+          0.3,
+          0.24,
+          0.2
+        ],
+        "dropIndex": 2
       },
       {
         "type": "signalFlow",
-        "title": "Cada guion, por su histórico completo",
+        "title": "Guion cruzado",
         "nodes": [
           {
             "label": "Guion",
-            "sub": "3–7 beats tipados",
+            "sub": "transcript",
             "tone": "blue"
           },
           {
             "label": "Meta",
-            "sub": "spend · hook · cuar…",
+            "sub": "retención",
             "tone": "violet"
           },
           {
             "label": "CRM",
-            "sub": "leads ganados",
+            "sub": "cierres",
             "tone": "green"
           }
-        ],
-        "badges": [
-          "Todo el acumulad…",
-          "Se recalcula en…",
-          "Solo aparece si…"
         ]
       },
       {
-        "type": "adRow",
-        "rows": [
+        "type": "kanban",
+        "cols": [
           {
-            "name": "Escalá esto: frena, ret…",
-            "cash": "$18k",
-            "roas": "4.2x",
-            "tone": "green"
+            "label": "Pausar",
+            "cards": 3,
+            "tone": "red"
           },
           {
-            "name": "Gancho sin cuerpo: fren…",
-            "cash": "$6k",
-            "roas": "1.3x",
+            "label": "Gancho flojo",
+            "cards": 2,
             "tone": "amber"
           },
           {
-            "name": "Plata quemada: 0 agenda…",
-            "cash": "$0",
-            "roas": "0x",
-            "tone": "red"
+            "label": "Escalar",
+            "cards": 2,
+            "tone": "green"
           }
         ]
       },
       {
         "type": "makoAnswer",
-        "q": "Pegué un guion que todavía no corrió.…",
-        "a": "Mejorar-gancho antes de escalar",
-        "detail": "Se parece a tu ángulo saturado pero con hook rate estimado alto. Plan: presupuesto + días mínimos + ~8.000 impresiones y un guion de control. Es una hipótesis, no un hecho."
+        "q": "¿Produzco este guion?",
+        "a": "Mejorá el gancho",
+        "detail": "Se parece a tu ángulo saturado. Hook rate ~28% estimado. Probalo con $500 en 5 días."
       },
       {
         "type": "diffCard",
         "rows": [
           {
             "field": "Ángulo",
-            "before": "IA: Autoridad",
-            "after": "Tuyo: Dolor / urgencia"
+            "before": "Dolor",
+            "after": "Estatus"
           },
           {
             "field": "Avatar",
-            "before": "vacío",
-            "after": "Dueño PyME 35-50"
+            "before": "—",
+            "after": "Dueño PYME"
           },
           {
-            "field": "Re-sync diario",
-            "before": "El re-análisis te…",
-            "after": "Tu override se guarda…"
+            "field": "Override",
+            "before": "IA pisa",
+            "after": "✓ sobrevive"
           }
         ]
       }
@@ -951,113 +852,92 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   },
   "closing": {
     "hero": {
-      "type": "scoreCard",
-      "title": "Score de cierre · 7 dimensiones",
-      "items": [
-        {
-          "label": "Situación",
-          "v": 0.8
-        },
-        {
-          "label": "Problema",
-          "v": 0.7
-        },
-        {
-          "label": "Implicación",
-          "v": 0.5
-        },
-        {
-          "label": "Necesidad",
-          "v": 0.6
-        },
-        {
-          "label": "Propuesta",
-          "v": 0.75
-        },
-        {
-          "label": "Objeciones",
-          "v": 0.4
-        },
-        {
-          "label": "CTA",
-          "v": 0.55
-        }
-      ]
+      "type": "gauge",
+      "value": 0.74,
+      "big": "7.4",
+      "label": "Cierre",
+      "tone": "green"
     },
     "groups": [
       {
-        "type": "signalFlow",
-        "title": "Venta vs entrega de servicio, sola",
-        "nodes": [
+        "type": "kanban",
+        "cols": [
           {
-            "label": "Fathom",
-            "sub": "cientos de llamadas",
-            "tone": "blue"
-          },
-          {
-            "label": "Triage barato",
-            "sub": "descarta tests, <4…",
-            "tone": "amber"
-          },
-          {
-            "label": "Claude árbitro",
-            "sub": "lead ya ganado = co…",
+            "label": "Venta",
+            "cards": 4,
             "tone": "green"
-          }
-        ],
-        "badges": [
-          "match por email…",
-          "o share_url guar…",
-          "sin taggear a ma…"
-        ]
-      },
-      {
-        "type": "chatThread",
-        "title": "Evidencia citada con timestamp",
-        "msgs": [
-          {
-            "from": "in",
-            "text": "[123s · 2:03] \"No sé si es el momento para…"
           },
           {
-            "from": "out",
-            "text": "Objeción de precio — marcada como manejada"
-          },
-          {
-            "from": "in",
-            "text": "[318s · 5:18] \"Dale, mándame el contrato.\""
-          },
-          {
-            "from": "out",
-            "text": "CTA 8/10 · cita textual del transcript"
-          }
-        ]
-      },
-      {
-        "type": "barChart",
-        "title": "Gap ganadas vs perdidas: Objeciones decide tus cier…",
-        "bars": [
-          {
-            "label": "Objeciones",
-            "v": 0.9,
-            "tone": "red"
-          },
-          {
-            "label": "CTA",
-            "v": 0.65,
+            "label": "Servicio",
+            "cards": 2,
             "tone": "amber"
+          },
+          {
+            "label": "Descarte",
+            "cards": 3,
+            "tone": "red"
+          }
+        ]
+      },
+      {
+        "type": "scoreCard",
+        "chrome": "Closing",
+        "title": "SPIN",
+        "items": [
+          {
+            "label": "Situación",
+            "v": 0.9
+          },
+          {
+            "label": "Problema",
+            "v": 0.7
           },
           {
             "label": "Implicación",
             "v": 0.5
           },
           {
+            "label": "Necesidad",
+            "v": 0.8
+          },
+          {
             "label": "Propuesta",
-            "v": 0.35
+            "v": 0.6
+          },
+          {
+            "label": "Objeciones",
+            "v": 0.4
+          },
+          {
+            "label": "CTA",
+            "v": 0.5
+          }
+        ]
+      },
+      {
+        "type": "barChart",
+        "title": "Gap por dimensión",
+        "bars": [
+          {
+            "label": "Objeciones",
+            "v": 0.92,
+            "tone": "green"
+          },
+          {
+            "label": "CTA",
+            "v": 0.6
+          },
+          {
+            "label": "Implicación",
+            "v": 0.48
+          },
+          {
+            "label": "Problema",
+            "v": 0.3
           },
           {
             "label": "Situación",
-            "v": 0.15
+            "v": 0.18
           }
         ]
       },
@@ -1065,9 +945,9 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "diffCard",
         "rows": [
           {
-            "field": "Objeciones",
-            "before": "6",
-            "after": "8"
+            "field": "CTA",
+            "before": "5.0",
+            "after": "7.0"
           },
           {
             "field": "Outcome",
@@ -1075,178 +955,165 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
             "after": "Ganada"
           },
           {
-            "field": "Score global",
-            "before": "5.4",
-            "after": "6.9"
+            "field": "Fathom",
+            "before": "—",
+            "after": "✓ clip"
           }
         ]
       },
       {
-        "type": "statTiles",
-        "title": "Se llena sola, todos los días",
-        "tiles": [
-          {
-            "label": "Cron diario",
-            "value": "14:30",
-            "tone": "blue"
-          },
-          {
-            "label": "Llamadas por corrida",
-            "value": "6",
-            "tone": "green"
-          },
-          {
-            "label": "Presupuesto",
-            "value": "150s",
-            "tone": "amber"
-          }
+        "type": "splitLoad",
+        "left": "Vos escuchás",
+        "right": "Se cargan solas",
+        "loading": [
+          "Fathom",
+          "Leads",
+          "Transcript",
+          "Llamadas"
         ]
       }
     ]
   },
   "seguimiento": {
     "hero": {
-      "type": "emailSequence",
-      "title": "El seguimiento correcto para cada momento — corre s…",
-      "steps": [
+      "type": "kanban",
+      "cols": [
         {
-          "day": "Sin agend…",
-          "subject": "No agendó — secuencia de 3 toques"
+          "label": "No agendó",
+          "cards": 4,
+          "tone": "red"
         },
         {
-          "day": "No-show R1",
-          "subject": "Faltó a la llamada — reencuadre"
+          "label": "No Show",
+          "cards": 3,
+          "tone": "amber"
         },
         {
-          "day": "No-show R2",
-          "subject": "Faltó a R2 — recuperación"
+          "label": "Sin pagar",
+          "cards": 2
         },
         {
-          "day": "Confirmado",
-          "subject": "No paga aún — cierre"
-        },
-        {
-          "day": "30-90 días",
-          "subject": "Reactivación de fríos"
+          "label": "Frío",
+          "cards": 3,
+          "tone": "green"
         }
       ]
     },
     "groups": [
       {
         "type": "funnel",
-        "title": "13 disparadores sobre el estado real del lead",
+        "title": "Dónde se traba",
         "stages": [
           {
-            "label": "Dejó el form sin ag…",
-            "w": 1,
-            "trg": "auto"
+            "label": "Form",
+            "w": 1
           },
           {
-            "label": "Vio VSL 50%+ sin ag…",
-            "w": 0.72,
-            "trg": "auto"
+            "label": "VSL 50%",
+            "w": 0.72
           },
           {
-            "label": "Agendado sin confir…",
-            "w": 0.55,
-            "trg": "mako"
+            "label": "Agenda",
+            "w": 0.5
           },
           {
-            "label": "No-show R1",
-            "w": 0.4,
-            "trg": "auto"
+            "label": "R1",
+            "w": 0.34
           },
           {
-            "label": "Calificado sin R2",
-            "w": 0.28,
-            "trg": "mako"
+            "label": "R2",
+            "w": 0.2
           },
           {
-            "label": "Confirmado sin pagar",
-            "w": 0.16,
-            "trg": "manual"
+            "label": "Pago",
+            "w": 0.12
           }
         ]
       },
       {
         "type": "ragIndex",
-        "title": "Transcripciones de tus ads + perfil de marca → guía…"
+        "title": "Tu voz",
+        "source": "tus ads"
       },
       {
         "type": "chatThread",
-        "title": "Responde el lead → la nutrición se corta sola",
+        "title": "Respondió",
         "msgs": [
           {
-            "from": "out",
-            "text": "Quedó tu lugar sin confirmar, ¿seguís inter…"
-          },
-          {
-            "from": "out",
-            "text": "Te dejo el link para agendar tu llamada 👇"
-          },
-          {
             "from": "in",
-            "text": "Sí! perdón, ahí agendo ahora"
+            "text": "Hola, me interesa"
+          },
+          {
+            "from": "out",
+            "text": "Freno la nutrición"
+          },
+          {
+            "from": "out",
+            "text": "✓ Envío borrado"
           }
         ]
       },
       {
         "type": "signalFlow",
-        "title": "El WhatsApp oficial no envía hasta que Meta aprueba",
+        "title": "Plantilla Meta",
         "nodes": [
           {
-            "label": "Copy de MaKo",
-            "sub": "texto del paso",
+            "label": "Copy",
+            "sub": "tu voz",
             "tone": "blue"
           },
           {
-            "label": "Plantilla Meta-safe",
-            "sub": "sin links, variable…",
-            "tone": "amber"
+            "label": "Meta-safe",
+            "sub": "sin links",
+            "tone": "violet"
           },
           {
-            "label": "Meta approved",
-            "sub": "recién ahí envía",
+            "label": "Approved",
+            "sub": "envía",
             "tone": "green"
           }
-        ],
-        "badges": [
-          "Falla cerrado",
-          "Sin phantom-sends",
-          "Idempotente"
         ]
       },
       {
-        "type": "phaseLadder",
-        "title": "Máquina de estados: cada inscripción avanza sola, c…",
-        "phases": [
-          "Inscrito",
-          "Toque 1 enviado",
-          "Toque 2 enviado",
-          "Toque 3 enviado",
-          "Cerrado / opt-…"
-        ],
-        "current": 2
+        "type": "statTiles",
+        "title": "Log del motor",
+        "tiles": [
+          {
+            "label": "Enviado",
+            "value": "1.284",
+            "tone": "green"
+          },
+          {
+            "label": "Simulado",
+            "value": "96",
+            "tone": "blue"
+          },
+          {
+            "label": "Omitido",
+            "value": "41",
+            "tone": "amber"
+          }
+        ]
       }
     ]
   },
   "cobranza": {
     "hero": {
       "type": "statTiles",
-      "title": "Vendido y cobrado, nunca el mismo número",
+      "title": "Revenue real",
       "tiles": [
         {
-          "label": "Sold Revenue",
+          "label": "Vendido",
           "value": "$48k",
           "tone": "blue"
         },
         {
-          "label": "Cash Collected",
+          "label": "Cobrado",
           "value": "$31k",
           "tone": "green"
         },
         {
-          "label": "Outstanding",
+          "label": "Falta",
           "value": "$17k",
           "tone": "amber"
         }
@@ -1255,118 +1122,103 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     "groups": [
       {
         "type": "barChart",
-        "title": "Salen de la misma tabla — siempre cierran entre sí",
+        "title": "Siempre cuadra",
         "bars": [
           {
-            "label": "Sold Revenue $48k",
+            "label": "Vendido",
             "v": 1,
             "tone": "blue"
           },
           {
-            "label": "Cash Collected $31k",
+            "label": "Cobrado",
             "v": 0.65,
             "tone": "green"
           },
           {
-            "label": "Outstanding $17k",
+            "label": "Falta",
             "v": 0.35,
             "tone": "amber"
           }
         ]
       },
       {
-        "type": "statTiles",
-        "title": "A quién cobrarle hoy — ordenado por vencimiento",
-        "tiles": [
+        "type": "pyramid",
+        "title": "Cobrar hoy",
+        "tiers": [
           {
-            "label": "Outstanding total",
-            "value": "$17k",
-            "tone": "amber"
-          }
-        ],
-        "rows": [
-          {
-            "name": "Bruno M. · URGENTE venc…",
-            "amount": "$2.5k",
+            "label": "Vencidas · 3",
             "tone": "red"
           },
           {
-            "name": "Carla D. · vence en 3 d…",
-            "amount": "$1.8k",
+            "label": "≤5 días · 2",
             "tone": "amber"
           },
           {
-            "name": "Diego R. · vence en 12…",
-            "amount": "$3.0k",
-            "tone": "blue"
+            "label": "Al día",
+            "tone": "green"
           }
         ]
       },
       {
         "type": "emailSequence",
-        "title": "Plan uniforme: inicial + hasta 6 cuotas por tu día…",
+        "title": "Plan de pago",
         "steps": [
           {
             "day": "Cierre",
-            "subject": "Inicial · $2.000"
+            "subject": "Inicial $2.000"
           },
           {
-            "day": "Día 10",
+            "day": "15/08",
             "subject": "Cuota 1 · $1.500"
           },
           {
-            "day": "Día 10 +1…",
-            "subject": "Cuota 2 · $1.500 (pagada, intacta)"
-          },
-          {
-            "day": "Día 10 +2…",
-            "subject": "Cuota 3 · $1.500 (pendiente)"
+            "day": "15/09",
+            "subject": "Cuota 2 · $1.500"
           }
         ]
       },
       {
         "type": "docExtract",
+        "doc": "comprobante.jpg",
         "fields": [
           {
             "k": "Monto",
-            "v": "$1.500"
+            "v": "$2.000"
           },
           {
-            "k": "Fecha de pago",
-            "v": "14/07/2026"
+            "k": "Fecha",
+            "v": "15/08"
           },
           {
-            "k": "Hora del ingreso",
-            "v": "09:42"
-          },
-          {
-            "k": "Comprobante",
-            "v": "transferencia.pdf → bucket del workspace"
+            "k": "Hora",
+            "v": "14:32"
           }
         ]
       },
       {
         "type": "dashboardMock",
-        "title": "Sold vs Cash Collected vs gasto en Meta · 18 meses",
+        "title": "18 meses",
         "points": [
           0.3,
-          0.4,
-          0.35,
-          0.5,
-          0.55,
+          0.45,
           0.5,
           0.62,
           0.7,
-          0.65,
-          0.72,
-          0.8,
-          0.78,
-          0.85,
-          0.9,
-          0.82,
-          0.88,
-          0.95,
-          0.9
+          0.8
+        ],
+        "kpis": [
+          {
+            "v": "$48k",
+            "k": "Sold"
+          },
+          {
+            "v": "$31k",
+            "k": "Cash"
+          },
+          {
+            "v": "$9k",
+            "k": "Meta"
+          }
         ]
       }
     ]
@@ -1374,133 +1226,144 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "contrato": {
     "hero": {
       "type": "docExtract",
+      "doc": "contrato.pdf",
       "fields": [
         {
-          "k": "Razón social",
-          "v": "Elevate MX SA de CV"
+          "k": "Total",
+          "v": "$12.000"
         },
         {
-          "k": "ID fiscal",
-          "v": "RFC EMX2401197QA"
-        },
-        {
-          "k": "Domicilio",
-          "v": "Av. Reforma 222, CDMX"
+          "k": "Cuotas",
+          "v": "6"
         },
         {
           "k": "Servicio",
-          "v": "Consultoría · 12 sesiones"
+          "v": "Coaching"
         },
         {
-          "k": "Promesa",
-          "v": "3 clientes en 90 días"
-        },
-        {
-          "k": "Plan de cuotas",
-          "v": "3 × $4,000 USD"
+          "k": "1er pago",
+          "v": "15/08"
         }
       ]
     },
     "groups": [
       {
         "type": "statTiles",
-        "title": "Deal Details, extraído de un pase",
+        "title": "Plan de cuotas",
         "tiles": [
           {
-            "label": "Total contrato",
+            "label": "Total",
             "value": "$12k",
-            "tone": "green"
-          },
-          {
-            "label": "Cuotas",
-            "value": "3",
             "tone": "blue"
           },
           {
-            "label": "Obligaciones",
-            "value": "5",
-            "tone": "violet"
+            "label": "Pagado",
+            "value": "$4k",
+            "tone": "green"
+          },
+          {
+            "label": "Falta",
+            "value": "$8k",
+            "tone": "amber"
           }
         ],
         "rows": [
           {
-            "name": "Cuota 1",
-            "amount": "$4k",
+            "name": "Cuota 1 · pagada",
+            "amount": "$2k",
             "tone": "green"
           },
           {
-            "name": "Cuota 2",
-            "amount": "$4k",
+            "name": "Cuota 2 · 15/08",
+            "amount": "$2k",
             "tone": "amber"
           },
           {
-            "name": "Cuota 3",
-            "amount": "$4k",
+            "name": "Cuota 3 · 15/09",
+            "amount": "$2k",
             "tone": "amber"
-          }
-        ]
-      },
-      {
-        "type": "makoAnswer",
-        "q": "¿Subiste un PDF o una foto?",
-        "a": "Detecté una captura → la mando como visió…",
-        "detail": "Vos no elegís nada. Si es PDF va como documento; si es foto, como visión. Y 'Completar con IA' relee el contrato ya guardado sin volver a subir nada."
-      },
-      {
-        "type": "diffCard",
-        "rows": [
-          {
-            "field": "Modalidad",
-            "before": "—",
-            "after": "Online (default)"
-          },
-          {
-            "field": "Frecuencia",
-            "before": "—",
-            "after": "1 vez por semana"
-          },
-          {
-            "field": "Domicilio (a mano)",
-            "before": "Av. Reforma 222",
-            "after": "Av. Reforma 222"
           }
         ]
       },
       {
         "type": "signalFlow",
-        "title": "De la cuota extraída al cash del dashboard",
+        "title": "Detecta el archivo",
         "nodes": [
           {
-            "label": "Cuotas",
-            "sub": "monto por monto",
+            "label": "PDF",
+            "sub": "o foto",
             "tone": "blue"
           },
           {
-            "label": "Motor de cobranza",
-            "sub": "marca ganado y cerr…",
+            "label": "MaKo",
+            "sub": "detecta tipo",
             "tone": "violet"
           },
           {
-            "label": "Cash collected",
-            "sub": "Comercial + General",
+            "label": "Datos",
+            "sub": "extraídos",
             "tone": "green"
           }
+        ]
+      },
+      {
+        "type": "diffCard",
+        "rows": [
+          {
+            "field": "Servicio",
+            "before": "vacío",
+            "after": "Coaching"
+          },
+          {
+            "field": "Fiscal",
+            "before": "vacío",
+            "after": "✓ cargado"
+          },
+          {
+            "field": "Promesa",
+            "before": "vacío",
+            "after": "✓ garantía"
+          },
+          {
+            "field": "A mano",
+            "before": "Ana SA",
+            "after": "Ana SA"
+          }
+        ]
+      },
+      {
+        "type": "dashboardMock",
+        "title": "Comercial",
+        "points": [
+          0.3,
+          0.45,
+          0.55,
+          0.7,
+          0.85
         ],
-        "badges": [
-          "Conserva las pag…",
-          "Bucket privado p…",
-          "URLs firmadas de…"
+        "kpis": [
+          {
+            "v": "$31k",
+            "k": "Cobrado"
+          },
+          {
+            "v": "$8k",
+            "k": "Falta"
+          },
+          {
+            "v": "6",
+            "k": "Cuotas"
+          }
         ]
       }
     ]
   },
   "customer": {
     "hero": {
-      "type": "gauge",
-      "value": 0.68,
-      "big": "68",
-      "label": "Health Score del cl…",
-      "tone": "amber"
+      "type": "makoAnswer",
+      "q": "¿Quién se me enfría?",
+      "a": "Ana: llamada tibia + impaga",
+      "detail": "En su última sesión de entrega bajó el entusiasmo y arrastra una cuota vencida. Reactivala esta semana."
     },
     "groups": [
       {
@@ -1508,73 +1371,83 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "cols": [
           {
             "label": "Venta",
-            "cards": 12,
-            "tone": "blue"
+            "cards": 4
           },
           {
-            "label": "Entrega de servicio",
-            "cards": 8,
+            "label": "Entrega",
+            "cards": 3,
             "tone": "green"
           },
           {
-            "label": "Interna / Otro",
-            "cards": 3,
-            "tone": "violet"
+            "label": "Interna",
+            "cards": 2
+          },
+          {
+            "label": "Otro",
+            "cards": 1
           }
         ]
       },
       {
-        "type": "scoreCard",
-        "title": "Health Score = lo dicho en sesión × cobranza",
-        "items": [
-          {
-            "label": "Sentimiento en la s…",
-            "v": 0.8
-          },
-          {
-            "label": "Compromisos cumplid…",
-            "v": 0.55
-          },
-          {
-            "label": "Próximos pasos clar…",
-            "v": 0.7
-          },
-          {
-            "label": "Cobranza al día",
-            "v": 0.9
-          }
-        ]
+        "type": "gauge",
+        "value": 0.82,
+        "big": "82",
+        "label": "Health",
+        "tone": "green"
       },
       {
         "type": "signalFlow",
-        "title": "La baja se caza cuando coinciden las dos señales",
+        "title": "Alerta de churn",
         "nodes": [
           {
-            "label": "Señal negativa",
-            "sub": "en la llamada de co…",
-            "tone": "red"
-          },
-          {
-            "label": "Cuota impaga",
-            "sub": "cobranza vencida",
+            "label": "Llamada",
+            "sub": "tibia",
             "tone": "amber"
           },
           {
-            "label": "MaKo te avisa",
-            "sub": "a tiempo para rever…",
+            "label": "Cobranza",
+            "sub": "impaga",
+            "tone": "violet"
+          },
+          {
+            "label": "MaKo",
+            "sub": "te avisa",
             "tone": "green"
           }
-        ],
-        "badges": [
-          "Churn detectable",
-          "Reversible"
         ]
       },
       {
-        "type": "makoAnswer",
-        "q": "¿A quién le ofrezco renovación o upse…",
-        "a": "Upsell + renovación",
-        "detail": "El cliente lo pidió con sus propias palabras durante el servicio — ahí queda el LTV, no en tu intuición."
+        "type": "statTiles",
+        "title": "Donde queda la plata",
+        "tiles": [
+          {
+            "label": "Cierre",
+            "value": "$8k",
+            "tone": "blue"
+          },
+          {
+            "label": "Renueva",
+            "value": "$8k",
+            "tone": "green"
+          },
+          {
+            "label": "Upsell",
+            "value": "$5k",
+            "tone": "amber"
+          }
+        ],
+        "rows": [
+          {
+            "name": "Ana · pidió más",
+            "amount": "$5k",
+            "tone": "green"
+          },
+          {
+            "name": "Luis · renueva",
+            "amount": "$8k",
+            "tone": "green"
+          }
+        ]
       }
     ]
   },
@@ -1582,19 +1455,19 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     "hero": {
       "type": "semaphore",
       "lit": "red",
-      "verdict": "Hay algo urgente que atender"
+      "verdict": "Algo urgente hoy"
     },
     "groups": [
       {
         "type": "pyramid",
-        "title": "Focos ordenados por urgencia",
+        "title": "Por urgencia",
         "tiers": [
           {
-            "label": "Urgente",
+            "label": "Urgente · 2",
             "tone": "red"
           },
           {
-            "label": "Vigilar",
+            "label": "Vigilar · 3",
             "tone": "amber"
           },
           {
@@ -1604,116 +1477,71 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         ]
       },
       {
-        "type": "statTiles",
-        "title": "Cuatro modos de falla del funnel VSL",
-        "tiles": [
-          {
-            "label": "Cuenta Meta",
-            "value": "ACTIVE",
-            "tone": "red"
-          },
-          {
-            "label": "Frecuencia 7d",
-            "value": ">3.5",
-            "tone": "amber"
-          },
-          {
-            "label": "Deals R1→R2",
-            "value": "se enfrí…",
-            "tone": "amber"
-          }
-        ],
-        "rows": [
-          {
-            "name": "Cobranza vencida — cobr…",
-            "amount": "rojo",
-            "tone": "red"
-          },
-          {
-            "name": "CPL 7d vs CPL 28d",
-            "amount": "1.5×",
-            "tone": "amber"
-          }
-        ]
-      },
-      {
-        "type": "scoreCard",
-        "title": "Tasa de cierre en cohortes maduras",
-        "items": [
-          {
-            "label": "≥30% · sistema de v…",
-            "v": 0.32
-          },
-          {
-            "label": "<20% · califican pe…",
-            "v": 0.18
-          },
-          {
-            "label": "Mínimo 3 cohortes l…",
-            "v": 0.6
-          }
-        ]
-      },
-      {
-        "type": "signalFlow",
-        "title": "El asesino silencioso de tu cuenta",
-        "nodes": [
-          {
-            "label": "Ads Manager",
-            "sub": "campañas 'ACTIVE'",
-            "tone": "green"
-          },
-          {
-            "label": "account_status",
-            "sub": "live · disable_reas…",
-            "tone": "amber"
-          },
-          {
-            "label": "Alerta roja",
-            "sub": "entrega frenada",
-            "tone": "red"
-          }
-        ],
-        "badges": [
-          "1 GET liviano",
-          "WhatsApp en 1h"
-        ]
-      },
-      {
-        "type": "emailSequence",
-        "title": "El mismo semáforo, en tu WhatsApp",
-        "steps": [
-          {
-            "day": "Diario ~7…",
-            "subject": "Digest matutino"
-          },
-          {
-            "day": "Horario",
-            "subject": "Solo si hay algo urgente"
-          },
-          {
-            "day": "Lunes",
-            "subject": "Reporte semanal"
-          }
-        ]
-      },
-      {
         "type": "kanban",
         "cols": [
           {
-            "label": "Abierto",
-            "cards": 2,
+            "label": "Meta caída",
+            "cards": 1,
             "tone": "red"
           },
           {
-            "label": "Persiste",
-            "cards": 1,
+            "label": "Creativo",
+            "cards": 2,
             "tone": "amber"
           },
           {
-            "label": "Cerrado (inicio→fin)",
-            "cards": 5,
-            "tone": "green"
+            "label": "R1→R2",
+            "cards": 3,
+            "tone": "amber"
+          },
+          {
+            "label": "Cobranza",
+            "cards": 2,
+            "tone": "red"
+          }
+        ]
+      },
+      {
+        "type": "gauge",
+        "value": 0.28,
+        "big": "28%",
+        "label": "Cierre",
+        "tone": "amber"
+      },
+      {
+        "type": "alertCard",
+        "text": "Tu cuenta Meta dice ACTIVE pero no entrega. Saldo impago, los leads dejaron de entrar."
+      },
+      {
+        "type": "chatThread",
+        "title": "MaKo · 7:00",
+        "msgs": [
+          {
+            "from": "in",
+            "text": "Semáforo: verde"
+          },
+          {
+            "from": "in",
+            "text": "3 wins ayer"
+          },
+          {
+            "from": "in",
+            "text": "1 cuota vence hoy"
+          }
+        ]
+      },
+      {
+        "type": "diffCard",
+        "rows": [
+          {
+            "field": "Meta",
+            "before": "🔴 10:00",
+            "after": "🟢 14:20"
+          },
+          {
+            "field": "Duración",
+            "before": "—",
+            "after": "2h 20m"
           }
         ]
       }
@@ -1722,35 +1550,58 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "experimentos": {
     "hero": {
       "type": "stamp",
-      "title": "Hipótesis → veredicto",
+      "title": "Hipótesis",
       "result": "validated",
-      "before": "Si filtro más el…",
-      "after": "cp_form: $14 → $9 en…"
+      "before": "$41",
+      "after": "$26"
     },
     "groups": [
       {
-        "type": "makoAnswer",
-        "q": "Si filtro más el formulario, baja el…",
-        "a": "Métrica: cp_form · dirección: bajar · ven…",
-        "detail": "MaKo (Claude, effort:high) elige del catálogo de 18 métricas ancladas al funnel y explica el racional. No crea nada hasta que confirmás título, cambio a medir, ventana y objetivo en el modal."
-      },
-      {
-        "type": "statTiles",
-        "title": "cp_form · día 3 de 14 · medido en vivo, cero cache",
-        "tiles": [
+        "type": "chatThread",
+        "title": "Escribí tu idea",
+        "msgs": [
           {
-            "label": "Baseline (3 días pr…",
-            "value": "$14.2",
-            "tone": "blue"
+            "from": "out",
+            "text": "filtro más el form"
           },
           {
-            "label": "Actual",
-            "value": "$11.8",
+            "from": "in",
+            "text": "Métrica: cp_form"
+          },
+          {
+            "from": "in",
+            "text": "Éxito: baja · 14 días"
+          },
+          {
+            "from": "out",
+            "text": "Confirmar"
+          }
+        ]
+      },
+      {
+        "type": "barChart",
+        "title": "Medición diaria",
+        "bars": [
+          {
+            "label": "D1",
+            "v": 0.4
+          },
+          {
+            "label": "D2",
+            "v": 0.5
+          },
+          {
+            "label": "D3",
+            "v": 0.46
+          },
+          {
+            "label": "D4",
+            "v": 0.7,
             "tone": "green"
           },
           {
-            "label": "Delta",
-            "value": "-17%",
+            "label": "D5",
+            "v": 0.82,
             "tone": "green"
           }
         ]
@@ -1758,167 +1609,157 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "semaphore",
         "lit": "green",
-        "verdict": "Validada: el cp_form bajó de $14 a $9. Juicio sobre e…"
+        "verdict": "Hipótesis validada"
       },
       {
-        "type": "chatThread",
-        "title": "MaKo en cualquier tab del panel",
-        "msgs": [
-          {
-            "from": "out",
-            "text": "¿Conviene filtrar más el formulario?"
-          },
-          {
-            "from": "in",
-            "text": "Ya lo probaste: filtrar bajó tu cp_form de…"
-          },
-          {
-            "from": "out",
-            "text": "¿Y subir el precio del VSL?"
-          },
-          {
-            "from": "in",
-            "text": "Eso todavía no lo probaste. No lo afirmo: t…"
-          }
-        ]
+        "type": "makoAnswer",
+        "q": "¿Subo el ticket?",
+        "a": "Sí, ya lo probaste",
+        "detail": "Tu experimento de mayo validó +18% de cierre al subir el precio. No es teoría de gurú: es tu dato."
       },
       {
-        "type": "signalFlow",
-        "title": "La Retro dispara el ciclo, aislado por workspace",
-        "nodes": [
+        "type": "kanban",
+        "cols": [
           {
-            "label": "Retro",
-            "sub": "hallazgo",
-            "tone": "violet"
+            "label": "Propuesto",
+            "cards": 2
           },
           {
-            "label": "Experimento",
-            "sub": "auto-creado",
-            "tone": "blue"
-          },
-          {
-            "label": "1-3 tareas",
-            "sub": "to-do linkeadas",
+            "label": "Activo",
+            "cards": 3,
             "tone": "green"
+          },
+          {
+            "label": "Cerrado",
+            "cards": 4
+          },
+          {
+            "label": "Descartado",
+            "cards": 1,
+            "tone": "red"
           }
-        ],
-        "badges": [
-          "propuesto",
-          "activo",
-          "cerrado",
-          "descartado"
         ]
       }
     ]
   },
   "prioridades": {
     "hero": {
-      "type": "pyramid",
-      "title": "Tu plan, ordenado por criterio",
-      "tiers": [
-        {
-          "label": "Alta — hacé esto hoy",
-          "tone": "red"
-        },
-        {
-          "label": "Media — después",
-          "tone": "amber"
-        },
-        {
-          "label": "Baja / A futuro",
-          "tone": "green"
-        }
-      ]
+      "type": "makoAnswer",
+      "q": "¿Qué hago hoy?",
+      "a": "El objetivo top, primero",
+      "detail": "MaKo numera 3 jugadas del proyecto #1. El resto baja solo — urgente no es lo mismo que importante."
     },
     "groups": [
       {
-        "type": "scoreCard",
-        "title": "Score = impacto ÷ esfuerzo",
-        "items": [
+        "type": "statTiles",
+        "title": "Score de tarea",
+        "tiles": [
           {
-            "label": "Cerrar 3 R2 pendien…",
-            "v": 0.94
-          },
-          {
-            "label": "Subir la oferta al…",
-            "v": 0.71
-          },
-          {
-            "label": "Pulir la animación…",
-            "v": 0.18
-          }
-        ]
-      },
-      {
-        "type": "makoAnswer",
-        "q": "'Rediseñar el logo me parece importan…",
-        "a": "Rechaza",
-        "detail": "Eso suena a que te encariñaste con la tarea. Sin números que muevan plata, no sube: la carga de la prueba es tuya."
-      },
-      {
-        "type": "barChart",
-        "title": "Pirámide sana, curvada por banda",
-        "bars": [
-          {
-            "label": "Alta ~15%",
-            "v": 0.15,
-            "tone": "red"
-          },
-          {
-            "label": "Media ~25%",
-            "v": 0.25,
-            "tone": "amber"
-          },
-          {
-            "label": "Baja ~30%",
-            "v": 0.3,
+            "label": "Impacto",
+            "value": "92",
             "tone": "blue"
           },
           {
-            "label": "A futuro ~30%",
-            "v": 0.3,
-            "tone": "violet"
+            "label": "Esfuerzo",
+            "value": "18",
+            "tone": "green"
+          },
+          {
+            "label": "Score",
+            "value": "87",
+            "tone": "amber"
           }
-        ]
-      },
-      {
-        "type": "diffCard",
+        ],
         "rows": [
           {
-            "field": "Candidata de Fath…",
-            "before": "Duplica la tarjeta",
-            "after": "Enriquece la que ya e…"
+            "name": "Subir precio R2",
+            "amount": "87",
+            "tone": "green"
           },
           {
-            "field": "Tarjeta 'Llamar a…",
-            "before": "Llamar a Ana",
-            "after": "Llamar a Ana + mandar…"
+            "name": "Refinar VSL",
+            "amount": "41",
+            "tone": "amber"
           },
           {
-            "field": "Borrar 'lo hago d…",
-            "before": "Elimina para siem…",
-            "after": "Conserva y baja prior…"
+            "name": "Rediseñar logo",
+            "amount": "12",
+            "tone": "red"
           }
         ]
       },
       {
         "type": "chatThread",
-        "title": "Nudge en background, sin quemar tokens",
+        "title": "Debate con el guardián",
         "msgs": [
           {
             "from": "out",
-            "text": "Tenés 'Grabar nuevo VSL' con score 62 y sin…",
-            "voice": true
+            "text": "Subo esto, es importante"
           },
           {
             "from": "in",
-            "text": "Uf, no, ahora que lo veo… mejor después"
+            "text": "¿Cuánta plata trae?"
           },
           {
             "from": "out",
-            "text": "Urgente no es lo mismo que importante. Si d…",
-            "voice": true
+            "text": "No sé, me gusta"
+          },
+          {
+            "from": "in",
+            "text": "Rechazo: es apego"
           }
+        ]
+      },
+      {
+        "type": "pyramid",
+        "title": "Pirámide sana",
+        "tiers": [
+          {
+            "label": "Alta · 15%",
+            "tone": "red"
+          },
+          {
+            "label": "Media · 25%",
+            "tone": "amber"
+          },
+          {
+            "label": "Baja · 30%",
+            "tone": "green"
+          },
+          {
+            "label": "A futuro · 30%",
+            "tone": "green"
+          }
+        ]
+      },
+      {
+        "type": "kanban",
+        "cols": [
+          {
+            "label": "Nueva",
+            "cards": 2,
+            "tone": "green"
+          },
+          {
+            "label": "Enriquece",
+            "cards": 3
+          },
+          {
+            "label": "No borra",
+            "cards": 1,
+            "tone": "red"
+          }
+        ]
+      },
+      {
+        "type": "splitLoad",
+        "left": "Vos trabajás",
+        "right": "Se ordena solo",
+        "loading": [
+          "Detecta cambio",
+          "Espera 2.5s",
+          "Re-puntúa",
+          "Estabiliza"
         ]
       }
     ]
@@ -1927,88 +1768,86 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     "hero": {
       "type": "thesisCard",
       "tabs": [
-        "Adquisición",
-        "Nutrición",
-        "Conversión",
-        "Creativos",
+        "Ads",
+        "CRM",
+        "Closing",
+        "Guiones",
         "Revenue",
-        "Experiment…"
+        "Experimentos"
       ],
-      "thesis": "El frente compra barato pero el embudo pierde…",
-      "leak": "$18k"
+      "thesis": "El frente compra barato, el embudo pierde",
+      "leak": "$18k",
+      "plan": "2 exp · 5 tareas"
     },
     "groups": [
       {
         "type": "signalFlow",
-        "title": "El cruce que ninguna tab revela sola",
+        "title": "El cruce",
         "nodes": [
           {
-            "label": "Diagnóstico por área",
-            "sub": "6 áreas en paralelo…",
+            "label": "6 áreas",
+            "sub": "en paralelo",
             "tone": "blue"
           },
           {
-            "label": "Ronda de cruces",
-            "sub": "entre áreas · effor…",
+            "label": "Cruces",
+            "sub": "entre áreas",
             "tone": "violet"
           },
           {
-            "label": "Insight cruzado",
-            "sub": "nutridos cierran 2.…",
+            "label": "Insight",
+            "sub": "oculto",
             "tone": "green"
           }
-        ],
-        "badges": [
-          "8 fases de pipel…",
-          "~9 llamadas a Op…"
         ]
       },
       {
         "type": "statTiles",
-        "title": "La fuga en plata, no en porcentajes",
+        "title": "Fuga del período",
         "tiles": [
           {
-            "label": "Te fugás por período",
-            "value": "~$18k",
-            "tone": "red"
-          }
-        ],
-        "rows": [
-          {
-            "name": "Adquisición",
-            "amount": "sano",
-            "tone": "green"
-          },
-          {
-            "name": "Nutrición",
-            "amount": "alerta",
+            "label": "Fuga",
+            "value": "$18k",
             "tone": "amber"
           },
           {
-            "name": "Conversión",
-            "amount": "sangra",
-            "tone": "red"
+            "label": "Sano",
+            "value": "4/6",
+            "tone": "green"
           },
           {
-            "name": "VSL sin trackear",
-            "amount": "sin dato",
-            "tone": "blue"
+            "label": "Sangra",
+            "value": "2/6",
+            "tone": "red"
           }
         ]
       },
       {
-        "type": "stamp",
-        "title": "Tu lectura entra como hipótesis, no como verdad",
-        "result": "refuted",
-        "before": "Tu lectura: 'el p…",
-        "after": "Dato duro: la fuga se…"
+        "type": "diffCard",
+        "rows": [
+          {
+            "field": "Título",
+            "before": "crudo",
+            "after": "reescrito"
+          },
+          {
+            "field": "Insight",
+            "before": "—",
+            "after": "MaKo"
+          },
+          {
+            "field": "Evidencia",
+            "before": "$18k",
+            "after": "$18k 🔒"
+          }
+        ]
       },
       {
         "type": "pyramid",
-        "title": "Aceptar arranca a medir — y el Perro Guardián prior…",
+        "title": "Perro Guardián",
         "tiers": [
           {
-            "label": "Alta ~15%",
+            "label": "Alta · 15%",
             "tone": "red"
           },
           {
@@ -2022,27 +1861,26 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         ]
       },
       {
-        "type": "barChart",
-        "title": "Aceptar no es hacer: la próxima Retro lee el estado…",
-        "bars": [
+        "type": "kanban",
+        "cols": [
           {
             "label": "Hecha",
-            "v": 0.4,
+            "cards": 2,
             "tone": "green"
           },
           {
             "label": "Empezada",
-            "v": 0.25,
+            "cards": 1,
             "tone": "amber"
           },
           {
-            "label": "Aceptada y sin tocar",
-            "v": 0.2,
+            "label": "Aceptada",
+            "cards": 3,
             "tone": "red"
           },
           {
             "label": "Se perdió",
-            "v": 0.15,
+            "cards": 1,
             "tone": "red"
           }
         ]
@@ -2052,98 +1890,88 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "fase-norte": {
     "hero": {
       "type": "phaseLadder",
-      "title": "En qué fase estás de verdad",
+      "title": "Tu fase real",
       "phases": [
-        "F0 Visibilidad",
-        "F1 Conversión",
-        "F2 Sistemas",
-        "F3 Delegación",
-        "F4 Foco"
+        "Visibilidad",
+        "Conversión",
+        "Sistemas",
+        "Delegación",
+        "Foco"
       ],
       "current": 1
     },
     "groups": [
       {
         "type": "funnel",
-        "title": "5 fases, un cuello cada una",
+        "title": "Tu cuello",
         "stages": [
           {
-            "label": "F0 Visibilidad",
-            "w": 1,
-            "trg": "auto"
+            "label": "Leads",
+            "w": 1
           },
           {
-            "label": "F1 Conversión",
-            "w": 0.78,
-            "trg": "auto"
+            "label": "R1",
+            "w": 0.52
           },
           {
-            "label": "F2 Sistemas",
-            "w": 0.56,
-            "trg": "auto"
+            "label": "R2",
+            "w": 0.34
           },
           {
-            "label": "F3 Delegación",
-            "w": 0.4,
-            "trg": "auto"
-          },
-          {
-            "label": "F4 Foco",
-            "w": 0.27,
-            "trg": "auto"
+            "label": "Cierre",
+            "w": 0.16
           }
         ]
       },
       {
         "type": "barChart",
-        "title": "[0,1,1,2,2,2] → te deja en Fase 1, no Fase 2",
+        "title": "Tu reparto",
         "bars": [
           {
             "label": "F0",
-            "v": 0.33,
-            "tone": "blue"
+            "v": 0.18
           },
           {
             "label": "F1",
-            "v": 0.66,
-            "tone": "green"
+            "v": 0.34
           },
           {
             "label": "F2",
-            "v": 1,
+            "v": 0.5,
             "tone": "amber"
           }
         ]
       },
       {
         "type": "makoAnswer",
-        "q": "¿Subo el presupuesto de pauta?",
-        "a": "No todavía — estás en Fase 1 (Conversión)",
-        "detail": "Tu R1 aún no muestra parejo. Subir la pauta antes de convertir es tirar plata a un embudo pinchado: MaKo prioriza según tu etapa real, no de manual."
+        "q": "¿Subo el presupuesto?",
+        "a": "No todavía",
+        "detail": "Estás en Fase 1: tu R1 muestra al 30%. Arreglá la conversión antes de escalar la pauta."
       },
       {
         "type": "scoreCard",
-        "title": "6 preguntas, 6 dimensiones → tu fase",
+        "chrome": "Diagnóstico",
+        "title": "6 dimensiones",
         "items": [
           {
             "label": "Ingresos",
-            "v": 0
+            "v": 0.4
           },
           {
-            "label": "Leads/mes",
-            "v": 0.25
+            "label": "Leads",
+            "v": 0.6
           },
           {
             "label": "Funnel",
-            "v": 0.25
+            "v": 0.3
           },
           {
             "label": "Ventas",
-            "v": 0.5
+            "v": 0.3
           },
           {
             "label": "Cuello",
-            "v": 0.5
+            "v": 0.2
           },
           {
             "label": "Equipo",
@@ -2156,24 +1984,23 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "whatsapp": {
     "hero": {
       "type": "chatThread",
-      "title": "MaKo te sugiere en vivo qué responder",
+      "title": "Hola MaKo",
       "msgs": [
         {
-          "from": "in",
-          "text": "La verdad lo pensé y no sé si es para mí ah…"
-        },
-        {
           "from": "out",
-          "text": "Te entiendo. ¿Qué te frena más hoy: el tiem…"
+          "text": "Lead frío, ¿qué mando?"
         },
         {
           "from": "in",
-          "text": "Más que nada si voy a tener tiempo de aplic…"
+          "text": "Reactivá con prueba social"
+        },
+        {
+          "from": "in",
+          "text": "Ventana: 3h 12m"
         },
         {
           "from": "out",
-          "text": "Nota de voz (38s): «Justo por eso el sistem…",
-          "voice": true
+          "text": "✓ Enviado"
         }
       ]
     },
@@ -2182,61 +2009,73 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "waInbox",
         "rows": [
           {
-            "name": "Laura Méndez",
+            "name": "Ana Méndez",
             "stage": "R2",
-            "win": 3
+            "win": 18
           },
           {
-            "name": "Diego Torres",
+            "name": "Luis Soto",
             "stage": "por-cobrar",
-            "win": 19
+            "win": 4
           },
           {
-            "name": "Sofía Ruiz",
+            "name": "Sofi Ruiz",
             "stage": "no-show",
-            "win": 1
-          },
-          {
-            "name": "Andrés Gil",
-            "stage": "cliente",
-            "win": 22
+            "win": 0
           }
         ]
       },
       {
         "type": "gauge",
-        "value": 0.03,
-        "big": "0:47",
-        "label": "Ventana de 24h · qu…",
-        "tone": "red"
+        "value": 0.13,
+        "big": "3:12",
+        "label": "Ventana",
+        "tone": "amber"
       },
       {
         "type": "makoAnswer",
-        "q": "¿Qué le escribo a este lead que no re…",
-        "a": "Reactivación por curiosidad — como planti…",
-        "detail": "Etapa detectada: no-show R1. Ángulo: curiosidad + prueba social, tono cálido. Incluye guion de nota de voz de 40s. Metodología Levanta Muertos."
+        "q": "¿Qué le contesto?",
+        "a": "Prueba social + cierre suave",
+        "detail": "Lleva 6 días sin responder, etapa R2. Mandá el caso de un cliente similar y proponé retomar la llamada."
       },
       {
-        "type": "semaphore",
-        "lit": "amber",
-        "verdict": "Riesgo MEDIO: la variable {{1}} no es nombrada — Meta…"
+        "type": "scoreCard",
+        "chrome": "Plantilla",
+        "title": "Rúbrica Meta",
+        "items": [
+          {
+            "label": "Política",
+            "v": 0.9
+          },
+          {
+            "label": "Variables",
+            "v": 1
+          },
+          {
+            "label": "Categoría",
+            "v": 0.7
+          },
+          {
+            "label": "Riesgo",
+            "v": 0.85
+          }
+        ]
       },
       {
         "type": "kanban",
         "cols": [
           {
-            "label": "Borrador (setter ma…",
-            "cards": 7,
+            "label": "Pendiente",
+            "cards": 3,
             "tone": "amber"
           },
           {
-            "label": "Reclamado (CLAIM at…",
-            "cards": 2,
-            "tone": "blue"
+            "label": "Enviando",
+            "cards": 1
           },
           {
-            "label": "Enviado por Evoluti…",
-            "cards": 14,
+            "label": "Enviado",
+            "cards": 4,
             "tone": "green"
           }
         ]
@@ -2246,180 +2085,149 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   "email": {
     "hero": {
       "type": "emailSequence",
-      "title": "Secuencias que se disparan solas por estado del lead",
+      "title": "Secuencia auto",
       "steps": [
         {
-          "day": "Al instan…",
-          "subject": "Vio el VSL sin agendar"
+          "day": "Día 0",
+          "subject": "No agendaste"
         },
         {
-          "day": "No Show R1",
-          "subject": "No se presentó a la reunión"
+          "day": "Día 2",
+          "subject": "El caso de Ana"
         },
         {
-          "day": "Post pago",
-          "subject": "Confirmó sin pagar"
-        },
-        {
-          "day": "+2 días",
-          "subject": "Reactivación de frío"
+          "day": "Día 5",
+          "subject": "Última llamada"
         }
       ]
     },
     "groups": [
       {
-        "type": "funnel",
-        "title": "14 triggers del funnel disparan la secuencia",
-        "stages": [
+        "type": "kanban",
+        "cols": [
           {
-            "label": "Vio el VSL sin agen…",
-            "w": 1,
-            "trg": "auto"
+            "label": "No Show",
+            "cards": 3,
+            "tone": "red"
           },
           {
-            "label": "No agendaron",
-            "w": 0.68,
-            "trg": "auto"
-          },
-          {
-            "label": "Confirmó sin pagar",
-            "w": 0.44,
-            "trg": "auto"
-          },
-          {
-            "label": "No Show R1/R2",
-            "w": 0.28,
-            "trg": "auto"
+            "label": "Sin pagar",
+            "cards": 2,
+            "tone": "amber"
           },
           {
             "label": "Ganados",
-            "w": 0.14,
-            "trg": "mako"
-          }
-        ]
-      },
-      {
-        "type": "makoAnswer",
-        "q": "Escribime el email para el que confir…",
-        "a": "Asunto + preheader + cuerpo, en la voz de…",
-        "detail": "Asunto de ~6 palabras · 2 a 5 párrafos · un solo CTA con tu Calendly adentro · reporta tokens y costo"
-      },
-      {
-        "type": "docExtract",
-        "fields": [
-          {
-            "k": "De:",
-            "v": "ventas@tudominio.com"
-          },
-          {
-            "k": "DKIM",
-            "v": "resend._domainkey → TXT"
-          },
-          {
-            "k": "SPF",
-            "v": "v=spf1 include:resend"
-          },
-          {
-            "k": "Estado del dominio",
-            "v": "verified (en vivo)"
-          }
-        ]
-      },
-      {
-        "type": "statTiles",
-        "title": "Entregabilidad y respeto por la bandeja",
-        "tiles": [
-          {
-            "label": "Guard anti-spam",
-            "value": "20h",
+            "cards": 4,
             "tone": "green"
+          }
+        ]
+      },
+      {
+        "type": "chatThread",
+        "title": "Botón MaKo",
+        "msgs": [
+          {
+            "from": "out",
+            "text": "Escribí el email R1",
+            "voice": true
           },
           {
-            "label": "Envío en chunks",
-            "value": "100",
+            "from": "in",
+            "text": "Asunto + cuerpo ✓"
+          },
+          {
+            "from": "out",
+            "text": "Probá a mí"
+          },
+          {
+            "from": "in",
+            "text": "✓ [PRUEBA] enviado"
+          }
+        ]
+      },
+      {
+        "type": "signalFlow",
+        "title": "Tu dominio",
+        "nodes": [
+          {
+            "label": "Dominio",
+            "sub": "alta",
             "tone": "blue"
           },
           {
-            "label": "Tope por broadcast",
-            "value": "2000",
-            "tone": "amber"
+            "label": "DKIM",
+            "sub": "SPF/DNS",
+            "tone": "violet"
+          },
+          {
+            "label": "Verified",
+            "sub": "remitente fijo",
+            "tone": "green"
           }
         ]
+      },
+      {
+        "type": "gauge",
+        "value": 0.94,
+        "big": "94%",
+        "label": "Entrega",
+        "tone": "green"
       }
     ]
   },
   "conocimiento": {
     "hero": {
       "type": "ragIndex",
-      "title": "Tu curso → transcribe → embeddings"
+      "title": "Tu método",
+      "source": "tu clase"
     },
     "groups": [
       {
-        "type": "signalFlow",
-        "title": "Tres formas de cargar el método",
-        "nodes": [
-          {
-            "label": "Texto / Video / Aud…",
-            "sub": "pegás o subís hasta…",
-            "tone": "blue"
-          },
-          {
-            "label": "Whisper-1 transcribe",
-            "sub": "revisás y editás an…",
-            "tone": "amber"
-          },
-          {
-            "label": "Indexado",
-            "sub": "badge de estado en…",
-            "tone": "green"
-          }
-        ],
-        "badges": [
-          "indexado",
-          "pendiente",
-          "error"
+        "type": "splitLoad",
+        "left": "Pegás o subís",
+        "right": "Queda indexado",
+        "loading": [
+          "Texto",
+          "Video 25MB",
+          "Curso",
+          "Whisper"
         ]
       },
       {
         "type": "roleMatrix",
         "roles": [
-          "WhatsApp",
-          "Campañas Me…",
-          "Chat MaKo",
-          "Swipe copy"
+          "mensajes",
+          "ads",
+          "general"
         ],
         "tools": [
           {
-            "tool": "mensajes",
+            "tool": "WhatsApp",
             "on": [
-              true,
-              false,
-              false,
-              false
-            ]
-          },
-          {
-            "tool": "ads",
-            "on": [
-              false,
               true,
               false,
               false
             ]
           },
           {
-            "tool": "general",
+            "tool": "Nutrición",
             "on": [
+              true,
               false,
+              false
+            ]
+          },
+          {
+            "tool": "Campañas Meta",
+            "on": [
               false,
               true,
               false
             ]
           },
           {
-            "tool": "ejemplos",
+            "tool": "Chat MaKo",
             "on": [
-              false,
               false,
               false,
               true
@@ -2428,110 +2236,106 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         ]
       },
       {
-        "type": "scoreCard",
-        "title": "Búsqueda semántica top-k por coseno",
-        "items": [
+        "type": "signalFlow",
+        "title": "Recuperación",
+        "nodes": [
           {
-            "label": "Objeción de precio",
-            "v": 0.82
+            "label": "Consulta",
+            "sub": "tu duda",
+            "tone": "blue"
           },
           {
-            "label": "Reactivar lead muer…",
-            "v": 0.71
+            "label": "Embedding",
+            "sub": "vector",
+            "tone": "violet"
           },
           {
-            "label": "Secuencia 7/14/21 d…",
-            "v": 0.44
-          },
-          {
-            "label": "Corte de relevancia…",
-            "v": 0.15
+            "label": "Top-k",
+            "sub": "coseno",
+            "tone": "green"
           }
         ]
       },
       {
-        "type": "makoAnswer",
-        "q": "¿Qué es Artemisa?",
-        "a": "El Fathom de Mauricio.",
-        "detail": "El glosario del negocio va montado sobre la misma tabla: MaKo entiende tu jerga y corrige transcripciones sin volver a preguntar. La base de la agencia viaja read-only a todos los clientes; cada uno suma lo suyo, aislado por workspace."
+        "type": "pyramid",
+        "title": "Aditivo",
+        "tiers": [
+          {
+            "label": "Tu método",
+            "tone": "green"
+          },
+          {
+            "label": "Glosario",
+            "tone": "amber"
+          },
+          {
+            "label": "Base agencia",
+            "tone": "green"
+          }
+        ]
       }
     ]
   },
   "mako": {
     "hero": {
       "type": "makoAnswer",
-      "q": "MaKo, ¿qué muevo esta semana?",
-      "a": "Frená la campaña de arriba: trae leads pe…",
-      "detail": "Cruzó tu funnel real, las respuestas de R1 y el estado de Experimentos, con el criterio de Martín Koncke. Es una hipótesis, no una verdad: validala antes de escalar."
+      "q": "¿Escalo este ad?",
+      "a": "No, pausá el otro",
+      "detail": "Gastó $340 y 0 cierres en 7 días. Tu CAC objetivo es $180 y ya lo triplicó."
     },
     "groups": [
       {
-        "type": "funnel",
-        "title": "Tu funnel real, no un embudo genérico",
-        "stages": [
-          {
-            "label": "Leads",
-            "w": 1,
-            "trg": "auto"
-          },
-          {
-            "label": "R1 agendada",
-            "w": 0.55,
-            "trg": "mako"
-          },
-          {
-            "label": "R2",
-            "w": 0.3,
-            "trg": "mako"
-          },
-          {
-            "label": "Venta",
-            "w": 0.14,
-            "trg": "manual"
-          }
+        "type": "splitLoad",
+        "left": "Preguntás",
+        "right": "Contexto vivo",
+        "loading": [
+          "Persona",
+          "Funnel real",
+          "Fase/Norte",
+          "Método RAG"
         ]
       },
       {
-        "type": "statTiles",
-        "title": "El Doer consulta los hechos antes de opinar",
-        "tiles": [
+        "type": "signalFlow",
+        "title": "Consulta antes de opinar",
+        "nodes": [
           {
-            "label": "Herramientas de lec…",
-            "value": "9",
+            "label": "Leads",
+            "sub": "ficha 360",
             "tone": "blue"
           },
           {
-            "label": "Pasos de tool-use p…",
-            "value": "8",
+            "label": "getTenantDb",
+            "sub": "solo lectura",
             "tone": "violet"
           },
           {
-            "label": "Solo lectura, tu wo…",
-            "value": "0 invent…",
+            "label": "MaKo",
+            "sub": "con datos",
             "tone": "green"
           }
         ]
       },
       {
         "type": "chatThread",
-        "title": "Hola MaKo, desde tu propio grupo",
+        "title": "Hola MaKo",
         "msgs": [
           {
             "from": "out",
-            "text": "MaKo, te mando un audio",
+            "text": "nota de voz",
             "voice": true
           },
           {
             "from": "in",
-            "text": "Escuchando… transcribí tu nota: querés subi…"
+            "text": "Leí tu audio. ¿Pauso el ad?"
           },
           {
             "from": "out",
-            "text": "(captura del dashboard)"
+            "text": "Sí"
           },
           {
             "from": "in",
-            "text": "Leí la imagen: el ROAS cayó a 2.1x, no lo s…"
+            "text": "✓ Pausado"
           }
         ]
       },
@@ -2539,19 +2343,14 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "diffCard",
         "rows": [
           {
-            "field": "Etapa del lead",
-            "before": "R1 agendada",
-            "after": "R2 agendada"
+            "field": "Mover lead",
+            "before": "Propone",
+            "after": "Espera OK"
           },
           {
-            "field": "Nutrición",
-            "before": "Pausada",
-            "after": "Activa"
-          },
-          {
-            "field": "Campaña Meta",
-            "before": "$50/día",
-            "after": "$80/día"
+            "field": "Acción",
+            "before": "—",
+            "after": "Vence 2h"
           }
         ]
       },
@@ -2559,17 +2358,16 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "kanban",
         "cols": [
           {
-            "label": "Adquisición",
-            "cards": 3,
-            "tone": "blue"
+            "label": "Ads",
+            "cards": 3
           },
           {
-            "label": "Nutrición",
+            "label": "CRM",
             "cards": 2,
-            "tone": "amber"
+            "tone": "red"
           },
           {
-            "label": "Cierre",
+            "label": "Proyecto nuevo",
             "cards": 1,
             "tone": "green"
           }
@@ -2577,25 +2375,26 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       },
       {
         "type": "pyramid",
-        "title": "Perro guardián: prioridad sin empates",
+        "title": "Prioridad",
         "tiers": [
           {
-            "label": "Alta: arreglar el s…",
+            "label": "Alta · 3 hoy",
             "tone": "red"
           },
           {
-            "label": "Media: reescribir e…",
+            "label": "Media · 5",
             "tone": "amber"
           },
           {
-            "label": "Baja: renombrar cam…",
+            "label": "Baja · 8",
             "tone": "green"
           }
         ]
       },
       {
         "type": "ragIndex",
-        "title": "Método curado + tu conocimiento, embebido"
+        "title": "Tu método",
+        "source": "tu clase"
       }
     ]
   },
@@ -2606,88 +2405,108 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     },
     "groups": [
       {
-        "type": "signalFlow",
-        "title": "Pegás, probás, reconocés que es LA tuya",
-        "nodes": [
-          {
-            "label": "Pegás credencial",
-            "sub": "token + ad account",
-            "tone": "blue"
-          },
-          {
-            "label": "Probás conexión",
-            "sub": "request real · time…",
-            "tone": "amber"
-          },
-          {
-            "label": "Cuenta reconocida",
-            "sub": "nombre + última lla…",
-            "tone": "green"
-          }
-        ],
-        "badges": [
+        "type": "splitLoad",
+        "left": "Pegás la key",
+        "right": "Conecta y prueba",
+        "loading": [
           "Meta Ads",
           "WhatsApp",
-          "Resend",
           "Fathom",
-          "Calendly",
-          "Panda Video",
-          "YouTube",
-          "Google Calendar",
-          "Landing/VSL"
+          "Calendly"
         ]
       },
       {
-        "type": "alertCard",
-        "text": "Otro workspace intentó reclamar tu identificador de webhook. MaKo lo frenó (409) y lo auditó como intento de secuestro. Sin esto, te robaba los webhooks entrantes."
-      },
-      {
-        "type": "statTiles",
-        "title": "Saldo de IA — al centavo",
-        "tiles": [
+        "type": "signalFlow",
+        "title": "Cada credencial",
+        "nodes": [
           {
-            "label": "Gasto del mes",
-            "value": "$312",
-            "tone": "amber"
-          },
-          {
-            "label": "Tokens hoy",
-            "value": "1.2M",
+            "label": "Key",
+            "sub": "tu workspace",
             "tone": "blue"
           },
           {
-            "label": "Saldo restante",
-            "value": "$188",
+            "label": "HKDF",
+            "sub": "sal+AAD",
+            "tone": "violet"
+          },
+          {
+            "label": "AES-256",
+            "sub": "aislada",
             "tone": "green"
+          }
+        ]
+      },
+      {
+        "type": "statTiles",
+        "title": "Saldo de IA",
+        "tiles": [
+          {
+            "label": "Mes",
+            "value": "$42",
+            "tone": "blue"
+          },
+          {
+            "label": "Saldo",
+            "value": "$180",
+            "tone": "green"
+          },
+          {
+            "label": "Resta",
+            "value": "$138",
+            "tone": "amber"
           }
         ],
         "rows": [
           {
-            "name": "Opus · análisis fino",
-            "amount": "$142",
-            "tone": "violet"
-          },
-          {
-            "name": "Sonnet · voz de marca",
-            "amount": "$88",
+            "name": "Closing · Opus",
+            "amount": "$0.42",
             "tone": "blue"
           },
           {
-            "name": "Groq OSS · tareas simpl…",
-            "amount": "$0",
+            "name": "Voz · Sonnet",
+            "amount": "$0.08",
             "tone": "green"
           },
           {
-            "name": "STT · por segundos de a…",
-            "amount": "$34",
+            "name": "STT · Groq",
+            "amount": "$0.00",
             "tone": "amber"
           }
         ]
       },
       {
-        "type": "semaphore",
-        "lit": "green",
-        "verdict": "Landing/VSL se marca conectada solo cuando el pixel Y…"
+        "type": "roleMatrix",
+        "roles": [
+          "Claude",
+          "Sonnet",
+          "Groq"
+        ],
+        "tools": [
+          {
+            "tool": "Datos PII",
+            "on": [
+              true,
+              false,
+              false
+            ]
+          },
+          {
+            "tool": "Voz marca",
+            "on": [
+              false,
+              true,
+              false
+            ]
+          },
+          {
+            "tool": "Simples",
+            "on": [
+              false,
+              false,
+              true
+            ]
+          }
+        ]
       }
     ]
   },
@@ -2725,7 +2544,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           ]
         },
         {
-          "tool": "Closing Analyst",
+          "tool": "Closing",
           "on": [
             false,
             true,
@@ -2733,7 +2552,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           ]
         },
         {
-          "tool": "Integraciones",
+          "tool": "Ads",
           "on": [
             false,
             false,
@@ -2741,7 +2560,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           ]
         },
         {
-          "tool": "Equipo",
+          "tool": "Config",
           "on": [
             false,
             false,
@@ -2752,75 +2571,28 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     },
     "groups": [
       {
-        "type": "roleMatrix",
-        "roles": [
-          "Setter",
-          "Closer",
-          "Admin"
-        ],
-        "tools": [
+        "type": "kanban",
+        "cols": [
           {
-            "tool": "CRM",
-            "on": [
-              true,
-              true,
-              true
-            ]
+            "label": "Setter",
+            "cards": 3
           },
           {
-            "tool": "WhatsApp",
-            "on": [
-              true,
-              true,
-              true
-            ]
+            "label": "Closer",
+            "cards": 3,
+            "tone": "blue"
           },
           {
-            "tool": "Email",
-            "on": [
-              true,
-              false,
-              true
-            ]
-          },
-          {
-            "tool": "Closing Analyst",
-            "on": [
-              false,
-              true,
-              true
-            ]
-          },
-          {
-            "tool": "Analytics + Ads",
-            "on": [
-              false,
-              false,
-              true
-            ]
-          },
-          {
-            "tool": "Integraciones",
-            "on": [
-              false,
-              false,
-              true
-            ]
-          },
-          {
-            "tool": "Equipo",
-            "on": [
-              false,
-              false,
-              true
-            ]
+            "label": "Admin",
+            "cards": 4,
+            "tone": "green"
           }
         ]
       },
       {
         "type": "semaphore",
         "lit": "red",
-        "verdict": "403: tecleás la URL a mano y tampoco entrás. requireR…"
+        "verdict": "403 · sin acceso"
       },
       {
         "type": "diffCard",
@@ -2828,122 +2600,141 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           {
             "field": "Rol",
             "before": "Closer",
-            "after": "— sin acceso"
+            "after": "Revocado"
           },
           {
             "field": "Aplica",
-            "after": "al instante",
-            "before": "al vencer la sesi…"
-          },
-          {
-            "field": "Rol en la cookie",
-            "before": "pegado",
-            "after": "se resuelve fresco"
+            "before": "Al deslogear",
+            "after": "Al instante"
           }
         ]
       },
       {
-        "type": "phaseLadder",
-        "title": "De invitado a activo, sin crear contraseña",
-        "phases": [
-          "Invitás por em…",
-          "Invitado",
-          "Entra con Goog…",
-          "Se activa sola",
-          "Activo"
-        ],
-        "current": 3
+        "type": "signalFlow",
+        "title": "Alta del vendedor",
+        "nodes": [
+          {
+            "label": "Email",
+            "sub": "invitás",
+            "tone": "blue"
+          },
+          {
+            "label": "Google",
+            "sub": "entra",
+            "tone": "violet"
+          },
+          {
+            "label": "Activo",
+            "sub": "sin pass",
+            "tone": "green"
+          }
+        ]
       },
       {
-        "type": "makoAnswer",
-        "q": "Acción sobre alguien de otro workspace",
-        "a": "404",
-        "detail": "Ese miembro no pertenece a tu equipo. El ROL decide qué ve la persona; la CAPA decide qué compró el cliente."
+        "type": "alertCard",
+        "text": "Tocás a alguien de otro workspace y MaKo devuelve 404: ese miembro no pertenece a tu equipo."
       }
     ]
   },
   "perfil-reportes": {
     "hero": {
-      "type": "alertCard",
-      "text": "Meta te frenó la entrega hace 40 min. Adset 'Retargeting VSL' fatigado quemando $1.2k/día. Resolvé ahora."
+      "type": "chatThread",
+      "title": "Reporte MaKo",
+      "msgs": [
+        {
+          "from": "in",
+          "text": "☀️ Reporte de ayer"
+        },
+        {
+          "from": "in",
+          "text": "Meta frenó la entrega"
+        },
+        {
+          "from": "in",
+          "text": "Cuota vencida $2.5k"
+        },
+        {
+          "from": "out",
+          "text": "Abrir panel"
+        }
+      ]
     },
     "groups": [
       {
         "type": "semaphore",
         "lit": "red",
-        "verdict": "Entrega frenada en Meta. Te interrumpo solo cuando cu…"
+        "verdict": "Solo suena si duele"
       },
       {
-        "type": "statTiles",
-        "title": "Digest diario · 8:00 Tijuana",
-        "tiles": [
-          {
-            "label": "Gastado ayer (MXN)",
-            "value": "$14.2k",
-            "tone": "blue"
-          },
-          {
-            "label": "Leads · CPL",
-            "value": "23 · $618",
-            "tone": "green"
-          },
-          {
-            "label": "Cash del mes",
-            "value": "$48k",
-            "tone": "violet"
-          }
+        "type": "dashboardMock",
+        "title": "Digest diario",
+        "points": [
+          0.3,
+          0.5,
+          0.42,
+          0.66,
+          0.8
         ],
-        "rows": [
+        "kpis": [
           {
-            "name": "Cuota vencida · Acme",
-            "amount": "$2.5k",
-            "tone": "red"
+            "v": "$14",
+            "k": "CPL"
           },
           {
-            "name": "Cuota vencida · Nova",
-            "amount": "$1.8k",
-            "tone": "amber"
+            "v": "2.1%",
+            "k": "CTR"
+          },
+          {
+            "v": "31%",
+            "k": "Cierre"
           }
         ]
       },
       {
-        "type": "chatThread",
-        "title": "Ventana de servicio 24h",
-        "msgs": [
+        "type": "signalFlow",
+        "title": "Reporte por WhatsApp",
+        "nodes": [
           {
-            "from": "out",
-            "text": "reporte_mako · [ Recibir reporte ]"
+            "label": "Plantilla",
+            "sub": "apertura",
+            "tone": "blue"
           },
           {
-            "from": "in",
-            "text": "Recibir reporte"
+            "label": "Ventana",
+            "sub": "24h",
+            "tone": "violet"
           },
           {
-            "from": "out",
-            "text": "Diario · Meta 🟢 saldo $320 USD · ayer $14.…"
+            "label": "Texto",
+            "sub": "multilínea",
+            "tone": "green"
           }
         ]
       },
       {
         "type": "roleMatrix",
         "roles": [
-          "Horario",
-          "Diario",
-          "Semanal"
+          "WhatsApp",
+          "Email"
         ],
         "tools": [
           {
-            "tool": "WhatsApp",
+            "tool": "Horario",
             "on": [
               true,
+              false
+            ]
+          },
+          {
+            "tool": "Diario",
+            "on": [
               false,
               true
             ]
           },
           {
-            "tool": "Email",
+            "tool": "Semanal",
             "on": [
-              false,
               true,
               true
             ]
@@ -2951,23 +2742,22 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         ]
       },
       {
-        "type": "docExtract",
-        "fields": [
+        "type": "diffCard",
+        "rows": [
           {
-            "k": "Perfil (por-usuario)",
-            "v": "Nombre · Cargo · Empresa · Bio"
+            "field": "Alcance",
+            "before": "Tuyo",
+            "after": "Negocio"
           },
           {
-            "k": "Zona horaria",
-            "v": "Tijuana (GMT-7)"
+            "field": "Guarda",
+            "before": "Perfil",
+            "after": "Contacto"
           },
           {
-            "k": "Email de login",
-            "v": "solo-lectura"
-          },
-          {
-            "k": "Contacto de reportes",
-            "v": "nivel workspace · +52 664 000 0000"
+            "field": "Corre",
+            "before": "Con login",
+            "after": "Sin sesión"
           }
         ]
       }
