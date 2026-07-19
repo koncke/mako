@@ -70,6 +70,7 @@ import {
 } from './checklist-coach';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
+import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE } from './mako-guardian';
 import { GATE_SYSTEM_TEMPLATE, GATE_USER_TEMPLATE } from './retro-gate';
 import {
   EXP_SUGGEST_SYSTEM_DEFAULT, EXP_SUGGEST_USER_DEFAULT,
@@ -659,6 +660,20 @@ export const REGISTRY: Group[] = [
         context: 'Le pasa el elemento, el motivo y el plan. No borres los slots {{que}}/{{motivo}}/{{plan}}.',
       },
       {
+        key: 'guardian.cruce.system', source: 'override',
+        label: 'Cruzar candidatas con el plan (system)', kind: 'system', dynamic: true,
+        variables: [v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
+        default: CRUCE_SYSTEM_TEMPLATE,
+        context: 'Al extraer tareas de una reunión/archivo, MaKo decide cuáles ya existen en el plan para enriquecerlas en vez de duplicar. No borres el slot {{jsonShape}}.',
+      },
+      {
+        key: 'guardian.cruce.user', source: 'override',
+        label: 'Cruzar candidatas con el plan (user)', kind: 'user', dynamic: true,
+        variables: [v('candidatas', 'las tareas recién sacadas'), v('plan', 'las tareas del plan actual')], scope: 'full', sensitive: false,
+        default: CRUCE_USER_TEMPLATE,
+        context: 'Le pasa las candidatas y el plan actual. No borres los slots {{candidatas}}/{{plan}}.',
+      },
+      {
         key: 'guardian.duplicados.system', source: 'override',
         label: 'Buscar duplicados (system)', kind: 'system', dynamic: true,
         variables: [v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
@@ -689,9 +704,9 @@ export const REGISTRY: Group[] = [
       {
         key: 'plan-fathom.extraer.user', source: 'override',
         label: 'Reunión + proyectos (user)', kind: 'user', dynamic: true,
-        variables: [v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
+        variables: [v('yo', 'quién mira el tablero (nombre + email)'), v('glosario', 'términos/nombres propios del negocio'), v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
         default: PLAN_FATHOM_USER_TEMPLATE,
-        context: 'Le pasa los proyectos (para asignar proyectoId) y el contenido de la reunión. No borres los slots {{proyectos}}/{{reunion}}.',
+        context: 'Le pasa quién mira el tablero (para el dueño de cada tarea), el glosario (para entender la jerga y corregir la transcripción), los proyectos y la reunión. No borres los slots {{yo}}/{{glosario}}/{{proyectos}}/{{reunion}}.',
       },
     ],
   },
