@@ -36,7 +36,7 @@ const editPatch = (d: BoardTask) => ({
   checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null,
 });
 
-export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser }) {
+export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null }) {
   const repo: Repo = {
     // MISMA config que el board del super-admin (PlanBoard): la única diferencia real
     // es la persistencia (DB vs localStorage). Proyectos 1-a-1, mismo naming.
@@ -69,5 +69,7 @@ export function TodoBoard({ tareas, categorias, demo, user }: { tareas: Tarea[];
     deleteLabel: async (id) => { if (demo) return; await api({ action: 'categoria-borrar', id: Number(id) }); },
   };
   const board = useBoard(tareas.map(toBoard), categorias.map(toLabel), user, repo);
-  return <BoardShell board={board} />;
+  // Scope del auto-load POR workspace: la preferencia del cliente X no se comparte con
+  // el board de la agencia ni con otro workspace en la misma impersonación/origin.
+  return <BoardShell board={board} autoloadScope={wsId != null ? `ws:${wsId}` : undefined} />;
 }

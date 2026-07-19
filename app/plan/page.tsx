@@ -63,6 +63,10 @@ export default async function TodoPage() {
     demo = true;
   }
 
+  // Workspace actual (para scopear el opt-in de auto-load de reuniones por cliente,
+  // así la preferencia no se comparte entre impersonaciones en el mismo browser).
+  const wsActual = await getWorkspaceActual().catch(() => null);
+
   // El BoardShell ya trae su propio header "Plan"; no envolvemos con subtítulo.
-  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} />;
+  return <TodoBoard tareas={tareas} categorias={categorias} demo={demo} user={user} wsId={wsActual} />;
 }

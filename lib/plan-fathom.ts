@@ -62,6 +62,9 @@ export type TareaCandidata = {
 /** Quién mira el board: para decidir qué tareas son suyas y cuáles de otros (punto 5). */
 export type Yo = { nombre: string; email: string };
 
+/** Término que MaKo no entendió y le pide al usuario que aclare (paso previo, punto 7). */
+export type DudaTermino = { termino: string; porque: string };
+
 export type ProyectoRef = { id: string; emoji: string; nombre: string };
 
 // ── Listado de reuniones para el selector (metadata liviana: sin transcript) ──
@@ -111,9 +114,12 @@ export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON v�
       "dueño": "<nombre de la persona que asumió esta tarea en la reunión, o '' si no quedó claro>",
       "esMio": <true si la tarea es de QUIEN MIRA EL TABLERO (te digo su nombre abajo); false si es de otra persona>
     }
+  ],
+  "dudas": [
+    { "termino": "<nombre propio o término que se dijo, NO está en el glosario y no sabés con certeza qué es>", "porque": "<qué te traba, ej. 'no sé si es una persona, un proyecto o una herramienta'>" }
   ]
 }
-Si en la reunión no hay ningún action item concreto, devolvé { "tareas": [] }.`;
+Si en la reunión no hay ningún action item concreto, devolvé { "tareas": [], "dudas": [] }.`;
 
 export const PLAN_FATHOM_SYSTEM_TEMPLATE = `Sos MaKo. Te paso el resumen y la transcripción de una reunión. Tu trabajo es sacar los ACTION ITEMS: las cosas concretas que alguien se comprometió a HACER después de esta reunión, para convertirlas en tarjetas del plan de ejecución.
 
@@ -133,6 +139,8 @@ Sé exigente: mejor 3 tareas reales que 10 infladas. No inventes nada que no se 
 PROYECTO: te paso la lista de proyectos del plan (con id). Asigná "proyectoId" SOLO cuando la tarea encaja claramente en uno; si dudás, dejá null. La PRIORIDAD es una primera estimación tuya (el perro guardián la re-puntúa después): alta = mueve la aguja/urgente, futuro = puede esperar.
 
 GLOSARIO: te paso términos/nombres propios de este negocio con su significado. Usalos para entender la reunión y corregir errores de transcripción (ej: la transcripción dice "Clau" pero el glosario aclara que es "Claude"). No inventes definiciones que no estén en el glosario.
+
+DUDAS: si en la reunión aparece un nombre propio o término que NO está en el glosario y NO podés deducir con seguridad qué es (una persona, un proyecto, una herramienta, un cliente), agregalo a "dudas" con por qué te traba. Es para que el usuario lo aclare y la próxima ya lo entiendas. NO pongas dudas obvias, ni términos que ya están en el glosario, ni cosas que se explican solas en la reunión: mejor 0-2 dudas reales que una lista inflada. Si no hay nada dudoso, "dudas": [].
 
 Español rioplatense, títulos cortos.
 
@@ -188,7 +196,25 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
     .filter((t) => t.titulo);
 }
 
-export type ExtractOut = { tareas: TareaCandidata[]; usage?: UsageInfo };
+// Términos dudosos: dedup por término (case-insensitive), tope 6 para no marear.
+function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
+  const arr = Array.isArray(obj.dudas) ? obj.dudas : [];
+  const vistos = new Set<string>();
+  const out: DudaTermino[] = [];
+  for (const x of arr) {
+    if (!x || typeof x !== 'object') continue;
+    const termino = String((x as Record<string, unknown>).termino ?? '').trim().slice(0, 80);
+    if (!termino) continue;
+    const k = termino.toLowerCase();
+    if (vistos.has(k)) continue;
+    vistos.add(k);
+    out.push({ termino, porque: String((x as Record<string, unknown>).porque ?? '').trim().slice(0, 200) });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo };
 export type ExtractOpts = { glosario?: string; usoMotivo?: string };
 
 /**
@@ -197,7 +223,7 @@ export type ExtractOpts = { glosario?: string; usoMotivo?: string };
  * un md/transcript sube, se lee con file.text() y entra por acá mismo.
  */
 export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
-  if (!texto.trim()) return { tareas: [] };
+  if (!texto.trim()) return { tareas: [], dudas: [] };
 
   const listaProyectos = proyectos.length
     ? proyectos.map((p) => `- ${p.id}: ${p.emoji} ${p.nombre}`).join('\n')
@@ -217,8 +243,8 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     motivo: opts.usoMotivo || 'Extraer tareas', onUsage: (u) => { usage = u; },
   });
   let obj: Record<string, unknown>;
-  try { obj = parseJsonObject(raw); } catch { return { tareas: [], usage }; }
-  return { tareas: coerceCandidatas(obj, proyectos, yo), usage };
+  try { obj = parseJsonObject(raw); } catch { return { tareas: [], dudas: [], usage }; }
+  return { tareas: coerceCandidatas(obj, proyectos, yo), dudas: coerceDudas(obj), usage };
 }
 
 export async function extraerTareasDeReunion(recordingId: number, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
@@ -231,7 +257,7 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   ]);
   const resumen = summary?.markdown_formatted?.trim() ?? '';
   const texto = transcriptToText(transcript, 14000);
-  if (!resumen && !texto) return { tareas: [] };
+  if (!resumen && !texto) return { tareas: [], dudas: [] };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.

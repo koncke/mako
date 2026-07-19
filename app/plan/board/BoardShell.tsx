@@ -26,6 +26,7 @@ import { MakoProyectoModal } from './MakoProyecto';
 import { ReunionExtractModal } from './ReunionExtractModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
+import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
@@ -34,7 +35,7 @@ import { type BoardTask, type Label, type Prio, type Check, type Actor, ACTOR_LA
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-export function BoardShell({ board }: { board: Board }) {
+export function BoardShell({ board, autoloadScope }: { board: Board; autoloadScope?: string }) {
   // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
   const { tasks, labels, repo } = board;
   const [view, setView] = useState<'prioridades' | 'kanban' | 'proyectos' | 'graphics'>('prioridades');
@@ -58,6 +59,7 @@ export function BoardShell({ board }: { board: Board }) {
   const [debateId, setDebateId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
+  const [reunionArchivo, setReunionArchivo] = useState<File | null>(null); // subir archivo (punto 7): entra al mismo modal
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [usageFlash, setUsageFlash] = useState<{ tokens: number; cost: number; feature: string } | null>(null);
@@ -214,6 +216,8 @@ export function BoardShell({ board }: { board: Board }) {
 
   return (
     <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: SANS }}>
+      {/* símbolos de marca (para el logo de Fathom del toolbar/modal) — una vez por página */}
+      <BrandDefs />
       <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 30px 16px', flexWrap: 'wrap' }}>
         {/* logo (checklist) + Plan — mismo ícono que la sidebar (feedback #2) */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
@@ -239,15 +243,22 @@ export function BoardShell({ board }: { board: Board }) {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
         </>}
-        {/* Solo ícono (feedback jul-17): el texto largo se partía en dos líneas. El
-            micrófono se lee como "reunión grabada"; el qué-hace va en el tooltip. */}
-        {repo.fathomExtract && (
-          <button type="button" onClick={() => setExtraerReunion(true)} aria-label="Extraer tareas de una reunión" title="Extraer tareas de una reunión (MaKo lee la transcripción de Fathom)"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 17, cursor: 'pointer', flex: 'none' }}
+        {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
+            reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
+        {repo.fathomExtract && <>
+          <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); }} aria-label="Extraer tareas de una reunión de Fathom" title="Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
-            🎙️
+            <SvcIcon k="fathom" size={17} box={28} radius={7} />
           </button>
-        )}
+          <label aria-label="Subir un archivo de reunión (.md, .txt, transcript)" title="Subir un archivo de reunión (.md, .txt, transcript) y extraer tareas"
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: 'var(--dim)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
+            <UploadIcon />
+            <input type="file" accept=".md,.txt,.vtt,.srt" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) { setReunionArchivo(f); setExtraerReunion(true); } e.currentTarget.value = ''; }} />
+          </label>
+        </>}
       </header>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -269,9 +280,9 @@ export function BoardShell({ board }: { board: Board }) {
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
-      {extraerReunion && <ReunionExtractModal labels={labels}
+      {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo} autoloadScope={autoloadScope}
         existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
-        onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onClose={() => setExtraerReunion(false)} />}
+        onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
         otras={tasks.filter((t) => t.id !== eliminarTask.id && t.progress < 100).map((t) => { const l = board.labelById(t.labels[0]); return { id: t.id, titulo: t.title, detalle: t.detalle, projColor: l?.color, projEmoji: l?.emoji }; })}
         plan={planResumen} onUsage={(u) => showUsage(u, 'eliminar tarea')}
@@ -311,6 +322,8 @@ const selStyle: CSSProperties = { appearance: 'none', WebkitAppearance: 'none', 
 const cambiarBtn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', border: '1px solid var(--primary-weak)', background: 'var(--surface)', color: 'var(--primary)', fontWeight: 700, fontSize: 13, padding: '9px 12px', borderRadius: 9, cursor: 'pointer', fontFamily: SANS };
 
 function FunnelIcon({ color = 'currentColor' }: { color?: string }) { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>; }
+// Ícono de subir archivo (bandeja + flecha hacia arriba) para el botón del toolbar (punto 7).
+function UploadIcon() { return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M17 8l-5-5-5 5" /><path d="M12 3v12" /></svg>; }
 // Logo del Plan: checklist relleno (mismo motivo que el ícono de la sidebar). Los
 // checks/líneas usan --surface para invertir bien en claro/oscuro.
 function PlanIcon({ size = 24 }: { size?: number }) {
@@ -472,16 +485,18 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
   const clDone = t.checklist.filter((c) => c.done).length;
   return (
     <div onClick={() => onOpen(t.id)}
-      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 158, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
+      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '13px 15px', cursor: 'pointer', opacity: done ? 0.62 : 1, minHeight: 104, display: 'flex', flexDirection: 'column', transition: 'border-color .12s' }}
       onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-      {/* Preview unificada: emoji + #id + título en una línea, la prioridad al final.
+      {/* Preview como los proyectos (feedback jul-18): arriba el emoji + #id + prioridad;
+          el título abajo, en su línea. Tarjetas más planas y anchas (proyectos = altos).
           Sin tag de proyecto (feedback jul-17): el proyecto se ve al abrir. */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 8 }}>
-        <span style={{ fontSize: 15, lineHeight: 1.3, flex: 'none' }}>{t.emoji}</span>
-        <span style={{ fontFamily: MONO, fontSize: 10, color: 'var(--faint)', lineHeight: 1.9, flex: 'none' }}>#{t.num}</span>
-        <span style={{ flex: 1, fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', wordBreak: 'break-word' }}>{t.title}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 7 }}>
+        <span style={{ fontSize: 17, lineHeight: 1, flex: 'none' }}>{t.emoji}</span>
+        <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
+        <span style={{ flex: 1 }} />
         <ScoreBadge score={t.score} />
       </div>
+      <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.35, color: 'var(--ink)', textDecoration: done ? 'line-through' : 'none', wordBreak: 'break-word', marginBottom: 8 }}>{t.title}</div>
       <span style={{ flex: 1 }} />
       {warn && <button onClick={(e) => { e.stopPropagation(); onWarn(t.id); }} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 700, color: 'var(--bad)', background: 'var(--bad-bg)', border: 'none', borderRadius: 999, padding: '2px 8px', cursor: 'pointer', marginBottom: 8 }}>⚠ falta {!t.deadline ? 'deadline' : 'checklist'}</button>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
@@ -570,15 +585,16 @@ function Prioridades({ tasks, board, objetivo, onOpen, onOpenProj }: { tasks: Bo
             return (
               <div key={t.id} onClick={() => onOpen(t.id)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '20px 24px', boxShadow: '0 1px 2px rgba(18,21,27,.05)', cursor: 'pointer', transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}>
-                {/* Ranking (1-2-3) + emoji + #id + título + prioridad, todo en la línea.
-                    Sin tag de proyecto (feedback jul-17): se ve al abrir. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                {/* Como el proyecto de al lado (feedback jul-18): arriba ranking + emoji +
+                    #id + prioridad; el título abajo, en su línea. Sin tag de proyecto. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <span title={`Prioridad ${i + 1}`} style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', fontFamily: MONO }}>{i + 1}</span>
-                  <span style={{ fontSize: 19, lineHeight: 1, flex: 'none' }}>{t.emoji}</span>
+                  <span style={{ fontSize: 22, lineHeight: 1, flex: 'none' }}>{t.emoji}</span>
                   <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', flex: 'none' }}>#{t.num}</span>
-                  <span style={{ flex: 1, fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', minWidth: 0 }}>{t.title}</span>
+                  <span style={{ flex: 1 }} />
                   <ScoreBadge score={t.score} />
                 </div>
+                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, color: 'var(--ink)', letterSpacing: '-0.01em', marginBottom: 12 }}>{t.title}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: t.checklist.length ? 12 : 0 }}>
                   <span style={{ flex: 1 }}><MiniBar v={t.progress} /></span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{t.progress}%</span>
@@ -906,7 +922,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { 
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
           {/* #1: "Crear proyecto" PRIMERO y del mismo tamaño que el resto (cuenta como 1 celda) */}
-          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 128, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
+          <button onClick={onNew} style={{ border: '1.5px dashed var(--border-strong)', background: 'transparent', borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 184, color: 'var(--faint)', fontFamily: SANS, opacity: 0.85, transition: 'border-color .12s, color .12s' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--faint)'; }}>
             <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
@@ -914,7 +930,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { 
           {visibles.map(({ l, prog }) => {
             const isTop = l.id === topProjectId;
             return (
-              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '15px 16px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 128, transition: 'border-color .12s' }}
+              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 184, transition: 'border-color .12s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--border-strong)')} onMouseLeave={(e) => (e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span style={{ fontSize: 22 }}>{l.emoji}</span>
@@ -928,7 +944,10 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { 
                 {/* Sin descripción: la grilla de proyectos es para barrer de un vistazo. El detalle vive adentro. */}
                 <span style={{ flex: 1 }} />
                 {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
-                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{prog.total ? `${prog.done}/${prog.total} · ${prog.pct}%` : 'sin tareas'}</div>
+                {/* avance/porcentaje en cada extremo, como en las tareas (punto 4) */}
+                <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
+                  {prog.total ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
+                </div>
               </div>
             );
           })}
@@ -964,9 +983,11 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, on
   const rowLabel: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6, display: 'block' };
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.35)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '7vh 16px 16px', fontFamily: SANS }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: '1px solid var(--border)', flex: 'none' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
+          <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
           {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
           <span style={{ flex: 1 }} />
           <button onClick={onMako} title="MaKo te ayuda a mejorar el nombre y el detalle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>✦ MaKo te ayuda</button>

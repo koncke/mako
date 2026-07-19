@@ -656,5 +656,8 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(board.labels)); } catch { /* no-op */ } }, [board.labels, hydrated]);
 
   if (!hydrated) return <main style={{ flex: 1 }} />;
-  return <BoardShell board={board} />;
+  // Scope del auto-load: el board de la agencia es SIEMPRE del super-admin sin
+  // impersonar (la page redirige si no), así que una constante alcanza y no se pisa
+  // con el scope por-workspace de los tableros de cliente.
+  return <BoardShell board={board} autoloadScope="agencia" />;
 }
