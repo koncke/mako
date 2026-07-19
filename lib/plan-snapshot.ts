@@ -17,7 +17,9 @@ const KEY_SNAP = 'mako.plan.snapshot';
 const CAP_TAREAS = 300;
 
 export type SnapProyecto = { id: string; pid: string; nombre: string };
-export type SnapTarea = { id: string; num: number; titulo: string; proyecto: string };
+// score/deadline: para que el skill de Claude (y el doer) puedan REVISAR el plan por
+// prioridad y avisar de vencidos, no solo listar títulos.
+export type SnapTarea = { id: string; num: number; titulo: string; proyecto: string; score?: number; deadline?: string };
 export type PlanSnapshot = { proyectos: SnapProyecto[]; tareas: SnapTarea[]; ts: number };
 
 const VACIO: PlanSnapshot = { proyectos: [], tareas: [], ts: 0 };
@@ -25,7 +27,7 @@ const VACIO: PlanSnapshot = { proyectos: [], tareas: [], ts: 0 };
 export async function guardarSnapshot(snap: { proyectos: SnapProyecto[]; tareas: SnapTarea[] }): Promise<void> {
   const limpio: PlanSnapshot = {
     proyectos: (snap.proyectos ?? []).slice(0, 200).map((p) => ({ id: String(p.id), pid: String(p.pid ?? ''), nombre: String(p.nombre ?? '').slice(0, 120) })).filter((p) => p.id && p.nombre),
-    tareas: (snap.tareas ?? []).slice(0, CAP_TAREAS).map((t) => ({ id: String(t.id), num: Number(t.num) || 0, titulo: String(t.titulo ?? '').slice(0, 200), proyecto: String(t.proyecto ?? '').slice(0, 120) })).filter((t) => t.id && t.titulo),
+    tareas: (snap.tareas ?? []).slice(0, CAP_TAREAS).map((t) => ({ id: String(t.id), num: Number(t.num) || 0, titulo: String(t.titulo ?? '').slice(0, 200), proyecto: String(t.proyecto ?? '').slice(0, 120), score: Number(t.score) || 0, deadline: typeof t.deadline === 'string' ? t.deadline : '' })).filter((t) => t.id && t.titulo),
     ts: Date.now(),
   };
   await runWithWorkspace(OWNER_WS, () => setSetting(KEY_SNAP, JSON.stringify(limpio)));
@@ -39,7 +41,7 @@ export async function leerSnapshot(): Promise<PlanSnapshot> {
       const o = JSON.parse(raw);
       return {
         proyectos: Array.isArray(o.proyectos) ? o.proyectos : [],
-        tareas: Array.isArray(o.tareas) ? o.tareas : [],
+        tareas: Array.isArray(o.tareas) ? o.tareas.map((t: SnapTarea) => ({ ...t, score: Number(t.score) || 0, deadline: typeof t.deadline === 'string' ? t.deadline : '' })) : [],
         ts: Number(o.ts) || 0,
       };
     } catch { return VACIO; }

@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -638,7 +638,7 @@ function reconcileChecklists(tasks: BoardTask[]): BoardTask[] {
 // Bandeja de WhatsApp → tarjetas del board (punto 8). MaKo dejó estas tareas para el
 // dueño; nacen con origen 'ia' (MaKo las creó de verdad, distinto del SEED='code') y
 // con el refId como id, para que el deep-link /plan/agencia?tarea=<refId> las abra.
-type TareaInboxRaw = { refId?: string; titulo?: string; prioridad?: string; proyecto?: string; deadline?: string; detalle?: string; ts?: number };
+type TareaInboxRaw = { refId?: string; titulo?: string; prioridad?: string; proyecto?: string; deadline?: string; detalle?: string; ts?: number; fuente?: { tipo?: string; etiqueta?: string; url?: string } };
 const FUENTE_WA: Fuente = { tipo: 'whatsapp' }; // fuente de las tareas/proyectos que entran por WhatsApp
 const INBOX_SEEN = 'mako_plan_inbox_seen'; // refIds ya mergeados por ESTE browser (dedup por device)
 function loadSeen(): Set<string> { try { const v = localStorage.getItem(INBOX_SEEN); return new Set(v ? (JSON.parse(v) as string[]) : []); } catch { return new Set(); } }
@@ -656,11 +656,17 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
     .filter((it) => (it.titulo || '').trim())
     .map((it) => {
       const p: Prio = (['alta', 'media', 'baja', 'futuro'] as const).includes(it.prioridad as Prio) ? (it.prioridad as Prio) : 'media';
+      // La fuente sale de la bandeja (Claude Code trae la suya con el link del chat); si
+      // no viene, es WhatsApp (compat). El actor y el texto del historial la respetan.
+      const esCode = it.fuente?.tipo === 'claude-code';
+      const fuente: Fuente = it.fuente?.tipo ? { tipo: it.fuente.tipo as Fuente['tipo'], etiqueta: it.fuente.etiqueta, url: it.fuente.url } : FUENTE_WA;
+      const actor: Actor = esCode ? 'code' : 'ia';
+      const desde = esCode ? (it.fuente?.etiqueta ? `desde Claude Code · ${it.fuente.etiqueta}` : 'desde Claude Code') : 'desde WhatsApp';
       let lab = it.proyecto ? byName.get(String(it.proyecto).trim().toLowerCase()) : undefined;
       if (it.proyecto && !lab) {
         const nombre = String(it.proyecto).trim().slice(0, 60);
         const lid = 'wa' + uid();
-        lab = { id: lid, pid: `P${labels.length + nuevos.length + 1}`, emoji: '📁', name: nombre, color: '#2F6FED', score: 50, detalle: '', fuente: FUENTE_WA, historial: [{ id: 'wal' + lid, ts: Number(it.ts) || Date.now(), actor: 'ia', text: 'Creó el proyecto — desde WhatsApp' }] };
+        lab = { id: lid, pid: `P${labels.length + nuevos.length + 1}`, emoji: '📁', name: nombre, color: '#2F6FED', score: 50, detalle: '', fuente, historial: [{ id: 'wal' + lid, ts: Number(it.ts) || Date.now(), actor, text: `Creó el proyecto — ${desde}` }] };
         byName.set(nombre.toLowerCase(), lab);
         nuevos.push(lab);
       }
@@ -670,8 +676,8 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
         id: rid, num: maxN, emoji: lab?.emoji || '📌', title: String(it.titulo).slice(0, 200),
         detalle: it.detalle ? String(it.detalle) : '', priority: p, score: scoreFromPrio[p], progress: 0,
         deadline: typeof it.deadline === 'string' ? it.deadline : '', labels: lab ? [lab.id] : [], checklist: [],
-        enPrioridad: false, origen: 'ia' as const, fuente: FUENTE_WA,
-        historial: [{ id: 'wa' + rid, ts: Number(it.ts) || Date.now(), actor: 'ia' as const, text: 'Creó la tarjeta — desde WhatsApp' }],
+        enPrioridad: false, origen: actor, fuente,
+        historial: [{ id: 'wa' + rid, ts: Number(it.ts) || Date.now(), actor, text: `Creó la tarjeta — ${desde}` }],
       };
     });
   return { tasks, labels: [...labels, ...nuevos] };
@@ -728,7 +734,7 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   const snapRef = useRef<() => { proyectos: unknown[]; tareas: unknown[] }>(() => ({ proyectos: [], tareas: [] }));
   snapRef.current = () => ({
     proyectos: board.labels.map((l) => ({ id: l.id, pid: l.pid ?? '', nombre: l.name })),
-    tareas: board.tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, num: t.num, titulo: t.title, proyecto: board.labels.find((l) => l.id === t.labels[0])?.name ?? '' })),
+    tareas: board.tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, num: t.num, titulo: t.title, proyecto: board.labels.find((l) => l.id === t.labels[0])?.name ?? '', score: t.score, deadline: t.deadline })),
   });
   // Push debounced en cada cambio (1.5s) — fresco para el dedup/auto-asignar de MaKo.
   useEffect(() => {

@@ -24,6 +24,10 @@ export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
 /** Una tarea que MaKo dejó para el board del dueño. `proyecto` = nombre (se resuelve
  *  o se crea en el cliente al mergear). `refId` = id estable para el deep-link. */
+// DE DÓNDE salió la tarea (para el chip de fuente del board): WhatsApp, Claude Code
+// (con el nombre/link del chat), etc. Si falta, el board la trata como 'whatsapp'.
+export type FuenteInbox = { tipo: string; etiqueta?: string; url?: string };
+
 export type TareaInbox = {
   refId: string;
   titulo: string;
@@ -31,8 +35,17 @@ export type TareaInbox = {
   proyecto?: string;    // nombre del proyecto/categoría, o vacío
   deadline?: string;    // YYYY-MM-DD
   detalle?: string;
+  fuente?: FuenteInbox; // de dónde salió (Claude Code / WhatsApp / …)
   ts: number;           // cuándo la dejó MaKo (para ordenar/limpiar)
 };
+
+function fuenteOk(x: unknown): FuenteInbox | undefined {
+  if (!x || typeof x !== 'object') return undefined;
+  const o = x as Record<string, unknown>;
+  const tipo = typeof o.tipo === 'string' ? o.tipo.slice(0, 40) : '';
+  if (!tipo) return undefined;
+  return { tipo, etiqueta: typeof o.etiqueta === 'string' ? o.etiqueta.slice(0, 160) : undefined, url: typeof o.url === 'string' ? o.url.slice(0, 400) : undefined };
+}
 
 const PRIOS: PlanPrioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioOk = (p: unknown): PlanPrioridad => (PRIOS.includes(p as PlanPrioridad) ? (p as PlanPrioridad) : 'media');
@@ -51,6 +64,7 @@ function parse(raw: string | null): TareaInbox[] {
         proyecto: x.proyecto ? String(x.proyecto).slice(0, 120) : undefined,
         deadline: typeof x.deadline === 'string' ? x.deadline : undefined,
         detalle: typeof x.detalle === 'string' ? x.detalle.slice(0, 600) : undefined,
+        fuente: fuenteOk(x.fuente),
         ts: Number(x.ts) || 0,
       }))
       .filter((t) => t.refId && t.titulo.trim());
@@ -64,7 +78,7 @@ export async function agregarABandeja(items: Array<Omit<TareaInbox, 'refId' | 't
     const now = Date.now();
     const nuevos: TareaInbox[] = items
       .filter((it) => (it.titulo || '').trim())
-      .map((it, i) => ({ refId: `wa${now}-${i}`, ts: now, titulo: it.titulo.trim(), prioridad: prioOk(it.prioridad), proyecto: it.proyecto?.trim() || undefined, deadline: it.deadline || undefined, detalle: it.detalle?.trim() || undefined }));
+      .map((it, i) => ({ refId: `wa${now}-${i}`, ts: now, titulo: it.titulo.trim(), prioridad: prioOk(it.prioridad), proyecto: it.proyecto?.trim() || undefined, deadline: it.deadline || undefined, detalle: it.detalle?.trim() || undefined, fuente: fuenteOk(it.fuente) }));
     const next = [...prev, ...nuevos].slice(-CAP);
     await setSetting(KEY_INBOX, JSON.stringify(next));
     return nuevos.map((t) => t.refId);
