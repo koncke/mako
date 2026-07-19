@@ -98,6 +98,10 @@ const ICON: Record<string, string[]> = {
     'M9 3l6 0', 'M10 9l4 0',
     'M10 3v6l-4 11a.7 .7 0 0 0 .5 1h11a.7 .7 0 0 0 .5 -1l-4 -11v-6',
   ],
+  prioridades: [
+    'M3.5 5.5l1.5 1.5l2.5 -2.5', 'M3.5 11.5l1.5 1.5l2.5 -2.5', 'M3.5 17.5l1.5 1.5l2.5 -2.5',
+    'M11 6l9 0', 'M11 12l9 0', 'M11 18l9 0',
+  ],
   whatsapp: [
     'M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9',
     'M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1',
@@ -114,7 +118,7 @@ const ICON: Record<string, string[]> = {
 export const FEATURE_ORDER = [
   'funnel', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
   'cobranza', 'contrato', 'customer', 'semaforo', 'experimentos',
-  'whatsapp', 'email', 'mako',
+  'prioridades', 'whatsapp', 'email', 'mako',
 ];
 
 export const FEATURES: Record<string, Feature> = {
@@ -442,6 +446,35 @@ export const FEATURES: Record<string, Feature> = {
     nota: 'En construcción — la base de medición (A/B de VSL y métricas diarias) ya corre.',
     metaTitle: 'Experimentos — MaKo',
     metaDesc: 'Convertí tus hipótesis en experimentos que MaKo configura y mide a diario, y cerrá con un aprendizaje real sobre tu funnel.',
+  },
+
+  prioridades: {
+    slug: 'prioridades',
+    name: 'Prioridades — El Perro Guardián',
+    icon: ICON.prioridades,
+    headline: 'No te dice qué está mal. Te dice qué hacer hoy, en orden.',
+    lead: 'El problema no es que no sepas qué hacer: es que <em>todo parece urgente</em> y terminás eligiendo lo fácil. MaKo corta el ruido y te deja <strong>una sola pantalla con tu objetivo y las 3 tareas que mueven la aguja</strong>.',
+    groups: [
+      {
+        title: 'El Perro Guardián decide, y no por gusto',
+        bullets: [
+          'Prioriza <strong>lo que trae dinero más rápido</strong>: pesa impacto contra esfuerzo y compara cada tarea con todas las demás.',
+          '¿Querés subir algo de lugar? <strong>Tenés que convencerlo con un argumento real</strong> — y no es complaciente.',
+          'Una sola pantalla: tu Norte y las 3 tareas de hoy. El resto, ni lo mirás.',
+        ],
+      },
+      {
+        title: 'Un Kanban que se llena solo',
+        bullets: [
+          'Tus tareas entran solas: de tus experimentos, de tus juntas (MaKo las saca de la transcripción) y hasta de <strong>un audio de WhatsApp</strong>.',
+          'Vos hablás; MaKo las crea, las <strong>desglosa en subtareas</strong> y las prioriza.',
+        ],
+      },
+    ],
+    quote: 'Todo parece urgente hasta que algo decide, por vos, qué va primero.',
+    nota: 'El Perro Guardián y el Kanban ya corren; la carga desde audio de WhatsApp está en activación.',
+    metaTitle: 'Prioridades — El Perro Guardián — MaKo',
+    metaDesc: 'Un guardián con IA que prioriza lo que trae dinero más rápido y te deja las 3 tareas que mueven la aguja. Un Kanban que se llena de tus juntas y audios.',
   },
 
   whatsapp: {
