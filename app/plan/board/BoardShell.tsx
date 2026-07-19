@@ -9,7 +9,7 @@
 // de MaKo + Change history (avatar + deshacer por entrada), editor de proyectos
 // con emoji, y el form bloqueante para tareas Alta sin deadline/checklist.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { UndoToast } from '../../_components/UndoToast';
 import { ConfirmModal } from '../../_components/ConfirmModal';
@@ -30,7 +30,7 @@ import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { RichText, stripHtml } from './RichText';
 import type { Board } from './useBoard';
-import { type BoardTask, type Label, type Prio, type Check, type Actor, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, prioFromScore, displayPrio } from './types';
+import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fuente, type FuenteTipo, ACTOR_LABEL, PRIOS, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio } from './types';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -217,10 +217,15 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
   // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
-  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null }>) => {
+  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null }>, fuente?: Fuente) => {
+    // origen = MaKo (la IA extrajo estas tarjetas) + fuente (Fathom/archivo) + un alta
+    // que deja rastro de DE DÓNDE salió (feedback jul-19 / regla del historial).
+    const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
+      : fuente?.tipo === 'archivo' ? `Creó la tarjeta — del archivo «${fuente.etiqueta ?? ''}»`
+        : undefined;
     const ids: string[] = [];
     for (const c of cands) {
-      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined);
+      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente, altaText });
       if (!t) continue;
       if (c.detalle) board.setDetalle(t.id, c.detalle, '');
       ids.push(t.id);
@@ -449,20 +454,40 @@ function ScoreBadge({ score }: { score: number }) {
   const c = PCOLOR[prioFromScore(score)];
   return <span title="Prioridad del guardián (1-100)" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontFamily: MONO, fontSize: 10, fontWeight: 700, color: c, background: c + '18', border: `1px solid ${c}33`, borderRadius: 5, padding: '1px 5px 1px 4px' }}><ScoreIcon size={10} color={c} />{score}</span>;
 }
-// Chip de origen: para lo que no escribió el usuario. Distingue a MaKo (la IA del
-// producto) de Claude Code (el agente de desarrollo), porque no es lo mismo que una
-// tarjeta la haya sacado el Perro de tus datos a que la haya escrito un dev en el SEED.
-function OrigenChip({ origen }: { origen: Actor }) {
-  if (origen === 'user') return null;
-  const code = origen === 'code';
-  return (
-    <span
-      title={code ? 'Escrita en el código y desplegada' : 'Creada por MaKo'}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: code ? 'var(--dim)' : 'var(--accent)', background: 'var(--surface)', border: `1px solid ${code ? 'var(--border-strong)' : 'var(--primary-weak)'}`, borderRadius: 6, padding: '2px 6px', whiteSpace: 'nowrap' }}
-    >
-      {code ? '‹╱› Claude Code' : '✦ Origen IA'}
-    </span>
-  );
+// Chip de FUENTE (feedback jul-19): DE DÓNDE salió la tarjeta — Fathom (reunión),
+// WhatsApp, un archivo, Claude Code (con nombre + link del chat), o MaKo. Distinto de
+// "quién": una tarjeta que sacó MaKo de una reunión de Fathom no es lo mismo que una
+// que escribió un dev en el SEED. Si trae url, el chip es un link.
+const FUENTE_META: Record<FuenteTipo, { label: string; icon: () => ReactNode; accent: boolean } | null> = {
+  manual: null,
+  mako: { label: 'MaKo', icon: () => <span style={{ color: 'var(--accent)' }}>✦</span>, accent: true },
+  fathom: { label: 'Fathom', icon: () => <SvcIcon k="fathom" size={11} box={16} radius={4} />, accent: true },
+  whatsapp: { label: 'WhatsApp', icon: () => <SvcIcon k="whatsapp" size={11} box={16} radius={4} />, accent: true },
+  archivo: { label: 'Archivo', icon: () => <span>📄</span>, accent: false },
+  'claude-code': { label: 'Claude Code', icon: () => <span style={{ fontFamily: MONO, fontWeight: 700 }}>‹╱›</span>, accent: false },
+  retro: { label: 'Retro', icon: () => <span>🔎</span>, accent: true },
+  experimento: { label: 'Experimento', icon: () => <span>🧪</span>, accent: true },
+};
+function FuenteChip({ fuente }: { fuente: Fuente }) {
+  const m = FUENTE_META[fuente.tipo];
+  if (!m) return null; // manual (del usuario) → sin chip
+  const clickable = !!fuente.url;
+  const style: CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700,
+    color: m.accent ? 'var(--accent)' : 'var(--dim)', background: 'var(--surface)',
+    border: `1px solid ${m.accent ? 'var(--primary-weak)' : 'var(--border-strong)'}`,
+    borderRadius: 6, padding: '2px 7px', maxWidth: 250, minWidth: 0, textDecoration: 'none',
+    cursor: clickable ? 'pointer' : 'default',
+  };
+  const cuerpo = <>
+    <span style={{ flex: 'none', display: 'inline-flex', lineHeight: 0 }}>{m.icon()}</span>
+    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.label}{fuente.etiqueta ? ` · ${fuente.etiqueta}` : ''}</span>
+    {clickable && <span style={{ flex: 'none', opacity: 0.7 }}>↗</span>}
+  </>;
+  const title = `${m.label}${fuente.etiqueta ? ` · ${fuente.etiqueta}` : ''}${clickable ? ' — abrir' : ''}`;
+  return clickable
+    ? <a href={fuente.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} title={title} style={style}>{cuerpo}</a>
+    : <span title={title} style={style}>{cuerpo}</span>;
 }
 // El alta se muestra con una frase que nombra al autor ("Creada por MaKo") en vez
 // del texto crudo. Pero cuando MaKo además dejó asentado QUÉ hizo (todo lo que va
@@ -745,7 +770,7 @@ function ChangeHistory({ t, board, ask }: { t: BoardTask; board: Board; ask: (ms
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={26} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{autorDe(h.actor, nombre)}</strong> · {esCreacion ? frasePorAlta(h.actor, nombre, "a") : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+              <div title={nowMs ? relTime(h.ts, nowMs) : ''} style={{ fontSize: 11.5, color: 'var(--faint)' }}>{fechaHora(h.ts)}</div>
             </div>
             {/* solo el ÚLTIMO cambio se puede deshacer (1 en 1, tipo ctrl-z) */}
             {/* #10: no se puede deshacer un cambio de MaKo / el perro — sería saltearse el sistema */}
@@ -794,7 +819,7 @@ function TaskModal({ t, board, topProjectId, suggestMako = false, onDebate, onDe
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', fontWeight: 600, flex: 'none' }}>#{t.num}</span>
           {/* en el header, compacto (la lista completa está en el sidebar "Proyectos") */}
           <LabelChips chips={chips} max={1} cap={230} />
-          <OrigenChip origen={t.origen} />
+          <FuenteChip fuente={fuenteEfectiva(t)} />
           <span style={{ flex: 1 }} />
           <button onClick={() => setMako(true)} title={optimizada ? 'Ya optimizada por MaKo — podés volver a pedirle ayuda' : 'MaKo te ayuda a mejorar título, detalle y checklist'}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: `1px solid ${optimizada ? 'var(--good)' : 'var(--primary-weak)'}`, background: optimizada ? 'var(--good-bg, var(--surface))' : 'var(--primary-bg)', color: optimizada ? 'var(--good)' : 'var(--primary)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', boxShadow: suggestMako && !optimizada ? '0 0 0 3px var(--primary-weak)' : 'none', animation: suggestMako && !optimizada ? 'makoPulse 1.4s ease-in-out infinite' : 'none' }}>
@@ -896,7 +921,7 @@ function HistList({ historial, nombre, avatarUrl, onUndo }: { historial: BoardTa
             <ActorAvatar actor={h.actor} nombre={nombre} avatarUrl={avatarUrl} size={24} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.4 }}><strong style={{ fontWeight: 600 }}>{autorDe(h.actor, nombre)}</strong> · {esCreacion ? frasePorAlta(h.actor, nombre, "o") : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}</div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+              <div title={nowMs ? relTime(h.ts, nowMs) : ''} style={{ fontSize: 11.5, color: 'var(--faint)' }}>{fechaHora(h.ts)}</div>
             </div>
             {/* solo el último cambio del usuario se puede deshacer (nunca los de MaKo) */}
             {i === 0 && h.undo && h.actor === 'user' && onUndo && <button onClick={() => onUndo(h)} title="Deshacer" style={{ border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '3px 9px', fontSize: 12, cursor: 'pointer', flex: 'none', fontFamily: SANS }}>↶</button>}
@@ -930,7 +955,7 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, padding: '1px 7px 1px 5px', borderRadius: 999, border: `1px solid ${l.color}59`, background: `${l.color}1f`, color: l.color, marginRight: 6, verticalAlign: 'middle' }}>{l.emoji} {l.name}</span>
                 <strong style={{ fontWeight: 600 }}>{autorDe(h.actor, nombre)}</strong> · {esCreacion ? frasePorAlta(h.actor, nombre, "o") : h.text}{esCreacion && porque && <span style={{ color: 'var(--dim)' }}> — {porque}</span>}
               </div>
-              <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{relTime(h.ts, nowMs)}</div>
+              <div title={nowMs ? relTime(h.ts, nowMs) : ''} style={{ fontSize: 11.5, color: 'var(--faint)' }}>{fechaHora(h.ts)}</div>
             </div>
           </div>
         );

@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
-import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Prio, type Check, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
+import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -53,13 +53,16 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     markDirty(id);
   }
 
-  const create = async (title: string, priority: Prio, labelsIn?: string[]): Promise<BoardTask | null> => {
+  const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string }): Promise<BoardTask | null> => {
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
     const labels0 = labelsIn && labelsIn.length ? labelsIn : (repo.labelMode === 'single' && labels[0] ? [labels[0].id] : []);
     // El emoji nace heredado del proyecto elegido (o 📌); editable después.
     const emoji0 = labels.find((l) => l.id === labels0[0])?.emoji || '📌';
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor: 'user', text: 'Creó la tarjeta' }], origen: 'user', enPrioridad: false };
+    // origen + fuente + texto del alta: por default es una tarjeta del usuario, pero
+    // quien la crea desde otra fuente (Fathom/WhatsApp/archivo) los pasa por `meta`.
+    const actor: Actor = meta?.origen ?? 'user';
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);

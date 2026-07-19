@@ -18,6 +18,31 @@ export type Prio = 'alta' | 'media' | 'baja' | 'futuro';
 export type Actor = 'user' | 'ia' | 'code';
 export const esIA = (a: Actor) => a !== 'user';
 export const ACTOR_LABEL: Record<Actor, string> = { user: '', ia: 'MaKo', code: 'Claude Code' };
+
+// La FUENTE de una tarjeta: DE DÓNDE salió (más rico que `origen`, que solo dice quién).
+// Fathom (una reunión), WhatsApp, un archivo, o Claude Code (con nombre + link del chat).
+export type FuenteTipo = 'manual' | 'mako' | 'fathom' | 'whatsapp' | 'archivo' | 'claude-code' | 'retro' | 'experimento';
+export type Fuente = { tipo: FuenteTipo; etiqueta?: string; url?: string }; // etiqueta = reunión/archivo/chat; url = link
+// Si la tarjeta no tiene fuente explícita, se deriva del origen (compat con lo ya guardado).
+export function fuenteEfectiva(t: { origen: Actor; fuente?: Fuente }): Fuente {
+  if (t.fuente?.tipo) return t.fuente;
+  return { tipo: t.origen === 'user' ? 'manual' : t.origen === 'code' ? 'claude-code' : 'mako' };
+}
+
+// Fecha y hora EXACTAS (feedback jul-19): "hace 6 días" no sirve cuando el chat es largo.
+// Formato propio (24h, hora local) para no depender de los caprichos del locale ("p. m.").
+const MESES_ABR = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+export function fechaHora(ts: number): string {
+  try {
+    const d = new Date(ts);
+    if (!Number.isFinite(d.getTime())) return '';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const anio = d.getFullYear() !== new Date().getFullYear() ? ` ${d.getFullYear()}` : '';
+    return `${dd} ${MESES_ABR[d.getMonth()]}${anio} · ${hh}:${mi}`;
+  } catch { return ''; }
+}
 export type Check = { id: string; text: string; done: boolean };
 export type UndoInfo = { field: string; prev: unknown };
 export type Hist = { id: string; ts: number; actor: Actor; text: string; undo?: UndoInfo; kind?: 'task' };
@@ -38,11 +63,12 @@ export type BoardTask = {
   labels: string[];         // ids de Label
   checklist: Check[];
   historial: Hist[];
-  origen: Actor;            // quién creó la tarjeta (user | ia=MaKo)
+  origen: Actor;            // quién creó la tarjeta (user | ia=MaKo | code=Claude Code)
+  fuente?: Fuente;          // DE DÓNDE salió (Fathom/WhatsApp/archivo/Claude Code…); si falta, se deriva del origen
   enPrioridad: boolean;     // "En prioridad" (vista Prioridades, máx 3)
 };
 
-export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; historial: Hist[] };
+export type Label = { id: string; pid?: string; emoji: string; name: string; color: string; score: number; scoreRazon?: string; impacto?: number; esfuerzo?: number; deadline?: string; detalle: string; historial: Hist[]; fuente?: Fuente };
 // El id VISIBLE de un proyecto (P1, P2…): distinto del #num de las tareas a propósito,
 // para que de un vistazo se sepa si un id es de tarea o de proyecto. Estable por orden.
 export const pidDe = (l: { pid?: string }, i: number) => l.pid || `P${i + 1}`;

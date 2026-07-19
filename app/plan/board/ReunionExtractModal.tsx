@@ -10,7 +10,7 @@ import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon } from './guardian-form';
 import { Dropdown } from '../../components/Dropdown';
 import { SvcIcon } from '../../_components/ServicioVisual';
-import { type Label, type Prio, PLABEL } from './types';
+import { type Label, type Prio, type Fuente, PLABEL } from './types';
 import { TIPO_REUNION_UI, type TipoReunion } from '@/lib/reunion-clasificar';
 import { frenoDeScope, type FrenoScope } from '@/lib/reunion-gate';
 
@@ -42,7 +42,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
   existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
   archivoInicial?: File | null;          // si entró por el botón "subir archivo" del toolbar (punto 7)
   autoloadScope?: string;                // scope del opt-in de auto-load (por workspace): NO se comparte entre inquilinos/impersonaciones
-  onCrear: (cands: Candidata[]) => void;
+  onCrear: (cands: Candidata[], fuente?: Fuente) => void;
   onUsage?: (u: unknown) => void;
   onClose: () => void;
 }) {
@@ -57,6 +57,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
   const [q, setQ] = useState('');                              // búsqueda por título/email
   const [desde, setDesde] = useState('');                      // filtro por fecha (YYYY-MM-DD)
   const [elegida, setElegida] = useState<ReunionMeta | null>(null);
+  const [archivoNombre, setArchivoNombre] = useState(''); // nombre del archivo subido (para la fuente)
   const [filas, setFilas] = useState<Fila[]>([]);
   const [dudas, setDudas] = useState<Duda[]>([]);              // términos a aclarar (paso previo, punto 7)
   const [defs, setDefs] = useState<Record<number, string>>({}); // definiciones que va escribiendo el usuario
@@ -101,8 +102,8 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
     const limpio = !!fuente && fuente.tipo === 'equipo' && !frenoDeScope(fuente.tipo) && filasNuevas.length > 0 && filasNuevas.every((f) => f.incluir);
     if (autoload && limpio) {
       // Auto-load (punto: sin apretar el botón): carga y cierra. El board deja un undo,
-      // así que es reversible. Solo pasa por acá el caso 100% limpio.
-      onCrear(filasNuevas.map(({ incluir: _i, enriquece: _e, ...c }) => c));
+      // así que es reversible. Solo pasa por acá el caso 100% limpio (siempre Fathom).
+      onCrear(filasNuevas.map(({ incluir: _i, enriquece: _e, ...c }) => c), fuente ? { tipo: 'fathom', etiqueta: fuente.titulo, url: fuente.url ?? undefined } : undefined);
       onClose();
       return;
     }
@@ -137,7 +138,7 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
   // Subir un archivo (md/txt/transcript) → mismo pipeline (punto 5). Los archivos NUNCA
   // auto-cargan (fuente=null): no hay clasificación, así que siempre pasan por revisión.
   const subirArchivo = async (file: File) => {
-    setElegida(null); setFase('extrayendo'); setErr(''); setFreno(null);
+    setElegida(null); setArchivoNombre(file.name); setFase('extrayendo'); setErr(''); setFreno(null);
     const fd = new FormData();
     fd.append('file', file);
     fd.append('proyectos', JSON.stringify(labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }))));
@@ -180,7 +181,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
     URL.revokeObjectURL(a.href);
   };
 
-  const confirmar = () => { onCrear(filas.filter((f) => f.incluir).map(({ incluir: _i, enriquece: _e, ...c }) => c)); onClose(); };
+  const confirmar = () => {
+    // fuente: la reunión de Fathom (con link) o el archivo subido (feedback jul-19).
+    const fuente: Fuente | undefined = elegida ? { tipo: 'fathom', etiqueta: elegida.titulo, url: elegida.url ?? undefined }
+      : archivoNombre ? { tipo: 'archivo', etiqueta: archivoNombre }
+        : undefined;
+    onCrear(filas.filter((f) => f.incluir).map(({ incluir: _i, enriquece: _e, ...c }) => c), fuente);
+    onClose();
+  };
   const setFila = (i: number, patch: Partial<Fila>) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)));
 
   // Volver a la lista de reuniones de Fathom. Si nunca se cargó (entramos por "subir

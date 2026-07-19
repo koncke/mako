@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -639,6 +639,7 @@ function reconcileChecklists(tasks: BoardTask[]): BoardTask[] {
 // dueño; nacen con origen 'ia' (MaKo las creó de verdad, distinto del SEED='code') y
 // con el refId como id, para que el deep-link /plan/agencia?tarea=<refId> las abra.
 type TareaInboxRaw = { refId?: string; titulo?: string; prioridad?: string; proyecto?: string; deadline?: string; detalle?: string; ts?: number };
+const FUENTE_WA: Fuente = { tipo: 'whatsapp' }; // fuente de las tareas/proyectos que entran por WhatsApp
 const INBOX_SEEN = 'mako_plan_inbox_seen'; // refIds ya mergeados por ESTE browser (dedup por device)
 function loadSeen(): Set<string> { try { const v = localStorage.getItem(INBOX_SEEN); return new Set(v ? (JSON.parse(v) as string[]) : []); } catch { return new Set(); } }
 function saveSeen(s: Set<string>) { try { localStorage.setItem(INBOX_SEEN, JSON.stringify([...s].slice(-1000))); } catch { /* no-op */ } }
@@ -659,7 +660,7 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
       if (it.proyecto && !lab) {
         const nombre = String(it.proyecto).trim().slice(0, 60);
         const lid = 'wa' + uid();
-        lab = { id: lid, pid: `P${labels.length + nuevos.length + 1}`, emoji: '📁', name: nombre, color: '#2F6FED', score: 50, detalle: '', historial: [{ id: 'wal' + lid, ts: Number(it.ts) || Date.now(), actor: 'ia', text: 'Creó el proyecto — desde WhatsApp' }] };
+        lab = { id: lid, pid: `P${labels.length + nuevos.length + 1}`, emoji: '📁', name: nombre, color: '#2F6FED', score: 50, detalle: '', fuente: FUENTE_WA, historial: [{ id: 'wal' + lid, ts: Number(it.ts) || Date.now(), actor: 'ia', text: 'Creó el proyecto — desde WhatsApp' }] };
         byName.set(nombre.toLowerCase(), lab);
         nuevos.push(lab);
       }
@@ -669,7 +670,7 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
         id: rid, num: maxN, emoji: lab?.emoji || '📌', title: String(it.titulo).slice(0, 200),
         detalle: it.detalle ? String(it.detalle) : '', priority: p, score: scoreFromPrio[p], progress: 0,
         deadline: typeof it.deadline === 'string' ? it.deadline : '', labels: lab ? [lab.id] : [], checklist: [],
-        enPrioridad: false, origen: 'ia' as const,
+        enPrioridad: false, origen: 'ia' as const, fuente: FUENTE_WA,
         historial: [{ id: 'wa' + rid, ts: Number(it.ts) || Date.now(), actor: 'ia' as const, text: 'Creó la tarjeta — desde WhatsApp' }],
       };
     });
