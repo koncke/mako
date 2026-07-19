@@ -25,6 +25,13 @@ const COPY = /\b(escrib[ií]|redact[aá]|arm[aá]\s+(el|un|una|la)\s+(mensaje|co
 const ACCION = /\b(apag|pausa|activ|prend|encend|renombr|renam|mov[eé]|cambi|actualiz|sub[ií]|baj[aá]|program|agend|env[ií]|mand[aá]|cre[aá]|borr[aá]|elimin|marc[aá]|asign|confirm|cancel)/i;
 // Verbos de consulta de datos → necesitan una tool de lectura → Sonnet.
 const DATOS = /\b(cu[aá]nt|cu[aá]l|qui[eé]n|cu[aá]ndo|d[oó]nde|mostr|mostrame|busc|dame|dec[ií]me|list[aá]|tra[eé]|revis|ten[ge]|hay|mis|último|ultimo|reuni|lead|cliente|campa|gast|venta|cierre|pago)/i;
+// Cargar tareas al plan (punto 8) → tool-use (proponer_tareas_plan) → Sonnet. Ojo:
+// "anotá esto" / "agregá al plan" arrancan a veces con relleno ("dale, anotá…") y
+// caerían en el tier barato SIN tools; sin esto el feature falla en silencio.
+// OJO: nada de "to-?do" acá — matchearía "todo" (es. "todo bien"). Los otros signos alcanzan.
+const PLAN = /\b(anot[aá]|apunt[aá]|agreg[aá]|sum[aá]|carg[aá]|tarea|pendiente|al plan|a la lista|checklist|record[aá]me|acord[aá]te|no me olvide)/i;
+// Una lista con ≥2 ítems (1. … / - … / • …) es casi siempre una tanda de tareas.
+const LISTA_TAREAS = (s: string) => (s.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\S/g) ?? []).length >= 2;
 // Saludo / charla / acuse SIN pedido concreto → barato (Groq, sin tools). Anclado
 // al INICIO (no exige que TODA la frase sea saludo: "gracias MaKo", "buenísimo, dale"
 // tienen relleno). Incluye el nombre (mako/maco) porque casi siempre lo nombran. La
@@ -52,8 +59,8 @@ export function rutearDoer(texto: string, ctx: { hayMedia?: boolean; hayPendient
   // 3) Confirmando una acción pendiente → tool-use (confirmar_accion) → Sonnet.
   if (ctx.hayPendientes) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (confirmación)' };
 
-  // 4) Acción sobre la cuenta o consulta de datos → tool-use → Sonnet.
-  if (ACCION.test(t) || DATOS.test(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
+  // 4) Acción / consulta de datos / carga de tareas al plan → tool-use → Sonnet.
+  if (ACCION.test(t) || DATOS.test(t) || PLAN.test(t) || LISTA_TAREAS(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
 
   // 5) Saludo / charla / capacidades / solo-emoji SIN pedido concreto → barato (sin
   //    tools). Solo si es corto y no cayó en ninguna anterior (fail-safe: la duda escala).

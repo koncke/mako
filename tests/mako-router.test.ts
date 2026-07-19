@@ -27,6 +27,19 @@ test('consulta de datos → Sonnet con tools (NUNCA barato)', () => {
   }
 });
 
+test('cargar tareas al plan → Sonnet con tools (nunca barato: proponer_tareas_plan)', () => {
+  // Arrancan con relleno ("dale, listo") que caería en cheap sin la regla PLAN (punto 8).
+  for (const s of ['dale, anotá esto: comprar hosting', 'listo, agregá al plan llamar al contador', 'sumá una tarea: pagar la luz', 'perfecto, apuntá que tengo que renovar el dominio']) {
+    const r = rutearDoer(s);
+    assert.equal(r.tier, 'sonnet', `"${s}" debería ser sonnet (carga al plan)`);
+    assert.equal(r.needsTools, true);
+  }
+  // Una lista de ≥2 ítems también, aunque no diga "plan".
+  const lista = rutearDoer('1. comprar café\n2. llamar al proveedor\n3. mandar la factura');
+  assert.equal(lista.tier, 'sonnet');
+  assert.equal(lista.needsTools, true);
+});
+
 test('acción sobre la cuenta → Sonnet con tools', () => {
   for (const s of ['apagá la campaña 2', 'pausá el adset de retargeting', 'mové a Juan a agenda', 'marcá el pago de Pedro']) {
     assert.equal(tier(s), 'sonnet', `"${s}" debería ser sonnet`);

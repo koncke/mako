@@ -161,6 +161,20 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const wizardTask = tasks.find((t) => t.id === wizardId) ?? null;
   const debateTask = tasks.find((t) => t.id === debateId) ?? null;
   const openProjLabel = labels.find((l) => l.id === openProj) ?? null;
+
+  // Deep-link (punto 9): ?tarea=<id> / ?proyecto=<id> abre ese detalle al entrar —
+  // lo usa MaKo por WhatsApp para linkear lo que creó. Después limpia el query.
+  useEffect(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const tId = sp.get('tarea'); const pId = sp.get('proyecto');
+      if (tId && tasks.some((t) => t.id === tId)) setOpenId(tId);
+      else if (pId && labels.some((l) => l.id === pId)) setOpenProj(pId);
+      if (tId || pId) { sp.delete('tarea'); sp.delete('proyecto'); const qs = sp.toString(); window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : '')); }
+    } catch { /* no-op */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const eliminarTask = tasks.find((t) => t.id === eliminarTaskId) ?? null;
   const eliminarProj = labels.find((l) => l.id === eliminarProjId) ?? null;
   const asignarTask = tasks.find((t) => t.id === asignarTaskId) ?? null;

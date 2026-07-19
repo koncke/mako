@@ -16,6 +16,13 @@ import { crearPendiente, resolverPendiente, pendientesVigentes } from '@/lib/mak
 import { getLead, setPipelineStage, getFunnel } from '@/lib/leads';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
+import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
+import { agregarABandeja } from '@/lib/plan-inbox';
+
+// Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
+const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+const PRIOS: Prioridad[] = ['alta', 'media', 'baja', 'futuro'];
+const prioOk = (p: unknown): Prioridad => (PRIOS.includes(p as Prioridad) ? (p as Prioridad) : 'media');
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
 function num(input: Record<string, unknown>, key: string): number | null {
@@ -38,6 +45,10 @@ function fmtFecha(iso: string): string {
 
 export async function ejecutarAccion(ws: number, tipo: string, payload: Record<string, unknown>): Promise<{ ok: boolean; resumen: string }> {
   return runWithWorkspace(ws, async () => {
+    // Nunca lanzamos: si algo falla, devolvemos {ok:false}. Si no, confirmar_accion
+    // (que nos llama sin try/catch) dejaría la pendiente vigente y un "sí" repetido
+    // la re-ejecutaría (duplicados).
+    try {
     switch (tipo) {
       case 'lead_etapa': {
         const leadId = Number(payload.leadId);
@@ -69,8 +80,59 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         if (tipo === 'meta_presupuesto') return { ok: true, resumen: `Presupuesto de la campaña puesto en $${payload.montoMxn} MXN/día.` };
         return { ok: true, resumen: `Campaña ${payload.estado === 'ACTIVE' ? 'activada' : 'pausada'}.` };
       }
+      case 'tareas_plan': {
+        // Agregar tareas al plan (punto 8). El super-admin (OWNER_WS) usa la BANDEJA
+        // (su board es localStorage); los clientes van derecho a la base (todo.ts).
+        const arr = Array.isArray(payload.tareas) ? (payload.tareas as Array<Record<string, unknown>>) : [];
+        const items = arr
+          .map((t) => ({ titulo: String(t.titulo ?? '').trim(), prioridad: prioOk(t.prioridad), proyecto: t.proyecto ? String(t.proyecto).trim() : undefined, deadline: typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined, detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined }))
+          .filter((t) => t.titulo);
+        if (!items.length) return { ok: false, resumen: 'No había tareas válidas para agregar.' };
+        const nN = `${items.length} tarea${items.length === 1 ? '' : 's'}`;
+        const mirar = items.length === 1 ? 'Miralo acá' : 'Miralas acá';
+
+        if (ws === OWNER_WS) {
+          const refIds = await agregarABandeja(items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle })));
+          const links = refIds.map((r) => `${APP_URL}/plan/agencia?tarea=${r}`);
+          return { ok: true, resumen: `Agregué ${nN} a tu plan. ${mirar}:\n${links.join('\n')}` };
+        }
+
+        // Cliente: ya estamos dentro de runWithWorkspace(ws) → la base scopea al cliente.
+        // El nombre de categoría se guarda truncado a 40 (todo.ts) → usamos el MISMO
+        // recorte como clave, si no un 2º lote con el mismo proyecto largo lo duplica.
+        const cats = await listCategorias().catch(() => []);
+        const catName = (p: string) => p.slice(0, 40).trim();
+        const byName = new Map(cats.map((c) => [c.nombre.trim().toLowerCase(), c.id]));
+        const links: string[] = [];
+        let fallidas = 0;
+        for (const it of items) {
+          try {
+            let catId: number | undefined;
+            if (it.proyecto) {
+              const nombreCat = catName(it.proyecto);
+              const k = nombreCat.toLowerCase();
+              catId = byName.get(k);
+              if (catId == null) { const c = await crearCategoria(nombreCat, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
+            }
+            const tarea = await crearTarea({ titulo: it.titulo, prioridad: it.prioridad, deadline: it.deadline ?? null, detalle: it.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako' });
+            links.push(`${APP_URL}/plan?tarea=${tarea.id}`);
+          } catch (e) {
+            fallidas++;
+            console.error('[mako-doer-acciones] tareas_plan item:', e instanceof Error ? e.message : String(e));
+          }
+        }
+        // ok:true SIEMPRE (aunque falle alguna) para que la pendiente se resuelva y un
+        // "sí" repetido NO re-cree las que ya entraron. Reportamos el parcial.
+        if (!links.length) return { ok: false, resumen: `No pude agregar ninguna (fallaron ${fallidas}).` };
+        const cola = fallidas ? ` (${fallidas} no pude)` : '';
+        return { ok: true, resumen: `Agregué ${links.length} tarea${links.length === 1 ? '' : 's'} al plan${cola}. ${links.length === 1 ? 'Miralo acá' : 'Miralas acá'}:\n${links.join('\n')}` };
+      }
       default:
         return { ok: false, resumen: `Acción desconocida: ${tipo}` };
+    }
+    } catch (e) {
+      console.error(`[mako-doer-acciones] ejecutarAccion ${tipo}:`, e instanceof Error ? e.message : String(e));
+      return { ok: false, resumen: `No pude ejecutarlo (${e instanceof Error ? e.message : 'error'}).` };
     }
   });
 }
@@ -148,6 +210,31 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
         estado: { type: 'string', enum: ['ACTIVE', 'PAUSED'], description: 'ACTIVE para activar, PAUSED para pausar.' },
       },
       required: ['campaignId', 'estado'],
+    },
+  },
+  {
+    name: 'proponer_tareas_plan',
+    description: 'PROPONE agregar una o varias TAREAS al plan/tablero del negocio (deja la acción pendiente de confirmación; NO la ejecuta). Usala cuando el dueño te pasa una lista de cosas para hacer/agregar al plan (aunque venga desordenada). REGLA: cada tarea necesita al menos un título claro. Si algo NO te queda claro (a qué proyecto va, si tiene fecha, si son varias cosas juntas), NO adivines: preguntá vos ANTES de proponer, y de a UNA pregunta por vez. Recién cuando ya tenés todo, llamás a esta tool con la lista final; después el dueño confirma con un "sí" y ahí se crean.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tareas: {
+          type: 'array',
+          description: 'Las tareas a agregar, ya con la info aclarada.',
+          items: {
+            type: 'object',
+            properties: {
+              titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
+              prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
+              proyecto: { type: 'string', description: 'opcional; nombre del proyecto/categoría donde va (si no existe, se crea).' },
+              deadline: { type: 'string', description: 'opcional; fecha límite YYYY-MM-DD.' },
+              detalle: { type: 'string', description: 'opcional; contexto extra que se dijo.' },
+            },
+            required: ['titulo'],
+          },
+        },
+      },
+      required: ['tareas'],
     },
   },
   {
@@ -264,6 +351,18 @@ export function crearRunnerAcciones(ws: number, grupoJid: string): ToolRunner {
         const estado = str(input, 'estado').toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'PAUSED';
         if (!/^\d+$/.test(campaignId)) return JSON.stringify({ ok: false, error: 'campaignId (numérico) es obligatorio.' });
         return proponer('meta_estado', { campaignId, estado }, `${estado === 'ACTIVE' ? 'Activar' : 'Pausar'} la campaña ${campaignId}`);
+      }
+
+      case 'proponer_tareas_plan': {
+        const raw: unknown[] = Array.isArray((input as { tareas?: unknown }).tareas) ? (input as { tareas: unknown[] }).tareas : [];
+        const tareas = raw
+          .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+          .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 600) : undefined }))
+          .filter((t) => t.titulo);
+        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Pedile al dueño que aclare qué agregar antes de proponer.' });
+        const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` (proyecto: ${t.proyecto})` : ''}${t.prioridad !== 'media' ? ` [${t.prioridad}]` : ''}${t.deadline ? ` — vence ${t.deadline}` : ''}`).join('\n');
+        const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan:\n${lista}`;
+        return proponer('tareas_plan', { tareas }, resumen);
       }
 
       case 'listar_pendientes': {

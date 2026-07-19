@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, prioFromScore, clampScore, pidDe, HIST_CAP } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -635,6 +635,47 @@ function reconcileChecklists(tasks: BoardTask[]): BoardTask[] {
   } catch { return tasks; }
 }
 
+// Bandeja de WhatsApp → tarjetas del board (punto 8). MaKo dejó estas tareas para el
+// dueño; nacen con origen 'ia' (MaKo las creó de verdad, distinto del SEED='code') y
+// con el refId como id, para que el deep-link /plan/agencia?tarea=<refId> las abra.
+type TareaInboxRaw = { refId?: string; titulo?: string; prioridad?: string; proyecto?: string; deadline?: string; detalle?: string; ts?: number };
+const INBOX_SEEN = 'mako_plan_inbox_seen'; // refIds ya mergeados por ESTE browser (dedup por device)
+function loadSeen(): Set<string> { try { const v = localStorage.getItem(INBOX_SEEN); return new Set(v ? (JSON.parse(v) as string[]) : []); } catch { return new Set(); } }
+function saveSeen(s: Set<string>) { try { localStorage.setItem(INBOX_SEEN, JSON.stringify([...s].slice(-1000))); } catch { /* no-op */ } }
+
+// Construye las tarjetas de la bandeja Y crea el PROYECTO que falte (igual que la rama
+// cliente): si el nombre no matchea un label, se crea uno nuevo, así el proyecto no se
+// pierde en silencio. Los num van en un rango alto (≥9000) para no chocar con el SEED
+// (que crece de a poco desde #1 y con mergeExtras descartaría un num pisado).
+function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels: Label[]): { tasks: BoardTask[]; labels: Label[] } {
+  let maxN = Math.max(8999, existentes.reduce((m, t) => Math.max(m, t.num), 0));
+  const byName = new Map(labels.map((l) => [l.name.trim().toLowerCase(), l]));
+  const nuevos: Label[] = [];
+  const tasks = items
+    .filter((it) => (it.titulo || '').trim())
+    .map((it) => {
+      const p: Prio = (['alta', 'media', 'baja', 'futuro'] as const).includes(it.prioridad as Prio) ? (it.prioridad as Prio) : 'media';
+      let lab = it.proyecto ? byName.get(String(it.proyecto).trim().toLowerCase()) : undefined;
+      if (it.proyecto && !lab) {
+        const nombre = String(it.proyecto).trim().slice(0, 60);
+        const lid = 'wa' + uid();
+        lab = { id: lid, pid: `P${labels.length + nuevos.length + 1}`, emoji: '📁', name: nombre, color: '#2F6FED', score: 50, detalle: '', historial: [{ id: 'wal' + lid, ts: Number(it.ts) || Date.now(), actor: 'ia', text: 'Creó el proyecto — desde WhatsApp' }] };
+        byName.set(nombre.toLowerCase(), lab);
+        nuevos.push(lab);
+      }
+      maxN += 1;
+      const rid = String(it.refId || uid());
+      return {
+        id: rid, num: maxN, emoji: lab?.emoji || '📌', title: String(it.titulo).slice(0, 200),
+        detalle: it.detalle ? String(it.detalle) : '', priority: p, score: scoreFromPrio[p], progress: 0,
+        deadline: typeof it.deadline === 'string' ? it.deadline : '', labels: lab ? [lab.id] : [], checklist: [],
+        enPrioridad: false, origen: 'ia' as const,
+        historial: [{ id: 'wa' + rid, ts: Number(it.ts) || Date.now(), actor: 'ia' as const, text: 'Creó la tarjeta — desde WhatsApp' }],
+      };
+    });
+  return { tasks, labels: [...labels, ...nuevos] };
+}
+
 export function PlanBoard({ user }: { user: BoardUser }) {
   const repo: Repo = {
     labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
@@ -645,12 +686,38 @@ export function PlanBoard({ user }: { user: BoardUser }) {
   const board = useBoard([], [], user, repo);
   const [hydrated, setHydrated] = useState(false);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const merged = mergeExtras(loadTasks(), loadLabels());
-    const { tasks, labels } = fixHistorialDeAltas(merged.tasks, merged.labels);
-    board.reset(reconcileChecklists(tasks), labels);
-    setHydrated(true);
+    let cancel = false;
+    (async () => {
+      const merged = mergeExtras(loadTasks(), loadLabels());
+      const { tasks, labels } = fixHistorialDeAltas(merged.tasks, merged.labels);
+      let finales = reconcileChecklists(tasks);
+      let labelsFinal = labels;
+      // Bandeja de WhatsApp (punto 8): tareas que MaKo dejó para el board del dueño.
+      // La bandeja NO se vacía server-side; cada browser mergea cada refId UNA vez con
+      // su 'seen' (así llega a todos los dispositivos y no se pierde si no persiste).
+      try {
+        const j = await fetch('/api/plan/inbox').then((r) => r.json()).catch(() => null);
+        if (j?.ok && Array.isArray(j.tareas) && j.tareas.length) {
+          const seen = loadSeen();
+          const nuevos = (j.tareas as TareaInboxRaw[]).filter((t) => t?.refId && !seen.has(String(t.refId)));
+          if (nuevos.length) {
+            const built = construirInbox(nuevos, finales, labelsFinal);
+            finales = [...built.tasks, ...finales];
+            labelsFinal = built.labels;
+            // Persistir ANTES de marcar 'seen': si el browser se cierra en el medio,
+            // 'seen' sin la tarea guardada la perdería para siempre en este device.
+            try { localStorage.setItem(K9, JSON.stringify(finales)); localStorage.setItem(K_PROJS, JSON.stringify(labelsFinal)); } catch { /* no-op */ }
+            nuevos.forEach((t) => seen.add(String(t.refId)));
+            saveSeen(seen);
+          }
+        }
+      } catch { /* sin bandeja, seguimos */ }
+      if (!cancel) { board.reset(finales, labelsFinal); setHydrated(true); }
+    })();
+    return () => { cancel = true; };
+    // solo al montar (hidratación): board es estable, no queremos re-hidratar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K9, JSON.stringify(board.tasks)); } catch { /* no-op */ } }, [board.tasks, hydrated]);
   useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(board.labels)); } catch { /* no-op */ } }, [board.labels, hydrated]);
