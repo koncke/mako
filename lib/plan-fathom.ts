@@ -123,18 +123,19 @@ Si en la reunión no hay ningún action item concreto, devolvé { "tareas": [], 
 
 export const PLAN_FATHOM_SYSTEM_TEMPLATE = `Sos MaKo. Te paso el resumen y la transcripción de una reunión. Tu trabajo es sacar los ACTION ITEMS: las cosas concretas que alguien se comprometió a HACER después de esta reunión, para convertirlas en tarjetas del plan de ejecución.
 
-QUÉ SÍ es una tarea:
-- Un compromiso concreto y accionable ("rehacer el creativo", "llamar al proveedor", "armar la landing de X").
-- Algo con un dueño y un resultado verificable.
+QUÉ SÍ es una tarea (capturá TODAS las reales, no seas tacaño):
+- Cualquier PRÓXIMO PASO o compromiso que salga de la reunión, aunque esté dicho informalmente: "rehacer el creativo", "llamar al proveedor", "armar la landing de X", pero TAMBIÉN "estaría bueno probar Y", "yo me encargo de Z", "falta cerrar W", "quedamos en revisar V". Todo eso son tareas.
+- Si alguien dice que va a hacer algo, o que HAY que hacer algo concreto, es una tarea — aunque no le pongan fecha ni suene a orden formal.
+- Una reunión de trabajo casi SIEMPRE deja varios próximos pasos. Si te sale la lista vacía, releé: seguro te comiste alguno.
 
 QUÉ NO es una tarea (IGNORALO):
-- Comentarios, opiniones, contexto o data sin acción.
+- Comentarios, opiniones o data pura sin ninguna acción atrás.
 - Cosas ya hechas o descartadas en la misma reunión.
-- Frases vagas ("hay que mejorar las ventas") sin una acción concreta detrás.
+- Deseos totalmente vagos SIN nada concreto ("hay que vender más" a secas). Pero "hay que rehacer el copy de la campaña" SÍ es tarea.
 
 DUEÑO (importante): a CADA tarea ponele el "dueño" — la persona que la asumió en la reunión — y marcá "esMio": true SOLO si esa persona es QUIEN MIRA EL TABLERO (te paso su nombre en el user). Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: marcalas, que después se reparten.
 
-Sé exigente: mejor 3 tareas reales que 10 infladas. No inventes nada que no se haya dicho.
+NO inventes nada que no se haya dicho, pero NO descartes un compromiso REAL solo porque está redactado informal. Devolvé vacío SOLO si de verdad no se habló de ningún próximo paso.
 
 PROYECTO: te paso la lista de proyectos del plan (con id). Asigná "proyectoId" SOLO cuando la tarea encaja claramente en uno; si dudás, dejá null. La PRIORIDAD es una primera estimación tuya (el perro guardián la re-puntúa después): alta = mueve la aguja/urgente, futuro = puede esperar.
 
@@ -253,7 +254,7 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   const [summary, transcript, page] = await Promise.all([
     fetchRecordingSummary(recordingId).catch(() => null),
     fetchRecordingTranscript(recordingId).catch(() => []),
-    listMeetingsPage({ limit: 1, includeActionItems: true }).catch(() => ({ items: [], next_cursor: null } as const)),
+    listMeetingsPage({ limit: 25, includeActionItems: true }).catch(() => ({ items: [], next_cursor: null } as const)),
   ]);
   const resumen = summary?.markdown_formatted?.trim() ?? '';
   const texto = transcriptToText(transcript, 14000);

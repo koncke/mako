@@ -104,8 +104,9 @@ export async function POST(req: NextRequest) {
       }
       const glosario = await glosarioTexto().catch(() => '');
       const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: uso });
-      // Guardar en cache (best-effort): re-abrir la misma reunión ya no gasta.
-      void setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, ts: Date.now() })).catch(() => {});
+      // Guardar en cache — AWAIT (con `void` el serverless termina antes de escribir y
+      // NO quedaba nada cacheado → volvía a cobrar). Re-abrir la misma reunión ya no gasta.
+      await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, ts: Date.now() })).catch(() => {});
       // Aviso: MaKo sacó compromisos de la reunión → ofrece cargarlos al tablero.
       if (out.tareas.length > 0) {
         const ws = await getWorkspaceActual();

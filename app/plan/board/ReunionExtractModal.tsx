@@ -126,10 +126,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
     finalizar(filasNuevas, fuente);
   };
 
-  const extraer = async (r: ReunionMeta) => {
+  const extraer = async (r: ReunionMeta, reanalizar = false) => {
     setElegida(r); setFase('extrayendo'); setErr(''); setFreno(frenoDeScope(r.tipo));
     const proyectos = labels.map((l) => ({ id: l.id, emoji: l.emoji, nombre: l.name }));
-    const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, proyectos, uso: 'Extraer tareas de reunión' });
+    // reanalizar: fuerza correr la IA de nuevo (ignora el cache). Sin esto, re-abrir la
+    // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
+    const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
     if (j.usage) onUsage?.(j.usage);
     if (j.ok && j.tareas) await procesar(j.tareas, j.dudas ?? [], r);
     else { setErr(j.error || 'MaKo no pudo leer la reunión.'); setFase('lista'); setElegida(null); }
@@ -294,7 +296,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, autolo
           {/* revisar candidatos */}
           {fase === 'revisar' && (
             filas.length === 0
-              ? <Vacio texto="MaKo no encontró action items concretos en esta reunión." />
+              ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+                  <Vacio texto="MaKo no encontró action items concretos en esta reunión." />
+                  {elegida && <button type="button" onClick={() => extraer(elegida, true)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>
+                    ↻ Volver a analizar (gasta tokens)</button>}
+                </div>
               : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {/* Freno del Perro por tipo de reunión (punto 8): ventas/entrega no son del plan */}
                   {freno && (

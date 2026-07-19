@@ -60,7 +60,6 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
   const [reunionArchivo, setReunionArchivo] = useState<File | null>(null); // subir archivo (punto 7): entra al mismo modal
-  const [usageFlash, setUsageFlash] = useState<{ tokens: number; cost: number; feature: string } | null>(null);
   // "Datos sin marcar" (feedback jul-19): UN modal batch para deadline + checklist, en
   // vez del gauntlet card-by-card. Ver DatosModal. El 2do pop-up (DatosConfirm) decide
   // si seguir recordándolo; aparece al CERRARSE este (nunca apilados).
@@ -74,12 +73,11 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const datosAutoRef = useRef(false);                                 // auto-abrir una sola vez por MONTAJE (no por sesión)
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
-  useEffect(() => { if (!usageFlash) return; const t = setTimeout(() => setUsageFlash(null), 6000); return () => clearTimeout(t); }, [usageFlash]);
-  // muestra el gasto de tokens/costo de UNA operación de IA (feedback #1: transparencia).
-  const showUsage = (u: unknown, feature: string) => {
-    const o = (u && typeof u === 'object' ? u : null) as { inputTokens?: number; outputTokens?: number; costUsd?: number } | null;
-    if (o) setUsageFlash({ tokens: (o.inputTokens || 0) + (o.outputTokens || 0), cost: o.costUsd || 0, feature });
-  };
+  // El aviso de gasto de IA lo muestra el toast GLOBAL <IaUsageToast> (app/layout.tsx),
+  // que sale ante CUALQUIER operación de IA. Antes el board tenía SU PROPIO cartel →
+  // salían DOS avisos apilados por la misma operación (feedback jul-19). showUsage queda
+  // como no-op para no tocar los ~8 call-sites que lo pasan como onUsage.
+  const showUsage = (_u: unknown, _feature: string) => { /* dedup: lo muestra IaUsageToast */ };
 
   // El guardián es dueño de la ubicación: la columna respeta la restricción
   // (Alta solo para el proyecto top / sin proyecto / emergencia).
@@ -399,13 +397,6 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onNoPreguntar={() => { setDatosConfirm(false); apagarDatos(); }}
         onLuego={() => setDatosConfirm(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
-      {usageFlash && <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 250, display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 12px 32px rgba(18,21,27,.18)', fontFamily: SANS }}>
-        <span style={{ fontSize: 18, lineHeight: 1 }}>🪙</span>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{fmtTokens(usageFlash.tokens)} tokens · US${usageFlash.cost.toFixed(3)}</div>
-          <div style={{ fontSize: 11, color: 'var(--faint)' }}>{usageFlash.feature} · consumo de MaKo</div>
-        </div>
-      </div>}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>
   );
@@ -434,7 +425,6 @@ function PlanIcon({ size = 24 }: { size?: number }) {
   );
 }
 // formatea tokens (12300 → "12,3k") para el toast de consumo de IA
-function fmtTokens(n: number): string { return n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')}k` : String(n); }
 // Búsqueda: texto libre sobre título/detalle + por NÚMERO de tarjeta. El #num es
 // cómo se referencian las tareas entre sí (y como las nombra MaKo cuando marca un
 // duplicado), así que tiene que ser buscable: sin esto el id no sirve para nada.
