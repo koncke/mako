@@ -66,8 +66,21 @@ async function resumenFunnel(): Promise<string> {
   return bloques.join('\n');
 }
 
-export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string }): Promise<string> {
+export async function buildSystemPrompt(opts: { chartKey: string; titulo: string; contexto: string; query: string; lean?: boolean }): Promise<string> {
   const { chartKey, titulo, contexto, query } = opts;
+
+  // MODO LEAN (feedback jul-19, costo): para turnos que NO razonan (cargar tareas,
+  // leer un dato con una tool, confirmar un "sí", charla) NO hace falta mandar TODO el
+  // contexto del negocio (funnel + experimentos + metodología RAG + perfil + fase) en
+  // CADA mensaje — las TOOLS ya traen el dato. Mandamos solo la voz de MaKo (persona +
+  // núcleo). Recorta ~3-4k tokens de INPUT por turno (el grueso del gasto del doer).
+  if (opts.lean) {
+    const [persona, nucleo] = await Promise.all([
+      getActivePersona().catch(() => ''),
+      getPromptText('mako.nucleo', MAKO_NUCLEO),
+    ]);
+    return `${persona}\n\n${nucleo}`.trim();
+  }
 
   const [persona, perfil, faseNegocio, fase, knowledge] = await Promise.all([
     getActivePersona().catch(() => ''),

@@ -53,21 +53,27 @@ export function rutearDoer(texto: string, ctx: { hayMedia?: boolean; hayPendient
   // 1) Media (imagen/PDF): requiere visión → Anthropic. Interpretar bien → Opus.
   if (ctx.hayMedia) return { tier: 'opus', needsTools: true, model: OPUS, effort: 'high', motivo: 'router:opus (media)' };
 
-  // 2) Razonamiento / copywriting → Opus (voz de marca / multi-paso).
+  // 2) Carga de tareas al plan / lista → Sonnet (tool-use), ANTES de copy/razonamiento:
+  //    una tarea puede DECIR "escribir un email" o "por qué X" y eso es su CONTENIDO, no
+  //    un pedido de copy/análisis. Sin esto, "anotá al plan: escribir el email" se iba a
+  //    Opus (caro) en vez de Sonnet/Groq (feedback jul-19, costo).
+  if (PLAN.test(t) || LISTA_TAREAS(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (plan)' };
+
+  // 3) Razonamiento / copywriting → Opus (voz de marca / multi-paso).
   if (RAZONAMIENTO.test(t) || COPY.test(t)) return { tier: 'opus', needsTools: true, model: OPUS, effort: 'high', motivo: 'router:opus (razonamiento/copy)' };
 
-  // 3) Confirmando una acción pendiente → tool-use (confirmar_accion) → Sonnet.
+  // 4) Confirmando una acción pendiente → tool-use (confirmar_accion) → Sonnet.
   if (ctx.hayPendientes) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (confirmación)' };
 
-  // 4) Acción / consulta de datos / carga de tareas al plan → tool-use → Sonnet.
-  if (ACCION.test(t) || DATOS.test(t) || PLAN.test(t) || LISTA_TAREAS(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
+  // 5) Acción / consulta de datos → tool-use → Sonnet.
+  if (ACCION.test(t) || DATOS.test(t)) return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (dato/acción)' };
 
-  // 5) Saludo / charla / capacidades / solo-emoji SIN pedido concreto → barato (sin
+  // 6) Saludo / charla / capacidades / solo-emoji SIN pedido concreto → barato (sin
   //    tools). Solo si es corto y no cayó en ninguna anterior (fail-safe: la duda escala).
   if ((SALUDO.test(t) || CAPACIDAD.test(t) || SOLO_EMOJI.test(t)) && t.length <= 160) {
     return { tier: 'cheap', needsTools: false, model: '', effort: 'low', motivo: 'router:cheap (saludo/charla)' };
   }
 
-  // 6) Ambiguo → Sonnet con tools (nunca barato: podría necesitar un dato).
+  // 7) Ambiguo → Sonnet con tools (nunca barato: podría necesitar un dato).
   return { tier: 'sonnet', needsTools: true, model: SONNET, effort: 'medium', motivo: 'router:sonnet (default)' };
 }

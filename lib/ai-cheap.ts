@@ -13,6 +13,7 @@
 
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
+import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 
 type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: string };
 
@@ -66,6 +67,68 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
   void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre);
   return (data.choices?.[0]?.message?.content ?? '').trim();
+}
+
+// Bloques (tool_use/tool_result/text) → texto plano. El historial del doer ya viene
+// como texto; esto es defensivo por si entra un Block[].
+function bloqueATexto(content: RichMsg['content']): string {
+  if (typeof content === 'string') return content;
+  return content.filter((b) => b.type === 'text').map((b) => String((b as { text?: string }).text ?? '')).join('\n').trim();
+}
+
+export type CheapToolsResult = ToolsResult & { toolsUsados: number };
+
+/**
+ * Como chatClaudeTools pero por Groq/OpenAI (function-calling OpenAI-compatible). Para
+ * el doer: los turnos de tool-use (cargar tareas, leer un dato, confirmar) tienen INPUT
+ * enorme (tools + historial + resultados) y en Claude eso cuesta; en Groq el input es
+ * ~gratis. Menos fiable que Claude en orquestaciones largas → el caller DEBE mirar
+ * `toolsUsados`: si el turno pedía una acción y Groq no llamó ninguna tool, hacer
+ * fallback a Claude (no dejar que "describa" en vez de ejecutar).
+ */
+export async function chatCheapTools(
+  system: string,
+  messages: RichMsg[],
+  tools: ToolDef[],
+  runTool: ToolRunner,
+  opts: { maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string; provider?: 'groq' | 'openai'; model?: string } = {},
+): Promise<CheapToolsResult> {
+  const p = proveedor(opts.provider);
+  if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
+  const model = opts.model || p.chatModel;
+  const oaiTools = tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+  const msgs: Array<Record<string, unknown>> = [{ role: 'system', content: system }];
+  for (const m of messages) msgs.push({ role: m.role, content: bloqueATexto(m.content) });
+
+  const maxSteps = opts.maxSteps ?? 6;
+  let toolsUsados = 0;
+  for (let step = 0; step < maxSteps; step++) {
+    const res = await fetch(`${p.base}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages: msgs, tools: oaiTools, tool_choice: 'auto', max_tokens: opts.maxTokens ?? 1400, temperature: 0.2 }),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw new Error(`chatCheapTools(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}`);
+    void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre);
+    const msg = data.choices?.[0]?.message as { content?: string; tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> } | undefined;
+    if (!msg) break;
+    msgs.push(msg as Record<string, unknown>);
+    const calls = Array.isArray(msg.tool_calls) ? msg.tool_calls : [];
+    if (!calls.length) return { text: (msg.content || '').trim() || '(sin respuesta)', steps: step + 1, stopReason: 'stop', toolsUsados };
+    for (const c of calls) {
+      toolsUsados++;
+      let input: Record<string, unknown> = {};
+      try { input = JSON.parse(c.function?.arguments || '{}'); } catch { /* args mal formados → tool con {} */ }
+      let out: string;
+      try { const r = await runTool(c.function?.name || '', input); out = typeof r === 'string' ? r : r.content; }
+      catch (e) { out = e instanceof Error ? e.message : String(e); }
+      msgs.push({ role: 'tool', tool_call_id: c.id, content: out.slice(0, 12000) });
+    }
+  }
+  return { text: '(se alcanzó el máximo de pasos)', steps: maxSteps, stopReason: 'max_steps', toolsUsados };
 }
 
 /** Igual que chatCheap pero parsea el JSON (json:true forzado). Lanza si no parsea. */

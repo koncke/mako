@@ -25,7 +25,7 @@ import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
 import { runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
-import { transcribirAudio, chatCheap } from '@/lib/ai-cheap';
+import { transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
 
@@ -190,7 +190,8 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
    · CRITERIO PARA CREAR PROYECTO: si las tareas son un TEMA nuevo y coherente que NINGÚN proyecto existente cubre (varias cosas del mismo asunto), NO las tires sueltas: creá un PROYECTO nuevo con un buen nombre y metelas ahí. Un proyecto AGRUPA; una tarea es una acción. Para asignar a un proyecto nuevo, poné ese nombre en el campo "proyecto" de cada tarea (se crea solo). Avisá en una línea qué proyecto creás.
    · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
 2. Preguntá SOLO lo que de verdad no podés deducir (una fecha clave, si dos cosas son una o dos tareas). Si preguntás, decí cuántas ("Tengo 2 preguntas") y hacelas DE A UNA (una por mensaje, separadas con ---). Si está todo claro, NO preguntes: pasá directo a proponer.
-3. Cuando tenés todo, LLAMÁ a la tool 'proponer_tareas_plan' con la lista final (cada tarea con su "proyecto"). ESTO ES OBLIGATORIO: si solo DESCRIBÍS la lista en texto sin LLAMAR la tool, no queda nada pendiente y el "sí" del dueño no crea NADA. Después de llamarla, en tu mensaje mostrá corto qué vas a crear y pedí el "sí". NUNCA confirmes en el mismo mensaje que proponés: proponés y FRENÁS; el "sí" viene aparte.
+3. ⚠️ EL PASO QUE MÁS FALLA — LEÉ BIEN. Apenas tenés la lista, tu PRIMERA acción es LLAMAR la tool 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Esa tool NO crea la tarea: solo la deja PENDIENTE (NADA se crea hasta el "sí"). Por eso llamala SIEMPRE, sin miedo y SIN pedir permiso antes. El orden correcto es: (1º) llamás la tool proponer_tareas_plan → (2º) recién ahí, en tu mensaje de texto, mostrás corto qué quedó pendiente y pedís el "sí".
+   ⛔ PROHIBIDO y ES EL ERROR MÁS COMÚN: escribir "confirmá con un sí y la creo" / "van así, decime si va" SIN haber llamado antes la tool. Si escribís eso sin llamar proponer_tareas_plan, NO queda nada pendiente y cuando el dueño diga "sí" NO se crea NADA. La frase "confirmá con sí" SOLO puede salir DESPUÉS de haber llamado la tool en este mismo turno.
 4. Con el "sí", 'confirmar_accion' las crea y te devuelve el/los link(s): pasáselos tal cual (uno por tarea). Si asignaste a un proyecto que ya existía, sumá su link (lo tenés de ver_plan).`;
 
 // Dónde ver el detalle completo en la app: MaKo da un resumen corto y REDIRIGE con
@@ -236,6 +237,14 @@ async function wsDeGrupoJid(jid: string): Promise<number | null> {
  * El control operativo (allowlist/modo/ventana) vive en la AGENCIA (OWNER_WS); los
  * DATOS y la memoria se scopean al workspace DUEÑO DEL GRUPO (aislamiento).
  */
+// Subset de tools por ruta (costo). Los turnos claros usan pocas; el resto, todas.
+function toolsParaRuta<T extends { name: string }>(motivo: string, todas: T[]): T[] {
+  const solo = (nombres: string[]) => todas.filter((t) => nombres.includes(t.name));
+  if (motivo.includes('(plan)')) return solo(['ver_plan', 'proponer_tareas_plan', 'listar_pendientes']);
+  if (motivo.includes('(confirmación)')) return solo(['listar_pendientes', 'confirmar_accion', 'cancelar_accion']);
+  return todas; // dato/acción/default/opus → todas (flexibilidad)
+}
+
 export async function manejarEntranteDoer(instance: string, data: MsgIn): Promise<ResultadoDoer> {
   const jid = data.key?.remoteJid;
   if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
@@ -340,14 +349,30 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     }
 
     // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).
-    const historial = await historialGrupo(wsData, jid, 24);
+    // 12 turnos (antes 24): la memoria útil rara vez pasa de ahí y el historial es INPUT
+    // en cada llamada (costo). Feedback jul-19.
+    const historial = await historialGrupo(wsData, jid, 12);
+    // Router PRIMERO (elige el modelo por turno) para decidir cuánto contexto mandar:
+    // razonamiento/copy/media (Opus) → contexto completo; el resto (cargar tareas, leer
+    // un dato, confirmar, charla) → LEAN (las tools traen el dato). Recorta el INPUT, que
+    // es el grueso del gasto del doer (feedback jul-19).
+    const ruta = rutearDoer(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    // OJO (jul-19): probamos LEAN para el tier sonnet pero Sonnet perdía fiabilidad en el
+    // flujo proponer→confirmar (describía "confirmá con sí" SIN llamar la tool → el "sí"
+    // no creaba nada). Volvemos al contexto completo: la baja de costo real la dan el
+    // router (tareas→Sonnet, no Opus), el subset de tools y el historial de 12. El lean
+    // queda disponible en buildSystemPrompt para cuando revisemos ese flujo.
     const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: texto }));
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usá confirmar_accion con el id que corresponda.`
       : '';
     const system = `${base}\n\n${DOER_WA_PREAMBLE}\n\n${DEEP_LINKS}${ctxPend}`;
 
-    const tools = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS];
+    // Tools por ruta (feedback jul-19, costo): 20 tools con schema pesan varios miles de
+    // tokens de INPUT en CADA llamada. Los turnos claros (cargar tareas, confirmar) usan
+    // un subset chico → mucho más barato en Claude (y entran mejor en Groq). Los turnos
+    // abiertos (dato/acción/razonamiento) mandan todas, para no quedarse sin una tool.
+    const tools = toolsParaRuta(ruta.motivo, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS]);
     const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now()); // turnStart: bloquea el auto-confirm en el mismo turno
     const runTool = async (name: string, input: Record<string, unknown>) =>
       NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input);
@@ -359,12 +384,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
     await guardarTurno(wsData, jid, 'user', texto, msgId);
 
-    // (el acuse instantáneo ya salió arriba, antes de armar el contexto)
-
-    // Router: elegí el modelo por TURNO (no todo a Opus). Saludo/charla sin dato →
-    // barato (Groq, sin tools). Dato/acción → Sonnet con tools. Razonamiento/copy/
-    // media → Opus. El override manual del dueño (/modelos-ia) pin-ea el modelo.
-    const ruta = rutearDoer(texto, { hayMedia: !!mediaBlocks, hayPendientes: vigentes.length > 0 });
+    // (el acuse instantáneo ya salió arriba; el router ya corrió arriba para el contexto)
     const recorte = texto.slice(0, 80);
     let respuesta = '';
 
@@ -384,13 +404,34 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
       // Si el dueño fijó un modelo a mano, ese pin manda; si no, el que eligió el router.
       const pin = await overrideDeFeature('mako-doer-in').catch(() => null);
-      const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
-        feature: 'mako-doer-in', maxSteps: 8,
-        ...(pin ? {} : { model: ruta.model }),
-        effort: ruta.effort,
-        motivo: `${ruta.motivo} «${recorte}»`,
-      });
-      respuesta = (text ?? '').trim();
+
+      // COSTO (feedback jul-19): el grueso del gasto del doer es el INPUT de los turnos
+      // de tool-use (tools + historial + resultados). En Groq el input es ~gratis PERO el
+      // tier GRATIS de Groq topea en 8k tokens/min, y una lectura del plan (ver_plan) ya
+      // pesa más → falla y cae a Claude igual. Por eso queda detrás de un flag: prendé
+      // DOER_GROQ_TOOLS=1 SOLO con Groq Dev (de pago, sin ese tope) y el tier 'sonnet'
+      // corre ~gratis. Por default = Claude (ya mucho más barato por el router+lean+subset).
+      if (process.env.DOER_GROQ_TOOLS === '1' && !pin && ruta.tier === 'sonnet' && !mediaBlocks && cheapDisponible()) {
+        try {
+          const r = await chatCheapTools(system, msgs, tools, runTool, { feature: 'mako-doer-in', maxSteps: 6, motivo: `groq ${ruta.motivo} «${recorte}»` });
+          // El tier sonnet SIEMPRE implica una tool (dato/acción/plan/confirmación): si
+          // Groq contestó sin usar ninguna, no confiamos → lo rehace Claude.
+          if (r.toolsUsados > 0 && r.text && !r.text.startsWith('(')) respuesta = r.text.trim();
+          else console.warn(`[mako-doer-in] groq no enganchó tool (toolsUsados=${r.toolsUsados}) → Claude`);
+        } catch (e) {
+          console.warn('[mako-doer-in] groq-tools falló, uso Claude:', e instanceof Error ? e.message : String(e));
+        }
+      }
+
+      if (!respuesta) {
+        const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+          feature: 'mako-doer-in', maxSteps: 8,
+          ...(pin ? {} : { model: ruta.model }),
+          effort: ruta.effort,
+          motivo: `${ruta.motivo} «${recorte}»`,
+        });
+        respuesta = (text ?? '').trim();
+      }
     }
     if (respuesta) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
