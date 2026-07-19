@@ -302,6 +302,8 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-li { display: flex; gap: 11px; align-items: flex-start; font-size: 16px; line-height: 1.55; color: #454C58; }
 .mk-li strong { font-weight: 600; color: #12151B; }
 .mk-chev { color: #2F6FED; flex: none; margin-top: 2px; }
+.mk-det code { font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace; font-size: .88em; background: #EEF2F7; color: #33405A; padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.mk-lead code { font-size: .9em; }
 
 .mk-quote { margin: 40px 0 0; padding: 4px 0 4px 18px; border-left: 3px solid #2F6FED; font-size: 18px; line-height: 1.55; font-style: italic; color: #3A4150; }
 
