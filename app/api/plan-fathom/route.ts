@@ -12,6 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { listReunionesRecientes, extraerTareasDeReunion, type ProyectoRef } from '@/lib/plan-fathom';
+import { esFechaValida } from '@/lib/date-utils';
 import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
@@ -26,14 +27,18 @@ export async function POST(req: NextRequest) {
   const sesion = await getUsuarioActual();
   if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
 
-  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string };
+  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;
 
   try {
     if (body.action === 'reuniones') {
-      const reuniones = await listReunionesRecientes(); // histórico completo (paginado)
-      return Response.json({ ok: true, reuniones });
+      // Una página + cursor (antes traía todo el histórico y tardaba). El selector
+      // pide más con nextCursor. recordedAfter = filtro por fecha (ISO), opcional.
+      const cursor = typeof body.cursor === 'string' && body.cursor ? body.cursor : undefined;
+      const recordedAfter = typeof body.recordedAfter === 'string' && esFechaValida(body.recordedAfter) ? body.recordedAfter : undefined;
+      const { reuniones, nextCursor } = await listReunionesRecientes({ cursor, recordedAfter });
+      return Response.json({ ok: true, reuniones, nextCursor });
     }
     if (body.action === 'extraer') {
       const recordingId = Number(body.recordingId);

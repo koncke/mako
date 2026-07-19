@@ -10,17 +10,18 @@ import { GuardianIcon } from './GuardianIcon';
 import { ScoreIcon } from './guardian-form';
 import { Dropdown } from '../../components/Dropdown';
 import { type Label, type Prio, PLABEL } from './types';
+import { TIPO_REUNION_UI, type TipoReunion } from '@/lib/reunion-clasificar';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type ReunionMeta = { recordingId: number; titulo: string; fecha: string | null; durMin: number | null; url: string | null };
+type ReunionMeta = { recordingId: number; titulo: string; fecha: string | null; durMin: number | null; url: string | null; involucrados: string[]; tipo: TipoReunion };
 type Candidata = { titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null };
 type Fila = Candidata & { incluir: boolean };
 
 const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'media' ? '#C8870C' : p === 'baja' ? '#1E9E57' : '#98A0AC');
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; tareas?: Candidata[]; usage?: unknown; error?: string }> {
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; tareas?: Candidata[]; usage?: unknown; error?: string }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -38,19 +39,35 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
 }) {
   const [fase, setFase] = useState<'lista' | 'extrayendo' | 'revisar'>('lista');
   const [reuniones, setReuniones] = useState<ReunionMeta[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);   // nextCursor de Fathom
+  const [cargandoMas, setCargandoMas] = useState(false);
+  const [q, setQ] = useState('');                              // búsqueda por título/email
+  const [desde, setDesde] = useState('');                      // filtro por fecha (YYYY-MM-DD)
   const [elegida, setElegida] = useState<ReunionMeta | null>(null);
   const [filas, setFilas] = useState<Fila[]>([]);
   const [err, setErr] = useState('');
 
-  useEffect(() => {
-    let vivo = true;
-    apiFathom({ action: 'reuniones' }).then((j) => {
-      if (!vivo) return;
-      if (j.ok && j.reuniones) setReuniones(j.reuniones);
-      else { setErr(j.error || 'No pude traer las reuniones.'); setReuniones([]); }
-    });
-    return () => { vivo = false; };
-  }, []);
+  // Trae una página. `reset` = arranca de cero (cambió el filtro de fecha); si no,
+  // agrega a lo que ya hay (botón "cargar más"). El cursor lo da Fathom.
+  const cargar = async (reset: boolean) => {
+    if (reset) { setReuniones(null); setCursor(null); }
+    setCargandoMas(!reset); setErr('');
+    const j = await apiFathom({ action: 'reuniones', cursor: reset ? undefined : cursor ?? undefined, recordedAfter: desde || undefined });
+    setCargandoMas(false);
+    if (j.ok && j.reuniones) {
+      setReuniones((prev) => (reset || !prev ? j.reuniones! : [...prev, ...j.reuniones!]));
+      setCursor(j.nextCursor ?? null);
+    } else { setErr(j.error || 'No pude traer las reuniones.'); if (reset) setReuniones([]); }
+  };
+
+  useEffect(() => { void cargar(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [desde]);
+
+  // Búsqueda client-side sobre título + emails de los involucrados.
+  const visibles = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    if (!n || !reuniones) return reuniones ?? [];
+    return reuniones.filter((r) => (r.titulo + ' ' + r.involucrados.join(' ')).toLowerCase().includes(n));
+  }, [q, reuniones]);
 
   const extraer = async (r: ReunionMeta) => {
     setElegida(r); setFase('extrayendo'); setErr('');
@@ -87,24 +104,49 @@ export function ReunionExtractModal({ labels, onCrear, onUsage, onClose }: {
 
           {/* lista de reuniones */}
           {fase === 'lista' && (
-            reuniones == null
-              ? <Cargando texto="Buscando tus reuniones en Fathom…" />
-              : reuniones.length === 0
-                ? <Vacio texto="No encontré reuniones recientes en Fathom." />
-                : <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {reuniones.map((r) => (
-                      <button key={r.recordingId} type="button" onClick={() => extraer(r)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
-                        <span style={{ fontSize: 20 }}>🎙️</span>
-                        <span style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ display: 'block', fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.titulo}</span>
-                          <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 1 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
-                        </span>
-                        <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap' }}>Extraer →</span>
-                      </button>
-                    ))}
-                  </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* búsqueda + filtro por fecha (punto 9) */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por título o email…"
+                  style={{ flex: 1, minWidth: 0, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none', fontFamily: SANS }} />
+                <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} title="Desde esta fecha"
+                  style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: desde ? 'var(--ink)' : 'var(--faint)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
+                {desde && <button type="button" onClick={() => setDesde('')} title="Quitar el filtro de fecha" style={{ padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>}
+              </div>
+
+              {reuniones == null
+                ? <Cargando texto="Buscando tus reuniones en Fathom…" />
+                : visibles.length === 0
+                  ? <Vacio texto={q || desde ? 'Ninguna reunión coincide con el filtro.' : 'No encontré reuniones recientes en Fathom.'} />
+                  : <>
+                      {visibles.map((r) => {
+                        const t = TIPO_REUNION_UI[r.tipo];
+                        return (
+                          <button key={r.recordingId} type="button" onClick={() => extraer(r)}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
+                            <span style={{ fontSize: 20, lineHeight: 1.3 }}>🎙️</span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.titulo}</span>
+                                <span title={`Clasificada como ${t.label} por los emails de los invitados`} style={{ flex: 'none', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: `var(--${t.tono})`, background: `var(--${t.tono}-bg, var(--surface-2))`, border: `1px solid var(--${t.tono})` }}>{t.label}</span>
+                              </span>
+                              <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
+                              {r.involucrados.length > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>👤 {r.involucrados.join(', ')}</span>}
+                            </span>
+                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>Extraer →</span>
+                          </button>
+                        );
+                      })}
+                      {/* cargar más (punto 9): solo si Fathom devolvió cursor y no estás filtrando en local */}
+                      {cursor && !q && (
+                        <button type="button" onClick={() => void cargar(false)} disabled={cargandoMas}
+                          style={{ alignSelf: 'center', marginTop: 4, padding: '8px 18px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: cargandoMas ? 'default' : 'pointer', fontFamily: SANS }}>
+                          {cargandoMas ? 'Cargando…' : 'Cargar más reuniones'}
+                        </button>
+                      )}
+                    </>}
+            </div>
           )}
 
           {/* extrayendo */}

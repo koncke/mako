@@ -22,7 +22,6 @@ import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import type { UsageInfo } from './anthropic-usage';
 import {
-  fetchAllMeetings,
   listMeetingsPage,
   fetchRecordingSummary,
   fetchRecordingTranscript,
@@ -30,8 +29,12 @@ import {
   meetingStartIso,
   meetingDurationMin,
   transcriptToText,
+  externalInviteeEmails,
   type FathomMeeting,
 } from './fathom-api';
+import { getLeadsByEmail } from './closing';
+import { listarUsuarios } from './usuarios';
+import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
@@ -41,7 +44,11 @@ export type ReunionMeta = {
   fecha: string | null;   // ISO de inicio
   durMin: number | null;
   url: string | null;     // link a la grabación en Fathom
+  involucrados: string[]; // emails de los invitados (para preview + búsqueda + clasificación)
+  tipo: TipoReunion;      // clasificación automática (punto 10)
 };
+
+export type PaginaReuniones = { reuniones: ReunionMeta[]; nextCursor: string | null };
 
 export type TareaCandidata = {
   titulo: string;
@@ -53,21 +60,38 @@ export type TareaCandidata = {
 export type ProyectoRef = { id: string; emoji: string; nombre: string };
 
 // ── Listado de reuniones para el selector (metadata liviana: sin transcript) ──
-// Trae el HISTÓRICO completo paginando por cursor, no la primera página: con una
-// sola página el selector mostraba ~30 reuniones y parecía que Fathom "no tenía"
-// las demás. El transcript (lo caro) se baja recién al elegir una.
-export async function listReunionesRecientes(limit = 0): Promise<ReunionMeta[]> {
-  const items = limit > 0 ? (await listMeetingsPage({ limit })).items ?? [] : await fetchAllMeetings();
-  return items
+// UNA página + cursor (antes traía TODO el histórico, hasta 60 páginas: por eso
+// tardaba una eternidad). El selector muestra pocas y pide "cargar más" con el
+// nextCursor. El transcript (lo caro) se baja recién al elegir una.
+//
+// Además clasifica cada reunión (punto 10): trae UNA vez el mapa de leads por email
+// (closing.ts, tenant-scoped) y el set de emails del equipo (usuarios del workspace),
+// y cruza los invitados de cada reunión. Determinístico, sin IA, aislado por cliente.
+export async function listReunionesRecientes(opts: { limit?: number; cursor?: string | null; recordedAfter?: string } = {}): Promise<PaginaReuniones> {
+  const page = await listMeetingsPage({ limit: opts.limit ?? 15, cursor: opts.cursor ?? undefined, recordedAfter: opts.recordedAfter });
+  const items = page.items ?? [];
+
+  // Los dos mapas para clasificar. Best-effort: si el CRM o los usuarios fallan,
+  // las reuniones salen igual con tipo 'otra' en vez de tirar todo el selector.
+  const [leadsByEmail, equipoEmails] = await Promise.all([
+    getLeadsByEmail().catch(() => new Map<string, { estado_lead: string | null }>()),
+    listarUsuarios().then((us) => new Set(us.map((u) => u.email.trim().toLowerCase()).filter(Boolean))).catch(() => new Set<string>()),
+  ]);
+
+  const reuniones = items
     .map((m: FathomMeeting) => ({
       recordingId: m.recording_id,
       titulo: meetingTitle(m) || 'Reunión sin título',
       fecha: meetingStartIso(m),
       durMin: meetingDurationMin(m),
       url: m.url ?? m.share_url ?? null,
+      involucrados: externalInviteeEmails(m),
+      tipo: clasificarReunion(m, leadsByEmail, equipoEmails),
     }))
     .filter((r) => Number.isFinite(r.recordingId))
     .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
+
+  return { reuniones, nextCursor: page.next_cursor ?? null };
 }
 
 // ── Prompt (editable vía prompt-registry) ─────────────────────────────────────
