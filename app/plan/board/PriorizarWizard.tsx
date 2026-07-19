@@ -18,7 +18,9 @@ export function PriorizarWizard({ task, onSetDeadline, onSetChecklist, onDowngra
   dismissable?: boolean;      // TEMPORAL super-admin: permite cerrar sin completar
   onDismiss?: () => void;
 }) {
-  const needDeadline = !task.deadline;
+  // El deadline YA NO es obligatorio (feedback jul-19): se pone opcional, desde el
+  // detalle o el modal de "sin deadline". El gauntlet queda solo para la checklist.
+  const needDeadline = false;
   const needChecklist = task.checklist.length === 0;
   const steps = [...(needDeadline ? ['deadline'] : []), ...(needChecklist ? ['checklist'] : [])] as const;
 

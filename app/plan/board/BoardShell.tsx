@@ -24,6 +24,7 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
 import { ReunionExtractModal } from './ReunionExtractModal';
+import { SinDeadlineModal } from './SinDeadlineModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
 import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
@@ -63,6 +64,12 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const [altaUndo, setAltaUndo] = useState<{ id: string; snap: BoardTask } | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set()); // gauntlets cerrados (super-admin, temporal)
   const [usageFlash, setUsageFlash] = useState<{ tokens: number; cost: number; feature: string } | null>(null);
+  // Deadline opcional (feedback jul-19): modal batch de "sin deadline" en vez del gauntlet.
+  const [sinDlOpen, setSinDlOpen] = useState(false);
+  const [dlDismiss, setDlDismiss] = useState<Set<string>>(new Set()); // "no volver a pedir" por tarea
+  const [dlOff, setDlOff] = useState(false);                          // "no volver a pedir por ninguna"
+  const [dlLoaded, setDlLoaded] = useState(false);                    // ya leí localStorage (evita auto-abrir antes de tiempo)
+  const dlAutoRef = useRef(false);                                    // auto-abrir una sola vez por sesión
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   useEffect(() => { if (!usageFlash) return; const t = setTimeout(() => setUsageFlash(null), 6000); return () => clearTimeout(t); }, [usageFlash]);
@@ -76,7 +83,9 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // (Alta solo para el proyecto top / sin proyecto / emergencia).
   const objetivoPrincipal = labels.length ? labels.slice().sort((a, b) => b.score - a.score)[0] : null;
   const topProjectId = objetivoPrincipal?.id ?? null;
-  const esAltaIncompleta = (t: BoardTask) => displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && (!t.deadline || t.checklist.length === 0);
+  // El gauntlet (bloqueante) auto-salta SOLO por checklist: el deadline dejó de ser
+  // obligatorio (feedback jul-19). Lo del deadline se resuelve en el modal batch.
+  const esAltaIncompleta = (t: BoardTask) => displayPrio(t, topProjectId) === 'alta' && t.progress < 100 && t.checklist.length === 0;
 
   // ── MaKo perro guardián: NINGUNA tarea puede quedar en Alta sin deadline+
   // checklist. Si hay alguna, se abre el form bloqueante (gauntlet). ──
@@ -86,6 +95,31 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     if (pend) setWizardId(pend.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, wizardId, dismissed, topProjectId]);
+
+  // ── Deadline opcional (feedback jul-19): en vez del gauntlet card-by-card, un
+  // modal batch con TODAS las tareas sin fecha. Persistimos el "no volver a pedir". ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('mako_plan_dl_dismiss');
+      if (raw) setDlDismiss(new Set(JSON.parse(raw) as string[]));
+      setDlOff(localStorage.getItem('mako_plan_dl_off') === '1');
+    } catch { /* localStorage no disponible */ }
+    setDlLoaded(true);
+  }, []);
+  const sinDeadline = tasks.filter((t) => t.progress < 100 && !t.deadline && !dlDismiss.has(t.id)).sort((a, b) => b.score - a.score);
+  const descartarDl = (id: string) => setDlDismiss((s) => { const n = new Set(s).add(id); try { localStorage.setItem('mako_plan_dl_dismiss', JSON.stringify([...n])); } catch { /* ignore */ } return n; });
+  const apagarDl = () => { setDlOff(true); try { localStorage.setItem('mako_plan_dl_off', '1'); } catch { /* ignore */ } };
+  // Auto-abrir UNA vez por sesión, y solo si hay alguna importante (alta/media) sin fecha.
+  useEffect(() => {
+    if (!dlLoaded || dlAutoRef.current || dlOff || sinDlOpen) return;
+    try { if (sessionStorage.getItem('mako_plan_dl_shown')) { dlAutoRef.current = true; return; } } catch { /* ignore */ }
+    if (sinDeadline.some((t) => t.score >= 50)) {
+      dlAutoRef.current = true;
+      try { sessionStorage.setItem('mako_plan_dl_shown', '1'); } catch { /* ignore */ }
+      setSinDlOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dlLoaded, sinDeadline.length, dlOff]);
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -258,6 +292,13 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
         </>}
+        {view === 'kanban' && sinDeadline.length > 0 && !dlOff && (
+          <button type="button" onClick={() => setSinDlOpen(true)} title="Ver las tareas sin deadline (el deadline es opcional)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', flex: 'none', fontFamily: 'inherit' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
+            <span style={{ fontSize: 14, lineHeight: 1 }}>◷</span>{sinDeadline.length} sin deadline
+          </button>
+        )}
         {view === 'proyectos' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
@@ -283,7 +324,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setWizardId} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} />}
         {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
@@ -322,6 +363,12 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onSetChecklist={(c) => board.setChecklist(wizardTask.id, c, `Definió el checklist (${c.length})`)}
         onDowngrade={(p) => { board.moveTo(wizardTask.id, p); setAltaUndo(null); }}
         onDone={cerrarWizard} />}
+      {sinDlOpen && <SinDeadlineModal tareas={sinDeadline}
+        onSet={(id, fecha) => board.setDeadline(id, fecha, '')}
+        onAbrir={(id) => { setSinDlOpen(false); setOpenId(id); }}
+        onDescartarUna={descartarDl}
+        onDescartarTodas={apagarDl}
+        onClose={() => setSinDlOpen(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       {usageFlash && <div style={{ position: 'fixed', right: 20, bottom: 20, zIndex: 250, display: 'flex', alignItems: 'center', gap: 11, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 14px', boxShadow: '0 12px 32px rgba(18,21,27,.18)', fontFamily: SANS }}>
         <span style={{ fontSize: 18, lineHeight: 1 }}>🪙</span>
