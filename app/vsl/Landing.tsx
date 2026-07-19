@@ -9,10 +9,9 @@
 // interactividad del diseño: carruseles con autoplay, animación de red en canvas,
 // Calendly embebido, reveal on-scroll y autoplay de videos.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { LANDING_HTML } from './landing-html';
 import { SHOWCASE_BY_SLUG } from './showcase';
-import FeatureModal from './FeatureModal';
 
 declare global {
   interface Window {
@@ -27,7 +26,6 @@ const CALENDLY_URL = 'https://calendly.com/koncke/asesoria';
 
 export default function Landing() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [openSlug, setOpenSlug] = useState<string | null>(null);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -43,11 +41,11 @@ export default function Landing() {
     };
     ensureCss('vsl-calendly-css', CALENDLY_CSS);
 
-    // ── Showcase: la card abre un POP-UP en vez de scrollear a una sección ───
-    // Antes cada feature tenía una sección `.mk-deep` DEBAJO de la grilla y la
-    // card hacía scroll hasta ella. Ahora: (1) se quitan esas secciones, (2) se
-    // agrega la card que faltaba (Prioridades / Perro Guardián), (3) cada card
-    // muestra su nuevo hook y (4) al click abre el modal (estado React openSlug).
+    // ── Showcase: la card lleva DIRECTO a la landing de la feature ───────────
+    // Antes cada feature tenía una sección `.mk-deep` DEBAJO de la grilla (scroll).
+    // Ahora: (1) se quitan esas secciones, (2) se agrega la card que faltaba
+    // (Prioridades / Perro Guardián), (3) cada card muestra su hook y (4) al click
+    // navega a /vsl/<slug> (la landing dedicada, mucho más completa que un pop-up).
     // Todo en runtime (no en landing-html.ts, auto-generado). Idempotente:
     // StrictMode re-ejecuta el efecto sobre el MISMO DOM.
 
@@ -55,16 +53,16 @@ export default function Landing() {
     const secH = root.querySelector<HTMLElement>('#como-funciona h2');
     if (secH) secH.textContent = 'Todo lo que tu VSL Funnel necesita, en una sola app';
 
-    // (1) Fuera las secciones de detalle "abajo": ahora viven en el modal.
+    // (1) Fuera las secciones de detalle "abajo": ahora cada feature tiene su landing.
     root.querySelectorAll('.mk-deep[id^="m-"]').forEach((s) => s.remove());
 
     // (2) Card nueva: Prioridades — El Perro Guardián, justo tras Experimentos.
     const featGrid = root.querySelector<HTMLElement>('.mk-feature-grid');
-    if (featGrid && !featGrid.querySelector('a[href="#m-prioridades"]')) {
+    if (featGrid && !featGrid.querySelector('a[data-feature="prioridades"]')) {
       const pri = SHOWCASE_BY_SLUG['prioridades'];
       const paths = pri.icon.map((d) => `<path d="${d}" />`).join('');
       const card = document.createElement('a');
-      card.href = '#m-prioridades';
+      card.setAttribute('href', '#m-prioridades');
       card.style.cssText =
         'display:flex;flex-direction:column;background:#fff;border:1px solid #EAECF1;border-radius:12px;padding:28px 26px;min-height:206px;text-decoration:none;box-shadow:0 1px 2px rgba(16,19,25,.03);transition:box-shadow .22s ease,transform .22s ease';
       card.innerHTML =
@@ -78,24 +76,16 @@ export default function Landing() {
       else featGrid.appendChild(card);
     }
 
-    // (3) Subtítulo de cada card = su nuevo hook (continuidad card → modal).
+    // (3) Cada card: subtítulo = hook nuevo + href real a su landing /vsl/<slug>.
     root.querySelectorAll<HTMLAnchorElement>('.mk-feature-grid a[href^="#m-"]').forEach((a) => {
       const slug = a.getAttribute('href')!.replace('#m-', '');
       const f = SHOWCASE_BY_SLUG[slug];
+      if (!f) return;
       const sub = a.querySelector<HTMLElement>(':scope > div:last-child');
-      if (f && sub) sub.textContent = f.hook;
+      if (sub) sub.textContent = f.hook;
+      a.setAttribute('data-feature', slug);
+      a.setAttribute('href', '/vsl/' + slug); // click → landing dedicada de la feature
     });
-
-    // (4) Click en una card → abre el modal (sin navegar al ancla).
-    const onCardClick = (e: Event) => {
-      const a = (e.target as HTMLElement)?.closest?.('.mk-feature-grid a[href^="#m-"]') as HTMLAnchorElement | null;
-      if (!a || !root.contains(a)) return;
-      e.preventDefault();
-      const slug = a.getAttribute('href')!.replace('#m-', '');
-      if (SHOWCASE_BY_SLUG[slug]) setOpenSlug(slug);
-    };
-    root.addEventListener('click', onCardClick);
-    cleanup.push(() => root.removeEventListener('click', onCardClick));
 
     // ── Realce de la sección CTA (#beta): escasez + oferta a la vista ────────
     // Override en runtime (no en landing-html.ts auto-generado). Idempotente.
@@ -300,9 +290,6 @@ export default function Landing() {
     <div className="vsl-root" ref={rootRef}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       {injectedHtml}
-      {openSlug && SHOWCASE_BY_SLUG[openSlug] && (
-        <FeatureModal feature={SHOWCASE_BY_SLUG[openSlug]} onClose={() => setOpenSlug(null)} />
-      )}
     </div>
   );
 }
@@ -342,65 +329,6 @@ body:has(.vsl-root) aside { display: none !important; }
    abajo la bajan a 2 en tablet/móvil. */
 .vsl-root .mk-feature-grid { grid-template-columns: repeat(4, 1fr) !important; gap: 16px !important; }
 .vsl-root .mk-feature-grid > a { min-height: 190px !important; }
-
-/* ── Pop-up de detalle de feature (reemplaza las secciones .mk-deep) ────── */
-.vsl-root:has(.mk-modal) { overflow: hidden !important; }
-.vsl-root .mk-modal {
-  position: fixed; inset: 0; z-index: 200;
-  display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: rgba(10,14,30,.55);
-  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  animation: mkFade .18s ease;
-}
-@keyframes mkFade { from { opacity: 0 } to { opacity: 1 } }
-.vsl-root .mk-modal-panel {
-  position: relative; width: 100%; max-width: 560px; max-height: 88vh;
-  display: flex; flex-direction: column;
-  background: #fff; border-radius: 20px; overflow: hidden;
-  box-shadow: 0 40px 90px -30px rgba(8,12,30,.6);
-  animation: mkPop .22s cubic-bezier(.2,.7,.2,1);
-}
-@keyframes mkPop { from { opacity: 0; transform: translateY(12px) scale(.98) } to { opacity: 1; transform: none } }
-.vsl-root .mk-modal-x {
-  position: absolute; top: 14px; right: 14px; z-index: 2;
-  width: 34px; height: 34px; border-radius: 10px; border: none;
-  background: #F1F3F7; color: #5B6472; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .15s ease, color .15s ease;
-}
-.vsl-root .mk-modal-x:hover { background: #E4E8EF; color: #12151B; }
-.vsl-root .mk-modal-scroll { overflow-y: auto; padding: 34px 32px 24px; -webkit-overflow-scrolling: touch; }
-.vsl-root .mk-modal-eyebrow { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; }
-.vsl-root .mk-modal-tile { width: 44px; height: 44px; border-radius: 12px; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; flex: none; }
-.vsl-root .mk-modal-name { font-size: 14px; font-weight: 600; letter-spacing: .01em; color: #2F6FED; }
-.vsl-root .mk-modal-hook { margin: 0 0 14px; font-size: 26px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; color: #12151B; padding-right: 34px; text-wrap: pretty; }
-.vsl-root .mk-modal-intro { margin: 0 0 22px; font-size: 16px; line-height: 1.62; color: #5B6472; }
-.vsl-root .mk-modal-intro strong { font-weight: 600; color: #12151B; }
-.vsl-root .mk-modal-intro em { font-style: italic; }
-.vsl-root .mk-modal-points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.vsl-root .mk-modal-points li { display: flex; gap: 11px; align-items: flex-start; font-size: 15.5px; line-height: 1.55; color: #454C58; }
-.vsl-root .mk-modal-points li strong { font-weight: 600; color: #12151B; }
-.vsl-root .mk-modal-points li em { font-style: italic; }
-.vsl-root .mk-modal-chev { color: #2F6FED; flex: none; margin-top: 2px; }
-.vsl-root .mk-modal-nota { display: flex; align-items: flex-start; gap: 9px; margin-top: 20px; background: #FFF7E8; border: 1px solid #F6E2B8; border-radius: 12px; padding: 12px 14px; font-size: 13.5px; line-height: 1.5; color: #8A5A06; }
-.vsl-root .mk-modal-nota svg { flex: none; margin-top: 1px; color: #C5860C; }
-.vsl-root .mk-modal-foot { border-top: 1px solid #EEF0F3; padding: 16px 32px; display: flex; flex-direction: column; gap: 12px; background: #fff; }
-.vsl-root .mk-modal-cta { display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; padding: 15px 24px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 14.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 12px 26px -14px rgba(47,111,237,.5); }
-.vsl-root .mk-modal-more { text-align: center; color: #2F6FED; font-size: 14px; font-weight: 600; text-decoration: none; }
-.vsl-root .mk-modal-more:hover { text-decoration: underline; }
-@media (max-width: 600px) {
-  .vsl-root .mk-modal { padding: 0; align-items: flex-end; }
-  .vsl-root .mk-modal-panel { max-width: none; max-height: 94vh; border-radius: 20px 20px 0 0; animation: mkSheet .26s cubic-bezier(.2,.7,.2,1); }
-  .vsl-root .mk-modal-scroll { padding: 30px 22px 20px; }
-  .vsl-root .mk-modal-hook { font-size: 23px; }
-  .vsl-root .mk-modal-foot { padding: 14px 22px calc(16px + env(safe-area-inset-bottom)); }
-}
-@keyframes mkSheet { from { transform: translateY(100%) } to { transform: none } }
-/* Sin movimiento: el estado en reposo (visible, sin transform) es el correcto,
-   así el panel nunca queda dependiendo de que la animación de entrada complete. */
-@media (prefers-reduced-motion: reduce) {
-  .vsl-root .mk-modal, .vsl-root .mk-modal-panel { animation: none !important; }
-}
 
 /* "¿Para quién es esto?": las dos columnas (✓ / ✕) a la misma altura. */
 .vsl-root .mk-pq-grid { align-items: stretch !important; }

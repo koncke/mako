@@ -6,6 +6,7 @@ import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { IaUsageToast } from './_components/IaUsageToast';
+import { HideOnPublicLanding } from './_components/PublicRouteGate';
 
 export const metadata: Metadata = {
   title: 'Marketing OS — Mauricio Bustos',
@@ -49,16 +50,21 @@ export default function RootLayout({
               <Sidebar />
             </Suspense>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <Suspense fallback={null}>
-                <ImpersonationBanner />
-              </Suspense>
+              {/* Chrome interno oculto en la landing pública /vsl (ver PublicRouteGate). */}
+              <HideOnPublicLanding>
+                <Suspense fallback={null}>
+                  <ImpersonationBanner />
+                </Suspense>
+              </HideOnPublicLanding>
               {/* Modal bloqueante: MaKo pide confirmar los cambios automáticos del
                   CRM al entrar a /leads. usePathname (no necesita Suspense). */}
               <MakoConfirmGate />
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}
-              <IaUsageToast />
+              <HideOnPublicLanding>
+                <IaUsageToast />
+              </HideOnPublicLanding>
             </div>
           </div>
         </NotificationsProvider>

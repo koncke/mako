@@ -13,6 +13,7 @@ import {
   type Dispatch, type SetStateAction, type MutableRefObject, type ReactNode,
 } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { isPublicLandingPath } from './PublicRouteGate';
 
 export interface Contacto {
   id: string;
@@ -278,9 +279,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     router.push(`/whatsapp?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
   };
 
-  // Carga inicial (lista completa) + baseline del snapshot. En /login no corre.
+  // Carga inicial (lista completa) + baseline del snapshot. En /login y en la
+  // landing pública /vsl no corre.
   useEffect(() => {
-    if (pathname.startsWith('/login')) { setLoadingConvs(false); return; }
+    if (pathname.startsWith('/login') || isPublicLandingPath(pathname)) { setLoadingConvs(false); return; }
     let alive = true;
     void (async () => {
       try {
@@ -349,7 +351,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // Polling GLOBAL cada 6s (sólo página 1: las novedades suben ahí).
   useEffect(() => {
     const tick = async () => {
-      if (pathRef.current.startsWith('/login')) return; // sin sesión no polleamos
+      if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return; // sin sesión / landing pública: no polleamos
       try {
         tickRef.current += 1;
         // Status de plantillas: siembra al 1er tick, después ~cada 30s.
@@ -404,7 +406,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   // badge que el oficial, para mensajes nuevos entrantes. Aislado del poll oficial.
   useEffect(() => {
     const tick = async () => {
-      if (pathRef.current.startsWith('/login')) return;
+      if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return;
       try {
         const r = await fetch('/api/whatsapp/evolution/mensajes?resumen=1');
         const j = await r.json();
@@ -456,7 +458,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ contactos, setContactos, unreadTotal, loadingConvs, openChatRef, setOpenChat, marcarLeido, goToChat, noOficialUnread, marcarLeidoNoOficial, setOpenChatNoOficial }}>
       {children}
-      {toast && (
+      {!isPublicLandingPath(pathname) && toast && (
         <button
           onClick={() => (toast.canal === 'empresa' ? goToChatNoOficial(toast.gid) : goToChat(toast.gid))}
           style={{
@@ -480,7 +482,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           </span>
         </button>
       )}
-      {tplToast && (
+      {!isPublicLandingPath(pathname) && tplToast && (
         <button
           onClick={() => goToPlantilla(tplToast.name)}
           style={{
