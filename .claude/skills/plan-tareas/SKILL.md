@@ -57,13 +57,32 @@ node .claude/skills/plan-tareas/scripts/plan.mjs add \
 La tarea entra con `origen: 'code'` y `fuente: { tipo: 'claude-code', etiqueta, url }`, así el
 historial dice "Claude Code hizo tal cosa" (regla: la IA/el agente SIEMPRE deja rastro).
 
+## 3. Modificá tareas que YA existen (por su #num)
+
+Todas operan por el **#num** que ves en `review`. Se encolan en `mako.plan.ops` y el board
+las aplica cuando el dueño lo abre, dejando rastro en el historial (actor Claude Code). Pasá
+`--chat "<tema>"` para que quede de qué sesión salió.
+
+```bash
+node .claude/skills/plan-tareas/scripts/plan.mjs done     --num 132            # marcar completada (progreso 100%)
+node .claude/skills/plan-tareas/scripts/plan.mjs reopen   --num 132            # reabrir (progreso 0%)
+node .claude/skills/plan-tareas/scripts/plan.mjs priority --num 132 --score 90 # subir/bajar prioridad (score 1-100)
+node .claude/skills/plan-tareas/scripts/plan.mjs project  --num 132 --project "Seguridad"   # reasignar (crea el proyecto si no existe)
+node .claude/skills/plan-tareas/scripts/plan.mjs edit     --num 132 --title "Nuevo título" --priority alta --deadline 2026-08-01 --detalle "…"
+node .claude/skills/plan-tareas/scripts/plan.mjs delete   --num 132            # borrar la tarea
+```
+
+- `edit` acepta cualquier combinación de `--title` / `--detalle` / `--priority` (alta|media|baja|futuro) / `--deadline` (YYYY-MM-DD).
+- Si el `#num` ya no existe (se borró), la op se ignora sin romper nada.
+- Reflejá SIEMPRE lo que hiciste: cuando termines un trabajo que corresponde a una tarea del
+  plan, marcala `done` — así el tablero del dueño queda al día solo (pedido explícito de Martín).
+
 ## Límites y cuidados
 
 - **Escribe en PROD** (la bandeja del dueño real). No la uses para pruebas; para probar,
   borrá después el item de `mako.plan.inbox`.
-- **No completa ni edita** tareas del board del super-admin (localStorage): sólo REVISA
-  (foto) y AGREGA (bandeja). Marcar-como-hecha desde acá necesitaría una bandeja de
-  "completadas" que todavía no existe — si hace falta, es un TODO.
+- **Aplicación diferida:** las ops (add/done/edit/…) NO tocan el board en vivo — se aplican
+  cuando el dueño ABRE /plan (su localStorage). Si no lo abre, no se ven todavía. Es esperado.
 - Para tareas de un **cliente** (no el dueño) el board vive en la base (`experimento_tareas`),
   no en esta bandeja; ese caso va por `lib/todo`, no por acá.
 - Backfill histórico: las tareas viejas del SEED NO tienen chat registrado y **no se puede

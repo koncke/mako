@@ -643,6 +643,51 @@ const FUENTE_WA: Fuente = { tipo: 'whatsapp' }; // fuente de las tareas/proyecto
 const INBOX_SEEN = 'mako_plan_inbox_seen'; // refIds ya mergeados por ESTE browser (dedup por device)
 function loadSeen(): Set<string> { try { const v = localStorage.getItem(INBOX_SEEN); return new Set(v ? (JSON.parse(v) as string[]) : []); } catch { return new Set(); } }
 function saveSeen(s: Set<string>) { try { localStorage.setItem(INBOX_SEEN, JSON.stringify([...s].slice(-1000))); } catch { /* no-op */ } }
+const OPS_SEEN = 'mako_plan_ops_seen'; // opIds ya aplicados por ESTE browser
+function loadSeenOps(): Set<string> { try { const v = localStorage.getItem(OPS_SEEN); return new Set(v ? (JSON.parse(v) as string[]) : []); } catch { return new Set(); } }
+function saveSeenOps(s: Set<string>) { try { localStorage.setItem(OPS_SEEN, JSON.stringify([...s].slice(-2000))); } catch { /* no-op */ } }
+
+// Una operación que Claude Code / MaKo dejó para aplicar sobre una tarea EXISTENTE.
+type PlanOpRaw = { opId?: string; op?: string; num?: number; campos?: { titulo?: string; detalle?: string; deadline?: string; prioridad?: string; proyecto?: string; score?: number }; etiqueta?: string; ts?: number };
+
+// Aplica las operaciones (completar/reabrir/editar/proyecto/prioridad/borrar) matcheando
+// por #num. Deja rastro en el historial (actor 'code'). Pura, como construirInbox.
+function aplicarOps(items: PlanOpRaw[], tasksIn: BoardTask[], labelsIn: Label[]): { tasks: BoardTask[]; labels: Label[] } {
+  let tasks = tasksIn;
+  let labels = labelsIn;
+  const byName = new Map(labels.map((l) => [l.name.trim().toLowerCase(), l]));
+  const PRI = ['alta', 'media', 'baja', 'futuro'] as const;
+  for (const op of items) {
+    const num = Number(op.num);
+    const idx = tasks.findIndex((t) => t.num === num);
+    if (idx < 0) continue; // #num inexistente (viejo/borrado) → se ignora
+    const etq = op.etiqueta ? ` · ${op.etiqueta}` : '';
+    const mkH = (text: string): Hist => ({ id: 'op' + uid(), ts: Number(op.ts) || Date.now(), actor: 'code', text: `${text} — Claude Code${etq}` });
+    if (op.op === 'borrar') { tasks = tasks.filter((_, i) => i !== idx); continue; }
+    const t = tasks[idx];
+    let nt: BoardTask = { ...t };
+    const c = op.campos || {};
+    if (op.op === 'completar') { nt = { ...nt, progress: 100, checklist: nt.checklist.map((x) => ({ ...x, done: true })), historial: [mkH('Completó la tarea'), ...nt.historial].slice(0, HIST_CAP) }; }
+    else if (op.op === 'reabrir') { nt = { ...nt, progress: 0, historial: [mkH('Reabrió la tarea'), ...nt.historial].slice(0, HIST_CAP) }; }
+    else if (op.op === 'prioridad') { const sc = clampScore(Number(c.score)); nt = { ...nt, score: sc, priority: prioFromScore(sc), historial: [mkH(`Cambió la prioridad → ${sc}`), ...nt.historial].slice(0, HIST_CAP) }; }
+    else if (op.op === 'editar') {
+      if (c.titulo) nt.title = String(c.titulo).slice(0, 200);
+      if (typeof c.detalle === 'string') nt.detalle = c.detalle;
+      if (typeof c.deadline === 'string') nt.deadline = c.deadline;
+      if (c.prioridad && (PRI as readonly string[]).includes(c.prioridad)) { const p = c.prioridad as Prio; nt.priority = p; nt.score = scoreFromPrio[p]; }
+      nt.historial = [mkH('Editó la tarea'), ...nt.historial].slice(0, HIST_CAP);
+    } else if (op.op === 'proyecto') {
+      const nombre = String(c.proyecto || '').trim();
+      if (nombre) {
+        let lab = byName.get(nombre.toLowerCase());
+        if (!lab) { const lid = 'op' + uid(); lab = { id: lid, pid: `P${labels.length + 1}`, emoji: '📁', name: nombre.slice(0, 60), color: '#2F6FED', score: 50, detalle: '', historial: [{ id: 'opl' + lid, ts: Number(op.ts) || Date.now(), actor: 'code', text: `Creó el proyecto — Claude Code${etq}` }] }; labels = [...labels, lab]; byName.set(nombre.toLowerCase(), lab); }
+        nt = { ...nt, labels: [lab.id], historial: [mkH(`Asignó a «${nombre}»`), ...nt.historial].slice(0, HIST_CAP) };
+      }
+    } else continue;
+    tasks = tasks.map((x, i) => (i === idx ? nt : x));
+  }
+  return { tasks, labels };
+}
 
 // Construye las tarjetas de la bandeja Y crea el PROYECTO que falte (igual que la rama
 // cliente): si el nombre no matchea un label, se crea uno nuevo, así el proyecto no se
@@ -720,6 +765,23 @@ export function PlanBoard({ user }: { user: BoardUser }) {
           }
         }
       } catch { /* sin bandeja, seguimos */ }
+      // Operaciones sobre tareas EXISTENTES (completar/editar/reasignar/repriorizar/
+      // borrar) que dejó Claude Code / MaKo. Se aplican una vez por device (seen propio),
+      // matcheando por #num, con rastro en el historial (actor 'code').
+      try {
+        const j = await fetch('/api/plan/ops').then((r) => r.json()).catch(() => null);
+        if (j?.ok && Array.isArray(j.ops) && j.ops.length) {
+          const seenOps = loadSeenOps();
+          const nuevas = (j.ops as PlanOpRaw[]).filter((o) => o?.opId && !seenOps.has(String(o.opId)));
+          if (nuevas.length) {
+            const ap = aplicarOps(nuevas, finales, labelsFinal);
+            finales = ap.tasks; labelsFinal = ap.labels;
+            try { localStorage.setItem(K9, JSON.stringify(finales)); localStorage.setItem(K_PROJS, JSON.stringify(labelsFinal)); } catch { /* no-op */ }
+            nuevas.forEach((o) => seenOps.add(String(o.opId)));
+            saveSeenOps(seenOps);
+          }
+        }
+      } catch { /* sin ops, seguimos */ }
       if (!cancel) { board.reset(finales, labelsFinal); setHydrated(true); }
     })();
     return () => { cancel = true; };

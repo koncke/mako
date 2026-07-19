@@ -142,10 +142,45 @@ async function add(client, args) {
   console.log('  Aparece en /plan la próxima vez que el dueño abra el board.');
 }
 
+const KEY_OPS = 'mako.plan.ops';
+async function pushOp(client, op, num, campos, etiqueta) {
+  const raw = await getSetting(client, KEY_OPS);
+  let prev = []; try { if (raw) prev = JSON.parse(raw); } catch { /* */ }
+  const now = Date.now();
+  const nueva = { opId: `op${now}-${Math.floor(now % 100000)}`, op, num: Number(num), campos: campos || undefined, etiqueta: etiqueta || undefined, ts: now };
+  await setSetting(client, KEY_OPS, JSON.stringify([...prev, nueva].slice(-300)));
+  return nueva;
+}
+// done/reopen/delete/priority/project/edit — operan sobre una tarea EXISTENTE por #num.
+async function opCmd(client, cmd, args) {
+  const num = Number(args.num);
+  if (!Number.isFinite(num)) { console.error('Falta --num (el #número de la tarea; miralo con `review`).'); process.exit(1); }
+  const chat = (args.chat || args.etiqueta || '').toString().trim() || undefined;
+  let op, campos;
+  if (cmd === 'done') op = 'completar';
+  else if (cmd === 'reopen') op = 'reabrir';
+  else if (cmd === 'delete') op = 'borrar';
+  else if (cmd === 'priority') { op = 'prioridad'; campos = { score: Number(args.score) }; if (!Number.isFinite(campos.score)) { console.error('Falta --score 1-100'); process.exit(1); } }
+  else if (cmd === 'project') { op = 'proyecto'; campos = { proyecto: String(args.project || '') }; if (!campos.proyecto) { console.error('Falta --project "Nombre"'); process.exit(1); } }
+  else if (cmd === 'edit') {
+    op = 'editar'; campos = {};
+    if (args.title) campos.titulo = String(args.title);
+    if (args.detalle) campos.detalle = String(args.detalle);
+    if (args.priority) campos.prioridad = String(args.priority);
+    if (args.deadline) campos.deadline = String(args.deadline);
+    if (!Object.keys(campos).length) { console.error('edit necesita al menos --title / --detalle / --priority / --deadline'); process.exit(1); }
+  }
+  await pushOp(client, op, num, campos, chat);
+  console.log(`✓ Operación '${op}' encolada para la tarea #${num}${chat ? ` (${chat})` : ''}.`);
+  console.log('  Se aplica (con rastro "Claude Code" en el historial) cuando el dueño abre /plan.');
+}
+
 const args = parseArgs(process.argv.slice(2));
 const cmd = args._[0] || 'review';
+const OPS = ['done', 'reopen', 'edit', 'project', 'priority', 'delete'];
 const client = sb();
 if (cmd === 'review') await review(client);
 else if (cmd === 'add') await add(client, args);
-else { console.error(`Comando desconocido: ${cmd}. Usá 'review' o 'add'.`); process.exit(1); }
+else if (OPS.includes(cmd)) await opCmd(client, cmd, args);
+else { console.error(`Comando desconocido: ${cmd}. Usá: review / add / done / reopen / edit / project / priority / delete.`); process.exit(1); }
 process.exit(0);
