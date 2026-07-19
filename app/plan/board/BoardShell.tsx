@@ -323,8 +323,8 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
             está apagado no titila (queda gris), para no naguear. */}
         {faltantes.length > 0 && (
           <button type="button" onClick={abrirDatosManual} title={`${faltantes.length} tarea${faltantes.length === 1 ? '' : 's'} con datos sin marcar (deadline / checklist)`} aria-label="Datos sin marcar"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}>
-            <WarnMark title="" size={15} blink={!datosOff} />
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: 0 }}>
+            <WarnMark title="" size={18} blink={!datosOff} />
           </button>
         )}
         {view === 'proyectos' && <>
@@ -512,7 +512,7 @@ function MasChip({ extra, onOpen }: { extra: Label[]; onOpen?: (id: string) => v
             const est: CSSProperties = { display: 'inline-flex', alignItems: 'flex-start', gap: 6, fontSize: 12, fontWeight: 600, color: l.color, background: l.color + '14', border: `1px solid ${l.color}33`, borderRadius: 7, padding: '4px 9px', lineHeight: 1.35, textAlign: 'left', fontFamily: SANS };
             const cont = <><span style={{ flex: 'none' }}>{l.emoji}</span><span>{l.name}</span></>;
             return onOpen
-              ? <button key={l.id} type="button" onClick={() => onOpen(l.id)} title={`Abrir «${l.name}»`} style={{ ...est, cursor: 'pointer', width: '100%' }}>{cont}</button>
+              ? <button key={l.id} type="button" onClick={() => { setPos(null); onOpen(l.id); }} title={`Abrir «${l.name}»`} style={{ ...est, cursor: 'pointer', width: '100%' }}>{cont}</button>
               : <span key={l.id} style={est}>{cont}</span>;
           })}
         </span>,

@@ -13,6 +13,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
+import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
 import { emitirDelCatalogo } from '@/lib/avisos';
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string; termino?: string; definicion?: string; candidatas?: Array<{ titulo?: string; detalle?: string }>; existentes?: Array<{ id?: string; titulo?: string; detalle?: string }> };
+  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string; termino?: string; definicion?: string; reanalizar?: boolean; candidatas?: Array<{ titulo?: string; detalle?: string }>; existentes?: Array<{ id?: string; titulo?: string; detalle?: string }> };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;
 
@@ -88,8 +89,23 @@ export async function POST(req: NextRequest) {
       const recordingId = Number(body.recordingId);
       if (!Number.isFinite(recordingId)) return Response.json({ ok: false, error: 'Falta la reunión.' }, { status: 400 });
       const proyectos = proyectosDe(body.proyectos);
+      // CACHE por reunión (feedback jul-19): NO re-cobrar tokens si ya extrajimos esta
+      // reunión (la transcripción no cambia). Guardamos el resultado y lo devolvemos con
+      // `cached:true`. `body.reanalizar===true` fuerza volver a correr Claude si hace falta.
+      const cacheKey = `mako.fathom.cache.${recordingId}`;
+      if (body.reanalizar !== true) {
+        const raw = await getSetting(cacheKey).catch(() => null);
+        if (raw) {
+          try {
+            const prev = JSON.parse(raw) as { tareas?: unknown };
+            if (Array.isArray(prev.tareas)) return Response.json({ ok: true, tareas: prev.tareas, cached: true });
+          } catch { /* cache corrupto → re-extrae */ }
+        }
+      }
       const glosario = await glosarioTexto().catch(() => '');
       const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: uso });
+      // Guardar en cache (best-effort): re-abrir la misma reunión ya no gasta.
+      void setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, ts: Date.now() })).catch(() => {});
       // Aviso: MaKo sacó compromisos de la reunión → ofrece cargarlos al tablero.
       if (out.tareas.length > 0) {
         const ws = await getWorkspaceActual();
