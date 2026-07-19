@@ -6,6 +6,9 @@
 // hardcodeados que se filtren a otra feature: si un campo no viene, no se pinta.
 // Dispatcher <Visual spec={{type,...params}} />. Specs en ./feature-visuals.ts.
 
+import { VisualChart } from './VisualCharts';
+import { VisualCanvas } from './VisualCanvas';
+
 export type VisualSpec = { type: string; [k: string]: unknown };
 
 const BLUE = '#2F6FED';
@@ -606,6 +609,8 @@ const REGISTRY: Record<string, (s: VisualSpec) => React.ReactElement> = {
 export const VISUAL_TYPES = Object.keys(REGISTRY);
 
 export function Visual({ spec }: { spec: VisualSpec | undefined }) {
+  if (spec && spec.type.startsWith('rc')) return <VisualChart spec={spec} />;
+  if (spec && spec.type.startsWith('cx')) return <VisualCanvas type={spec.type} />;
   const render = spec && REGISTRY[spec.type];
   if (!render) return <Funnel type="funnel" />;
   return render(spec);
