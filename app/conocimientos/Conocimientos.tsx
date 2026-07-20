@@ -23,7 +23,7 @@ const nn = (n: number) => String(n).padStart(2, '0');
 type View = { t: 'hub' } | { t: 'clase'; n: number } | { t: 'recurso'; slug: string };
 
 const RIC: Record<Recurso['tipo'], string> = {
-  gpt: '◆', notion: '▤', capturas: '▦', pdf: '▧', zip: '⬇', doc: '▤', link: '↗',
+  gpt: '◆', notion: '▤', capturas: '▦', pdf: '▧', zip: '⬇', tool: '↗',
 };
 
 // Tarjetas de "Tus recursos" (cada una abre su detalle).
@@ -96,6 +96,40 @@ function Chips({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// Un recurso, embebido directo: doc (texto copiable) · captura/PDF (visor) ·
+// zip/herramienta (link, cuando no queda otra).
+function RecursoItem({ r }: { r: Recurso }) {
+  if ((r.tipo === 'gpt' || r.tipo === 'notion') && r.texto) {
+    return (
+      <div className="al-embed">
+        <div className="al-embed-hd">
+          <span className="al-embed-t"><span className="al-embed-ic">{RIC[r.tipo]}</span>{r.label}</span>
+          <CopyBtn text={r.texto} />
+        </div>
+        <details className="al-det">
+          <summary>Ver contenido</summary>
+          <pre className="al-pre">{r.texto}</pre>
+        </details>
+      </div>
+    );
+  }
+  if ((r.tipo === 'capturas' || r.tipo === 'pdf') && r.driveId) {
+    return (
+      <div className="al-embed">
+        <span className="al-embed-t"><span className="al-embed-ic">{RIC[r.tipo]}</span>{r.label}</span>
+        <div className="al-pdf">
+          <iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <a href={r.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
+      <span><span className="al-embed-ic">{RIC[r.tipo]}</span>{r.label}</span><span className="al-arr">↗</span>
+    </a>
+  );
+}
+
 function ClaseDetail({ c, back }: { c: Clase; back: () => void }) {
   return (
     <div className="al-detail">
@@ -126,13 +160,12 @@ function ClaseDetail({ c, back }: { c: Clase; back: () => void }) {
       ) : c.transcripcionNota ? <div className="al-nota">{c.transcripcionNota}</div> : null}
 
       {c.recursos.length > 0 && (
-        <Chips label="Recursos">
-          {c.recursos.map((r, i) => (
-            <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="al-chip">
-              <span className="al-chip-ic">{RIC[r.tipo]}</span>{r.label}
-            </a>
-          ))}
-        </Chips>
+        <div className="al-block">
+          <span className="al-block-l">Recursos</span>
+          <div className="al-embeds">
+            {c.recursos.map((r, i) => (<RecursoItem key={i} r={r} />))}
+          </div>
+        </div>
       )}
       {c.herramientas.length > 0 && (
         <Chips label="Herramientas">
@@ -179,11 +212,16 @@ function RecursoDetail({ slug, back }: { slug: string; back: () => void }) {
       ) : (
         <>
           <p className="al-sub al-sub-sm">{banco!.desc}</p>
-          <div className="al-list">
+          <div className="al-embeds">
             {banco!.items.map((it, i) => (
-              it.url ? (
+              it.texto ? (
+                <div key={i} className="al-prompt">
+                  <div className="al-prompt-hd"><span className="al-prompt-t">{it.label}</span><CopyBtn text={it.texto} /></div>
+                  <details className="al-det"><summary>Ver contenido</summary><pre className="al-pre">{it.texto}</pre></details>
+                </div>
+              ) : it.url ? (
                 <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
-                  {it.label}<span className="al-arr">↗</span>
+                  <span>{it.label}</span><span className="al-arr">↗</span>
                 </a>
               ) : <span key={i} className="al-list-item al-list-soon">{it.label}</span>
             ))}
@@ -335,6 +373,16 @@ const CSS = `
 .cono .al-list-item:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-list-item .al-arr{ color:var(--lime-ink); }
 .cono .al-list-soon{ color:var(--ink-40); box-shadow:none; }
+
+/* Recursos embebidos (doc copiable / visor de PDF) */
+.cono .al-embeds{ display:flex; flex-direction:column; gap:12px; }
+.cono .al-embed{ background:var(--card); border:1.5px solid var(--ink); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow-paste); }
+.cono .al-embed-hd{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.cono .al-embed-t{ font-family:var(--disp); font-weight:800; font-size:16px; letter-spacing:-.01em; color:var(--ink); display:inline-flex; align-items:center; gap:9px; }
+.cono .al-embed-ic{ color:var(--lime-ink); font-size:12px; flex:none; }
+.cono .al-embed .al-det{ margin-top:12px; }
+.cono .al-pdf{ margin-top:12px; aspect-ratio:4/3; border:1.5px solid var(--ink); border-radius:10px; overflow:hidden; background:var(--card-2); }
+.cono .al-pdf iframe{ width:100%; height:100%; border:0; display:block; }
 
 @media (max-width:640px){
   .cono-wrap{ padding:18px 16px 56px; }
