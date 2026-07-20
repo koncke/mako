@@ -9,6 +9,7 @@ export type Herramienta = { nombre: string; url: string; nota?: string };
 export type Clase = {
   n: number;
   titulo: string;
+  cardDesc: string;
   videoId: string | null;
   resumen: string[];
   transcripcion: string[];
@@ -32,6 +33,7 @@ export const CURSO: Curso = {
     {
       "n": 1,
       "titulo": "Introducción",
+      "cardDesc": "Cómo está armado el curso y las dos herramientas base: Kie.ai y APImart.",
       "videoId": "1CN-9GKAHbhsMT55RPDk6M-pNc3R6SPrV",
       "resumen": [
         "Herramientas principales del curso: dos plataformas, Kie.ai y APImart. En ambas se carga saldo entrando al perfil o al panel de control (dashboard) y yendo a la sección 'Billing' o 'Cartera'; en APImart el saldo mínimo es de 10 dólares.",
@@ -65,6 +67,7 @@ export const CURSO: Curso = {
     {
       "n": 2,
       "titulo": "UGC, trends e imágenes",
+      "cardDesc": "Rutas baratas con Sora y Veo 3.1, trends virales y anuncios en imagen.",
       "videoId": "1_NgOd8OVeffIjYySppTjt5kMNc5_OiF5",
       "resumen": [
         "Ruta low cost 1 (Sora 2 vía KIE API): KIE es un mercado de APIs que da acceso a modelos de video/imagen a bajo costo; con el modelo Sora 2 se generan videos de 15 segundos por 15 céntimos. Se usa el chat/agente de prompts de Avatar Hype (le das producto, avatar y mercado) para obtener el prompt estructurado, y se configura Sora 2 Image-to-Video (o Text-to-Video) en formato vertical 9:16. Alternativas fuera de KIE: Triamina (631 créditos + 7 días gratis; ~108 créditos por video de 12s) y Sora 2 en Fal.ai (~1 dólar por video).",
@@ -175,6 +178,7 @@ export const CURSO: Curso = {
     {
       "n": 3,
       "titulo": "Podcast, UGC, Voz en off",
+      "cardDesc": "Tres formatos (podcast, UGC, voz en off) con GPT-Image, Veo 3.1 y ElevenLabs.",
       "videoId": "13MJmnHckcq4nbAZ0MfND2hwKYGSADv1f",
       "resumen": [
         "Imágenes y referencias: se busca inspiración en Pinterest y se generan/editan los avatares con GPT Image 2 por una ruta económica (~0,012 por imagen, unas 90 imágenes por 1 euro, frente a Nano Banana Pro a ~0,15). Dos vías: dos prompts manuales (crear una persona inexistente manteniendo rasgos como la definición muscular + colocarla en el fondo de Pinterest) o el agente de prompts (método 6C) que estructura el prompt a partir de una captura; si falla la plataforma económica se usa iEdit.",
@@ -243,6 +247,7 @@ export const CURSO: Curso = {
     {
       "n": 4,
       "titulo": "Anuncios en imagen",
+      "cardDesc": "Un agente que convierte tu producto en 7 formatos de anuncio en imagen.",
       "videoId": "18jmhs36y1czwBShEh_09xHl9tgPhSbDB",
       "resumen": [
         "Objetivo de la clase: partir de una sola imagen de producto y generar varios anuncios en imagen usando los formatos que mejor funcionan, de forma rápida y semiautomática.",
@@ -276,6 +281,7 @@ export const CURSO: Curso = {
     {
       "n": 5,
       "titulo": "Podcast, UGC, Dualcast",
+      "cardDesc": "Formato dualcast de podcast / UGC.",
       "videoId": "1nDvn9jEyG2AQr1cYf0uZUtSM20kLz5XR",
       "resumen": [
         "La clase aborda el formato Dualcast, un estilo de podcast presentado por dos avatares o voces generados con IA que dialogan entre si.",
@@ -295,6 +301,7 @@ export const CURSO: Curso = {
     {
       "n": 6,
       "titulo": "Animados v.1",
+      "cardDesc": "Anuncios animados: planificación con GPT + NotebookLM y generación con Veo 3.",
       "videoId": "14G_QDpYXEIyl-4JbhLu3zU7h0AGw5Qt1",
       "resumen": [
         "Planificación antes que herramientas: se usa ChatGPT (una conversación nueva para todo el proceso) con un sistema de 8 prompts en orden fijo. Prompt 1 define el avatar del cliente y genera 3 búsquedas para NotebookLM; luego siguen insights, ángulos de venta, guión, storyboard, prompts de imagen, auditoría global y, por último, la inserción del producto (nombre y marca).",
