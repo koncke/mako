@@ -9,7 +9,7 @@
 // Siempre respondemos 200 salvo firma inválida — Evolution reintenta si no.
 // =============================================================================
 
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { jidToNumero } from '@/lib/evolution';
@@ -20,6 +20,9 @@ import { upsertContacto } from '@/lib/evolution-contactos';
 import { upsertLabelCatalogo, borrarLabelCatalogo } from '@/lib/evolution-labels';
 
 export const dynamic = 'force-dynamic';
+// El doer (loop de tools con Claude) puede tardar en turnos pesados. Le damos aire para
+// que complete en background (after) sin que la función muera a mitad. Feedback jul-19.
+export const maxDuration = 300;
 
 // Resuelve el workspace dueño de una instancia (sin sesión → sin scope).
 async function wsDeInstancia(instance: string): Promise<number | null> {
@@ -117,27 +120,36 @@ export async function POST(req: NextRequest) {
       const mensajes = Array.isArray((d as { messages?: unknown[] })?.messages)
         ? (d as { messages: Record<string, unknown>[] }).messages
         : (d ? [d] : []);
-      let errores = 0;
-      await runWithWorkspace(ws, async () => {
-        for (const m of mensajes) {
-          // Mensajes de GRUPO (…@g.us) → doer "Hola MaKo" (guardarMensajeUpsert
-          // los descarta; el espejo 1-a-1 no aplica a grupos). El doer decide
-          // solo si engancha (grupo habilitado + lo nombran / hay pendiente).
-          const rjid = ((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '';
-          if (rjid.endsWith('@g.us')) {
-            // El doer resuelve el workspace de DATOS por el GRUPO (aislamiento), no
-            // por la instancia; por eso no le pasamos `ws`.
+      const esGrupo = (m: Record<string, unknown>) => (((m?.key as { remoteJid?: string } | undefined)?.remoteJid) ?? '').endsWith('@g.us');
+      const grupos = mensajes.filter(esGrupo);
+      const unoAuno = mensajes.filter((m) => !esGrupo(m));
+
+      // Mensajes de GRUPO (…@g.us) → doer "Hola MaKo". El loop de tools con Claude es
+      // LENTO: corriéndolo sincrónico, un turno pesado (ej. "tengo 10 ideas" → Opus)
+      // excedía el timeout, la función moría, la RESPUESTA SE PERDÍA, y Evolution
+      // reintentaba raro (el "me contestó lo de ayer" del feedback jul-19). Ahora corre en
+      // BACKGROUND con after(): devolvemos 200 YA (Evolution no reintenta) y el doer tiene
+      // hasta maxDuration para completar y mandar. Resuelve su propio workspace por el grupo.
+      if (grupos.length) {
+        after(async () => {
+          for (const m of grupos) {
             try { await manejarEntranteDoer(instance, m); } catch (e) { console.error(`[webhook:evolution] doer: ${e instanceof Error ? e.message : String(e)}`); }
-            continue;
           }
-          // La línea de voz de MaKo (SuperAdmin) no es un inbox de cliente: sus
-          // 1-a-1 no se espejan (evitá mezclar los DMs de MaKo con los del cliente).
-          if (instance === INSTANCIA_SUPERADMIN) continue;
-          try { await guardarMensajeUpsert(instance, m); } catch (e) { errores += 1; console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }
-        }
-        await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
-      });
-      return Response.json({ ok: true, guardados: mensajes.length - errores });
+        });
+      }
+
+      // 1-a-1 (espejo del inbox del cliente): rápido, sincrónico. La línea SuperAdmin no
+      // espeja (sus DMs no se mezclan con los del cliente).
+      let errores = 0;
+      if (unoAuno.length && instance !== INSTANCIA_SUPERADMIN) {
+        await runWithWorkspace(ws, async () => {
+          for (const m of unoAuno) {
+            try { await guardarMensajeUpsert(instance, m); } catch (e) { errores += 1; console.error(`[webhook:evolution] guardar msg: ${e instanceof Error ? e.message : String(e)}`); }
+          }
+        });
+      }
+      await supabase.from('evolution_instancias').update({ ultimo_evento_at: nowISO }).eq('instance_name', instance);
+      return Response.json({ ok: true, guardados: unoAuno.length - errores });
     }
 
     if (evento === 'messages.update') {
