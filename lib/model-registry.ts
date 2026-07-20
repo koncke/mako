@@ -52,7 +52,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), nota: 'El análisis más pesado del producto. Opus.' },
   { feature: 'script-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: SONNET, nota: 'Lectura estructural creativa. Sonnet.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: SONNET },
-  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), nota: 'Sonnet se comía action items reales de reuniones → Opus. Es 1 vez por reunión (se cachea), así que el costo no se repite.' },
+  { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: SONNET, nota: 'El problema NO era el modelo sino que se cortaba el transcript (14k→completo): con la reunión entera, Sonnet saca los 16 action items reales igual que Opus, y más barato. 1 vez por reunión (cacheada).' },
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: SONNET, nota: 'Estrategia + voz de marca. Sonnet.' },

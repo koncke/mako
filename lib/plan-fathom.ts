@@ -240,7 +240,7 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
 
   let usage: UsageInfo | undefined;
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
-    effort: 'high', maxTokens: 2600, feature: 'plan-fathom',
+    effort: 'high', maxTokens: 4500, feature: 'plan-fathom',
     motivo: opts.usoMotivo || 'Extraer tareas', onUsage: (u) => { usage = u; },
   });
   let obj: Record<string, unknown>;
@@ -257,7 +257,11 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
     listMeetingsPage({ limit: 25, includeActionItems: true }).catch(() => ({ items: [], next_cursor: null } as const)),
   ]);
   const resumen = summary?.markdown_formatted?.trim() ?? '';
-  const texto = transcriptToText(transcript, 14000);
+  // ANTES 14000 chars: en una reunión de 105' (~100k chars) eso cortaba el 86% — solo
+  // llegaba el arranque (chit-chat) y los action items REALES quedaban afuera → "no
+  // encontró nada". Probado con la reunión de Mau: 14k → 5 tareas del intro; completo →
+  // 16 reales. 120k cubre ~2h; se manda 1 vez por reunión (se cachea). Feedback jul-19.
+  const texto = transcriptToText(transcript, 120000);
   if (!resumen && !texto) return { tareas: [], dudas: [] };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
