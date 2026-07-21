@@ -17,8 +17,25 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CURSOS, type Curso, type Clase, type Recurso } from './curso';
 
 const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
+const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
+const DRIVE_THUMB = (id: string) => `https://drive.google.com/thumbnail?id=${id}&sz=w480`;
 const nn = (n: number) => String(n).padStart(2, '0');
 const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos' };
+const claseTag = (clases?: number[]) => !clases || !clases.length ? undefined : (clases.length === 1 ? `Clase ${clases[0]}` : `Clases ${clases.join('·')}`);
+
+// Póster vertical del video de ejemplo. Drive dibuja su player en horizontal
+// (estilo YouTube) y recorta el 9:16 → usamos la miniatura vertical + play, y el
+// click abre el clip completo en Drive.
+function VidPoster({ id, label }: { id: string; label: string }) {
+  return (
+    <a href={DRIVE_VIEW(id)} target="_blank" rel="noopener noreferrer" className="al-vid" title="Ver el video de ejemplo">
+      {/* eslint-disable-next-line @next/next/no-img-element -- miniatura de Drive (archivo público), URL externa */}
+      <img src={DRIVE_THUMB(id)} alt={`${label} — video de ejemplo`} loading="lazy" className="al-vid-img" />
+      <span className="al-vid-play" aria-hidden>▶</span>
+      <span className="al-vid-tag">Ver ejemplo</span>
+    </a>
+  );
+}
 
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
@@ -55,10 +72,13 @@ function DocContent({ text }: { text: string }) {
   return <div className="al-doc">{out}</div>;
 }
 
-function Card({ badge, titulo, desc, onClick, ariaLabel }: { badge: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string }) {
+function Card({ badge, nota, titulo, desc, onClick, ariaLabel }: { badge: string; nota?: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string }) {
   return (
     <button type="button" className="al-rescard" onClick={onClick} aria-label={ariaLabel}>
-      <span className="al-rescard-badge">{badge}</span>
+      <span className="al-rescard-top">
+        <span className="al-rescard-badge">{badge}</span>
+        {nota && <span className="al-rescard-nota">{nota}</span>}
+      </span>
       <span className="al-rescard-title">{titulo}</span>
       <span className="al-rescard-desc">{desc}</span>
       <span className="al-rescard-go">Abrir <span className="al-arr">→</span></span>
@@ -117,7 +137,7 @@ function Hub({ curso, goClase, goRecurso }: { curso: Curso; goClase: (n: number)
         <div className="al-seclabel"><span>Recursos</span><span className="al-vol">Agentes · prompts · catálogos</span></div>
         <div className="al-grid">
           {curso.recursos.map((r) => (
-            <Card key={r.slug} badge={TIPO_BADGE[r.tipo]} titulo={r.label} desc={r.cardDesc}
+            <Card key={r.slug} badge={TIPO_BADGE[r.tipo]} nota={claseTag(r.clases)} titulo={r.label} desc={r.cardDesc}
               ariaLabel={`Abrir ${r.label}`} onClick={() => goRecurso(r.slug)} />
           ))}
         </div>
@@ -184,14 +204,16 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
 
 // Agrupa los bloques del Notion en "pasos": cada media (imagen o video) queda
 // con el texto que la acompaña, para renderizar lado a lado (media | prompt).
-type Step = { head?: string; img?: string; vids?: string[]; items?: { t: string; v: string }[] };
-function groupSteps(bloques: { t: string; v: string }[]): Step[] {
+// `x` = explicación "qué hace" (viaja pegada a su head/label).
+type Bloque = { t: string; v: string; x?: string };
+type Step = { head?: string; headX?: string; img?: string; vids?: string[]; items?: Bloque[] };
+function groupSteps(bloques: Bloque[]): Step[] {
   const steps: Step[] = [];
   let cur: Step | null = null;
   const hasMedia = (s: Step | null) => !!(s && (s.img || (s.vids && s.vids.length)));
   const flush = () => { if (cur && (hasMedia(cur) || (cur.items && cur.items.length))) steps.push(cur); cur = null; };
   for (const b of bloques) {
-    if (b.t === 'head') { flush(); steps.push({ head: b.v }); continue; }
+    if (b.t === 'head') { flush(); steps.push({ head: b.v, headX: b.x }); continue; }
     if (b.t === 'img') {
       if (cur && cur.img) flush();
       if (!cur) cur = { items: [] };
@@ -212,49 +234,57 @@ function groupSteps(bloques: { t: string; v: string }[]): Step[] {
 // ── Detalle de recurso ───────────────────────────────────────────────────────
 function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
   const steps = r.bloques ? groupSteps(r.bloques) : null;
+  const copyable = r.texto && (r.tipo === 'gpt' || (r.tipo === 'notion' && !steps));
   return (
     <div className="al-detail">
       <button type="button" className="al-back" onClick={back}>← Volver</button>
       <div className="al-detail-hd">
-        <span className="al-rescard-badge">{TIPO_BADGE[r.tipo]}</span>
+        <div className="al-detail-badges">
+          <span className="al-rescard-badge">{TIPO_BADGE[r.tipo]}</span>
+          {claseTag(r.clases) && <span className="al-rescard-nota">{claseTag(r.clases)}</span>}
+        </div>
         <h1 className="al-h1 al-h1-sm">{r.label}</h1>
       </div>
-      <p className="al-sub al-sub-sm">{r.cardDesc}</p>
 
-      {(r.notionUrl || (r.texto && (r.tipo === 'gpt' || (r.tipo === 'notion' && !steps)))) && (
+      {r.intro
+        ? <div className="al-intro"><DocContent text={r.intro} /></div>
+        : <p className="al-sub al-sub-sm">{r.cardDesc}</p>}
+
+      {(r.notionUrl || copyable) && (
         <div className="al-content-act al-content-act-top">
           {r.notionUrl && <a href={r.notionUrl} target="_blank" rel="noopener noreferrer" className="al-notion">Ver en Notion <span className="al-arr">↗</span></a>}
-          {r.texto && (r.tipo === 'gpt' || (r.tipo === 'notion' && !steps)) && <CopyBtn text={r.texto} />}
+          {copyable && <CopyBtn text={r.texto!} />}
         </div>
       )}
 
-      {/* Notion con ejemplos → pasos lado a lado */}
+      {/* Notion con ejemplos → pasos: media + prompt, en tarjeta */}
       {steps ? (
         <div className="al-steps">
           {steps.map((s, i) => {
-            if (s.head) return <h3 key={i} className="al-bhead">{s.head}</h3>;
+            if (s.head) return (
+              <div key={i} className="al-bhead-wrap">
+                <h3 className="al-bhead">{s.head}</h3>
+                {s.headX && <p className="al-bhead-x">{s.headX}</p>}
+              </div>
+            );
             const conMedia = s.img || (s.vids && s.vids.length);
             return (
               <div key={i} className={`al-step ${conMedia ? '' : 'al-step-textonly'}`}>
-                {s.img && (
-                  <a href={s.img} target="_blank" rel="noopener noreferrer" className="al-step-media">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
-                    <img src={s.img} alt={`${r.label} — ejemplo`} loading="lazy" />
-                  </a>
-                )}
-                {s.vids && s.vids.length > 0 && (
-                  <div className="al-vids">
-                    {s.vids.map((id, vi) => (
-                      <div key={vi} className="al-vid">
-                        <iframe src={DRIVE_PREVIEW(id)} title={`${r.label} — ejemplo ${vi + 1}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" />
-                      </div>
-                    ))}
+                {conMedia && (
+                  <div className="al-step-media-col">
+                    {s.img && (
+                      <a href={s.img} target="_blank" rel="noopener noreferrer" className="al-step-media">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
+                        <img src={s.img} alt={`${r.label} — ejemplo`} loading="lazy" />
+                      </a>
+                    )}
+                    {s.vids && s.vids.map((id, vi) => <VidPoster key={vi} id={id} label={r.label} />)}
                   </div>
                 )}
                 {s.items && s.items.length > 0 && (
                   <div className="al-step-text">
                     {s.items.map((b, j) => b.t === 'label'
-                      ? <span key={j} className="al-blabel">{b.v}</span>
+                      ? <div key={j} className="al-blabel-wrap"><span className="al-blabel">{b.v}</span>{b.x && <p className="al-blabel-x">{b.x}</p>}</div>
                       : <div key={j} className="al-bprompt"><CopyBtn text={b.v} /><pre className="al-bprompt-pre">{b.v}</pre></div>)}
                   </div>
                 )}
@@ -394,7 +424,9 @@ const CSS = `
 .cono .al-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
 .cono .al-rescard{ display:flex; flex-direction:column; align-items:flex-start; gap:9px; text-align:left; background:var(--card); border:1.5px solid var(--ink); border-radius:12px; padding:18px; box-shadow:var(--shadow-paste); transition:transform .14s ease, box-shadow .14s ease; }
 .cono .al-rescard:hover{ transform:translate(-2px,-3px); box-shadow:var(--shadow-stamp); }
+.cono .al-rescard-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; }
 .cono .al-rescard-badge{ font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:6px; padding:3px 8px; }
+.cono .al-rescard-nota{ font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-60); border:1.5px solid var(--ink-15); border-radius:6px; padding:3px 8px; white-space:nowrap; }
 .cono .al-rescard-title{ font-family:var(--disp); font-weight:800; font-size:20px; letter-spacing:-.02em; color:var(--ink); line-height:1.1; }
 .cono .al-rescard-desc{ font-size:14px; line-height:1.5; color:var(--ink-60); }
 .cono .al-rescard-go{ font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em; color:var(--lime-ink); display:inline-flex; align-items:center; gap:6px; margin-top:4px; }
@@ -406,6 +438,7 @@ const CSS = `
 .cono .al-back{ font-family:var(--mono); font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-60); background:var(--card); border:1.5px solid var(--ink); border-radius:8px; padding:8px 14px; margin:14px 0 22px; transition:.14s; }
 .cono .al-back:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); color:var(--ink); }
 .cono .al-detail-hd{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; margin-bottom:6px; }
+.cono .al-detail-badges{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .cono .al-content-act{ display:flex; align-items:center; gap:8px; }
 .cono .al-content-act-top{ margin-top:16px; }
 
@@ -451,22 +484,39 @@ const CSS = `
 .cono .al-doc-ul li{ position:relative; padding-left:18px; font-size:14.5px; line-height:1.55; color:var(--ink-80); }
 .cono .al-doc-ul li::before{ content:'·'; position:absolute; left:5px; top:-1px; color:var(--lime-ink); font-weight:800; font-size:18px; }
 
-/* Pasos INTERCALADOS lado a lado (imagen | etiqueta + prompt) */
-.cono .al-steps{ margin-top:18px; display:flex; flex-direction:column; gap:16px; }
-.cono .al-step{ display:grid; grid-template-columns:minmax(0,300px) 1fr; gap:16px; align-items:start; }
+/* Intro self-contained del recurso (qué es, para qué, cómo se usa) */
+.cono .al-intro{ margin:16px 0 6px; padding:16px 18px; border:1.5px solid var(--ink-15); border-left:4px solid var(--lime); border-radius:12px; background:var(--card); }
+.cono .al-intro .al-doc-p{ margin-top:10px; font-size:15.5px; line-height:1.62; color:var(--ink); }
+.cono .al-intro .al-doc-p:first-child{ margin-top:0; }
+
+/* Pasos: cada media (imagen o video vertical) con su prompt, en tarjeta */
+.cono .al-steps{ margin-top:20px; display:flex; flex-direction:column; gap:14px; }
+.cono .al-bhead-wrap{ margin:26px 0 2px; }
+.cono .al-bhead-wrap:first-child{ margin-top:6px; }
+.cono .al-bhead{ font-family:var(--disp); font-weight:800; font-size:20px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); margin:0; padding-bottom:8px; border-bottom:2px solid var(--ink); }
+.cono .al-bhead-x{ margin:11px 0 0; font-size:14.5px; line-height:1.58; color:var(--ink-80); }
+.cono .al-step{ display:grid; grid-template-columns:minmax(0,220px) 1fr; gap:18px; align-items:start; padding:16px; border:1.5px solid var(--ink-15); border-radius:14px; background:var(--card); box-shadow:var(--shadow-paste); }
 .cono .al-step-textonly{ grid-template-columns:1fr; }
-.cono .al-step-media{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card-2); transition:transform .14s ease, box-shadow .14s ease; }
+.cono .al-step-media-col{ display:flex; flex-direction:column; gap:12px; }
+.cono .al-step-media{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); transition:transform .14s ease, box-shadow .14s ease; }
 .cono .al-step-media:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-step-media img{ display:block; width:100%; height:auto; }
-.cono .al-vids{ display:flex; flex-direction:column; gap:12px; max-width:250px; }
-.cono .al-vid{ position:relative; aspect-ratio:9/16; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:#000; box-shadow:var(--shadow-paste); }
-.cono .al-vid iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
-.cono .al-step-text{ display:flex; flex-direction:column; align-items:flex-start; gap:9px; min-width:0; }
-.cono .al-bhead{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); margin:22px 0 2px; padding-bottom:8px; border-bottom:1.5px solid var(--ink); }
+.cono .al-step-text{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; min-width:0; }
+
+/* Póster de video vertical (abre el clip de ejemplo en Drive) */
+.cono .al-vid{ position:relative; display:block; aspect-ratio:9/16; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:#0d0d0d; box-shadow:var(--shadow-paste); transition:transform .14s ease, box-shadow .14s ease; }
+.cono .al-vid:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+.cono .al-vid-img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.cono .al-vid-play{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:44px; height:44px; display:flex; align-items:center; justify-content:center; padding-left:3px; border-radius:50%; background:rgba(205,241,59,.94); border:2px solid var(--ink); color:var(--ink); font-size:15px; }
+.cono .al-vid-tag{ position:absolute; left:8px; bottom:8px; font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#fff; background:rgba(0,0,0,.6); border-radius:6px; padding:3px 8px; }
+
+/* Etiqueta del prompt + su explicación (qué hace) */
+.cono .al-blabel-wrap{ display:flex; flex-direction:column; align-items:flex-start; gap:7px; width:100%; }
 .cono .al-blabel{ font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:6px; padding:3px 9px; }
+.cono .al-blabel-x{ margin:0; font-size:14px; line-height:1.5; color:var(--ink-80); }
 .cono .al-bprompt{ position:relative; width:100%; background:var(--card-2); border:1.5px solid var(--ink); border-radius:10px; box-shadow:var(--shadow-paste); }
 .cono .al-bprompt .al-copy{ position:absolute; top:9px; right:9px; z-index:2; padding:5px 10px; font-size:11px; }
-.cono .al-bprompt-pre{ margin:0; padding:14px 16px; max-height:230px; overflow:auto; font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--ink-80); white-space:pre-wrap; word-break:break-word; }
+.cono .al-bprompt-pre{ margin:0; padding:14px 16px 14px; padding-top:34px; max-height:260px; overflow:auto; font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--ink-80); white-space:pre-wrap; word-break:break-word; }
 
 /* Visor de PDF */
 .cono .al-pdf{ aspect-ratio:4/3; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); box-shadow:var(--shadow-paste); }
@@ -483,7 +533,8 @@ const CSS = `
   .cono-wrap{ padding:18px 16px 56px; }
   .cono .al-grid{ grid-template-columns:1fr; }
   .cono .al-step{ grid-template-columns:1fr; }
-  .cono .al-step-media{ max-width:360px; }
+  .cono .al-step-media-col{ max-width:320px; }
+  .cono .al-step-media, .cono .al-vid{ max-width:320px; }
   .cono .al-brand .b{ font-size:19px; }
   .cono .al-toptag{ font-size:10px; padding:5px 10px; }
 }
