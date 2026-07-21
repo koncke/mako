@@ -180,14 +180,22 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
           </div>
           {r.bloques && r.bloques.length > 0 ? (
             <div className="al-bloques">
-              {r.bloques.map((b, i) => b.t === 'img' ? (
-                <a key={i} href={b.v} target="_blank" rel="noopener noreferrer" className="al-bimg">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
-                  <img src={b.v} alt={`${r.label} — ejemplo`} loading="lazy" />
-                </a>
-              ) : (
-                <div key={i} className="al-btxt"><DocContent text={b.v} /></div>
-              ))}
+              {r.bloques.map((b, i) => {
+                if (b.t === 'img') return (
+                  <a key={i} href={b.v} target="_blank" rel="noopener noreferrer" className="al-bimg">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
+                    <img src={b.v} alt={`${r.label} — ejemplo`} loading="lazy" />
+                  </a>
+                );
+                if (b.t === 'head') return <h3 key={i} className="al-bhead">{b.v}</h3>;
+                if (b.t === 'label') return <span key={i} className="al-blabel">{b.v}</span>;
+                return (
+                  <div key={i} className="al-bprompt">
+                    <CopyBtn text={b.v} />
+                    <pre className="al-bprompt-pre">{b.v}</pre>
+                  </div>
+                );
+              })}
             </div>
           ) : r.texto ? (
             <div className="al-docbox"><DocContent text={r.texto} /></div>
@@ -374,9 +382,14 @@ const CSS = `
 .cono .al-doc{ }
 .cono .al-docbox{ border:1.5px solid var(--ink); border-radius:12px; box-shadow:var(--shadow-paste); padding:16px 20px 20px; max-height:560px; overflow-y:auto; background:var(--card-2); }
 /* Contenido intercalado texto ↔ imagen (orden real del Notion) */
-.cono .al-bloques{ display:flex; flex-direction:column; gap:14px; }
-.cono .al-btxt{ }
-.cono .al-bimg{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card-2); max-width:420px; transition:transform .14s ease, box-shadow .14s ease; }
+.cono .al-bloques{ display:flex; flex-direction:column; align-items:flex-start; gap:9px; }
+.cono .al-bhead{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); width:100%; margin:22px 0 2px; padding-bottom:8px; border-bottom:1.5px solid var(--ink); }
+.cono .al-bhead:first-child{ margin-top:0; }
+.cono .al-blabel{ font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:6px; padding:3px 9px; margin-top:6px; }
+.cono .al-bprompt{ position:relative; width:100%; background:var(--card-2); border:1.5px solid var(--ink); border-radius:10px; box-shadow:var(--shadow-paste); }
+.cono .al-bprompt .al-copy{ position:absolute; top:9px; right:9px; z-index:2; padding:5px 10px; font-size:11px; }
+.cono .al-bprompt-pre{ margin:0; padding:14px 16px; max-height:200px; overflow:auto; font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--ink-80); white-space:pre-wrap; word-break:break-word; }
+.cono .al-bimg{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card-2); max-width:380px; transition:transform .14s ease, box-shadow .14s ease; }
 .cono .al-bimg:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-bimg img{ display:block; width:100%; height:auto; }
 .cono .al-doc-h4{ font-family:var(--disp); font-weight:800; font-size:15.5px; letter-spacing:-.01em; color:var(--ink); margin:18px 0 8px; }
