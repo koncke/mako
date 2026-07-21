@@ -96,6 +96,34 @@ function Chips({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+// Renderiza el contenido de un doc (GPT/Notion) de forma NATIVA: detecta
+// títulos (líneas en MAYÚSCULAS o separadores ━━━), subtítulos (⭐), listas
+// (1. / - / •) y párrafos (preservando saltos). No es un volcado monoespaciado.
+function DocContent({ text }: { text: string }) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const out: ReactNode[] = [];
+  let para: string[] = [];
+  let list: string[] = [];
+  let k = 0;
+  const flushPara = () => { if (para.length) { out.push(<p key={k++} className="al-doc-p">{para.join('\n')}</p>); para = []; } };
+  const flushList = () => { if (list.length) { const items = list.slice(); out.push(<ul key={k++} className="al-doc-ul">{items.map((li, i) => <li key={i}>{li}</li>)}</ul>); list = []; } };
+  const flush = () => { flushList(); flushPara(); };
+  const isSep = (l: string) => /[━─—=_]/.test(l) && /^[\s━─—=_.·*-]{4,}$/.test(l);
+  const isHeading = (l: string) => l.length <= 62 && /[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && !/[a-záéíóúñ]/.test(l);
+
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (l === '' || isSep(l)) { flush(); continue; }
+    if (l.startsWith('⭐')) { flush(); out.push(<h5 key={k++} className="al-doc-h5">{l.replace(/^⭐\s*/, '')}</h5>); continue; }
+    if (isHeading(l)) { flush(); out.push(<h4 key={k++} className="al-doc-h4">{l}</h4>); continue; }
+    const m = l.match(/^(?:\d+[.)]|[-•▪·*])\s+(.*)$/);
+    if (m) { flushPara(); list.push(m[1]); continue; }
+    flushList(); para.push(l);
+  }
+  flush();
+  return <div className="al-doc">{out}</div>;
+}
+
 // Un recurso, embebido directo: doc (texto copiable) · captura/PDF (visor) ·
 // zip/herramienta (link, cuando no queda otra).
 function RecursoItem({ r }: { r: Recurso }) {
@@ -108,7 +136,7 @@ function RecursoItem({ r }: { r: Recurso }) {
         </div>
         <details className="al-det">
           <summary>Ver contenido</summary>
-          <pre className="al-pre">{r.texto}</pre>
+          <DocContent text={r.texto} />
         </details>
       </div>
     );
@@ -204,7 +232,7 @@ function RecursoDetail({ slug, back }: { slug: string; back: () => void }) {
               <p className="al-prompt-d">{p.desc}</p>
               <details className="al-det">
                 <summary>Ver prompt completo</summary>
-                <pre className="al-pre">{p.texto}</pre>
+                <DocContent text={p.texto} />
               </details>
             </div>
           ))}
@@ -217,7 +245,7 @@ function RecursoDetail({ slug, back }: { slug: string; back: () => void }) {
               it.texto ? (
                 <div key={i} className="al-prompt">
                   <div className="al-prompt-hd"><span className="al-prompt-t">{it.label}</span><CopyBtn text={it.texto} /></div>
-                  <details className="al-det"><summary>Ver contenido</summary><pre className="al-pre">{it.texto}</pre></details>
+                  <details className="al-det"><summary>Ver contenido</summary><DocContent text={it.texto} /></details>
                 </div>
               ) : it.url ? (
                 <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
@@ -366,7 +394,14 @@ const CSS = `
 .cono .al-prompt-d{ margin:8px 0 0; font-size:14px; line-height:1.5; color:var(--ink-60); }
 .cono .al-copy{ font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:8px; padding:8px 14px; font-weight:600; flex:none; transition:.14s; }
 .cono .al-copy:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
-.cono .al-pre{ margin:0; padding:16px 18px; max-height:380px; overflow:auto; font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--ink-80); white-space:pre-wrap; word-break:break-word; background:var(--card-2); }
+.cono .al-doc{ padding:14px 18px 18px; max-height:460px; overflow-y:auto; background:var(--card-2); }
+.cono .al-doc-h4{ font-family:var(--disp); font-weight:800; font-size:15.5px; letter-spacing:-.01em; color:var(--ink); margin:18px 0 8px; }
+.cono .al-doc-h4:first-child{ margin-top:2px; }
+.cono .al-doc-h5{ font-family:var(--mono); font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--lime-ink); margin:16px 0 6px; }
+.cono .al-doc-p{ margin:8px 0 0; font-size:14px; line-height:1.65; color:var(--ink-80); white-space:pre-line; word-break:break-word; }
+.cono .al-doc-ul{ margin:8px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:6px; }
+.cono .al-doc-ul li{ position:relative; padding-left:18px; font-size:14px; line-height:1.55; color:var(--ink-80); }
+.cono .al-doc-ul li::before{ content:'·'; position:absolute; left:5px; top:-1px; color:var(--lime-ink); font-weight:800; font-size:18px; }
 
 .cono .al-list{ display:flex; flex-direction:column; gap:9px; margin-top:16px; }
 .cono .al-list-item{ display:flex; align-items:center; justify-content:space-between; font-size:15px; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:10px; padding:14px 16px; box-shadow:var(--shadow-paste); transition:.14s; }
