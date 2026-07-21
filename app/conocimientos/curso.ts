@@ -54,7 +54,7 @@ export const CURSOS: Curso[] = [
         "titulo": "Introducción",
         "cardDesc": "Cómo está armado el curso y las dos herramientas base: Kie.ai y APImart.",
         "videoId": "1CN-9GKAHbhsMT55RPDk6M-pNc3R6SPrV",
-        "resumen": "De qué va esta clase: cómo está armado el curso y las dos herramientas base que vas a usar en todo.\n\nEl curso va por volúmenes, de lo más simple a lo más avanzado. Todo se genera con dos \"mercados de APIs\" que dan acceso a los modelos de imagen y video, pero muchísimo más barato que las herramientas típicas:\n\n- Kie.ai — se usa sobre todo en el Volumen 1 (modelo Sora). OpenAI cerró Sora, así que ya no está al precio viejo; se puede seguir usando vía APImart hasta septiembre.\n- APImart — la herramienta principal desde el Volumen 2. Saldo mínimo: 10 USD.\n\nPara cargar saldo en cualquiera de las dos: entrás a tu perfil / panel de control y vas a Billing (Cartera).\n\nConsejo del instructor: revisá primero todo el material antes de empezar a generar. Está resumido y va al grano.",
+        "resumen": "Esta primera clase es la introducción al curso: te explica cómo está armado y cuáles son las dos herramientas base que vas a usar de principio a fin. La idea de fondo es que el mundo de la IA cambia todo el tiempo, así que el curso se organiza por **volúmenes**, yendo de lo más simple a lo más avanzado, y se actualiza a medida que salen modelos nuevos.\n\nTodo se genera a través de dos \"mercados de APIs\" que te dan acceso a los modelos de imagen y video mucho más barato que las herramientas tradicionales:\n\n- **Kie.ai** — la usás sobre todo en el **Volumen 1**, que es donde trabajás con el modelo **Sora**. El problema es que OpenAI cerró Sora oficialmente, así que en Kie ya no está disponible al precio ridículo que había: **0,15 USD por 15 segundos**.\n- **APImart** — la herramienta principal a partir del **Volumen 2**. El saldo mínimo para cargar créditos es de **10 USD**.\n\nPara poner saldo en cualquiera de las dos el proceso es el mismo: entrás a tu perfil / panel de control (dashboard), vas a **Cartera** (o **Billing** si lo tenés en inglés) y ahí agregás los créditos.\n\nUn detalle fino importante: aunque Sora ya no esté en Kie, podés seguir aprovechando todo el **Volumen 1** hasta **septiembre** usándolo desde **APImart**. Reutilizás los mismos recursos y la misma forma de estructurar los prompts del Volumen 1, y lo único que cambiás es \"Kie\" por \"APImart\".\n\nEl recorrido por volúmenes queda así:\n\n- **Volumen 2** — entra **APImart** y se trabaja con el modelo **v3.1** (Veo 3.1), con muy buenos resultados.\n- **Volumen 4** — hubo una actualización de modelo y se sumó una **biblioteca de recursos**.\n\nEl consejo del instructor es claro: antes de ponerte a generar, date una vuelta por todo el material. Está bien resumido, va al grano y directo, justamente para no hacerte perder tiempo. Por último, tené a mano el **tablón de comunicaciones** que está arriba del curso: por ahí se avisa cualquier novedad, incluida una plataforma nueva que están armando para tener el contenido mejor organizado.",
         "transcripcion": [
           "Antes de comenzar quiero hacer una pequeña introducción de cómo está estructurado el curso, porque al final el mundo de la IA está en continuo cambio y en continua actualización. Voy a enseñaros también qué dos herramientas principales vamos a utilizar en esta formación y cómo agregar saldo en ellas, porque en los vídeos no lo he explicado, así que conviene que lo sepáis desde ahora.",
           "La primera herramienta va a ser Kie.ai. No os preocupéis, porque en los siguientes vídeos tenéis todos los enlaces debajo, en la descripción, pero simplemente para que lo sepáis: vais a tener que entrar aquí, a vuestro perfil, ir a 'Cartera' (o 'Billing' si lo tenéis en inglés) y ahí podéis añadir el saldo. Por otro lado tenemos la herramienta APImart. Ahora os explico cuándo utilizamos cada una; el proceso es básicamente el mismo: vais a ir a vuestro dashboard, a vuestro panel de control, y en el mismo sitio, en 'Billing' o 'Cartera' en español, podréis añadir los créditos, que en APImart son de diez dólares como mínimo.",
@@ -81,7 +81,7 @@ export const CURSOS: Curso[] = [
         "titulo": "UGC, trends e imágenes",
         "cardDesc": "Rutas baratas con Sora y Veo 3.1, trends virales y anuncios en imagen.",
         "videoId": "1_NgOd8OVeffIjYySppTjt5kMNc5_OiF5",
-        "resumen": "De qué va esta clase: dos rutas baratas para generar UGC, más trends virales y anuncios en imagen.\n\nRuta 1 — Sora 2 (vía Kie.ai): videos de 15 segundos por ~15 céntimos. Le pasás producto, avatar y mercado al agente de prompts y te devuelve el prompt estructurado; generás en vertical 9:16.\n\nRuta 2 — clips cortos (vía APImart): clips de 8 segundos a ~7 céntimos que después unís en edición (un video de ~16s sale ~14 céntimos). Las imágenes se crean con Nano Banana Pro (2K, 9:16) y se animan con Veo 3.1 usando un primer y un último frame de referencia. La inspiración del avatar sale de Pinterest / TikTok (una captura → el agente 6C te arma el prompt).\n\nUna buena estructura de prompt define: encuadre y ambiente, cámara, sujeto, comportamiento de cámara (microtemblores = realismo), iluminación, audio y guión frase por frase.\n\nAdemás: trends virales (bajás el TikTok, sacás frames, recreás el antes/después) y anuncios en imagen con Nano Banana Pro + plantillas. Edición en CapCut y música sin copyright en Epidemic.",
+        "resumen": "Esta clase te muestra cómo generar **UGC** hiperrealista y barato sin quemar créditos en herramientas como **Arcads**, **HeyGen** o **Freepik**. La jugada es trabajar sobre mercados de APIs que dan acceso a los mismos modelos mucho más baratos: **Kie.ai** y **APImart**. Sumás además **trends virales** y anuncios en imagen.\n\n- **Ruta 1 — Sora 2 vía Kie.ai** — generás videos de **15 segundos por ~15 céntimos**. Como con IA siempre vas por prueba y error, que cada intento cueste tan poco lo hace asequible. Ojo con la *success rate*: en Kie.ai cae por horas cuando la API se satura, pero como el sistema no depende de un solo modelo, ese día te cambiás de ruta. La app de Sora cierra en abril, pero la **API sigue hasta septiembre**.\n\nEn Sora el prompt lo es todo. La estructura que recomiendan define, en orden: **encuadre y ambiente** (sin dejar que el modelo invente), **cámara**, **sujeto**, **comportamiento de cámara** (los **microtemblores** de la mano dan realismo), **iluminación**, **audio** y **guión con timing** frase por frase (qué gesto y expresión hace el avatar en cada línea y dónde mete el producto). Tenés un agente al que le pasás producto, avatar y mercado y te devuelve el prompt estructurado. Generás en **Kie.ai > Sora 2 Image-to-Video**, pegás el prompt, subís la imagen del producto y ponés **15s vertical 9:16**. Alternativas fuera de Kie.ai: **Triamina** (**631 créditos** y 7 días gratis; video de 12s = **108 créditos**) y **Sora 2 en Fal.ai** (~1 dólar y pico).\n\n- **Ruta 2 — clips con Veo 3.1 vía APImart** — clips de **8 segundos a ~7 céntimos**, que unís en edición para armar un video de **~16s por ~14 céntimos**. Da más control porque funciona mejor con **primer y último frame** de referencia. Buscás inspiración de avatar en **Pinterest/TikTok**, pasás capturas al agente **6C** y armás el prompt. Las imágenes las hacés con **Nano Banana Pro** (**2K**, **9:16**); truco: agregá \"está hablando, se le ven los dientes\". Si APImart tira error, es que la **API key se quedó sin cuota** (editá y asignále saldo). Después animás con **Veo 3.1** (aspect ratio 9:16, primer y último frame).\n\nEditás en **CapCut** (recortás, mejorás voz, keyframes de Scale para zoom, textura: **3 exposición, -7 contraste, 10% partículas**, motion blur al 20%), música sin copyright en **Epidemic Sound** (30 días gratis, ~-30 de volumen) y subtítulos con **Captions**. Para los **trends virales**: bajás el TikTok, sacás frames con **Frame Extractor** y recreás el antes/después con Nano Banana Pro + Veo 3.1.",
         "transcripcion": [
           "En esta clase no vamos a usar herramientas como Arcads, HeyGen, Eustil, Wavy, Freepik ni ninguna de esas plataformas en las que, para cuando te das cuenta, los créditos han volado. Queríamos desviarnos por completo de ese tipo de herramientas y encontrar alternativas que ofrezcan la misma calidad a un precio mucho más reducido. Para eso hay que hablar primero de KIE API, que es un mercado de APIs que da acceso a todos los modelos de generación de video e imagen, pero a un precio mucho más económico. Para la primera ruta low cost vamos a utilizar el modelo de OpenAI Sora 2.",
           "En la ruta 1 generamos videos de 15 segundos por 15 céntimos. Con inteligencia artificial siempre se trabaja con prueba y error: puede que el resultado no nos guste por algún motivo o que no hayamos dado un buen prompt, así que cuando generar cuesta solo 15 céntimos es mucho más asequible pasar por ese proceso, que es inevitable. Si cada video costara cuatro, tres o incluso dos euros, la cosa cambiaría muchísimo.",
@@ -137,7 +137,7 @@ export const CURSOS: Curso[] = [
         "titulo": "Podcast, UGC, Voz en off",
         "cardDesc": "Tres formatos (podcast, UGC, voz en off) con GPT-Image, Veo 3.1 y ElevenLabs.",
         "videoId": "13MJmnHckcq4nbAZ0MfND2hwKYGSADv1f",
-        "resumen": "De qué va esta clase: tres formatos de anuncio —podcast, UGC tradicional y voz en off— con la ruta más barata.\n\nImágenes con GPT-Image 2 (vía APImart) a ~0,012 € por imagen (mucho más barato que Nano Banana Pro). La inspiración sale de Pinterest: una captura → el agente del método 6C te devuelve el prompt.\n\nEl agente de guiones te arma los tres formatos (podcast, UGC, voz en off) a partir del producto: público, dolores, ángulo y los guiones.\n\nLos clips se generan con Veo 3.1. Para forzar el español de España hay un prompt específico y el truco de meter alguna palabra bien de España (ej. \"joder\"). Después, en CapCut, se agrega una capa de realismo (un ajuste de color concreto) que hace que se sienta real. Para la voz en off se usa ElevenLabs; para algunos clips, el modelo Kling (no pasar de 5s por el lip sync).",
+        "resumen": "Esta clase es el **volumen 2** y va de armar anuncios en **tres formatos**: tipo **podcast**, **UGC tradicional** y **UGC con voz en off**. La idea fuerza es hacerlo por la ruta barata: la vía oficial cuesta **más de 2 dólares** por un clip de **16 segundos**, y por esta ruta te sale **~16 céntimos** por el mismo clip. Aviso: **Sora** ya no está disponible, así que se trabaja con lo que hay.\n\nEl flujo completo es este:\n\n- **Imágenes con GPT-Image 2** — vía la plataforma económica, a **~0,012 € por imagen** (unas **90 imágenes por euro**), muchísimo más barato que **Nano Banana Pro** (~**0,15 €**, unas 7 por euro). La inspiración sale de **Pinterest**: o usás dos prompts (uno para crear una persona nueva que no existe manteniendo, por ejemplo, la definición muscular, y otro para meterla en el fondo que elegiste), o pasás una captura al **agente método 6C**, que te devuelve el prompt estructurado. Si la plataforma barata falla, tirás de **iEdit**.\n- **Guiones con el agente de Scripts** — le das el producto (ej. un suplemento para el cortisol) y te devuelve público objetivo, dolores, ángulo de venta y datos, más los **tres guiones**. Podés editarlos o adaptarlos a otro mercado (ej. EE.UU.).\n- **Clips con Veo 3.1** — por la ruta económica, unos **8 segundos por 0,8 céntimos de dólar**. Los prompts simples funcionan mejor. Hay dos base: cámara **estática** (para podcast) y **talking head**. Rellená el guión con ~**8 segundos** de diálogo. En podcast juntás la 1ª y 2ª frase de la persona 1 en una generación y después intercalás a la persona 2 en edición.\n\nTrucos finos que vale oro:\n\n- **Español de España** — usás el prompt específico y, si igual sale en latino, metés una palabra bien de España al inicio del guión (**tía/tío/joder**) y después la cortás.\n- **Capa de realismo en CapCut** — creás un ajuste con temperatura **-3**, tinte **2**, saturación **-6**, exposición **-3**, contraste **12**, highlight **-35**, sombra **18**, fade **6**; lo guardás en la pestaña **Yours** y lo aplicás a todo el clip. Música a **~-30 dB**.\n- **Detalles** — logo del podcast como marca de agua (GPT-Image 2, **2K**, **1:1**, sin fondo); risas: extraés el audio y lo bajás de fondo. Subtítulos con **Captions** (solo móvil, ~**11 €/mes**, opcional).\n\nPara la **voz en off** usás **ElevenLabs** (elegís voz e idioma de su librería) y animás las imágenes dándole la primera y la última como referencia. Para algunos clips conviene **Kling** (no pasés de **5 segundos** o el lip sync se descontrola); alternativa, **Veo 3.1 Fast**.",
         "transcripcion": [
           "En este volumen 2 vamos a crear anuncios como los que acabamos de ver para tres formatos distintos: tipo podcast, UGC tradicional y UGC con voz en off. Una aclaración: Sora ya no está disponible; era uno de los mejores modelos del mercado, pero es algo completamente fuera de nuestro control, así que seguimos adelante. La gran diferencia entre estos vídeos y otras rutas es el coste: nosotros trabajamos con una ruta hasta diez veces más barata que la oficial. Generar por la vía oficial cuesta más de dos dólares por un clip de dieciséis segundos, mientras que por nuestra ruta cuesta unos dieciséis céntimos por clip de dieciséis segundos. Al ser tan económica, es normal que en algunos momentos esté más saturada.",
           "Para las imágenes usamos la nueva actualización GPT Image 2, con resultados muchísimo mejores y a un coste irrisorio de 0,012 céntimos por imagen, lo que equivale a unas 90 imágenes por un euro. En comparación, con Nano Banana Pro la imagen suele costar 0,15 céntimos, es decir, unas 7 imágenes por euro. Después de generar los vídeos aprenderemos a darles una capa de realismo en CapCut, algo muy importante para que el resultado se perciba como real por el 90% de las personas, que es lo que buscamos al final.",
@@ -183,7 +183,7 @@ export const CURSOS: Curso[] = [
         "titulo": "Anuncios en imagen",
         "cardDesc": "Un agente que convierte tu producto en 7 formatos de anuncio en imagen.",
         "videoId": "18jmhs36y1czwBShEh_09xHl9tgPhSbDB",
-        "resumen": "De qué va esta clase: pasar de una foto de tu producto a varios formatos de anuncio en imagen, casi automático.\n\nHay un agente al que solo le das tu producto (ej. una crema para el acné). El agente hace el análisis estratégico —ángulos de venta, puntos de dolor, avatar— y, con tu paleta de colores y mercado, te devuelve 7 prompts listos para generar.\n\nCopiás cada prompt, adjuntás tu producto de referencia y generás (GPT-Image 2, 2K, tamaño de post 4:5 o historia 9:16).\n\nLos formatos que salen: estilo Reddit, timeline de progreso, comparación, características del producto, advertorial / noticia y oferta. El before/after con testimonio es el de mayor conversión.",
+        "resumen": "Esta clase va de **anuncios en imagen**: cómo pasar de una simple foto de tu producto a varios formatos de anuncio estático que están funcionando ahora mismo, casi en automático. La magia la hace un **agente** (el \"Image Ads Visual E-com\"), al que le das el producto y él te devuelve **7 prompts** ya perfectos para copiar y generar.\n\nEl flujo es así:\n\n- **Le das el producto** — le escribís qué vendés (en los ejemplos, un minoxidil para la caída del cabello y una máscara de luz roja para el acné).\n- **Análisis estratégico** — el agente te devuelve el nicho, el avatar primario, los puntos de dolor y la diferenciación. Vos revisás si te gusta o si querés agregar algo.\n- **Mercado y paleta** — le indicás el país (por ejemplo, **España**) y los colores; por ejemplo, modo claro con primario **azul marino**. El agente te confirma la paleta y el idioma que va incrustado en las piezas, y le das el OK para que lo haga.\n- **Genera los prompts** — te los devuelve estructurados para que no tengas que tocar nada: solo copiás cada prompt, adjuntás tu producto como referencia y generás.\n\nLa generación se hace en la plataforma (**PimArt**) con el modelo **GPT-Image 2**. Un truco para ir rápido: duplicás la pestaña y vas pegando un prompt en cada una, siempre con tu producto de referencia. Usás resolución **2K** y elegís el aspect ratio según el uso: tamaño de post **4:5** para feed, o vertical de historia **9:16**.\n\nLos formatos que salen son:\n\n- **Estilo Reddit** — el que el instructor marca como \"realmente muy bueno\".\n- **Timeline de progreso** con el producto.\n- **Comparación** y **before/after**.\n- **Características del producto**.\n- **Advertorial / tipo noticia o revista**.\n- **Oferta**.\n\nDetalles finos: una vez que tenés los 7, le podés pedir ajustes de diseño (por ejemplo, fondo azul marino, o fondo blanco con un rosa pálido como en el ejemplo del acné). Y si le pedís más formatos después de los 7 principales, te da adicionales que también quedan muy bien. En resumen, todo el peso lo lleva el agente: te entrega los prompts listos con las especificaciones de diseño que vos le pidas.",
         "transcripcion": [
           "En esta actualización vamos a ver cómo pasar de una imagen de producto a generar distintos anuncios en imagen, con los formatos que mejor están funcionando ahora mismo, de una forma más rápida y automática. Para ello hemos creado un agente al que simplemente vamos a tener que darle nuestro producto, por ejemplo una crema para el acné, y ese agente se va a encargar de hacer un análisis estratégico: los ángulos de venta, los puntos de dolor, el avatar al que nos dirigimos, etcétera. Le vamos a dar el OK, le vamos a indicar la paleta de colores y el mercado al que nos dirigimos, y directamente nos va a devolver siete prompts perfectos para generar anuncios como los que acabáis de ver, en distintos formatos.",
           "El proceso es así: entráis al agente y le escribís el producto; en este caso, por ejemplo, un producto para la caída del cabello con minoxidil. El agente os va a dar el nicho, el avatar primario, los puntos de dolor y la diferenciación. Ahí le decís si os gusta el análisis o no, y si queréis añadir cualquier cosa. Le indicáis el mercado —en este caso, España— y los colores; por ejemplo, que sea modo claro con un color primario azul marino. El agente confirma la paleta y el idioma incrustado, y le decimos que adelante, que lo haga.",
@@ -206,7 +206,7 @@ export const CURSOS: Curso[] = [
         "titulo": "Podcast, UGC, Dualcast",
         "cardDesc": "Formato dualcast de podcast / UGC.",
         "videoId": "1nDvn9jEyG2AQr1cYf0uZUtSM20kLz5XR",
-        "resumen": "De qué va esta clase: el formato \"dualcast\" de podcast / UGC.\n\nNota: la transcripción de esta clase no está disponible (en el documento del curso el enlace apunta por error a la Clase 6). Mirá el video para el detalle; cuando tengamos la transcripción, la sumamos.",
+        "resumen": "**Nota importante:** la transcripción de esta clase no está disponible (en el documento del curso el enlace apunta por error a la Clase 6), así que este resumen **no** describe el contenido puntual de la clase. Para el detalle real —flujo, herramientas y trucos que muestra el instructor— mirá el video. En cuanto tengamos la transcripción, reescribimos esto con el paso a paso concreto.\n\nLo que sí sabemos por el título y la ficha es que la clase va sobre el **formato \"dualcast\"** de **podcast / UGC**: ese estilo de video en el que se ven **dos personas charlando** (tipo entrevista o conversación de podcast) sobre el producto, en vez del clásico testimonio de una sola cabeza parlante a cámara. Es un formato que rinde muy bien como **anuncio de ecommerce** porque se siente orgánico, nativo del feed y menos \"publicidad\", y porque el ida y vuelta entre dos voces te deja meter objeciones y respuestas de forma natural (uno pregunta lo que dudaría el cliente, el otro contesta con el beneficio).\n\nA modo de **contexto general** (no necesariamente lo que se ve en la clase), un pipeline típico de dualcast con IA suele combinar herramientas de las que ya venís viendo en el curso:\n\n- **Generación de los personajes / escena** — con modelos de imagen y video hiperrealistas (por ejemplo **Nano Banana Pro**, **GPT-Image** para los frames base y **Sora 2**, **Veo 3.1** o **Kling** para animar la charla) para armar a los dos \"hosts\" y el set de podcast.\n- **Voz y guion** — el guion de la conversación más las voces se pueden clonar o generar con **ElevenLabs**, y el lipsync se resuelve con el propio modelo de video o herramientas dedicadas.\n- **Armado y edición final** — el montaje, los cortes entre planos, subtítulos y el ajuste a formato vertical **9:16** para Reels/TikTok/Shorts se hace en **CapCut**.\n\nInsisto: lo de arriba es contexto del formato y del stack del curso, no un resumen verificado de esta clase en particular. **No inventamos** los pasos, costos ni parámetros específicos que da el instructor porque no están en el transcript. Cuando cargues la transcripción correcta (la de la Clase 5, no la 6), actualizamos este resumen con el flujo exacto, las herramientas que usa y los trucos finos que menciona.",
         "transcripcion": [],
         "transcripcionNota": "Transcripción no disponible: en el documento del curso el enlace de esta clase apunta por error a la Clase 6 (Animados).",
         "recursoSlugs": [],
@@ -222,7 +222,7 @@ export const CURSOS: Curso[] = [
         "titulo": "Animados v.1",
         "cardDesc": "Anuncios animados: planificación con GPT + NotebookLM y generación con Veo 3.",
         "videoId": "14G_QDpYXEIyl-4JbhLu3zU7h0AGw5Qt1",
-        "resumen": "De qué va esta clase: anuncios animados, un formato que engancha y vende de forma menos agresiva.\n\nLa idea clave: el 80% del resultado depende de la PLANIFICACIÓN, no de la herramienta. Por eso primero se arma toda la estructura con un sistema de 8 prompts en ChatGPT, en orden:\n\n- Prompt 1: define el avatar del cliente y prepara 3 búsquedas para NotebookLM.\n- NotebookLM (gratis): carga esas búsquedas para encontrar datos estadísticos que paren el scroll.\n- Prompts 2–7: insights, ángulos de venta, guión, storyboard, los prompts de todas las imágenes y una auditoría final.\n- Prompt 8: metés tu producto y te devuelve el guión definitivo + variantes.\n\nGeneración: voz con ElevenLabs, imágenes con Nano Banana Pro (en Kie ~9 céntimos, en APImart ~5), y los clips animados con Veo 3.1 (transición entre dos frames). Montaje final en CapCut (música de Epidemic).",
+        "resumen": "Esta clase es el primer volumen de los **anuncios animados**, un formato que retiene mucho, engancha desde el primer segundo y te deja vender de forma menos agresiva. La idea que machaca el instructor: el **80%** del resultado depende de la **planificación**, no de la herramienta. Por eso arrancás armando toda la estructura con un sistema de **8 prompts** en **ChatGPT**, siempre en la misma conversación (así no perdés contexto).\n\nEl flujo de planificación va así:\n\n- **Prompt 1** — le pasás producto, mercado y estilo (**Pixar**, **claymation**, **Wes Anderson**, **Steiff**, tipo Apple o realista). Define el avatar del cliente y te prepara **3 búsquedas** para NotebookLM.\n- **NotebookLM** (gratis) — creás un cuaderno, cargás las 3 búsquedas una por una y las importás para juntar estadísticas que frenen el scroll.\n- **Prompt 2** (dentro de NotebookLM) — saca **5 insights** duros con cifras reales.\n- **Prompt 3** — pegás esos insights en GPT y te devuelve **3 ángulos de venta**; elegís uno.\n- **Prompt 4** — el guión, según el ángulo elegido.\n- **Prompt 5** — el storyboard (la parte visual de las escenas).\n- **Prompt 6** — genera los prompts de todas las imágenes; en \"style\" dejás solo el estilo elegido.\n- **Prompt 7** — auditoría global: diagnóstico, guión definitivo + **2 variantes** y todo mejorado.\n- **Prompt 8** — metés tu producto (nombre + marca en 2-3 frases, ej. \"Claudi, almohada ergonómica de Sleepy\") y te cierra todo.\n\nLa regla de oro es **iterar**: la IA hace el 80%, pero ese 20% de criterio humano es lo que separa un buen anuncio de uno flojo.\n\nPara la generación:\n\n- **Voz** — **ElevenLabs**, **10.000 créditos gratis/mes**. Con voz de biblioteca usás **Eleven Multilingual V2**; con voz clonada por vos, **V3**.\n- **Imágenes** — **Nano Banana Pro** de Google vía **Kie** (**~9 céntimos**) o **APImart** (**~5 céntimos**), contra los **~15 céntimos** de otras. Siempre **9:16** y calidad **2K** (cuesta lo mismo que 1K). Abrís varias pestañas en paralelo y pasás el producto como imagen de referencia.\n- **Video** — APImart Video con **Veo 3**, calidad **720** y **9:16**, en modo **primer y último frame**: subís primera y última imagen para que arme la transición. Duración **3-4-5 seg** (usa 4). Guardás todo como **P1, P2, P3...** para no perderte.\n- **Música** — **Epidemic Sound** (**30 días gratis**).\n- **Montaje** — **CapCut** (gratis): subís clips + voz, subís velocidad a **1.20-1.30**, transiciones **\"mix\"** en **0,5-0,7**, música en **-25/-30**, efectos en **-8** y la voz un poco más alta.",
         "transcripcion": [
           "En este primer volumen vamos a trabajar el anuncio animado, un formato que está funcionando muy bien ahora en publicidad: son videos que retienen mucho, enganchan desde el primer segundo y permiten vender de una forma menos agresiva. La mayoría piensa que el resultado final de este tipo de videos depende de la herramienta, pero en realidad depende en un 80% de la planificación que se hace antes de tocar ninguna herramienta. Por eso, en esta primera parte nos vamos a centrar únicamente en esa planificación: en tener bien armada la estructura y la estrategia de cómo va a ser nuestro hilo.",
           "Para esto creamos un sistema con varios prompts en un orden concreto que iremos usando para generar la base de estructura de escenas, de guión y de prompts para las imágenes, que luego servirán para generar el video. Lo primero es abrir una conversación nueva en ChatGPT, que vamos a utilizar en todos los pasos. Copiamos el primer prompt del documento y ponemos el producto, el mercado al que nos dirigimos y el estilo del video animado (por ejemplo Pixar, claymation, Wes Anderson, Steiff, tipo Apple o realista). Este primer prompt hace dos cosas: primero define el avatar específico de cliente para el producto (qué puntos de dolor tiene, qué busca, qué podemos resolverle) y, segundo, prepara tres búsquedas específicas para NotebookLM, una herramienta que usaremos después. Con esas tres búsquedas queremos encontrar datos estadísticos sorprendentes que frenen el scroll.",
@@ -272,7 +272,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           2
         ],
-        "intro": "Este recurso es el \"cerebro\" que convierte tu producto en prompts listos para generar videos UGC hiperrealistas con Sora 2, y no es un prompt suelto sino un sistema maestro completo: copiás todo el texto y lo pegás en ChatGPT (idealmente creándote un GPT propio o al inicio de un chat nuevo) para que ChatGPT quede convertido en el generador oficial de prompts de AvatarHype. Resuelve el problema más difícil de esta ruta barata: Sora es puro prompt, y la diferencia entre un video que parece anuncio de IA y uno que parece grabado con el móvil por una persona real está toda en cómo está escrito el prompt (encuadre, comportamiento de cámara, microtemblor, iluminación, audio, guión frase por frase). En la práctica le pegás tres cosas —tu producto, el avatar al que apunta y el mercado (por ejemplo minoxidil para la caída del pelo, hombre de 35, mercado España)— y el agente primero te propone varios conceptos de micro-momento realista (en el baño, saliendo del gym, etc.); vos elegís uno o le das el tuyo, y te devuelve el guión en español de España más el prompt final en inglés, estructurado y listo para copiar y pegar en KIE (Sora 2 Image-to-Video, 15 segundos vertical) o en la ruta que uses. La clave que le fija el sistema es la filosofía anti-anuncio: si parece anuncio está mal, si parece contenido real está bien, así que todo lo que genera está orientado a parar el scroll y convertir, no a quedar bonito."
+        "intro": "El **Agente de prompts UGC** es un sistema maestro que pegás dentro de **ChatGPT** (en un chat nuevo o como GPT) y lo convierte en el generador oficial de prompts UGC de AvatarHype. Resuelve la parte más difícil de la ruta low cost: en **Sora 2** el prompt lo es todo, y la diferencia entre uno genérico y uno bien estructurado (encuadre, cámara, micro-temblores, iluminación, audio, guión frase por frase) es enorme. Este agente ya trae toda esa metodología cargada, así que vos no tenés que saber la estructura de memoria: le das tres datos y te devuelve el prompt listo para copiar y pegar en KIE.\n\nCómo se usa:\n\n- **Qué le pegás** — el bloque de texto del agente en un ChatGPT nuevo (queda actuando como generador de UGC), y después tu **producto**, tu **avatar** (ej. hombre de ~35 años) y el **mercado** al que apuntás (ej. España).\n- **Qué te devuelve** — primero varios **conceptos de creativo** con micro-momentos concretos (en el baño, saliendo del gym, en la cola del súper); elegís uno o le das el tuyo.\n- **El prompt final** — una vez que elegís el concepto, te escupe el **prompt perfecto y estructurado en inglés**, listo para pegar en **Sora 2** (Image-to-Video o Text-to-Video) dentro de KIE.\n- **Extra** — habla siempre en español de España y arma guiones de **12–16 segundos** con lenguaje natural, anti-anuncio. Junto al agente tenés una biblioteca de videos de ejemplo con sus prompts para inspirarte."
       },
       {
         "slug": "metodo-6c",
@@ -284,7 +284,7 @@ export const CURSOS: Curso[] = [
           2,
           3
         ],
-        "intro": "Este recurso es un agente de ChatGPT (un GPT con prompt de sistema fijo) llamado AvatarHype Prompt Engine, y su único trabajo es escribirte prompts largos y detallados para generar imágenes hiperrealistas de influencers estilo foto de iPhone con Nano Banana Pro. Resuelve el cuello de botella de estos modelos: la calidad depende casi entera del prompt, y armar uno bueno a mano (con encuadre, cámara, piel con poros, ropa, luz) es tedioso y fácil de arruinar. Se usa así: le pegás una captura de referencia (una foto que te gustó, sacada de Pinterest o donde sea) o le describís el avatar y el concepto que querés, y él te charla en español para afinar detalles. Internamente estructura todo con el método 6C (Character, Camera, Clothing y tres componentes más de contexto, luz y realismo), y te devuelve el prompt final ya armado en inglés dentro de un solo bloque de código txt, sin explicaciones alrededor, para que lo copies y lo pegues directo en el generador. Por defecto tira hacia una estética Instagram pulida y aspiracional, pero si le pedís algo más UGC/casero te lo baja a ese registro; vos solo elegís y pegás."
+        "intro": "El **Agente método 6C** es un GPT de ChatGPT que convierte una referencia visual en un **prompt estructurado en inglés**, listo para pegar en generadores de imagen (está afinado para **Nano Banana Pro**, foto realista estilo influencer sacada con iPhone). No genera la imagen: solo te devuelve el texto del prompt, prolijo y armado, dentro de un bloque de código para copiar y pegar.\n\nLo que hace por debajo es aplicar el **método AvatarHype 6C**, seis componentes que ordenan todo lo que el modelo necesita saber para que la foto se sienta real: **C1 Character** (quién es el sujeto, con detalle de piel, poros, imperfecciones), **C2 Camera** (que parezca foto de celular, \"iPhone photo\", con encuadre y ángulo creíbles), **C3 Clothing** (el look completo), y así hasta los seis. Vos no tenés que saberte la estructura: se la das cruda y él la completa.\n\nCómo se usa:\n\n- **Le pegás una captura de referencia** — o le describís la escena que querés (avatar, vibe, producto). Es lo único que necesita para arrancar.\n- **Charlás en español** — el agente te habla en castellano y, si hace falta, te pregunta para afinar detalles.\n- **Elegís el registro** — por defecto tira estética **influencer pulida** (Opción A); si querés algo más natural tipo **UGC** (Opción B), se lo pedís y cambia el tono.\n- **Te devuelve el prompt final en inglés** — en un solo bloque `txt`, sin explicaciones al costado, para copiar tal cual al generador."
       },
       {
         "slug": "scripts-3f",
@@ -295,7 +295,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           3
         ],
-        "intro": "Este es un agente de ChatGPT que te escribe los guiones de tus anuncios para los tres formatos que usamos en el curso: tipo podcast (dos personas charlando), UGC tradicional (una persona hablándole a cámara) y UGC con voz en off (imágenes del producto con una voz superpuesta). Por dentro está entrenado con una biblioteca de 33 guiones ya probados, así que copia el ritmo, los ganchos y la forma de meter estadísticas de anuncios que funcionan, sin calcar los ejemplos. Se usa en dos pasos: primero le pegás la info del producto (nombre, qué hace, precio, público, beneficios, oferta, objeciones, lo que tengas a mano) y en vez de tirarte los guiones de una te devuelve un análisis con el público objetivo bien afinado, el ángulo de venta más fuerte, los puntos de dolor y dos o tres datos WOW estadísticos para usar adentro del anuncio. Si te cierra ese análisis le das el OK y recién ahí te entrega los tres guiones listos; después podés quedártelos, editarlos a mano, pedirle que los audite y los mejore, o que los adapte a un mercado puntual como Estados Unidos. La idea es que salgas de esta charla con el copy resuelto antes de sentarte a generar las imágenes en GPT Image 2 y los videos en Veo 3.1."
+        "intro": "El **Agente Scripts 3 Formatos** es un copywriter de anuncios cortos (para **TikTok**, **Reels** y **Shorts**) entrenado con una biblioteca de **33 guiones aprobados** en los formatos **podcast**, **UGC tradicional** y **UGC con voz en off**. Vos le pegás tu producto y él te devuelve tres guiones listos para grabar, replicando el ritmo, los ganchos y la forma de meter estadísticas de los ejemplos, sin copiarlos literal. Sirve para tener guiones sólidos en minutos en vez de escribirlos desde cero.\n\nCómo se usa:\n\n- **Le pegás el producto** — nombre, qué hace, precio, público, beneficios, oferta, objeciones o testimonios. No hace falta tenerlo todo: con una explicación básica arranca, pero cuantos más datos reales le des, más específico sale el anuncio.\n- **Primero te devuelve un análisis** — antes de escribir, te entrega el **público objetivo** (una situación concreta, no un \"mujeres de 25 a 45\" genérico), el **ángulo de venta** más potente y **datos WOW** (2 o 3 estadísticas) para meter dentro del anuncio.\n- **Le das el OK** — si te convence el análisis, le confirmás y ahí recién te entrega los **3 guiones**: uno podcast, uno UGC tradicional y uno con voz en off.\n- **Lo iterás** — podés quedarte con esas versiones, cambiarlas a mano, pedirle que las audite y las mejore, o que las adapte a otro mercado (por ejemplo **Estados Unidos**)."
       },
       {
         "slug": "image-ads",
@@ -306,7 +306,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           4
         ],
-        "intro": "Esto es un agente de ChatGPT llamado Ads Visual Architect: su trabajo es convertir un solo producto de ecommerce en un kit de 7 prompts listos para generar anuncios en imagen estáticos, sin que vos tengas que armar el brief ni pensar los ángulos. Se lo usa así: le pegás el producto (una foto, el link de la página o una descripción de dos líneas, tipo \"minoxidil concentrado para la caída del cabello\") y el agente te devuelve primero un análisis estratégico solo, el nicho, el avatar al que le hablás, los puntos de dolor jerarquizados, la diferenciación y el enemigo contra el que compite; ahí vos le decís si el análisis te cierra o le corregís algo. Después le indicás dos cosas concretas, el mercado y el idioma (por ejemplo España, español) y la paleta de colores (por ejemplo modo claro con primario azul marino, o fondo blanco con rosa pálido), y recién ahí lo mandás a generar. El agente te tira los 7 prompts ya estructurados y en el idioma incrustado que pediste, uno por cada formato que mejor rinde hoy: hook o agitación del problema, testimonial UGC, transformación o before/after, comparación contra la alternativa, features del producto, autoridad editorial tipo revista o noticia, y oferta o cierre. Vos agarrás cada prompt, lo pegás en un generador de imagen (en la clase usan GPT-Image 2 dentro de PimArt, aunque también corre en Nano Banana o Ideogram), sumás tu producto como imagen de referencia y generás en 2K con aspect ratio 4x5 para post o 9x16 para historia; conviene duplicar la pestaña y meter un prompt en cada una para ir en paralelo, y una vez que tenés los 7 le podés pedir ajustes de diseño (cambiar el fondo, la tipografía) o que te genere formatos adicionales, que suelen salir muy buenos."
+        "intro": "Este es un **agente de ChatGPT** (el **Ads Visual Architect**) que convierte un producto de e-commerce en un kit de **7 prompts visuales** listos para copiar y generar anuncios estáticos. No diseña \"imágenes lindas\": piensa conceptos para frenar el scroll, sumar credibilidad y convertir. Vos le pegás el producto y él hace primero el trabajo estratégico (nicho, avatar, puntos de dolor, diferenciación, ángulos) y después te devuelve los prompts ya estructurados, cada uno en un formato distinto que funciona bien hoy (estilo **Reddit**, **before/after**, timeline de progreso, comparación, características, advertorial tipo noticia y oferta).\n\nQué le pegás y qué te devuelve:\n- **Lo que le das** — el producto: una foto, la URL de la página o una descripción corta (ej. un minoxidil para la caída del cabello). No hace falta briefing.\n- **Lo que hace** — un análisis estratégico (nicho, avatar primario, dolores jerarquizados, diferenciación) que te muestra para que le des el OK o le sumes cosas.\n- **Lo que le confirmás** — el **mercado/idioma** (ej. España) y la **paleta** (ej. modo claro con azul marino, o fondo blanco con rosa pálido).\n- **Lo que te devuelve** — los **7 prompts** listos para copiar. Si querés, le pedís ajustes de diseño o **más formatos** y te da variantes adicionales.\n\nCómo se usa el resultado:\n- Copiás cada prompt y lo pegás en **PimArt** con el modelo **GPT Image 2**, usando tu producto como imagen de referencia.\n- Truco de velocidad: **duplicás la pestaña** de PimArt y vas metiendo un prompt en cada una.\n- Generás en resolución **2K** y elegís el aspect ratio según el uso: **4:5** (tamaño post) o **9:16** (historia/vertical de Instagram)."
       },
       {
         "slug": "biblio-sora",
@@ -320,7 +320,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "Selfie mujer fitness en parque (post-entreno / inflamación)",
-            "x": "Prompt de selfie UGC de una chica fitness caminando por un parque después de entrenar, con cámara frontal de iPhone, micro-temblor al caminar y piel real (poros, sin suavizado). Lo usás para productos de bienestar, inflamación o post-entreno; cambiás el producto, la descripción de la avatar y el mercado, y le sumás el guión con el momento donde aparece el producto."
+            "x": "Selfie de una mujer fitness caminando por un parque **después de entrenar**, grabado con cámara frontal de iPhone: piel con textura real, brillo post-entreno y micro-temblor de mano. Usalo para productos de **inflamación / hinchazón** o fitness con avatar femenino; cambiás el producto y el mercado y dejás el ambiente al aire libre."
           },
           {
             "t": "prompt",
@@ -331,22 +331,22 @@ export const CURSOS: Curso[] = [
             "v": "1g8DNmE-AHKeOvROPzJk1MEXuMMyZqv1b"
           },
           {
-            "t": "vid",
-            "v": "1jBdT73h0Wt7AB9995eatOamfYscCQl_y"
-          },
-          {
             "t": "head",
             "v": "Entrevista callejera nocturna Madrid (opinión impopular / hinchazón)",
-            "x": "Cambia de formato: no es selfie sino una entrevista callejera de noche en Madrid, con look de cámara Sony FX3 y un entrevistador a un metro, más producido. Sirve para el gancho de opinión impopular sobre hinchazón; cambiás el vibe de la ciudad, la persona entrevistada y el tema o la pregunta de la entrevista."
+            "x": "Formato **entrevista callejera** nocturna en Madrid (look **Sony FX3**, no selfie), con la persona respondiendo en la vía pública entre neones y bares. Ideal para el hook de **opinión impopular** o testimonio espontáneo; ajustás la pregunta y el producto y mantenés el aire de \"me pararon en la calle\"."
           },
           {
             "t": "prompt",
             "v": "Professional 9:16 vertical street interview video.\n\nCapture:\nShot on Sony FX3-style camera, 4K, vertical crop.\n50mm lens, natural compression, realistic depth.\n\nLocation:\nMadrid nightlife (Gran Vía / Malasaña vibe).\nNeon lights, bars, taxis, people walking.\n\n🎥 CAMERA\n\nSingle continuous shot.\nOperator ~1 meter from subject.\nSlight natural handheld movement.\nNo cinematic grading, neutral Rec709.\n\nLighting:\nSmall LED panel above camera.\nStreetlights + ambient spill.\nNatural exposure changes.\n\n👩 SUBJECT\n\nSpanish woman, mid-20s, attractive but natural.\nNight-out outfit (black dress).\nSlightly tipsy but coherent.\n\nNatural makeup, no overdone lips.\nHair slightly messy from night.\n\n🎤 INTERVIEW\n\nInterviewer off-camera (Spanish male voice).\nNo mic visible.\n\nAmbient:\nSpanish voices, cars, nightlife.\nNo music.\n\n🎤 SCRIPT\n\nInterviewer:\n“vale, una rápida… ¿tu mayor opinión impopular?”\n\nGirl:\n(smiles)\n“yo creo que la mayoría de la gente no está gorda… está hinchada”\n\n(laugh)\n\n“yo antes estaba hinchadísima, en plan cara inflamada todo el rato”\n\n(beat — THIS IS IMPORTANT: she briefly looks down at her hand, as if referencing something not shown)\n\n“hasta que empecé a tomar esto”\n\n(looks back up)\n\n“y literalmente me cambió la cara”\n\n“si te pasa, míratelo”\n\n🎯 EDIT HOOK (IMPORTANT)\n\nLeave a natural empty hand gesture moment at 6–8 seconds\nas if she is holding or referencing a product (but no object visible).\n\n🚫\n\nNo objects in hand\nNo logos\nNo brands\nNo product visible\n\nNatural lip sync\nNo exaggerated gestures\nNo AI smoothing\n\n🎯 FINAL FEEL\n\nLooks like real Spanish street interview.\nCasual, slightly chaotic, believable.\nPerfect for adding product in post."
           },
           {
+            "t": "vid",
+            "v": "1jBdT73h0Wt7AB9995eatOamfYscCQl_y"
+          },
+          {
             "t": "head",
             "v": "Selfie dormitorio a oscuras (adicción al scroll / app)",
-            "x": "Selfie íntimo en un dormitorio a oscuras iluminado solo por la pantalla del teléfono (glow azul en la cara), tipo cansado y encuadre cercano medio incómodo. Ideal para el ángulo de adicción al scroll o una app; cambiás el sujeto y el producto/app y le pegás qué dice a cámara."
+            "x": "Selfie **íntimo en un dormitorio a oscuras**, iluminado solo por el brillo de la pantalla del móvil, con avatar masculino y tono de confesión de madrugada. Va bien para **apps** o hábitos digitales (adicción al scroll); cambiás el producto y conservás el clima confesional y cercano."
           },
           {
             "t": "prompt",
@@ -357,22 +357,22 @@ export const CURSOS: Curso[] = [
             "v": "118uVKyiq0WxOE2zBB291fMJbrI0ABIu7"
           },
           {
-            "t": "vid",
-            "v": "11ye6TLH4yDFPWt6JuZXBdz5OlWko4WBn"
-          },
-          {
             "t": "head",
             "v": "Selfie en baño durante una cita (perfume de feromonas)",
-            "x": "Selfie grabado en el baño de un bar durante una cita, con energía urgente y voz baja, pensado para un perfume de feromonas. Trae el guión con timing marcado segundo a segundo (0-3s, etc.); cambiás el producto y reescribís esas frases con sus tiempos para tu propio pitch."
+            "x": "Selfie grabado **en el baño en plena cita**, con energía nerviosa, voz baja y sensación de \"me escapé un segundo para contarte esto\". Pensado para **perfumes de feromonas** o recomendaciones urgentes y secretas; adaptás el guión de los primeros segundos y mantenés la urgencia."
           },
           {
             "t": "prompt",
             "v": "A handheld smartphone selfie video filmed inside a small bar or restaurant bathroom at night. The lighting is slightly harsh and uneven, typical of a real bathroom, with warm tones and soft shadows. The environment feels authentic: sink, mirror edges, paper towels, slightly cluttered counter.\n\nA woman in her late 20s stands near the sink, holding her phone in a casual front-camera angle. The framing is imperfect, slightly cropped, with subtle hand movement.\n\nIMPORTANT: The scene must feel urgent, private, and real — like she stepped away from an active date to record this quickly. Slight nervous energy and lowered voice.\n\n0–3s:\nShe quickly looks at the camera, slightly breathy, adjusting the phone.\nIn Spanish (Spain), natural tone:\n“Estoy en una cita ahora mismo y he tenido que venirme al baño un segundo—”\n\n3–6s:\nShe glances toward the bathroom door, lowers her voice:\n“porque me está pasando algo raro.”\n\n6–10s:\nSmall pause, thinking:\n“El chico está como… súper pendiente de mí todo el rato.”\n\n10–14s:\nShe shrugs slightly:\n“No en plan intenso, pero… diferente.”\n\n14–18s:\nShe leans slightly closer to the camera:\n“Y es que lo único distinto hoy es esto—”\nShe reaches into her bag and pulls out a small perfume bottle that was already there.\n\n18–22s:\n“Me dijeron que llevaba feromonas…”\nShe gives a small skeptical laugh.\n\n22–25s:\n“y yo en plan: vale, claro.”\nShe looks at the bottle, then back at the camera.\n\n25–28s:\n“pero no sé, eh… porque es que se está notando.”\nTone slightly more convinced, still unsure.\n\n28–30s:\nShe quickly puts the perfume back into her bag, glances again toward the door.\n\nFinal line, softer, intimate:\n“No sé si es esto o qué, pero… yo lo estoy probando y os iré actualizando.”\n\nCamera style: handheld smartphone, front camera, slight shake, imperfect framing.\nLighting: realistic bathroom lighting, no studio setup.\nPerformance: natural, slightly nervous, confidential, pauses and micro-reactions.\nEnvironment: real bathroom, slightly messy, believable.\nProduct interaction: quick, casual, not centered, taken from bag naturally.\nTone: intimate, spontaneous, not an ad, like sharing a secret."
           },
           {
+            "t": "vid",
+            "v": "11ye6TLH4yDFPWt6JuZXBdz5OlWko4WBn"
+          },
+          {
             "t": "head",
             "v": "Selfie en coche de noche (colonia de feromonas)",
-            "x": "Selfie confesional adentro de un auto estacionado de noche, hombre joven de 25-30, para una colonia de feromonas. El interior desordenado y las luces de autos que pasan le dan realismo; cambiás el avatar y el producto manteniendo ese clima íntimo y espontáneo."
+            "x": "Misma línea de feromonas pero con avatar **masculino dentro de un coche de noche**, interior desordenado y faros que pasan cambiando la exposición. Usalo para **colonia de feromonas** con ángulo masculino; cambiás producto y mercado dejando el look de luz baja y encuadre imperfecto."
           },
           {
             "t": "prompt",
@@ -383,22 +383,22 @@ export const CURSOS: Curso[] = [
             "v": "1WOUvxKUnZboYDRVp08JUQBsWXC-mGk91"
           },
           {
-            "t": "vid",
-            "v": "1Mph33v0yDVeDCNV9FnCgwPooP9XjqjzH"
-          },
-          {
             "t": "head",
             "v": "Selfie en cocina (hinchazón post-comida / gomitas suplemento)",
-            "x": "Selfie en una cocina luminosa y estética de mañana, mujer española, para hinchazón post-comida con gomitas o suplemento. Es un look limpio y aspiracional pero con desorden real (tabla, fruta cortada); cambiás el producto y la avatar y agregás dónde muerde la gomita o muestra el frasco."
+            "x": "Selfie en una **cocina luminosa y aesthetic** a media mañana, con avatar femenino y look natural post-entreno. Encaja con **suplementos / gomitas** para digestión o hinchazón post-comida; sustituís el producto y aprovechás el ambiente cálido y cotidiano."
           },
           {
             "t": "prompt",
             "v": "A hyper-realistic 9:16 iPhone 15 Pro front-camera selfie video filmed in a bright, aesthetic modern kitchen in Spain during late morning.\n\nEnvironment:\nA clean but lived-in aesthetic kitchen with warm tones, natural materials (wood countertop, soft beige or white cabinets), subtle decor (plants, fruit bowl, olive oil bottle). The space feels real, not staged — slight everyday mess (cutting board, knife, half-cut fruit). Natural sunlight enters from a side window creating soft highlights and shadows.\n\nSubject:\nA Spanish woman, 24–30 years old, blonde, natural beauty. Light skin with real texture, minimal makeup, slightly flushed post-workout look. Wearing a fitted sports top and leggings. Hair tied in a loose messy bun or ponytail.\n\nCamera behavior:\n- iPhone front camera realism\n- Phone casually placed on the counter, slightly low angle\n- Imperfect framing (top of head slightly cropped at times)\n- Subtle micro-shake from surface contact\n- One small natural phone adjustment at second 6–7\n- Slight autofocus breathing when she leans forward\n- Natural HDR exposure with mild shadow noise\n\nPerformance:\nShe feels like she pressed record mid-thought. Slight hesitation, natural pauses, looking away briefly.\n\nTimeline:\n\n0–3s:\nShe looks at the camera already recording, slight discomfort.\n“Después de comer siempre es la misma historia…”\nTouches her stomach naturally.\n\n3–7s:\n“hinchada como un pez globo”\nShe looks down, slight frustration.\n\n7–11s:\n“ya no sabía que mas hacer hasta que me dijeron que”\nLeans on the counter, exhales softly.\n“muchas veces es por falta de vitaminas, fibra, micronutrientes…”\n\n11–15s:\nShe casually grabs a green gummy supplement package from the counter without presenting it clearly.\n“y empecé con esto hace nada…”\nShort pause.\n“ya no tengo esa sensación todo el día encima”\n\nFinal seconds:\nShe looks back at the camera, relaxed tone.\n“aquí tenéis el link por si a alguna le pasa lo mismo.”\n\nAudio:\n- Raw iPhone microphone\n- Slight room echo\n- Subtle ambient kitchen noise\n- Natural breathing, soft pauses\n\nStrict realism rules:\n- No beauty filters\n- No cinematic color grading\n- No perfect framing\n- No product showcasing like an ad\n- No exaggerated gestures\n- No face distortion or eye drift\n- Natural lip sync maintained\n\nThe final result must feel like a real Spanish TikTok recorded casually in one take, not an advertisement."
           },
           {
+            "t": "vid",
+            "v": "1Mph33v0yDVeDCNV9FnCgwPooP9XjqjzH"
+          },
+          {
             "t": "head",
             "v": "Selfie en fila del súper (app de finanzas / invertir)",
-            "x": "Selfie en la fila de la caja del súper, un tipo común grabando un pensamiento rápido mientras espera para pagar, para una app de finanzas o inversión. El escenario mundano y relatable es el gancho; cambiás el sujeto y la app y le pegás el guión de lo que cuenta."
+            "x": "Selfie casual **en la fila de la caja del súper**, con luz fluorescente dura y ruido ambiente real, como quien suelta un pensamiento mientras espera. Sirve para **apps de finanzas / invertir** u ofertas de \"tip rápido\"; cambiás el mensaje y mantenés el aire improvisado y sin producción."
           },
           {
             "t": "prompt",
@@ -412,7 +412,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           2
         ],
-        "intro": "Esta es una mini biblioteca en Notion con videos ya hechos en Sora 2 y el prompt exacto que generó cada uno, pensada para copiar y adaptar. Resuelve el problema de la página en blanco: Sora es hiper sensible al prompt (mismo modelo, pero cielo y tierra entre uno genérico y uno bien estructurado), así que en vez de escribir de cero agarrás el ejemplo más parecido a tu caso. Todos siguen la misma receta que se ve en la clase — entorno y encuadre, cámara y su comportamiento (micro-temblor, encuadre imperfecto), sujeto con piel real (poros, nada de suavizado), iluminación, audio y guión con timing — que es lo que los hace parecer UGC real de celular y no video de IA. Para usarla elegís el ejemplo, le cambiás producto, avatar, mercado y el guión, y pegás el prompt en KIE (Sora 2 Image-to-Video estable) subiendo la foto de tu producto, 15 segundos en vertical tipo TikTok, y generás por unos 15 céntimos. Es el complemento del agente de prompts: si querés algo a medida usás el agente, si querés partir de algo ya probado arrancás de estos."
+        "intro": "Esta **mini biblioteca** (en **Notion**) es un catálogo de videos ya generados con **Sora 2** junto al **prompt exacto** que los produjo. En Sora el prompt lo es todo: la diferencia entre un video plástico y uno que parece grabado con el móvil está en cómo estructurás el prompt (encuadre, cámara, sujeto, iluminación, audio y guión frase por frase). En vez de arrancar de cero, acá tenés ejemplos que ya funcionaron para copiar y adaptar.\n\nCómo se usa:\n\n- **Elegí el ejemplo** — buscá el que más se parezca a tu ángulo, avatar o mercado (selfie fitness, entrevista callejera, confesión de noche, etc.).\n- **Copiá el prompt** — está completo y estructurado; usalo como plantilla en lugar de escribirlo a mano.\n- **Cambiá lo tuyo** — ajustás producto, avatar (edad/género/look) y mercado, y dejás intacta la estructura que hace que se vea real.\n- **Generá en KIE** — pegás el prompt en **Sora 2 Image-to-Video** estable, subís la imagen del producto, ponés **9:16** vertical tipo TikTok, **15 segundos**, y le das a generar (te sale ~**15 céntimos** por video).\n\nVa de la mano con el agente de prompts de Sora: el agente te arma un prompt nuevo desde cero, y esta biblioteca te da referencias ya probadas para inspirarte o partir de ahí."
       },
       {
         "slug": "plantilla-veo",
@@ -425,7 +425,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           2
         ],
-        "intro": "Es una plantilla que desarma el prompt de un video Veo 3.1 en 14 bloques, cada uno con su explicación y un ejemplo en inglés listo para copiar. Resuelve un problema concreto: en estos modelos de video (Veo, igual que Sora) el resultado depende casi entero del prompt, y si le tirás algo genérico te sale un avatar con movimiento falso y pinta de anuncio, mientras que si le definís con precisión cámara, identidad del personaje, entorno, física humana, idioma y tono, te devuelve un UGC hiperrealista tipo selfie de iPhone que no parece IA. Para usarla vas bloque por bloque llenando cada uno con lo tuyo (tu producto, tu avatar, el mercado al que apuntás), juntás todo en un solo prompt y lo pegás en Veo, subiendo la imagen de referencia del producto. Tené en cuenta que cada clip de Veo es de 8 segundos, así que no metas cinco acciones por clip: una acción principal más una micro-acción, y después unís varios clips en edición para armar el video de 16 segundos. En el fondo es el checklist para que no te olvides ninguna de las especificaciones que el modelo necesita para sonar y verse humano."
+        "intro": "La **Plantilla de prompts Veo 3** es un documento de **Notion** que desarma un prompt de video en sus **14 bloques**, cada uno con su explicación y un ejemplo listo para copiar. Ataca lo que más pesa en **Veo 3.1**: acá el prompt lo es todo, y la diferencia entre uno genérico y uno bien estructurado es la diferencia entre un video que se nota falso y un **UGC hiperrealista** que parece grabado con el móvil. En vez de escribir de memoria, seguís la lista bloque por bloque y no te olvidás de nada (encuadre, cámara, identidad del personaje, entorno, física humana, idioma, tono…).\n\nCómo se usa:\n- **Copiás la estructura** — armás tu prompt siguiendo los 14 bloques en orden, sin saltarte ninguno.\n- **Rellenás cada bloque con lo tuyo** — tu producto, tu avatar y tu mercado; la base UGC (formato **9:16**, cámara selfie de iPhone, **handheld**) ya viene definida.\n- **Los ejemplos van en inglés** — pegás los bloques de ejemplo tal cual y solo cambiás los detalles (edad, nacionalidad, entorno, idioma hablado).\n- **Ojo con el idioma hablado** — si querés español de España, hay que pedirlo explícito y con muletillas tipo \"a ver…\", \"es que…\" para que no salga con acento latino.\n- **Un clip = una acción** — cada clip es de ~**8 segundos**; metés 1 acción principal + 1 micro-acción, no cinco cosas a la vez."
       },
       {
         "slug": "trends",
@@ -439,12 +439,12 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "EL ANTES",
-            "x": "Encabezado que abre el primer bloque del anuncio: la parte donde se muestra a la persona CON el problema (piel con acné). Marca el arranque de la mitad 'antes' del formato antes/después."
+            "x": "El primer bloque: el estado **problema** del avatar (piel con acné). Acá generás la referencia y su clip de arranque, que es el gancho del anuncio."
           },
           {
             "t": "label",
             "v": "Referencia - Original",
-            "x": "Es la imagen base de la que partís, la foto original que vas a clonar. Acá pegás la referencia real de la que querés heredar la identidad y el encuadre."
+            "x": "La imagen de partida que subís como base. De acá el modelo copia el encuadre y la persona para no inventar de cero."
           },
           {
             "t": "img",
@@ -453,7 +453,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Prompt",
-            "x": "Prompt de edición de imagen que recrea la foto de referencia pero cambiándole los rasgos a europeos y quitando cualquier texto. Lo usás cuando la referencia que encontraste no matchea el mercado al que apuntás y necesitás adaptar la cara; lo pegás en el editor junto con la imagen original."
+            "x": "Recrea la imagen de referencia pero cambiando los rasgos de la cara a **europeos** y sin texto. Lo usás para adaptar una referencia ajena a tu mercado (acá **España**) sin que se note que la copiaste."
           },
           {
             "t": "prompt",
@@ -462,7 +462,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Resultado - Antes 1",
-            "x": "Es el output del prompt anterior: la primera foto del 'antes' ya con la cara adaptada y la piel con acné. No hay nada que pegar, solo te muestra el resultado que deberías obtener."
+            "x": "El frame que devuelve el modelo con ese prompt: tu avatar **antes**, con la piel con problemas. Es la primera imagen fija del bloque."
           },
           {
             "t": "img",
@@ -471,7 +471,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Referencia Antes - Frame 1",
-            "x": "Esa misma imagen resultante ahora la usás como Frame 1 para armar la transición en video. Es el fotograma de arranque del clip del 'antes'."
+            "x": "La imagen **antes** que vas a usar como primer frame del clip. Es el punto de arranque de la transición."
           },
           {
             "t": "img",
@@ -480,7 +480,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Prompt",
-            "x": "Prompt de edición para generar el Frame 2: la misma persona, identidad idéntica, con apenas un cambio natural de pose o ángulo, como un movimiento real entre fotogramas. Lo usás para tener una segunda foto casi igual pero levemente movida, así el modelo de video tiene entre qué interpolar."
+            "x": "Genera un segundo frame con la **misma persona idéntica** y solo un cambio mínimo de pose o ángulo, como un movimiento real entre fotogramas. Sirve para tener un frame final apenas distinto que el video pueda animar."
           },
           {
             "t": "prompt",
@@ -489,7 +489,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Transición - Video",
-            "x": "Prompt image-to-video: le das Frame 1 y Frame 2 y genera una transición natural entre ambos, manteniendo a la persona idéntica, con movimiento sutil como una toma continua. Con esto el 'antes' deja de ser una foto y pasa a ser un clip vivo; lo corrés en Kling o Sora 2 con los dos frames."
+            "x": "Anima el paso del **frame 1 al frame 2** manteniendo idéntica a la persona, con movimiento sutil como si fuera una sola toma continua. Este es el prompt que convierte tus dos imágenes fijas en un clip."
           },
           {
             "t": "prompt",
@@ -498,7 +498,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Resultado Antes - Frame 2",
-            "x": "Output del clip del 'antes': el segundo fotograma / cierre de esa transición. Solo te muestra a qué deberías llegar."
+            "x": "El fotograma final del clip del **antes**. Junto con el Frame 1 marca el principio y el fin del movimiento."
           },
           {
             "t": "img",
@@ -507,12 +507,12 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "EL DESPUÉS",
-            "x": "Encabezado del segundo bloque: la misma persona pero con el problema resuelto (piel limpia y radiante). Es la mitad 'después' de la transformación."
+            "x": "El segundo bloque: el mismo avatar pero transformado (piel sana, radiante). Es el **resultado** que promete el producto y el contraste que hace viral el formato."
           },
           {
             "t": "label",
             "v": "Referencia - Después",
-            "x": "La referencia para el 'después': usás como base la misma persona para generar su versión mejorada. Acá va la foto de la que partís para el after."
+            "x": "La imagen base para el estado **después**. Se parte del mismo personaje para que se note que es la misma persona, ahora mejorada."
           },
           {
             "t": "img",
@@ -521,7 +521,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Prompt",
-            "x": "Prompt de edición clave del 'después': mantiene idéntica la identidad, cara, tono de piel, ojos y labios, pero le pone piel limpia, suave y luminosa sin acné (realista, con poros visibles, no plástica), plano medio 9:16, musculosa roja, uñas francesa, mano bajo el cuello y luz cálida suave. Es la foto hero del after; lo pegás con la referencia de la persona y cambiás vestuario/encuadre según tu producto."
+            "x": "Mantiene la misma identidad (cara, ojos, tono de piel) pero le da piel limpia y radiante, todavía realista (con poros, no plástica); además fija el encuadre de medio cuerpo en **9:16**, la remera roja, las uñas y la pose. Es el prompt clave del **después**: mismo rostro, piel arreglada."
           },
           {
             "t": "prompt",
@@ -530,7 +530,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Resultado - Después",
-            "x": "Output del prompt anterior: la foto fija del 'después' con la piel radiante. Solo referencia visual del resultado."
+            "x": "La imagen fija del avatar ya transformado que devuelve ese prompt."
           },
           {
             "t": "img",
@@ -539,7 +539,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Referencia Después - Frame 1",
-            "x": "Esa foto del after usada ahora como Frame 1 para la transición en video del bloque 'después'. Es el fotograma de arranque del clip."
+            "x": "La imagen **después** que arranca el segundo clip. Igual que en el antes, es el primer frame de la transición."
           },
           {
             "t": "img",
@@ -548,7 +548,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Prompt",
-            "x": "Prompt de edición para el Frame 2 del after: misma persona, leve cambio natural de pose o ángulo, con la cara más cerca de la cámara mostrando la mejora de la piel. Genera la segunda foto para armar el clip del 'después'."
+            "x": "Genera el segundo frame con la misma persona, pero **acercando la cara a la cámara** para que luzca la mejora de la piel. Le da al clip un movimiento con intención: mostrar el resultado de cerca."
           },
           {
             "t": "prompt",
@@ -557,7 +557,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Transición - Video",
-            "x": "El mismo prompt de transición image-to-video, ahora aplicado a los dos frames del 'después': movimiento sutil y natural como una sola toma continua. Produce el clip vivo del after."
+            "x": "Anima el paso del frame 1 al 2 del **después**, personaje idéntico y movimiento sutil de una sola toma. Es el mismo prompt de transición del antes, reutilizado."
           },
           {
             "t": "prompt",
@@ -566,7 +566,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Resultado Después - Frame 2",
-            "x": "Output del segundo fotograma del clip del 'después'. Solo te muestra el resultado esperado."
+            "x": "El fotograma final del clip del **después**: la cara más cerca, luciendo la piel sana."
           },
           {
             "t": "img",
@@ -575,12 +575,12 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "EL PRODUCTO",
-            "x": "Encabezado del bloque de cierre: el plano del producto, donde la persona sostiene tu producto real para rematar el anuncio."
+            "x": "El tercer bloque: la chica con el **producto** en mano. Es el cierre del anuncio, donde conectás la transformación con lo que vendés."
           },
           {
             "t": "label",
             "v": "Chica + producto",
-            "x": "Es el compuesto de chica + producto: la etiqueta del plano en que aparece el producto en la mano. Acá va la foto de la persona junto a la de tu producto real."
+            "x": "La toma que combina tu avatar con el producto. Acá lo importante es que el envase se vea **exacto** al real."
           },
           {
             "t": "img",
@@ -593,7 +593,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Prompt",
-            "x": "Prompt de edición que combina las dos referencias (persona + producto): misma identidad, y el producto tiene que coincidir EXACTO con tu foto real (mismo packaging, color, etiqueta y forma, sin rediseñar), en un selfie iPhone hiperrealista, primer plano 9:16, sosteniéndolo cerca de la cara con aire de UGC natural. Es el que evita que la IA te invente un envase falso, así que pegás sí o sí la foto real del producto."
+            "x": "Mantiene idéntica a la persona y —clave— el **producto EXACTO** al de tu referencia (mismo packaging, color, etiqueta, forma, sin rediseño); lo pone en un selfie close-up estilo iPhone en **9:16**, sostenido de forma natural tipo **UGC**. Lo usás para el plano de producto sin que la IA te invente otro envase."
           },
           {
             "t": "prompt",
@@ -606,7 +606,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Animación",
-            "x": "Prompt image-to-video del plano de producto: convierte esa foto fija en un video selfie vertical de cámara frontal donde, en el primer par de segundos, la persona le da un besito juguetón al producto y lo acerca a la cámara, con onda espontánea y casual. Es el clip que cierra el anuncio; mantené idénticos persona y packaging."
+            "x": "Anima ese selfie: en los primeros **1-2 segundos** la chica le da un besito rápido y natural al producto y lo acerca a la cámara, con movimiento espontáneo y casual. Es el clip de cierre que le da gracia y humanidad al plano de producto."
           },
           {
             "t": "prompt",
@@ -616,7 +616,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           2
         ],
-        "intro": "Este recurso es una guía de Notion que te muestra, paso a paso y con los prompts reales, cómo recrear uno de los formatos más virales de TikTok —el \"antes y después\" de piel (el glow-up)— pero armado enteramente con IA en vez de grabar UGC real. Resuelve el problema de no tener metraje de la misma persona con el problema (acné) y con el problema resuelto (piel limpia): generás las dos versiones a partir de una sola foto, manteniendo idéntica la identidad. La lógica es siempre la misma en tres bloques: primero editás imágenes fijas con un modelo que conserva la cara pero cambia la piel (tipo Nano Banana Pro o GPT-Image), después convertís cada par de fotos casi iguales en un mini clip con un modelo image-to-video (Kling, Sora 2) que interpola una transición suave, y al final sumás el plano de la persona sosteniendo tu producto real. Para usarlo, copiás cada prompt de acá, le enchufás tu foto de referencia y tu producto, y vas cambiando avatar, mercado y detalles de vestuario según tu caso."
+        "intro": "**Trends virales** es la receta para subirte a un formato que ya está explotando en TikTok —el clásico **antes/después** (glow-up)— y convertirlo en tu propio anuncio, sin pagar plataformas caras tipo **Arcads** o **HeyGen**. En vez de grabar, generás todo con IA barata (**Sora 2** vía **KIE API**, ~**15 céntimos** por clip de 15s) y armás el video pieza por pieza. Este recurso es un doc de Notion con las imágenes de referencia, los prompts exactos y los resultados, ordenados en tres bloques: **EL ANTES**, **EL DESPUÉS** y **EL PRODUCTO**.\n\nCómo se usa:\n- **Generás una imagen base** — con un prompt de edición partís de una referencia y creás el frame inicial (la chica con acné, la piel ya sana, o la chica con el producto).\n- **Creás un segundo frame** — mismo personaje idéntico, con un cambio mínimo de pose o ángulo.\n- **Animás la transición** — un prompt de video une los dos frames en un clip corto y natural, como grabado de una sola toma.\n- **Unís los clips** en edición y te queda el anuncio: antes → después → producto."
       },
       {
         "slug": "ejemplos-ads",
@@ -630,7 +630,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Prompt",
-            "x": "Es el prompt de ejemplo ya resuelto, para un tratamiento de acné: arma una imagen vertical 4:5 con una tarjeta falsa de comentario de Facebook/Instagram arriba (el testimonio en español, con foto de perfil y nombre difuminado) y abajo un split antes/después de la piel. Usalo tal cual para ver cómo se ve un prompt completo bien estructurado, o como base cambiándole solo el texto del testimonio y el producto."
+            "x": "Es el prompt concreto, ya lleno, para un ad de tratamiento de acné. Arma la pieza entera en **4:5**: arriba un comentario falso de Instagram/Facebook con testimonio en español, y abajo el antes/después a pantalla partida. Miralo como referencia de cómo queda un prompt terminado antes de pasarlo a plantilla."
           },
           {
             "t": "prompt",
@@ -639,7 +639,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Resultado",
-            "x": "Es la imagen que devolvió ese prompt, o sea el resultado. Te sirve de referencia para comparar contra lo que te salga a vos y darte cuenta si la generación quedó bien lograda o si tenés que ajustar el prompt y volver a tirar."
+            "x": "Es la imagen que devolvió el prompt de arriba. Te sirve para ver a qué apuntás visualmente antes de generar lo tuyo."
           },
           {
             "t": "img",
@@ -648,7 +648,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Ejemplo con otro producto (plantilla)",
-            "x": "Es otro resultado ya renderizado, aplicando el mismo molde a un producto distinto. No trae prompt: está para mostrarte visualmente que la estructura funciona más allá del acné y sirve para cualquier categoría."
+            "x": "Es una imagen ya generada con la misma estructura pero para otro producto y mercado. Está de muestra para que veas que la plantilla aguanta cualquier nicho."
           },
           {
             "t": "img",
@@ -657,7 +657,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Plantilla para utilizar con cualquier producto",
-            "x": "Es la plantilla maestra del formato reseña + antes/después, con los huecos entre corchetes: reemplazás [PRODUCT CATEGORY], [MARKET LANGUAGE], el [TESTIMONIAL] en primera persona y el [PROBLEM VISUAL] del antes. Usala cuando quieras ese clásico de comentario de red social sobre split antes/después para el producto que sea."
+            "x": "La versión con huecos del formato testimonial + before/after. Reemplazás **[PRODUCT CATEGORY]**, el idioma del mercado (**[MARKET LANGUAGE]**), el testimonio y los visuales de problema/resultado, y ya tenés el prompt listo para cualquier producto."
           },
           {
             "t": "prompt",
@@ -674,7 +674,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Ejemplo con otro producto (plantilla)",
-            "x": "Plantilla que arma el anuncio como una conversación de chat, con una regla crítica de realismo: el después NO puede quedar perfecto, tenés que dejarle imperfecciones (marcas rojas, poros, tono disparejo, textura) porque si sale airbrusheado parece IA y falla. Usala cuando quieras un creativo con pinta de captura de chat y quieras esquivar el look de foto demasiado pulida."
+            "x": "Variante con formato de conversación de **chat** en vez de comentario. Trae una regla de realismo fuerte: el \"después\" tiene que conservar imperfecciones (marcas, poros, textura) o la pieza falla por parecer de IA. Usala cuando querés un aire más de mensajería/UGC."
           },
           {
             "t": "img",
@@ -695,7 +695,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Ejemplo con otro producto (plantilla)",
-            "x": "Plantilla de anuncio de transformación con línea de tiempo: un titular arriba y una tira semana por semana con los hitos del progreso ([WEEK RANGE] → [MILESTONE]), y a propósito con alineación un poco imperfecta para no delatar la IA. Usala para productos cuyo resultado se construye en el tiempo (skincare, suplementos, caída de pelo, fitness)."
+            "x": "Formato de transformación en **línea de tiempo**: un titular con la promesa (ej. \"mejoró en 12 semanas\") y una progresión semana a semana con hitos. Va bien para productos cuyo resultado se ve con el tiempo; dejá la alineación un poco imperfecta para que no cante a IA."
           },
           {
             "t": "img",
@@ -716,7 +716,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Ejemplo con otro producto (plantilla)",
-            "x": "Plantilla que replica al pie de la letra el formato de testimonio de Facebook: la instrucción es NO rediseñar, copiar la estructura, con la caja de comentario y las dos imágenes antes/después lado a lado sobre un fondo que vos definís. Usala cuando quieras clonar fielmente ese look de reseña de FB sin que el modelo se ponga creativo con el diseño."
+            "x": "Réplica exacta de un comentario de **Facebook** (no rediseñar, copiar la estructura), con fondo configurable. Cambiás el sujeto, el visual del problema y el testimonio en el idioma del mercado. Ideal cuando buscás la máxima sensación de prueba social \"de verdad\"."
           },
           {
             "t": "img",
@@ -737,7 +737,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Ejemplo con otro producto (plantilla)",
-            "x": "Plantilla con estética UGC estilo TikTok: una tarjeta flotante de reseña de app (5 estrellas amarillas, título 'Detalles de la reseña', usuario y fecha) más las tarjetas de transformación, sobre un fondo pastel con leve viñeta. Usala cuando busques un aire más moderno y de prueba social tipo review de tienda de apps en vez del comentario clásico de red social."
+            "x": "Formato UGC estilo **TikTok**: una tarjeta de reseña flotante (5 estrellas, usuario y fecha) más tarjetas de transformación. Elegís un color de fondo plano y suave y escribís la reseña en primera persona. Buena para social proof moderno y algo más jugado visualmente."
           },
           {
             "t": "img",
@@ -791,7 +791,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           2
         ],
-        "intro": "Esto es una biblioteca de anuncios estáticos (en imagen) con el prompt exacto que generó cada uno: los típicos creativos de \"reseña + antes/después\" que ves en Facebook, Instagram y TikTok, pero armados sin diseñador. Sirve para producir ads que venden sin abrir Photoshop ni pagar a nadie: copiás el prompt, lo pegás en un generador de imágenes que sabe componer texto y layout (GPT-Image de ChatGPT o Nano Banana Pro) y te devuelve la pieza terminada, con la tarjeta de comentario, el split antes/después y el copy ya incrustados. La clase te da primero un ejemplo real ya resuelto (el de acné) con su resultado, y después varias plantillas con huecos entre corchetes para que cambies producto, mercado, problema y testimonio y lo reutilices con lo que vendas. La regla de oro que se repite en varias plantillas es que el \"después\" no puede quedar perfecto: si sale demasiado pulido parece IA y pierde credibilidad, así que le pedís que mantenga imperfecciones (marcas, poros, textura) para que se sienta real."
+        "intro": "**\"Ejemplos de ads de imagen\"** es una biblioteca en **Notion** con anuncios de imagen ya hechos y, al lado de cada uno, el **prompt exacto** con el que se generaron. Sirve para no arrancar de la nada: en vez de inventar el prompt, agarrás una estructura que ya convierte y la adaptás a tu producto. Los formatos son de estilo testimonial pensados para que la pieza parezca real y no un render de IA: **comentario falso de Facebook/Instagram**, **before/after** (antes/después) a pantalla partida, conversación de **chat**, **línea de tiempo** por semanas y **reseña tipo TikTok** con estrellas.\n\nCómo se usa:\n- **Elegí el formato** — el que mejor le cae a tu producto (testimonial, before/after, chat, timeline o reseña).\n- **Rellená los huecos** — reemplazás **[PRODUCT CATEGORY]**, **[MARKET LANGUAGE]** (el idioma/país), el testimonio y los visuales de problema/resultado.\n- **Generá en vertical** — pegás el prompt en un modelo de imagen y sacás la pieza en formato **4:5** para feed.\n- **Cuidá el realismo** — el \"después\" no tiene que quedar perfecto: tiene que verse como una mejora real, con imperfecciones, o canta a IA."
       },
       {
         "slug": "ref-visual",
@@ -804,12 +804,12 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "IMAGEN",
-            "x": "Encabezado que separa el bloque: de acá para abajo son los prompts que pegás en GPT Image 2 para armar la imagen fija (avatar + fondo), antes de pasar al video. No es un prompt, solo ordena la lista."
+            "x": "Abre el bloque de prompts para generar la **IMAGEN** fija. Todo lo que va acá se pega en **GPT Image 2** con la referencia de Pinterest adjunta."
           },
           {
             "t": "label",
             "v": "PROMPT #1: CAMBIAR AVATAR",
-            "x": "Es el primer paso: adjuntás la imagen de referencia de Pinterest y pegás este prompt reemplazando el corchete por la descripción de tu persona inventada (etnia, pelo, outfit, y si querés mantené la definición muscular del original). Te devuelve la misma escena pero con una persona nueva que no existe. Usalo para crear a tu protagonista."
+            "x": "Reemplaza a la persona de la referencia por un avatar nuevo que no existe. Donde dice **[DESCRIPCIÓN, OUTFIT...]** metés cómo querés que sea (pelo, complexión, ropa) manteniendo lo que te sirva del original, como la definición muscular. Es el primer paso siempre."
           },
           {
             "t": "prompt",
@@ -818,7 +818,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "PROMPT #2: REEMPLAZAR FONDO",
-            "x": "Acá adjuntás DOS imágenes: la 1 es el fondo/escena que sacaste de Pinterest y la 2 es el avatar que acabás de generar. El prompt le dice que meta a tu avatar en ese fondo, con la ropa de la imagen 2, hablando y gesticulando a cámara. Usalo para juntar personaje y escenario; podés agregar que se vean productos si los necesitás en cuadro."
+            "x": "Toma la escena de la referencia (**file 1**) y le cambia el protagonista por el avatar que creaste (**file 2**), respetando su outfit y poniéndolo a hablar a cámara gesticulando. Sirve para plantar tu personaje en el fondo que elegiste; si hace falta, le pedís que se vean productos."
           },
           {
             "t": "prompt",
@@ -827,7 +827,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "PROMPT #3: PLANO MÁS CERCANO",
-            "x": "Toma la misma imagen y la acerca: menos mesada/fondo, la persona hablando a cámara y mostrando bien los dientes. Usalo cuando querés un plano más cerrado del avatar para que tenga más presencia y expresión."
+            "x": "Genera un **plano más cercano** del mismo avatar: menos encimera de fondo y la cara más grande, con los dientes bien visibles al hablar. Usalo cuando querés un primer plano más íntimo y que se lea la boca."
           },
           {
             "t": "prompt",
@@ -836,7 +836,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "PODCAST",
-            "x": "Sirve para crear a la segunda persona de un podcast: le pedís que mire hacia el costado (como hablándole a alguien sentado al lado) y con \"flip the image horizontally\" la das vuelta en espejo, manteniéndola en el mismo estudio que la primera. Usalo para el segundo interlocutor cuando ambos comparten set."
+            "x": "Es el truco para el formato **podcast**: crea a la segunda persona mirando hacia el costado (como si le hablara a alguien sentado al lado) y con **flip horizontal** para que quede enfrentada a la primera, en el mismo estudio. Reusás el Prompt #1 para el personaje y le pegás estas líneas."
           },
           {
             "t": "prompt",
@@ -845,12 +845,12 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "VIDEO",
-            "x": "Encabezado del segundo bloque: de acá para abajo los prompts ya no son para la imagen sino para animarla en Veo 3.1 y convertir la foto fija en un clip donde el avatar habla. No es un prompt en sí."
+            "x": "Abre el bloque de prompts para pasar las imágenes fijas a **VIDEO** con **Veo 3.1** (~**0,8 céntimos** por 8 segundos). No hace falta que los prompts sean largos ni complejos."
           },
           {
             "t": "label",
             "v": "PROMPT #1: USO GENERAL PARA VIDEO ESTÁTICO",
-            "x": "Es el prompt por defecto para animar un talking head: fija la cámara sin movimiento, la persona mira directo al lente, mueve los brazos de forma realista y con tono de influencer, y en el corchete pegás tu guión. Usalo como base para cualquier clip estático de alguien hablando a cámara."
+            "x": "Prompt general para un video estático: **cámara fija**, avatar mirando a cámara, movimientos de brazos realistas y tono de influencer. En **[inserta el guión aquí]** pegás lo que tiene que decir. Es tu opción por defecto para UGC hablando a cámara."
           },
           {
             "t": "prompt",
@@ -859,7 +859,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "PROMPT #2 TALKING HEAD - MICRO-MOVIMIENTOS",
-            "x": "Variante del anterior que pone el foco en micro-movimientos de brazos realistas y una energía directa y clara mientras dice exactamente tu guión (lo pegás en el corchete). Usalo cuando querés un poco más de vida y gesticulación en el talking head sin mover la cámara."
+            "x": "Variante **talking head** más ajustada: prioriza micro-movimientos naturales de brazos y que diga el texto exacto con energía directa y clara. Reemplazás **[inserta el guión aquí]** por tu línea; buena cuando querés un plano cerrado y foco en la actuación."
           },
           {
             "t": "prompt",
@@ -868,7 +868,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Español España (VEO3.1)",
-            "x": "No va solo: es un bloque que le agregás a cualquier prompt de video de Veo 3.1 para forzar que el audio salga en español coloquial de España (acento peninsular, Madrid neutro) con muletillas como \"a ver\", \"es que\" y pausas naturales. Usalo cuando tu mercado es España y querés que la voz suene real y no en neutro/latino."
+            "x": "No es un prompt suelto, es un **añadido de idioma** para pegarle a los prompts de video: fuerza un español de **España** conversacional, con muletillas tipo \"a ver…\" o \"es que…\", pausas y acento peninsular neutro de Madrid. Lo sumás cuando el anuncio apunta a ese mercado."
           },
           {
             "t": "prompt",
@@ -877,13 +877,13 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "PODCAST",
-            "x": "Etiqueta que marca la variante de video para el formato podcast; no trae prompt propio porque el clip de podcast reutiliza los mismos prompts de video de arriba, aplicándolos por separado a cada uno de los dos interlocutores."
+            "x": "Marcador del formato **podcast** dentro del bloque de video (no trae prompt propio). Para el video de podcast combinás los prompts de arriba (uso general o talking head) generando un clip por cada persona con su guión."
           }
         ],
         "clases": [
           3
         ],
-        "intro": "Este recurso es la lista de prompts de \"referencia visual\": los copiás y pegás en GPT Image 2 (por la ruta económica, a centavos por imagen) para armar la foto base de tu anuncio partiendo de una imagen de inspiración de Pinterest. Resuelve el problema de conseguir un protagonista y un escenario que no existen sin sesión de fotos: agarrás una referencia de Pinterest, cambiás a la persona por un avatar nuevo inventado por vos y lo metés en el fondo que quieras, hablando a cámara. En la práctica: descargás la referencia, pegás el prompt de \"cambiar avatar\" con la descripción de tu persona, después juntás esa imagen con el fondo y usás el prompt de \"reemplazar fondo\", y si querés más presencia sumás el de \"plano más cercano\". La segunda mitad de la lista son los prompts para animar esa foto en Veo 3.1 (talking head), más un bloque para forzar el audio en español de España. Es la materia prima de los tres formatos del curso (podcast, UGC tradicional y UGC con voz en off)."
+        "intro": "Este recurso es un tablero de **Notion** con todos los prompts listos para copiar y pegar que necesitás para armar un anuncio partiendo de una imagen de referencia de **Pinterest**. Está dividido en dos bloques: **IMAGEN** (generás al avatar y el fondo con **GPT Image 2**, a ~**0,012 € por imagen**, unas **90 imágenes por euro**) y **VIDEO** (animás esas imágenes con **Veo 3.1** por la ruta económica). La lógica es siempre la misma: agarrás una referencia que te guste, le cambiás la persona por una que no existe y la metés en el fondo que vos quieras, hablando y gesticulando a cámara.\n\nCómo se usa:\n- **Elegí la referencia** — bajás una imagen (o hacés captura si es un vídeo) de Pinterest.\n- **Cambiá el avatar** — pegás el **Prompt #1** en GPT Image 2, adjuntás la referencia y describís a tu persona nueva.\n- **Armá la escena** — con el **Prompt #2** fusionás ese avatar con el fondo que elegiste.\n- **Ajustá el plano** — usás el **Prompt #3** para acercarte, o el bloque **PODCAST** cuando necesitás dos personas en el mismo estudio.\n- **Animá** — pasás la imagen final a **Veo 3.1** con los prompts del bloque VIDEO y le insertás tu guión."
       },
       {
         "slug": "planificacion",
@@ -897,7 +897,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "1. Avatar + research prompt",
-            "x": "Es el arranque de todo: abrís un chat nuevo en ChatGPT y pegás este prompt reemplazando el placeholder por tu producto (3-4 frases: qué es, cómo funciona, en qué se diferencia y qué promete), más el mercado y el estilo animado (Pixar, claymation, Wes Anderson, Apple/realista, etc.). GPT te devuelve dos cosas: el avatar de cliente con sus dolores, y tres búsquedas listas para llevar a NotebookLM."
+            "x": "Es el **prompt 1**, el que arranca todo en un chat nuevo de ChatGPT: pegás tu **producto** (3-4 frases), el **mercado** al que apuntás y el **estilo** animado (Pixar, claymation, Apple, realista…). Hace dos cosas de una: define el **avatar** de cliente (dolores, qué busca, qué le resolvés) y te prepara **3 búsquedas** listas para llevar a NotebookLM."
           },
           {
             "t": "prompt",
@@ -906,7 +906,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "2. NotebookLM (auto-research + insights)",
-            "x": "Este prompt NO va en GPT sino en NotebookLM: primero creás un cuaderno gratis y cargás las tres búsquedas del paso anterior (una por una, importando cada una), y recién ahí pegás esto. Te obliga a devolver cinco insights atómicos con cifras reales, contraintuitivos y citando la fuente, que es la munición dura con la que va a vender el anuncio. Si no te convencen, se lo pedís de nuevo hasta que salgan buenos."
+            "x": "Es el **prompt 2**, y este NO va en ChatGPT sino en **NotebookLM**: primero cargás ahí las 3 búsquedas del paso anterior y las importás, y recién ahí lo pegás. Te devuelve los **5 insights** más fuertes con **datos duros y cifras reales** (contraintuitivos y citando la fuente), la munición para que el guión sorprenda. Si no te convencen, iterás hasta sacar los mejores."
           },
           {
             "t": "prompt",
@@ -915,7 +915,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "3. Ángulos",
-            "x": "Volvés a GPT y pegás este prompt con los cinco insights completos de NotebookLM en el lugar marcado. Cruza esos datos con el avatar que ya tiene en memoria y te tira tres ángulos de venta distintos, cada uno atacando un dolor diferente, con titular, dolor concreto y el reframe (qué pensaba el cliente antes y qué piensa después). Vos elegís el que más te cierra para el próximo paso."
+            "x": "Es el **prompt 3**: volvés a ChatGPT y, donde dice pegar insights, metés los **5 insights** de NotebookLM. Cruza esos datos con el avatar y te propone **3 ángulos de venta distintos**, cada uno atacando un dolor diferente. Elegís el que más te pegue."
           },
           {
             "t": "prompt",
@@ -924,7 +924,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "4. Guión",
-            "x": "Le decís cuál de los tres ángulos elegiste y te escribe el guión del anuncio: voz en off, tono reflexivo de storytelling en vez de copy agresivo, 50-60 segundos, en el español del mercado que pusiste. Trae ejemplos reales adentro para calibrar el tono. Es la pieza más importante, así que conviene iterar acá hasta que suene natural antes de seguir."
+            "x": "Es el **prompt 4**, el **guión**: le decís cuál de los 3 ángulos elegiste y te escribe el texto de **voz en off** (50-60 segundos, ~140-180 palabras) en storytelling reflexivo, no copy agresivo. Es una de las partes más importantes porque es cómo se transmite el mensaje, así que conviene iterar si algo no cierra."
           },
           {
             "t": "prompt",
@@ -933,7 +933,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "5. Storyboard (Escenas)",
-            "x": "Convierte el guión cerrado en el storyboard, o sea la parte visual escena por escena, tratándolo como un director de arte y no como generador rápido. Antes de escribir escenas te obliga a un paso 0 donde piensa en voz alta el plan visual y la metáfora del ángulo. Acá revisás si la mezcla visual te gusta y pedís alternativas hasta dejarlo a tu gusto; todavía no hay prompts de imagen."
+            "x": "Es el **prompt 5**, el **storyboard**: convierte el guión en la estructura visual de escenas, pensada como un director de arte (todavía **sin prompts de imagen**). Al leerlo revisás si la propuesta visual te convence, si pedís alternativas o si tenés una idea mejor; es el momento de dejarlo a tu gusto antes de seguir."
           },
           {
             "t": "prompt",
@@ -942,7 +942,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "6. Prompts NB",
-            "x": "Toma el storyboard aprobado y lo transforma en prompts de Nano Banana Pro, una imagen por escena, todos en inglés y con el estilo bloqueado (en la parte de 'style' dejás solo el estilo elegido, por ejemplo Pixar 3D animation style). Es lo que después vas a usar para generar cada frame del video. Lo pegás en GPT una vez que el storyboard ya está firme."
+            "x": "Es el **prompt 6**: toma el storyboard y lo transforma en **prompts de imagen para NanoBanana**, uno por escena. Van todos **en inglés** y le dejás fijado tu **estilo** (por ejemplo Pixar 3D) para que todas las imágenes salgan coherentes."
           },
           {
             "t": "prompt",
@@ -951,7 +951,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "7. Auditoría completa FINAL",
-            "x": "Es la auditoría global antes de generar nada: le pedís que suba todo al nivel de cortometraje de autor (Pixar, Laika, Aardman, ads tipo Apple) en vez de conformarse con mejorar. Te devuelve un diagnóstico del anuncio, el guión definitivo más dos variantes distintas, el storyboard mejorado y todos los prompts de imagen ya auditados. Con esto tenés la base sólida completa; si algo no cierra, seguís iterando en la misma conversación."
+            "x": "Es el **prompt 7**, la **auditoría final** antes de generar imágenes: eleva todo al nivel de **cortometraje animado de autor** (tipo Pixar, Laika, Aardman, Apple). Te devuelve un diagnóstico, un **guión definitivo + 2 variantes distintas**, el storyboard mejorado y todos los prompts de imagen auditados. Usalo como último control de calidad de toda la base."
           },
           {
             "t": "prompt",
@@ -960,7 +960,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "8. Introducción al producto",
-            "x": "El paso final donde recién ahora metés el producto real: solo el nombre, la marca y una frase de qué es (ejemplo: Cloudy, almohada ergonómica de Sleepy para mantener la columna alineada). Con eso y todo el contexto acumulado, GPT reemplaza el placeholder y te entrega la versión final personalizada, cero genérica, con guión definitivo, sus variantes, la estructura visual y los prompts de imagen. Es lo que te llevás para empezar a producir."
+            "x": "Es el **prompt 8**, el que mete tu **producto real**: hasta acá se trabajó con un placeholder, y ahora le pasás solo el **nombre y la marca** en 2-3 frases. Con todo el contexto de la conversación (avatar, insights, ángulo, guión y storyboard ya auditados) te entrega la **versión final personalizada**: guión definitivo con variantes, estructura visual y prompts de imagen."
           },
           {
             "t": "prompt",
@@ -969,12 +969,12 @@ export const CURSOS: Curso[] = [
           {
             "t": "head",
             "v": "Estilos y transiciones",
-            "x": "No es un prompt, es el separador que abre el bloque de transiciones: los cinco prompts que siguen ya no son de planificación sino que se usan más adelante, en la fase de video, para animar el pasaje entre dos imágenes fijas consecutivas. Elegís el que coincide con el estilo de tu anuncio."
+            "x": "No es un prompt sino el **título de sección** que separa la planificación de los recursos de video. Debajo agrupa los **prompts de transición** por estilo, que vas a usar más adelante para unir dos escenas de forma fluida."
           },
           {
             "t": "label",
             "v": "Realista Style",
-            "x": "Prompt de transición para estilo realista/Apple: se lo das a la herramienta de video junto a la imagen de inicio y la de fin, y te genera un pase suave, limpio y cinematográfico entre las dos, con ambiente de estudio minimalista y efectos de sonido pero sin voz. Usalo cuando tu anuncio va por la estética tipo keynote de Apple."
+            "x": "Prompt de **transición estilo realista / Apple**: lo pegás al generar el video para crear un pase **limpio y cinematográfico** entre dos tomas (entorno de estudio minimalista, luz suave, energía de keynote de Apple). Lleva efectos de sonido y **sin diálogo**."
           },
           {
             "t": "prompt",
@@ -983,7 +983,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Sci-fi Style",
-            "x": "La misma idea de transición pero en clave sci-fi: le pasás el primer y el último shot y te arma el pase entre ambos en estilo animación de ciencia ficción, con efectos de sonido y sin diálogo. Va cuando elegiste ese estilo para el video."
+            "x": "Prompt de **transición estilo sci-fi**: genera un pase entre la primera y la segunda toma con estética de **animación de ciencia ficción** y efectos de sonido, sin diálogo. Lo usás cuando el anuncio va en ese estilo."
           },
           {
             "t": "prompt",
@@ -992,7 +992,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Pixar Style",
-            "x": "Transición en estilo Pixar animado: conecta shot uno con shot dos con un pase fluido tipo Pixar y efectos de sonido, sin habla. Lo usás en la fase de video si tu anuncio es Pixar 3D."
+            "x": "Prompt de **transición estilo Pixar**: crea el pase entre dos tomas en **animación tipo Pixar** con efectos de sonido y sin diálogo. Elegilo si tu anuncio está en ese estilo 3D."
           },
           {
             "t": "prompt",
@@ -1001,7 +1001,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Claymation Style",
-            "x": "Transición en claymation (stop-motion de plastilina): genera el pase entre las dos imágenes con esa textura y efectos de sonido, sin voz. Para cuando el estilo elegido es claymation."
+            "x": "Prompt de **transición estilo claymation** (stop-motion en plastilina): une dos tomas manteniendo ese look artesanal, con efectos de sonido y sin diálogo."
           },
           {
             "t": "prompt",
@@ -1010,7 +1010,7 @@ export const CURSOS: Curso[] = [
           {
             "t": "label",
             "v": "Wes Anderson Style",
-            "x": "Transición cinematográfica al estilo Wes Anderson, con su simetría y paleta característica, entre el frame inicial y el final, con efectos de sonido y sin diálogo. Usalo si tu anuncio va por esa estética."
+            "x": "Prompt de **transición estilo Wes Anderson**: genera el pase cinematográfico entre el primer y el último frame con esa estética simétrica y de color pastel, con efectos de sonido y sin diálogo."
           },
           {
             "t": "prompt",
@@ -1020,7 +1020,7 @@ export const CURSOS: Curso[] = [
         "clases": [
           6
         ],
-        "intro": "Este recurso es el sistema de planificación de un anuncio animado: 8 prompts encadenados que corrés en una sola conversación de ChatGPT (más NotebookLM para el research) y que te dejan armada toda la base antes de tocar ninguna herramienta de imagen o video. La idea de fondo es que el resultado del anuncio depende un 80% de esta planificación, así que acá no generás nada visual todavía: construís avatar, insights con datos duros, ángulo de venta, guión, storyboard y los prompts de imagen para Nano Banana Pro, todo auditado. Se usa en orden, de arriba hacia abajo: abrís un chat nuevo en GPT, vas pegando prompt por prompt (con NotebookLM en el medio para el paso 2), y en cada paso iterás con la IA hasta que te convenza antes de pasar al siguiente. Como toda la conversación arrastra el contexto, al final solo le pegás tu producto real y te devuelve el guión definitivo, las variantes y los prompts listos. Al final hay un bloque aparte de prompts de transición por estilo, que se usan después, ya en la fase de video, para animar el pasaje entre dos imágenes."
+        "intro": "Este recurso es el **documento de Notion** con el sistema de **8 prompts en orden** para planificar un anuncio animado antes de tocar ninguna herramienta de video. La idea de fondo: el resultado depende un **80% de la planificación** (avatar, insights con datos, ángulo, guión, storyboard y prompts de imagen), así que acá se arma toda esa base y recién después generás el video. Todo vive en **una sola conversación de ChatGPT**, que va acumulando contexto: si algo no convence, iterás ahí mismo sin re-explicar nada. Al final del doc tenés además prompts sueltos de **transiciones** por estilo, para cuando pases a generar el video.\n\nCómo se usa, de arriba a abajo:\n\n- **Abrís un chat nuevo en ChatGPT** y lo vas a usar en todos los pasos.\n- **Vas copiando cada prompt en orden** (1 al 8) y pegás lo que te pide entre corchetes (producto, mercado, estilo, ángulo elegido…).\n- **En el medio saltás a NotebookLM** (gratis) para el research con datos duros, y volvés a ChatGPT con esos insights.\n- **Iterás siempre** — la IA casi nunca acierta a la primera; ese último **20%** de criterio humano (\"esto sí, esto no\") es lo que hace bueno al anuncio.\n- **Los prompts de transición** de abajo los usás más tarde, al armar el video, para unir dos escenas de forma fluida según el estilo."
       },
       {
         "slug": "catalogo-ads",

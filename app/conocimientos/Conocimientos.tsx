@@ -23,16 +23,23 @@ const nn = (n: number) => String(n).padStart(2, '0');
 const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos' };
 const claseTag = (clases?: number[]) => !clases || !clases.length ? undefined : (clases.length === 1 ? `Clase ${clases[0]}` : `Clases ${clases.join('·')}`);
 
+const EXT_MSG = 'Vive FUERA de MaKo (Drive / Notion). Si el dueño lo elimina, se pierde esta base de conocimiento. Conviene respaldarlo dentro de nuestro dominio.';
+// Marca de advertencia: dato alojado fuera de nuestro dominio.
+function Ext({ badge }: { badge?: boolean }) {
+  return <span className={badge ? 'al-ext al-ext-badge' : 'al-ext'} title={EXT_MSG}>⚠{badge ? '' : ' Externo'}</span>;
+}
+
 // Póster vertical del video de ejemplo. Drive dibuja su player en horizontal
 // (estilo YouTube) y recorta el 9:16 → usamos la miniatura vertical + play, y el
 // click abre el clip completo en Drive.
 function VidPoster({ id, label }: { id: string; label: string }) {
   return (
-    <a href={DRIVE_VIEW(id)} target="_blank" rel="noopener noreferrer" className="al-vid" title="Ver el video de ejemplo">
+    <a href={DRIVE_VIEW(id)} target="_blank" rel="noopener noreferrer" className="al-vid" title="Ver el video de ejemplo (Drive)">
       {/* eslint-disable-next-line @next/next/no-img-element -- miniatura de Drive (archivo público), URL externa */}
       <img src={DRIVE_THUMB(id)} alt={`${label} — video de ejemplo`} loading="lazy" className="al-vid-img" />
       <span className="al-vid-play" aria-hidden>▶</span>
       <span className="al-vid-tag">Ver ejemplo</span>
+      <Ext badge />
     </a>
   );
 }
@@ -46,16 +53,25 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-// Formatea texto plano de forma NATIVA (títulos MAYÚS / ━━━, ⭐ subtítulos,
-// listas 1./-/•, párrafos). No es un volcado monoespaciado.
+// Parseo inline de **negrita** y __subrayado__.
+function inline(text: string): ReactNode[] {
+  return text.split(/(\*\*[^*]+?\*\*|__[^_]+?__)/g).map((p, i) => {
+    if (p.length > 4 && p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>;
+    if (p.length > 4 && p.startsWith('__') && p.endsWith('__')) return <u key={i}>{p.slice(2, -2)}</u>;
+    return p;
+  });
+}
+
+// Formatea texto de forma NATIVA (títulos MAYÚS / ━━━, ⭐ subtítulos,
+// listas 1./-/•, **negrita**, párrafos). No es un volcado monoespaciado.
 function DocContent({ text }: { text: string }) {
   const lines = text.replace(/\r/g, '').split('\n');
   const out: ReactNode[] = [];
   let para: string[] = [];
   let list: string[] = [];
   let k = 0;
-  const flushPara = () => { if (para.length) { out.push(<p key={k++} className="al-doc-p">{para.join('\n')}</p>); para = []; } };
-  const flushList = () => { if (list.length) { const items = list.slice(); out.push(<ul key={k++} className="al-doc-ul">{items.map((li, i) => <li key={i}>{li}</li>)}</ul>); list = []; } };
+  const flushPara = () => { if (para.length) { out.push(<p key={k++} className="al-doc-p">{inline(para.join('\n'))}</p>); para = []; } };
+  const flushList = () => { if (list.length) { const items = list.slice(); out.push(<ul key={k++} className="al-doc-ul">{items.map((li, i) => <li key={i}>{inline(li)}</li>)}</ul>); list = []; } };
   const flush = () => { flushList(); flushPara(); };
   const isSep = (l: string) => /[━─—=_]/.test(l) && /^[\s━─—=_.·*-]{4,}$/.test(l);
   const isHeading = (l: string) => l.length <= 62 && /[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && !/[a-záéíóúñ]/.test(l);
@@ -158,7 +174,7 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
       </div>
 
       {c.videoId ? (
-        <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /></div>
+        <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /><Ext badge /></div>
       ) : <div className="al-video al-video-x"><span>Video no disponible</span></div>}
 
       {c.resumen && (
@@ -202,39 +218,43 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
   );
 }
 
-// Agrupa los bloques del Notion en "pasos": cada media (imagen o video) queda
-// con el texto que la acompaña, para renderizar lado a lado (media | prompt).
-// `x` = explicación "qué hace" (viaja pegada a su head/label).
+// Agrupa los bloques en SECCIONES (una por head). Cada sección es una tarjeta:
+// título + explicación ADENTRO, y debajo las filas (media | prompt). `x` = la
+// explicación "qué hace", pegada a su head/label.
 type Bloque = { t: string; v: string; x?: string };
-type Step = { head?: string; headX?: string; img?: string; vids?: string[]; items?: Bloque[] };
-function groupSteps(bloques: Bloque[]): Step[] {
-  const steps: Step[] = [];
-  let cur: Step | null = null;
-  const hasMedia = (s: Step | null) => !!(s && (s.img || (s.vids && s.vids.length)));
-  const flush = () => { if (cur && (hasMedia(cur) || (cur.items && cur.items.length))) steps.push(cur); cur = null; };
+type Row = { img?: string; vids?: string[]; items?: Bloque[] };
+type Section = { head?: string; headX?: string; rows: Row[] };
+function groupSections(bloques: Bloque[]): Section[] {
+  const sections: Section[] = [];
+  let sec: Section = { rows: [] };
+  let cur: Row | null = null;
+  const hasMedia = (r: Row | null) => !!(r && (r.img || (r.vids && r.vids.length)));
+  const flushRow = () => { if (cur && (hasMedia(cur) || (cur.items && cur.items.length))) sec.rows.push(cur); cur = null; };
+  const pushSec = () => { if (sec.head || sec.rows.length) sections.push(sec); };
   for (const b of bloques) {
-    if (b.t === 'head') { flush(); steps.push({ head: b.v, headX: b.x }); continue; }
+    if (b.t === 'head') { flushRow(); pushSec(); sec = { head: b.v, headX: b.x, rows: [] }; continue; }
     if (b.t === 'img') {
-      if (cur && cur.img) flush();
+      if (cur && cur.img) flushRow();
       if (!cur) cur = { items: [] };
       cur.img = b.v;
     } else if (b.t === 'vid') {
       if (!cur) cur = { items: [] };
       (cur.vids = cur.vids || []).push(b.v);
     } else {
-      if (hasMedia(cur)) flush();
+      if (hasMedia(cur)) flushRow();
       if (!cur) cur = { items: [] };
       cur.items!.push(b);
     }
   }
-  flush();
-  return steps;
+  flushRow();
+  pushSec();
+  return sections;
 }
 
 // ── Detalle de recurso ───────────────────────────────────────────────────────
 function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
-  const steps = r.bloques ? groupSteps(r.bloques) : null;
-  const copyable = r.texto && (r.tipo === 'gpt' || (r.tipo === 'notion' && !steps));
+  const sections = r.bloques ? groupSections(r.bloques) : null;
+  const copyable = r.texto && (r.tipo === 'gpt' || (r.tipo === 'notion' && !sections));
   return (
     <div className="al-detail">
       <button type="button" className="al-back" onClick={back}>← Volver</button>
@@ -243,79 +263,91 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
           <span className="al-rescard-badge">{TIPO_BADGE[r.tipo]}</span>
           {claseTag(r.clases) && <span className="al-rescard-nota">{claseTag(r.clases)}</span>}
         </div>
-        <h1 className="al-h1 al-h1-sm">{r.label}</h1>
+        <div className="al-detail-titlerow">
+          <h1 className="al-h1 al-h1-sm">{r.label}</h1>
+          {r.notionUrl && (
+            <a href={r.notionUrl} target="_blank" rel="noopener noreferrer" className="al-notion al-notion-title">
+              Ver en Notion <span className="al-arr">↗</span> <Ext />
+            </a>
+          )}
+        </div>
       </div>
 
       {r.intro
         ? <div className="al-intro"><DocContent text={r.intro} /></div>
         : <p className="al-sub al-sub-sm">{r.cardDesc}</p>}
 
-      {(r.notionUrl || copyable) && (
-        <div className="al-content-act al-content-act-top">
-          {r.notionUrl && <a href={r.notionUrl} target="_blank" rel="noopener noreferrer" className="al-notion">Ver en Notion <span className="al-arr">↗</span></a>}
-          {copyable && <CopyBtn text={r.texto!} />}
-        </div>
-      )}
+      {copyable && <div className="al-content-act al-content-act-top"><CopyBtn text={r.texto!} /></div>}
 
-      {/* Notion con ejemplos → pasos: media + prompt, en tarjeta */}
-      {steps ? (
-        <div className="al-steps">
-          {steps.map((s, i) => {
-            if (s.head) return (
-              <div key={i} className="al-bhead-wrap">
-                <h3 className="al-bhead">{s.head}</h3>
-                {s.headX && <p className="al-bhead-x">{s.headX}</p>}
+      {/* Notion con ejemplos → una TARJETA por sección (título + explicación + filas) */}
+      {sections ? (
+        <div className="al-cards">
+          {sections.map((sec, i) => (
+            <div key={i} className="al-card">
+              {sec.head && (
+                <div className="al-card-hd">
+                  <h3 className="al-card-title">{sec.head}</h3>
+                  {sec.headX && <div className="al-card-x"><DocContent text={sec.headX} /></div>}
+                </div>
+              )}
+              <div className="al-card-body">
+                {sec.rows.map((row, j) => {
+                  const conMedia = row.img || (row.vids && row.vids.length);
+                  return (
+                    <div key={j} className={`al-row ${conMedia ? '' : 'al-row-textonly'}`}>
+                      {conMedia && (
+                        <div className="al-row-media">
+                          {row.img && (
+                            <a href={row.img} target="_blank" rel="noopener noreferrer" className="al-step-media">
+                              {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
+                              <img src={row.img} alt={`${r.label} — ejemplo`} loading="lazy" />
+                              <Ext badge />
+                            </a>
+                          )}
+                          {row.vids && row.vids.map((id, vi) => <VidPoster key={vi} id={id} label={r.label} />)}
+                        </div>
+                      )}
+                      {row.items && row.items.length > 0 && (
+                        <div className="al-row-text">
+                          {row.items.map((b, k) => b.t === 'label'
+                            ? <div key={k} className="al-blabel-wrap"><span className="al-blabel">{b.v}</span>{b.x && <div className="al-blabel-x"><DocContent text={b.x} /></div>}</div>
+                            : <div key={k} className="al-bprompt"><CopyBtn text={b.v} /><pre className="al-bprompt-pre">{b.v}</pre></div>)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-            const conMedia = s.img || (s.vids && s.vids.length);
-            return (
-              <div key={i} className={`al-step ${conMedia ? '' : 'al-step-textonly'}`}>
-                {conMedia && (
-                  <div className="al-step-media-col">
-                    {s.img && (
-                      <a href={s.img} target="_blank" rel="noopener noreferrer" className="al-step-media">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
-                        <img src={s.img} alt={`${r.label} — ejemplo`} loading="lazy" />
-                      </a>
-                    )}
-                    {s.vids && s.vids.map((id, vi) => <VidPoster key={vi} id={id} label={r.label} />)}
-                  </div>
-                )}
-                {s.items && s.items.length > 0 && (
-                  <div className="al-step-text">
-                    {s.items.map((b, j) => b.t === 'label'
-                      ? <div key={j} className="al-blabel-wrap"><span className="al-blabel">{b.v}</span>{b.x && <p className="al-blabel-x">{b.x}</p>}</div>
-                      : <div key={j} className="al-bprompt"><CopyBtn text={b.v} /><pre className="al-bprompt-pre">{b.v}</pre></div>)}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       ) : null}
 
       {/* Agente (gpt) o Notion sin ejemplos → contenido formateado */}
-      {!steps && r.texto && (r.tipo === 'gpt' || r.tipo === 'notion') && (
+      {!sections && r.texto && (r.tipo === 'gpt' || r.tipo === 'notion') && (
         <div className="al-docbox"><DocContent text={r.texto} /></div>
       )}
 
       {/* Notion sin bloques pero con capturas → visor */}
-      {r.tipo === 'notion' && !steps && r.capturasDriveId && (
+      {r.tipo === 'notion' && !sections && r.capturasDriveId && (
         <div className="al-block">
-          <span className="al-block-l">Ejemplos visuales</span>
+          <span className="al-block-l">Ejemplos visuales <Ext /></span>
           <div className="al-pdf"><iframe src={DRIVE_PREVIEW(r.capturasDriveId)} title={`${r.label} — ejemplos`} loading="lazy" allowFullScreen /></div>
         </div>
       )}
 
       {r.tipo === 'pdf' && r.driveId && (
-        <div className="al-pdf al-pdf-tall"><iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen /></div>
+        <div className="al-block">
+          <span className="al-block-l">Catálogo en PDF <Ext /></span>
+          <div className="al-pdf al-pdf-tall"><iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen /></div>
+        </div>
       )}
 
       {r.tipo === 'bank' && r.items && (
         <div className="al-list">
           {r.items.map((it, i) => (
             <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
-              <span>{it.label}</span><span className="al-arr">↗</span>
+              <span>{it.label}</span><span className="al-list-r">{/drive\.google\.com/.test(it.url) && <Ext />}<span className="al-arr">↗</span></span>
             </a>
           ))}
         </div>
@@ -489,19 +521,26 @@ const CSS = `
 .cono .al-intro .al-doc-p{ margin-top:10px; font-size:15.5px; line-height:1.62; color:var(--ink); }
 .cono .al-intro .al-doc-p:first-child{ margin-top:0; }
 
-/* Pasos: cada media (imagen o video vertical) con su prompt, en tarjeta */
-.cono .al-steps{ margin-top:20px; display:flex; flex-direction:column; gap:14px; }
-.cono .al-bhead-wrap{ margin:26px 0 2px; }
-.cono .al-bhead-wrap:first-child{ margin-top:6px; }
-.cono .al-bhead{ font-family:var(--disp); font-weight:800; font-size:20px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); margin:0; padding-bottom:8px; border-bottom:2px solid var(--ink); }
-.cono .al-bhead-x{ margin:11px 0 0; font-size:14.5px; line-height:1.58; color:var(--ink-80); }
-.cono .al-step{ display:grid; grid-template-columns:minmax(0,220px) 1fr; gap:18px; align-items:start; padding:16px; border:1.5px solid var(--ink-15); border-radius:14px; background:var(--card); box-shadow:var(--shadow-paste); }
-.cono .al-step-textonly{ grid-template-columns:1fr; }
-.cono .al-step-media-col{ display:flex; flex-direction:column; gap:12px; }
-.cono .al-step-media{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); transition:transform .14s ease, box-shadow .14s ease; }
+/* Tarjeta por SECCIÓN: título + explicación adentro, filas media|prompt debajo */
+.cono .al-cards{ margin-top:20px; display:flex; flex-direction:column; gap:16px; }
+.cono .al-card{ border:1.5px solid var(--ink); border-radius:14px; background:var(--card); box-shadow:var(--shadow-paste); overflow:hidden; }
+.cono .al-card-hd{ padding:15px 18px; border-bottom:1.5px solid var(--ink-15); background:var(--card-2); }
+.cono .al-card-title{ font-family:var(--disp); font-weight:800; font-size:18px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); margin:0; line-height:1.15; }
+.cono .al-card-x{ margin-top:8px; }
+.cono .al-card-x .al-doc-p{ margin-top:7px; font-size:14.5px; line-height:1.58; color:var(--ink-80); }
+.cono .al-card-x .al-doc-p:first-child{ margin-top:0; }
+.cono .al-card-x .al-doc-ul{ margin-top:7px; }
+.cono .al-card-body{ padding:16px 18px; display:flex; flex-direction:column; gap:0; }
+.cono .al-row{ display:grid; grid-template-columns:minmax(0,210px) 1fr; gap:18px; align-items:start; padding:16px 0; }
+.cono .al-row:first-child{ padding-top:0; }
+.cono .al-row:last-child{ padding-bottom:0; }
+.cono .al-row + .al-row{ border-top:1.5px dashed var(--ink-15); }
+.cono .al-row-textonly{ grid-template-columns:1fr; }
+.cono .al-row-media{ display:flex; flex-direction:column; gap:12px; }
+.cono .al-row-text{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; min-width:0; }
+.cono .al-step-media{ position:relative; display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); transition:transform .14s ease, box-shadow .14s ease; }
 .cono .al-step-media:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-step-media img{ display:block; width:100%; height:auto; }
-.cono .al-step-text{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; min-width:0; }
 
 /* Póster de video vertical (abre el clip de ejemplo en Drive) */
 .cono .al-vid{ position:relative; display:block; aspect-ratio:9/16; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:#0d0d0d; box-shadow:var(--shadow-paste); transition:transform .14s ease, box-shadow .14s ease; }
@@ -513,10 +552,19 @@ const CSS = `
 /* Etiqueta del prompt + su explicación (qué hace) */
 .cono .al-blabel-wrap{ display:flex; flex-direction:column; align-items:flex-start; gap:7px; width:100%; }
 .cono .al-blabel{ font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:6px; padding:3px 9px; }
-.cono .al-blabel-x{ margin:0; font-size:14px; line-height:1.5; color:var(--ink-80); }
+.cono .al-blabel-x{ width:100%; }
+.cono .al-blabel-x .al-doc-p{ margin:0; font-size:14px; line-height:1.5; color:var(--ink-80); }
 .cono .al-bprompt{ position:relative; width:100%; background:var(--card-2); border:1.5px solid var(--ink); border-radius:10px; box-shadow:var(--shadow-paste); }
 .cono .al-bprompt .al-copy{ position:absolute; top:9px; right:9px; z-index:2; padding:5px 10px; font-size:11px; }
 .cono .al-bprompt-pre{ margin:0; padding:14px 16px 14px; padding-top:34px; max-height:260px; overflow:auto; font-family:var(--mono); font-size:12.5px; line-height:1.55; color:var(--ink-80); white-space:pre-wrap; word-break:break-word; }
+
+/* Marca de dato EXTERNO (fuera de nuestro dominio) */
+.cono .al-ext{ display:inline-flex; align-items:center; gap:3px; font-family:var(--mono); font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#8a5a00; background:#ffe9a8; border:1.5px solid #d9a400; border-radius:6px; padding:2px 6px; white-space:nowrap; vertical-align:middle; cursor:help; }
+.cono .al-ext-badge{ position:absolute; top:8px; right:8px; z-index:3; padding:3px 7px; font-size:11px; box-shadow:0 2px 6px rgba(0,0,0,.35); }
+
+/* Título del detalle + link a Notion al final */
+.cono .al-detail-titlerow{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap; width:100%; }
+.cono .al-notion-title{ align-self:center; flex:none; }
 
 /* Visor de PDF */
 .cono .al-pdf{ aspect-ratio:4/3; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); box-shadow:var(--shadow-paste); }
@@ -527,14 +575,16 @@ const CSS = `
 .cono .al-list{ display:flex; flex-direction:column; gap:9px; margin-top:18px; }
 .cono .al-list-item{ display:flex; align-items:center; justify-content:space-between; font-size:15px; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:10px; padding:14px 16px; box-shadow:var(--shadow-paste); transition:.14s; }
 .cono .al-list-item:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+.cono .al-list-r{ display:inline-flex; align-items:center; gap:9px; flex:none; }
 .cono .al-list-item .al-arr{ color:var(--lime-ink); }
 
 @media (max-width:680px){
   .cono-wrap{ padding:18px 16px 56px; }
   .cono .al-grid{ grid-template-columns:1fr; }
-  .cono .al-step{ grid-template-columns:1fr; }
-  .cono .al-step-media-col{ max-width:320px; }
+  .cono .al-row{ grid-template-columns:1fr; }
+  .cono .al-row-media{ max-width:320px; }
   .cono .al-step-media, .cono .al-vid{ max-width:320px; }
+  .cono .al-detail-titlerow{ gap:8px; }
   .cono .al-brand .b{ font-size:19px; }
   .cono .al-toptag{ font-size:10px; padding:5px 10px; }
 }
