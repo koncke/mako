@@ -5,6 +5,7 @@
 // admin (ADMIN_NAV en app/_components/nav.ts) y renderiza un portal oscuro
 // autocontenido tipo "área de alumnos". noindex: material de formación interno.
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
 import Conocimientos from './Conocimientos';
@@ -21,5 +22,10 @@ export const metadata: Metadata = {
 export default async function ConocimientosPage() {
   const admin = await getSesionAdmin();
   if (!admin) redirect('/');
-  return <Conocimientos />;
+  // useSearchParams (routing por URL en el client) necesita un Suspense boundary.
+  return (
+    <Suspense fallback={null}>
+      <Conocimientos />
+    </Suspense>
+  );
 }
