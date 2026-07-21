@@ -117,10 +117,10 @@ function ClaseDetail({ c, go, back }: { c: Clase; go: (v: View) => void; back: (
         </div>
       ) : <div className="al-video al-video-x"><span>Video no disponible</span></div>}
 
-      {c.resumen.length > 0 && (
+      {c.resumen && (
         <div className="al-block">
           <span className="al-block-l">Resumen</span>
-          <ul className="al-resumen">{c.resumen.map((r, i) => <li key={i}>{r}</li>)}</ul>
+          <div className="al-docbox al-docbox-tall"><DocContent text={c.resumen} /></div>
         </div>
       )}
 
@@ -134,11 +134,10 @@ function ClaseDetail({ c, go, back }: { c: Clase; go: (v: View) => void; back: (
       {c.recursoSlugs.length > 0 && (
         <div className="al-block">
           <span className="al-block-l">Recursos de esta clase</span>
-          <div className="al-chips">
+          <div className="al-grid">
             {c.recursoSlugs.map((s) => BY_SLUG[s] ? (
-              <button key={s} type="button" className="al-chip al-chip-btn" onClick={() => go({ t: 'recurso', slug: s })}>
-                {BY_SLUG[s].label} <span className="al-arr">→</span>
-              </button>
+              <Card key={s} badge={TIPO_BADGE[BY_SLUG[s].tipo]} titulo={BY_SLUG[s].label} desc={BY_SLUG[s].cardDesc}
+                ariaLabel={`Abrir ${BY_SLUG[s].label}`} onClick={() => go({ t: 'recurso', slug: s })} />
             ) : null)}
           </div>
         </div>
@@ -381,6 +380,7 @@ const CSS = `
 
 .cono .al-doc{ }
 .cono .al-docbox{ border:1.5px solid var(--ink); border-radius:12px; box-shadow:var(--shadow-paste); padding:16px 20px 20px; max-height:560px; overflow-y:auto; background:var(--card-2); }
+.cono .al-docbox-tall{ max-height:none; background:var(--card); }
 /* Contenido intercalado texto ↔ imagen (orden real del Notion) */
 .cono .al-bloques{ display:flex; flex-direction:column; align-items:flex-start; gap:9px; }
 .cono .al-bhead{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); width:100%; margin:22px 0 2px; padding-bottom:8px; border-bottom:1.5px solid var(--ink); }
