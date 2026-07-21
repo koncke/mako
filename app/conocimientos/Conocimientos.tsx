@@ -169,20 +169,33 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
       </div>
       <p className="al-sub al-sub-sm">{r.cardDesc}</p>
 
-      {(r.tipo === 'gpt' || r.tipo === 'notion') && r.texto && (
+      {(r.tipo === 'gpt' || r.tipo === 'notion') && (r.texto || r.bloques) && (
         <div className="al-content">
           <div className="al-content-hd">
-            <span className="al-content-t">{r.tipo === 'gpt' ? 'Prompt del agente' : 'Contenido'}</span>
+            <span className="al-content-t">{r.tipo === 'gpt' ? 'Prompt del agente' : (r.bloques ? 'Contenido y ejemplos' : 'Contenido')}</span>
             <div className="al-content-act">
               {r.notionUrl && <a href={r.notionUrl} target="_blank" rel="noopener noreferrer" className="al-notion">Ver en Notion <span className="al-arr">↗</span></a>}
-              <CopyBtn text={r.texto} />
+              {r.texto && <CopyBtn text={r.texto} />}
             </div>
           </div>
-          <DocContent text={r.texto} />
+          {r.bloques && r.bloques.length > 0 ? (
+            <div className="al-bloques">
+              {r.bloques.map((b, i) => b.t === 'img' ? (
+                <a key={i} href={b.v} target="_blank" rel="noopener noreferrer" className="al-bimg">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
+                  <img src={b.v} alt={`${r.label} — ejemplo`} loading="lazy" />
+                </a>
+              ) : (
+                <div key={i} className="al-btxt"><DocContent text={b.v} /></div>
+              ))}
+            </div>
+          ) : r.texto ? (
+            <div className="al-docbox"><DocContent text={r.texto} /></div>
+          ) : null}
         </div>
       )}
 
-      {r.tipo === 'notion' && r.imagenes && r.imagenes.length > 0 && (
+      {r.tipo === 'notion' && !r.bloques && r.imagenes && r.imagenes.length > 0 && (
         <div className="al-block">
           <span className="al-block-l">Ejemplos ({r.imagenes.length})</span>
           <div className="al-gallery">
@@ -196,7 +209,7 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
         </div>
       )}
 
-      {r.tipo === 'notion' && (!r.imagenes || r.imagenes.length === 0) && r.capturasDriveId && (
+      {r.tipo === 'notion' && !r.bloques && (!r.imagenes || r.imagenes.length === 0) && r.capturasDriveId && (
         <div className="al-block">
           <span className="al-block-l">Ejemplos visuales</span>
           <div className="al-pdf"><iframe src={DRIVE_PREVIEW(r.capturasDriveId)} title={`${r.label} — ejemplos`} loading="lazy" allowFullScreen /></div>
@@ -358,7 +371,14 @@ const CSS = `
 .cono .al-copy{ font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:8px; padding:8px 14px; font-weight:600; flex:none; transition:.14s; }
 .cono .al-copy:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
 
-.cono .al-doc{ border:1.5px solid var(--ink); border-radius:12px; box-shadow:var(--shadow-paste); padding:16px 20px 20px; max-height:520px; overflow-y:auto; background:var(--card-2); }
+.cono .al-doc{ }
+.cono .al-docbox{ border:1.5px solid var(--ink); border-radius:12px; box-shadow:var(--shadow-paste); padding:16px 20px 20px; max-height:560px; overflow-y:auto; background:var(--card-2); }
+/* Contenido intercalado texto ↔ imagen (orden real del Notion) */
+.cono .al-bloques{ display:flex; flex-direction:column; gap:14px; }
+.cono .al-btxt{ }
+.cono .al-bimg{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card-2); max-width:420px; transition:transform .14s ease, box-shadow .14s ease; }
+.cono .al-bimg:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+.cono .al-bimg img{ display:block; width:100%; height:auto; }
 .cono .al-doc-h4{ font-family:var(--disp); font-weight:800; font-size:15.5px; letter-spacing:-.01em; color:var(--ink); margin:18px 0 8px; }
 .cono .al-doc-h4:first-child{ margin-top:2px; }
 .cono .al-doc-h5{ font-family:var(--mono); font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--lime-ink); margin:16px 0 6px; }

@@ -14,7 +14,8 @@ export type Recurso = {
   driveId?: string;        // pdf (visor /preview)
   capturasDriveId?: string;// notion (screenshots con los ejemplos visuales)
   notionUrl?: string;      // notion (link a la página pública)
-  imagenes?: string[];     // notion (imágenes reales de la página, embebidas)
+  imagenes?: string[];     // notion (imágenes reales, sueltas)
+  bloques?: { t: 'txt' | 'img'; v: string }[]; // notion (contenido INTERCALADO texto↔imagen, en orden)
   items?: BancoItem[];     // bank (música / herramientas)
 };
 export type Herramienta = { nombre: string; url: string; nota?: string };
@@ -344,18 +345,98 @@ export const CURSO: Curso = {
       "label": "Trends virales",
       "tipo": "notion",
       "cardDesc": "Cómo apalancarte en trends virales de TikTok para tus anuncios, con los prompts.",
-      "texto": "Trend Virales - Ads Ejemplo\n\n\nEL ANTES\n\nReferencia - Original\n\nPrompt:\nrecreate this image changing her factions to European. No text in the image\n\nResultado - Antes 1\n\nReferencia Antes - Frame 1\n\nPrompt:\nSame person from the reference image, identical identity and look. Only a slight natural change in pose or angle, like a real movement between frames.\n\nTransición - Video:\nCreate a natural transition from the first frame to the second frame. The same person must remain identical. Movement should be subtle and realistic, as if recorded in one continuous take.\n\nResultado Antes - Frame 2\n\n\nEL DESPUÉS\n\nReferencia - Después\n\nPrompt:\nSame person from the reference image. Maintain identical identity, facial structure, skin tone, eyes, lips, and overall look. Now show her with clear, smooth, radiant skin, free of acne, natural glow, and even texture. Skin must still look realistic (visible pores, not overly perfect or plastic).\n\nFraming:\n- from waist up (mid shot)\n- vertical 9:16 composition\n\nAppearance:\n- wearing a red tank top (simple, fitted)\n- french manicure nails (natural, clean, subtle white tips)\n- hand placed gently under her neck in a relaxed, natural pose\n\nExpression:\n- soft, confident, natural\n- slight relaxed smile\n\nLighting:\n- soft indoor lighting\n- warm, natural tones\n- realistic shadows\n\nEnvironment:\n- neutral indoor background (bedroom or bathroom)\n- minimal, clean, not distracting\n\nIMPORTANT:\n- no redesign of face\n- no change in identity\n- no over-smoothing or fake skin\n- must look like the same real person after improvement\n\nStyle:\n- hyper-realistic\n- iPhone camera look\n- natural imperfections preserved (except acne)\n\nResultado - Después\n\nReferencia Después - Frame 1\n\nPrompt:\nSame person from the reference image, identical identity and look. Only a slight natural change in pose or angle, like a real movement between frames. Her face is closer to the camera, she is showing her skin improvement.\n\nTransición - Video:\nCreate a natural transition from the first frame to the second frame. The same person must remain identical. Movement should be subtle and realistic, as if recorded in one continuous take.\n\nResultado Después - Frame 2\n\n\nEL PRODUCTO\n\nChica + producto\n\nPrompt:\nSame person from the reference image. Maintain identical identity, face, skin tone, hair, and overall appearance.\n\nThe product shown must EXACTLY match the reference product image:\n- same packaging\n- same color\n- same label\n- same shape\n- no redesign\n\nScene:\nA hyper-realistic close-up iPhone selfie-style image. She is holding the product naturally in her hand, bringing it close to her face, slightly below or next to her cheek.\n\nFraming:\n- close-up (head and upper chest visible)\n- vertical 9:16\n- product clearly visible but not perfectly centered (natural UGC)\n\nPose & behaviour:\n- relaxed, natural pose\n- slightly tilting her head\n- hand holding the product casually (not stiff, not posing like an ad)\n- product near her cheek, as if showing it to a friend\n\nExpression:\n- soft, confident, natural\n- slight relaxed smile\n\nSkin:\n- clear, radiant, natural glow\n- realistic texture (visible pores, no over-smoothing)\n\nLighting:\n- soft natural indoor light\n- slightly warm tones\n- realistic shadows\n\nEnvironment:\n- simple indoor background (bedroom or bathroom)\n- clean but not studio-like\n\nCamera:\n- iPhone front camera look\n- slight imperfection in framing\n- natural feel (not commercial photography)\n\nIMPORTANT:\n- do NOT make it look like a studio ad\n- do NOT over-style the product\n- do NOT change identity\n- do NOT make skin fake or plastic\n\nStyle:\n- hyper-realistic\n- authentic UGC aesthetic\n\nAnimación:\nA hyper-realistic 9:16 iPhone front-camera selfie video using the exact same woman and product from the reference images.\n\nThe woman and the product must remain identical:\n- same face, skin, hair, outfit\n- same product packaging, label, color, shape\n- no redesign, no changes\n\n---\n\nSTART FRAME\nMatches the reference image:\n- woman holding the product close to her face\n- relaxed pose, natural expression\n\n---\n\nCRITICAL ACTION (VERY IMPORTANT)\nIn the FIRST 1–2 seconds:\n- she quickly and naturally gives a small kiss to the product (playful, subtle, not exaggerated)\n- immediately after, she brings the product slightly closer toward the camera\n\nThe movement must feel:\n- spontaneous\n- casual\n- like a real moment, not acting\n\n---\n\nMOVEMENT FLOW\n- kiss → slight smile → push product closer to camera\n- product comes slightly forward but stays in frame (not blocking completely)\n- small natural hand movement and micro-shake\n\n---\n\nTONE & EMOTION\n- she loves the product\n- expression: soft smile, confident, natural\n- no overacting, no \"ad energy\"\n\n---\n\nBEHAVIOUR\n- slight head tilt\n- natural blinking\n- relaxed posture\n- subtle micro-expressions\n\n---\n\nCAMERA\n- handheld iPhone selfie\n- slight natural micro-shake\n- imperfect framing\n- no stabilization\n- product briefly closer to lens during movement\n\n---\n\nLIGHTING\n- soft natural indoor light\n- realistic shadows\n- no studio lighting\n\n---\n\nAUDIO\n- no music\n- optional: soft natural breath or subtle \"mm\" sound after kiss\n- raw iPhone feel\n\n---\n\nSTYLE RULES\n- no cinematic look\n- no filters\n- no over-smoothing\n- must feel like real UGC\n\n---\n\nEND\nShe holds the product slightly closer to camera, smiling subtly, as if about to keep talking in the next clip.",
+      "texto": "EL ANTES\nReferencia - Original\n\nPrompt\nrecreate this image changing \nher factions to European. \nNo text in the image\nResultado - Antes 1\n\nReferencia Antes - Frame 1\n\nPrompt\nSame person from the reference \nimage, identical identity and \nlook. Only a slight natural \nchange in pose or angle, \nlike a real movement between \nframes.\nTransición - Video\nCreate a natural transition from the first frame to \nthe second frame. The same person\nmust remain identical. \nMovement should be subtle and \nrealistic, as if recorded in \none continuous take.\nResultado Antes - Frame 2\n\nEL DESPUÉS\nReferencia - Después\n\nPrompt\nSame person from the reference image. Maintain identical identity, facial structure, skin tone, eyes, lips, and overall look.\n\nNow show her with clear, smooth, radiant skin, free of acne, natural glow, and even texture. Skin must still look realistic (visible pores, not overly perfect or plastic).\n\nFraming:\n- from waist up (mid shot)\n- vertical 9:16 composition\n\nAppearance:\n- wearing a red tank top (simple, fitted)\n- french manicure nails (natural, clean, subtle white tips)\n- hand placed gently under her neck in a relaxed, natural pose\n\nExpression:\n- soft, confident, natural\n- slight relaxed smile\n\nLighting:\n- soft indoor lighting\n- warm, natural tones\n- realistic shadows\n\nEnvironment:\n- neutral indoor background (bedroom or bathroom)\n- minimal, clean, not distracting\n\nIMPORTANT:\n- no redesign of face\n- no change in identity\n- no over-smoothing or fake skin\n- must look like the same real person after improvement\n\nStyle:\n- hyper-realistic\n- iPhone camera look\n- natural imperfections preserved (except acne)\nResultado - Después\n\nReferencia Después - Frame 1\n\nPrompt\nSame person from the reference \nimage, identical identity and \nlook. Only a slight natural \nchange in pose or angle, \nlike a real movement between \nframes. Her face is closer to \nthe camera, she is showing her \nskin improvement.\nTransición - Video\nCreate a natural transition from the first frame to \nthe second frame. The same person\nmust remain identical. \nMovement should be subtle and \nrealistic, as if recorded in \none continuous take.\nResultado Después - Frame 2\n\nEL PRODUCTO\nChica + producto\n\nPrompt\nSame person from the reference image. Maintain identical identity, face, skin tone, hair, and overall appearance.\n\nThe product shown must EXACTLY match the reference product image:\n- same packaging\n- same color\n- same label\n- same shape\n- no redesign\n\nScene:\n\nA hyper-realistic close-up iPhone selfie-style image.\n\nShe is holding the product naturally in her hand, bringing it close to her face, slightly below or next to her cheek.\n\nFraming:\n- close-up (head and upper chest visible)\n- vertical 9:16\n- product clearly visible but not perfectly centered (natural UGC)\n\nPose & behaviour:\n- relaxed, natural pose\n- slightly tilting her head\n- hand holding the product casually (not stiff, not posing like an ad)\n- product near her cheek, as if showing it to a friend\n\nExpression:\n- soft, confident, natural\n- slight relaxed smile\n\nSkin:\n- clear, radiant, natural glow\n- realistic texture (visible pores, no over-smoothing)\n\nLighting:\n- soft natural indoor light\n- slightly warm tones\n- realistic shadows\n\nEnvironment:\n- simple indoor background (bedroom or bathroom)\n- clean but not studio-like\n\nCamera:\n- iPhone front camera look\n- slight imperfection in framing\n- natural feel (not commercial photography)\n\nIMPORTANT:\n- do NOT make it look like a studio ad\n- do NOT over-style the product\n- do NOT change identity\n- do NOT make skin fake or plastic\n\nStyle:\n- hyper-realistic\n- authentic UGC aesthetic\n\nAnimación\nA hyper-realistic 9:16 iPhone front-camera selfie video using the exact same woman and product from the reference images.\n\nThe woman and the product must remain identical:\n- same face, skin, hair, outfit\n- same product packaging, label, color, shape\n- no redesign, no changes\n\nSTART FRAME\n\nMatches the reference image:\n- woman holding the product close to her face\n- relaxed pose, natural expression\n\nCRITICAL ACTION (VERY IMPORTANT)\n\nIn the FIRST 1–2 seconds:\n\n- she quickly and naturally gives a small kiss to the product (playful, subtle, not exaggerated)\n- immediately after, she brings the product slightly closer toward the camera\n\nThe movement must feel:\n- spontaneous\n- casual\n- like a real moment, not acting\n\nMOVEMENT FLOW\n\n- kiss then slight smile then push product closer to camera\n- product comes slightly forward but stays in frame (not blocking completely)\n- small natural hand movement and micro-shake\n\nTONE & EMOTION\n\n- she loves the product\n- expression: soft smile, confident, natural\n- no overacting, no ad energy\n\nBEHAVIOUR\n\n- slight head tilt\n- natural blinking\n- relaxed posture\n- subtle micro-expressions\n\nCAMERA\n\n- handheld iPhone selfie\n- slight natural micro-shake\n- imperfect framing\n- no stabilization\n- product briefly closer to lens during movement\n\nLIGHTING\n\n- soft natural indoor light\n- realistic shadows\n- no studio lighting\n\nAUDIO\n\n- no music\n- optional: soft natural breath or subtle mm sound after kiss\n- raw iPhone feel\n\nSTYLE RULES\n\n- no cinematic look\n- no filters\n- no over-smoothing\n- must feel like real UGC\n\nEND\n\nShe holds the product slightly closer to camera, smiling subtly, as if about to keep talking in the next clip.",
       "capturasDriveId": "18FZu-CeGNEjldaz4UlLH4xGM9HudsXhU",
       "notionUrl": "https://www.notion.so/Trend-Virales-Ads-Ejemplo-33eec2aef76b8003b4f3fc61d9dd1dfd",
-      "imagenes": [
-        "https://www.notion.so/image/attachment%3A21b6b289-a846-40aa-a394-3e5208f46b62%3Aframe-1.png?table=block&id=33eec2ae-f76b-80d8-9556-d7e371e9f169&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3Afb31e45a-5e15-40bb-ba15-76a1770c3270%3A1775845838069-pa6ysmo2fc.png?table=block&id=33eec2ae-f76b-80c2-88f7-c3f026a5d39b&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3A1fee9fcb-5728-4234-90ab-43746255ca46%3A1775847640946-j7vyu5ay8u.jpg?table=block&id=33eec2ae-f76b-80f0-95dd-c061741da9f9&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3Add14dcd0-eb7a-4788-b6a3-bf62869c99be%3Adea3be75197f0f9293b954f2ebfcfda9_1775865920_awe6x0xx.jpg?table=block&id=33fec2ae-f76b-8023-bdce-df0a9192b903&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3Aed766e15-dcbf-4854-95c9-5a406e1685f2%3A1775866978570-i91wqdgniz.jpg?table=block&id=33fec2ae-f76b-80cc-bc3e-d520a3447eee&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3Ae4ba4132-61d2-4be6-8fae-e53017b911b5%3ATiranta_anti-aging_niacinamide_serum.png?table=block&id=33fec2ae-f76b-8064-97a5-ebd6fd5eeb8d&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3A991dbc20-61f2-4fe5-8c41-10ca3fe28a69%3A1775866978570-i91wqdgniz.jpg?table=block&id=33fec2ae-f76b-8041-b0e1-f589f1038879&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2",
-        "https://www.notion.so/image/attachment%3A86eaaa45-b13e-41d2-a961-5a942fb62185%3A1775870331990-pk12dy68r1.jpg?table=block&id=33fec2ae-f76b-80b4-ac11-c21dfaf0a37d&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&width=1280&cache=v2"
+      "bloques": [
+        {
+          "t": "txt",
+          "v": "EL ANTES\nReferencia - Original"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3A21b6b289-a846-40aa-a394-3e5208f46b62%3Aframe-1.png?table=block&id=33eec2ae-f76b-80d8-9556-d7e371e9f169&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Prompt\nrecreate this image changing \nher factions to European. \nNo text in the image\nResultado - Antes 1"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Afb31e45a-5e15-40bb-ba15-76a1770c3270%3A1775845838069-pa6ysmo2fc.png?table=block&id=33eec2ae-f76b-80c2-88f7-c3f026a5d39b&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Referencia Antes - Frame 1"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Afb31e45a-5e15-40bb-ba15-76a1770c3270%3A1775845838069-pa6ysmo2fc.png?table=block&id=33eec2ae-f76b-804f-b10a-c2c67b718164&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Prompt\nSame person from the reference \nimage, identical identity and \nlook. Only a slight natural \nchange in pose or angle, \nlike a real movement between \nframes.\nTransición - Video\nCreate a natural transition from the first frame to \nthe second frame. The same person\nmust remain identical. \nMovement should be subtle and \nrealistic, as if recorded in \none continuous take.\nResultado Antes - Frame 2"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3A1fee9fcb-5728-4234-90ab-43746255ca46%3A1775847640946-j7vyu5ay8u.jpg?table=block&id=33eec2ae-f76b-80f0-95dd-c061741da9f9&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "EL DESPUÉS\nReferencia - Después"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Afb31e45a-5e15-40bb-ba15-76a1770c3270%3A1775845838069-pa6ysmo2fc.png?table=block&id=33eec2ae-f76b-8064-87e4-ed24128798c6&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Prompt\nSame person from the reference image. Maintain identical identity, facial structure, skin tone, eyes, lips, and overall look.\n\nNow show her with clear, smooth, radiant skin, free of acne, natural glow, and even texture. Skin must still look realistic (visible pores, not overly perfect or plastic).\n\nFraming:\n- from waist up (mid shot)\n- vertical 9:16 composition\n\nAppearance:\n- wearing a red tank top (simple, fitted)\n- french manicure nails (natural, clean, subtle white tips)\n- hand placed gently under her neck in a relaxed, natural pose\n\nExpression:\n- soft, confident, natural\n- slight relaxed smile\n\nLighting:\n- soft indoor lighting\n- warm, natural tones\n- realistic shadows\n\nEnvironment:\n- neutral indoor background (bedroom or bathroom)\n- minimal, clean, not distracting\n\nIMPORTANT:\n- no redesign of face\n- no change in identity\n- no over-smoothing or fake skin\n- must look like the same real person after improvement\n\nStyle:\n- hyper-realistic\n- iPhone camera look\n- natural imperfections preserved (except acne)\nResultado - Después"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Add14dcd0-eb7a-4788-b6a3-bf62869c99be%3Adea3be75197f0f9293b954f2ebfcfda9_1775865920_awe6x0xx.jpg?table=block&id=33fec2ae-f76b-8023-bdce-df0a9192b903&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Referencia Después - Frame 1"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Add14dcd0-eb7a-4788-b6a3-bf62869c99be%3Adea3be75197f0f9293b954f2ebfcfda9_1775865920_awe6x0xx.jpg?table=block&id=33fec2ae-f76b-8041-9c4c-cd970ba05570&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Prompt\nSame person from the reference \nimage, identical identity and \nlook. Only a slight natural \nchange in pose or angle, \nlike a real movement between \nframes. Her face is closer to \nthe camera, she is showing her \nskin improvement.\nTransición - Video\nCreate a natural transition from the first frame to \nthe second frame. The same person\nmust remain identical. \nMovement should be subtle and \nrealistic, as if recorded in \none continuous take.\nResultado Después - Frame 2"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Aed766e15-dcbf-4854-95c9-5a406e1685f2%3A1775866978570-i91wqdgniz.jpg?table=block&id=33fec2ae-f76b-80cc-bc3e-d520a3447eee&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "EL PRODUCTO\nChica + producto"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3Ae4ba4132-61d2-4be6-8fae-e53017b911b5%3ATiranta_anti-aging_niacinamide_serum.png?table=block&id=33fec2ae-f76b-8064-97a5-ebd6fd5eeb8d&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3A991dbc20-61f2-4fe5-8c41-10ca3fe28a69%3A1775866978570-i91wqdgniz.jpg?table=block&id=33fec2ae-f76b-8041-b0e1-f589f1038879&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Prompt\nSame person from the reference image. Maintain identical identity, face, skin tone, hair, and overall appearance.\n\nThe product shown must EXACTLY match the reference product image:\n- same packaging\n- same color\n- same label\n- same shape\n- no redesign\n\nScene:\n\nA hyper-realistic close-up iPhone selfie-style image.\n\nShe is holding the product naturally in her hand, bringing it close to her face, slightly below or next to her cheek.\n\nFraming:\n- close-up (head and upper chest visible)\n- vertical 9:16\n- product clearly visible but not perfectly centered (natural UGC)\n\nPose & behaviour:\n- relaxed, natural pose\n- slightly tilting her head\n- hand holding the product casually (not stiff, not posing like an ad)\n- product near her cheek, as if showing it to a friend\n\nExpression:\n- soft, confident, natural\n- slight relaxed smile\n\nSkin:\n- clear, radiant, natural glow\n- realistic texture (visible pores, no over-smoothing)\n\nLighting:\n- soft natural indoor light\n- slightly warm tones\n- realistic shadows\n\nEnvironment:\n- simple indoor background (bedroom or bathroom)\n- clean but not studio-like\n\nCamera:\n- iPhone front camera look\n- slight imperfection in framing\n- natural feel (not commercial photography)\n\nIMPORTANT:\n- do NOT make it look like a studio ad\n- do NOT over-style the product\n- do NOT change identity\n- do NOT make skin fake or plastic\n\nStyle:\n- hyper-realistic\n- authentic UGC aesthetic"
+        },
+        {
+          "t": "img",
+          "v": "https://www.notion.so/image/attachment%3A86eaaa45-b13e-41d2-a961-5a942fb62185%3A1775870331990-pk12dy68r1.jpg?table=block&id=33fec2ae-f76b-80b4-ac11-c21dfaf0a37d&spaceId=385ec2ae-f76b-8128-9e84-000386e2bee4&cache=v2"
+        },
+        {
+          "t": "txt",
+          "v": "Animación\nA hyper-realistic 9:16 iPhone front-camera selfie video using the exact same woman and product from the reference images.\n\nThe woman and the product must remain identical:\n- same face, skin, hair, outfit\n- same product packaging, label, color, shape\n- no redesign, no changes\n\nSTART FRAME\n\nMatches the reference image:\n- woman holding the product close to her face\n- relaxed pose, natural expression\n\nCRITICAL ACTION (VERY IMPORTANT)\n\nIn the FIRST 1–2 seconds:\n\n- she quickly and naturally gives a small kiss to the product (playful, subtle, not exaggerated)\n- immediately after, she brings the product slightly closer toward the camera\n\nThe movement must feel:\n- spontaneous\n- casual\n- like a real moment, not acting\n\nMOVEMENT FLOW\n\n- kiss then slight smile then push product closer to camera\n- product comes slightly forward but stays in frame (not blocking completely)\n- small natural hand movement and micro-shake\n\nTONE & EMOTION\n\n- she loves the product\n- expression: soft smile, confident, natural\n- no overacting, no ad energy\n\nBEHAVIOUR\n\n- slight head tilt\n- natural blinking\n- relaxed posture\n- subtle micro-expressions\n\nCAMERA\n\n- handheld iPhone selfie\n- slight natural micro-shake\n- imperfect framing\n- no stabilization\n- product briefly closer to lens during movement\n\nLIGHTING\n\n- soft natural indoor light\n- realistic shadows\n- no studio lighting\n\nAUDIO\n\n- no music\n- optional: soft natural breath or subtle mm sound after kiss\n- raw iPhone feel\n\nSTYLE RULES\n\n- no cinematic look\n- no filters\n- no over-smoothing\n- must feel like real UGC\n\nEND\n\nShe holds the product slightly closer to camera, smiling subtly, as if about to keep talking in the next clip."
+        }
       ]
     },
     {
