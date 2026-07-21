@@ -382,12 +382,6 @@ export function OnboardingWizard() {
         }}
         onConfirmar={() => avanzar()}
         onClose={() => { /* bloqueante */ }}
-        extraFooter={idx === 0 ? (
-          <button type="button" onClick={async () => { await post('/api/onboarding', { action: 'paso', skip: true }); window.location.href = home; }}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--faint)', fontSize: 12.5, cursor: 'pointer', textDecoration: 'underline' }}>
-            Completar después
-          </button>
-        ) : undefined}
         adminBar={data.esAdmin ? (
           <div style={{ maxWidth: 980, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 8px 8px 16px' }}>
             <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5C4A17' }}>

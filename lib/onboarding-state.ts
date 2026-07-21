@@ -123,9 +123,13 @@ export async function patchEstadoOnboarding(fn: (s: OnboardingState) => void): P
 }
 
 /**
- * ¿El request actual debe caer al wizard? Solo un ADMIN de cliente (o la
- * agencia impersonando) con status pending|in_progress. El dueño (ws 1),
- * requests sin workspace, closer/setter y estados skipped/done → false.
+ * ¿El request actual debe caer al wizard? El onboarding es OBLIGATORIO: solo un
+ * status 'done' libera el dashboard. Todo lo demás (pending, in_progress, y
+ * también 'skipped') vuelve al wizard — un cliente que no completó su arranque
+ * NO puede entrar al dashboard bajo ningún motivo.
+ *
+ * Aplica solo al ADMIN de cliente (o la agencia impersonando). El dueño (ws 1),
+ * requests sin workspace y closer/setter → false (no hacen onboarding).
  */
 export async function onboardingPendiente(): Promise<boolean> {
   const ws = await getWorkspaceActual();
@@ -136,7 +140,7 @@ export async function onboardingPendiente(): Promise<boolean> {
   // mandarlo a un overlay vacío sería un callejón sin salida.
   if ((await pasosDeCapaActual()).length === 0) return false;
   const s = await getEstadoOnboarding();
-  return s.status === 'pending' || s.status === 'in_progress';
+  return s.status !== 'done';
 }
 
 /** Los pasos del wizard que le tocan al workspace actual, según su capa. */
