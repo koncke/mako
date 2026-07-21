@@ -3,37 +3,26 @@
 // =============================================================================
 // /conocimientos — Portal interno de formación (admin). Curso AVATARHYPE.
 // =============================================================================
-// Réplica del "Área de alumnos" de AvatarHype (avatarhype.ai/alumnos), scope
-// `.ahc`: estética PAPEL (crema #F4F1E8 + grilla azulada), tinta oscura, acento
-// LIMA #CDF13B, tarjetas casi blancas con borde 1.5px y sombra de papel.
-// Fuentes: Bricolage Grotesque (títulos 800), Spline Sans Mono (labels/botones),
-// DM Sans (cuerpo) — por Google Fonts.
+// Réplica del "Área de alumnos" de AvatarHype (scope .ahc): estética PAPEL
+// (crema #F4F1E8 + grilla azulada), tinta oscura, acento LIMA #CDF13B, tarjetas
+// con borde 1.5px y sombra de papel. Fuentes: Bricolage Grotesque (títulos),
+// Spline Sans Mono (labels), DM Sans (cuerpo).
 //
-// NO tapa el sidebar: se renderiza DENTRO del layout de admin (a la derecha del
-// sidebar). Navegación tipo hub → detalle con estado local: la grilla muestra
-// tarjetas de CLASES y de RECURSOS; al abrir una, se entra a su detalle.
-// Contenido en ./curso.
+// NO tapa el sidebar (se renderiza dentro del layout de admin). Navegación
+// hub → detalle con estado local. La grilla tiene tarjetas de CLASES y de
+// RECURSOS; cada recurso es su propia card con detalle rico: el contenido
+// formateado (DocContent), las "capturas" como ejemplos visuales y el link al
+// Notion público. Contenido en ./curso.
 
 import { useState, type ReactNode } from 'react';
 import { CURSO, type Clase, type Recurso } from './curso';
 
 const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
 const nn = (n: number) => String(n).padStart(2, '0');
+const BY_SLUG: Record<string, Recurso> = Object.fromEntries(CURSO.recursos.map((r) => [r.slug, r]));
+const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos' };
 
 type View = { t: 'hub' } | { t: 'clase'; n: number } | { t: 'recurso'; slug: string };
-
-const RIC: Record<Recurso['tipo'], string> = {
-  gpt: '◆', notion: '▤', capturas: '▦', pdf: '▧', zip: '⬇', tool: '↗',
-};
-
-// Tarjetas de "Tus recursos" (cada una abre su detalle).
-const RECURSOS = [
-  { slug: 'prompts', badge: 'Biblioteca', titulo: 'Biblioteca de prompts', desc: 'El UGC Prompt Engine y la plantilla Veo 3, listos para copiar y pegar.' },
-  { slug: 'agentes', badge: 'Biblioteca', titulo: CURSO.bancos[0].titulo, desc: CURSO.bancos[0].desc },
-  { slug: 'musica', badge: 'Recursos', titulo: CURSO.bancos[1].titulo, desc: CURSO.bancos[1].desc },
-  { slug: 'tools', badge: 'Recursos', titulo: CURSO.bancos[2].titulo, desc: CURSO.bancos[2].desc },
-];
-const BANCO_POR_SLUG: Record<string, number> = { agentes: 0, musica: 1, tools: 2 };
 
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
@@ -42,6 +31,32 @@ function CopyBtn({ text }: { text: string }) {
       try { await navigator.clipboard.writeText(text); setOk(true); setTimeout(() => setOk(false), 1600); } catch { /* seleccionar a mano */ }
     }}>{ok ? '✓ Copiado' : 'Copiar'}</button>
   );
+}
+
+// Renderiza el contenido de un doc de forma NATIVA: títulos (MAYÚSCULAS / ━━━),
+// subtítulos (⭐), listas (1. / - / •) y párrafos (con saltos). No es un volcado.
+function DocContent({ text }: { text: string }) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const out: ReactNode[] = [];
+  let para: string[] = [];
+  let list: string[] = [];
+  let k = 0;
+  const flushPara = () => { if (para.length) { out.push(<p key={k++} className="al-doc-p">{para.join('\n')}</p>); para = []; } };
+  const flushList = () => { if (list.length) { const items = list.slice(); out.push(<ul key={k++} className="al-doc-ul">{items.map((li, i) => <li key={i}>{li}</li>)}</ul>); list = []; } };
+  const flush = () => { flushList(); flushPara(); };
+  const isSep = (l: string) => /[━─—=_]/.test(l) && /^[\s━─—=_.·*-]{4,}$/.test(l);
+  const isHeading = (l: string) => l.length <= 62 && /[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && !/[a-záéíóúñ]/.test(l);
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (l === '' || isSep(l)) { flush(); continue; }
+    if (l.startsWith('⭐')) { flush(); out.push(<h5 key={k++} className="al-doc-h5">{l.replace(/^⭐\s*/, '')}</h5>); continue; }
+    if (isHeading(l)) { flush(); out.push(<h4 key={k++} className="al-doc-h4">{l}</h4>); continue; }
+    const m = l.match(/^(?:\d+[.)]|[-•▪·*])\s+(.*)$/);
+    if (m) { flushPara(); list.push(m[1]); continue; }
+    flushList(); para.push(l);
+  }
+  flush();
+  return <div className="al-doc">{out}</div>;
 }
 
 function Card({ badge, titulo, desc, onClick, ariaLabel }: { badge: string; titulo: string; desc: string; onClick: () => void; ariaLabel: string }) {
@@ -75,11 +90,11 @@ function Hub({ go }: { go: (v: View) => void }) {
       </section>
 
       <section className="al-sec">
-        <div className="al-seclabel"><span>Tus recursos</span><span className="al-vol">Prompts · agentes · música</span></div>
+        <div className="al-seclabel"><span>Recursos</span><span className="al-vol">Agentes · prompts · catálogos</span></div>
         <div className="al-grid">
-          {RECURSOS.map((r) => (
-            <Card key={r.slug} badge={r.badge} titulo={r.titulo} desc={r.desc}
-              ariaLabel={`Abrir ${r.titulo}`} onClick={() => go({ t: 'recurso', slug: r.slug })} />
+          {CURSO.recursos.map((r) => (
+            <Card key={r.slug} badge={TIPO_BADGE[r.tipo]} titulo={r.label} desc={r.cardDesc}
+              ariaLabel={`Abrir ${r.label}`} onClick={() => go({ t: 'recurso', slug: r.slug })} />
           ))}
         </div>
       </section>
@@ -87,78 +102,7 @@ function Hub({ go }: { go: (v: View) => void }) {
   );
 }
 
-function Chips({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="al-block">
-      <span className="al-block-l">{label}</span>
-      <div className="al-chips">{children}</div>
-    </div>
-  );
-}
-
-// Renderiza el contenido de un doc (GPT/Notion) de forma NATIVA: detecta
-// títulos (líneas en MAYÚSCULAS o separadores ━━━), subtítulos (⭐), listas
-// (1. / - / •) y párrafos (preservando saltos). No es un volcado monoespaciado.
-function DocContent({ text }: { text: string }) {
-  const lines = text.replace(/\r/g, '').split('\n');
-  const out: ReactNode[] = [];
-  let para: string[] = [];
-  let list: string[] = [];
-  let k = 0;
-  const flushPara = () => { if (para.length) { out.push(<p key={k++} className="al-doc-p">{para.join('\n')}</p>); para = []; } };
-  const flushList = () => { if (list.length) { const items = list.slice(); out.push(<ul key={k++} className="al-doc-ul">{items.map((li, i) => <li key={i}>{li}</li>)}</ul>); list = []; } };
-  const flush = () => { flushList(); flushPara(); };
-  const isSep = (l: string) => /[━─—=_]/.test(l) && /^[\s━─—=_.·*-]{4,}$/.test(l);
-  const isHeading = (l: string) => l.length <= 62 && /[A-ZÁÉÍÓÚÑ]/.test(l) && l === l.toUpperCase() && !/[a-záéíóúñ]/.test(l);
-
-  for (const raw of lines) {
-    const l = raw.trim();
-    if (l === '' || isSep(l)) { flush(); continue; }
-    if (l.startsWith('⭐')) { flush(); out.push(<h5 key={k++} className="al-doc-h5">{l.replace(/^⭐\s*/, '')}</h5>); continue; }
-    if (isHeading(l)) { flush(); out.push(<h4 key={k++} className="al-doc-h4">{l}</h4>); continue; }
-    const m = l.match(/^(?:\d+[.)]|[-•▪·*])\s+(.*)$/);
-    if (m) { flushPara(); list.push(m[1]); continue; }
-    flushList(); para.push(l);
-  }
-  flush();
-  return <div className="al-doc">{out}</div>;
-}
-
-// Un recurso, embebido directo: doc (texto copiable) · captura/PDF (visor) ·
-// zip/herramienta (link, cuando no queda otra).
-function RecursoItem({ r }: { r: Recurso }) {
-  if ((r.tipo === 'gpt' || r.tipo === 'notion') && r.texto) {
-    return (
-      <div className="al-embed">
-        <div className="al-embed-hd">
-          <span className="al-embed-t"><span className="al-embed-ic">{RIC[r.tipo]}</span>{r.label}</span>
-          <CopyBtn text={r.texto} />
-        </div>
-        <details className="al-det">
-          <summary>Ver contenido</summary>
-          <DocContent text={r.texto} />
-        </details>
-      </div>
-    );
-  }
-  if ((r.tipo === 'capturas' || r.tipo === 'pdf') && r.driveId) {
-    return (
-      <div className="al-embed">
-        <span className="al-embed-t"><span className="al-embed-ic">{RIC[r.tipo]}</span>{r.label}</span>
-        <div className="al-pdf">
-          <iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen />
-        </div>
-      </div>
-    );
-  }
-  return (
-    <a href={r.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
-      <span><span className="al-embed-ic">{RIC[r.tipo]}</span>{r.label}</span><span className="al-arr">↗</span>
-    </a>
-  );
-}
-
-function ClaseDetail({ c, back }: { c: Clase; back: () => void }) {
+function ClaseDetail({ c, go, back }: { c: Clase; go: (v: View) => void; back: () => void }) {
   return (
     <div className="al-detail">
       <button type="button" className="al-back" onClick={back}>← Todas las clases</button>
@@ -187,74 +131,76 @@ function ClaseDetail({ c, back }: { c: Clase; back: () => void }) {
         </details>
       ) : c.transcripcionNota ? <div className="al-nota">{c.transcripcionNota}</div> : null}
 
-      {c.recursos.length > 0 && (
+      {c.recursoSlugs.length > 0 && (
         <div className="al-block">
-          <span className="al-block-l">Recursos</span>
-          <div className="al-embeds">
-            {c.recursos.map((r, i) => (<RecursoItem key={i} r={r} />))}
+          <span className="al-block-l">Recursos de esta clase</span>
+          <div className="al-chips">
+            {c.recursoSlugs.map((s) => BY_SLUG[s] ? (
+              <button key={s} type="button" className="al-chip al-chip-btn" onClick={() => go({ t: 'recurso', slug: s })}>
+                {BY_SLUG[s].label} <span className="al-arr">→</span>
+              </button>
+            ) : null)}
           </div>
         </div>
       )}
       {c.herramientas.length > 0 && (
-        <Chips label="Herramientas">
-          {c.herramientas.map((h, i) => (
-            <a key={i} href={h.url} target="_blank" rel="noopener noreferrer" className="al-chip al-chip-tool">
-              {h.nombre}{h.nota ? <span className="al-chip-note"> · {h.nota}</span> : null}
-            </a>
-          ))}
-        </Chips>
+        <div className="al-block">
+          <span className="al-block-l">Herramientas</span>
+          <div className="al-chips">
+            {c.herramientas.map((h, i) => (
+              <a key={i} href={h.url} target="_blank" rel="noopener noreferrer" className="al-chip al-chip-tool">
+                {h.nombre}{h.nota ? <span className="al-chip-note"> · {h.nota}</span> : null}
+              </a>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function RecursoDetail({ slug, back }: { slug: string; back: () => void }) {
-  const esPrompts = slug === 'prompts';
-  const banco = esPrompts ? null : CURSO.bancos[BANCO_POR_SLUG[slug]];
-  const titulo = esPrompts ? 'Biblioteca de prompts' : banco!.titulo;
-
+function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
   return (
     <div className="al-detail">
       <button type="button" className="al-back" onClick={back}>← Todos los recursos</button>
       <div className="al-detail-hd">
-        <span className="al-rescard-badge">{esPrompts ? 'Biblioteca' : 'Recursos'}</span>
-        <h1 className="al-h1 al-h1-sm">{titulo}</h1>
+        <span className="al-rescard-badge">{TIPO_BADGE[r.tipo]}</span>
+        <h1 className="al-h1 al-h1-sm">{r.label}</h1>
       </div>
+      <p className="al-sub al-sub-sm">{r.cardDesc}</p>
 
-      {esPrompts ? (
-        <div className="al-prompts">
-          {CURSO.prompts.map((p, i) => (
-            <div key={i} className="al-prompt">
-              <div className="al-prompt-hd">
-                <span className="al-prompt-t">{p.titulo}</span>
-                <CopyBtn text={p.texto} />
-              </div>
-              <p className="al-prompt-d">{p.desc}</p>
-              <details className="al-det">
-                <summary>Ver prompt completo</summary>
-                <DocContent text={p.texto} />
-              </details>
+      {(r.tipo === 'gpt' || r.tipo === 'notion') && r.texto && (
+        <div className="al-content">
+          <div className="al-content-hd">
+            <span className="al-content-t">{r.tipo === 'gpt' ? 'Prompt del agente' : 'Contenido'}</span>
+            <div className="al-content-act">
+              {r.notionUrl && <a href={r.notionUrl} target="_blank" rel="noopener noreferrer" className="al-notion">Ver en Notion <span className="al-arr">↗</span></a>}
+              <CopyBtn text={r.texto} />
             </div>
+          </div>
+          <DocContent text={r.texto} />
+        </div>
+      )}
+
+      {r.tipo === 'notion' && r.capturasDriveId && (
+        <div className="al-block">
+          <span className="al-block-l">Ejemplos visuales</span>
+          <div className="al-pdf"><iframe src={DRIVE_PREVIEW(r.capturasDriveId)} title={`${r.label} — ejemplos`} loading="lazy" allowFullScreen /></div>
+        </div>
+      )}
+
+      {r.tipo === 'pdf' && r.driveId && (
+        <div className="al-pdf al-pdf-tall"><iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen /></div>
+      )}
+
+      {r.tipo === 'bank' && r.items && (
+        <div className="al-list">
+          {r.items.map((it, i) => (
+            <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
+              <span>{it.label}</span><span className="al-arr">↗</span>
+            </a>
           ))}
         </div>
-      ) : (
-        <>
-          <p className="al-sub al-sub-sm">{banco!.desc}</p>
-          <div className="al-embeds">
-            {banco!.items.map((it, i) => (
-              it.texto ? (
-                <div key={i} className="al-prompt">
-                  <div className="al-prompt-hd"><span className="al-prompt-t">{it.label}</span><CopyBtn text={it.texto} /></div>
-                  <details className="al-det"><summary>Ver contenido</summary><DocContent text={it.texto} /></details>
-                </div>
-              ) : it.url ? (
-                <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
-                  <span>{it.label}</span><span className="al-arr">↗</span>
-                </a>
-              ) : <span key={i} className="al-list-item al-list-soon">{it.label}</span>
-            ))}
-          </div>
-        </>
       )}
     </div>
   );
@@ -264,7 +210,8 @@ export default function Conocimientos() {
   const [view, setView] = useState<View>({ t: 'hub' });
   const go = (v: View) => { setView(v); if (typeof window !== 'undefined') window.scrollTo({ top: 0 }); };
   const back = () => go({ t: 'hub' });
-  const claseActual = view.t === 'clase' ? CURSO.clases.find((c) => c.n === view.n) : undefined;
+  const clase = view.t === 'clase' ? CURSO.clases.find((c) => c.n === view.n) : undefined;
+  const recurso = view.t === 'recurso' ? BY_SLUG[view.slug] : undefined;
 
   return (
     <div className="cono ahc">
@@ -285,8 +232,8 @@ export default function Conocimientos() {
           </div>
 
           {view.t === 'hub' && <Hub go={go} />}
-          {view.t === 'clase' && claseActual && <ClaseDetail c={claseActual} back={back} />}
-          {view.t === 'recurso' && <RecursoDetail slug={view.slug} back={back} />}
+          {view.t === 'clase' && clase && <ClaseDetail c={clase} go={go} back={back} />}
+          {view.t === 'recurso' && recurso && <RecursoDetail r={recurso} back={back} />}
         </div>
       </div>
     </div>
@@ -332,7 +279,7 @@ const CSS = `
 .cono .al-eyebrow .d{ width:11px; height:11px; border-radius:50%; background:var(--lime); border:1.5px solid var(--ink); flex:none; }
 .cono .al-h1{ font-family:var(--disp); font-weight:800; font-size:clamp(40px,7vw,72px); line-height:.98; letter-spacing:-.03em; color:var(--ink); margin:16px 0 0; }
 .cono .al-h1-sm{ font-size:clamp(30px,5vw,44px); }
-.cono .al-sub{ font-size:clamp(15px,2vw,18px); line-height:1.6; color:var(--ink-80); max-width:52ch; margin:16px 0 0; }
+.cono .al-sub{ font-size:clamp(15px,2vw,18px); line-height:1.6; color:var(--ink-80); max-width:56ch; margin:16px 0 0; }
 .cono .al-sub-sm{ font-size:15px; margin-top:6px; }
 
 /* Secciones */
@@ -355,9 +302,9 @@ const CSS = `
 .cono .al-detail{ padding-top:8px; }
 .cono .al-back{ font-family:var(--mono); font-size:12px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-60); background:var(--card); border:1.5px solid var(--ink); border-radius:8px; padding:8px 14px; margin:14px 0 22px; transition:.14s; }
 .cono .al-back:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); color:var(--ink); }
-.cono .al-detail-hd{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; margin-bottom:22px; }
+.cono .al-detail-hd{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; margin-bottom:6px; }
 
-.cono .al-video{ position:relative; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000; border:1.5px solid var(--ink); box-shadow:var(--shadow-paste); }
+.cono .al-video{ position:relative; aspect-ratio:16/9; border-radius:12px; overflow:hidden; background:#000; border:1.5px solid var(--ink); box-shadow:var(--shadow-paste); margin-top:16px; }
 .cono .al-video iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
 .cono .al-video-x{ display:flex; align-items:center; justify-content:center; background:var(--card-2); color:var(--ink-40); font-family:var(--mono); font-size:13px; }
 
@@ -382,19 +329,22 @@ const CSS = `
 .cono .al-chips{ display:flex; flex-wrap:wrap; gap:8px; }
 .cono .al-chip{ display:inline-flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:9px; padding:8px 13px; transition:.14s; }
 .cono .al-chip:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
-.cono .al-chip-ic{ color:var(--lime-ink); font-size:12px; }
+.cono .al-chip-btn .al-arr{ color:var(--lime-ink); }
 .cono .al-chip-tool{ font-family:var(--mono); font-size:12.5px; }
 .cono .al-chip-note{ color:var(--ink-40); }
 
-/* Recursos: prompts + listas */
-.cono .al-prompts{ display:flex; flex-direction:column; gap:16px; }
-.cono .al-prompt{ background:var(--card); border:1.5px solid var(--ink); border-radius:12px; padding:20px; box-shadow:var(--shadow-paste); }
-.cono .al-prompt-hd{ display:flex; align-items:center; justify-content:space-between; gap:14px; }
-.cono .al-prompt-t{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.02em; color:var(--ink); }
-.cono .al-prompt-d{ margin:8px 0 0; font-size:14px; line-height:1.5; color:var(--ink-60); }
+/* Contenido embebido (doc formateado) */
+.cono .al-content{ margin-top:18px; }
+.cono .al-content-hd{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.cono .al-content-t{ font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-40); }
+.cono .al-content-act{ display:flex; align-items:center; gap:8px; }
+.cono .al-notion{ font-family:var(--mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:8px; padding:7px 12px; display:inline-flex; align-items:center; gap:6px; }
+.cono .al-notion:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
+.cono .al-notion .al-arr{ color:var(--lime-ink); }
 .cono .al-copy{ font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:8px; padding:8px 14px; font-weight:600; flex:none; transition:.14s; }
 .cono .al-copy:hover{ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
-.cono .al-doc{ padding:14px 18px 18px; max-height:460px; overflow-y:auto; background:var(--card-2); }
+
+.cono .al-doc{ border:1.5px solid var(--ink); border-radius:12px; box-shadow:var(--shadow-paste); padding:16px 20px 20px; max-height:520px; overflow-y:auto; background:var(--card-2); }
 .cono .al-doc-h4{ font-family:var(--disp); font-weight:800; font-size:15.5px; letter-spacing:-.01em; color:var(--ink); margin:18px 0 8px; }
 .cono .al-doc-h4:first-child{ margin-top:2px; }
 .cono .al-doc-h5{ font-family:var(--mono); font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--lime-ink); margin:16px 0 6px; }
@@ -403,26 +353,22 @@ const CSS = `
 .cono .al-doc-ul li{ position:relative; padding-left:18px; font-size:14px; line-height:1.55; color:var(--ink-80); }
 .cono .al-doc-ul li::before{ content:'·'; position:absolute; left:5px; top:-1px; color:var(--lime-ink); font-weight:800; font-size:18px; }
 
-.cono .al-list{ display:flex; flex-direction:column; gap:9px; margin-top:16px; }
+/* Visor de PDF (capturas / catálogo) */
+.cono .al-pdf{ aspect-ratio:4/3; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); box-shadow:var(--shadow-paste); }
+.cono .al-pdf-tall{ margin-top:18px; aspect-ratio:3/4; }
+.cono .al-pdf iframe{ width:100%; height:100%; border:0; display:block; }
+
+/* Listas (bancos) */
+.cono .al-list{ display:flex; flex-direction:column; gap:9px; margin-top:18px; }
 .cono .al-list-item{ display:flex; align-items:center; justify-content:space-between; font-size:15px; color:var(--ink); background:var(--card); border:1.5px solid var(--ink); border-radius:10px; padding:14px 16px; box-shadow:var(--shadow-paste); transition:.14s; }
 .cono .al-list-item:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-list-item .al-arr{ color:var(--lime-ink); }
-.cono .al-list-soon{ color:var(--ink-40); box-shadow:none; }
-
-/* Recursos embebidos (doc copiable / visor de PDF) */
-.cono .al-embeds{ display:flex; flex-direction:column; gap:12px; }
-.cono .al-embed{ background:var(--card); border:1.5px solid var(--ink); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow-paste); }
-.cono .al-embed-hd{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.cono .al-embed-t{ font-family:var(--disp); font-weight:800; font-size:16px; letter-spacing:-.01em; color:var(--ink); display:inline-flex; align-items:center; gap:9px; }
-.cono .al-embed-ic{ color:var(--lime-ink); font-size:12px; flex:none; }
-.cono .al-embed .al-det{ margin-top:12px; }
-.cono .al-pdf{ margin-top:12px; aspect-ratio:4/3; border:1.5px solid var(--ink); border-radius:10px; overflow:hidden; background:var(--card-2); }
-.cono .al-pdf iframe{ width:100%; height:100%; border:0; display:block; }
 
 @media (max-width:640px){
   .cono-wrap{ padding:18px 16px 56px; }
   .cono .al-grid{ grid-template-columns:1fr; }
   .cono .al-brand .b{ font-size:19px; }
   .cono .al-toptag{ display:none; }
+  .cono .al-content-hd{ flex-wrap:wrap; }
 }
 `;
