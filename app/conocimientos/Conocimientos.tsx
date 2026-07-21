@@ -182,7 +182,21 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
         </div>
       )}
 
-      {r.tipo === 'notion' && r.capturasDriveId && (
+      {r.tipo === 'notion' && r.imagenes && r.imagenes.length > 0 && (
+        <div className="al-block">
+          <span className="al-block-l">Ejemplos ({r.imagenes.length})</span>
+          <div className="al-gallery">
+            {r.imagenes.map((src, i) => (
+              <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="al-gitem">
+                {/* eslint-disable-next-line @next/next/no-img-element -- imágenes del Notion público, URL externa */}
+                <img src={src} alt={`${r.label} — ejemplo ${i + 1}`} loading="lazy" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {r.tipo === 'notion' && (!r.imagenes || r.imagenes.length === 0) && r.capturasDriveId && (
         <div className="al-block">
           <span className="al-block-l">Ejemplos visuales</span>
           <div className="al-pdf"><iframe src={DRIVE_PREVIEW(r.capturasDriveId)} title={`${r.label} — ejemplos`} loading="lazy" allowFullScreen /></div>
@@ -357,6 +371,12 @@ const CSS = `
 .cono .al-pdf{ aspect-ratio:4/3; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:var(--card-2); box-shadow:var(--shadow-paste); }
 .cono .al-pdf-tall{ margin-top:18px; aspect-ratio:3/4; }
 .cono .al-pdf iframe{ width:100%; height:100%; border:0; display:block; }
+
+/* Galería de imágenes reales (del Notion) */
+.cono .al-gallery{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+.cono .al-gitem{ display:block; border:1.5px solid var(--ink); border-radius:10px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card-2); transition:transform .14s ease, box-shadow .14s ease; }
+.cono .al-gitem:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
+.cono .al-gitem img{ display:block; width:100%; height:auto; }
 
 /* Listas (bancos) */
 .cono .al-list{ display:flex; flex-direction:column; gap:9px; margin-top:18px; }
