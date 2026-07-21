@@ -182,22 +182,26 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
   );
 }
 
-// Agrupa los bloques del Notion en "pasos": cada imagen queda con el texto que
-// la acompaña, para renderizar lado a lado (imagen | etiqueta + prompt).
-type Step = { head?: string; img?: string; items?: { t: string; v: string }[] };
+// Agrupa los bloques del Notion en "pasos": cada media (imagen o video) queda
+// con el texto que la acompaña, para renderizar lado a lado (media | prompt).
+type Step = { head?: string; img?: string; vids?: string[]; items?: { t: string; v: string }[] };
 function groupSteps(bloques: { t: string; v: string }[]): Step[] {
   const steps: Step[] = [];
   let cur: Step | null = null;
-  const flush = () => { if (cur && (cur.img || (cur.items && cur.items.length))) steps.push(cur); cur = null; };
+  const hasMedia = (s: Step | null) => !!(s && (s.img || (s.vids && s.vids.length)));
+  const flush = () => { if (cur && (hasMedia(cur) || (cur.items && cur.items.length))) steps.push(cur); cur = null; };
   for (const b of bloques) {
     if (b.t === 'head') { flush(); steps.push({ head: b.v }); continue; }
     if (b.t === 'img') {
       if (cur && cur.img) flush();
-      if (!cur) cur = { img: undefined, items: [] };
+      if (!cur) cur = { items: [] };
       cur.img = b.v;
+    } else if (b.t === 'vid') {
+      if (!cur) cur = { items: [] };
+      (cur.vids = cur.vids || []).push(b.v);
     } else {
-      if (cur && cur.img) flush();
-      if (!cur) cur = { img: undefined, items: [] };
+      if (hasMedia(cur)) flush();
+      if (!cur) cur = { items: [] };
       cur.items!.push(b);
     }
   }
@@ -229,13 +233,23 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
         <div className="al-steps">
           {steps.map((s, i) => {
             if (s.head) return <h3 key={i} className="al-bhead">{s.head}</h3>;
+            const conMedia = s.img || (s.vids && s.vids.length);
             return (
-              <div key={i} className={`al-step ${s.img ? '' : 'al-step-textonly'}`}>
+              <div key={i} className={`al-step ${conMedia ? '' : 'al-step-textonly'}`}>
                 {s.img && (
                   <a href={s.img} target="_blank" rel="noopener noreferrer" className="al-step-media">
                     {/* eslint-disable-next-line @next/next/no-img-element -- imagen del Notion público, URL externa */}
                     <img src={s.img} alt={`${r.label} — ejemplo`} loading="lazy" />
                   </a>
+                )}
+                {s.vids && s.vids.length > 0 && (
+                  <div className="al-vids">
+                    {s.vids.map((id, vi) => (
+                      <div key={vi} className="al-vid">
+                        <iframe src={DRIVE_PREVIEW(id)} title={`${r.label} — ejemplo ${vi + 1}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" />
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {s.items && s.items.length > 0 && (
                   <div className="al-step-text">
@@ -444,6 +458,9 @@ const CSS = `
 .cono .al-step-media{ display:block; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-paste); background:var(--card-2); transition:transform .14s ease, box-shadow .14s ease; }
 .cono .al-step-media:hover{ box-shadow:var(--shadow-stamp); transform:translate(-2px,-2px); }
 .cono .al-step-media img{ display:block; width:100%; height:auto; }
+.cono .al-vids{ display:flex; flex-direction:column; gap:12px; max-width:250px; }
+.cono .al-vid{ position:relative; aspect-ratio:9/16; border:1.5px solid var(--ink); border-radius:12px; overflow:hidden; background:#000; box-shadow:var(--shadow-paste); }
+.cono .al-vid iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
 .cono .al-step-text{ display:flex; flex-direction:column; align-items:flex-start; gap:9px; min-width:0; }
 .cono .al-bhead{ font-family:var(--disp); font-weight:800; font-size:19px; letter-spacing:-.01em; text-transform:uppercase; color:var(--ink); margin:22px 0 2px; padding-bottom:8px; border-bottom:1.5px solid var(--ink); }
 .cono .al-blabel{ font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink); background:var(--lime); border:1.5px solid var(--ink); border-radius:6px; padding:3px 9px; }
