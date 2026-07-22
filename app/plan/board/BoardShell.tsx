@@ -473,7 +473,9 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
       {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects}
-        onOpenTask={setOpenId} onOpenProj={setOpenProj} onClose={() => setWelcomeVisible(false)} />}
+        renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} />}
+        renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} verDetalle onOpen={() => setOpenProj(l.id)} />}
+        onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>
@@ -1165,6 +1167,34 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
   );
 }
 
+// La card de proyecto (misma en la vista Proyectos y en el modal "MaKo cargó", así son
+// IDÉNTICAS). `verDetalle` muestra descripción + razón del Perro (para el modal); en la
+// grilla queda apagado (es para barrer de un vistazo).
+export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }: { l: Label; prog: { total: number; done: number; pct: number }; isTop: boolean; verDetalle?: boolean; onOpen: () => void }) {
+  const completo = prog.total > 0 && prog.done === prog.total;
+  return (
+    <div onClick={onOpen} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s' }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 22 }}>{l.emoji}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{l.pid}</span>
+        <span style={{ flex: 1 }} />
+        {completo && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
+        <ProjScore score={l.score} color={l.color} />
+      </div>
+      <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
+      {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
+      {verDetalle && l.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{stripHtml(l.detalle)}</div>}
+      {verDetalle && l.scoreRazon && <div style={{ fontSize: 11.5, color: 'var(--faint)', fontStyle: 'italic', lineHeight: 1.45 }}>🐕 {l.scoreRazon}</div>}
+      <span style={{ flex: 1 }} />
+      {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
+      <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
+        {prog.total ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
+      </div>
+    </div>
+  );
+}
+
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
 function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion' }) {
   const { labels, tasks, repo } = board;
@@ -1177,7 +1207,6 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
   const ordenados = labels.slice().sort((a, b) => (sortMode === 'creacion' ? creTs(a) - creTs(b) : b.score - a.score));
   const origenDe = (l: Label) => fuenteEfectiva({ origen: l.historial[l.historial.length - 1]?.actor ?? 'user', fuente: l.fuente }).tipo;
   const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id) }));
-  const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
   const shown = withProg
     .filter(({ l }) => !needle || `${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle))
     .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)))
@@ -1194,33 +1223,9 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
             <span style={{ fontSize: 26, lineHeight: 1 }}>＋</span>
             <span style={{ fontSize: 13.5, fontWeight: 600 }}>Crear nuevo {repo.labelSingular.toLowerCase()}…</span>
           </button>
-          {visibles.map(({ l, prog }) => {
-            const isTop = l.id === topProjectId;
-            // Alto (feedback jul-18): el doble de una tarea, para diferenciarlos de un vistazo.
-            // OJO hover: re-fijamos borderTopColor porque tocar borderColor (shorthand, en el
-            // handler) le borraba el color de arriba al pasar el cursor.
-            return (
-              <div key={l.id} onClick={() => onOpen(l.id)} style={{ background: 'var(--surface)', border: `1px solid ${isTop ? l.color + '80' : 'var(--border)'}`, borderTop: `3px solid ${l.color}`, borderRadius: 14, padding: '16px 16px 15px', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 360, transition: 'border-color .12s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.borderTopColor = l.color; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = isTop ? l.color + '80' : 'var(--border)'; e.currentTarget.style.borderTopColor = l.color; }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 22 }}>{l.emoji}</span>
-                  <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{l.pid}</span>
-                  <span style={{ flex: 1 }} />
-                  {completo(prog) && <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--good)', background: 'var(--good-bg, var(--surface))', border: '1px solid var(--good)', borderRadius: 6, padding: '1px 6px' }}>✓ Completo</span>}
-                  <ProjScore score={l.score} color={l.color} />
-                </div>
-                <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3 }}>{l.name}</div>
-                {isTop && <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: l.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
-                {/* Sin descripción: la grilla de proyectos es para barrer de un vistazo. El detalle vive adentro. */}
-                <span style={{ flex: 1 }} />
-                {prog.total > 0 && <span style={{ display: 'block' }}><MiniBar v={prog.pct} /></span>}
-                {/* avance/porcentaje en cada extremo, como en las tareas (punto 4) */}
-                <div style={{ display: 'flex', alignItems: 'center', fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>
-                  {prog.total ? <><span>{prog.done}/{prog.total}</span><span style={{ flex: 1 }} /><span style={{ fontWeight: 700, color: 'var(--dim)' }}>{prog.pct}%</span></> : <span>sin tareas</span>}
-                </div>
-              </div>
-            );
-          })}
+          {visibles.map(({ l, prog }) => (
+            <ProyectoCardTile key={l.id} l={l} prog={prog} isTop={l.id === topProjectId} onOpen={() => onOpen(l.id)} />
+          ))}
           {shown.length === 0 && <div style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--faint)', fontSize: 13, padding: '10px 0 0' }}>No hay {repo.labelPlural.toLowerCase()} para este filtro.</div>}
         </div>
         {shown.length > REALES && (
