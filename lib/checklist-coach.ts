@@ -9,6 +9,7 @@ import 'server-only';
 // /configuraciones (keys checklist.*). Salida JSON estricta en los pasos 2/proyecto.
 
 import { chatClaude } from './anthropic';
+import { chatCheapCascade } from './ai-cheap';
 import { brandSystem } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 
@@ -181,8 +182,9 @@ export async function checklistsParaTareas(tareas: Array<{ id: string; titulo: s
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 5000, feature: 'checklist-coach', motivo: usoMotivo || 'MaKo: describir + checklists de tareas nuevas' });
   let out = extraer(raw);
   if (!Object.keys(out).length) {
-    // Gemini no devolvió descripciones/checklists usables → Claude (fiable en estructurado).
-    const raw2 = await chatClaude(sys, [{ role: 'user', content: user }], { model: 'claude-sonnet-5', effort: 'medium', maxTokens: 5000, feature: 'checklist-coach', motivo: (usoMotivo || 'Describir + checklists de tareas nuevas') + ' · fallback Claude' });
+    // Gemini no devolvió descripciones/checklists usables → rotamos a otra IA barata
+    // (Groq → OpenAI), NUNCA Claude.
+    const raw2 = await chatCheapCascade({ system: sys, user, maxTokens: 5000, feature: 'checklist-coach', motivo: usoMotivo || 'Describir + checklists de tareas nuevas' });
     out = extraer(raw2);
   }
   return out;

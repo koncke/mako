@@ -439,11 +439,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               respuesta = (r.text ?? '').trim();
             } catch (eg) {
               // La IA barata falló (típico: HTTP 429 = rate limit del free tier de Gemini; el
-              // doer hace VARIOS pedidos por mensaje). NO dejamos al dueño sin respuesta: caemos
-              // a Claude (queda en el historial como fallback; es raro, solo cuando Gemini corta).
-              console.warn(`[mako-doer-in] ${pin.provider} falló (${eg instanceof Error ? eg.message : String(eg)}) → fallback Claude`);
-              const { text } = await chatClaudeTools(system, msgs, tools, runTool, { feature: 'mako-doer-in', maxSteps: 8, model: ruta.model, effort: ruta.effort, motivo: `${ruta.motivo} «${recorte}» · fallback Claude` });
-              respuesta = (text ?? '').trim();
+              // doer hace VARIOS pedidos por mensaje). NUNCA caemos a Claude (evitar ese gasto):
+              // ROTAMOS entre las otras IA baratas (Groq gratis → OpenAI barato). Si TODAS fallan,
+              // re-lanzamos para que el catch externo muestre el error (no gastamos Claude).
+              console.warn(`[mako-doer-in] ${pin.provider} falló (${eg instanceof Error ? eg.message : String(eg)}) → roto a otra IA barata`);
+              let ok = false;
+              for (const prov of ['groq', 'openai'] as const) {
+                if (prov === pin.provider) continue; // no reintentar la que ya falló
+                try {
+                  const r2 = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${ruta.motivo} «${recorte}» · fallback ${prov}` });
+                  if (r2.text && !r2.text.startsWith('(')) { respuesta = r2.text.trim(); ok = true; break; }
+                } catch (e2) { console.warn(`[mako-doer-in] fallback ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
+              }
+              if (!ok) throw eg;
             }
           } else {
             const { text } = await chatClaudeTools(system, msgs, tools, runTool, {

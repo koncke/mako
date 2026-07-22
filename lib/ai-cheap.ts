@@ -110,6 +110,19 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   return (data.choices?.[0]?.message?.content ?? '').trim();
 }
 
+/** Genera texto probando las IA baratas EN ORDEN (Groq gratis → OpenAI barato), SIN tocar
+ *  Claude. Para cuando la IA pineada (ej. Gemini) falla o no devuelve algo usable y NO
+ *  queremos caer en el gasto de Claude. Devuelve el texto de la primera que funcione, o ''. */
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number }): Promise<string> {
+  for (const prov of opts.provs ?? (['groq', 'openai'] as ProvName[])) {
+    try {
+      const t = await chatCheap({ system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, timeoutMs: opts.timeoutMs });
+      if (t.trim()) return t;
+    } catch (e) { console.warn(`[ai-cheap] cascade ${prov} falló: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  return '';
+}
+
 // Bloques (tool_use/tool_result/text) → texto plano. El historial del doer ya viene
 // como texto; esto es defensivo por si entra un Block[].
 function bloqueATexto(content: RichMsg['content']): string {

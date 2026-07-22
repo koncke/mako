@@ -15,6 +15,7 @@ import 'server-only';
 // cambia scores previos "porque sí" — solo si hay una razón concreta.
 
 import { chatClaude } from './anthropic';
+import { chatCheapCascade } from './ai-cheap';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { spreadProjScores, curveTaskScores } from '../app/plan/board/types';
@@ -451,8 +452,9 @@ export async function describirProyectosNuevos(
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Describir y priorizar proyectos nuevos', onUsage: (u) => { usage = u; } });
   let proyectos = extraer(raw);
   if (!proyectos.length) {
-    // Gemini no devolvió proyectos usables → Claude (fiable). Sin esto quedan 📁/50/sin detalle.
-    const raw2 = await chatClaude(sys, [{ role: 'user', content: user }], { model: 'claude-sonnet-5', effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: (usoMotivo || 'Describir proyectos nuevos') + ' · fallback Claude', onUsage: (u) => { usage = u; } });
+    // Gemini no devolvió proyectos usables → rotamos a otra IA barata (Groq → OpenAI), NUNCA
+    // Claude. Sin esto quedan 📁/50/sin detalle, pero no gastamos Claude.
+    const raw2 = await chatCheapCascade({ system: sys, user, maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Describir proyectos nuevos' });
     proyectos = extraer(raw2);
   }
   return { proyectos, usage };
@@ -477,9 +479,9 @@ export async function puntuarNuevas(nuevas: GuardTaskIn[], existentes: Array<{ t
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas', onUsage: (u) => { usage = u; } });
   let tareas = extraer(raw);
   if (!tareas.length) {
-    // La IA barata (Gemini) no devolvió scores usables (JSON malo o ids que no matchean) →
-    // reintento forzando CLAUDE, fiable en JSON estructurado con ids. El Perro NO puede quedar mudo.
-    const raw2 = await chatClaude(sys, [{ role: 'user', content: user }], { model: 'claude-sonnet-5', effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: (usoMotivo || 'Priorización de tareas nuevas') + ' · fallback Claude', onUsage: (u) => { usage = u; } });
+    // Gemini no devolvió scores usables → rotamos a otra IA barata (Groq → OpenAI), NUNCA
+    // Claude. Si todas fallan, quedan con el score inicial (mejor eso que gastar Claude).
+    const raw2 = await chatCheapCascade({ system: sys, user, maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas' });
     tareas = extraer(raw2);
   }
   return { tareas, usage };
