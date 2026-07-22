@@ -52,10 +52,12 @@ const STT_PRICE_SEG: Record<string, number> = {
   'whisper-1': 0.006 / 60,                // OpenAI
 };
 
-export function costFor(model: string, u: { input: number; output: number; cacheCreation: number; cacheRead: number }): number {
-  // Gemini: plan gratis del cliente (BYOK) → costo 0. Si se pasa a key PAGA, agregar
-  // su pricing acá (gemini-2.5-flash ≈ 0.30/2.50 por 1M in/out).
-  if (model.startsWith('gemini')) return 0;
+// Proveedores GRATIS por rate-limit: no cobran dinero (Gemini free tier incluido; su
+// costo pago se recomputa en getUsageSummary si hay créditos). Se guardan a costo 0.
+const PROVEEDORES_GRATIS = ['groq', 'gemini', 'cerebras', 'mistral', 'openrouter'];
+export function costFor(model: string, u: { input: number; output: number; cacheCreation: number; cacheRead: number }, provider = ''): number {
+  if (provider && PROVEEDORES_GRATIS.includes(provider)) return 0;
+  if (model.startsWith('gemini')) return 0; // por si la llamada no pasó provider
   const p = PRICING[model] ?? DEFAULT_PRICE;
   return (u.input * p.in + u.output * p.out + u.cacheCreation * p.in * 1.25 + u.cacheRead * p.in * 0.1) / 1_000_000;
 }
@@ -81,7 +83,7 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   const output = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
   const cacheCreation = Number(u.cache_creation_input_tokens ?? 0) || 0;
   const cacheRead = Number(u.cache_read_input_tokens ?? 0) || 0;
-  const costUsd = costFor(model, { input, output, cacheCreation, cacheRead });
+  const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
   await insertUsage({
     feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
     input_tokens: input, output_tokens: output, cache_creation_tokens: cacheCreation, cache_read_tokens: cacheRead, cost_usd: costUsd,
@@ -92,7 +94,7 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
 /** Registra una transcripción (STT): cobra por SEGUNDOS de audio, no por tokens. */
 export async function recordSttUsage(feature: string, model: string, segundos: number, motivo?: string, provider = 'openai'): Promise<void> {
   const seg = Math.max(0, Number(segundos) || 0);
-  const costUsd = (STT_PRICE_SEG[model] ?? STT_PRICE_SEG['whisper-1']) * seg;
+  const costUsd = PROVEEDORES_GRATIS.includes(provider) ? 0 : (STT_PRICE_SEG[model] ?? STT_PRICE_SEG['whisper-1']) * seg;
   await insertUsage({
     feature: feature || 'stt', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
     input_tokens: 0, output_tokens: 0, cache_creation_tokens: 0, cache_read_tokens: 0, cost_usd: costUsd,
@@ -201,18 +203,26 @@ export async function getUsageSummary(): Promise<UsageSummary> {
     console.warn(`[anthropic-usage] no se pudo leer el resumen: ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  // Costo REAL de una fila para mostrar, corrigiendo lo que se guardó mal:
+  // - IA gratis por rate-limit (groq/cerebras/mistral/openrouter) → SIEMPRE $0 (no
+  //   cobran plata; antes Mistral/Cerebras caían a DEFAULT_PRICE y mostraban dinero).
+  // - Gemini → $0 en free tier; si hay créditos cargados, recomputa el costo real.
+  // - Anthropic/OpenAI → lo guardado (sí se paga con dinero).
+  const FREE_RATE_LIMIT = ['groq', 'cerebras', 'mistral', 'openrouter'];
+  const costRow = (r: Row): number => {
+    const p = r.provider ?? 'anthropic';
+    if (p === 'gemini') return sGemini ? ((Number(r.input_tokens) || 0) * GEMINI_PRICE_PAGO.in + (Number(r.output_tokens) || 0) * GEMINI_PRICE_PAGO.out) / 1_000_000 : 0;
+    if (FREE_RATE_LIMIT.includes(p)) return 0;
+    return Number(r.cost_usd) || 0;
+  };
+
   let gastadoMesUsd = 0, gastadoDesdeSaldoUsd = 0;
   const feat = new Map<string, { costUsd: number; tokens: number }>();
   const prov = new Map<string, { mes: number; tokens: number; hoy: number; desdeSaldo: number }>();
   for (const r of rows) {
     const p = r.provider ?? 'anthropic';
     const tk = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
-    // Gemini se guarda a costo 0 (free tier no cobra). Si el dueño registró créditos
-    // (tiene saldo de gemini) recomputamos el costo REAL de sus filas para que el
-    // restante y el gasto reflejen lo que se paga. Sin créditos, sigue en 0.
-    const c = (p === 'gemini' && sGemini)
-      ? ((Number(r.input_tokens) || 0) * GEMINI_PRICE_PAGO.in + (Number(r.output_tokens) || 0) * GEMINI_PRICE_PAGO.out) / 1_000_000
-      : (Number(r.cost_usd) || 0);
+    const c = costRow(r);
     const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     if (r.created_at >= monthStart) {
       gastadoMesUsd += c; // gasto total de IA del mes (todos los proveedores)
@@ -238,12 +248,13 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   });
 
   const last = rows[0] ?? null; // ya viene ordenado desc
-  const ultimaOp = last ? { tokens: (Number(last.input_tokens) || 0) + (Number(last.output_tokens) || 0), costUsd: Number(last.cost_usd) || 0, feature: last.feature, at: last.created_at } : null;
+  const ultimaOp = last ? { tokens: (Number(last.input_tokens) || 0) + (Number(last.output_tokens) || 0), costUsd: costRow(last), feature: last.feature, at: last.created_at } : null;
 
-  // Historial cronológico (últimas 80 operaciones) con el motivo legible.
+  // Historial cronológico (últimas 80 operaciones) con el motivo legible. Usa costRow →
+  // Gemini pago muestra su costo (no "gratis") y las gratis de rate-limit muestran $0.
   const historial: UsageItem[] = rows.slice(0, 80).map((r) => ({
     at: r.created_at, feature: r.feature, motivo: r.motivo ?? null, model: r.model ?? null, provider: r.provider ?? 'anthropic',
-    tokens: (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0), costUsd: Number(r.cost_usd) || 0,
+    tokens: (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0), costUsd: costRow(r),
   }));
 
   return {

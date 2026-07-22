@@ -101,6 +101,10 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       puedeAvanzar={!busy} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy}
       atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'} siguienteLabel="Siguiente →"
       error={error || undefined}
+      // No se puede cerrar a mitad (sin ✕, sin backdrop): si cerrás perdés las
+      // respuestas y la ejecución queda a medias sin contexto. Solo se sale creando
+      // (Crear) o descartando explícito (en el paso final), o Cancelar en el paso 0.
+      bloqueante
       onClose={irPlan}
       onAtras={() => (paso === 0 ? irPlan() : setPaso(paso - 1))}
       onSiguiente={() => setPaso(paso + 1)}

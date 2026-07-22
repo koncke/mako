@@ -23,6 +23,30 @@ const FUENTE_INFO: Record<string, { label: string; emoji: string }> = {
   'claude-code': { label: 'Claude Code', emoji: '⌨️' }, retro: { label: 'Retro', emoji: '🔁' },
   experimento: { label: 'Experimento', emoji: '🧪' }, manual: { label: 'Manual', emoji: '✍️' },
 };
+// Orden en que se muestran los grupos por origen (los no listados van al final).
+const ORIGEN_ORDER = ['whatsapp', 'fathom', 'mako', 'archivo', 'experimento', 'retro', 'claude-code', 'manual'];
+
+// Logo real de WhatsApp para el header del grupo (el resto usa su emoji). Inline para
+// no depender de BrandDefs (que solo se monta en Integraciones).
+function OrigenIcon({ tipo, size = 16 }: { tipo: string; size?: number }) {
+  if (tipo === 'whatsapp') return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ flex: 'none' }}>
+      <rect width="24" height="24" rx="6" fill="#25D366" />
+      <path fill="#fff" d="M12 5a7 7 0 0 0-5.98 10.62L5 19l3.46-.9A7 7 0 1 0 12 5zm4.06 9.86c-.17.48-1 .92-1.39.95-.38.04-.74.17-2.5-.52-2.1-.83-3.42-2.94-3.52-3.08-.1-.14-.84-1.11-.84-2.12s.53-1.5.72-1.71c.19-.2.41-.25.55-.25h.4c.13 0 .3-.05.46.36l.57 1.37c.05.1.08.22.02.34l-.26.4-.27.3c-.09.09-.18.18-.08.36.1.18.46.76 1 1.23.68.6 1.25.79 1.43.88.18.1.28.08.39-.05l.54-.62c.14-.17.28-.13.47-.07l1.3.62c.19.09.32.14.36.21.05.08.05.44-.12.92z" />
+    </svg>
+  );
+  return <span style={{ fontSize: size - 1, lineHeight: 1 }}>{FUENTE_INFO[tipo]?.emoji ?? '•'}</span>;
+}
+
+// Agrupa por origen (sección con 1 header), ordenando por score DESC dentro de cada grupo.
+function agrupar<T extends { score: number }>(items: T[], tipoDe: (x: T) => string): Array<{ tipo: string; label: string; items: T[] }> {
+  const map = new Map<string, T[]>();
+  for (const it of items) { const t = tipoDe(it); (map.get(t) ?? map.set(t, []).get(t)!).push(it); }
+  const ord = (t: string) => { const i = ORIGEN_ORDER.indexOf(t); return i < 0 ? 99 : i; };
+  return [...map.entries()]
+    .sort((a, b) => ord(a[0]) - ord(b[0]) || b[1].length - a[1].length)
+    .map(([tipo, arr]) => ({ tipo, label: FUENTE_INFO[tipo]?.label ?? tipo, items: arr.slice().sort((x, y) => y.score - x.score) }));
+}
 
 export function TareasCreadasModal({ tasks, projects, renderTaskCard, renderProjCard, onClose }: {
   tasks: BoardTask[];
@@ -44,7 +68,11 @@ export function TareasCreadasModal({ tasks, projects, renderTaskCard, renderProj
   const hayProy = projects.length > 0;
   const verProy = tab === 'proyectos' && hayProy;
 
-  const chip: CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.03em', color: 'var(--primary)', border: '1px solid var(--primary-weak)', borderRadius: 6, padding: '2px 7px', marginBottom: 6 };
+  // Ordenadas por prioridad (score DESC) dentro de cada grupo de origen.
+  const grupos: Array<{ tipo: string; label: string; items: Array<BoardTask | Label> }> = verProy
+    ? agrupar<Label>(projects, (l) => l.fuente?.tipo ?? 'mako')
+    : agrupar<BoardTask>(tasks, (t) => fuenteEfectiva(t).tipo);
+
   const tabBtn = (activo: boolean): CSSProperties => ({ padding: '7px 14px', borderRadius: 9, border: 'none', background: activo ? 'var(--primary-bg)' : 'transparent', color: activo ? 'var(--primary)' : 'var(--dim)', fontSize: 13, fontWeight: activo ? 700 : 500, cursor: 'pointer', fontFamily: SANS });
 
   return createPortal(
@@ -64,19 +92,22 @@ export function TareasCreadasModal({ tasks, projects, renderTaskCard, renderProj
             <button onClick={() => setTab('proyectos')} style={tabBtn(tab === 'proyectos')}>Proyectos · {projects.length}</button>
           </div>
         )}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 10px', display: 'grid', gridTemplateColumns: verProy ? 'repeat(auto-fill, minmax(240px, 1fr))' : 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12, alignContent: 'start', alignItems: 'start' }}>
-          {verProy
-            ? projects.map((l) => <div key={l.id}>{renderProjCard(l)}</div>)
-            : tasks.map((t) => {
-                const f = fuenteEfectiva(t);
-                const info = FUENTE_INFO[f.tipo] ?? { label: f.tipo, emoji: '•' };
-                return (
-                  <div key={t.id} style={{ minWidth: 0 }}>
-                    <span style={chip}>{info.emoji} desde {info.label}{f.etiqueta ? ` · ${f.etiqueta}` : ''}</span>
-                    {renderTaskCard(t)}
-                  </div>
-                );
-              })}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 14px' }}>
+          {grupos.map((g) => (
+            <div key={g.tipo} style={{ marginBottom: 14 }}>
+              {/* UN header por origen (con logo), en vez de un chip por tarjeta. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '2px 4px 9px' }}>
+                <OrigenIcon tipo={g.tipo} />
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.03em', color: 'var(--primary)' }}>desde {g.label}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>· {g.items.length}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: verProy ? 'repeat(auto-fill, minmax(240px, 1fr))' : 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12, alignContent: 'start', alignItems: 'start' }}>
+                {verProy
+                  ? (g.items as Label[]).map((l) => <div key={l.id} style={{ minWidth: 0 }}>{renderProjCard(l)}</div>)
+                  : (g.items as BoardTask[]).map((t) => <div key={t.id} style={{ minWidth: 0 }}>{renderTaskCard(t)}</div>)}
+              </div>
+            </div>
+          ))}
         </div>
         <div style={{ padding: '12px 20px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--border)' }}>
           <span style={{ fontSize: 11.5, color: 'var(--faint)' }}>Tocá {verProy ? 'un proyecto' : 'una tarea'} para abrirla</span>

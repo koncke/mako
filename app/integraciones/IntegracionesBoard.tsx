@@ -736,11 +736,11 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
       {saldo ? (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 600, color: restante !== null && restante <= 5 ? 'var(--warn)' : 'var(--ink)' }}>{restante !== null ? usd(restante) : usd(saldo.usd)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 600, color: restante !== null && restante <= 5 ? 'var(--warn)' : 'var(--ink)' }}>{gemini ? '≈' : ''}{restante !== null ? usd(restante) : usd(saldo.usd)}</span>
             <span style={{ fontSize: 12, color: 'var(--dim)' }}>restante</span>
             <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginLeft: 'auto' }}>cargado {usd(saldo.usd)}</span>
           </div>
-          <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginBottom: 10 }}>gastó {usd(gastoMes)} este mes</div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginBottom: 10 }}>gastó {gemini ? '≈' : ''}{usd(gastoMes)} este mes{gemini ? ' · estimado, el real está en Google ↗' : ''}</div>
         </>
       ) : (
         <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 10 }}>{gemini ? 'Sin créditos registrados — Gemini corre en free tier.' : 'Sin saldo registrado.'}</div>

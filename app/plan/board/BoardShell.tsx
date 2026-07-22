@@ -441,7 +441,9 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onUsage={(u) => showUsage(u, 'debate de prioridad')}
         onApply={(score, razon) => { const snap = debateTask; board.setScore(debateTask.id, score, `Debate con el Perro Guardián · score ${score}`, 'ia', razon); board.showUndo('Prioridad actualizada', () => board.replaceTask(snap)); }} onClose={() => setDebateId(null)} />}
       {nuevaTarea && <CrearTareaModal labels={labels} proyectoInicial={nuevaTareaProj} prioInicial={nuevaTareaPrio} ejemplos={tasks.filter((t) => t.progress < 100).map((t) => ({ title: t.title, score: t.score }))} onCrear={crearConGuardian} onDone={(id) => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); setOpenId(id); setMakoHintId(id); }} onClose={() => { setNuevaTarea(false); setNuevaTareaProj(null); setNuevaTareaPrio(null); }} />}
-      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask} onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
+      {openProjLabel && <ProjectDetailModal proj={openProjLabel} board={board} topProjectId={topProjectId} taskAbierta={!!openTask}
+        onBack={welcomeVisible ? () => setOpenProj(null) : undefined} backLabel="Volver"
+        onOpenTask={setOpenId} onNewTask={() => { setNuevaTareaProj(openProjLabel.id); setNuevaTarea(true); }} onDebatePrio={() => setDebateProjId(openProjLabel.id)} onMako={() => setMakoProjId(openProjLabel.id)} onDelete={() => setEliminarProjId(openProjLabel.id)} onClose={() => setOpenProj(null)} />}
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
@@ -474,7 +476,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
       {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects}
         renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} />}
-        renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} verDetalle onOpen={() => setOpenProj(l.id)} />}
+        renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} onOpen={() => setOpenProj(l.id)} />}
         onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
@@ -1245,7 +1247,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOri
 }
 
 // ── detalle de un proyecto — MISMO layout de 2 columnas que la ficha de tarea (#25) ─
-function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z = 90, onBack, onOpenTask, onNewTask, onDebatePrio, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; z?: number; onBack?: () => void; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
+function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z = 90, onBack, backLabel = 'Volver a la tarea', onOpenTask, onNewTask, onDebatePrio, onMako, onDelete, onClose }: { proj: Label; board: Board; topProjectId: string | null; taskAbierta?: boolean; z?: number; onBack?: () => void; backLabel?: string; onOpenTask: (id: string) => void; onNewTask: () => void; onDebatePrio: () => void; onMako: () => void; onDelete: () => void; onClose: () => void }) {
   const [nameDraft, setNameDraft] = useState(proj.name);
   // No cerrar con Escape cuando hay una tarea abierta ENCIMA (esa maneja su propio Escape).
   useEffect(() => {
@@ -1261,7 +1263,7 @@ function ProjectDetailModal({ proj, board, topProjectId, taskAbierta = false, z 
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 820, maxHeight: '85vh', background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `4px solid ${proj.color}`, borderRadius: 16, boxShadow: '0 24px 60px rgba(18,21,27,.28)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* header teñido con el color del proyecto (punto 3): distingue el detalle de cada uno */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 20px', borderBottom: `1px solid ${proj.color}33`, background: `${proj.color}12`, flex: 'none' }}>
-          {onBack && <button onClick={onBack} title="Volver a la tarea" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← Volver a la tarea</button>}
+          {onBack && <button onClick={onBack} title={backLabel} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', borderRadius: 8, padding: '5px 11px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS, flex: 'none' }}>← {backLabel}</button>}
           <EmojiPickerMini value={proj.emoji} onPick={(em) => board.patchLabelLog(proj.id, { emoji: em }, 'Cambió el emoji')} />
           <span style={{ fontFamily: MONO, fontSize: 11, color: proj.color, fontWeight: 700 }}>{proj.pid}</span>
           {isTop && <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: proj.color, fontWeight: 700 }}>🎯 Objetivo Principal</span>}
