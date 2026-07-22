@@ -16,7 +16,7 @@ import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
 
-export type ProvName = 'groq' | 'openai' | 'gemini';
+export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: ProvName };
 
 // La key sale POR WORKSPACE (credWs): la fila cifrada del cliente primero, y para
@@ -38,6 +38,22 @@ async function provDe(nombre: ProvName): Promise<Prov | null> {
     // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
     // pineados que se van retirando). Pisable con GEMINI_MODEL.
     return { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', key, chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
+  }
+  // ── IA GRATIS extra para rotar (todas OpenAI-compatibles) ────────────────────
+  if (nombre === 'cerebras') { // gratis y MUY rápida (Llama en su chip). Soporta tools.
+    const key = await credWs('CEREBRAS_API_KEY');
+    if (!key) return null;
+    return { nombre: 'cerebras', base: 'https://api.cerebras.ai/v1', key, chatModel: process.env.CEREBRAS_MODEL || 'llama-3.3-70b', sttModel: '' };
+  }
+  if (nombre === 'mistral') { // free tier de La Plateforme. Soporta tools.
+    const key = await credWs('MISTRAL_API_KEY');
+    if (!key) return null;
+    return { nombre: 'mistral', base: 'https://api.mistral.ai/v1', key, chatModel: process.env.MISTRAL_MODEL || 'mistral-small-latest', sttModel: '' };
+  }
+  if (nombre === 'openrouter') { // agregador con modelos ":free" (Llama, Gemini exp, etc.).
+    const key = await credWs('OPENROUTER_API_KEY');
+    if (!key) return null;
+    return { nombre: 'openrouter', base: 'https://openrouter.ai/api/v1', key, chatModel: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free', sttModel: '' };
   }
   const key = await credWs('OPENAI_API_KEY');
   if (!key) return null;
@@ -113,8 +129,11 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
 /** Genera texto probando las IA baratas EN ORDEN (Groq gratis → OpenAI barato), SIN tocar
  *  Claude. Para cuando la IA pineada (ej. Gemini) falla o no devuelve algo usable y NO
  *  queremos caer en el gasto de Claude. Devuelve el texto de la primera que funcione, o ''. */
+// Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
+// al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
+export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
 export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number }): Promise<string> {
-  for (const prov of opts.provs ?? (['groq', 'openai'] as ProvName[])) {
+  for (const prov of opts.provs ?? CASCADA_GRATIS) {
     try {
       const t = await chatCheap({ system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, timeoutMs: opts.timeoutMs });
       if (t.trim()) return t;

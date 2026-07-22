@@ -205,6 +205,62 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    key: 'cerebras',
+    nombre: 'Cerebras',
+    categoria: 'Inteligencia',
+    paraQue: 'IA gratis y MUY rápida (corre Llama en su propio chip). Con function-calling. Ideal para rotar cuando Gemini se queda sin cuota, sin gastar.',
+    campos: [
+      { env: 'CEREBRAS_API_KEY', label: 'API key', secreto: true, placeholder: 'csk-…' },
+    ],
+    tutorial: {
+      url: 'https://cloud.cerebras.ai',
+      urlLabel: 'Cerebras Cloud → API Keys',
+      pasos: [
+        'Entrá a cloud.cerebras.ai y creá una cuenta gratis (con Google o email).',
+        'En el menú, abrí "API Keys".',
+        'Tocá "Create API Key", ponele un nombre y copiala.',
+        'Es gratis con límite de uso (rate limit), no por dinero. Perfecta para la rotación.',
+      ],
+    },
+  },
+  {
+    key: 'mistral',
+    nombre: 'Mistral AI',
+    categoria: 'Inteligencia',
+    paraQue: 'IA europea con free tier (La Plateforme) y function-calling. Otra IA gratis para rotar sin caer en gasto.',
+    campos: [
+      { env: 'MISTRAL_API_KEY', label: 'API key', secreto: true, placeholder: '…' },
+    ],
+    tutorial: {
+      url: 'https://console.mistral.ai/api-keys',
+      urlLabel: 'Mistral Console → API Keys',
+      pasos: [
+        'Entrá a console.mistral.ai y creá una cuenta.',
+        'Elegí el plan "Experiment" (GRATIS) cuando te lo pida — no requiere tarjeta para empezar.',
+        'Abrí "API Keys" → "Create new key" y copiala.',
+        'El free tier tiene rate limit, no cobra. Ideal para rotar.',
+      ],
+    },
+  },
+  {
+    key: 'openrouter',
+    nombre: 'OpenRouter',
+    categoria: 'Inteligencia',
+    paraQue: 'Agregador: UNA key para decenas de modelos, varios GRATIS (Llama y otros con sufijo ":free"). Sirve para rotar y probar modelos sin múltiples cuentas.',
+    campos: [
+      { env: 'OPENROUTER_API_KEY', label: 'API key', secreto: true, placeholder: 'sk-or-…' },
+    ],
+    tutorial: {
+      url: 'https://openrouter.ai/keys',
+      urlLabel: 'OpenRouter → Keys',
+      pasos: [
+        'Entrá a openrouter.ai y creá una cuenta (con Google o email).',
+        'Abrí openrouter.ai/keys → "Create Key" y copiala (empieza con sk-or-).',
+        'Los modelos con ":free" no cobran (tienen rate limit diario). Para más cuota podés cargar saldo, pero para rotar alcanza el free.',
+      ],
+    },
+  },
+  {
     key: 'fathom',
     nombre: 'Fathom',
     categoria: 'Reuniones',

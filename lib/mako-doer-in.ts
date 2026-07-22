@@ -444,7 +444,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
               // re-lanzamos para que el catch externo muestre el error (no gastamos Claude).
               console.warn(`[mako-doer-in] ${pin.provider} falló (${eg instanceof Error ? eg.message : String(eg)}) → roto a otra IA barata`);
               let ok = false;
-              for (const prov of ['groq', 'openai'] as const) {
+              // Solo proveedores con function-calling fiable (el doer usa tools). OpenRouter
+              // ":free" varía mucho en tools → fuera de esta rotación; OpenAI (barato) al final.
+              for (const prov of ['groq', 'cerebras', 'mistral', 'openai'] as const) {
                 if (prov === pin.provider) continue; // no reintentar la que ya falló
                 try {
                   const r2 = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${ruta.motivo} «${recorte}» · fallback ${prov}` });

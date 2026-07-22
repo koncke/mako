@@ -197,7 +197,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const porProveedor: SaldoProveedor[] = PROVEEDORES.map((p) => {
     const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     const s = saldos[p];
-    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: p === 'groq' || p === 'gemini' };
+    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: ['groq', 'gemini', 'cerebras', 'mistral', 'openrouter'].includes(p) };
   });
 
   const last = rows[0] ?? null; // ya viene ordenado desc
