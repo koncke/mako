@@ -187,10 +187,10 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
 - MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Cada pregunta = un mensaje aparte. Nada de un chorizo largo.
 1. PRIMERO usá 'ver_plan' para ver los proyectos y las tareas que ya existen. Con eso, SIN preguntarle al dueño:
    · ASIGNÁ cada tarea al proyecto que YA existe y le corresponde. NO preguntes "a qué proyecto" si es deducible.
-   · CRITERIO PARA CREAR PROYECTO: si las tareas son un TEMA nuevo y coherente que NINGÚN proyecto existente cubre (varias cosas del mismo asunto), NO las tires sueltas: creá un PROYECTO nuevo con un buen nombre y metelas ahí. Un proyecto AGRUPA; una tarea es una acción. Para asignar a un proyecto nuevo, poné ese nombre en el campo "proyecto" de cada tarea (se crea solo). Avisá en una línea qué proyecto creás.
+   · CRITERIO PARA CREAR PROYECTO(S): un proyecto AGRUPA tareas del MISMO tema; una tarea es una acción. ⚠️ Si la lista mezcla VARIOS temas distintos (ej. funnels, análisis de competencia, finanzas, formatos de video son 4 temas, no 1), NO metas todo en UN SOLO proyecto "cajón de sastre": creá UN PROYECTO POR TEMA y repartí cada tarea en el suyo. Si un ítem encaja en un proyecto que YA existe, mandalo ahí (no crees uno nuevo). Si un ítem es una acción suelta que ningún tema agrupa, dejala como tarea sin proyecto. Para asignar a un proyecto (nuevo o existente), poné su nombre en el campo "proyecto" de cada tarea (el nuevo se crea solo). Avisá en una línea qué proyecto(s) creás.
    · DEDUP: si una tarea que te piden YA existe (título parecido en ver_plan), NO la dupliques: decílo, mandá su link (el campo "link" que te da ver_plan) y ofrecé enriquecerla en vez de crear otra.
 2. Preguntá SOLO lo que de verdad no podés deducir (una fecha clave, si dos cosas son una o dos tareas). Si preguntás, decí cuántas ("Tengo 2 preguntas") y hacelas DE A UNA (una por mensaje, separadas con ---). Si está todo claro, NO preguntes: pasá directo a proponer.
-3. ⚠️ EL PASO QUE MÁS FALLA — LEÉ BIEN. Apenas tenés la lista, tu PRIMERA acción es LLAMAR la tool 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Esa tool NO crea la tarea: solo la deja PENDIENTE (NADA se crea hasta el "sí"). Por eso llamala SIEMPRE, sin miedo y SIN pedir permiso antes. El orden correcto es: (1º) llamás la tool proponer_tareas_plan → (2º) recién ahí, en tu mensaje de texto, mostrás corto qué quedó pendiente y pedís el "sí".
+3. ⚠️ EL PASO QUE MÁS FALLA — LEÉ BIEN. Apenas tenés la lista, tu PRIMERA acción es LLAMAR la tool 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Esa tool NO crea la tarea: solo la deja PENDIENTE (NADA se crea hasta el "sí"). Por eso llamala SIEMPRE, sin miedo y SIN pedir permiso antes. El orden correcto es: (1º) llamás la tool proponer_tareas_plan → (2º) recién ahí, en tu mensaje de texto, mostrás corto qué quedó pendiente —AGRUPADO por proyecto (📁 Proyecto: • tarea, • tarea), NO una lista plana numerada que mezcla todo— y pedís el "sí".
    ⛔ PROHIBIDO y ES EL ERROR MÁS COMÚN: escribir "confirmá con un sí y la creo" / "van así, decime si va" SIN haber llamado antes la tool. Si escribís eso sin llamar proponer_tareas_plan, NO queda nada pendiente y cuando el dueño diga "sí" NO se crea NADA. La frase "confirmá con sí" SOLO puede salir DESPUÉS de haber llamado la tool en este mismo turno.
 4. Con el "sí", 'confirmar_accion' las crea y te devuelve el/los link(s): pasáselos tal cual (uno por tarea). Si asignaste a un proyecto que ya existía, sumá su link (lo tenés de ver_plan).`;
 
@@ -424,14 +424,20 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
 
       if (!respuesta) {
-        const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
-          feature: 'mako-doer-in', maxSteps: 8,
-          ...(pin ? {} : { model: ruta.model }),
-          fallbackModel: ruta.model, // si el pin a Gemini/Groq falla, caé al modelo del router (Sonnet), no a Opus
-          effort: ruta.effort,
-          motivo: `${ruta.motivo} «${recorte}»`,
-        });
-        respuesta = (text ?? '').trim();
+        try {
+          const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+            feature: 'mako-doer-in', maxSteps: 8,
+            ...(pin ? {} : { model: ruta.model }),
+            sinFallbackClaude: true, // si el pin (Gemini/Groq) falla, NO caer a Claude: avisamos el error, no gastamos Claude en silencio
+            effort: ruta.effort,
+            motivo: `${ruta.motivo} «${recorte}»`,
+          });
+          respuesta = (text ?? '').trim();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[mako-doer-in] IA falló (sin fallback a Claude):', msg);
+          respuesta = `⚠️ No pude responder ahora: falló la IA (${msg.slice(0, 140)}). Reintentá en un momento o avisá a soporte.`;
+        }
       }
     }
     if (respuesta) {

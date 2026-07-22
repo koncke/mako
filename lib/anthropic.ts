@@ -140,6 +140,7 @@ export async function chatClaudeTools(
   opts: {
     model?: string;
     fallbackModel?: string;         // si el override a IA barata (Gemini/Groq) falla, caé A ESTE (no a Opus).
+    sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
     effort?: Effort;
     maxTokens?: number;
     maxSteps?: number;              // tope de vueltas del loop (default 8) — baranda anti-bucle.
@@ -170,9 +171,11 @@ export async function chatClaudeTools(
           });
           return { text: r.text, steps: r.steps, stopReason: r.stopReason };
         } catch (e) {
-          // El override a IA barata falló: caemos a Claude, pero al modelo de FALLBACK
-          // (el que eligió el router, ej. Sonnet), NO a Opus por default. Sin esto, un
-          // pin a Gemini que falla se comía Opus (el más caro) en silencio.
+          // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
+          // "falló Gemini" en vez de gastar Claude en silencio.
+          if (opts.sinFallbackClaude) throw e;
+          // Si no, caemos a Claude pero al modelo de FALLBACK (el que eligió el router,
+          // ej. Sonnet), NO a Opus por default.
           model = opts.fallbackModel ?? model;
           console.warn(`[anthropic] tools ${opts.feature}→${ref.provider} falló, uso Claude ${model}: ${e instanceof Error ? e.message : String(e)}`);
         }
