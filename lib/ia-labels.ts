@@ -45,6 +45,7 @@ export const IA_PROVIDER_LABEL: Record<string, string> = {
   anthropic: 'Claude',
   groq: 'Groq',
   openai: 'OpenAI',
+  gemini: 'Gemini',
 };
 
 /** Nombre legible de un modelo (para mostrar QUÉ modelo consumió los tokens). */
@@ -63,6 +64,7 @@ export function modeloLegible(model: string | null | undefined): string {
   if (m.includes('gpt-4o-mini')) return 'GPT-4o mini';
   if (m.includes('gpt-4o')) return 'GPT-4o';
   if (m.includes('gpt-5')) return 'GPT-5';
+  if (m.includes('gemini')) return m.includes('lite') ? 'Gemini 2.5 Flash-Lite' : 'Gemini 2.5 Flash';
   return model;
 }
 

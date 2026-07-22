@@ -48,6 +48,9 @@ const STT_PRICE_SEG: Record<string, number> = {
 };
 
 export function costFor(model: string, u: { input: number; output: number; cacheCreation: number; cacheRead: number }): number {
+  // Gemini: plan gratis del cliente (BYOK) → costo 0. Si se pasa a key PAGA, agregar
+  // su pricing acá (gemini-2.5-flash ≈ 0.30/2.50 por 1M in/out).
+  if (model.startsWith('gemini')) return 0;
   const p = PRICING[model] ?? DEFAULT_PRICE;
   return (u.input * p.in + u.output * p.out + u.cacheCreation * p.in * 1.25 + u.cacheRead * p.in * 0.1) / 1_000_000;
 }
@@ -110,7 +113,7 @@ export type UsageSummary = {
 // El saldo es GLOBAL de la agencia (las API keys son únicas por proveedor): se
 // lee/escribe SIEMPRE contra OWNER_WS con el cliente crudo. Un saldo POR PROVEEDOR
 // (Claude/OpenAI/Groq); la key de Claude conserva su nombre viejo por compat.
-export const PROVEEDORES = ['anthropic', 'openai', 'groq'] as const;
+export const PROVEEDORES = ['anthropic', 'openai', 'groq', 'gemini'] as const;
 export type Proveedor = (typeof PROVEEDORES)[number];
 const keySaldo = (p: string) => (p === 'anthropic' ? 'anthropic_saldo' : `saldo.${p}`);
 
@@ -144,15 +147,15 @@ export async function setSaldo(usd: number, setAt: string, provider: string = 'a
 
 /** Resumen para el chip: gasto del mes, gasto desde el saldo cargado, restante, última op y desglose. */
 export async function getUsageSummary(): Promise<UsageSummary> {
-  const [sAnthropic, sOpenai, sGroq] = await Promise.all([getSaldo('anthropic'), getSaldo('openai'), getSaldo('groq')]);
-  const saldos: Record<string, Saldo | null> = { anthropic: sAnthropic, openai: sOpenai, groq: sGroq };
+  const [sAnthropic, sOpenai, sGroq, sGemini] = await Promise.all([getSaldo('anthropic'), getSaldo('openai'), getSaldo('groq'), getSaldo('gemini')]);
+  const saldos: Record<string, Saldo | null> = { anthropic: sAnthropic, openai: sOpenai, groq: sGroq, gemini: sGemini };
   const saldo = sAnthropic; // compat: el saldo "principal" sigue siendo Claude
   const monthStart = (() => { const d = new Date(); d.setUTCDate(1); d.setUTCHours(0, 0, 0, 0); return d.toISOString(); })();
   // Inicio del día UTC: para el uso de HOY (Groq se mide por tokens/día, no por $).
   const dayStart = (() => { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d.toISOString(); })();
   // La ventana arranca en el menor entre inicio de mes y la carga MÁS VIEJA de un
   // saldo, así calculamos todos los acumulados con UNA sola lectura acotada.
-  const setAts = [sAnthropic, sOpenai, sGroq].filter(Boolean).map((s) => (s as Saldo).setAt);
+  const setAts = [sAnthropic, sOpenai, sGroq, sGemini].filter(Boolean).map((s) => (s as Saldo).setAt);
   const desde = setAts.length ? [monthStart, ...setAts].sort()[0] : monthStart;
 
   // GLOBAL (sin filtro de workspace): el gasto total es contra las API keys únicas
@@ -194,7 +197,7 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const porProveedor: SaldoProveedor[] = PROVEEDORES.map((p) => {
     const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     const s = saldos[p];
-    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: p === 'groq' };
+    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: p === 'groq' || p === 'gemini' };
   });
 
   const last = rows[0] ?? null; // ya viene ordenado desc
