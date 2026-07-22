@@ -252,7 +252,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
         },
         preguntas: {
           type: 'array',
-          description: 'Opcional (recomendado). Lo que NO pudiste deducir, para que lo respondan en la app de a UNA. Cada pregunta corta + 2-4 opciones probables (respuestas típicas, cortas) para elegir de un clic. Ej: {"pregunta":"¿El módulo de Webinars es una tarea o lo separamos?","opciones":["Una sola","Separar en grabar/analizar/seguir"]}. Máximo 4.',
+          description: 'Opcional (recomendado). Lo que NO pudiste deducir, para que lo respondan en la app de a UNA. Cada pregunta corta + 2-4 opciones probables (respuestas típicas, cortas) para elegir de un clic. Ej: {"pregunta":"¿El módulo de Webinars es una tarea o lo separamos?","opciones":["Una sola","Separar en grabar/analizar/seguir"]}. Hacé las que necesites para dejar todo claro (hasta 8): mejor preguntar bien que cargar tareas crudas.',
           items: {
             type: 'object',
             properties: {
@@ -410,7 +410,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0)
               if (typeof p === 'string') return { pregunta: p.trim().slice(0, 300), opciones: [] as string[] };
               const o = (p ?? {}) as Record<string, unknown>;
               return { pregunta: String(o.pregunta ?? '').trim().slice(0, 300), opciones: Array.isArray(o.opciones) ? o.opciones.map((x) => String(x).trim()).filter(Boolean).slice(0, 5) : [] };
-            }).filter((p) => p.pregunta).slice(0, 5)
+            }).filter((p) => p.pregunta).slice(0, 8)
           : [];
         const eliminarRaw = (input as { eliminar?: unknown }).eliminar;
         const eliminar = Array.isArray(eliminarRaw)

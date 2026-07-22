@@ -62,7 +62,7 @@ export async function crearPropuesta(draft: { tareas: PropuestaTarea[]; pregunta
   return enWs(async () => {
     const db = await getTenantDb();
     const tareas = asArr<unknown>(draft.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
-    const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 5);
+    const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 8);
     const eliminar = asArr<unknown>(draft.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e).slice(0, 30);
     const id = genId('prop');
     const { error } = await db.from('plan_propuestas').insert({
@@ -93,7 +93,7 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
 
 /** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;
  *  cliente → su board (lib/todo). `tareasEditadas` = lo que quedó en la revisión. */
-export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[]): Promise<{ ok: boolean; ids: string[]; borradas: number; error?: string } | null> {
+export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[], contexto?: string): Promise<{ ok: boolean; ids: string[]; borradas: number; error?: string } | null> {
   return enWs(async () => {
     const ws = await wsActual();
     const db = await getTenantDb();
@@ -115,7 +115,8 @@ export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTar
         const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
         const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle })), { tipo: fuenteTipo } as Fuente);
         ids = r.ids;
-        await priorizarNuevasOwner(r.ids, r.proyectoIds).catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
+        // El contexto = las respuestas del wizard → el Perro las tiene en cuenta al priorizar.
+        await priorizarNuevasOwner(r.ids, r.proyectoIds, contexto ?? '').catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
       }
       for (const eid of aBorrar) await borrarPlanTarea(eid).catch((e) => console.error('[plan-propuesta] borrar owner:', e instanceof Error ? e.message : String(e)));
     } else {
