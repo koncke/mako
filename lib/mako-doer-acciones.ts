@@ -18,6 +18,7 @@ import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
 import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
+import { crearPropuesta } from '@/lib/plan-propuesta';
 
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
 const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
@@ -230,13 +231,13 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'proponer_tareas_plan',
-    description: 'PROPONE agregar una o varias TAREAS al plan/tablero del negocio (deja la acción pendiente de confirmación; NO la ejecuta). Usala cuando el dueño te pasa una lista de cosas para hacer/agregar al plan (aunque venga desordenada). REGLA: cada tarea necesita al menos un título claro. Si algo NO te queda claro (a qué proyecto va, si tiene fecha, si son varias cosas juntas), NO adivines: preguntá vos ANTES de proponer, y de a UNA pregunta por vez. Recién cuando ya tenés todo, llamás a esta tool con la lista final; después el dueño confirma con un "sí" y ahí se crean.',
+    description: 'PROPONE agregar TAREAS al plan del negocio. Usala cuando el dueño te pasa una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resolvé vos lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Para lo que NO podés deducir (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad), NO hagas el ida-y-vuelta por WhatsApp: pasá esas dudas en el campo "notas" — el DUEÑO las responde en la pantalla de revisión de la app. La tool te devuelve cómo seguir: para el dueño, un LINK a esa pantalla (pasáselo, NO pidas "sí"); para un cliente, deja la acción pendiente y ahí sí pedís el "sí".',
     input_schema: {
       type: 'object',
       properties: {
         tareas: {
           type: 'array',
-          description: 'Las tareas a agregar, ya con la info aclarada.',
+          description: 'Las tareas a agregar, ya con lo deducible resuelto (proyecto asignado).',
           items: {
             type: 'object',
             properties: {
@@ -248,6 +249,11 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             },
             required: ['titulo'],
           },
+        },
+        notas: {
+          type: 'array',
+          description: 'Opcional. Tus preguntas/dudas para que el dueño resuelva EN LA APP (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad, qué sería "listo"). Se muestran en la pantalla de revisión. Cortas y concretas, máximo 3-4.',
+          items: { type: 'string' },
         },
       },
       required: ['tareas'],
@@ -378,10 +384,24 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0)
           .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
           .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 600) : undefined }))
           .filter((t) => t.titulo);
-        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Pedile al dueño que aclare qué agregar antes de proponer.' });
+        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "notas" — no preguntes por acá.' });
+        const notasRaw = (input as { notas?: unknown }).notas;
+        const notas = Array.isArray(notasRaw) ? notasRaw.map((n) => String(n).trim()).filter(Boolean).slice(0, 6) : [];
         const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` (proyecto: ${t.proyecto})` : ''}${t.prioridad !== 'media' ? ` [${t.prioridad}]` : ''}${t.deadline ? ` — vence ${t.deadline}` : ''}`).join('\n');
-        const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan:\n${lista}`;
-        return proponer('tareas_plan', { tareas }, resumen);
+        const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan`;
+
+        // DUEÑO: borrador + link a /plan/revisar (nada de ida-y-vuelta ni "sí" por WhatsApp).
+        if (ws === OWNER_WS) {
+          try {
+            const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), notas, resumen, origen: 'whatsapp' });
+            const link = `${APP_URL}/plan/revisar/${id}`;
+            return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: notas.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}${notas.length ? ` y ${notas.length} pregunta${notas.length === 1 ? '' : 's'}` : ''}. Mandale al dueño UNA línea corta + este link para que revise, responda y confirme EN LA APP (NO pidas "sí" acá, NO repitas la lista): ${link}` });
+          } catch (e) {
+            return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
+          }
+        }
+        // CLIENTE: pendiente + "sí" (su tablero va por todo.ts).
+        return proponer('tareas_plan', { tareas }, `${resumen}:\n${lista}`);
       }
 
       case 'listar_pendientes': {
