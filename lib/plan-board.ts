@@ -11,6 +11,7 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente } from '@/app/plan/board/types';
+import { scoreFromPrio } from '@/app/plan/board/types';
 
 type Row = Record<string, unknown>;
 
@@ -150,6 +151,70 @@ export async function borrarPlanProyecto(id: string): Promise<void> {
     }));
     const { error } = await db.from('plan_proyectos').delete().eq('id', id);
     if (error) throw new Error(`borrarPlanProyecto: ${error.message}`);
+  });
+}
+
+// ── MaKo agrega tareas (reemplaza la bandeja localStorage) ───────────────────
+// De la fuente sale el ACTOR del historial y la etiqueta "— <desde>", igual que lo
+// hacía construirInbox en el board: WhatsApp/Fathom/MaKo = 'ia', Claude Code = 'code'.
+function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
+  const tipo = f?.tipo ?? 'whatsapp';
+  const actor: Actor = tipo === 'claude-code' ? 'code' : 'ia';
+  const base = tipo === 'whatsapp' ? 'WhatsApp' : tipo === 'claude-code' ? 'Claude Code' : tipo === 'fathom' ? 'Fathom' : 'MaKo';
+  return { actor, desde: f?.etiqueta ? `${base} · ${f.etiqueta}` : base };
+}
+
+export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string };
+
+/** MaKo agrega tareas al board del dueño DIRECTO a la DB (antes iban a la bandeja
+ *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
+ *  pone score inicial por prioridad (después el Perro las re-puntúa), firma el historial
+ *  con la fuente y devuelve los ids para armar los deep-links (?tarea=<id>). */
+export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente): Promise<{ ids: string[]; nums: number[] }> {
+  return enPlan(async () => {
+    const db = await getTenantDb();
+    const { actor, desde } = desdeDeFuente(fuente);
+    const fu: Fuente = fuente ?? { tipo: 'whatsapp' };
+    const ahora = Date.now();
+    const validos = items.filter((it) => (it.titulo || '').trim());
+    if (!validos.length) return { ids: [], nums: [] };
+
+    // 1. proyectos existentes (resolver por nombre) + crear los que falten (dedupe).
+    const { data: projRows } = await db.from('plan_proyectos').select('*');
+    const proyectos = (projRows ?? []).map(rowToLabel);
+    const byName = new Map(proyectos.map((p) => [p.name.trim().toLowerCase(), p.id]));
+    const nuevosProy: Label[] = [];
+    for (const it of validos) {
+      const nombre = it.proyecto?.trim();
+      if (!nombre) continue;
+      const k = nombre.toLowerCase();
+      if (byName.has(k)) continue;
+      const id = genId('p');
+      byName.set(k, id);
+      nuevosProy.push({ id, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
+    }
+    if (nuevosProy.length) {
+      const base = proyectos.length;
+      const { error } = await db.from('plan_proyectos').insert(nuevosProy.map((l, i) => labelToRow(l, base + i)));
+      if (error) throw new Error(`agregarTareasPlanOwner proyectos: ${error.message}`);
+    }
+
+    // 2. tareas: #num autoritativo (server) + score inicial por prioridad.
+    const start = await proximoNum(db);
+    const tareas: BoardTask[] = validos.map((it, i) => {
+      const prio: Prio = it.prioridad ?? 'media';
+      const projId = it.proyecto?.trim() ? byName.get(it.proyecto.trim().toLowerCase()) : undefined;
+      return {
+        id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
+        detalle: it.detalle?.slice(0, 600) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
+        deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
+        historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó la tarjeta — ${desde}` }],
+        origen: actor, fuente: fu, enPrioridad: false,
+      };
+    });
+    const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));
+    if (error) throw new Error(`agregarTareasPlanOwner tareas: ${error.message}`);
+    return { ids: tareas.map((t) => t.id), nums: tareas.map((t) => t.num) };
   });
 }
 

@@ -17,7 +17,7 @@ import { getLead, setPipelineStage, getFunnel } from '@/lib/leads';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
-import { agregarABandeja } from '@/lib/plan-inbox';
+import { agregarTareasPlanOwner } from '@/lib/plan-board';
 
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
 const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
@@ -81,8 +81,9 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         return { ok: true, resumen: `Campaña ${payload.estado === 'ACTIVE' ? 'activada' : 'pausada'}.` };
       }
       case 'tareas_plan': {
-        // Agregar tareas al plan (punto 8). El super-admin (OWNER_WS) usa la BANDEJA
-        // (su board es localStorage); los clientes van derecho a la base (todo.ts).
+        // Agregar tareas al plan (punto 8). El super-admin (OWNER_WS) escribe DIRECTO al
+        // board en la DB (mig 0093, antes iba a la bandeja localStorage); los clientes van
+        // derecho a la base (todo.ts).
         const arr = Array.isArray(payload.tareas) ? (payload.tareas as Array<Record<string, unknown>>) : [];
         const items = arr
           .map((t) => ({ titulo: String(t.titulo ?? '').trim(), prioridad: prioOk(t.prioridad), proyecto: t.proyecto ? String(t.proyecto).trim() : undefined, deadline: typeof t.deadline === 'string' && t.deadline ? t.deadline : undefined, detalle: typeof t.detalle === 'string' && t.detalle ? String(t.detalle) : undefined }))
@@ -92,8 +93,11 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const mirar = items.length === 1 ? 'Miralo acá' : 'Miralas acá';
 
         if (ws === OWNER_WS) {
-          const refIds = await agregarABandeja(items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle })));
-          const links = refIds.map((r) => `${APP_URL}/plan/agencia?tarea=${r}`);
+          const { ids } = await agregarTareasPlanOwner(
+            items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle })),
+            { tipo: 'whatsapp' },
+          );
+          const links = ids.map((id) => `${APP_URL}/plan/agencia?tarea=${id}`);
           return { ok: true, resumen: `Agregué ${nN} a tu plan. ${mirar}:\n${links.join('\n')}` };
         }
 
