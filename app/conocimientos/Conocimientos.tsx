@@ -12,7 +12,7 @@
 // El detalle de un recurso Notion se muestra INTERCALADO y lado a lado (imagen
 // de referencia | su etiqueta + prompt) para que se entienda fácil.
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CURSOS, type Curso, type Clase, type Recurso } from './curso';
 
@@ -23,10 +23,10 @@ const nn = (n: number) => String(n).padStart(2, '0');
 const TIPO_BADGE: Record<Recurso['tipo'], string> = { gpt: 'Agente', notion: 'Prompts', pdf: 'Catálogo', bank: 'Recursos' };
 const claseTag = (clases?: number[]) => !clases || !clases.length ? undefined : (clases.length === 1 ? `Clase ${clases[0]}` : `Clases ${clases.join('·')}`);
 
-const EXT_MSG = 'Vive FUERA de MaKo (Drive / Notion). Si el dueño lo elimina, se pierde esta base de conocimiento. Conviene respaldarlo dentro de nuestro dominio.';
-// Marca de advertencia: dato alojado fuera de nuestro dominio.
+const EXT_MSG = 'Alojado por un TERCERO (Notion del creador / Drive de otra cuenta), no en tu dominio. Si su dueño lo elimina, se pierde. Conviene respaldarlo.';
+// Marca de advertencia: dato de un tercero (fuera de tu control).
 function Ext({ badge }: { badge?: boolean }) {
-  return <span className={badge ? 'al-ext al-ext-badge' : 'al-ext'} title={EXT_MSG}>⚠{badge ? '' : ' Externo'}</span>;
+  return <span className={badge ? 'al-ext al-ext-badge' : 'al-ext'} title={EXT_MSG}>⚠{badge ? '' : ' De un tercero'}</span>;
 }
 
 // Póster vertical del video de ejemplo. Drive dibuja su player en horizontal
@@ -174,7 +174,7 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
       </div>
 
       {c.videoId ? (
-        <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /><Ext badge /></div>
+        <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /></div>
       ) : <div className="al-video al-video-x"><span>Video no disponible</span></div>}
 
       {c.resumen && (
@@ -328,17 +328,17 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
         <div className="al-docbox"><DocContent text={r.texto} /></div>
       )}
 
-      {/* Notion sin bloques pero con capturas → visor */}
+      {/* Notion sin bloques pero con capturas → visor (capturas = PDF en TU Drive) */}
       {r.tipo === 'notion' && !sections && r.capturasDriveId && (
         <div className="al-block">
-          <span className="al-block-l">Ejemplos visuales <Ext /></span>
+          <span className="al-block-l">Ejemplos visuales</span>
           <div className="al-pdf"><iframe src={DRIVE_PREVIEW(r.capturasDriveId)} title={`${r.label} — ejemplos`} loading="lazy" allowFullScreen /></div>
         </div>
       )}
 
       {r.tipo === 'pdf' && r.driveId && (
         <div className="al-block">
-          <span className="al-block-l">Catálogo en PDF <Ext /></span>
+          <span className="al-block-l">Catálogo en PDF</span>
           <div className="al-pdf al-pdf-tall"><iframe src={DRIVE_PREVIEW(r.driveId)} title={r.label} loading="lazy" allowFullScreen /></div>
         </div>
       )}
@@ -347,7 +347,7 @@ function RecursoDetail({ r, back }: { r: Recurso; back: () => void }) {
         <div className="al-list">
           {r.items.map((it, i) => (
             <a key={i} href={it.url} target="_blank" rel="noopener noreferrer" className="al-list-item">
-              <span>{it.label}</span><span className="al-list-r">{/drive\.google\.com/.test(it.url) && <Ext />}<span className="al-arr">↗</span></span>
+              <span>{it.label}</span><span className="al-list-r"><span className="al-arr">↗</span></span>
             </a>
           ))}
         </div>
@@ -364,12 +364,26 @@ export default function Conocimientos() {
   const rSlug = params.get('r');
   const curso = cursoSlug ? CURSOS.find((c) => c.slug === cursoSlug) : undefined;
 
+  const viewKey = params.toString();
+  const scrollKey = (k: string) => 'cono-scroll:' + k;
+
   const nav = (q: Record<string, string>) => {
+    // Guardo el scroll de la vista actual para poder restaurarlo si vuelvo acá.
+    try { sessionStorage.setItem(scrollKey(viewKey), String(window.scrollY)); } catch { /* noop */ }
     const qs = new URLSearchParams(q).toString();
-    router.push('/conocimientos' + (qs ? '?' + qs : ''));
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
+    router.push('/conocimientos' + (qs ? '?' + qs : ''), { scroll: false });
   };
   const back = () => router.back();
+
+  // Al cambiar de vista (incluye Atrás del navegador y "Volver"): restaurar el
+  // scroll guardado de esa vista, o ir arriba si es una vista nueva.
+  useEffect(() => {
+    let saved = 0;
+    try { saved = parseInt(sessionStorage.getItem(scrollKey(viewKey)) || '0', 10) || 0; } catch { /* noop */ }
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => window.scrollTo({ top: saved, behavior: 'instant' as ScrollBehavior })); });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, [viewKey]);
 
   const clase = curso && claseN ? curso.clases.find((c) => String(c.n) === claseN) : undefined;
   const recurso = curso && rSlug ? curso.recursos.find((r) => r.slug === rSlug) : undefined;
