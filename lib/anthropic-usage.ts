@@ -30,6 +30,7 @@ const PRICING: Record<string, { in: number; out: number }> = {
   'claude-opus-4-7': { in: 5, out: 25 },
   'claude-opus-4-6': { in: 5, out: 25 },
   'claude-sonnet-4-6': { in: 3, out: 15 },
+  'claude-sonnet-5': { in: 3, out: 15 },   // default "Sonnet" del registro (faltaba → se cobraba a precio de Opus)
   'claude-haiku-4-5': { in: 1, out: 5 },
   'claude-fable-5': { in: 10, out: 50 },
   // Baratos (tareas simples)
@@ -39,6 +40,10 @@ const PRICING: Record<string, { in: number; out: number }> = {
   'gpt-4o-mini': { in: 0.15, out: 0.60 },           // OpenAI
 };
 const DEFAULT_PRICE = { in: 5, out: 25 };
+// Precio de Gemini cuando el cliente cargó créditos (tier pago). En free tier no cobra
+// (costFor devuelve 0 al escribir); getUsageSummary recomputa el costo real de las filas
+// de Gemini SOLO si hay saldo registrado → así el restante de créditos baja de verdad.
+export const GEMINI_PRICE_PAGO = { in: 0.30, out: 2.50 }; // gemini-2.5-flash ≈ USD/1M in/out
 
 // STT: precio por SEGUNDO de audio (USD). El STT cobra por duración, no por tokens.
 const STT_PRICE_SEG: Record<string, number> = {
@@ -177,9 +182,14 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const feat = new Map<string, { costUsd: number; tokens: number }>();
   const prov = new Map<string, { mes: number; tokens: number; hoy: number; desdeSaldo: number }>();
   for (const r of rows) {
-    const c = Number(r.cost_usd) || 0;
-    const tk = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
     const p = r.provider ?? 'anthropic';
+    const tk = (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0);
+    // Gemini se guarda a costo 0 (free tier no cobra). Si el dueño registró créditos
+    // (tiene saldo de gemini) recomputamos el costo REAL de sus filas para que el
+    // restante y el gasto reflejen lo que se paga. Sin créditos, sigue en 0.
+    const c = (p === 'gemini' && sGemini)
+      ? ((Number(r.input_tokens) || 0) * GEMINI_PRICE_PAGO.in + (Number(r.output_tokens) || 0) * GEMINI_PRICE_PAGO.out) / 1_000_000
+      : (Number(r.cost_usd) || 0);
     const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     if (r.created_at >= monthStart) {
       gastadoMesUsd += c; // gasto total de IA del mes (todos los proveedores)
