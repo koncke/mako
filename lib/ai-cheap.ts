@@ -96,6 +96,25 @@ function bloqueATexto(content: RichMsg['content']): string {
   return content.filter((b) => b.type === 'text').map((b) => String((b as { text?: string }).text ?? '')).join('\n').trim();
 }
 
+// Gemini (function-calling) RECHAZA varios keywords de JSON Schema que Claude y
+// OpenAI aceptan sin drama (additionalProperties, propertyNames, $schema/$ref/$defs,
+// default, title, format, const, examples, exclusiveMin/Max…) → 400 INVALID_ARGUMENT
+// y toda la llamada falla. Los limpiamos recursivamente SOLO para Gemini (los otros
+// proveedores los toleran, no les tocamos nada). Ref: ai.google.dev/gemini-api/docs/openai.
+const GEMINI_SCHEMA_STRIP = new Set(['additionalProperties', 'propertyNames', '$schema', '$defs', '$ref', '$id', '$comment', 'default', 'examples', 'title', 'const', 'format', 'exclusiveMaximum', 'exclusiveMinimum']);
+function sanitizarSchemaGemini(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(sanitizarSchemaGemini);
+  if (node && typeof node === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (GEMINI_SCHEMA_STRIP.has(k)) continue;
+      out[k] = sanitizarSchemaGemini(v);
+    }
+    return out;
+  }
+  return node;
+}
+
 export type CheapToolsResult = ToolsResult & { toolsUsados: number };
 
 /**
@@ -116,7 +135,20 @@ export async function chatCheapTools(
   const p = await proveedor(opts.provider);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
-  const oaiTools = tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+  const esGemini = p.nombre === 'gemini';
+  const oaiTools = tools.map((t) => {
+    const fn: Record<string, unknown> = { name: t.name, description: t.description };
+    let params: unknown = t.input_schema;
+    if (esGemini) {
+      params = sanitizarSchemaGemini(t.input_schema);
+      // Gemini RECHAZA un OBJECT con `properties` vacío (400): las tools SIN parámetros
+      // (ver_plan, estado_experimentos, ver_funnel…) tienen que ir SIN `parameters`.
+      const props = (params as { properties?: Record<string, unknown> } | null)?.properties;
+      if (!props || Object.keys(props).length === 0) params = undefined;
+    }
+    if (params !== undefined) fn.parameters = params as Record<string, unknown>;
+    return { type: 'function', function: fn };
+  });
   const msgs: Array<Record<string, unknown>> = [{ role: 'system', content: system }];
   for (const m of messages) msgs.push({ role: m.role, content: bloqueATexto(m.content) });
 
