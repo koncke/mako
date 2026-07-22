@@ -139,6 +139,16 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida.' };
   },
 
+  async gemini(v) {
+    // Gemini expone un endpoint OpenAI-compatible: /openai/models con Bearer.
+    const { status } = await fetchJson('https://generativelanguage.googleapis.com/v1beta/openai/models', {
+      headers: { Authorization: `Bearer ${v.GEMINI_API_KEY}` },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `Gemini respondió ${status}.` };
+    return { ok: true, detalle: 'Key válida — MaKo puede usar Gemini Flash.' };
+  },
+
   async fathom(v) {
     const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },

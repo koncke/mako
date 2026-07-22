@@ -6,6 +6,7 @@
 
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
+import { credWs } from './credenciales';
 
 // Opus 4.8: el modelo más pensante disponible.
 const MODEL = 'claude-opus-4-8';
@@ -26,13 +27,11 @@ export async function chatClaude(
   // tokens/costo de ESTA llamada (para mostrarlo al usuario).
   opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void } = {},
 ): Promise<string> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
-
-  // Override configurable por feature (tab de modelos en SuperAdmin). Si el caller
-  // NO forzó un modelo y la feature está ruteada a otra IA (Groq/OpenAI), delegamos
-  // a la capa barata; si es otro modelo de Claude, lo usamos. Fallback a Claude si
-  // la barata falla (no romper una tarea por un override mal puesto).
+  // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
+  // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), delegamos a la
+  // capa barata ANTES de exigir la key de Anthropic (un cliente puede tener SOLO
+  // Gemini). Si es otro modelo de Claude, lo usamos. Fallback a Claude si la barata
+  // falla (no romper una tarea por un override mal puesto).
   let modeloOverride: string | undefined;
   if (!opts.model && opts.feature) {
     try {
@@ -51,6 +50,11 @@ export async function chatClaude(
       }
     } catch { /* sin registro → default */ }
   }
+
+  // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del
+  // dueño. Antes leía process.env directo → un cliente con su key pega no la usaba.
+  const key = await credWs('ANTHROPIC_API_KEY');
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
 
   // thinking === false → sin razonamiento extendido (tareas chicas, p.ej. títulos).
   const thinkingOn = opts.thinking ?? true;
@@ -145,23 +149,37 @@ export async function chatClaudeTools(
     onStep?: (info: { step: number; toolCalls: Array<{ name: string; input: Record<string, unknown> }> }) => void;
   } = {},
 ): Promise<ToolsResult> {
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
-
-  // Override configurable por feature (tab /modelos-ia). El LOOP de tools necesita
-  // un modelo con tool-use → solo modelos de Anthropic; si el override apunta a
-  // Groq/OpenAI (sin soporte de tools acá), lo ignoramos y quedamos en Claude. Así
-  // el doer se puede bajar a Sonnet desde la UI (antes esto era config MUERTA:
-  // chatClaudeTools jamás leía el registro y todo corría en Opus).
+  // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
+  // modelo y la feature está ruteada a otra IA (Groq/OpenAI/Gemini), corremos el
+  // LOOP de tools por chatCheapTools (function-calling OpenAI-compat) ANTES de
+  // exigir la key de Anthropic. Fallback a Claude si la barata falla. Si es otro
+  // modelo de Claude, lo usamos (antes chatClaudeTools ignoraba el registro y todo
+  // corría en Opus). El doer de WhatsApp pasa `model` explícito (router) → salta
+  // esto y sigue en Claude; su ruteo a barato va por su propio camino (DOER_GROQ_TOOLS).
   let model = opts.model ?? MODEL;
   if (!opts.model && opts.feature) {
     try {
       const { modeloDeFeature } = await import('@/lib/model-registry');
       const ref = await modeloDeFeature(opts.feature);
-      if (ref?.provider === 'anthropic') model = ref.model;
-      else if (ref) console.warn(`[anthropic] tools ${opts.feature}: override ${ref.provider} no soporta tool-use, uso ${model}`);
+      if (ref && ref.provider !== 'anthropic') {
+        try {
+          const { chatCheapTools } = await import('@/lib/ai-cheap');
+          const r = await chatCheapTools(system, messages, tools, runTool, {
+            maxSteps: opts.maxSteps, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model,
+          });
+          return { text: r.text, steps: r.steps, stopReason: r.stopReason };
+        } catch (e) {
+          console.warn(`[anthropic] tools ${opts.feature}→${ref.provider} falló, uso Claude: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      } else if (ref) {
+        model = ref.model;
+      }
     } catch { /* sin registro → default */ }
   }
+
+  // La key de Claude sale POR WORKSPACE (BYOK): fila cifrada del cliente > env del dueño.
+  const key = await credWs('ANTHROPIC_API_KEY');
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
   const effort: Effort = opts.effort ?? DEFAULT_EFFORT;
   const maxSteps = opts.maxSteps ?? 8;
   const msgs: RichMsg[] = [...messages];

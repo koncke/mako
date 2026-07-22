@@ -185,6 +185,26 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    key: 'gemini',
+    nombre: 'Google Gemini',
+    categoria: 'Inteligencia',
+    paraQue: 'IA de Google con 1M de contexto y function-calling. El plan gratis no cobra, pero Google usa tus datos para mejorar sus productos (con revisión humana). Para datos de clientes usá una key PAGA (activá facturación en el proyecto): esa NO entrena.',
+    campos: [
+      { env: 'GEMINI_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…' },
+    ],
+    tutorial: {
+      url: 'https://aistudio.google.com/apikey',
+      urlLabel: 'Google AI Studio → API keys',
+      pasos: [
+        'Entrá a aistudio.google.com y logueate con tu cuenta de Google.',
+        'Abrí "Get API key" (o entrá directo a aistudio.google.com/apikey).',
+        'Tocá "Create API key" y elegí (o creá) un proyecto de Google Cloud.',
+        'Copiá la key (empieza con AIza).',
+        'Por default queda en el plan GRATIS (1M de contexto, sin cargo) pero Google entrena con tus datos y puede revisarlos a mano. Para datos sensibles, activá facturación en el proyecto → pasa al plan pago, que NO entrena.',
+      ],
+    },
+  },
+  {
     key: 'fathom',
     nombre: 'Fathom',
     categoria: 'Reuniones',
@@ -458,6 +478,16 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
     ],
     url: 'https://console.groq.com/keys',
     urlLabel: 'Groq Console → API Keys',
+  },
+  GEMINI_API_KEY: {
+    pasos: [
+      'Entrá a aistudio.google.com y logueate con tu cuenta de Google.',
+      'Abrí "Get API key" → "Create API key" y elegí o creá un proyecto de Google Cloud.',
+      'Copiá la key (empieza con AIza) — se muestra una sola vez.',
+      'Queda en el plan GRATIS (1M de contexto, sin cargo) pero Google usa tus datos para mejorar sus productos, con revisión humana. Para datos de clientes, activá facturación en el proyecto → plan pago, que no entrena.',
+    ],
+    url: 'https://aistudio.google.com/apikey',
+    urlLabel: 'Google AI Studio → API keys',
   },
   FATHOM_API_KEY: {
     pasos: [

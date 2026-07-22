@@ -14,7 +14,7 @@ import 'server-only';
 import { getSetting, setSetting } from '@/lib/settings';
 import { OWNER_WS, runWithWorkspace } from '@/lib/workspace';
 
-export type Proveedor = 'anthropic' | 'groq' | 'openai';
+export type Proveedor = 'anthropic' | 'groq' | 'openai' | 'gemini';
 export type ModeloRef = { provider: Proveedor; model: string };
 export type FeatureModelo = {
   feature: string;          // tag de gasto (el que se pasa a chatClaude/chatCheap)
@@ -30,6 +30,9 @@ const CLAUDE = (model = 'claude-opus-4-8'): ModeloRef => ({ provider: 'anthropic
 const SONNET: ModeloRef = { provider: 'anthropic', model: 'claude-sonnet-5' };
 const GROQ = (model = 'openai/gpt-oss-20b'): ModeloRef => ({ provider: 'groq', model });
 const GROQ_WHISPER: ModeloRef = { provider: 'groq', model: 'whisper-large-v3-turbo' };
+// Gemini Flash: 1M de contexto + function-calling. BYOK por cliente (su propia key).
+// El free entrena; para datos de clientes va key paga (ver metodo-catalogo).
+const GEMINI = (model = 'gemini-2.5-flash'): ModeloRef => ({ provider: 'gemini', model });
 
 // Catálogo de TODOS los procesos de IA de la app (del audit). Cada `feature` es el
 // tag REAL que el call-site le pasa a chatClaude/chatCheap: si no coincide, el
@@ -56,7 +59,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: SONNET, nota: 'Estrategia + voz de marca. Sonnet.' },
-  { feature: 'ads-writer', label: 'Escribir copy de anuncios', grupo: 'Copywriting', def: SONNET },
+  { feature: 'ads-writer', label: 'Escribir copy de anuncios', grupo: 'Copywriting', def: SONNET, recomendado: GEMINI(), nota: 'Copy sin datos de clientes → candidato a Gemini Flash (1M de contexto, gratis con la key del cliente).' },
   { feature: 'wa-advisor', label: 'Asesor de WhatsApp — sugerir respuesta a un lead', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Analiza la charla real y propone el próximo mensaje (datos del cliente).' },
   { feature: 'wa-advisor-chat', label: 'Asesor de WhatsApp — conversar con MaKo sobre el lead', grupo: 'Copywriting', def: SONNET, pii: true, nota: 'Ida y vuelta de preguntas sobre el lead (datos del cliente).' },
   { feature: 'wa-template', label: 'Generar plantilla de WhatsApp (asesor)', grupo: 'Copywriting', def: SONNET },

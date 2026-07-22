@@ -14,36 +14,56 @@
 import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
+import { credWs } from '@/lib/credenciales';
 
-type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: string };
+export type ProvName = 'groq' | 'openai' | 'gemini';
+type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: ProvName };
 
-function provDe(nombre: 'groq' | 'openai'): Prov | null {
+// La key sale POR WORKSPACE (credWs): la fila cifrada del cliente primero, y para
+// el DUEÑO el env queda de respaldo. Así cada cliente usa SU propia key (BYOK real)
+// y su gasto corre contra SU cuenta; un cliente sin fila propia → null, nunca la
+// del dueño (aislamiento). Antes se leía process.env directo → pagaba la agencia.
+async function provDe(nombre: ProvName): Promise<Prov | null> {
   if (nombre === 'groq') {
-    const groq = process.env.GROQ_API_KEY;
-    if (!groq) return null;
-    return { nombre: 'groq', base: (process.env.CHEAP_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, ''), key: groq, chatModel: process.env.CHEAP_MODEL || 'openai/gpt-oss-20b', sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo' };
+    const key = await credWs('GROQ_API_KEY');
+    if (!key) return null;
+    return { nombre: 'groq', base: (process.env.CHEAP_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/$/, ''), key, chatModel: process.env.CHEAP_MODEL || 'openai/gpt-oss-20b', sttModel: process.env.STT_MODEL || 'whisper-large-v3-turbo' };
   }
-  const oai = process.env.OPENAI_API_KEY;
-  if (!oai) return null;
-  return { nombre: 'openai', base: 'https://api.openai.com/v1', key: oai, chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
+  if (nombre === 'gemini') {
+    const key = await credWs('GEMINI_API_KEY');
+    if (!key) return null;
+    // Endpoint OpenAI-compatible de Gemini (chat + function-calling). SIN STT: su
+    // transcripción es multimodal nativa, no /audio/transcriptions → el STT se
+    // queda en Groq/OpenAI (ver proveedorStt). 1M de contexto, function-calling.
+    return { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', key, chatModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash', sttModel: '' };
+  }
+  const key = await credWs('OPENAI_API_KEY');
+  if (!key) return null;
+  return { nombre: 'openai', base: 'https://api.openai.com/v1', key, chatModel: process.env.CHEAP_MODEL || 'gpt-4o-mini', sttModel: process.env.STT_MODEL || 'whisper-1' };
 }
 
-/** Resuelve el proveedor barato: Groq si hay key, si no OpenAI. `pref` fuerza uno
- *  (del registro de modelos); si no está disponible cae al default. null si ninguno. */
-function proveedor(pref?: 'groq' | 'openai'): Prov | null {
-  if (pref) { const p = provDe(pref); if (p) return p; }
-  return provDe('groq') ?? provDe('openai');
+/** Proveedor barato para CHAT. `pref` (del registro de modelos) fuerza uno; si no
+ *  está, cae a groq→openai. Gemini SOLO sale si lo pide `pref` explícito: necesita
+ *  la key del cliente y no entra en el fallback por default. null si ninguno. */
+async function proveedor(pref?: ProvName): Promise<Prov | null> {
+  if (pref) { const p = await provDe(pref); if (p) return p; }
+  return (await provDe('groq')) ?? (await provDe('openai'));
 }
 
-export function cheapDisponible(): boolean { return proveedor() !== null; }
-export function sttDisponible(): boolean { return proveedor() !== null; }
+/** Proveedor para STT (Whisper): solo Groq/OpenAI (Gemini no expone ese endpoint). */
+async function proveedorStt(): Promise<Prov | null> {
+  return (await provDe('groq')) ?? (await provDe('openai'));
+}
+
+export async function cheapDisponible(): Promise<boolean> { return (await proveedor()) !== null; }
+export async function sttDisponible(): Promise<boolean> { return (await proveedorStt()) !== null; }
 
 /**
  * LLM barato para tareas simples. Devuelve el texto (o el JSON crudo si json=true).
  * NO usar para copywriting con voz de marca ni razonamiento fino → eso es chatClaude.
  */
-export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: 'groq' | 'openai'; model?: string }): Promise<string> {
-  const p = proveedor(opts.provider);
+export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string }): Promise<string> {
+  const p = await proveedor(opts.provider);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
   const res = await fetch(`${p.base}/chat/completions`, {
@@ -91,9 +111,9 @@ export async function chatCheapTools(
   messages: RichMsg[],
   tools: ToolDef[],
   runTool: ToolRunner,
-  opts: { maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string; provider?: 'groq' | 'openai'; model?: string } = {},
+  opts: { maxSteps?: number; maxTokens?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string } = {},
 ): Promise<CheapToolsResult> {
-  const p = proveedor(opts.provider);
+  const p = await proveedor(opts.provider);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
   const oaiTools = tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
@@ -151,7 +171,7 @@ const EXT_POR_MIME = (mime: string): string =>
  * Endpoint OpenAI-compatible /audio/transcriptions (Groq Whisper u OpenAI Whisper).
  */
 export async function transcribirAudio(base64: string, mime: string, opts?: { language?: string; prompt?: string; feature?: string; motivo?: string }): Promise<string> {
-  const p = proveedor();
+  const p = await proveedorStt();
   if (!p) throw new Error('Sin proveedor de STT (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';

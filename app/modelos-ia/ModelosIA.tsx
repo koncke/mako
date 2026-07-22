@@ -10,13 +10,13 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 
-type Ref = { provider: 'anthropic' | 'groq' | 'openai'; model: string };
+type Ref = { provider: 'anthropic' | 'groq' | 'openai' | 'gemini'; model: string };
 type Item = { feature: string; label: string; grupo: string; def: Ref; recomendado?: Ref; pii?: boolean; nota?: string; actual: Ref; overrideado: boolean };
 
 const MONO = "'Geist Mono', monospace";
-const PROV_LABEL: Record<string, string> = { anthropic: 'Claude', groq: 'Groq', openai: 'OpenAI' };
+const PROV_LABEL: Record<string, string> = { anthropic: 'Claude', groq: 'Groq', openai: 'OpenAI', gemini: 'Gemini' };
 const refKey = (r: Ref) => `${r.provider}|${r.model}`;
-const nombreCorto = (r: Ref) => `${PROV_LABEL[r.provider] ?? r.provider} · ${r.model.replace(/^openai\//, '').replace('claude-', '').replace('-versatile', '')}`;
+const nombreCorto = (r: Ref) => `${PROV_LABEL[r.provider] ?? r.provider} · ${r.model.replace(/^openai\//, '').replace('claude-', '').replace('gemini-', '').replace('-versatile', '')}`;
 
 const CHAT_OPTS: DropdownOption[] = [
   { value: 'anthropic|claude-opus-4-8', label: 'Claude Opus 4.8', sub: 'máximo razonamiento / voz de marca' },
@@ -29,6 +29,8 @@ const CHAT_OPTS: DropdownOption[] = [
   { value: 'openai|gpt-4o-mini', label: 'OpenAI · gpt-4o-mini', sub: 'barato' },
   { value: 'openai|gpt-5-mini', label: 'OpenAI · gpt-5-mini', sub: 'OpenAI intermedio, barato' },
   { value: 'openai|gpt-4o', label: 'OpenAI · gpt-4o', sub: 'OpenAI, con visión' },
+  { value: 'gemini|gemini-2.5-flash', label: 'Gemini · 2.5 Flash', sub: '1M contexto · gratis con tu key (el free entrena)' },
+  { value: 'gemini|gemini-2.5-flash-lite', label: 'Gemini · 2.5 Flash-Lite', sub: 'el más barato/rápido de Google' },
 ];
 const STT_OPTS: DropdownOption[] = [
   { value: 'groq|whisper-large-v3-turbo', label: 'Groq · Whisper v3 turbo', sub: 'STT barato' },

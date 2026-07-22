@@ -411,7 +411,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       // pesa más → falla y cae a Claude igual. Por eso queda detrás de un flag: prendé
       // DOER_GROQ_TOOLS=1 SOLO con Groq Dev (de pago, sin ese tope) y el tier 'sonnet'
       // corre ~gratis. Por default = Claude (ya mucho más barato por el router+lean+subset).
-      if (process.env.DOER_GROQ_TOOLS === '1' && !pin && ruta.tier === 'sonnet' && !mediaBlocks && cheapDisponible()) {
+      if (process.env.DOER_GROQ_TOOLS === '1' && !pin && ruta.tier === 'sonnet' && !mediaBlocks && (await cheapDisponible())) {
         try {
           const r = await chatCheapTools(system, msgs, tools, runTool, { feature: 'mako-doer-in', maxSteps: 6, motivo: `groq ${ruta.motivo} «${recorte}»` });
           // El tier sonnet SIEMPRE implica una tool (dato/acción/plan/confirmación): si

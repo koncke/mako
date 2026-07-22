@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   }
   const provider = body.provider as Proveedor;
   const model = String(body.model ?? '').trim();
-  if (!['anthropic', 'groq', 'openai'].includes(provider) || !model) {
+  if (!['anthropic', 'groq', 'openai', 'gemini'].includes(provider) || !model) {
     return NextResponse.json({ ok: false, error: 'provider/model requeridos' }, { status: 400 });
   }
   await setModeloFeature(feature, { provider, model });

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
     case 'probar-audio': {
       // Prueba SOLO la transcripción (STT): base64 de un audio → texto.
-      if (!cheapDisponible()) return NextResponse.json({ ok: false, error: 'Falta GROQ_API_KEY u OPENAI_API_KEY' }, { status: 400 });
+      if (!(await cheapDisponible())) return NextResponse.json({ ok: false, error: 'Falta GROQ_API_KEY u OPENAI_API_KEY' }, { status: 400 });
       if (!body.audioBase64) return NextResponse.json({ ok: false, error: 'falta audioBase64' }, { status: 400 });
       try {
         const texto = await transcribirAudio(body.audioBase64, body.mime || 'audio/ogg', { language: 'es' });
