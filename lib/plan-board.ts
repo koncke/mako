@@ -245,7 +245,6 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score) }));
     const proyNuevos = filasP.filter((p) => projSet.has(p.id)).map((p) => ({ id: p.id, nombre: str(p.name, 'Proyecto') }));
     const existentesP = filasP.filter((p) => !projSet.has(p.id)).map((p) => ({ nombre: str(p.name), score: int(p.score) }));
-    const nombresProy = new Map(filasP.map((p) => [p.id, str(p.name, 'Proyecto')]));
     const tareasPorProy = proyNuevos.map((p) => {
       const titulos = nuevas.filter((n) => n.proyecto === p.id).map((n) => n.titulo);
       return `[${p.id}] ${p.nombre}: ${titulos.join('; ') || '(sin tareas)'}`;
