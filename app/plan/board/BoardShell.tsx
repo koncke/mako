@@ -129,6 +129,9 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dlLoaded, tasks.length]);
   const hayWelcome = welcomeTasks.length > 0;
+  // Los proyectos que tocan esas tareas nuevas (para la tab "Proyectos" del modal).
+  const welcomeProjIds = new Set(welcomeTasks.flatMap((t) => t.labels));
+  const welcomeProjects = labels.filter((l) => welcomeProjIds.has(l.id));
   const marcarWelcomeVisto = () => {
     try {
       const raw = localStorage.getItem(dlKey('mako_plan_welcome_seen'));
@@ -469,9 +472,8 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onLuego={() => setDatosConfirm(false)} />}
       {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
-      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks}
-        renderCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} />}
-        onClose={() => setWelcomeVisible(false)} />}
+      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects}
+        onOpenTask={setOpenId} onOpenProj={setOpenProj} onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>

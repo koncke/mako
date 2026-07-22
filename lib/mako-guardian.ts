@@ -395,7 +395,7 @@ Puntuá SOLO los proyectos nuevos, con su id tal cual. CADA proyecto con un scor
 
 export const GUARDIAN_PROY_NUEVOS_SYSTEM_TEMPLATE = `Sos MaKo, el "perro guardián" de las prioridades de un negocio. Entran PROYECTOS NUEVOS a un plan que YA tiene proyectos priorizados. Por CADA proyecto nuevo dale:
 - un EMOJI que lo represente (uno solo, no 📁 genérico);
-- un DETALLE de 2-3 frases: qué agrupa, qué tipo de tareas viven acá y por qué importa para el negocio;
+- un DETALLE SÓLIDO (3-4 frases): qué agrupa, qué tareas viven acá, qué mueve en el negocio y por qué su prioridad. Que se entienda de una, sin relleno ni una línea suelta;
 - IMPACTO + ESFUERZO (1-100) → SCORE (1-100), ubicándolo en la ESCALA de los proyectos que ya existen (te los paso con su score). El más alto de TODO el plan es el Objetivo Principal; NO amontones arriba. CADA proyecto con un número DISTINTO — PROHIBIDO empatar.
 
 NO SOS COMPLACIENTE. Un proyecto vale por lo que acerca a la VENTA / al ingreso real, más rápido y más fácil. Si es pulido o "por las dudas", va abajo. Usá las tareas de cada proyecto para entender de qué se trata.

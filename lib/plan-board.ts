@@ -254,7 +254,7 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
     const [scoreRes, checklistRes, proyRes] = await Promise.all([
       nuevas.length ? puntuarNuevas(nuevas, existentesT, contexto, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number }[] }),
-      nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), 'Checklists de tareas nuevas') : Promise.resolve({} as Record<string, string[]>),
+      nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), 'Descripción + checklists de tareas nuevas') : Promise.resolve({} as Record<string, { detalle: string; items: string[] }>),
       proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, contexto, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
     ]);
 
@@ -262,14 +262,15 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
     const byId = new Map(scoreRes.tareas.map((t) => [t.id, t]));
     await Promise.all(nuevas.map((n) => {
       const g = byId.get(n.id);
-      const items = checklistRes[n.id] ?? [];
+      const enr = checklistRes[n.id];
       const patch: Row = { updated_at: new Date().toISOString() };
       if (g) {
         const prio = prioFromScore(g.score);
         cuenta[prio]++;
         patch.score = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
       }
-      if (items.length) patch.checklist = items.map((text): Check => ({ id: genId('c'), text, done: false }));
+      if (enr?.detalle) patch.detalle = enr.detalle; // descripción sólida del Perro (pisa la fina de MaKo)
+      if (enr?.items.length) patch.checklist = enr.items.map((text): Check => ({ id: genId('c'), text, done: false }));
       if (Object.keys(patch).length <= 1) return Promise.resolve(undefined); // solo updated_at
       return db.from('plan_tareas').update(patch).eq('id', n.id).then(() => undefined);
     }));
