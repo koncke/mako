@@ -76,10 +76,14 @@ async function modelosDisponibles(p: Prov): Promise<string> {
  * LLM barato para tareas simples. Devuelve el texto (o el JSON crudo si json=true).
  * NO usar para copywriting con voz de marca ni razonamiento fino → eso es chatClaude.
  */
-export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string }): Promise<string> {
+export async function chatCheap(opts: { system: string; user: string; json?: boolean; maxTokens?: number; temperature?: number; feature?: string; motivo?: string; provider?: ProvName; model?: string; timeoutMs?: number }): Promise<string> {
   const p = await proveedor(opts.provider);
   if (!p) throw new Error('Sin proveedor de IA barata (falta GROQ_API_KEY u OPENAI_API_KEY).');
   const model = opts.model || p.chatModel;
+  // Timeout configurable: 30s alcanza para tareas simples, pero una llamada grande
+  // (el Perro Guardián puntuando TODO el plan: ~40k input + 8k output) tarda más en
+  // Gemini Flash → con el tope fijo abortaba y caía al fallback de Claude. El caller
+  // (chatClaude) lo escala según maxTokens.
   const res = await fetch(`${p.base}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
@@ -94,7 +98,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
       ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
     }),
     cache: 'no-store',
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) {

@@ -33,6 +33,7 @@ export async function chatClaude(
   // Gemini). Si es otro modelo de Claude, lo usamos. Fallback a Claude si la barata
   // falla (no romper una tarea por un override mal puesto).
   let modeloOverride: string | undefined;
+  let fallbackNota = ''; // si caímos de la IA barata a Claude, lo dejamos VISIBLE en el historial
   if (!opts.model && opts.feature) {
     try {
       const { modeloDeFeature } = await import('@/lib/model-registry');
@@ -41,10 +42,18 @@ export async function chatClaude(
         try {
           const { chatCheap } = await import('@/lib/ai-cheap');
           const user = messages.map((m) => m.content).join('\n\n');
-          return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model });
+          // Timeout proporcional al trabajo: una llamada grande (el Perro puntuando TODO
+          // el plan, ~8000 tokens de salida) NO entra en 30s en Gemini Flash y abortaba →
+          // fallback silencioso a Claude. Escalamos con maxTokens (piso 30s, techo 120s).
+          const timeoutMs = Math.min(120000, Math.max(30000, (opts.maxTokens ?? 512) * 12));
+          return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model, timeoutMs });
         } catch (e) {
-          // Falló la IA barata: caemos a Claude SONNET (no Opus) para no disparar el costo.
+          // Falló la IA barata: caemos a Claude SONNET (no Opus) para no romper la tarea NI
+          // disparar el costo. PERO lo dejamos VISIBLE: sin esto, la tab decía "Gemini" y el
+          // historial mostraba "Claude" sin explicación (el reclamo de Martín). Ahora el
+          // motivo dice por qué, así la tab sigue siendo la fuente de verdad.
           modeloOverride = 'claude-sonnet-5';
+          fallbackNota = ` · ⚠ fallback: ${ref.provider} falló (${e instanceof Error ? e.message.slice(0, 90) : 'error'})`;
           console.warn(`[anthropic] override ${opts.feature}→${ref.provider} falló, uso Claude Sonnet: ${e instanceof Error ? e.message : String(e)}`);
         }
       } else if (ref) {
@@ -90,7 +99,8 @@ export async function chatClaude(
     throw new Error(body?.error?.message ?? `Anthropic ${res.status}`);
   }
   // Registrar tokens/costo de esta llamada (best-effort) y avisar al caller.
-  const usage = await recordUsage(opts.feature ?? 'otros', String(payload.model), body.usage, opts.motivo);
+  // Si hubo fallback desde la IA barata, el motivo lo dice → el historial no miente.
+  const usage = await recordUsage(opts.feature ?? 'otros', String(payload.model), body.usage, (opts.motivo ?? '') + fallbackNota);
   opts.onUsage?.(usage);
   // Quedarse solo con el texto (descartar los bloques de "thinking").
   const text = (body.content ?? [])
