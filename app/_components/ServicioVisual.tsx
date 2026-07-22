@@ -26,9 +26,10 @@ export const ICON: Record<string, IconDef> = {
   openai: { sym: 'ic-openai', bg: '#000000' },
   groq: { sym: 'ic-groq', bg: '#F55036' },
   gemini: { sym: 'ic-gemini', bg: '#1B72E8' },     // Google Gemini: spark blanco sobre azul
-  cerebras: { sym: 'ic-cerebras', bg: '#F15A29' }, // chip company → grilla de chip, naranja
-  mistral: { sym: 'ic-mistral', bg: '#FA520F' },   // barras (su M rayada), naranja
-  openrouter: { sym: 'ic-openrouter', bg: '#6366F1' }, // ruteo/branch, índigo
+  cerebras: { sym: 'ic-cerebras', bg: '#EE5A29' }, // mark oficial: C concéntrica blanca sobre naranja
+  // Mistral: logo multicolor (amarillo→rojo) pensado para fondo claro → tile blanco con borde.
+  mistral: { sym: 'ic-mistral', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  openrouter: { sym: 'ic-openrouter', bg: '#000000' }, // mark oficial: forma verde-lima sobre negro
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   calendly: { sym: 'ic-calendly', bg: '#006BFF' },
   google: { sym: 'ic-google', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
@@ -68,9 +69,22 @@ export function BrandDefs() {
       <symbol id="ic-groq" viewBox="0 0 24 24"><path fill="#fff" d="M12 3.4a5.9 5.9 0 0 0 0 11.8h1.9v-2.3H12a3.6 3.6 0 1 1 3.6-3.6v5.1c0 1.9-1.6 3.4-3.5 3.4a3.5 3.5 0 0 1-2.5-1l-1.6 1.6a5.8 5.8 0 0 0 4.1 1.7c3.2 0 5.8-2.5 5.8-5.7V9.2A5.9 5.9 0 0 0 12 3.4z" /></symbol>
       {/* Gemini — spark de 4 puntas (mark oficial de Google Gemini). */}
       <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="#fff" d="M12 2c.35 5.28 4.72 9.65 10 10-5.28.35-9.65 4.72-10 10-.35-5.28-4.72-9.65-10-10C7.28 11.65 11.65 7.28 12 2z" /></symbol>
-      <symbol id="ic-cerebras" viewBox="0 0 24 24"><path fill="#fff" d="M6 6h4.6v4.6H6zM13.4 6H18v4.6h-4.6zM6 13.4h4.6V18H6zM13.4 13.4H18V18h-4.6z" /></symbol>
-      <symbol id="ic-mistral" viewBox="0 0 24 24"><path fill="#fff" d="M5 6h14v2.6H5zM5 10.7h14v2.6H5zM5 15.4h14V18H5z" /></symbol>
-      <symbol id="ic-openrouter" viewBox="0 0 24 24"><path d="M4 12h5m0 0l5.5-5m-5.5 5l5.5 5" stroke="#fff" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" /><circle cx="18" cy="7" r="1.6" fill="#fff" /><circle cx="18" cy="17" r="1.6" fill="#fff" /></symbol>
+      {/* Cerebras — mark oficial: "C" de anillos concéntricos (radar) abierta a la
+          derecha, blanca sobre naranja. La cuña naranja (= color del tile) corta los
+          anillos para formar la abertura de la C. */}
+      <symbol id="ic-cerebras" viewBox="0 0 24 24"><g fill="none" stroke="#fff" strokeWidth="2.2"><circle cx="11.3" cy="12" r="8.7" /><circle cx="11.3" cy="12" r="5.5" /></g><circle cx="11.3" cy="12" r="2.5" fill="#fff" /><path d="M11.3 12 25 5.2 25 18.8Z" fill="#EE5A29" /></symbol>
+      {/* Mistral — mark oficial: grilla pixelada en 5 bandas de color (amarillo→rojo),
+          M almenada arriba y con patas abajo. Sobre blanco (el tile es blanco). */}
+      <symbol id="ic-mistral" viewBox="0 0 24 24"><g>
+        <g fill="#FFD800"><rect x="2" y="3" width="4" height="3.6" /><rect x="14" y="3" width="4" height="3.6" /></g>
+        <g fill="#FFAF00"><rect x="2" y="6.6" width="4" height="3.6" /><rect x="10" y="6.6" width="4" height="3.6" /><rect x="14" y="6.6" width="4" height="3.6" /></g>
+        <g fill="#FF8205"><rect x="2" y="10.2" width="16" height="3.6" /></g>
+        <g fill="#FA500F"><rect x="2" y="13.8" width="4" height="3.6" /><rect x="10" y="13.8" width="4" height="3.6" /><rect x="14" y="13.8" width="4" height="3.6" /></g>
+        <g fill="#E10500"><rect x="2" y="17.4" width="4" height="3.6" /><rect x="14" y="17.4" width="4" height="3.6" /></g>
+      </g></symbol>
+      {/* OpenRouter — mark oficial: forma verde-lima sobre negro ("O" con hueco + pata
+          hacia abajo-derecha, tipo R). */}
+      <symbol id="ic-openrouter" viewBox="0 0 24 24"><circle cx="10.4" cy="11.4" r="7.6" fill="#B4F000" /><path fill="#B4F000" d="M12.6 12h4l4.3 6.5a1.5 1.5 0 0 1-1.25 2.35H12.6z" /><circle cx="9.4" cy="10.9" r="3.2" fill="#000" /></symbol>
       {/* Fathom (fathom.video, el grabador de reuniones) — mark oficial, extraído de su
           propio wordmark: cdn.prod.website-files.com/…/68e7961f4ff1cd5e326512f7_logo-wordmark-new.svg
           Verificado contra su favicon (mark #00BEFF/#007299 sobre negro).

@@ -149,6 +149,42 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida — MaKo puede usar Gemini Flash.' };
   },
 
+  async cerebras(v) {
+    // Cerebras es OpenAI-compatible: /v1/models con Bearer valida la key.
+    const { status } = await fetchJson('https://api.cerebras.ai/v1/models', {
+      headers: { Authorization: `Bearer ${v.CEREBRAS_API_KEY}` },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `Cerebras respondió ${status}.` };
+    return { ok: true, detalle: 'Key válida — MaKo puede rotar a Cerebras.' };
+  },
+
+  async mistral(v) {
+    // Mistral es OpenAI-compatible: /v1/models con Bearer valida la key.
+    const { status } = await fetchJson('https://api.mistral.ai/v1/models', {
+      headers: { Authorization: `Bearer ${v.MISTRAL_API_KEY}` },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `Mistral respondió ${status}.` };
+    return { ok: true, detalle: 'Key válida — MaKo puede rotar a Mistral.' };
+  },
+
+  async openrouter(v) {
+    // OJO: en OpenRouter /models es PÚBLICO (no valida la key). Para validar de
+    // verdad pegamos a /key, que devuelve la info de ESTA key y responde 401 si
+    // es inválida. De paso mostramos el saldo/límite como fact.
+    const { status, body } = await fetchJson('https://openrouter.ai/api/v1/key', {
+      headers: { Authorization: `Bearer ${v.OPENROUTER_API_KEY}` },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `OpenRouter respondió ${status}.` };
+    const d = body.data as { label?: string; usage?: number; limit?: number | null } | undefined;
+    const facts: Fact[] = [];
+    if (d?.label) facts.push({ k: 'Tu key', v: d.label, c: 'var(--good)' });
+    if (d && typeof d.usage === 'number') facts.push({ k: 'Uso', v: d.limit == null ? `$${d.usage} (sin tope)` : `$${d.usage} / $${d.limit}` });
+    return { ok: true, detalle: 'Key válida — MaKo puede rotar a OpenRouter.', facts };
+  },
+
   async fathom(v) {
     const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },
