@@ -20,7 +20,7 @@ import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import type { MetaHealth } from '@/lib/meta-health-ui';
-import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
+import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA, IA_ORDEN } from '@/lib/ia-labels';
 import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import ServicioConfigForm from './ServicioConfigForm';
@@ -180,7 +180,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
 
   // ── Servicios por categoría ──
   const porCategoria = CAT_ORDER
-    .map((cat) => ({ cat, items: integraciones.filter((i) => i.categoria === cat) }))
+    // En Inteligencia el orden manda: primero las de pago (Claude/OpenAI/Gemini),
+    // después las gratis. ordenIA() da 99 a las no-IA → el resto queda como estaba.
+    .map((cat) => ({ cat, items: integraciones.filter((i) => i.categoria === cat).slice().sort((a, b) => ordenIA(a.key) - ordenIA(b.key)) }))
     .filter((g) => g.items.length > 0);
 
   // Medidor: una barra por servicio, verde las conectadas, roja/ámbar el resto.
@@ -299,9 +301,13 @@ function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { 
     ...provsBase,
     ...cuotas.filter((c) => !provsBase.some((p) => p.provider === c.provider))
       .map((c): ProvSaldo => ({ provider: c.provider, costMesUsd: 0, tokens: 0, tokensHoy: c.tokens, saldo: null, restanteUsd: null, gratis: true })),
-  ];
+  ].sort((a, b) => ordenIA(a.provider) - ordenIA(b.provider)); // pago (Claude/OpenAI/Gemini) arriba, gratis abajo
   const feats = (usage?.porFeature ?? []).slice(0, 8);
   const maxFeat = Math.max(1, ...feats.map((f) => f.costUsd));
+  // Para la gráfica de TOKENS: el top-8 por tokens (puede diferir del top por $ —
+  // un proceso en IA gratis consume muchos tokens y $0). Así ambas cuentan algo real.
+  const featsTok = (usage?.porFeature ?? []).slice().sort((a, b) => b.tokens - a.tokens).slice(0, 8);
+  const maxTok = Math.max(1, ...featsTok.map((f) => f.tokens));
   const [editProv, setEditProv] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -363,6 +369,17 @@ function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { 
                   </div>
                   {cv && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${cv.pct}%`, borderRadius: 5, background: cv.agotado ? 'var(--warn-fill)' : '#F55036' }} /></div>}
                   <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{lim.cap}</div>
+                  {/* Gemini es la única gratis donde SÍ podés cargar créditos. Google no
+                      expone un endpoint de saldo por API key, así que lo registrás vos una
+                      vez → Gemini pasa a "de pago" y le suben los límites de rotación. */}
+                  {p.provider === 'gemini' && (editProv === 'gemini' ? (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 9 }} onClick={stop}>
+                      <input value={input} onClick={stop} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder="Créditos USD" style={{ flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
+                      <button onClick={(e) => { stop(e); guardar('gemini'); }} disabled={saving || !input.trim()} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
+                    </div>
+                  ) : (
+                    <button onClick={(e) => { stop(e); setEditProv('gemini'); setInput(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>¿Cargaste créditos? Registralos →</button>
+                  ))}
                 </>
               ) : (
                 <>
@@ -386,20 +403,36 @@ function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { 
         })}
       </div>
 
-      {/* Gasto por proceso */}
+      {/* Por proceso — dos gráficas: DINERO (izq) y TOKENS (der). El dinero solo lo
+          mueven Claude/OpenAI; los tokens los mueven TODAS (útil para ver qué proceso
+          consume aunque sea en una IA gratis). En pantallas angostas se apilan. */}
       {feats.length > 0 && (
-        <>
-          <div style={{ ...capMono, fontSize: 10, letterSpacing: '.13em', marginBottom: 13 }}>Gasto por proceso</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-            {feats.map((f) => (
-              <div key={f.feature} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px,190px) 1fr 52px', alignItems: 'center', gap: 13 }}>
-                <span style={{ fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{procesoLegible(f.feature)}</span>
-                <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2)' }}><div style={{ height: 8, width: `${Math.max(3, (f.costUsd / maxFeat) * 100)}%`, borderRadius: 6, background: 'linear-gradient(90deg,#C8870C,#F0C60A)' }} /></div>
-                <span style={{ textAlign: 'right', fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: f.costUsd > 0 ? 'var(--ink)' : 'var(--dim)' }}>{usd(f.costUsd)}</span>
-              </div>
-            ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 26, marginBottom: 4 }}>
+          <div>
+            <div style={{ ...capMono, fontSize: 10, letterSpacing: '.13em', marginBottom: 13 }}>Gasto por proceso · dinero</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+              {feats.map((f) => (
+                <div key={f.feature} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,150px) 1fr 52px', alignItems: 'center', gap: 11 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{procesoLegible(f.feature)}</span>
+                  <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2)' }}><div style={{ height: 8, width: `${Math.max(3, (f.costUsd / maxFeat) * 100)}%`, borderRadius: 6, background: 'linear-gradient(90deg,#C8870C,#F0C60A)' }} /></div>
+                  <span style={{ textAlign: 'right', fontFamily: MONO, fontSize: 12, fontWeight: 600, color: f.costUsd > 0 ? 'var(--ink)' : 'var(--dim)' }}>{usd(f.costUsd)}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </>
+          <div>
+            <div style={{ ...capMono, fontSize: 10, letterSpacing: '.13em', marginBottom: 13 }}>Consumo por proceso · tokens</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+              {featsTok.map((f) => (
+                <div key={f.feature} style={{ display: 'grid', gridTemplateColumns: 'minmax(90px,150px) 1fr 52px', alignItems: 'center', gap: 11 }}>
+                  <span style={{ fontSize: 13, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{procesoLegible(f.feature)}</span>
+                  <div style={{ height: 8, borderRadius: 6, background: 'var(--surface-2)' }}><div style={{ height: 8, width: `${Math.max(3, (f.tokens / maxTok) * 100)}%`, borderRadius: 6, background: 'linear-gradient(90deg,#2D6CDF,#5FA8FF)' }} /></div>
+                  <span style={{ textAlign: 'right', fontFamily: MONO, fontSize: 12, fontWeight: 600, color: f.tokens > 0 ? 'var(--ink)' : 'var(--dim)' }}>{fmtTok(f.tokens)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 15 }}>
@@ -706,7 +739,8 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
     actions.push({ label: 'Abrir Ads Manager ↗', href: 'https://adsmanager.facebook.com', primary: true });
   } else if (i.key === 'meta') {
     alerta = metaError ? `No se pudo leer el estado de Meta: ${metaError}` : null;
-  } else if (i.key === 'anthropic' || i.key === 'openai') {
+  } else if (i.key === 'anthropic' || i.key === 'openai' || (i.key === 'gemini' && !!usage?.porProveedor?.find((p) => p.provider === 'gemini' && !p.gratis))) {
+    // Proveedor de PAGO: Claude, OpenAI, o Gemini con créditos cargados → saldo en $.
     const prov = usage?.porProveedor?.find((p) => p.provider === i.key);
     if (prov) {
       facts = [
@@ -714,7 +748,8 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
         { k: 'Gasto del mes', v: usd(prov.costMesUsd), c: 'var(--ink)' },
       ];
     }
-    actions.push({ label: i.key === 'anthropic' ? 'Ver saldo de Claude ↗' : 'Cargar saldo en OpenAI ↗', href: i.key === 'anthropic' ? 'https://console.anthropic.com/settings/billing' : 'https://platform.openai.com/settings/organization/billing', primary: i.key === 'openai' });
+    if (i.key === 'gemini') actions.push({ label: 'Ver facturación de Gemini ↗', href: 'https://aistudio.google.com/app/plan_information', primary: true });
+    else actions.push({ label: i.key === 'anthropic' ? 'Ver saldo de Claude ↗' : 'Cargar saldo en OpenAI ↗', href: i.key === 'anthropic' ? 'https://console.anthropic.com/settings/billing' : 'https://platform.openai.com/settings/organization/billing', primary: i.key === 'openai' });
   } else if (cuota) {
     // IA GRATIS (Groq/Gemini/Cerebras/Mistral/OpenRouter): su tope no es dinero sino
     // CUOTA de hoy. Mostramos la métrica que manda (pedidos o tokens/día) + el consumo
@@ -834,9 +869,11 @@ function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => v
   const sortRef = useRef<HTMLDivElement | null>(null);
 
   const modelos = useMemo(() => {
-    const set = new Set<string>();
+    // Sembramos con los modelos QUE USAMOS (así los nuevos aparecen en el filtro
+    // aunque todavía no tengan operaciones) + los que ya salieron en el historial.
+    const set = new Set<string>(['Opus 4.8', 'GPT-4o mini', 'Gemini Flash', 'Groq OSS 20B', 'Llama 3.3 70B', 'Mistral Small', 'Whisper (Groq)']);
     for (const o of all) { const l = modeloLegible(o.model); if (l !== '—') set.add(l); }
-    return [...set];
+    return [...set].sort((a, b) => a.localeCompare(b));
   }, [all]);
   const features = useMemo(() => {
     const set = new Set<string>();
@@ -863,7 +900,7 @@ function OperacionesModal({ usage, onClose }: { usage: Resumen; onClose: () => v
   }, [all, fProv, fModelo, fMes, fFeat, sortBy]);
 
   const groups = [
-    { key: 'prov', label: 'IA', cur: fProv, set: setFProv, opts: [['todos', 'Todas'], ['anthropic', 'Claude'], ['openai', 'OpenAI'], ['groq', 'Groq']] as [string, string][] },
+    { key: 'prov', label: 'IA', cur: fProv, set: setFProv, opts: [['todos', 'Todas'], ...IA_ORDEN.map((p) => [p, proveedorLegible(p)] as [string, string])] },
     { key: 'modelo', label: 'Modelo', cur: fModelo, set: setFModelo, opts: [['todos', 'Todos'], ...modelos.map((m) => [m, m] as [string, string])] },
     { key: 'mes', label: 'Mes', cur: fMes, set: setFMes, opts: [['todos', 'Todos'], ...meses] },
     { key: 'op', label: 'Operación', cur: fFeat, set: setFFeat, opts: [['todos', 'Todas'], ...features] },

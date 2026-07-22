@@ -10,6 +10,7 @@ import 'server-only';
 // panel de costo. Límites APROXIMADOS y ajustables acá (los free tiers cambian seguido).
 
 import { getSupabaseServer } from '@/lib/supabase';
+import { getSaldo } from '@/lib/anthropic-usage';
 
 export type LimiteProv = { label: string; rpd?: number; tokensDia?: number; nota?: string };
 export const LIMITES_PROVEEDOR: Record<string, LimiteProv> = {
@@ -19,7 +20,18 @@ export const LIMITES_PROVEEDOR: Record<string, LimiteProv> = {
   mistral: { label: 'Mistral', rpd: 500, nota: 'free (Experiment)' },
   openrouter: { label: 'OpenRouter', rpd: 50, nota: 'modelos :free sin créditos' },
 };
+// Límites de Gemini cuando el usuario YA cargó créditos (tier pago): el free tier
+// topea en 250 pedidos/día, pero con billing activo sube muchísimo → no lo saltamos
+// de la rotación y el gauge muestra el margen real del tier pago.
+const GEMINI_PAGO: LimiteProv = { label: 'Gemini', rpd: 30_000, tokensDia: 4_000_000, nota: 'créditos cargados (tier pago)' };
 const UMBRAL = 0.9; // a partir de este % de cuota lo tratamos como "sin cuota" (saltar antes del 429)
+
+/** Límites EFECTIVOS de hoy: Gemini sube a tier pago si detectamos créditos cargados
+ *  (= tiene saldo registrado). El resto es fijo. Es lo que hace "cambiar sus límites". */
+async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
+  const geminiConCredito = !!(await getSaldo('gemini').catch(() => null));
+  return geminiConCredito ? { ...LIMITES_PROVEEDOR, gemini: GEMINI_PAGO } : LIMITES_PROVEEDOR;
+}
 
 export type UsoProv = { requests: number; tokens: number };
 export type CuotaProv = { provider: string; requests: number; tokens: number; rpd?: number; tokensDia?: number; pct: number; agotado: boolean; label: string; nota?: string };
@@ -55,7 +67,8 @@ function pctDe(uso: UsoProv, lim: LimiteProv): number {
 /** Cuota de cada proveedor gratis (para el gauge de /integraciones). */
 export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<CuotaProv[]> {
   const u = uso ?? (await usoHoyProveedores());
-  return Object.entries(LIMITES_PROVEEDOR).map(([provider, lim]) => {
+  const limites = await limitesEfectivos();
+  return Object.entries(limites).map(([provider, lim]) => {
     const usoP = u[provider] ?? { requests: 0, tokens: 0 };
     const pct = pctDe(usoP, lim);
     return { provider, requests: usoP.requests, tokens: usoP.tokens, rpd: lim.rpd, tokensDia: lim.tokensDia, pct, agotado: pct >= UMBRAL, label: lim.label, nota: lim.nota };
@@ -66,7 +79,10 @@ export async function cuotasProveedores(uso?: Record<string, UsoProv>): Promise<
  *  tienen cuota, después los que están al tope (por si todo lo demás falla). Nunca los saca:
  *  solo los manda al final. Un proveedor sin límite conocido (ej. openai pago) va como "con cuota". */
 export async function ordenarPorCuota(orden: string[]): Promise<string[]> {
-  const uso = await usoHoyProveedores().catch(() => ({} as Record<string, UsoProv>));
-  const agotado = (p: string): boolean => { const lim = LIMITES_PROVEEDOR[p]; return lim ? pctDe(uso[p] ?? { requests: 0, tokens: 0 }, lim) >= UMBRAL : false; };
+  const [uso, limites] = await Promise.all([
+    usoHoyProveedores().catch(() => ({} as Record<string, UsoProv>)),
+    limitesEfectivos().catch(() => LIMITES_PROVEEDOR),
+  ]);
+  const agotado = (p: string): boolean => { const lim = limites[p]; return lim ? pctDe(uso[p] ?? { requests: 0, tokens: 0 }, lim) >= UMBRAL : false; };
   return [...orden.filter((p) => !agotado(p)), ...orden.filter((p) => agotado(p))];
 }

@@ -40,6 +40,21 @@ export const IA_FEATURE_LABEL: Record<string, string> = {
   'ia-barata': 'IA barata',
 };
 
+// Orden fijo de las IA en la UI: primero las que CONSUMEN DINERO / donde cargás
+// créditos (Claude, OpenAI, Gemini), después las gratis de rate-limit (Groq,
+// Cerebras, Mistral, OpenRouter). Gemini va con las de pago porque es la que se
+// piensa para cargar créditos, aunque casi siempre esté en free tier.
+export const IA_ORDEN: string[] = ['anthropic', 'openai', 'gemini', 'groq', 'cerebras', 'mistral', 'openrouter'];
+/** Posición de una IA en el orden fijo (las no listadas van al final). */
+export function ordenIA(provider: string | null | undefined): number {
+  const i = provider ? IA_ORDEN.indexOf(provider) : -1;
+  return i === -1 ? 99 : i;
+}
+/** Las que consumen dinero / donde se cargan créditos (van arriba). */
+export function esIAdePago(provider: string | null | undefined): boolean {
+  return provider === 'anthropic' || provider === 'openai' || provider === 'gemini';
+}
+
 /** Proveedor de IA → nombre corto. */
 export const IA_PROVIDER_LABEL: Record<string, string> = {
   anthropic: 'Claude',

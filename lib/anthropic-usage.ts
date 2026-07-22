@@ -197,7 +197,11 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const porProveedor: SaldoProveedor[] = PROVEEDORES.map((p) => {
     const pa = prov.get(p) ?? { mes: 0, tokens: 0, hoy: 0, desdeSaldo: 0 };
     const s = saldos[p];
-    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis: ['groq', 'gemini', 'cerebras', 'mistral', 'openrouter'].includes(p) };
+    // Gemini es el caso especial: por defecto es GRATIS (free tier), pero cuando el
+    // usuario carga créditos (= aparece su saldo) pasa a comportarse como de PAGO →
+    // se muestra con "$ restante" y sus límites de rotación suben (ver ia-cuotas).
+    const gratis = p === 'gemini' ? !s : ['groq', 'cerebras', 'mistral', 'openrouter'].includes(p);
+    return { provider: p, costMesUsd: pa.mes, tokens: pa.tokens, tokensHoy: pa.hoy, saldo: s, restanteUsd: s ? s.usd - pa.desdeSaldo : null, gratis };
   });
 
   const last = rows[0] ?? null; // ya viene ordenado desc
