@@ -12,7 +12,8 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
-import { puntuarNuevas } from '@/lib/mako-guardian';
+import { puntuarNuevas, describirProyectosNuevos } from '@/lib/mako-guardian';
+import { checklistsParaTareas } from '@/lib/checklist-coach';
 
 type Row = Record<string, unknown>;
 
@@ -171,14 +172,14 @@ export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: stri
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
  *  pone score inicial por prioridad (después el Perro las re-puntúa), firma el historial
  *  con la fuente y devuelve los ids para armar los deep-links (?tarea=<id>). */
-export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente): Promise<{ ids: string[]; nums: number[] }> {
+export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: Fuente): Promise<{ ids: string[]; nums: number[]; proyectoIds: string[] }> {
   return enPlan(async () => {
     const db = await getTenantDb();
     const { actor, desde } = desdeDeFuente(fuente);
     const fu: Fuente = fuente ?? { tipo: 'whatsapp' };
     const ahora = Date.now();
     const validos = items.filter((it) => (it.titulo || '').trim());
-    if (!validos.length) return { ids: [], nums: [] };
+    if (!validos.length) return { ids: [], nums: [], proyectoIds: [] };
 
     // 1. proyectos existentes (resolver por nombre) + crear los que falten (dedupe).
     const { data: projRows } = await db.from('plan_proyectos').select('*');
@@ -215,39 +216,69 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     });
     const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));
     if (error) throw new Error(`agregarTareasPlanOwner tareas: ${error.message}`);
-    return { ids: tareas.map((t) => t.id), nums: tareas.map((t) => t.num) };
+    return { ids: tareas.map((t) => t.id), nums: tareas.map((t) => t.num), proyectoIds: nuevosProy.map((p) => p.id) };
   });
 }
 
-/** El Perro Guardián puntúa las tareas RECIÉN creadas (server-side, no depende del
- *  navegador) ubicándolas en la pirámide del plan existente, y persiste score + razón +
- *  impacto/esfuerzo + prioridad. NO re-puntúa el resto. Devuelve el conteo por columna
- *  para el mensaje de MaKo (o null si no hay nada / falló). Queda en el historial de IA. */
-export async function priorizarNuevasOwner(ids: string[], contexto = ''): Promise<Record<Prio, number> | null> {
+/** El Perro Guardián trabaja lo RECIÉN creado (server-side, no depende del navegador):
+ *  (1) puntúa las tareas nuevas ubicándolas en la pirámide + les arma la checklist;
+ *  (2) a los proyectos nuevos les pone emoji + descripción + score distinto (antes
+ *  quedaban 📁/50/sin detalle). NO re-puntúa el resto. Devuelve el conteo por columna +
+ *  cuántos proyectos trabajó (o null). Queda en el historial de IA (feature mako-guardian). */
+export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] = [], contexto = ''): Promise<{ tareas: Record<Prio, number>; proyectos: number } | null> {
   return enPlan(async () => {
-    if (!ids.length) return null;
+    if (!ids.length && !proyectoIds.length) return null;
     const db = await getTenantDb();
     const idSet = new Set(ids);
-    const { data } = await db.from('plan_tareas').select('id, title, detalle, score, progress, labels');
-    const filas = (data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown }>;
-    const nuevas = filas.filter((r) => idSet.has(r.id)).map((r) => ({
+    const projSet = new Set(proyectoIds);
+    const [tRes, pRes] = await Promise.all([
+      db.from('plan_tareas').select('id, title, detalle, score, progress, labels'),
+      db.from('plan_proyectos').select('id, name, score'),
+    ]);
+    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown }>;
+    const filasP = (pRes.data ?? []) as Array<{ id: string; name: string; score: number }>;
+
+    const nuevas = filasT.filter((r) => idSet.has(r.id)).map((r) => ({
       id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle),
       proyecto: asArr<unknown>(r.labels).map(String)[0] ?? undefined,
     }));
-    if (!nuevas.length) return null;
-    const existentes = filas.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score) }));
-    const { tareas } = await puntuarNuevas(nuevas, existentes, contexto, 'Priorización de tareas nuevas (WhatsApp)');
-    if (!tareas.length) return null;
-    const byId = new Map(tareas.map((t) => [t.id, t]));
+    const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score) }));
+    const proyNuevos = filasP.filter((p) => projSet.has(p.id)).map((p) => ({ id: p.id, nombre: str(p.name, 'Proyecto') }));
+    const existentesP = filasP.filter((p) => !projSet.has(p.id)).map((p) => ({ nombre: str(p.name), score: int(p.score) }));
+    const nombresProy = new Map(filasP.map((p) => [p.id, str(p.name, 'Proyecto')]));
+    const tareasPorProy = proyNuevos.map((p) => {
+      const titulos = nuevas.filter((n) => n.proyecto === p.id).map((n) => n.titulo);
+      return `[${p.id}] ${p.nombre}: ${titulos.join('; ') || '(sin tareas)'}`;
+    }).join('\n');
+
+    // 3 llamadas al Perro en paralelo (score tareas · checklists · proyectos). Gemini gratis.
+    const [scoreRes, checklistRes, proyRes] = await Promise.all([
+      nuevas.length ? puntuarNuevas(nuevas, existentesT, contexto, 'Priorización de tareas nuevas') : Promise.resolve({ tareas: [] as { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number }[] }),
+      nuevas.length ? checklistsParaTareas(nuevas.map((n) => ({ id: n.id, titulo: n.titulo, detalle: n.detalle })), 'Checklists de tareas nuevas') : Promise.resolve({} as Record<string, string[]>),
+      proyNuevos.length ? describirProyectosNuevos(proyNuevos, existentesP, tareasPorProy, contexto, 'Proyectos nuevos: emoji + detalle + score') : Promise.resolve({ proyectos: [] as { id: string; score: number; emoji: string; detalle: string; razon: string; impacto?: number; esfuerzo?: number }[] }),
+    ]);
+
     const cuenta: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
+    const byId = new Map(scoreRes.tareas.map((t) => [t.id, t]));
     await Promise.all(nuevas.map((n) => {
       const g = byId.get(n.id);
-      if (!g) return Promise.resolve(undefined);
-      const prio = prioFromScore(g.score);
-      cuenta[prio]++;
-      return db.from('plan_tareas').update({ score: g.score, score_razon: g.razon || null, impacto: g.impacto ?? null, esfuerzo: g.esfuerzo ?? null, priority: prio, updated_at: new Date().toISOString() }).eq('id', n.id).then(() => undefined);
+      const items = checklistRes[n.id] ?? [];
+      const patch: Row = { updated_at: new Date().toISOString() };
+      if (g) {
+        const prio = prioFromScore(g.score);
+        cuenta[prio]++;
+        patch.score = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
+      }
+      if (items.length) patch.checklist = items.map((text): Check => ({ id: genId('c'), text, done: false }));
+      if (Object.keys(patch).length <= 1) return Promise.resolve(undefined); // solo updated_at
+      return db.from('plan_tareas').update(patch).eq('id', n.id).then(() => undefined);
     }));
-    return cuenta;
+
+    await Promise.all(proyRes.proyectos.map((p) =>
+      db.from('plan_proyectos').update({ score: p.score, score_razon: p.razon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null, emoji: p.emoji || '📁', detalle: p.detalle || '', updated_at: new Date().toISOString() }).eq('id', p.id).then(() => undefined),
+    ));
+
+    return { tareas: cuenta, proyectos: proyRes.proyectos.length };
   });
 }
 

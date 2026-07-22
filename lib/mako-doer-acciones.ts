@@ -93,19 +93,21 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
         const mirar = items.length === 1 ? 'Miralo acá' : 'Miralas acá';
 
         if (ws === OWNER_WS) {
-          const { ids } = await agregarTareasPlanOwner(
+          const { ids, proyectoIds } = await agregarTareasPlanOwner(
             items.map((it) => ({ titulo: it.titulo, prioridad: it.prioridad, proyecto: it.proyecto, deadline: it.deadline, detalle: it.detalle })),
             { tipo: 'whatsapp' },
           );
           const links = ids.map((id) => `${APP_URL}/plan/agencia?tarea=${id}`);
-          // El Perro Guardián puntúa las nuevas server-side (no depende de abrir el board).
-          // Si falla, las tareas quedan igual con su score inicial (no rompe la carga).
+          // El Perro Guardián trabaja las nuevas server-side (no depende de abrir el board):
+          // puntúa + arma checklists + a los proyectos les pone emoji/detalle/score. Si falla,
+          // las tareas quedan con su score inicial (no rompe la carga).
           let prioLinea = '';
           try {
-            const c = await priorizarNuevasOwner(ids);
+            const c = await priorizarNuevasOwner(ids, proyectoIds);
             if (c) {
-              const partes = [c.alta && `${c.alta} en Alta`, c.media && `${c.media} en Media`, c.baja && `${c.baja} en Baja`, c.futuro && `${c.futuro} a futuro`].filter(Boolean);
-              if (partes.length) prioLinea = `\n🐕 El Perro Guardián las priorizó: ${partes.join(', ')}.`;
+              const partes = [c.tareas.alta && `${c.tareas.alta} en Alta`, c.tareas.media && `${c.tareas.media} en Media`, c.tareas.baja && `${c.tareas.baja} en Baja`, c.tareas.futuro && `${c.tareas.futuro} a futuro`].filter(Boolean);
+              const proj = c.proyectos ? ` y ordenó ${c.proyectos} proyecto${c.proyectos === 1 ? '' : 's'}` : '';
+              if (partes.length || proj) prioLinea = `\n🐕 El Perro Guardián las priorizó (${partes.join(', ')})${proj}, y les armó la checklist.`;
             }
           } catch (e) { console.error('[mako-doer-acciones] priorizar nuevas:', e instanceof Error ? e.message : String(e)); }
           return { ok: true, resumen: `Agregué ${nN} a tu plan.${prioLinea} ${mirar}:\n${links.join('\n')}` };
