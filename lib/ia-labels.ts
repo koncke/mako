@@ -46,6 +46,9 @@ export const IA_PROVIDER_LABEL: Record<string, string> = {
   groq: 'Groq',
   openai: 'OpenAI',
   gemini: 'Gemini',
+  cerebras: 'Cerebras',
+  mistral: 'Mistral',
+  openrouter: 'OpenRouter',
 };
 
 /** Nombre legible de un modelo (para mostrar QUÉ modelo consumió los tokens). */
@@ -65,6 +68,8 @@ export function modeloLegible(model: string | null | undefined): string {
   if (m.includes('gpt-4o')) return 'GPT-4o';
   if (m.includes('gpt-5')) return 'GPT-5';
   if (m.includes('gemini')) return m.includes('lite') ? 'Gemini Flash-Lite' : 'Gemini Flash';
+  if (m.includes('llama')) return m.includes('70b') ? 'Llama 3.3 70B' : 'Llama';
+  if (m.includes('mistral') || m.includes('mixtral')) return m.includes('small') ? 'Mistral Small' : 'Mistral';
   return model;
 }
 
