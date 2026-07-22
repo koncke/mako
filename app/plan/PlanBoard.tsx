@@ -1,14 +1,14 @@
 'use client';
 
 // =============================================================================
-// PlanBoard — adapter del board /plan para el super-admin (localStorage)
+// PlanBoard — adapter del board /plan para el super-admin (Supabase, mig 0093)
 // =============================================================================
 // PROYECTOS FINITOS + tareas, priorizados por el Perro Guardián con la lente
 // DINERO-RÁPIDO-FÁCIL: cada item tiene IMPACTO y ESFUERZO (1-100), un SCORE que los
 // combina (1-100, comparado contra todo el resto) y una RAZÓN que lo explica. Las
 // tareas pueden vivir en varios proyectos. Toda la UI vive en board/BoardShell.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
 import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
@@ -728,93 +728,67 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
   return { tasks, labels: [...labels, ...nuevos] };
 }
 
-export function PlanBoard({ user }: { user: BoardUser }) {
+// Pega a la API del board (DB). Devuelve la tarea/proyecto canónico cuando aplica.
+async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string }> {
+  return fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
+}
+
+export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser; tareas: BoardTask[]; proyectos: Label[]; vacio: boolean }) {
+  // Repo contra la DB (/api/plan-board). El board persiste optimista; acá solo el I/O.
+  // Ya NO hay localStorage / bandeja / ops / snapshot: MaKo y el server leen y escriben
+  // la misma tabla que este board (mig 0093).
   const repo: Repo = {
-    labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos',
-    fathomExtract: true,
-    createTask: async (d) => d, saveTask: async () => {}, deleteTask: async () => {},
-    createLabel: async (l) => l, saveLabel: async () => {}, deleteLabel: async () => {},
+    labelMode: 'multi', labelSingular: 'Proyecto', labelPlural: 'Proyectos', fathomExtract: true,
+    createTask: async (d) => { const j = await apiPlan({ action: 'crear-tarea', tarea: d }); if (!j.ok || !j.tarea) throw new Error(j.error || 'no se pudo crear'); return j.tarea; },
+    saveTask: async (d) => { await apiPlan({ action: 'guardar-tarea', tarea: d }); },
+    deleteTask: async (id) => { await apiPlan({ action: 'borrar-tarea', id }); },
+    createLabel: async (l) => { const j = await apiPlan({ action: 'crear-proyecto', proyecto: l }); return j.ok && j.proyecto ? j.proyecto : l; },
+    saveLabel: async (l) => { await apiPlan({ action: 'guardar-proyecto', proyecto: l }); },
+    deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },
   };
-  const board = useBoard([], [], user, repo);
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const merged = mergeExtras(loadTasks(), loadLabels());
-      const { tasks, labels } = fixHistorialDeAltas(merged.tasks, merged.labels);
-      let finales = reconcileChecklists(tasks);
-      let labelsFinal = labels;
-      // Bandeja de WhatsApp (punto 8): tareas que MaKo dejó para el board del dueño.
-      // La bandeja NO se vacía server-side; cada browser mergea cada refId UNA vez con
-      // su 'seen' (así llega a todos los dispositivos y no se pierde si no persiste).
-      try {
-        const j = await fetch('/api/plan/inbox').then((r) => r.json()).catch(() => null);
-        if (j?.ok && Array.isArray(j.tareas) && j.tareas.length) {
-          const seen = loadSeen();
-          const nuevos = (j.tareas as TareaInboxRaw[]).filter((t) => t?.refId && !seen.has(String(t.refId)));
-          if (nuevos.length) {
-            const built = construirInbox(nuevos, finales, labelsFinal);
-            finales = [...built.tasks, ...finales];
-            labelsFinal = built.labels;
-            // Persistir ANTES de marcar 'seen': si el browser se cierra en el medio,
-            // 'seen' sin la tarea guardada la perdería para siempre en este device.
-            try { localStorage.setItem(K9, JSON.stringify(finales)); localStorage.setItem(K_PROJS, JSON.stringify(labelsFinal)); } catch { /* no-op */ }
-            nuevos.forEach((t) => seen.add(String(t.refId)));
-            saveSeen(seen);
-          }
-        }
-      } catch { /* sin bandeja, seguimos */ }
-      // Operaciones sobre tareas EXISTENTES (completar/editar/reasignar/repriorizar/
-      // borrar) que dejó Claude Code / MaKo. Se aplican una vez por device (seen propio),
-      // matcheando por #num, con rastro en el historial (actor 'code').
-      try {
-        const j = await fetch('/api/plan/ops').then((r) => r.json()).catch(() => null);
-        if (j?.ok && Array.isArray(j.ops) && j.ops.length) {
-          const seenOps = loadSeenOps();
-          const nuevas = (j.ops as PlanOpRaw[]).filter((o) => o?.opId && !seenOps.has(String(o.opId)));
-          if (nuevas.length) {
-            const ap = aplicarOps(nuevas, finales, labelsFinal);
-            finales = ap.tasks; labelsFinal = ap.labels;
-            try { localStorage.setItem(K9, JSON.stringify(finales)); localStorage.setItem(K_PROJS, JSON.stringify(labelsFinal)); } catch { /* no-op */ }
-            nuevas.forEach((o) => seenOps.add(String(o.opId)));
-            saveSeenOps(seenOps);
-          }
-        }
-      } catch { /* sin ops, seguimos */ }
-      if (!cancel) { board.reset(finales, labelsFinal); setHydrated(true); }
-    })();
-    return () => { cancel = true; };
-    // solo al montar (hidratación): board es estable, no queremos re-hidratar.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => { if (hydrated) try { localStorage.setItem(K9, JSON.stringify(board.tasks)); } catch { /* no-op */ } }, [board.tasks, hydrated]);
-  useEffect(() => { if (hydrated) try { localStorage.setItem(K_PROJS, JSON.stringify(board.labels)); } catch { /* no-op */ } }, [board.labels, hydrated]);
-
-  // Foto liviana del board para que MaKo (por WhatsApp) vea proyectos + tareas abiertas
-  // y auto-asigne/deduplique en vez de preguntar. snapRef siempre tiene la última foto.
-  const snapRef = useRef<() => { proyectos: unknown[]; tareas: unknown[] }>(() => ({ proyectos: [], tareas: [] }));
-  snapRef.current = () => ({
-    proyectos: board.labels.map((l) => ({ id: l.id, pid: l.pid ?? '', nombre: l.name })),
-    tareas: board.tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, num: t.num, titulo: t.title, proyecto: board.labels.find((l) => l.id === t.labels[0])?.name ?? '', score: t.score, deadline: t.deadline })),
-  });
-  // Push debounced en cada cambio (1.5s) — fresco para el dedup/auto-asignar de MaKo.
-  useEffect(() => {
-    if (!hydrated) return;
-    const id = setTimeout(() => { void fetch('/api/plan/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(snapRef.current()) }).catch(() => {}); }, 1500);
-    return () => clearTimeout(id);
-  }, [board.tasks, board.labels, hydrated]);
-  // Flush al cerrar/ocultar la pestaña (sobrevive el unmount): si había un cambio con el
-  // push pendiente, lo mandamos YA por sendBeacon para que la foto no quede vieja.
-  useEffect(() => {
-    const flush = () => { try { navigator.sendBeacon?.('/api/plan/snapshot', new Blob([JSON.stringify(snapRef.current())], { type: 'application/json' })); } catch { /* no-op */ } };
-    window.addEventListener('pagehide', flush);
-    return () => window.removeEventListener('pagehide', flush);
-  }, []);
-
-  if (!hydrated) return <main style={{ flex: 1 }} />;
-  // Scope del auto-load: el board de la agencia es SIEMPRE del super-admin sin
-  // impersonar (la page redirige si no), así que una constante alcanza y no se pisa
-  // con el scope por-workspace de los tableros de cliente.
+  const board = useBoard(tareas, proyectos, user, repo);
+  // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
+  if (vacio) return <MigrarPlan />;
   return <BoardShell board={board} autoloadScope="agencia" />;
+}
+
+// Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones
+// + lo que mergeó la bandeja) y lo SUBE a la DB. Después /plan vive en Supabase
+// (multi-dispositivo; MaKo escribe directo). Al terminar recarga y ya corre contra la DB.
+function MigrarPlan() {
+  const [conteo, setConteo] = useState<{ t: number; p: number } | null>(null);
+  const [estado, setEstado] = useState<'idle' | 'yendo' | 'error'>('idle');
+  const [err, setErr] = useState('');
+  const leerLocal = () => {
+    const m = mergeExtras(loadTasks(), loadLabels());
+    const fx = fixHistorialDeAltas(m.tasks, m.labels);
+    return { tareas: reconcileChecklists(fx.tasks), proyectos: fx.labels };
+  };
+  useEffect(() => { try { const b = leerLocal(); setConteo({ t: b.tareas.length, p: b.proyectos.length }); } catch { setConteo({ t: 0, p: 0 }); } }, []);
+  const migrar = async () => {
+    setEstado('yendo');
+    try {
+      const b = leerLocal();
+      const j = await apiPlan({ action: 'migrar', tareas: b.tareas, proyectos: b.proyectos });
+      if (!j.ok) throw new Error(j.error || 'falló la migración');
+      window.location.reload();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setEstado('error'); }
+  };
+  return (
+    <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Geist', sans-serif" }}>
+      <div style={{ maxWidth: 480, textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px 28px', boxShadow: '0 8px 30px rgba(20,22,27,.08)' }}>
+        <div style={{ fontSize: 34, marginBottom: 6 }}>☁️</div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: '0 0 8px' }}>Migrá tu Plan a la nube</h1>
+        <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.55, margin: '0 0 16px' }}>
+          Tu tablero vivía en <b>este navegador</b>. Lo subimos a la base una sola vez: pasa a ser <b>multi-dispositivo</b> y MaKo lo maneja directo (chau bandeja/snapshot). No perdés nada.
+        </p>
+        {conteo && <p style={{ fontFamily: "'Geist Mono', monospace", fontSize: 12.5, color: 'var(--faint)', margin: '0 0 18px' }}>{conteo.t} tareas · {conteo.p} proyectos en este navegador</p>}
+        <button onClick={migrar} disabled={estado === 'yendo'} style={{ padding: '11px 22px', borderRadius: 10, border: 'none', background: 'var(--ink)', color: 'var(--surface)', fontSize: 14.5, fontWeight: 600, cursor: estado === 'yendo' ? 'default' : 'pointer', opacity: estado === 'yendo' ? 0.6 : 1, fontFamily: 'inherit' }}>
+          {estado === 'yendo' ? 'Migrando…' : 'Migrar a la nube'}
+        </button>
+        {estado === 'error' && <p style={{ fontSize: 12.5, color: 'var(--bad)', marginTop: 14 }}>Error: {err}. Reintentá o avisá a soporte.</p>}
+      </div>
+    </main>
+  );
 }

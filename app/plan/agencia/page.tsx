@@ -22,6 +22,8 @@ import { redirect } from 'next/navigation';
 import { getUsuarioActual } from '@/lib/auth';
 import { estaImpersonando } from '@/lib/workspace';
 import { getPerfil } from '@/lib/perfil';
+import { listPlanBoard } from '@/lib/plan-board';
+import type { BoardTask, Label } from '../board/types';
 import { PlanBoard } from '../PlanBoard';
 
 export const dynamic = 'force-dynamic';
@@ -35,5 +37,12 @@ export default async function PlanAgenciaPage() {
   let user = { nombre: '', avatarUrl: '' };
   try { const p = await getPerfil(); user = { nombre: p.nombre, avatarUrl: p.avatarUrl }; } catch { /* fallback vacío */ }
 
-  return <PlanBoard user={user} />;
+  // El board del /plan ahora vive en Supabase (mig 0093), se carga server-side.
+  // vacío = todavía no se migró desde localStorage → PlanBoard muestra el botón migrar.
+  let tareas: BoardTask[] = [];
+  let proyectos: Label[] = [];
+  try { const b = await listPlanBoard(); tareas = b.tareas; proyectos = b.proyectos; } catch (e) { console.error('[plan/agencia] listPlanBoard', e); }
+  const vacio = tareas.length === 0 && proyectos.length === 0;
+
+  return <PlanBoard user={user} tareas={tareas} proyectos={proyectos} vacio={vacio} />;
 }
