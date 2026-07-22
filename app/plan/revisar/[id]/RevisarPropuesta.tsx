@@ -8,12 +8,35 @@
 // y describe el PERRO (nadie toca la prioridad a mano acá) y la revisión final se ve
 // en el plan (modal "MaKo cargó tareas"). Las respuestas viajan como CONTEXTO al Perro.
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { WizardShell } from '../../../_components/WizardShell';
 import { ChoiceBody } from '../../board/guardian-form';
-import type { Propuesta } from '@/lib/plan-propuesta';
+import type { Propuesta, PropuestaPregunta } from '@/lib/plan-propuesta';
 
 const SANS = "'Geist', sans-serif";
+
+// Cuerpo de una pregunta según su FORMATO: opción (default), multi (varias), escala 1-5,
+// o texto libre. Así MaKo puede variar el tipo de pregunta, no solo multiple-choice.
+function PreguntaBody({ q, value, onChange }: { q: PropuestaPregunta; value: string; onChange: (v: string) => void }) {
+  const box = (on: boolean): CSSProperties => ({ display: 'flex', gap: 9, alignItems: 'center', textAlign: 'left', width: '100%', background: on ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1px solid ${on ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, color: 'var(--ink)' });
+  const check = (on: boolean): CSSProperties => ({ width: 15, height: 15, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
+  if (q.tipo === 'escala') {
+    return <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>{[1, 2, 3, 4, 5].map((n) => (
+      <button key={n} type="button" onClick={() => onChange(String(n))} style={{ width: 46, height: 46, borderRadius: 11, border: `1px solid ${value === String(n) ? 'var(--primary)' : 'var(--border-strong)'}`, background: value === String(n) ? 'var(--primary)' : 'var(--surface)', color: value === String(n) ? '#fff' : 'var(--ink)', fontSize: 16, fontWeight: 700, cursor: 'pointer', fontFamily: SANS }}>{n}</button>
+    ))}</div>;
+  }
+  if (q.tipo === 'multi') {
+    const sel = new Set(value ? value.split(' · ') : []);
+    const toggle = (o: string) => { const c = new Set(sel); if (c.has(o)) c.delete(o); else c.add(o); onChange([...c].join(' · ')); };
+    return <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{q.opciones.map((o) => (
+      <button key={o} type="button" onClick={() => toggle(o)} style={box(sel.has(o))}><span style={check(sel.has(o))}>{sel.has(o) ? '✓' : ''}</span>{o}</button>
+    ))}</div>;
+  }
+  if (q.tipo === 'texto') {
+    return <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder="Escribí tu respuesta…" rows={3} style={{ width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical' }} />;
+  }
+  return <ChoiceBody opciones={q.opciones} value={value} onChange={onChange} />;
+}
 
 function Mensaje({ texto, sub, ok }: { texto: string; sub?: string; ok?: boolean }) {
   return (
@@ -84,7 +107,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       onConfirmar={() => enviar('aplicar')}
     >
       {cur.kind === 'q' ? (
-        <ChoiceBody opciones={prop.preguntas[cur.i]?.opciones || []} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
+        <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
       ) : cur.kind === 'elim' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
           {prop.eliminar.map((e) => (

@@ -252,12 +252,13 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
         },
         preguntas: {
           type: 'array',
-          description: 'Opcional (recomendado). Lo que NO pudiste deducir, para que lo respondan en la app de a UNA. Cada pregunta corta + 2-4 opciones probables (respuestas típicas, cortas) para elegir de un clic. Ej: {"pregunta":"¿El módulo de Webinars es una tarea o lo separamos?","opciones":["Una sola","Separar en grabar/analizar/seguir"]}. Hacé las que necesites para dejar todo claro (hasta 8): mejor preguntar bien que cargar tareas crudas.',
+          description: 'Lo que NO pudiste deducir, para que lo respondan en la app de a UNA. HACÉ LAS QUE HAGAN FALTA (para una lista larga, esperá 5-8, no 2-3): por cada tarea ambigua al menos una (fecha/urgencia, alcance, prioridad, dependencias, qué es "listo"). Elegí el FORMATO por pregunta con "tipo": "opcion" (una opción, default) · "multi" (varias, ej. "¿cuáles priorizás?") · "escala" (puntuar 1-5, ej. "¿qué tan urgente?") · "texto" (respuesta libre). Para opcion/multi pasá 2-6 "opciones" cortas; para escala/texto no hacen falta.',
           items: {
             type: 'object',
             properties: {
               pregunta: { type: 'string', description: 'la pregunta, corta y concreta.' },
-              opciones: { type: 'array', description: '2-4 respuestas probables (cortas).', items: { type: 'string' } },
+              tipo: { type: 'string', enum: ['opcion', 'multi', 'escala', 'texto'], description: 'formato: opcion (default) / multi / escala / texto.' },
+              opciones: { type: 'array', description: '2-6 respuestas probables (cortas). Para opcion/multi.', items: { type: 'string' } },
             },
             required: ['pregunta'],
           },
@@ -407,9 +408,9 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0)
         const preguntasRaw = (input as { preguntas?: unknown }).preguntas;
         const preguntas = Array.isArray(preguntasRaw)
           ? preguntasRaw.map((p) => {
-              if (typeof p === 'string') return { pregunta: p.trim().slice(0, 300), opciones: [] as string[] };
+              if (typeof p === 'string') return { pregunta: p.trim().slice(0, 300), opciones: [] as string[], tipo: undefined as string | undefined };
               const o = (p ?? {}) as Record<string, unknown>;
-              return { pregunta: String(o.pregunta ?? '').trim().slice(0, 300), opciones: Array.isArray(o.opciones) ? o.opciones.map((x) => String(x).trim()).filter(Boolean).slice(0, 5) : [] };
+              return { pregunta: String(o.pregunta ?? '').trim().slice(0, 300), opciones: Array.isArray(o.opciones) ? o.opciones.map((x) => String(x).trim()).filter(Boolean).slice(0, 6) : [], tipo: typeof o.tipo === 'string' ? o.tipo : undefined };
             }).filter((p) => p.pregunta).slice(0, 8)
           : [];
         const eliminarRaw = (input as { eliminar?: unknown }).eliminar;

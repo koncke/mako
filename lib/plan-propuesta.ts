@@ -23,7 +23,8 @@ const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 
 export type PropuestaTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio };
-export type PropuestaPregunta = { pregunta: string; opciones: string[] };
+export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto';
+export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
 export type Propuesta = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string; tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; createdAt: string };
 
@@ -48,17 +49,20 @@ function limpiarEliminar(e: unknown): PropuestaEliminar | null {
   return { id, titulo: o.titulo ? str(o.titulo).slice(0, 200) : undefined, motivo: o.motivo ? str(o.motivo).slice(0, 300) : undefined };
 }
 // Acepta {pregunta, opciones} o (compat) una nota-string suelta.
+const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto'];
 function limpiarPregunta(p: unknown): PropuestaPregunta | null {
-  if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [] } : null;
+  if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [], tipo: 'opcion' } : null;
   if (!p || typeof p !== 'object') return null;
   const o = p as Record<string, unknown>;
   const pregunta = str(o.pregunta).trim().slice(0, 300);
   if (!pregunta) return null;
-  return { pregunta, opciones: asArr<unknown>(o.opciones).map((x) => str(x).trim()).filter(Boolean).slice(0, 5) };
+  const opciones = asArr<unknown>(o.opciones).map((x) => str(x).trim()).filter(Boolean).slice(0, 6);
+  const tipo = TIPOS_PREGUNTA.includes(o.tipo as TipoPregunta) ? (o.tipo as TipoPregunta) : (opciones.length ? 'opcion' : 'texto');
+  return { pregunta, opciones, tipo };
 }
 
 /** Crea el borrador en el workspace actual. Devuelve el id (para el link /plan/revisar/<id>). */
-export async function crearPropuesta(draft: { tareas: PropuestaTarea[]; preguntas?: PropuestaPregunta[]; eliminar?: PropuestaEliminar[]; resumen?: string; origen?: string }): Promise<string> {
+export async function crearPropuesta(draft: { tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; resumen?: string; origen?: string }): Promise<string> {
   return enWs(async () => {
     const db = await getTenantDb();
     const tareas = asArr<unknown>(draft.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
