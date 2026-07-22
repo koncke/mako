@@ -16,8 +16,6 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual, OWNER_WS } from './workspace';
 import type { ToolDef, ToolRunner } from './anthropic';
-import { leerSnapshot } from './plan-snapshot';
-import { leerBandeja } from './plan-inbox';
 import { listCategorias, listTareas } from './todo';
 import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez,
@@ -263,17 +261,17 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const linkTarea = (id: string) => `${APP_URL}${rutaPlan}?tarea=${id}`;
       const linkProy = (id: string) => `${APP_URL}${rutaPlan}?proyecto=${id}`;
       if (esDueno) {
-        const [s, inbox] = await Promise.all([leerSnapshot(), leerBandeja().catch(() => [])]);
-        const delBoard = s.tareas.slice(0, 300).map((t) => ({ id: t.id, titulo: t.titulo, proyecto: t.proyecto, link: linkTarea(t.id) }));
-        // Sumamos las de la BANDEJA (que MaKo agregó recién y todavía no se mergearon a
-        // ningún board) para que el dedup no las vuelva a crear.
-        const delInbox = inbox.map((t) => ({ id: t.refId, titulo: t.titulo, proyecto: t.proyecto ?? '', link: linkTarea(t.refId), recien_agregada: true }));
-        if (!s.proyectos.length && !delBoard.length && !delInbox.length) return 'Todavía no tengo la foto del tablero del dueño (se actualiza cuando abre /plan/agencia). No veo proyectos: proponé uno y creá la tarea ahí.';
+        // El board del dueño ya vive en la DB (mig 0093), no en la foto de localStorage:
+        // leemos plan_tareas EN VIVO. Los `id` son los reales del board → sirven para
+        // deep-links y para proponer eliminar/enriquecer sin ambigüedad.
+        const { listPlanBoard } = await import('@/lib/plan-board');
+        const b = await listPlanBoard();
+        const abiertas = b.tareas.filter((t) => t.progress < 100);
+        if (!b.proyectos.length && !abiertas.length) return 'El plan del dueño está vacío todavía. No veo proyectos: proponé uno y creá la tarea ahí.';
+        const nombreProy = new Map(b.proyectos.map((p) => [p.id, p.name]));
         return JSON.stringify({
-          // qué tan vieja es la foto del board (null = sin foto). Si es alta, hedgeá.
-          foto_actualizada_hace_min: s.ts ? Math.round((Date.now() - s.ts) / 60_000) : null,
-          proyectos: s.proyectos.map((p) => ({ id: p.id, nombre: p.nombre, link: linkProy(p.id) })),
-          tareas_abiertas: [...delBoard, ...delInbox],
+          proyectos: b.proyectos.map((p) => ({ id: p.id, nombre: p.name, link: linkProy(p.id) })),
+          tareas_abiertas: abiertas.slice(0, 300).map((t) => ({ id: t.id, num: t.num, titulo: t.title, proyecto: nombreProy.get(t.labels[0]) ?? '', link: linkTarea(t.id) })),
         });
       }
       const [cats, tareas] = await Promise.all([listCategorias().catch(() => []), listTareas().catch(() => [])]);

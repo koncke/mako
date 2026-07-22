@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
   try {
     if (action === 'aplicar') {
       const tareas = Array.isArray(body.tareas) ? (body.tareas as PropuestaTarea[]) : undefined;
-      const r = await aplicarPropuesta(id, tareas);
+      const eliminarIds = Array.isArray(body.eliminarIds) ? (body.eliminarIds as unknown[]).map(String) : undefined;
+      const r = await aplicarPropuesta(id, tareas, eliminarIds);
       if (!r) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
       return NextResponse.json(r);
     }

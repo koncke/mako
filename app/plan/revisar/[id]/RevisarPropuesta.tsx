@@ -39,6 +39,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [paso, setPaso] = useState(0);
   const [resp, setResp] = useState<Record<number, string>>({});
   const [tareas, setTareas] = useState<Editable[]>(prop.tareas.map((t, i) => ({ ...t, _k: 'k' + i })));
+  const [elimSel, setElimSel] = useState<Set<string>>(new Set(prop.eliminar.map((e) => e.id))); // bajas confirmadas (por defecto: las que sugirió MaKo)
   const [busy, setBusy] = useState<'' | 'aplicar' | 'descartar'>('');
   const [error, setError] = useState('');
   const [done, setDone] = useState<'' | 'aplicada' | 'descartada'>('');
@@ -53,7 +54,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     setBusy(action); setError('');
     try {
       const body = action === 'aplicar'
-        ? { action, id: prop.id, tareas: validas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })) }
+        ? { action, id: prop.id, tareas: validas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), eliminarIds: [...elimSel] }
         : { action, id: prop.id };
       const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((res) => res.json());
       if (!r.ok) { setError(r.error || 'No se pudo.'); setBusy(''); return; }
@@ -63,7 +64,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   };
 
   if (prop.estado !== 'pendiente') return <Mensaje texto={`Este borrador ya fue ${prop.estado}.`} />;
-  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${validas.length} tarea${validas.length === 1 ? '' : 's'}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
+  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${validas.length} tarea${validas.length === 1 ? '' : 's'}${elimSel.size ? ` y borré ${elimSel.size}` : ''}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
 
   // ── Fase 1: preguntas de a UNA (WizardShell) ──────────────────────────────
   if (fase === 'preguntas') {
@@ -128,11 +129,29 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
           <button onClick={agregar} style={{ padding: '10px', borderRadius: 10, border: '1.5px dashed var(--border-strong)', background: 'transparent', color: 'var(--faint)', cursor: 'pointer', fontFamily: SANS, fontSize: 13, fontWeight: 600 }}>＋ Agregar una tarea</button>
         </div>
 
+        {prop.eliminar.length > 0 && (
+          <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--warn-bg, #fdecea)', border: '1px solid var(--warn, #d0504a)', borderRadius: 12 }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--warn, #d0504a)', fontWeight: 700, marginBottom: 9 }}>🗑 MaKo sugiere eliminar</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {prop.eliminar.map((e) => (
+                <button key={e.id} type="button" onClick={() => setElimSel((s) => { const c = new Set(s); if (c.has(e.id)) c.delete(e.id); else c.add(e.id); return c; })} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, width: '100%', fontFamily: SANS }}>
+                  <span style={{ width: 15, height: 15, borderRadius: 4, border: `1px solid ${elimSel.has(e.id) ? 'var(--warn, #d0504a)' : 'var(--border-strong)'}`, background: elimSel.has(e.id) ? 'var(--warn, #d0504a)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none', marginTop: 1 }}>{elimSel.has(e.id) ? '✓' : ''}</span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--ink)', textDecoration: elimSel.has(e.id) ? 'line-through' : 'none' }}>{e.titulo || e.id}</span>
+                    {e.motivo && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)' }}>{e.motivo}</span>}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: 'var(--dim)', marginTop: 9 }}>Tildadas = se borran al confirmar. Destildá las que quieras conservar.</div>
+          </div>
+        )}
+
         {error && <div style={{ marginTop: 14, padding: '10px 13px', background: 'var(--warn-bg, #fde8e8)', border: '1px solid var(--warn, #d0504a)', borderRadius: 10, color: 'var(--warn, #d0504a)', fontSize: 13 }}>{error}</div>}
 
         <div style={{ marginTop: 20, display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
           <button onClick={() => enviar('descartar')} disabled={!!busy} style={{ marginRight: 'auto', padding: '10px 14px', borderRadius: 9, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 13, cursor: busy ? 'default' : 'pointer', textDecoration: 'underline' }}>{busy === 'descartar' ? 'Descartando…' : 'Descartar borrador'}</button>
-          <button onClick={() => enviar('aplicar')} disabled={!!busy || validas.length === 0} style={{ padding: '11px 22px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: (busy || validas.length === 0) ? 'default' : 'pointer', opacity: (busy || validas.length === 0) ? 0.6 : 1 }}>{busy === 'aplicar' ? 'Creando…' : `Crear ${validas.length} tarea${validas.length === 1 ? '' : 's'}`}</button>
+          <button onClick={() => enviar('aplicar')} disabled={!!busy || (validas.length === 0 && elimSel.size === 0)} style={{ padding: '11px 22px', borderRadius: 9, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: (busy || (validas.length === 0 && elimSel.size === 0)) ? 'default' : 'pointer', opacity: (busy || (validas.length === 0 && elimSel.size === 0)) ? 0.6 : 1 }}>{busy === 'aplicar' ? 'Aplicando…' : `Crear ${validas.length}${elimSel.size ? ` · borrar ${elimSel.size}` : ''}`}</button>
         </div>
       </div>
     </main>

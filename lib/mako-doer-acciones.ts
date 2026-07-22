@@ -262,6 +262,18 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             required: ['pregunta'],
           },
         },
+        eliminar: {
+          type: 'array',
+          description: 'Opcional. Tareas EXISTENTES del plan (las viste en ver_plan) que esta lista deja OBSOLETAS o que están DUPLICADAS, para proponer borrarlas CON CRITERIO (no borres por borrar; solo lo que de verdad ya no aplica o se fusiona). Cada una con el "id" exacto de ver_plan y un "motivo" corto. El dueño/cliente confirma cada una en la app.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'id EXACTO de la tarea a borrar (el que te dio ver_plan).' },
+              motivo: { type: 'string', description: 'por qué borrarla/fusionarla, 1 frase.' },
+            },
+            required: ['id'],
+          },
+        },
       },
       required: ['tareas'],
     },
@@ -400,14 +412,19 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0)
               return { pregunta: String(o.pregunta ?? '').trim().slice(0, 300), opciones: Array.isArray(o.opciones) ? o.opciones.map((x) => String(x).trim()).filter(Boolean).slice(0, 5) : [] };
             }).filter((p) => p.pregunta).slice(0, 5)
           : [];
-        const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan`;
+        const eliminarRaw = (input as { eliminar?: unknown }).eliminar;
+        const eliminar = Array.isArray(eliminarRaw)
+          ? eliminarRaw.map((e) => { const o = (e ?? {}) as Record<string, unknown>; return { id: String(o.id ?? '').trim().slice(0, 80), motivo: o.motivo ? String(o.motivo).slice(0, 300) : undefined }; }).filter((e) => e.id).slice(0, 30)
+          : [];
+        const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan${eliminar.length ? ` y borrar ${eliminar.length}` : ''}`;
 
         // BORRADOR + link a /plan/revisar para TODOS (dueño y clientes): nada de ida-y-vuelta
-        // ni "sí" por WhatsApp. Las preguntas se responden de a una en la app.
+        // ni "sí" por WhatsApp. Las preguntas se responden de a una en la app; las bajas se confirman con checkbox.
         try {
-          const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), preguntas, resumen, origen: 'whatsapp' });
+          const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), preguntas, eliminar, resumen, origen: 'whatsapp' });
           const link = `${APP_URL}/plan/revisar/${id}`;
-          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}${preguntas.length ? ` y ${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'}` : ''}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista): ${link}` });
+          const extras = [preguntas.length && `${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'}`, eliminar.length && `${eliminar.length} baja${eliminar.length === 1 ? '' : 's'} sugerida${eliminar.length === 1 ? '' : 's'}`].filter(Boolean).join(' y ');
+          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, eliminar: eliminar.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}${extras ? ` (${extras})` : ''}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista): ${link}` });
         } catch (e) {
           return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
         }
