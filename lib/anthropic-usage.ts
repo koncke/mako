@@ -99,7 +99,9 @@ export async function recordSttUsage(feature: string, model: string, segundos: n
   });
 }
 
-type Saldo = { usd: number; setAt: string };
+// usd = TOTAL acumulado de créditos cargados; setAt = fecha de la PRIMERA carga
+// (el restante se mide desde ahí). cargas = histórico de cada carga (aditivo).
+type Saldo = { usd: number; setAt: string; cargas?: Array<{ usd: number; at: string }> };
 type Row = { created_at: string; feature: string; motivo: string | null; model: string | null; provider: string | null; cost_usd: number; input_tokens: number; output_tokens: number };
 
 export type UsageItem = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
@@ -148,6 +150,27 @@ export async function setSaldo(usd: number, setAt: string, provider: string = 'a
       { onConflict: 'workspace_id,key' },
     );
   if (error) throw new Error(`Error guardando saldo de IA (${provider}): ${error.message}`);
+}
+
+/** Agrega una carga de créditos (ADITIVO): suma al total, conserva la fecha de la
+ *  PRIMERA carga (el restante se mide desde ahí) y registra la carga en el histórico.
+ *  Así "cargar créditos" es sumar, no reemplazar (el input arranca vacío en la UI). */
+export async function agregarCarga(usdAgregado: number, provider: string = 'anthropic'): Promise<void> {
+  const prev = await getSaldo(provider);
+  const at = new Date().toISOString();
+  // Si el saldo previo no tenía histórico (cargado con el modelo viejo de reemplazo),
+  // lo sembramos como la primera carga para que el histórico cuadre con el total.
+  const base = prev?.cargas ?? (prev ? [{ usd: prev.usd, at: prev.setAt }] : []);
+  const cargas = [...base, { usd: usdAgregado, at }];
+  const usd = Number(((prev?.usd ?? 0) + usdAgregado).toFixed(4));
+  const setAt = prev?.setAt ?? at;
+  const { error } = await getSupabaseServer()
+    .from('app_settings')
+    .upsert(
+      { workspace_id: OWNER_WS, key: keySaldo(provider), value: JSON.stringify({ usd, setAt, cargas }), updated_at: at },
+      { onConflict: 'workspace_id,key' },
+    );
+  if (error) throw new Error(`Error guardando carga de IA (${provider}): ${error.message}`);
 }
 
 /** Resumen para el chip: gasto del mes, gasto desde el saldo cargado, restante, última op y desglose. */

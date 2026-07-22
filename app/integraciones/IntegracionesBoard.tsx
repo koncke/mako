@@ -33,7 +33,8 @@ type Integracion = { key: string; nombre: string; categoria: string; descripcion
 type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
 type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
-type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
+type Saldo = { usd: number; setAt: string; cargas?: Array<{ usd: number; at: string }> };
+type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: Saldo | null; restanteUsd: number | null; gratis: boolean };
 
 // Límite del plan GRATIS por proveedor (para el gauge de "uso de hoy"). NO es el mismo
 // para todos: Groq topea por TOKENS/día; Gemini Flash NO tiene tope diario de tokens
@@ -701,37 +702,70 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
 // toda la configuración —incluido el aviso de seguridad, que vive dentro del
 // form—. Alto fijo y scroll adentro. En angosto apilan (ver .mk-svc-modal en
 // globals.css).
-// Editor de saldo / créditos DENTRO del detalle de una IA de pago. Reemplaza al
-// editor inline que antes vivía en el tile (el tile ahora solo abre este detalle).
-// Para Gemini es el que registra los créditos → lo pasa de free tier a tier pago.
-function SaldoEditor({ provider, gemini, saldo, onGuardado }: { provider: string; gemini: boolean; saldo: { usd: number; setAt: string } | null; onGuardado: () => void }) {
+// Dónde se cargan los créditos de cada IA de pago (para el botón de acceso directo).
+const BILLING_URL: Record<string, string> = {
+  anthropic: 'https://console.anthropic.com/settings/billing',
+  openai: 'https://platform.openai.com/settings/organization/billing',
+  gemini: 'https://aistudio.google.com/app/plan_information',
+};
+
+// Editor de saldo / créditos DENTRO del detalle de una IA de pago. Es ADITIVO: cada
+// carga SUMA al total y queda en el histórico; el input arranca VACÍO (no repite el
+// último monto). Para Gemini, cargar el primer crédito lo pasa de free tier a pago.
+function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }: { provider: string; gemini: boolean; saldo: Saldo | null; restante: number | null; gastoMes: number; onGuardado: () => void }) {
   const [editing, setEditing] = useState(false);
   const [input, setInput] = useState('');
   const [saving, setSaving] = useState(false);
   const guardar = async () => {
     const v = Number(input);
-    if (!Number.isFinite(v) || v < 0) return;
+    if (!Number.isFinite(v) || v <= 0) return;
     setSaving(true);
     try {
-      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) })).json();
+      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cargaUsd: v, provider }) })).json();
       if (j?.ok) { setEditing(false); setInput(''); onGuardado(); }
     } finally { setSaving(false); }
   };
+  const cargas = (saldo?.cargas ?? []).slice().reverse(); // más recientes primero
+  const url = BILLING_URL[provider];
   return (
     <div style={{ marginBottom: 16, padding: '14px 15px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)' }}>
-      <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.09em', marginBottom: 8 }}>{gemini ? 'Créditos de Gemini' : 'Saldo cargado'}</div>
-      {saldo
-        ? <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: gemini ? 8 : 10 }}>${saldo.usd}<span style={{ color: 'var(--faint)', fontWeight: 400, fontSize: 12 }}> · desde {fmtHora(saldo.setAt)}</span></div>
-        : <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: gemini ? 8 : 10 }}>{gemini ? 'Sin créditos registrados — Gemini corre en free tier.' : 'Sin saldo registrado.'}</div>}
-      {gemini && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5, marginBottom: 10 }}>Google no expone el saldo por API key. Registrá acá lo que cargaste en Google AI Studio: Gemini pasa a tier pago y le suben los límites de rotación (MaKo deja de saltarlo a los 250/día).</div>}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 9 }}>
+        <span style={{ ...capMono, fontSize: 9.5, letterSpacing: '.09em' }}>{gemini ? 'Créditos de Gemini' : 'Saldo'}</span>
+        {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Cargar créditos ↗</a>}
+      </div>
+      {saldo ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 600, color: restante !== null && restante <= 5 ? 'var(--warn)' : 'var(--ink)' }}>{restante !== null ? usd(restante) : usd(saldo.usd)}</span>
+            <span style={{ fontSize: 12, color: 'var(--dim)' }}>restante</span>
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginLeft: 'auto' }}>cargado {usd(saldo.usd)}</span>
+          </div>
+          <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginBottom: 10 }}>gastó {usd(gastoMes)} este mes</div>
+        </>
+      ) : (
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 10 }}>{gemini ? 'Sin créditos registrados — Gemini corre en free tier.' : 'Sin saldo registrado.'}</div>
+      )}
       {editing ? (
         <div style={{ display: 'flex', gap: 7 }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={gemini ? 'Créditos USD' : 'Saldo USD'} style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
-          <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Guardar'}</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder="Monto que cargaste (USD)" style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
+          <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Sumar'}</button>
           <button onClick={() => { setEditing(false); setInput(''); }} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         </div>
       ) : (
-        <button onClick={() => { setEditing(true); setInput(saldo ? String(saldo.usd) : ''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Editar' : (gemini ? 'Registrar créditos' : 'Cargar saldo')}</button>
+        <button onClick={() => { setEditing(true); setInput(''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Registrar otra carga' : (gemini ? 'Registrar créditos' : 'Cargar saldo')}</button>
+      )}
+      {cargas.length > 0 && (
+        <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+          <div style={{ ...capMono, fontSize: 9, letterSpacing: '.09em', color: 'var(--faint)', marginBottom: 7 }}>Histórico de cargas</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {cargas.map((c, k) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
+                <span style={{ fontFamily: MONO, fontWeight: 600, color: 'var(--ink)' }}>+{usd(c.usd)}</span>
+                <span style={{ fontFamily: MONO, color: 'var(--faint)' }}>{fmtHora(c.at)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -777,16 +811,10 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
   } else if (i.key === 'meta') {
     alerta = metaError ? `No se pudo leer el estado de Meta: ${metaError}` : null;
   } else if (i.key === 'anthropic' || i.key === 'openai' || (i.key === 'gemini' && !!usage?.porProveedor?.find((p) => p.provider === 'gemini' && !p.gratis))) {
-    // Proveedor de PAGO: Claude, OpenAI, o Gemini con créditos cargados → saldo en $.
-    const prov = usage?.porProveedor?.find((p) => p.provider === i.key);
-    if (prov) {
-      facts = [
-        { k: 'Restante', v: prov.restanteUsd === null ? 'sin saldo' : usd(prov.restanteUsd), c: prov.restanteUsd !== null && prov.restanteUsd <= 5 ? 'var(--warn)' : 'var(--ink)' },
-        { k: 'Gasto del mes', v: usd(prov.costMesUsd), c: 'var(--ink)' },
-      ];
-    }
-    if (i.key === 'gemini') actions.push({ label: 'Ver facturación de Gemini ↗', href: 'https://aistudio.google.com/app/plan_information', primary: true });
-    else actions.push({ label: i.key === 'anthropic' ? 'Ver saldo de Claude ↗' : 'Cargar saldo en OpenAI ↗', href: i.key === 'anthropic' ? 'https://console.anthropic.com/settings/billing' : 'https://platform.openai.com/settings/organization/billing', primary: i.key === 'openai' });
+    // Proveedor de PAGO (Claude, OpenAI, o Gemini con créditos): TODO lo de saldo/gasto
+    // y el acceso a facturación vive en el SaldoEditor de abajo (restante, cargado,
+    // gasto del mes, histórico, botón "Cargar créditos ↗"). Este branch solo evita que
+    // Gemini-pago caiga al gauge de cuota gratis; no pinta facts ni acciones acá.
   } else if (cuota) {
     // IA GRATIS (Groq/Gemini/Cerebras/Mistral/OpenRouter): su tope no es dinero sino
     // CUOTA de hoy. Mostramos la métrica que manda (pedidos o tokens/día) + el consumo
@@ -858,7 +886,7 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
           {/* Saldo / créditos: solo para las IA de pago (Claude, OpenAI, Gemini). Acá
               se carga/edita — ya NO en el tile. Para Gemini es lo que lo pasa a tier pago. */}
           {(i.key === 'anthropic' || i.key === 'openai' || i.key === 'gemini') && (
-            <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} onGuardado={onRefetchUsage} />
+            <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} restante={usage?.porProveedor?.find((p) => p.provider === i.key)?.restanteUsd ?? null} gastoMes={usage?.porProveedor?.find((p) => p.provider === i.key)?.costMesUsd ?? 0} onGuardado={onRefetchUsage} />
           )}
 
           {esLanding ? (

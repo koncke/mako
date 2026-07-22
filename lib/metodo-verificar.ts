@@ -186,20 +186,25 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   },
 
   async elevenlabs(v) {
-    // ElevenLabs: la key va en el header xi-api-key. /v1/user devuelve la suscripción
-    // (tier + caracteres usados/límite) y responde 401 si es inválida.
-    const { status, body } = await fetchJson('https://api.elevenlabs.io/v1/user', {
-      headers: { 'xi-api-key': v.ELEVENLABS_API_KEY, accept: 'application/json' },
-    });
-    if (status === 401) return { ok: false, error: 'API key inválida.' };
-    if (status >= 400) return { ok: false, error: `ElevenLabs respondió ${status}.` };
-    const sub = body.subscription as { tier?: string; character_count?: number; character_limit?: number } | undefined;
-    const facts: Fact[] = [];
-    if (sub?.tier) facts.push({ k: 'Tu plan', v: sub.tier, c: 'var(--good)' });
-    if (sub && typeof sub.character_count === 'number' && typeof sub.character_limit === 'number') {
-      facts.push({ k: 'Caracteres del mes', v: `${sub.character_count.toLocaleString('es-MX')} / ${sub.character_limit.toLocaleString('es-MX')}` });
+    // ElevenLabs: la key va en el header xi-api-key. /v1/user trae datos lindos (plan +
+    // caracteres) PERO exige el permiso "user_read": una key ACOTADA a solo TTS lo
+    // rechaza con 401 aunque sea perfectamente válida. Por eso, si /v1/user no valida,
+    // caemos a /v1/models (accesible con cualquier key) para no rechazar una key buena.
+    const h = { 'xi-api-key': v.ELEVENLABS_API_KEY, accept: 'application/json' };
+    const u = await fetchJson('https://api.elevenlabs.io/v1/user', { headers: h });
+    if (u.status === 200) {
+      const sub = u.body.subscription as { tier?: string; character_count?: number; character_limit?: number } | undefined;
+      const facts: Fact[] = [];
+      if (sub?.tier) facts.push({ k: 'Tu plan', v: sub.tier, c: 'var(--good)' });
+      if (sub && typeof sub.character_count === 'number' && typeof sub.character_limit === 'number') {
+        facts.push({ k: 'Caracteres del mes', v: `${sub.character_count.toLocaleString('es-MX')} / ${sub.character_limit.toLocaleString('es-MX')}` });
+      }
+      return { ok: true, detalle: 'Key válida — MaKo puede generar voz con ElevenLabs.', facts };
     }
-    return { ok: true, detalle: 'Key válida — MaKo puede generar voz con ElevenLabs.', facts };
+    const m = await fetchJson('https://api.elevenlabs.io/v1/models', { headers: h });
+    if (m.status === 200) return { ok: true, detalle: 'Key válida (con permisos acotados) — MaKo puede generar voz.' };
+    if (u.status === 401 || m.status === 401) return { ok: false, error: 'API key inválida.' };
+    return { ok: false, error: `ElevenLabs respondió ${u.status}/${m.status}.` };
   },
 
   async fathom(v) {

@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getUsageSummary, setSaldo } from '@/lib/anthropic-usage';
+import { getUsageSummary, setSaldo, agregarCarga } from '@/lib/anthropic-usage';
 import { esWorkspaceDueno, getRolWsEfectivo } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
 
@@ -37,13 +37,23 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const no = await soloDueno();
   if (no) return no;
-  let body: { saldoUsd?: unknown; provider?: unknown };
+  let body: { saldoUsd?: unknown; cargaUsd?: unknown; provider?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
-  const usd = Number(body.saldoUsd);
-  if (!Number.isFinite(usd) || usd < 0) return Response.json({ ok: false, error: 'saldo inválido' }, { status: 400 });
-  const provider = ['anthropic', 'openai', 'groq'].includes(String(body.provider)) ? String(body.provider) : 'anthropic';
+  // Solo las que se pagan con dinero llevan saldo. OJO: antes 'gemini' no estaba y se
+  // coercía a 'anthropic' → cargar créditos de Gemini pisaba el saldo de Claude.
+  const provider = ['anthropic', 'openai', 'gemini'].includes(String(body.provider)) ? String(body.provider) : 'anthropic';
   try {
-    await setSaldo(usd, new Date().toISOString(), provider);
+    if (body.cargaUsd !== undefined) {
+      // ADITIVO: "cargué X créditos" → suma al total (el input arranca vacío).
+      const usd = Number(body.cargaUsd);
+      if (!Number.isFinite(usd) || usd <= 0) return Response.json({ ok: false, error: 'monto inválido' }, { status: 400 });
+      await agregarCarga(usd, provider);
+    } else {
+      // REEMPLAZO (corrección del total): setea el saldo total a lo enviado.
+      const usd = Number(body.saldoUsd);
+      if (!Number.isFinite(usd) || usd < 0) return Response.json({ ok: false, error: 'saldo inválido' }, { status: 400 });
+      await setSaldo(usd, new Date().toISOString(), provider);
+    }
     return Response.json({ ok: true, ...(await getUsageSummary()) });
   } catch (err) {
     return Response.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
