@@ -57,7 +57,7 @@ function Mensaje({ texto, sub, ok }: { texto: string; sub?: string; ok?: boolean
   );
 }
 
-type Step = { kind: 'q'; i: number } | { kind: 'elim' } | { kind: 'confirm' };
+type Step = { kind: 'q'; i: number } | { kind: 'dyn'; i: number } | { kind: 'elim' } | { kind: 'confirm' };
 
 export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [paso, setPaso] = useState(0);
@@ -66,6 +66,12 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<'' | 'aplicada' | 'descartada'>('');
+  // Formulario DINÁMICO: tras las preguntas iniciales, MaKo genera repreguntas de
+  // contexto según lo respondido. Se piden UNA vez (dynFetched) y se insertan como pasos.
+  const [dynQs, setDynQs] = useState<PropuestaPregunta[]>([]);
+  const [dynResp, setDynResp] = useState<Record<number, string>>({});
+  const [dynFetched, setDynFetched] = useState(false);
+  const [dynLoading, setDynLoading] = useState(false);
   const irPlan = () => { window.location.href = '/plan'; };
   const nT = prop.tareas.length;
   // Cuántos proyectos abarcan las tareas (distintos nombres referenciados) — el dueño
@@ -75,16 +81,36 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
 
   const steps: Step[] = [
     ...prop.preguntas.map((_, i) => ({ kind: 'q' as const, i })),
+    ...dynQs.map((_, i) => ({ kind: 'dyn' as const, i })),
     ...(prop.eliminar.length ? [{ kind: 'elim' as const }] : []),
     { kind: 'confirm' as const },
   ];
   const cur = steps[Math.min(paso, steps.length - 1)];
   const esUltimo = paso >= steps.length - 1;
 
+  // Avanzar: al pasar de la ÚLTIMA pregunta inicial, MaKo genera repreguntas dinámicas
+  // (una sola vez) con las respuestas dadas y las inserta como pasos antes de seguir.
+  const avanzar = async () => {
+    const enUltimaInicial = cur.kind === 'q' && cur.i === prop.preguntas.length - 1;
+    if (enUltimaInicial && !dynFetched && prop.preguntas.length > 0) {
+      setDynLoading(true);
+      try {
+        const respuestas = prop.preguntas.map((q, i) => ({ pregunta: q.pregunta, respuesta: (resp[i] || '').trim() })).filter((r) => r.respuesta);
+        const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'profundizar', id: prop.id, respuestas }) }).then((x) => x.json());
+        if (r?.ok && Array.isArray(r.preguntas) && r.preguntas.length) setDynQs(r.preguntas as PropuestaPregunta[]);
+      } catch { /* sin repreguntas: seguimos */ } finally { setDynFetched(true); setDynLoading(false); }
+    }
+    setPaso((p) => p + 1);
+  };
+
   const enviar = async (action: 'aplicar' | 'descartar') => {
     setBusy(true); setError('');
     try {
-      const contexto = prop.preguntas.map((q, i) => (resp[i]?.trim() ? `${q.pregunta} → ${resp[i].trim()}` : null)).filter(Boolean).join('\n');
+      // El contexto para el Perro junta las respuestas iniciales + las dinámicas.
+      const contexto = [
+        ...prop.preguntas.map((q, i) => (resp[i]?.trim() ? `${q.pregunta} → ${resp[i].trim()}` : null)),
+        ...dynQs.map((q, i) => (dynResp[i]?.trim() ? `${q.pregunta} → ${dynResp[i].trim()}` : null)),
+      ].filter(Boolean).join('\n');
       const body = action === 'aplicar' ? { action, id: prop.id, eliminarIds: [...elimSel], contexto } : { action, id: prop.id };
       const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((res) => res.json());
       if (!r.ok) { setError(r.error || 'No se pudo.'); setBusy(false); return; }
@@ -98,9 +124,11 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
 
   const crearLabel = `Crear ${nT}${elimSel.size ? ` · borrar ${elimSel.size}` : ''}`;
   const pregunta = cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
+    : cur.kind === 'dyn' ? (dynQs[cur.i]?.pregunta || '…')
     : cur.kind === 'elim' ? '¿Borro estas tareas?'
       : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
   const sub = cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
+    : cur.kind === 'dyn' ? 'MaKo profundiza según lo que respondiste — así el Perro prioriza mejor.'
     : cur.kind === 'elim' ? 'MaKo las ve obsoletas o duplicadas. Destildá las que quieras conservar.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
 
@@ -108,8 +136,8 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
     <WizardShell
       titulo={prop.resumen || `Borrador · ${nT} tarea${nT === 1 ? '' : 's'}`}
       total={steps.length} idx={Math.min(paso, steps.length - 1)}
-      pregunta={busy ? 'Creando…' : pregunta} sub={busy ? undefined : sub}
-      puedeAvanzar={!busy} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy}
+      pregunta={dynLoading ? 'MaKo está pensando…' : busy ? 'Creando…' : pregunta} sub={dynLoading || busy ? undefined : sub}
+      puedeAvanzar={!busy && !dynLoading} enUltimo={esUltimo} confirmLabel={crearLabel} pending={busy || dynLoading}
       atrasLabel={paso === 0 ? 'Cancelar' : 'Atrás'} siguienteLabel="Siguiente →"
       error={error || undefined}
       // No se puede cerrar a mitad (sin ✕, sin backdrop): si cerrás perdés las
@@ -118,11 +146,13 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       bloqueante
       onClose={irPlan}
       onAtras={() => (paso === 0 ? irPlan() : setPaso(paso - 1))}
-      onSiguiente={() => setPaso(paso + 1)}
+      onSiguiente={avanzar}
       onConfirmar={() => enviar('aplicar')}
     >
       {cur.kind === 'q' ? (
         <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
+      ) : cur.kind === 'dyn' ? (
+        <PreguntaBody q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />
       ) : cur.kind === 'elim' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
           {prop.eliminar.map((e) => (

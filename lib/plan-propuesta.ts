@@ -12,6 +12,8 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, type Prioridad } from '@/lib/todo';
+import { chatCheapCascade } from '@/lib/ai-cheap';
+import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
 
 type Row = Record<string, unknown>;
@@ -93,6 +95,34 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
       createdAt: str(r.created_at),
     };
   });
+}
+
+// ── Formularios DINÁMICOS: repreguntas generadas según lo ya respondido ──────────
+// El wizard, tras las preguntas iniciales, llama acá con las respuestas. MaKo genera
+// 0-3 preguntas de SEGUIMIENTO que profundizan el CONTEXTO para que el PERRO decida —
+// NUNCA la prioridad. IA barata (nunca Claude), formatos variados. Si no hay nada que
+// profundizar, devuelve lista vacía y el wizard sigue de largo.
+const PROFUNDIZAR_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. El dueño ya respondió unas preguntas de contexto. Tu trabajo: decidir si hace falta PROFUNDIZAR con PREGUNTAS DE SEGUIMIENTO para que EL PERRO GUARDIÁN pueda decidir la prioridad con buen criterio.
+VOS decidís cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más: pedí lo que te falta para que el Perro no priorice a ciegas.
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió y valen la pena aclarar: un deadline que apareció, una dependencia o bloqueo, un número de plata, un alcance ambiguo, qué sería "listo".
+Variá el formato con "tipo": "opcion" (una) · "multi" (varias válidas) · "escala" (1-5) · "texto" (abierta) · "comparacion" (A vs B). Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
+Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
+{ "preguntas": [ { "pregunta": "<corta, sobre un hecho>", "tipo": "opcion|multi|escala|texto|comparacion", "opciones": ["...", "..."] } ] }
+Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
+
+export async function profundizarPropuesta(id: string, respuestas: Array<{ pregunta: string; respuesta: string }>): Promise<PropuestaPregunta[]> {
+  const prop = await getPropuesta(id);
+  if (!prop || prop.estado !== 'pendiente') return [];
+  const respStr = (respuestas || []).filter((r) => r?.respuesta?.trim()).map((r) => `P: ${r.pregunta}\nR: ${r.respuesta}`).join('\n\n');
+  if (!respStr.trim()) return []; // sin respuestas, no hay de dónde profundizar
+  const tareasStr = prop.tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` [${t.proyecto}]` : ''}${t.detalle ? ` — ${t.detalle}` : ''}`).join('\n');
+  const user = `TAREAS QUE SE ESTÁN CARGANDO:\n${tareasStr}\n\nRESPUESTAS DE CONTEXTO YA DADAS:\n${respStr}\n\nGenerá 0-3 preguntas de SEGUIMIENTO (solo si una respuesta abre algo que vale aclarar). JSON.`;
+  // maxTokens amplio: la IA decide cuántas preguntas hacen falta (no la limitamos a un
+  // número). El slice(0, 40) es solo un tope de SEGURIDAD (respuesta rota), no un límite real.
+  const raw = await chatCheapCascade({ system: PROFUNDIZAR_SYSTEM, user, maxTokens: 3000, feature: 'mako-doer-in', motivo: 'Profundizar borrador (preguntas dinámicas)' }).catch(() => '');
+  if (!raw) return [];
+  let obj: Record<string, unknown>; try { obj = parseJsonObject(raw); } catch { return []; }
+  return asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 40);
 }
 
 /** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;

@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { aplicarPropuesta, descartarPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, descartarPropuesta, profundizarPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
       const r = await aplicarPropuesta(id, tareas, eliminarIds, contexto);
       if (!r) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
       return NextResponse.json(r);
+    }
+    if (action === 'profundizar') {
+      // Formularios DINÁMICOS: con las respuestas dadas, MaKo genera 0-3 repreguntas de
+      // contexto (nunca prioridad). El wizard las inserta antes de aplicar.
+      const respuestas = Array.isArray(body.respuestas)
+        ? (body.respuestas as unknown[]).map((r) => { const o = (r ?? {}) as Record<string, unknown>; return { pregunta: String(o.pregunta ?? ''), respuesta: String(o.respuesta ?? '') }; })
+        : [];
+      const preguntas = await profundizarPropuesta(id, respuestas);
+      return NextResponse.json({ ok: true, preguntas });
     }
     if (action === 'descartar') {
       const ok = await descartarPropuesta(id);
