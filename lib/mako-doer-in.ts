@@ -430,13 +430,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // el error (NUNCA caemos a Claude ni gastamos Opus). Pin Claude o sin pin → Claude.
         try {
           if (pin && pin.provider !== 'anthropic') {
-            const r = await chatCheapTools(system, msgs, tools, runTool, {
-              provider: pin.provider as 'groq' | 'openai' | 'gemini', model: pin.model,
-              // maxTokens amplio: la respuesta puede llevar varias preguntas o un resumen
-              // agrupado + links; con el default (1400) se truncaba a mitad (bug de "1.5 preguntas").
-              feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${pin.provider} ${ruta.motivo} «${recorte}»`,
-            });
-            respuesta = (r.text ?? '').trim();
+            try {
+              const r = await chatCheapTools(system, msgs, tools, runTool, {
+                provider: pin.provider as 'groq' | 'openai' | 'gemini', model: pin.model,
+                // maxTokens amplio para no truncar (varias preguntas / resumen + links).
+                feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${pin.provider} ${ruta.motivo} «${recorte}»`,
+              });
+              respuesta = (r.text ?? '').trim();
+            } catch (eg) {
+              // La IA barata falló (típico: HTTP 429 = rate limit del free tier de Gemini; el
+              // doer hace VARIOS pedidos por mensaje). NO dejamos al dueño sin respuesta: caemos
+              // a Claude (queda en el historial como fallback; es raro, solo cuando Gemini corta).
+              console.warn(`[mako-doer-in] ${pin.provider} falló (${eg instanceof Error ? eg.message : String(eg)}) → fallback Claude`);
+              const { text } = await chatClaudeTools(system, msgs, tools, runTool, { feature: 'mako-doer-in', maxSteps: 8, model: ruta.model, effort: ruta.effort, motivo: `${ruta.motivo} «${recorte}» · fallback Claude` });
+              respuesta = (text ?? '').trim();
+            }
           } else {
             const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
               feature: 'mako-doer-in', maxSteps: 8,
