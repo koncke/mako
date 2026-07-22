@@ -54,6 +54,8 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const [q, setQ] = useState('');
   const [fLabels, setFLabels] = useState<Set<string>>(new Set());
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado (kanban)
+  const [fOrigen, setFOrigen] = useState<Set<string>>(new Set());  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
+  const [sortMode, setSortMode] = useState<'score' | 'creacion'>('score'); // orden de tareas/proyectos
   const [projFilter, setProjFilter] = useState<DoneFilter>('all');  // filtrar por estado (proyectos)
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
@@ -259,7 +261,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome]);
-  const passes = (t: BoardTask) => (!q || matchTexto(t, q)) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && pasaEstado(t.progress, doneFilter);
+  const passes = (t: BoardTask) => (!q || matchTexto(t, q)) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
   const hechas = tasks.filter((t) => t.progress >= 100).length;
@@ -374,7 +376,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {view === 'kanban' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} />
+          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} />
         </>}
         {/* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
             activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
@@ -396,7 +398,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         )}
         {view === 'proyectos' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
+          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} />
         </>}
         {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
             reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
@@ -419,13 +421,13 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} />}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} />}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
       {openTask && <TaskModal key={openTask.id} t={openTask} board={board} topProjectId={topProjectId} suggestMako={openTask.id === makoHintId} onDebate={() => setDebateId(openTask.id)} onDelete={() => setEliminarTaskId(openTask.id)} onAsignar={() => setAsignarTaskId(openTask.id)} onOpenProj={(id) => setPeekProjId(id)} escDisabled={!!peekProjId} ask={ask}
-        onBack={openProjLabel ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
+        onBack={(openProjLabel || welcomeVisible) ? () => { setOpenId(null); setMakoHintId(null); } : undefined}
         onClose={() => { setOpenId(null); setOpenProj(null); setPeekProjId(null); setMakoHintId(null); }} />}
       {peekProj && openTask && <ProjectDetailModal proj={peekProj} board={board} topProjectId={topProjectId} z={130} onBack={() => setPeekProjId(null)}
         onOpenTask={(id) => { setPeekProjId(null); setOpenId(id); }} onNewTask={() => { setNuevaTareaProj(peekProj.id); setNuevaTarea(true); }}
@@ -467,8 +469,9 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onLuego={() => setDatosConfirm(false)} />}
       {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
-      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} labelById={board.labelById}
-        onOpen={(id) => { setWelcomeVisible(false); setOpenId(id); }} onClose={() => setWelcomeVisible(false)} />}
+      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks}
+        renderCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} />}
+        onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>
@@ -731,14 +734,14 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, onOpen, onNew, onWarn }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, sortMode, onOpen, onNew, onWarn }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
 }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
-        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || b.score - a.score || a.num - b.num);
+        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? a.num - b.num : (b.score - a.score || a.num - b.num)));
         return (
           <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
             <ColHeader p={p} count={items.length} />
@@ -862,42 +865,78 @@ function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () 
 }
 
 // ── filtro por etiqueta ─────────────────────────────────────────────────────────
-// Botón "Filtrar" de 2 CAPAS (#13): estado (Todas/Activas/Comenzadas/Completadas) +
-// etiquetas. `labels` opcional: en Proyectos solo va la capa de estado.
-function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels }: {
+// Botón "Filtrar" de CAPAS (#13): estado + etiquetas + ORIGEN (fuente) + ORDEN.
+// `labels` opcional: en Proyectos solo va la capa de estado. `fOrigen`/`sortMode`
+// opcionales: si vienen, se muestran esas capas (aplican a tareas y a proyectos).
+const ORIGEN_OPS: Array<[string, string]> = [
+  ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reunión · Fathom'], ['claude-code', '⌨️ Claude Code'],
+  ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
+];
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, sortMode, setSortMode }: {
   labels?: Label[]; fLabels?: Set<string>; setFLabels?: (s: Set<string>) => void;
   doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
+  fOrigen?: Set<string>; setFOrigen?: (s: Set<string>) => void;
+  sortMode?: 'score' | 'creacion'; setSortMode?: (m: 'score' | 'creacion') => void;
 }) {
   const [open, setOpen] = useState(false);
-  const n = (fLabels?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
+  const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
+  const toggleOrigen = (tipo: string) => { if (!fOrigen || !setFOrigen) return; const c = new Set(fOrigen); if (c.has(tipo)) c.delete(tipo); else c.add(tipo); setFOrigen(c); };
   const ops = estadoLabels ?? ESTADO_OPS;
   const secLabel: CSSProperties = { fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '2px 4px 6px' };
+  const sepLabel: CSSProperties = { ...secLabel, marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 10 };
+  const check = (on: boolean): CSSProperties => ({ width: 14, height: 14, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
+  const radio = (on: boolean): CSSProperties => ({ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: on ? 'inset 0 0 0 2px var(--surface)' : 'none' });
+  const rowBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS };
   return (
     <span style={{ position: 'relative' }}>
       <button onClick={() => setOpen((o) => !o)} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />Filtrar
-        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
+        {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
         <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 234, maxHeight: 420, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
+        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 234, maxHeight: 460, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
           {/* CAPA 1: estado */}
           <div style={secLabel}>Estado</div>
           {ops.map(([v, label]) => (
-            <button key={v} onClick={() => setDoneFilter(v)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: doneFilter === v ? 'var(--primary-bg)' : 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS, fontWeight: doneFilter === v ? 700 : 500 }}>
-              <span style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${doneFilter === v ? 'var(--primary)' : 'var(--border-strong)'}`, background: doneFilter === v ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: doneFilter === v ? 'inset 0 0 0 2px var(--surface)' : 'none' }} />
+            <button key={v} onClick={() => setDoneFilter(v)} style={{ ...rowBtn, background: doneFilter === v ? 'var(--primary-bg)' : 'transparent', fontWeight: doneFilter === v ? 700 : 500 }}>
+              <span style={radio(doneFilter === v)} />
               <span>{label}</span>
             </button>
           ))}
           {/* CAPA 2: etiquetas (solo si hay labels) */}
           {labels && labels.length > 0 && (
             <>
-              <div style={{ ...secLabel, marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 10 }}>{labels.length ? 'Proyecto' : ''}</div>
+              <div style={sepLabel}>Proyecto</div>
               {labels.map((l) => (
-                <button key={l.id} onClick={() => toggle(l.id)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS }}>
-                  <span style={{ width: 14, height: 14, borderRadius: 4, border: `1px solid ${fLabels?.has(l.id) ? 'var(--primary)' : 'var(--border-strong)'}`, background: fLabels?.has(l.id) ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>{fLabels?.has(l.id) ? '✓' : ''}</span>
+                <button key={l.id} onClick={() => toggle(l.id)} style={rowBtn}>
+                  <span style={check(!!fLabels?.has(l.id))}>{fLabels?.has(l.id) ? '✓' : ''}</span>
                   <span>{l.emoji} {l.name}</span>
+                </button>
+              ))}
+            </>
+          )}
+          {/* CAPA 3: origen (fuente de creación) */}
+          {fOrigen && setFOrigen && (
+            <>
+              <div style={sepLabel}>Origen</div>
+              {ORIGEN_OPS.map(([tipo, label]) => (
+                <button key={tipo} onClick={() => toggleOrigen(tipo)} style={rowBtn}>
+                  <span style={check(fOrigen.has(tipo))}>{fOrigen.has(tipo) ? '✓' : ''}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </>
+          )}
+          {/* CAPA 4: orden */}
+          {sortMode && setSortMode && (
+            <>
+              <div style={sepLabel}>Ordenar</div>
+              {([['score', 'Por prioridad'], ['creacion', 'Por creación']] as Array<['score' | 'creacion', string]>).map(([v, label]) => (
+                <button key={v} onClick={() => setSortMode(v)} style={{ ...rowBtn, background: sortMode === v ? 'var(--primary-bg)' : 'transparent', fontWeight: sortMode === v ? 700 : 500 }}>
+                  <span style={radio(sortMode === v)} />
+                  <span>{label}</span>
                 </button>
               ))}
             </>
@@ -1125,16 +1164,21 @@ function ProjTabHist({ labels, nombre, avatarUrl }: { labels: Label[]; nombre: s
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion' }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
   const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
   const REALES = TOPE - 1;
   const needle = q.trim().toLowerCase();
-  const withProg = labels.slice().sort((a, b) => b.score - a.score).map((l) => ({ l, prog: projProgress(tasks, l.id) }));
+  // Orden por PRIORIDAD (score, default) o por CREACIÓN (ts más viejo del historial).
+  const creTs = (l: Label) => (l.historial?.length ? Math.min(...l.historial.map((h) => h.ts)) : 0);
+  const ordenados = labels.slice().sort((a, b) => (sortMode === 'creacion' ? creTs(a) - creTs(b) : b.score - a.score));
+  const origenDe = (l: Label) => fuenteEfectiva({ origen: l.historial[l.historial.length - 1]?.actor ?? 'user', fuente: l.fuente }).tipo;
+  const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const completo = (p: { total: number; done: number }) => p.total > 0 && p.done === p.total;
   const shown = withProg
     .filter(({ l }) => !needle || `${l.name} ${stripHtml(l.detalle ?? '')}`.toLowerCase().includes(needle))
+    .filter(({ l }) => fOrigen.size === 0 || fOrigen.has(origenDe(l)))
     .filter(({ prog }) => pasaEstado(prog.pct, projFilter));
   const visibles = (verTodos || needle) ? shown : shown.slice(0, REALES);
   const resto = shown.length - visibles.length;
