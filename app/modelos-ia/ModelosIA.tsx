@@ -29,8 +29,8 @@ const CHAT_OPTS: DropdownOption[] = [
   { value: 'openai|gpt-4o-mini', label: 'OpenAI · gpt-4o-mini', sub: 'barato' },
   { value: 'openai|gpt-5-mini', label: 'OpenAI · gpt-5-mini', sub: 'OpenAI intermedio, barato' },
   { value: 'openai|gpt-4o', label: 'OpenAI · gpt-4o', sub: 'OpenAI, con visión' },
-  { value: 'gemini|gemini-2.5-flash', label: 'Gemini · 2.5 Flash', sub: '1M contexto · gratis con tu key (el free entrena)' },
-  { value: 'gemini|gemini-2.5-flash-lite', label: 'Gemini · 2.5 Flash-Lite', sub: 'el más barato/rápido de Google' },
+  { value: 'gemini|gemini-flash-latest', label: 'Gemini · Flash', sub: '1M contexto · gratis con tu key (el free entrena)' },
+  { value: 'gemini|gemini-flash-lite-latest', label: 'Gemini · Flash-Lite', sub: 'el más barato/rápido de Google' },
 ];
 const STT_OPTS: DropdownOption[] = [
   { value: 'groq|whisper-large-v3-turbo', label: 'Groq · Whisper v3 turbo', sub: 'STT barato' },

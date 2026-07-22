@@ -35,7 +35,9 @@ async function provDe(nombre: ProvName): Promise<Prov | null> {
     // Endpoint OpenAI-compatible de Gemini (chat + function-calling). SIN STT: su
     // transcripción es multimodal nativa, no /audio/transcriptions → el STT se
     // queda en Groq/OpenAI (ver proveedorStt). 1M de contexto, function-calling.
-    return { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', key, chatModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash', sttModel: '' };
+    // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
+    // pineados que se van retirando). Pisable con GEMINI_MODEL.
+    return { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', key, chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
   }
   const key = await credWs('OPENAI_API_KEY');
   if (!key) return null;
@@ -57,6 +59,18 @@ async function proveedorStt(): Promise<Prov | null> {
 
 export async function cheapDisponible(): Promise<boolean> { return (await proveedor()) !== null; }
 export async function sttDisponible(): Promise<boolean> { return (await proveedorStt()) !== null; }
+
+// Ante un 404 de "modelo no encontrado", listamos los modelos que SÍ acepta la key
+// (GET /models, OpenAI-compat) y los metemos en el error → nunca más adivinamos el id.
+async function modelosDisponibles(p: Prov): Promise<string> {
+  try {
+    const res = await fetch(`${p.base}/models`, { headers: { Authorization: `Bearer ${p.key}` }, cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    const data = await res.json().catch(() => ({})) as { data?: Array<{ id?: string }>; models?: Array<{ name?: string }> };
+    const ids = [...(data.data ?? []).map((m) => m.id), ...(data.models ?? []).map((m) => m.name)].filter(Boolean).map((s) => String(s).replace(/^models\//, ''));
+    const flash = ids.filter((id) => /flash|gemini/i.test(id)).slice(0, 20);
+    return flash.length ? ` · modelos disponibles: ${flash.join(', ')}` : '';
+  } catch { return ''; }
+}
 
 /**
  * LLM barato para tareas simples. Devuelve el texto (o el JSON crudo si json=true).
@@ -83,7 +97,10 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     signal: AbortSignal.timeout(30000),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(`chatCheap(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}`);
+  if (!res.ok || data.error) {
+    const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
+    throw new Error(`chatCheap(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
+  }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
   void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre);
   return (data.choices?.[0]?.message?.content ?? '').trim();
@@ -163,7 +180,10 @@ export async function chatCheapTools(
       signal: AbortSignal.timeout(45000),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.error) throw new Error(`chatCheapTools(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}`);
+    if (!res.ok || data.error) {
+      const extra = p.nombre === 'gemini' && res.status === 404 ? await modelosDisponibles(p) : '';
+      throw new Error(`chatCheapTools(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}${extra}`);
+    }
     void recordUsage(opts.feature || 'ia-barata-tools', model, data.usage, opts.motivo, p.nombre);
     const msg = data.choices?.[0]?.message as { content?: string; tool_calls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> } | undefined;
     if (!msg) break;

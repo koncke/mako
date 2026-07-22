@@ -32,7 +32,7 @@ const GROQ = (model = 'openai/gpt-oss-20b'): ModeloRef => ({ provider: 'groq', m
 const GROQ_WHISPER: ModeloRef = { provider: 'groq', model: 'whisper-large-v3-turbo' };
 // Gemini Flash: 1M de contexto + function-calling. BYOK por cliente (su propia key).
 // El free entrena; para datos de clientes va key paga (ver metodo-catalogo).
-const GEMINI = (model = 'gemini-2.5-flash'): ModeloRef => ({ provider: 'gemini', model });
+const GEMINI = (model = 'gemini-flash-latest'): ModeloRef => ({ provider: 'gemini', model });
 
 // Catálogo de TODOS los procesos de IA de la app (del audit). Cada `feature` es el
 // tag REAL que el call-site le pasa a chatClaude/chatCheap: si no coincide, el
