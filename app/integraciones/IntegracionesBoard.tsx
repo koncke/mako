@@ -291,7 +291,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
 
 // ── Costo de MaKo ─────────────────────────────────────────────────────────────
 function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; onVerOps: () => void; onCargarSaldo: () => void; onOpenService: (key: string) => void }) {
-  const provs = usage?.porProveedor ?? [];
+  // Un tile por proveedor que consumió algo + uno por CADA IA gratis registrada aunque
+  // todavía no se haya usado (item "cargalos como otro contenedor"): esos salen del
+  // catálogo de cuotas con uso 0, así Cerebras/Mistral/OpenRouter siempre tienen su caja.
+  const provsBase = usage?.porProveedor ?? [];
+  const provs: ProvSaldo[] = [
+    ...provsBase,
+    ...cuotas.filter((c) => !provsBase.some((p) => p.provider === c.provider))
+      .map((c): ProvSaldo => ({ provider: c.provider, costMesUsd: 0, tokens: 0, tokensHoy: c.tokens, saldo: null, restanteUsd: null, gratis: true })),
+  ];
   const feats = (usage?.porFeature ?? []).slice(0, 8);
   const maxFeat = Math.max(1, ...feats.map((f) => f.costUsd));
   const [editProv, setEditProv] = useState<string | null>(null);
