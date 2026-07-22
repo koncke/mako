@@ -193,7 +193,7 @@ CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anot
    · FECHA / urgencia: ¿alguna tiene deadline o corre? (cambia la prioridad).
    · ALCANCE: ¿algún ítem es en realidad VARIAS tareas, o varias son UNA sola? En las que quedan vagas, ¿qué sería "listo"?
    · PRIORIDAD / foco: si algo parece clave (o al revés, un "algún día"), confirmalo.
-   Hacé HASTA 3 preguntas —las MÁS útiles, no de relleno—, DE A UNA (una por mensaje, separadas con ---), y arrancá diciendo cuántas son ("Tengo 2 preguntas 👇"). ⚠️ Si preguntás, en ESTE turno NO llames NINGUNA tool de crear: SOLO preguntás y ESPERÁS la respuesta. PREGUNTAR NO ES PROPONER. Saltás este paso SOLO si de verdad está TODO clarísimo y no hay nada que mejorar (raro en una lista larga).
+   Hacé HASTA 3 preguntas —las MÁS útiles, no de relleno— TODAS JUNTAS en UN SOLO mensaje, cortas y numeradas (arrancando con cuántas son: "Tengo 3 preguntas 👇" y después "1) …  2) …  3) …"). ⛔ NO las mandes de a una en mensajes separados NI uses --- entre ellas: eso se corta/se traba y quedás a mitad de camino. Van las 3 en el mismo mensaje. ⚠️ Si preguntás, en ESTE turno NO llames NINGUNA tool de crear: SOLO preguntás y ESPERÁS la respuesta. PREGUNTAR NO ES PROPONER. Saltás este paso SOLO si de verdad está TODO clarísimo y no hay nada que mejorar (raro en una lista larga).
 3. Cuando ya tenés el contexto (después de que te responda, o si estaba TODO claro): tu acción es LLAMAR la tool 'proponer_tareas_plan' con las tareas (cada una con su "proyecto"). Esa tool NO crea la tarea: solo la deja PENDIENTE (NADA se crea hasta el "sí"). Recién DESPUÉS de llamarla, en tu mensaje mostrás corto qué quedó pendiente —AGRUPADO por proyecto (📁 Proyecto: • tarea, • tarea), NO una lista plana numerada que mezcla todo— y pedís el "sí".
    ⛔ PROHIBIDO y ES UN ERROR COMÚN: escribir "confirmá con un sí y la creo" / "van así, decime si va" SIN haber llamado antes 'proponer_tareas_plan' en este mismo turno → no queda nada pendiente y el "sí" no crea NADA. Esa frase SOLO sale DESPUÉS de la tool. (OJO: esto es DISTINTO de preguntar en el paso 2 — ahí NO decís "confirmá con sí", solo preguntás.)
 4. Con el "sí", 'confirmar_accion' las crea y te devuelve el/los link(s): pasáselos tal cual (uno por tarea). Si asignaste a un proyecto que ya existía, sumá su link (lo tenés de ver_plan).`;
@@ -437,7 +437,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
           if (pin && pin.provider !== 'anthropic') {
             const r = await chatCheapTools(system, msgs, tools, runTool, {
               provider: pin.provider as 'groq' | 'openai' | 'gemini', model: pin.model,
-              feature: 'mako-doer-in', maxSteps: 8, motivo: `${pin.provider} ${ruta.motivo} «${recorte}»`,
+              // maxTokens amplio: la respuesta puede llevar varias preguntas o un resumen
+              // agrupado + links; con el default (1400) se truncaba a mitad (bug de "1.5 preguntas").
+              feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${pin.provider} ${ruta.motivo} «${recorte}»`,
             });
             respuesta = (r.text ?? '').trim();
           } else {
