@@ -17,7 +17,7 @@ import { getLead, setPipelineStage, getFunnel } from '@/lib/leads';
 import { getSecuenciasConStats, setSecuenciaActiva } from '@/lib/nutricion';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { crearTarea, crearCategoria, listCategorias, type Prioridad } from '@/lib/todo';
-import { agregarTareasPlanOwner } from '@/lib/plan-board';
+import { agregarTareasPlanOwner, priorizarNuevasOwner } from '@/lib/plan-board';
 
 // Base pública para armar los links que MaKo manda por WhatsApp (deep-links al plan).
 const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
@@ -98,7 +98,17 @@ export async function ejecutarAccion(ws: number, tipo: string, payload: Record<s
             { tipo: 'whatsapp' },
           );
           const links = ids.map((id) => `${APP_URL}/plan/agencia?tarea=${id}`);
-          return { ok: true, resumen: `Agregué ${nN} a tu plan. ${mirar}:\n${links.join('\n')}` };
+          // El Perro Guardián puntúa las nuevas server-side (no depende de abrir el board).
+          // Si falla, las tareas quedan igual con su score inicial (no rompe la carga).
+          let prioLinea = '';
+          try {
+            const c = await priorizarNuevasOwner(ids);
+            if (c) {
+              const partes = [c.alta && `${c.alta} en Alta`, c.media && `${c.media} en Media`, c.baja && `${c.baja} en Baja`, c.futuro && `${c.futuro} a futuro`].filter(Boolean);
+              if (partes.length) prioLinea = `\n🐕 El Perro Guardián las priorizó: ${partes.join(', ')}.`;
+            }
+          } catch (e) { console.error('[mako-doer-acciones] priorizar nuevas:', e instanceof Error ? e.message : String(e)); }
+          return { ok: true, resumen: `Agregué ${nN} a tu plan.${prioLinea} ${mirar}:\n${links.join('\n')}` };
         }
 
         // Cliente: ya estamos dentro de runWithWorkspace(ws) → la base scopea al cliente.

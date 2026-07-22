@@ -11,7 +11,8 @@
 import 'server-only';
 import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente } from '@/app/plan/board/types';
-import { scoreFromPrio } from '@/app/plan/board/types';
+import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
+import { puntuarNuevas } from '@/lib/mako-guardian';
 
 type Row = Record<string, unknown>;
 
@@ -215,6 +216,38 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));
     if (error) throw new Error(`agregarTareasPlanOwner tareas: ${error.message}`);
     return { ids: tareas.map((t) => t.id), nums: tareas.map((t) => t.num) };
+  });
+}
+
+/** El Perro Guardián puntúa las tareas RECIÉN creadas (server-side, no depende del
+ *  navegador) ubicándolas en la pirámide del plan existente, y persiste score + razón +
+ *  impacto/esfuerzo + prioridad. NO re-puntúa el resto. Devuelve el conteo por columna
+ *  para el mensaje de MaKo (o null si no hay nada / falló). Queda en el historial de IA. */
+export async function priorizarNuevasOwner(ids: string[], contexto = ''): Promise<Record<Prio, number> | null> {
+  return enPlan(async () => {
+    if (!ids.length) return null;
+    const db = await getTenantDb();
+    const idSet = new Set(ids);
+    const { data } = await db.from('plan_tareas').select('id, title, detalle, score, progress, labels');
+    const filas = (data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown }>;
+    const nuevas = filas.filter((r) => idSet.has(r.id)).map((r) => ({
+      id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle),
+      proyecto: asArr<unknown>(r.labels).map(String)[0] ?? undefined,
+    }));
+    if (!nuevas.length) return null;
+    const existentes = filas.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score) }));
+    const { tareas } = await puntuarNuevas(nuevas, existentes, contexto, 'Priorización de tareas nuevas (WhatsApp)');
+    if (!tareas.length) return null;
+    const byId = new Map(tareas.map((t) => [t.id, t]));
+    const cuenta: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
+    await Promise.all(nuevas.map((n) => {
+      const g = byId.get(n.id);
+      if (!g) return Promise.resolve(undefined);
+      const prio = prioFromScore(g.score);
+      cuenta[prio]++;
+      return db.from('plan_tareas').update({ score: g.score, score_razon: g.razon || null, impacto: g.impacto ?? null, esfuerzo: g.esfuerzo ?? null, priority: prio, updated_at: new Date().toISOString() }).eq('id', n.id).then(() => undefined);
+    }));
+    return cuenta;
   });
 }
 

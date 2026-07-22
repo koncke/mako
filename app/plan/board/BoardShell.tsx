@@ -246,13 +246,15 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSig]);
-  // PUNTO 4: las tareas que carga MaKo (WhatsApp/Fathom) entran con el score que SUGIRIÓ
-  // MaKo (scoreFromPrio), no con el del Perro Guardián — que no corre al montar. Acá lo
-  // disparamos UNA vez cuando detectamos tareas nuevas, para que las PUNTÚE de verdad e
-  // integre al plan (queda en el historial de IA como "Perro Guardián · priorización").
+  // PUNTO 4: las tareas que carga MaKo (WhatsApp/Fathom) las puntúa el Perro Guardián
+  // SERVER-SIDE al crearlas (ver priorizarNuevasOwner) → llegan ya con score + razón. Este
+  // disparador queda solo como FALLBACK: si alguna tarea nueva NO tiene razón (el server no
+  // llegó a puntuarla), corremos la re-priorización client-side una vez. Si ya están
+  // puntuadas, NO re-puntuamos todo el plan (era caro y redundante).
   useEffect(() => {
     if (guardianNuevasRef.current || !hayWelcome) return;
     guardianNuevasRef.current = true;
+    if (!welcomeTasks.some((t) => !t.scoreRazon)) return; // ya las puntuó el server
     const id = setTimeout(() => { void rePriorizar(); }, 1500);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
