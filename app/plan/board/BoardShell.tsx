@@ -24,6 +24,7 @@ import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
 import { ReunionExtractModal } from './ReunionExtractModal';
 import { DatosModal, DatosConfirm, type FaltanteItem } from './DatosModal';
+import { TareasCreadasModal } from './TareasCreadasModal';
 import { GraphicsView } from './Graphics';
 import { MakoStar } from '../../_components/MakoBrand';
 import { SvcIcon, BrandDefs } from '../../_components/ServicioVisual';
@@ -71,6 +72,10 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const [datosOff, setDatosOff] = useState(false);                    // "no volver a pedir todos"
   const [dlLoaded, setDlLoaded] = useState(false);                    // ya leí localStorage
   const datosAutoRef = useRef(false);                                 // auto-abrir una sola vez por MONTAJE (no por sesión)
+  // "MaKo cargó tareas" (bienvenida): tareas creadas por una FUENTE (WhatsApp/Fathom/MaKo)
+  // que el dueño todavía no vio en este device. Se muestran ANTES que el DatosModal.
+  const [welcomeTasks, setWelcomeTasks] = useState<BoardTask[]>([]);
+  const welcomeRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   // El aviso de gasto de IA lo muestra el toast GLOBAL <IaUsageToast> (app/layout.tsx),
@@ -100,6 +105,32 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     setDlLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoloadScope]);
+  // Bienvenida: al entrar, juntamos las tareas con FUENTE (no manuales) recientes que este
+  // device todavía no vio. Se listan CON su origen ANTES que el DatosModal (que va gateado).
+  useEffect(() => {
+    if (welcomeRef.current || !dlLoaded || tasks.length === 0) return;
+    welcomeRef.current = true; // una sola evaluación por montaje
+    try {
+      const raw = localStorage.getItem(dlKey('mako_plan_welcome_seen'));
+      const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+      const reciente = Date.now() - 3 * 86400000; // últimas 72h → no floodear con tareas viejas
+      const nuevas = tasks.filter((t) => t.progress < 100 && !seen.has(t.id)
+        && fuenteEfectiva(t).tipo !== 'manual'
+        && (t.historial?.length ? Math.min(...t.historial.map((h) => h.ts)) : 0) >= reciente);
+      if (nuevas.length) setWelcomeTasks(nuevas);
+    } catch { /* localStorage no disponible */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dlLoaded, tasks.length]);
+  const welcomeOpen = welcomeTasks.length > 0;
+  const cerrarWelcome = () => {
+    try {
+      const raw = localStorage.getItem(dlKey('mako_plan_welcome_seen'));
+      const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+      welcomeTasks.forEach((t) => seen.add(t.id));
+      localStorage.setItem(dlKey('mako_plan_welcome_seen'), JSON.stringify([...seen]));
+    } catch { /* ignore */ }
+    setWelcomeTasks([]);
+  };
   const faltantes: FaltanteItem[] = tasks
     .filter((t) => t.progress < 100)
     .map((t) => ({
@@ -142,7 +173,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // es lo que se espera si no apretaste "no volver a pedir"), si hay algo importante y NO
   // hay ya otro modal abierto (deep-link ?tarea=/?proyecto= → nunca apilar dos).
   useEffect(() => {
-    if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm) return;
+    if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm || welcomeOpen) return;
     if (openId || openProj || peekProjId) return; // hay un detalle abierto: no apilar
     if (hayImportante) {
       datosAutoRef.current = true;
@@ -150,7 +181,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       setDatosOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId]);
+  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId, welcomeOpen]);
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -396,6 +427,10 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       {datosConfirm && <DatosConfirm
         onNoPreguntar={() => { setDatosConfirm(false); apagarDatos(); }}
         onLuego={() => setDatosConfirm(false)} />}
+      {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
+          apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
+      {welcomeOpen && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} labelById={board.labelById}
+        onOpen={(id) => { cerrarWelcome(); setOpenId(id); }} onClose={cerrarWelcome} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>
