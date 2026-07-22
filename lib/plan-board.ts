@@ -185,12 +185,14 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const { data: projRows } = await db.from('plan_proyectos').select('*');
     const proyectos = (projRows ?? []).map(rowToLabel);
     const byName = new Map(proyectos.map((p) => [p.name.trim().toLowerCase(), p.id]));
+    const idsExist = new Set(proyectos.map((p) => p.id)); // MaKo a veces pasa el id/slug del proyecto existente
+    const resolverProy = (nombre?: string): string | undefined => { const n = nombre?.trim(); if (!n) return undefined; return byName.get(n.toLowerCase()) ?? (idsExist.has(n) ? n : undefined); };
     const nuevosProy: Label[] = [];
     for (const it of validos) {
       const nombre = it.proyecto?.trim();
       if (!nombre) continue;
       const k = nombre.toLowerCase();
-      if (byName.has(k)) continue;
+      if (byName.has(k) || idsExist.has(nombre)) continue; // ya existe (por nombre o por id) → no duplicar
       const id = genId('p');
       byName.set(k, id);
       nuevosProy.push({ id, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
@@ -205,7 +207,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const start = await proximoNum(db);
     const tareas: BoardTask[] = validos.map((it, i) => {
       const prio: Prio = it.prioridad ?? 'media';
-      const projId = it.proyecto?.trim() ? byName.get(it.proyecto.trim().toLowerCase()) : undefined;
+      const projId = resolverProy(it.proyecto);
       return {
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
         detalle: it.detalle?.slice(0, 600) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,

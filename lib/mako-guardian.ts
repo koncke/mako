@@ -437,16 +437,24 @@ export async function describirProyectosNuevos(
     tareas: contenidoNoConfiable(tareasPorProyecto || '(sin tareas)', 'tareas'),
   });
   let usage: UsageInfo | undefined;
+  const ids = new Set(nuevos.map((n) => n.id));
+  const extraer = (r: string): ProyDescOut[] => {
+    let obj: Record<string, unknown>; try { obj = parseJsonObject(r); } catch { return []; }
+    return Array.isArray(obj.proyectos)
+      ? (obj.proyectos as Record<string, unknown>[]).map((p) => ({
+          id: String(p.id ?? ''), score: Math.max(1, Math.min(100, Math.round(Number(p.score) || 50))),
+          emoji: (String(p.emoji ?? '📁').trim().slice(0, 4)) || '📁', detalle: String(p.detalle ?? '').trim(),
+          razon: String(p.razon ?? '').trim(), impacto: clamp1a100(p.impacto), esfuerzo: clamp1a100(p.esfuerzo),
+        })).filter((p) => ids.has(p.id))
+      : [];
+  };
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Describir y priorizar proyectos nuevos', onUsage: (u) => { usage = u; } });
-  let obj: Record<string, unknown>;
-  try { obj = parseJsonObject(raw); } catch { return { proyectos: [], usage }; }
-  const proyectos: ProyDescOut[] = Array.isArray(obj.proyectos)
-    ? (obj.proyectos as Record<string, unknown>[]).map((p) => ({
-        id: String(p.id ?? ''), score: Math.max(1, Math.min(100, Math.round(Number(p.score) || 50))),
-        emoji: (String(p.emoji ?? '📁').trim().slice(0, 4)) || '📁', detalle: String(p.detalle ?? '').trim(),
-        razon: String(p.razon ?? '').trim(), impacto: clamp1a100(p.impacto), esfuerzo: clamp1a100(p.esfuerzo),
-      })).filter((p) => p.id)
-    : [];
+  let proyectos = extraer(raw);
+  if (!proyectos.length) {
+    // Gemini no devolvió proyectos usables → Claude (fiable). Sin esto quedan 📁/50/sin detalle.
+    const raw2 = await chatClaude(sys, [{ role: 'user', content: user }], { model: 'claude-sonnet-5', effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: (usoMotivo || 'Describir proyectos nuevos') + ' · fallback Claude', onUsage: (u) => { usage = u; } });
+    proyectos = extraer(raw2);
+  }
   return { proyectos, usage };
 }
 
@@ -464,8 +472,15 @@ export async function puntuarNuevas(nuevas: GuardTaskIn[], existentes: Array<{ t
     nuevas: contenidoNoConfiable(nuevasStr, 'nuevas'),
   });
   let usage: UsageInfo | undefined;
+  const ids = new Set(nuevas.map((n) => n.id));
+  const extraer = (r: string): GuardScore[] => { try { return toScores(parseJsonObject(r).tareas, 1, 100).filter((s) => ids.has(s.id)); } catch { return []; } };
   const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: usoMotivo || 'Priorización de tareas nuevas', onUsage: (u) => { usage = u; } });
-  let obj: Record<string, unknown>;
-  try { obj = parseJsonObject(raw); } catch { return { tareas: [], usage }; }
-  return { tareas: toScores(obj.tareas, 1, 100), usage };
+  let tareas = extraer(raw);
+  if (!tareas.length) {
+    // La IA barata (Gemini) no devolvió scores usables (JSON malo o ids que no matchean) →
+    // reintento forzando CLAUDE, fiable en JSON estructurado con ids. El Perro NO puede quedar mudo.
+    const raw2 = await chatClaude(sys, [{ role: 'user', content: user }], { model: 'claude-sonnet-5', effort: 'medium', maxTokens: 3000, feature: 'mako-guardian', motivo: (usoMotivo || 'Priorización de tareas nuevas') + ' · fallback Claude', onUsage: (u) => { usage = u; } });
+    tareas = extraer(raw2);
+  }
+  return { tareas, usage };
 }

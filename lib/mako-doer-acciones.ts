@@ -243,7 +243,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             properties: {
               titulo: { type: 'string', description: 'qué hay que hacer, corto e imperativo.' },
               prioridad: { type: 'string', enum: ['alta', 'media', 'baja', 'futuro'], description: 'opcional; default media.' },
-              proyecto: { type: 'string', description: 'opcional; nombre del proyecto/categoría donde va (si no existe, se crea).' },
+              proyecto: { type: 'string', description: 'opcional; NOMBRE LEGIBLE del proyecto (NUNCA un slug ni un id tipo "agente-de-ads"). Para asignar a uno que YA existe, poné su nombre EXACTO como aparece en ver_plan (campo "nombre"), así no se duplica; si no existe, se crea uno nuevo con ese nombre.' },
               deadline: { type: 'string', description: 'opcional; fecha límite YYYY-MM-DD.' },
               detalle: { type: 'string', description: 'opcional; contexto extra que se dijo.' },
             },

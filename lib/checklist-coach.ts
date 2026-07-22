@@ -163,17 +163,27 @@ export async function checklistsParaTareas(tareas: Array<{ id: string; titulo: s
   const lista = tareas.map((t) => `[${t.id}] ${t.titulo}${t.detalle ? ` — ${t.detalle.slice(0, 220)}` : ''}`).join('\n');
   const sys = await brandSystem(await renderPrompt('checklist.batch.system', CHECKLIST_BATCH_SYSTEM_TEMPLATE, { jsonShape: CHECKLIST_BATCH_JSON_SHAPE }));
   const user = await renderPrompt('checklist.batch.user', CHECKLIST_BATCH_USER_TEMPLATE, { tareas: contenidoNoConfiable(lista, 'tareas') });
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 5000, feature: 'checklist-coach', motivo: usoMotivo || 'MaKo: describir + checklists de tareas nuevas' });
-  const obj = parseJson(raw);
-  const out: Record<string, TareaEnriquecida> = {};
-  if (obj && Array.isArray(obj.tareas)) {
-    for (const t of obj.tareas as Record<string, unknown>[]) {
-      const id = String(t.id ?? '');
-      if (!id) continue;
-      const items = Array.isArray(t.items) ? (t.items as unknown[]).map((x) => String(x).trim()).filter(Boolean).slice(0, 8) : [];
-      const detalle = String(t.detalle ?? '').trim().slice(0, 700);
-      if (items.length || detalle) out[id] = { detalle, items };
+  const ids = new Set(tareas.map((t) => t.id));
+  const extraer = (r: string): Record<string, TareaEnriquecida> => {
+    const obj = parseJson(r);
+    const out: Record<string, TareaEnriquecida> = {};
+    if (obj && Array.isArray(obj.tareas)) {
+      for (const t of obj.tareas as Record<string, unknown>[]) {
+        const id = String(t.id ?? '');
+        if (!ids.has(id)) continue;
+        const items = Array.isArray(t.items) ? (t.items as unknown[]).map((x) => String(x).trim()).filter(Boolean).slice(0, 8) : [];
+        const detalle = String(t.detalle ?? '').trim().slice(0, 700);
+        if (items.length || detalle) out[id] = { detalle, items };
+      }
     }
+    return out;
+  };
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'medium', maxTokens: 5000, feature: 'checklist-coach', motivo: usoMotivo || 'MaKo: describir + checklists de tareas nuevas' });
+  let out = extraer(raw);
+  if (!Object.keys(out).length) {
+    // Gemini no devolvió descripciones/checklists usables → Claude (fiable en estructurado).
+    const raw2 = await chatClaude(sys, [{ role: 'user', content: user }], { model: 'claude-sonnet-5', effort: 'medium', maxTokens: 5000, feature: 'checklist-coach', motivo: (usoMotivo || 'Describir + checklists de tareas nuevas') + ' · fallback Claude' });
+    out = extraer(raw2);
   }
   return out;
 }
