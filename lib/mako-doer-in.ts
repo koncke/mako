@@ -427,6 +427,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
           feature: 'mako-doer-in', maxSteps: 8,
           ...(pin ? {} : { model: ruta.model }),
+          fallbackModel: ruta.model, // si el pin a Gemini/Groq falla, caé al modelo del router (Sonnet), no a Opus
           effort: ruta.effort,
           motivo: `${ruta.motivo} «${recorte}»`,
         });
