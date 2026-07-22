@@ -718,10 +718,12 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   const [saving, setSaving] = useState(false);
   const guardar = async () => {
     const v = Number(input);
-    if (!Number.isFinite(v) || v <= 0) return;
+    if (!Number.isFinite(v) || v < 0) return;
     setSaving(true);
     try {
-      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cargaUsd: v, provider }) })).json();
+      // SINCRONIZA: pone el saldo ACTUAL (lo que ves en la consola). Reemplaza y resetea
+      // el baseline → el restante = ese número y baja con el gasto nuevo.
+      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) })).json();
       if (j?.ok) { setEditing(false); setInput(''); onGuardado(); }
     } finally { setSaving(false); }
   };
@@ -738,7 +740,7 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
             <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 600, color: restante !== null && restante <= 5 ? 'var(--warn)' : 'var(--ink)' }}>{gemini ? '≈' : ''}{restante !== null ? usd(restante) : usd(saldo.usd)}</span>
             <span style={{ fontSize: 12, color: 'var(--dim)' }}>restante</span>
-            <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginLeft: 'auto' }}>cargado {usd(saldo.usd)}</span>
+            <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)', marginLeft: 'auto' }}>sincronizado {fmtHora(saldo.setAt)}</span>
           </div>
           <div style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', marginBottom: 10 }}>gastó {gemini ? '≈' : ''}{usd(gastoMes)} este mes{gemini ? ' · estimado, el real está en Google ↗' : ''}</div>
         </>
@@ -747,20 +749,20 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
       )}
       {editing ? (
         <div style={{ display: 'flex', gap: 7 }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder="Monto que cargaste (USD)" style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
-          <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Sumar'}</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder="Saldo actual, de la consola (USD)" style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
+          <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Guardar'}</button>
           <button onClick={() => { setEditing(false); setInput(''); }} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
         </div>
       ) : (
-        <button onClick={() => { setEditing(true); setInput(''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Registrar otra carga' : (gemini ? 'Registrar créditos' : 'Cargar saldo')}</button>
+        <button onClick={() => { setEditing(true); setInput(''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Actualizar saldo' : (gemini ? 'Registrar créditos' : 'Poné tu saldo')}</button>
       )}
       {cargas.length > 0 && (
         <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-          <div style={{ ...capMono, fontSize: 9, letterSpacing: '.09em', color: 'var(--faint)', marginBottom: 7 }}>Histórico de cargas</div>
+          <div style={{ ...capMono, fontSize: 9, letterSpacing: '.09em', color: 'var(--faint)', marginBottom: 7 }}>Sincronizaciones</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {cargas.map((c, k) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
-                <span style={{ fontFamily: MONO, fontWeight: 600, color: 'var(--ink)' }}>+{usd(c.usd)}</span>
+                <span style={{ fontFamily: MONO, fontWeight: 600, color: 'var(--ink)' }}>{usd(c.usd)}</span>
                 <span style={{ fontFamily: MONO, color: 'var(--faint)' }}>{fmtHora(c.at)}</span>
               </div>
             ))}

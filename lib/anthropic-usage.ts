@@ -144,11 +144,17 @@ export async function getSaldo(provider: string = 'anthropic'): Promise<Saldo | 
   return null;
 }
 
+// Pone el saldo ACTUAL (lo que el dueño lee en la consola del proveedor) y resetea el
+// baseline a `setAt` → el restante = ese número y baja con el gasto NUEVO. Es el modelo
+// correcto porque, con recarga automática, el saldo real cambia por fuera de la app y no
+// se puede seguir por "cargas" sueltas: se SINCRONIZA. Cada sync queda en el histórico.
 export async function setSaldo(usd: number, setAt: string, provider: string = 'anthropic'): Promise<void> {
+  const prev = await getSaldo(provider);
+  const cargas = [...(prev?.cargas ?? []), { usd, at: setAt }];
   const { error } = await getSupabaseServer()
     .from('app_settings')
     .upsert(
-      { workspace_id: OWNER_WS, key: keySaldo(provider), value: JSON.stringify({ usd, setAt }), updated_at: new Date().toISOString() },
+      { workspace_id: OWNER_WS, key: keySaldo(provider), value: JSON.stringify({ usd, setAt, cargas }), updated_at: new Date().toISOString() },
       { onConflict: 'workspace_id,key' },
     );
   if (error) throw new Error(`Error guardando saldo de IA (${provider}): ${error.message}`);
