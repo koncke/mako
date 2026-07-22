@@ -261,6 +261,25 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     },
   },
   {
+    key: 'elevenlabs',
+    nombre: 'ElevenLabs',
+    categoria: 'IA Generativa',
+    paraQue: 'Voz por IA de alta calidad (text-to-speech y clonación de voz). MaKo la usa para generar locuciones y audio con tu propia cuenta.',
+    campos: [
+      { env: 'ELEVENLABS_API_KEY', label: 'API key', secreto: true, placeholder: 'sk_…' },
+    ],
+    tutorial: {
+      url: 'https://elevenlabs.io/app/settings/api-keys',
+      urlLabel: 'ElevenLabs → API Keys',
+      pasos: [
+        'Entrá a elevenlabs.io y creá una cuenta (tiene un plan gratis con caracteres/mes).',
+        'Abrí tu perfil → "API Keys" (o elevenlabs.io/app/settings/api-keys).',
+        'Tocá "Create API Key", ponele un nombre y copiala (empieza con sk_).',
+        'Pegala acá. El plan gratis alcanza para probar; para volumen conviene un plan pago.',
+      ],
+    },
+  },
+  {
     key: 'fathom',
     nombre: 'Fathom',
     categoria: 'Reuniones',

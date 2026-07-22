@@ -20,7 +20,7 @@ import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import type { MetaHealth } from '@/lib/meta-health-ui';
-import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA, IA_ORDEN } from '@/lib/ia-labels';
+import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible, ordenIA, IA_ORDEN, esIAdePago } from '@/lib/ia-labels';
 import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import ServicioConfigForm from './ServicioConfigForm';
@@ -84,7 +84,7 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const capMono: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)' };
 
 // Orden de categorías del diseño.
-const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'Reuniones', 'Datos'];
+const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'IA Generativa', 'Reuniones', 'Datos'];
 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
@@ -247,24 +247,41 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
             ))}
           </div>
         </div>
-        {porCategoria.map((g) => (
-          <div key={g.cat} style={{ display: 'grid', gridTemplateColumns: '132px 1fr', gap: 24, alignItems: 'center', padding: '18px 0', borderTop: '1px solid var(--surface-2)' }}>
-            <div style={capMono}>{g.cat}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 10 }}>
-              {g.items.map((i) => (
-                <button key={i.key} type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px' }}>
-                  <SvcIcon k={i.key} />
-                  <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.nombre}</span>
-                  <span style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: dotColor(sevOf(i)) }} />
-                </button>
-              ))}
+        {porCategoria.map((g) => {
+          const svcBtn = (i: Integracion) => (
+            <button key={i.key} type="button" onClick={() => setModal({ t: 'svc', key: i.key })} style={{ display: 'flex', alignItems: 'center', gap: 11, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--ink)', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '11px 13px' }}>
+              <SvcIcon k={i.key} />
+              <span style={{ fontWeight: 600, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.nombre}</span>
+              <span style={{ width: 8, height: 8, flex: 'none', borderRadius: '50%', background: dotColor(sevOf(i)) }} />
+            </button>
+          );
+          const grid = (items: Integracion[]) => <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 10 }}>{items.map(svcBtn)}</div>;
+          // En Inteligencia partimos en dos filas: primero las de pago, después las gratis.
+          const esIA = g.cat === 'Inteligencia';
+          const pago = esIA ? g.items.filter((i) => esIAdePago(i.key)) : g.items;
+          const gratis = esIA ? g.items.filter((i) => !esIAdePago(i.key)) : [];
+          return (
+            <div key={g.cat} style={{ display: 'grid', gridTemplateColumns: '132px 1fr', gap: 24, alignItems: esIA ? 'start' : 'center', padding: '18px 0', borderTop: '1px solid var(--surface-2)' }}>
+              <div style={{ ...capMono, marginTop: esIA ? 3 : 0 }}>{g.cat}</div>
+              {esIA ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <div style={{ ...capMono, fontSize: 9, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 7 }}>De pago</div>
+                    {grid(pago)}
+                  </div>
+                  <div>
+                    <div style={{ ...capMono, fontSize: 9, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 7 }}>Gratis · rotan sin costo</div>
+                    {grid(gratis)}
+                  </div>
+                </div>
+              ) : grid(g.items)}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
 
       {/* ═══ COSTO DE MAKO ═══ */}
-      <CostoMaKo usage={usage} cuotas={cuotas} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} onOpenService={(key) => setModal({ t: 'svc', key })} />
+      <CostoMaKo usage={usage} cuotas={cuotas} onVerOps={() => setModal({ t: 'hist' })} onOpenService={(key) => setModal({ t: 'svc', key })} />
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
@@ -278,6 +295,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
           onClose={() => setModal(null)}
+          // Al guardar saldo/créditos: refetch del uso (client) + refresh del server
+          // (para que las cuotas de Gemini pago se recalculen). Gemini free→pago se ve al toque.
+          onRefetchUsage={() => { cargar(); router.refresh(); }}
           // `integraciones` viene del server component: al guardar/quitar una
           // credencial hay que pedirle el estado de nuevo, si no el board sigue
           // mostrando lo de antes. El modal no se cierra: `modal` guarda la key.
@@ -292,7 +312,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
 }
 
 // ── Costo de MaKo ─────────────────────────────────────────────────────────────
-function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; onVerOps: () => void; onCargarSaldo: () => void; onOpenService: (key: string) => void }) {
+function CostoMaKo({ usage, cuotas, onVerOps, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; onVerOps: () => void; onOpenService: (key: string) => void }) {
   // Un tile por proveedor que consumió algo + uno por CADA IA gratis registrada aunque
   // todavía no se haya usado (item "cargalos como otro contenedor"): esos salen del
   // catálogo de cuotas con uso 0, así Cerebras/Mistral/OpenRouter siempre tienen su caja.
@@ -308,18 +328,56 @@ function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { 
   // un proceso en IA gratis consume muchos tokens y $0). Así ambas cuentan algo real.
   const featsTok = (usage?.porFeature ?? []).slice().sort((a, b) => b.tokens - a.tokens).slice(0, 8);
   const maxTok = Math.max(1, ...featsTok.map((f) => f.tokens));
-  const [editProv, setEditProv] = useState<string | null>(null);
-  const [input, setInput] = useState('');
-  const [saving, setSaving] = useState(false);
+  // Arriba las que consumen dinero (Claude/OpenAI/Gemini), abajo las gratis. El
+  // saldo/créditos ya NO se edita inline en el tile: se hace en el detalle (abrí el tile).
+  const provsPago = provs.filter((p) => esIAdePago(p.provider));
+  const provsGratis = provs.filter((p) => !esIAdePago(p.provider));
 
-  const guardar = async (provider: string) => {
-    const v = Number(input);
-    if (!Number.isFinite(v) || v < 0) return;
-    setSaving(true);
-    try {
-      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) })).json();
-      if (j?.ok) { setEditProv(null); setInput(''); onCargarSaldo(); }
-    } finally { setSaving(false); }
+  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
+  const renderTile = (p: ProvSaldo) => {
+    const low = p.restanteUsd !== null && p.restanteUsd <= 5;
+    const lim = LIMITE_FREE[p.provider] ?? { cap: 'plan gratis' };
+    // Cuota gratis de hoy (pedidos o tokens según el tope real): gauge "cuánto queda".
+    const cuota = cuotas.find((x) => x.provider === p.provider) ?? null;
+    const cv = cuota ? cuotaVista(cuota) : null;
+    return (
+      <div key={p.provider} role="button" tabIndex={0} title={`Ver detalle de ${proveedorLegible(p.provider)}`}
+        onClick={() => onOpenService(p.provider)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenService(p.provider); } }}
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 17px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
+          <SvcIcon k={p.provider} box={26} radius={8} size={16} />
+          <span style={{ ...capMono, fontSize: 11, letterSpacing: '.06em' }}>{proveedorLegible(p.provider)}</span>
+          {p.gratis
+            ? <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 10, fontWeight: 600, color: 'var(--good)', background: 'var(--good-bg)', padding: '2px 8px', borderRadius: 6 }}>gratis</span>
+            : <span style={{ marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%', background: low ? 'var(--warn-fill)' : 'var(--good)' }} />}
+        </div>
+        {p.gratis ? (
+          // Gratis: se mide por CUOTA de hoy (Groq por tokens/día, el resto por pedidos/día).
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginBottom: 7 }}>
+              <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cv?.agotado ? 'sin cuota hoy' : 'cuánto queda hoy'}</span>
+              <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{cv ? <>{cv.usados}<span style={{ color: 'var(--faint)' }}> / {cv.limite} {cv.unidad}</span></> : <>{fmtTok(p.tokensHoy)}<span style={{ color: 'var(--faint)' }}> tok</span></>}</span>
+            </div>
+            {cv && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${cv.pct}%`, borderRadius: 5, background: cv.agotado ? 'var(--warn-fill)' : '#F55036' }} /></div>}
+            <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{lim.cap}</div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontFamily: MONO, fontWeight: 600, fontSize: 21, letterSpacing: '-0.02em', color: p.restanteUsd === null ? 'var(--faint)' : low ? 'var(--warn)' : 'var(--ink)' }}>{p.restanteUsd === null ? 'sin saldo' : usd(p.restanteUsd)}</span>
+              {p.restanteUsd !== null && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>restante</span>}
+            </div>
+            <div style={{ fontFamily: MONO, fontSize: 11, color: low ? 'var(--warn)' : 'var(--faint)', marginTop: 5 }}>gastó {usd(p.costMesUsd)} este mes</div>
+          </>
+        )}
+        {/* Las 3 de pago (Claude/OpenAI/Gemini) llevan el MISMO link, que abre el
+            detalle para cargar/editar el saldo ahí (no inline). */}
+        {esIAdePago(p.provider) && (
+          <button onClick={(e) => { stop(e); onOpenService(p.provider); }} style={{ marginTop: 9, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer', textAlign: 'left' }}>¿Cargaste créditos? Registralos →</button>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -335,72 +393,15 @@ function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { 
         </div>
       </div>
 
-      {/* Tiles por proveedor */}
+      {/* Tiles por proveedor — arriba las de pago, abajo las gratis (dos filas
+          separadas para que no queden todos juntos y OpenRouter suelto). */}
+      <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 9 }}>Consumen dinero</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 11, marginBottom: 18 }}>
+        {provsPago.map(renderTile)}
+      </div>
+      <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.11em', color: 'var(--faint)', marginBottom: 9 }}>Gratis · rotan sin costo</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 11, marginBottom: 26 }}>
-        {provs.map((p) => {
-          const low = p.restanteUsd !== null && p.restanteUsd <= 5;
-          const lim = LIMITE_FREE[p.provider] ?? { cap: 'plan gratis' };
-          // Cuota gratis de hoy (pedidos o tokens, según el tope real del proveedor):
-          // habilita el gauge "cuánto queda" en TODOS los free, no solo Groq.
-          const cuota = cuotas.find((x) => x.provider === p.provider) ?? null;
-          const cv = cuota ? cuotaVista(cuota) : null;
-          const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
-          return (
-            <div key={p.provider} role="button" tabIndex={0} title={`Ver detalle de ${proveedorLegible(p.provider)}`}
-              onClick={() => onOpenService(p.provider)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenService(p.provider); } }}
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '15px 17px', cursor: 'pointer' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 11 }}>
-                <SvcIcon k={p.provider} box={26} radius={8} size={16} />
-                <span style={{ ...capMono, fontSize: 11, letterSpacing: '.06em' }}>{proveedorLegible(p.provider)}</span>
-                {p.gratis
-                  ? <span style={{ marginLeft: 'auto', fontFamily: MONO, fontSize: 10, fontWeight: 600, color: 'var(--good)', background: 'var(--good-bg)', padding: '2px 8px', borderRadius: 6 }}>gratis</span>
-                  : <span style={{ marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%', background: low ? 'var(--warn-fill)' : 'var(--good)' }} />}
-              </div>
-              {p.gratis ? (
-                // Gratis: no se mide en $, sino en CUOTA de hoy. Cada free tier topea distinto
-                // (Groq por tokens/día, Gemini/Cerebras/Mistral/OpenRouter por pedidos/día): el
-                // gauge muestra la métrica que MANDA con su barra. Si estamos cerca del tope, se
-                // pinta ámbar (MaKo ya lo salta en la rotación antes del 429).
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginBottom: 7 }}>
-                    <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cv?.agotado ? 'sin cuota hoy' : 'cuánto queda hoy'}</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{cv ? <>{cv.usados}<span style={{ color: 'var(--faint)' }}> / {cv.limite} {cv.unidad}</span></> : <>{fmtTok(p.tokensHoy)}<span style={{ color: 'var(--faint)' }}> tok</span></>}</span>
-                  </div>
-                  {cv && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${cv.pct}%`, borderRadius: 5, background: cv.agotado ? 'var(--warn-fill)' : '#F55036' }} /></div>}
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{lim.cap}</div>
-                  {/* Gemini es la única gratis donde SÍ podés cargar créditos. Google no
-                      expone un endpoint de saldo por API key, así que lo registrás vos una
-                      vez → Gemini pasa a "de pago" y le suben los límites de rotación. */}
-                  {p.provider === 'gemini' && (editProv === 'gemini' ? (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 9 }} onClick={stop}>
-                      <input value={input} onClick={stop} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder="Créditos USD" style={{ flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
-                      <button onClick={(e) => { stop(e); guardar('gemini'); }} disabled={saving || !input.trim()} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
-                    </div>
-                  ) : (
-                    <button onClick={(e) => { stop(e); setEditProv('gemini'); setInput(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>¿Cargaste créditos? Registralos →</button>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                    <span style={{ fontFamily: MONO, fontWeight: 600, fontSize: 21, letterSpacing: '-0.02em', color: p.restanteUsd === null ? 'var(--faint)' : low ? 'var(--warn)' : 'var(--ink)' }}>{p.restanteUsd === null ? 'sin saldo' : usd(p.restanteUsd)}</span>
-                    {p.restanteUsd !== null && <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>restante</span>}
-                  </div>
-                  <div style={{ fontFamily: MONO, fontSize: 11, color: low ? 'var(--warn)' : 'var(--faint)', marginTop: 5 }}>gastó {usd(p.costMesUsd)} este mes</div>
-                  {editProv === p.provider ? (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 9 }} onClick={stop}>
-                      <input value={input} onClick={stop} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={p.saldo ? String(p.saldo.usd) : 'Saldo USD'} style={{ flex: 1, minWidth: 0, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 12.5, outline: 'none' }} />
-                      <button onClick={(e) => { stop(e); guardar(p.provider); }} disabled={saving || !input.trim()} style={{ padding: '6px 11px', borderRadius: 8, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 12.5, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'OK'}</button>
-                    </div>
-                  ) : (
-                    <button onClick={(e) => { stop(e); setEditProv(p.provider); setInput(''); }} style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 12, fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' }}>{p.saldo ? 'editar saldo' : 'cargar saldo'}</button>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
+        {provsGratis.map(renderTile)}
       </div>
 
       {/* Por proceso — dos gráficas: DINERO (izq) y TOKENS (der). El dinero solo lo
@@ -700,8 +701,44 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
 // toda la configuración —incluido el aviso de seguridad, que vive dentro del
 // form—. Alto fijo y scroll adentro. En angosto apilan (ver .mk-svc-modal en
 // globals.css).
-function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding, onClose, onCambio }: {
-  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; onClose: () => void; onCambio: () => void;
+// Editor de saldo / créditos DENTRO del detalle de una IA de pago. Reemplaza al
+// editor inline que antes vivía en el tile (el tile ahora solo abre este detalle).
+// Para Gemini es el que registra los créditos → lo pasa de free tier a tier pago.
+function SaldoEditor({ provider, gemini, saldo, onGuardado }: { provider: string; gemini: boolean; saldo: { usd: number; setAt: string } | null; onGuardado: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState('');
+  const [saving, setSaving] = useState(false);
+  const guardar = async () => {
+    const v = Number(input);
+    if (!Number.isFinite(v) || v < 0) return;
+    setSaving(true);
+    try {
+      const j = await (await fetch('/api/anthropic-usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ saldoUsd: v, provider }) })).json();
+      if (j?.ok) { setEditing(false); setInput(''); onGuardado(); }
+    } finally { setSaving(false); }
+  };
+  return (
+    <div style={{ marginBottom: 16, padding: '14px 15px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)' }}>
+      <div style={{ ...capMono, fontSize: 9.5, letterSpacing: '.09em', marginBottom: 8 }}>{gemini ? 'Créditos de Gemini' : 'Saldo cargado'}</div>
+      {saldo
+        ? <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, color: 'var(--ink)', marginBottom: gemini ? 8 : 10 }}>${saldo.usd}<span style={{ color: 'var(--faint)', fontWeight: 400, fontSize: 12 }}> · desde {fmtHora(saldo.setAt)}</span></div>
+        : <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: gemini ? 8 : 10 }}>{gemini ? 'Sin créditos registrados — Gemini corre en free tier.' : 'Sin saldo registrado.'}</div>}
+      {gemini && <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5, marginBottom: 10 }}>Google no expone el saldo por API key. Registrá acá lo que cargaste en Google AI Studio: Gemini pasa a tier pago y le suben los límites de rotación (MaKo deja de saltarlo a los 250/día).</div>}
+      {editing ? (
+        <div style={{ display: 'flex', gap: 7 }}>
+          <input value={input} onChange={(e) => setInput(e.target.value)} inputMode="decimal" autoFocus placeholder={gemini ? 'Créditos USD' : 'Saldo USD'} style={{ flex: 1, minWidth: 0, padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: MONO, fontSize: 13, outline: 'none' }} />
+          <button onClick={guardar} disabled={saving || !input.trim()} style={{ padding: '8px 14px', borderRadius: 9, border: 'none', background: saving || !input.trim() ? 'var(--border-strong)' : 'var(--ink)', color: 'var(--surface)', fontSize: 13, fontWeight: 600, cursor: saving || !input.trim() ? 'default' : 'pointer' }}>{saving ? '…' : 'Guardar'}</button>
+          <button onClick={() => { setEditing(false); setInput(''); }} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Cancelar</button>
+        </div>
+      ) : (
+        <button onClick={() => { setEditing(true); setInput(saldo ? String(saldo.usd) : ''); }} style={{ border: '1px solid var(--primary)', borderRadius: 9, background: 'var(--surface)', color: 'var(--primary)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, padding: '8px 14px', cursor: 'pointer' }}>{saldo ? 'Editar' : (gemini ? 'Registrar créditos' : 'Cargar saldo')}</button>
+      )}
+    </div>
+  );
+}
+
+function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding, onClose, onCambio, onRefetchUsage }: {
+  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   const chip = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
@@ -816,6 +853,12 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
                 </div>
               ))}
             </div>
+          )}
+
+          {/* Saldo / créditos: solo para las IA de pago (Claude, OpenAI, Gemini). Acá
+              se carga/edita — ya NO en el tile. Para Gemini es lo que lo pasa a tier pago. */}
+          {(i.key === 'anthropic' || i.key === 'openai' || i.key === 'gemini') && (
+            <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} onGuardado={onRefetchUsage} />
           )}
 
           {esLanding ? (

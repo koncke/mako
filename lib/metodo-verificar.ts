@@ -185,6 +185,23 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: 'Key válida — MaKo puede rotar a OpenRouter.', facts };
   },
 
+  async elevenlabs(v) {
+    // ElevenLabs: la key va en el header xi-api-key. /v1/user devuelve la suscripción
+    // (tier + caracteres usados/límite) y responde 401 si es inválida.
+    const { status, body } = await fetchJson('https://api.elevenlabs.io/v1/user', {
+      headers: { 'xi-api-key': v.ELEVENLABS_API_KEY, accept: 'application/json' },
+    });
+    if (status === 401) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400) return { ok: false, error: `ElevenLabs respondió ${status}.` };
+    const sub = body.subscription as { tier?: string; character_count?: number; character_limit?: number } | undefined;
+    const facts: Fact[] = [];
+    if (sub?.tier) facts.push({ k: 'Tu plan', v: sub.tier, c: 'var(--good)' });
+    if (sub && typeof sub.character_count === 'number' && typeof sub.character_limit === 'number') {
+      facts.push({ k: 'Caracteres del mes', v: `${sub.character_count.toLocaleString('es-MX')} / ${sub.character_limit.toLocaleString('es-MX')}` });
+    }
+    return { ok: true, detalle: 'Key válida — MaKo puede generar voz con ElevenLabs.', facts };
+  },
+
   async fathom(v) {
     const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },

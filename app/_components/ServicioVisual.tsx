@@ -30,6 +30,7 @@ export const ICON: Record<string, IconDef> = {
   // Mistral: logo multicolor (amarillo→rojo) pensado para fondo claro → tile blanco con borde.
   mistral: { sym: 'ic-mistral', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   openrouter: { sym: 'ic-openrouter', bg: '#000000' }, // mark oficial: forma verde-lima sobre negro
+  elevenlabs: { sym: 'ic-elevenlabs', bg: '#000000' }, // mark oficial: dos barras "| |" blancas sobre negro
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   calendly: { sym: 'ic-calendly', bg: '#006BFF' },
   google: { sym: 'ic-google', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
@@ -85,6 +86,8 @@ export function BrandDefs() {
       {/* OpenRouter — mark oficial: forma verde-lima sobre negro ("O" con hueco + pata
           hacia abajo-derecha, tipo R). */}
       <symbol id="ic-openrouter" viewBox="0 0 24 24"><circle cx="10.4" cy="11.4" r="7.6" fill="#B4F000" /><path fill="#B4F000" d="M12.6 12h4l4.3 6.5a1.5 1.5 0 0 1-1.25 2.35H12.6z" /><circle cx="9.4" cy="10.9" r="3.2" fill="#000" /></symbol>
+      {/* ElevenLabs — mark oficial: dos barras verticales "| |" blancas sobre negro. */}
+      <symbol id="ic-elevenlabs" viewBox="0 0 24 24"><rect x="8" y="6" width="3" height="12" rx="1.3" fill="#fff" /><rect x="13" y="6" width="3" height="12" rx="1.3" fill="#fff" /></symbol>
       {/* Fathom (fathom.video, el grabador de reuniones) — mark oficial, extraído de su
           propio wordmark: cdn.prod.website-files.com/…/68e7961f4ff1cd5e326512f7_logo-wordmark-new.svg
           Verificado contra su favicon (mark #00BEFF/#007299 sobre negro).
