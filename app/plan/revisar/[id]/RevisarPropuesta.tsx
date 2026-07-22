@@ -35,6 +35,13 @@ function PreguntaBody({ q, value, onChange }: { q: PropuestaPregunta; value: str
   if (q.tipo === 'texto') {
     return <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder="Escribí tu respuesta…" rows={3} style={{ width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', resize: 'vertical' }} />;
   }
+  if (q.tipo === 'comparacion') {
+    // Dos (o más) ítems ENFRENTADos: el dueño marca cuál pesa más; es una SEÑAL para el
+    // Perro, no una orden (el Perro compara y decide con su propio criterio).
+    return <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(2, q.opciones.length)}, 1fr)`, gap: 10, alignItems: 'stretch' }}>{q.opciones.map((o) => (
+      <button key={o} type="button" onClick={() => onChange(o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', minHeight: 76, padding: '12px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, background: value === o ? 'var(--primary-bg)' : 'var(--surface-2)', border: `1.5px solid ${value === o ? 'var(--primary)' : 'var(--border)'}`, color: value === o ? 'var(--primary)' : 'var(--ink)', lineHeight: 1.35 }}>{o}</button>
+    ))}</div>;
+  }
   return <ChoiceBody opciones={q.opciones} value={value} onChange={onChange} />;
 }
 
@@ -61,6 +68,10 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [done, setDone] = useState<'' | 'aplicada' | 'descartada'>('');
   const irPlan = () => { window.location.href = '/plan'; };
   const nT = prop.tareas.length;
+  // Cuántos proyectos abarcan las tareas (distintos nombres referenciados) — el dueño
+  // quiere ver "N tareas en M proyectos", no solo las tareas.
+  const nP = new Set(prop.tareas.map((t) => (t.proyecto || '').trim()).filter(Boolean)).size;
+  const enProy = nP ? ` en ${nP} proyecto${nP === 1 ? '' : 's'}` : '';
 
   const steps: Step[] = [
     ...prop.preguntas.map((_, i) => ({ kind: 'q' as const, i })),
@@ -83,12 +94,12 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   };
 
   if (prop.estado !== 'pendiente') return <Mensaje texto={`Este borrador ya fue ${prop.estado}.`} />;
-  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${elimSel.size ? ` y borré ${elimSel.size}` : ''}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
+  if (done) return <Mensaje ok texto={done === 'aplicada' ? `✓ Creé ${nT} tarea${nT === 1 ? '' : 's'}${enProy}${elimSel.size ? ` y borré ${elimSel.size}` : ''}` : '✓ Borrador descartado'} sub="Te llevo al plan…" />;
 
   const crearLabel = `Crear ${nT}${elimSel.size ? ` · borrar ${elimSel.size}` : ''}`;
   const pregunta = cur.kind === 'q' ? (prop.preguntas[cur.i]?.pregunta || '…')
     : cur.kind === 'elim' ? '¿Borro estas tareas?'
-      : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}`;
+      : `Listo — creo ${nT} tarea${nT === 1 ? '' : 's'}${enProy}`;
   const sub = cur.kind === 'q' ? 'Elegí una opción o escribí la tuya.'
     : cur.kind === 'elim' ? 'MaKo las ve obsoletas o duplicadas. Destildá las que quieras conservar.'
       : 'El Perro Guardián las prioriza, las describe y les arma la checklist. La revisión final la ves en el plan.';
@@ -127,7 +138,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
         </div>
       ) : (
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{nT} tarea{nT === 1 ? '' : 's'}{prop.eliminar.length && elimSel.size ? ` · ${elimSel.size} baja${elimSel.size === 1 ? '' : 's'}` : ''}.</div>
+          <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>{nT} tarea{nT === 1 ? '' : 's'}{enProy}{prop.eliminar.length && elimSel.size ? ` · ${elimSel.size} baja${elimSel.size === 1 ? '' : 's'}` : ''}.</div>
           <button onClick={() => enviar('descartar')} disabled={busy} style={{ marginTop: 14, border: 'none', background: 'transparent', color: 'var(--faint)', fontSize: 12.5, cursor: busy ? 'default' : 'pointer', textDecoration: 'underline', fontFamily: SANS }}>o descartar este borrador</button>
         </div>
       )}

@@ -746,6 +746,9 @@ export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser;
     createLabel: async (l) => { const j = await apiPlan({ action: 'crear-proyecto', proyecto: l }); return j.ok && j.proyecto ? j.proyecto : l; },
     saveLabel: async (l) => { await apiPlan({ action: 'guardar-proyecto', proyecto: l }); },
     deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },
+    // Corre el Perro server-side sobre las tareas nuevas (por ids) — mismo trato que
+    // WhatsApp. Persiste score/razón/checklist en plan_tareas. Best-effort (no rompe el alta).
+    priorizarNuevas: async (ids, proyectoIds, contexto) => { await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' }); },
   };
   const board = useBoard(tareas, proyectos, user, repo);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.

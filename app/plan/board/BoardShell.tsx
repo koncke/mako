@@ -242,12 +242,15 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // hidrata el board NO dispara nada; solo disparan las divergencias posteriores.
   const planSig = planSignature();
   const baseSig = useRef<string | null>(null);
+  // Cuando la ruta de reunión/archivo del DUEÑO puntúa server-side (repo.priorizarNuevas),
+  // suprimimos el re-scoreo client-side de ese cambio para no correr el Perro dos veces.
+  const skipRePrio = useRef(false);
   useEffect(() => {
     if (tasks.length < 2 || !planSig) return;
     // primer render con datos → fijamos la línea base y NO corremos (es "entrar a la tab").
     if (baseSig.current === null) { baseSig.current = planSig; return; }
     if (planSig === baseSig.current) return; // sin cambios estructurales reales
-    const id = setTimeout(() => { baseSig.current = planSig; void rePriorizar(planSig); }, 2500);
+    const id = setTimeout(() => { baseSig.current = planSig; if (skipRePrio.current) return; void rePriorizar(planSig); }, 2500);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSig]);
@@ -346,6 +349,10 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
       : fuente?.tipo === 'archivo' ? `Creó la tarjeta — del archivo «${fuente.etiqueta ?? ''}»`
         : undefined;
+    // Si el board del dueño puede correr el Perro server-side, lo hace ÉL (mismo trato
+    // que WhatsApp) y suprimimos el re-scoreo client-side para no puntuar dos veces.
+    const usaServerPerro = !!board.repo?.priorizarNuevas;
+    if (usaServerPerro) skipRePrio.current = true;
     const ids: string[] = [];
     for (const c of cands) {
       const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente, altaText });
@@ -354,6 +361,13 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       ids.push(t.id);
     }
     if (ids.length) board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan`, () => ids.forEach((id) => board.removeSilent(id)));
+    // UNIFICACIÓN (#1): el Perro server-side puntúa/describe estas tareas nuevas y les arma
+    // checklist, igual que las de WhatsApp. Persiste en plan_tareas; se ve al refrescar.
+    // Best-effort: si falla, el fallback client-side queda disponible.
+    if (usaServerPerro && ids.length) {
+      try { await board.repo!.priorizarNuevas!(ids); } catch (e) { console.warn('[reunion] priorizarNuevas', e); skipRePrio.current = false; }
+    }
+    if (usaServerPerro) setTimeout(() => { skipRePrio.current = false; }, 3500);
   };
 
   return (

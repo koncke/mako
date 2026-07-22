@@ -13,6 +13,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import {
   listPlanBoard, planVacio, crearPlanTarea, guardarPlanTarea, borrarPlanTarea,
   crearPlanProyecto, guardarPlanProyecto, borrarPlanProyecto, guardarPlanBulk,
+  priorizarNuevasOwner,
 } from '@/lib/plan-board';
 import type { BoardTask, Label } from '@/app/plan/board/types';
 
@@ -69,6 +70,18 @@ export async function POST(req: NextRequest) {
       if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
       await borrarPlanProyecto(id);
       return NextResponse.json({ ok: true });
+    }
+    if (action === 'priorizar-nuevas') {
+      // El PERRO GUARDIÁN (server-side, con persistencia) puntúa tareas nuevas ya creadas,
+      // las ubica en la pirámide existente, describe proyectos nuevos y arma checklists.
+      // Es el MISMO trato que reciben las tareas de WhatsApp → unifica todos los orígenes
+      // (Fathom, archivo, alta manual): quien crea las tareas llama acá con sus ids.
+      const ids = Array.isArray(body.ids) ? (body.ids as unknown[]).map(String).filter(Boolean) : [];
+      const proyectoIds = Array.isArray(body.proyectoIds) ? (body.proyectoIds as unknown[]).map(String).filter(Boolean) : [];
+      const contexto = typeof body.contexto === 'string' ? body.contexto : '';
+      if (!ids.length) return NextResponse.json({ ok: false, error: 'faltan ids' }, { status: 400 });
+      const conteo = await priorizarNuevasOwner(ids, proyectoIds, contexto);
+      return NextResponse.json({ ok: true, conteo });
     }
     if (action === 'migrar') {
       const tareas = (body.tareas as BoardTask[] | undefined) ?? [];

@@ -252,13 +252,13 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
         },
         preguntas: {
           type: 'array',
-          description: 'Lo que NO pudiste deducir, para que lo respondan en la app de a UNA. HACÉ LAS QUE HAGAN FALTA (para una lista larga, esperá 5-8, no 2-3): por cada tarea ambigua al menos una (fecha/urgencia, alcance, prioridad, dependencias, qué es "listo"). Elegí el FORMATO por pregunta con "tipo": "opcion" (una opción, default) · "multi" (varias, ej. "¿cuáles priorizás?") · "escala" (puntuar 1-5, ej. "¿qué tan urgente?") · "texto" (respuesta libre). Para opcion/multi pasá 2-6 "opciones" cortas; para escala/texto no hacen falta.',
+          description: 'Preguntas para SACARLE CONTEXTO al dueño y que EL PERRO GUARDIÁN decida la prioridad. ⛔ REGLA DURA: NUNCA le preguntes al dueño qué prioridad poner ni qué le urge más — ese es el trabajo del Perro, y el dueño exagera, se encariña y no sabe priorizar. PROHIBIDO "¿qué prioridad le das?", "¿cuál te urge primero?", "¿alta/media/baja?". En cambio preguntá HECHOS que el Perro no puede deducir solo: ¿hay un deadline duro? ¿esto BLOQUEA otra cosa o DEPENDE de algo? ¿qué mueve en PLATA/ingreso y en cuánto tiempo? ¿qué sería "listo"? ¿es 1 tarea o varias? ¿ya existe algo parecido? Podés pedir la intención del dueño ("¿cuánto esperás que mueva esto en ventas?") como UN DATO más — el Perro lo compara, no lo toma como verdad. VARIÁ EL FORMATO (no todas "opcion"): "multi" cuando varias respuestas valen a la vez (ej. "¿qué fuentes de datos vas a usar?" y son todas válidas) · "escala" para intensidad 1-5 (ej. "¿qué tan firme es el deadline?") · "texto" para respuestas abiertas ricas (ej. "¿qué problema concreto resuelve?") · "comparacion" para enfrentar DOS ítems y sacar peso relativo (ej. "¿qué mueve más la aguja: X o Y?", opciones = los dos ítems) · "opcion" para una elección excluyente. Aprovechá los formatos: enriquecen el contexto. HACÉ LAS QUE HAGAN FALTA (lista larga → 5-8). Para opcion/multi/comparacion pasá 2-6 "opciones" cortas; escala/texto no las necesitan.',
           items: {
             type: 'object',
             properties: {
-              pregunta: { type: 'string', description: 'la pregunta, corta y concreta.' },
-              tipo: { type: 'string', enum: ['opcion', 'multi', 'escala', 'texto'], description: 'formato: opcion (default) / multi / escala / texto.' },
-              opciones: { type: 'array', description: '2-6 respuestas probables (cortas). Para opcion/multi.', items: { type: 'string' } },
+              pregunta: { type: 'string', description: 'la pregunta, corta y concreta. Sobre HECHOS/CONTEXTO, no sobre qué prioridad poner.' },
+              tipo: { type: 'string', enum: ['opcion', 'multi', 'escala', 'texto', 'comparacion'], description: 'formato: opcion (default) / multi (varias) / escala (1-5) / texto (abierta) / comparacion (A vs B).' },
+              opciones: { type: 'array', description: '2-6 respuestas cortas (opcion/multi); los DOS ítems a enfrentar (comparacion). Escala/texto no.', items: { type: 'string' } },
             },
             required: ['pregunta'],
           },

@@ -80,7 +80,13 @@ async function insertUsage(row: Record<string, unknown>): Promise<void> {
 export async function recordUsage(feature: string, model: string, rawUsage: unknown, motivo?: string, provider = 'anthropic'): Promise<UsageInfo> {
   const u = (rawUsage && typeof rawUsage === 'object' ? rawUsage : {}) as Record<string, unknown>;
   const input = Number(u.input_tokens ?? u.prompt_tokens ?? 0) || 0;
-  const output = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
+  const outputVisible = Number(u.output_tokens ?? u.completion_tokens ?? 0) || 0;
+  // Gemini (y otros con "thinking") cobran tokens de razonamiento que NO vienen en
+  // completion_tokens pero SÍ en total_tokens. Si total > input+visible, el excedente
+  // son tokens ocultos billables → los sumamos al output para que el costo dé bien.
+  const total = Number(u.total_tokens ?? 0) || 0;
+  const reasoning = Number((u.completion_tokens_details as Record<string, unknown> | undefined)?.reasoning_tokens ?? 0) || 0;
+  const output = Math.max(outputVisible + reasoning, total > input ? total - input : 0);
   const cacheCreation = Number(u.cache_creation_input_tokens ?? 0) || 0;
   const cacheRead = Number(u.cache_read_input_tokens ?? 0) || 0;
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
@@ -217,7 +223,13 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const FREE_RATE_LIMIT = ['groq', 'cerebras', 'mistral', 'openrouter'];
   const costRow = (r: Row): number => {
     const p = r.provider ?? 'anthropic';
-    if (p === 'gemini') return sGemini ? ((Number(r.input_tokens) || 0) * GEMINI_PRICE_PAGO.in + (Number(r.output_tokens) || 0) * GEMINI_PRICE_PAGO.out) / 1_000_000 : 0;
+    if (p === 'gemini') {
+      // Gemini es GRATIS antes de cargar créditos (o si nunca se cargaron); pago SOLO
+      // desde el momento exacto en que se registró el saldo (sGemini.setAt). El uso
+      // previo NO se cobra — el free tier no cuesta plata.
+      if (!sGemini || r.created_at < sGemini.setAt) return 0;
+      return ((Number(r.input_tokens) || 0) * GEMINI_PRICE_PAGO.in + (Number(r.output_tokens) || 0) * GEMINI_PRICE_PAGO.out) / 1_000_000;
+    }
     if (FREE_RATE_LIMIT.includes(p)) return 0;
     return Number(r.cost_usd) || 0;
   };

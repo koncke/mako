@@ -88,6 +88,11 @@ export type Repo = {
   createLabel(draft: Label): Promise<Label>;         // devuelve canónica (id server)
   saveLabel(label: Label): Promise<void>;
   deleteLabel(id: string): Promise<void>;
+  // El PERRO GUARDIÁN server-side puntúa/describe tareas nuevas ya creadas (por ids),
+  // ubicándolas en la pirámide existente + checklists. Lo implementa SOLO el board del
+  // dueño (plan_tareas); así Fathom/archivo/alta reciben el MISMO trato que WhatsApp.
+  // El board del cliente no lo tiene (usa su Perro client-side) → opcional.
+  priorizarNuevas?(ids: string[], proyectoIds?: string[], contexto?: string): Promise<void>;
 };
 
 export const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];

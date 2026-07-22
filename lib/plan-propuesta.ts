@@ -23,7 +23,7 @@ const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 
 export type PropuestaTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio };
-export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto';
+export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
 export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
 export type Propuesta = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string; tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; createdAt: string };
@@ -49,7 +49,7 @@ function limpiarEliminar(e: unknown): PropuestaEliminar | null {
   return { id, titulo: o.titulo ? str(o.titulo).slice(0, 200) : undefined, motivo: o.motivo ? str(o.motivo).slice(0, 300) : undefined };
 }
 // Acepta {pregunta, opciones} o (compat) una nota-string suelta.
-const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto'];
+const TIPOS_PREGUNTA: TipoPregunta[] = ['opcion', 'multi', 'escala', 'texto', 'comparacion'];
 function limpiarPregunta(p: unknown): PropuestaPregunta | null {
   if (typeof p === 'string') return p.trim() ? { pregunta: p.trim().slice(0, 300), opciones: [], tipo: 'opcion' } : null;
   if (!p || typeof p !== 'object') return null;
