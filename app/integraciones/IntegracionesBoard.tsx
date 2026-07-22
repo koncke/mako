@@ -34,9 +34,14 @@ type Incidente = { id: number; service: string; severidad: string; statusLabel: 
 type Movimiento = { at: string; feature: string; motivo: string | null; model: string | null; provider: string; tokens: number; costUsd: number };
 type ProvSaldo = { provider: string; costMesUsd: number; tokens: number; tokensHoy: number; saldo: { usd: number; setAt: string } | null; restanteUsd: number | null; gratis: boolean };
 
-// Groq es gratis: no se mide en $ sino por tokens/día hacia el límite del plan
-// gratuito. Presupuesto diario aproximado (ajustable) para el gauge de "uso de hoy".
-const GROQ_LIMITE_DIA_TOKENS = 500_000;
+// Límite del plan GRATIS por proveedor (para el gauge de "uso de hoy"). NO es el mismo
+// para todos: Groq topea por TOKENS/día; Gemini Flash NO tiene tope diario de tokens
+// sino 250 SOLICITUDES/día + 250k tokens/MINUTO + 1M de contexto. Por eso Gemini se
+// muestra sin denominador de tokens inventado (antes copiaba el 500k de Groq → mal).
+const LIMITE_FREE: Record<string, { tokensDia?: number; cap: string }> = {
+  groq: { tokensDia: 500_000, cap: 'tokens · el plan gratis reinicia cada día' },
+  gemini: { cap: 'Gemini free: 250 solicitudes/día · 250k tokens/min · 1M de contexto' },
+};
 type Resumen = {
   saldo: { usd: number; setAt: string } | null;
   gastadoMesUsd: number;
@@ -301,7 +306,8 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: R
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 11, marginBottom: 26 }}>
         {provs.map((p) => {
           const low = p.restanteUsd !== null && p.restanteUsd <= 5;
-          const pct = Math.min(100, Math.max(2, (p.tokensHoy / GROQ_LIMITE_DIA_TOKENS) * 100));
+          const lim = LIMITE_FREE[p.provider] ?? { cap: 'plan gratis' };
+          const pct = lim.tokensDia ? Math.min(100, Math.max(2, (p.tokensHoy / lim.tokensDia) * 100)) : 0;
           const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
           return (
             <div key={p.provider} role="button" tabIndex={0} title={`Ver detalle de ${proveedorLegible(p.provider)}`}
@@ -316,14 +322,15 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: R
                   : <span style={{ marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%', background: low ? 'var(--warn-fill)' : 'var(--good)' }} />}
               </div>
               {p.gratis ? (
-                // Groq no se mide en $: es gratis, limitado por tokens/día del plan.
+                // Gratis: no se mide en $. Groq topea por tokens/día → gauge con barra.
+                // Gemini topea por solicitudes/día + tokens/min → uso de hoy sin barra falsa.
                 <>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginBottom: 7 }}>
                     <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>uso de hoy</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{fmtTok(p.tokensHoy)}<span style={{ color: 'var(--faint)' }}> / {fmtTok(GROQ_LIMITE_DIA_TOKENS)}</span></span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{fmtTok(p.tokensHoy)}{lim.tokensDia ? <span style={{ color: 'var(--faint)' }}> / {fmtTok(lim.tokensDia)}</span> : <span style={{ color: 'var(--faint)' }}> tok</span>}</span>
                   </div>
-                  <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${pct}%`, borderRadius: 5, background: '#F55036' }} /></div>
-                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>tokens · el límite del plan gratis reinicia cada día</div>
+                  {lim.tokensDia && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${pct}%`, borderRadius: 5, background: '#F55036' }} /></div>}
+                  <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{lim.cap}</div>
                 </>
               ) : (
                 <>
