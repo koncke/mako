@@ -75,7 +75,10 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // "MaKo cargó tareas" (bienvenida): tareas creadas por una FUENTE (WhatsApp/Fathom/MaKo)
   // que el dueño todavía no vio en este device. Se muestran ANTES que el DatosModal.
   const [welcomeTasks, setWelcomeTasks] = useState<BoardTask[]>([]);
-  const welcomeRef = useRef(false);
+  const [welcomeVisible, setWelcomeVisible] = useState(false);
+  const welcomeDetectRef = useRef(false);
+  const welcomeAutoRef = useRef(false);
+  const guardianNuevasRef = useRef(false); // el Perro re-puntúa las tareas nuevas UNA vez al entrar
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   // El aviso de gasto de IA lo muestra el toast GLOBAL <IaUsageToast> (app/layout.tsx),
@@ -105,15 +108,17 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     setDlLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoloadScope]);
-  // Bienvenida: al entrar, juntamos las tareas con FUENTE (no manuales) recientes que este
-  // device todavía no vio. Se listan CON su origen ANTES que el DatosModal (que va gateado).
+  // Bienvenida "MaKo cargó tareas": detectamos UNA vez las tareas con FUENTE recientes que
+  // este device no vio. NO se auto-abren acá: el auto-open (más abajo) ESPERA a que el
+  // DatosModal + su confirm terminen (Datos PRIMERO, pedido de Martín). El botón ✨ del
+  // header las reabre cuando quieras (ya no se pierden al tocar una tarea).
   useEffect(() => {
-    if (welcomeRef.current || !dlLoaded || tasks.length === 0) return;
-    welcomeRef.current = true; // una sola evaluación por montaje
+    if (welcomeDetectRef.current || !dlLoaded || tasks.length === 0) return;
+    welcomeDetectRef.current = true;
     try {
       const raw = localStorage.getItem(dlKey('mako_plan_welcome_seen'));
       const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
-      const reciente = Date.now() - 3 * 86400000; // últimas 72h → no floodear con tareas viejas
+      const reciente = Date.now() - 3 * 86400000; // últimas 72h → no floodear con viejas
       const nuevas = tasks.filter((t) => t.progress < 100 && !seen.has(t.id)
         && fuenteEfectiva(t).tipo !== 'manual'
         && (t.historial?.length ? Math.min(...t.historial.map((h) => h.ts)) : 0) >= reciente);
@@ -121,15 +126,14 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     } catch { /* localStorage no disponible */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dlLoaded, tasks.length]);
-  const welcomeOpen = welcomeTasks.length > 0;
-  const cerrarWelcome = () => {
+  const hayWelcome = welcomeTasks.length > 0;
+  const marcarWelcomeVisto = () => {
     try {
       const raw = localStorage.getItem(dlKey('mako_plan_welcome_seen'));
       const seen = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
       welcomeTasks.forEach((t) => seen.add(t.id));
       localStorage.setItem(dlKey('mako_plan_welcome_seen'), JSON.stringify([...seen]));
     } catch { /* ignore */ }
-    setWelcomeTasks([]);
   };
   const faltantes: FaltanteItem[] = tasks
     .filter((t) => t.progress < 100)
@@ -173,7 +177,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // es lo que se espera si no apretaste "no volver a pedir"), si hay algo importante y NO
   // hay ya otro modal abierto (deep-link ?tarea=/?proyecto= → nunca apilar dos).
   useEffect(() => {
-    if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm || welcomeOpen) return;
+    if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm) return;
     if (openId || openProj || peekProjId) return; // hay un detalle abierto: no apilar
     if (hayImportante) {
       datosAutoRef.current = true;
@@ -181,7 +185,19 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       setDatosOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId, welcomeOpen]);
+  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId]);
+  // Auto-abrir la bienvenida UNA vez, DESPUÉS de que la secuencia del DatosModal (deadline +
+  // su "no volver a pedir") termine — y sin apilar sobre un detalle abierto. Datos va PRIMERO.
+  useEffect(() => {
+    if (!hayWelcome || welcomeAutoRef.current) return;
+    if (openId || openProj || peekProjId) return;
+    const datosPendiente = hayImportante && !datosOff && !datosAutoRef.current;
+    if (datosPendiente || datosOpen || datosConfirm) return; // datos (y su confirm) van PRIMERO
+    welcomeAutoRef.current = true;
+    marcarWelcomeVisto();
+    setWelcomeVisible(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hayWelcome, hayImportante, datosOff, datosOpen, datosConfirm, openId, openProj, peekProjId]);
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -230,6 +246,17 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planSig]);
+  // PUNTO 4: las tareas que carga MaKo (WhatsApp/Fathom) entran con el score que SUGIRIÓ
+  // MaKo (scoreFromPrio), no con el del Perro Guardián — que no corre al montar. Acá lo
+  // disparamos UNA vez cuando detectamos tareas nuevas, para que las PUNTÚE de verdad e
+  // integre al plan (queda en el historial de IA como "Perro Guardián · priorización").
+  useEffect(() => {
+    if (guardianNuevasRef.current || !hayWelcome) return;
+    guardianNuevasRef.current = true;
+    const id = setTimeout(() => { void rePriorizar(); }, 1500);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hayWelcome]);
   const passes = (t: BoardTask) => (!q || matchTexto(t, q)) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && pasaEstado(t.progress, doneFilter);
   const visibles = tasks.filter(passes);
   const avg = tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0;
@@ -356,6 +383,15 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
             <WarnMark title="" size={18} blink={!datosOff} />
           </button>
         )}
+        {/* Botón ✨ para RE-ABRIR la bienvenida "MaKo cargó tareas" (punto 3: ya no se pierde
+            al tocar una tarea). Solo aparece si hay tareas nuevas de una fuente esta sesión. */}
+        {hayWelcome && (
+          <button type="button" onClick={() => setWelcomeVisible(true)} title={`${welcomeTasks.length} tarea${welcomeTasks.length === 1 ? '' : 's'} que cargó MaKo — ver`} aria-label="Tareas que cargó MaKo"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 38, borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', padding: '0 11px' }}>
+            <MakoStar size={15} color="var(--primary)" />
+            <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--primary)' }}>{welcomeTasks.length}</span>
+          </button>
+        )}
         {view === 'proyectos' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
           <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} />
@@ -429,8 +465,8 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onLuego={() => setDatosConfirm(false)} />}
       {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
-      {welcomeOpen && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} labelById={board.labelById}
-        onOpen={(id) => { cerrarWelcome(); setOpenId(id); }} onClose={cerrarWelcome} />}
+      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} labelById={board.labelById}
+        onOpen={(id) => { setWelcomeVisible(false); setOpenId(id); }} onClose={() => setWelcomeVisible(false)} />}
       {confirm && <ConfirmModal msg={confirm.msg} onOk={() => { confirm.onOk(); setConfirm(null); }} onCancel={() => setConfirm(null)} />}
       <UndoToast state={board.undo} onClose={board.clearUndo} />
     </main>
