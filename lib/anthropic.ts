@@ -43,7 +43,9 @@ export async function chatClaude(
           const user = messages.map((m) => m.content).join('\n\n');
           return await chatCheap({ system, user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: opts.motivo, provider: ref.provider, model: ref.model });
         } catch (e) {
-          console.warn(`[anthropic] override ${opts.feature}→${ref.provider} falló, uso Claude: ${e instanceof Error ? e.message : String(e)}`);
+          // Falló la IA barata: caemos a Claude SONNET (no Opus) para no disparar el costo.
+          modeloOverride = 'claude-sonnet-5';
+          console.warn(`[anthropic] override ${opts.feature}→${ref.provider} falló, uso Claude Sonnet: ${e instanceof Error ? e.message : String(e)}`);
         }
       } else if (ref) {
         modeloOverride = ref.model;
@@ -174,9 +176,9 @@ export async function chatClaudeTools(
           // El caller pidió NO caer a Claude (ej. el doer): re-lanzamos para que avise
           // "falló Gemini" en vez de gastar Claude en silencio.
           if (opts.sinFallbackClaude) throw e;
-          // Si no, caemos a Claude pero al modelo de FALLBACK (el que eligió el router,
-          // ej. Sonnet), NO a Opus por default.
-          model = opts.fallbackModel ?? model;
+          // Si no, caemos a Claude pero a SONNET por default (el fallbackModel del router
+          // si vino), NUNCA a Opus: un fallo de Gemini no debe disparar el modelo más caro.
+          model = opts.fallbackModel ?? 'claude-sonnet-5';
           console.warn(`[anthropic] tools ${opts.feature}→${ref.provider} falló, uso Claude ${model}: ${e instanceof Error ? e.message : String(e)}`);
         }
       } else if (ref) {
