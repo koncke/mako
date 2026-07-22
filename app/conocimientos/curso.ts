@@ -24,6 +24,9 @@ export type Recurso = {
 export type Herramienta = { nombre: string; url: string; nota?: string };
 export type Clase = {
   n: number;
+  vn?: number;             // nº de clase dentro de su grupo (para el badge)
+  grupo?: string;          // módulo/submódulo al que pertenece (agrupa en el hub)
+  modulo?: number;
   titulo: string;
   cardDesc: string;
   videoId: string | null;
@@ -1077,6 +1080,1374 @@ export const CURSOS: Curso[] = [
         "clases": [
           6
         ]
+      }
+    ]
+  },
+  {
+    "slug": "masteryhaus",
+    "categoria": "Negocio digital de servicios",
+    "cardDesc": "Construí un negocio de servicios escalable y rentable: mentalidad, nicho, oferta irresistible, precios y ventas de alto valor.",
+    "eyebrow": "Formación · MasteryHaus",
+    "titulo": "MasteryHaus",
+    "subtitulo": "La Fórmula Mastery para convertir un negocio de servicios en algo repetible, predecible y con márgenes de 60%: nicho dorado, oferta irresistible, precios y un sistema de ventas de alto valor.",
+    "volumen": "Módulos 1–5",
+    "clases": [
+      {
+        "n": 1,
+        "vn": 1,
+        "grupo": "Introducción a la Fórmula Mastery Haus",
+        "modulo": 1,
+        "titulo": "Alineando las expectativas",
+        "cardDesc": "",
+        "videoId": "1MO1xwf71DJNY-aXvHcM8GmLOD-9T5dXB",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-introduccion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 2,
+        "vn": 2,
+        "grupo": "Introducción a la Fórmula Mastery Haus",
+        "modulo": 1,
+        "titulo": "La Fórmula Mastery",
+        "cardDesc": "",
+        "videoId": "1zubxmdKCrriSF_jDdXmuP9d2b91c77TN",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-introduccion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 3,
+        "vn": 3,
+        "grupo": "Introducción a la Fórmula Mastery Haus",
+        "modulo": 1,
+        "titulo": "Cultura Mastery",
+        "cardDesc": "",
+        "videoId": "1PPoXzQxklRXc-u5cJ1dB25CtznvsYNwI",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-introduccion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 4,
+        "vn": 4,
+        "grupo": "Introducción a la Fórmula Mastery Haus",
+        "modulo": 1,
+        "titulo": "La Fórmula del Fracaso",
+        "cardDesc": "",
+        "videoId": "1ppLP_1BHvD6bYz8vNlu98eblgdluFonS",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-introduccion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 5,
+        "vn": 5,
+        "grupo": "Introducción a la Fórmula Mastery Haus",
+        "modulo": 1,
+        "titulo": "Invertir la Ecuación Típica",
+        "cardDesc": "",
+        "videoId": "1yqjL7SKHi1Ysc5XzYek3_XL0Jp-g903e",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-introduccion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 6,
+        "vn": 1,
+        "grupo": "Mentalidad & Foco · Mentalidad",
+        "modulo": 2,
+        "titulo": "Configuración mental",
+        "cardDesc": "",
+        "videoId": "1Sr_io2U1zBpXQyncmK9s1a4vvNKPQyq0",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-mentalidad"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 7,
+        "vn": 2,
+        "grupo": "Mentalidad & Foco · Mentalidad",
+        "modulo": 2,
+        "titulo": "¿Qué es el éxito para mí?",
+        "cardDesc": "",
+        "videoId": "1pH4ASB3C1mJBFt7LNAXslJpgvdU1tB6j",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-mentalidad"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 8,
+        "vn": 3,
+        "grupo": "Mentalidad & Foco · Mentalidad",
+        "modulo": 2,
+        "titulo": "¿Por qué estoy aquí?",
+        "cardDesc": "",
+        "videoId": "1PqAHHPgu6tfZ1nKyEdlqSV-gU5w54yoS",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-mentalidad"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 9,
+        "vn": 4,
+        "grupo": "Mentalidad & Foco · Mentalidad",
+        "modulo": 2,
+        "titulo": "¿Qué cuento me cuento?",
+        "cardDesc": "",
+        "videoId": "1GbPczf-i739l3eRbenyEnzcqzwCUWsxu",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-mentalidad"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 10,
+        "vn": 5,
+        "grupo": "Mentalidad & Foco · Mentalidad",
+        "modulo": 2,
+        "titulo": "¿Qué persona quiero ser?",
+        "cardDesc": "",
+        "videoId": "1qx7sbhVkBgwrbgucuRWbDVwW1QDiH8tS",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-mentalidad"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 11,
+        "vn": 6,
+        "grupo": "Mentalidad & Foco · Mentalidad",
+        "modulo": 2,
+        "titulo": "¿A qué le tengo miedo?",
+        "cardDesc": "",
+        "videoId": "1wsirXmBtYchb7_48K5wB0ShUqT2JBj5k",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-mentalidad"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 12,
+        "vn": 1,
+        "grupo": "Mentalidad & Foco · Energía & Foco",
+        "modulo": 2,
+        "titulo": "Lo que diferencia a los líderes exitosos",
+        "cardDesc": "",
+        "videoId": "14qtCPAG_OHz-5ZwmIkr1GxV7VK8A2Ud4",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-energia"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 13,
+        "vn": 2,
+        "grupo": "Mentalidad & Foco · Energía & Foco",
+        "modulo": 2,
+        "titulo": "¿Cómo genero energía?",
+        "cardDesc": "",
+        "videoId": "1f4FtBP4I1Zw7wVz0H1BYMM5KBsUKKvyM",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-energia"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 14,
+        "vn": 3,
+        "grupo": "Mentalidad & Foco · Energía & Foco",
+        "modulo": 2,
+        "titulo": "¿Cómo cuido mi energía?",
+        "cardDesc": "",
+        "videoId": "1W4MNgMeeMtt4OuabTc42zX6Cn1XvF7zm",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-energia"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 15,
+        "vn": 4,
+        "grupo": "Mentalidad & Foco · Energía & Foco",
+        "modulo": 2,
+        "titulo": "¿Cómo asigno mi energía?",
+        "cardDesc": "",
+        "videoId": "1MxyaxZ2BBd346kyZxgAmnM0fsoNbc9Qw",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-mentalidad-mastery",
+          "mh-ejercicios-de-energia"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 16,
+        "vn": 1,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Configurando tu Temporada de No",
+        "cardDesc": "",
+        "videoId": "1D1wRsCbfszAHQ-USuQQZKdpAbhu6gLRY",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 17,
+        "vn": 2,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Objetivo y Teoría de las Limitaciones",
+        "cardDesc": "",
+        "videoId": "1M7M3KCnzrMQMPEnmNW9DxHnNR2nzgygu",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 18,
+        "vn": 3,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Introducción a Nicho Dorado",
+        "cardDesc": "",
+        "videoId": "1AirzPptPCmz0TKrxhkANo1tFvVhWslo8",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 19,
+        "vn": 4,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Tipos de Mercado",
+        "cardDesc": "",
+        "videoId": "178LNpiqNa9K-fSJAUmaUPNT7EJTx753d",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 20,
+        "vn": 5,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Nicho Dorado",
+        "cardDesc": "",
+        "videoId": "1QIcn_WsO3YEjFT5q-YV5-vly9aDBl2Ke",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 21,
+        "vn": 6,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Cómo Crear tu Nicho Dorado",
+        "cardDesc": "",
+        "videoId": "1vWfF2P-0GLQrwpD22MWlohAg_CrSc6QC",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 22,
+        "vn": 7,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Errores Comunes",
+        "cardDesc": "",
+        "videoId": "1QdLH-fmFwTpEqIy9jYHg2zmQ0xvUbEUd",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 23,
+        "vn": 8,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Cómo Avanzar Hacia tu Nicho Dorado",
+        "cardDesc": "",
+        "videoId": "1HD_jWV_Px-x63-uJ_VSCFf61BZrzSY0E",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 24,
+        "vn": 9,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Cómo Crear tu Avatar",
+        "cardDesc": "",
+        "videoId": "1FSeT-VHrgYMwEpatWYRwaCeIOiMHoVDX",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 25,
+        "vn": 10,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Crea tu Avatar con ChatGPT",
+        "cardDesc": "",
+        "videoId": "1D_96tmVcfB9Vt91yIZZVLjNz3bra1JvK",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 26,
+        "vn": 11,
+        "grupo": "Nicho Dorado",
+        "modulo": 3,
+        "titulo": "Clientes Para Toda la Vida",
+        "cardDesc": "",
+        "videoId": "1tQ7WhbN2cQ4v-1hfA1Z6cTCqnxcoi4F7",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-nicho-dorado",
+          "mh-desarrollador-nicho-dorado",
+          "mh-desarrollo-de-avatar-dorado"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 27,
+        "vn": 1,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Oferta Especializada",
+        "cardDesc": "",
+        "videoId": "1iKsdaq9V-oCnn57Ffa0TxA90qA0w7xlo",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 28,
+        "vn": 2,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Tu Frase A-B-C",
+        "cardDesc": "",
+        "videoId": "1gqGJ4Ula6E9rF4UGkQrVJsFVKASbbCba",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 29,
+        "vn": 3,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "La Ecuación de Valor",
+        "cardDesc": "",
+        "videoId": "1AadGVbltTB70kjd64Nf_XJmMBtMKqcGc",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 30,
+        "vn": 4,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Objeciones en la Ecuación de Valor",
+        "cardDesc": "",
+        "videoId": "18I3XoYNtXW_aabRjOasr2q9So97dgHcU",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 31,
+        "vn": 5,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Análisis de Competencia",
+        "cardDesc": "",
+        "videoId": "1MYfhBRZSaFTM2yAnhtzJhI0X-s2aNeUz",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 32,
+        "vn": 6,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Análisis de Servicio",
+        "cardDesc": "",
+        "videoId": "13AS5hXKxQE2nm3fvH_COgoSkKTFpSGvm",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 33,
+        "vn": 7,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Usá ChatGPT para tu Oferta Irresistible",
+        "cardDesc": "",
+        "videoId": "1JYI4rzlvu-tGkE4Ohvu-2E216KeIATvS",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 34,
+        "vn": 8,
+        "grupo": "Oferta Irresistible · Fundamentos de una Oferta Irresistible",
+        "modulo": 4,
+        "titulo": "Creá tu Oferta Irresistible",
+        "cardDesc": "",
+        "videoId": "1sPnc_jDgTY2RnEbV6mxKqNDaTKNzTCaE",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 35,
+        "vn": 1,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Introducción a Armado de Oferta",
+        "cardDesc": "",
+        "videoId": "13UKVdr5EeGC2WfqOTyQ0ZcUbiCstzpm5",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 36,
+        "vn": 2,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Ratio de Entrega de Servicios",
+        "cardDesc": "",
+        "videoId": "1h87obpMNAiGmnCYDfJMJ2V4r4fx4nfHp",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 37,
+        "vn": 3,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Ruta de Éxito del Cliente",
+        "cardDesc": "",
+        "videoId": "1R7VSdebBjeQzPx2uP0A91KLTw348vihR",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 38,
+        "vn": 4,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Involucramiento del Cliente",
+        "cardDesc": "",
+        "videoId": "1OdFDMy3-E7dOaYGGtev6cgIuVQGoey00",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 39,
+        "vn": 5,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Soporte Irresistible",
+        "cardDesc": "",
+        "videoId": "1qHcKjYxQOhpQZwwuiBtVaDyEQzQG6XsK",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 40,
+        "vn": 6,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Formato de Entrega de Valor",
+        "cardDesc": "",
+        "videoId": "1Qt9EXJOgu3ZmxymuYTpYswaSiL0N9vzq",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 41,
+        "vn": 7,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Velocidad y Conveniencia",
+        "cardDesc": "",
+        "videoId": "1iy_Is5XXYFS9ceHZb9IUHptBmI3-rFmO",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 42,
+        "vn": 8,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Duración del Servicio",
+        "cardDesc": "",
+        "videoId": "1iGG-OmBYppWKlJxuu0d5fogGgfv_P0KA",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 43,
+        "vn": 9,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Entregables",
+        "cardDesc": "",
+        "videoId": "1TEJj9MxRTobBY0jrv_5nl-vHHP8rIGk_",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 44,
+        "vn": 10,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "La Importancia de los Bonus",
+        "cardDesc": "",
+        "videoId": "1_CaF19VU6zVnSSV8uCvr_q-2gvklE-Nh",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 45,
+        "vn": 11,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Cómo Cobrar tus Servicios",
+        "cardDesc": "",
+        "videoId": "12nE44X05tMlZPb1mDuW0nQflID2aSNt6",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 46,
+        "vn": 12,
+        "grupo": "Oferta Irresistible · Armado de la Oferta",
+        "modulo": 4,
+        "titulo": "Garantía Irresistible",
+        "cardDesc": "",
+        "videoId": "1VSzFbuMP_kWrEG9tRQL4Ywq0GfIoX5oJ",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 47,
+        "vn": 1,
+        "grupo": "Oferta Irresistible · Precios",
+        "modulo": 4,
+        "titulo": "Precios",
+        "cardDesc": "",
+        "videoId": "13RkRMtBzqB7gvRYCY-dHFo6hZxiePF00",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 48,
+        "vn": 2,
+        "grupo": "Oferta Irresistible · Precios",
+        "modulo": 4,
+        "titulo": "Cuatro Variables Para Definir Precios",
+        "cardDesc": "",
+        "videoId": "1WciyuqYPfUTwM0rN247UPU13rwmktRCn",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 49,
+        "vn": 3,
+        "grupo": "Oferta Irresistible · Precios",
+        "modulo": 4,
+        "titulo": "Aumentos de Precios — Recomendaciones",
+        "cardDesc": "",
+        "videoId": "1Ksvnpot3mPBavW7QkcB15cO2NZOamstM",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-oferta-irresistible",
+          "mh-libro-de-precio",
+          "mh-psicologia-de-ventas",
+          "mh-compaginador-de-oferta-productivizacion"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 50,
+        "vn": 1,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Validación de la Oferta",
+        "modulo": 5,
+        "titulo": "Negocio de Alto Valor — Componentes",
+        "cardDesc": "",
+        "videoId": "1pyDf_v77hSMRuUBxJO--zNgGPgWIx21k",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 51,
+        "vn": 2,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Validación de la Oferta",
+        "modulo": 5,
+        "titulo": "Ejemplos de Componentes",
+        "cardDesc": "",
+        "videoId": "1JJMp991m5zjE4DP6A6CPs-Jj0Ee8eN6a",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 52,
+        "vn": 3,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Validación de la Oferta",
+        "modulo": 5,
+        "titulo": "Etapas de Validación",
+        "cardDesc": "",
+        "videoId": "1IwvLAUcxk3ZGiMPbcBeM0yhCUsCGmlDt",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 53,
+        "vn": 4,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Validación de la Oferta",
+        "modulo": 5,
+        "titulo": "Responsables del Proceso de Validación",
+        "cardDesc": "",
+        "videoId": "1o0KAgLYYQrMexIAjynRpglyO8YlbrlrS",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 54,
+        "vn": 1,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Funnels y Estrategias",
+        "modulo": 5,
+        "titulo": "Funnel 100K",
+        "cardDesc": "",
+        "videoId": "1qZ8Rs8As0072KsTSLYtM7XqogZ4xzR79",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 55,
+        "vn": 2,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Funnels y Estrategias",
+        "modulo": 5,
+        "titulo": "Funnel Cálido Individual a Llamada (sin comunidad)",
+        "cardDesc": "",
+        "videoId": "1iWeTkHlwA6VTjED9GdzuooBjCrDp1y43",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 56,
+        "vn": 3,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Funnels y Estrategias",
+        "modulo": 5,
+        "titulo": "Funnel Cálido Masivo a Aplicación (con comunidad)",
+        "cardDesc": "",
+        "videoId": "1oUVhUGwNSQfTi4So_WR7YMlXtRxJa2J1",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 57,
+        "vn": 4,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Funnels y Estrategias",
+        "modulo": 5,
+        "titulo": "Estrategia Farming de Leads",
+        "cardDesc": "",
+        "videoId": "136ojW-HiQHbF4SiRioNKJ_UP4tQoYoNz",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 58,
+        "vn": 5,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Funnels y Estrategias",
+        "modulo": 5,
+        "titulo": "Estrategia Sniper",
+        "cardDesc": "",
+        "videoId": "1Q5pnnjOBl1_O9oBxZaBZ5_SgpSNyidwH",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 59,
+        "vn": 6,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Funnels y Estrategias",
+        "modulo": 5,
+        "titulo": "Formulario de Aplicación a Llamada",
+        "cardDesc": "",
+        "videoId": "1PQ2-3LREmt_O9eLAfnt6RR2p0WnF3SqI",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 60,
+        "vn": 1,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Aprendizajes y Recomendaciones",
+        "cardDesc": "",
+        "videoId": "1MrSH57gaxrmWLpvWvQwzYzTegi3KR1bS",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 61,
+        "vn": 2,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Ecuación de Ventas",
+        "cardDesc": "",
+        "videoId": "1FylDDI4Pe4zhD0sEAvfDMiRsec7oFCXX",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 62,
+        "vn": 3,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Las únicas 3 cosas a decir cuando vendés",
+        "cardDesc": "",
+        "videoId": "19VykCuSUkf5LYuLRxg0geyl9tsJhVbpm",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 63,
+        "vn": 4,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Script de Ventas",
+        "cardDesc": "",
+        "videoId": "1LWKti7ANPJs_D6yopJ4AFxLY59AnT6Os",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 64,
+        "vn": 5,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "3 técnicas de persuasión simples y efectivas",
+        "cardDesc": "",
+        "videoId": "1bLIwFhmscSXXCzib5EkNUxM500sUcjGz",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 65,
+        "vn": 6,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Objeción: \"tengo que consultarlo con mi pareja/socio\"",
+        "cardDesc": "",
+        "videoId": "1PgHlGA3xOUVD2j9kz639ab65wIZUcYKv",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 66,
+        "vn": 7,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Objeción: \"no tengo el dinero / no puedo permitírmelo\"",
+        "cardDesc": "",
+        "videoId": "1jYZWr4HWV4HceD4koznRj7l067v9xnXH",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 67,
+        "vn": 8,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Objeción: \"estuve en otros programas y no tuve resultados\"",
+        "cardDesc": "",
+        "videoId": "1IjlkXJFt0QXn5cxV-D9HSajDcI8A7yuz",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 68,
+        "vn": 9,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Objeción: \"la competencia es más barata\"",
+        "cardDesc": "",
+        "videoId": "1BDjcOYKRBpvah93WMd2a3ZHho5xWf5h-",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      },
+      {
+        "n": 69,
+        "vn": 10,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Script de Ventas y Objeciones",
+        "modulo": 5,
+        "titulo": "Objeción: \"¿tenés alguna garantía?\"",
+        "cardDesc": "",
+        "videoId": "16N3RERn6zuHqec_NnSlSeFkZxUP1Q33R",
+        "resumen": "",
+        "transcripcion": [],
+        "recursoSlugs": [
+          "mh-libro-de-validacion",
+          "mh-script-de-ventas-infalible",
+          "mh-estrategia-sniper",
+          "mh-estrategia-farming-de-leads",
+          "mh-desarrollador-de-vsl",
+          "mh-funnel-individual-a-llamada"
+        ],
+        "herramientas": []
+      }
+    ],
+    "recursos": [
+      {
+        "slug": "mh-libro-de-introduccion",
+        "label": "Libro de Introducción",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Introducción a la Fórmula Mastery Haus.",
+        "driveId": "1TOXyuNT5wKO5wCaYbRdYHp870kLzVOOk"
+      },
+      {
+        "slug": "mh-libro-de-mentalidad-mastery",
+        "label": "Libro de Mentalidad Mastery",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Mentalidad & Foco.",
+        "driveId": "1iAgZJv34otal318hX76xpjvOeDflpSOt"
+      },
+      {
+        "slug": "mh-ejercicios-de-mentalidad",
+        "label": "Ejercicios de Mentalidad",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Mentalidad & Foco · Mentalidad.",
+        "driveId": "17CrB0kkFcqyRu3QIyJ9Y1krONMbonpj-"
+      },
+      {
+        "slug": "mh-ejercicios-de-energia",
+        "label": "Ejercicios de Energía",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Mentalidad & Foco · Energía & Foco.",
+        "driveId": "1byYq1Lgiyf2HNAX8g9C0axrQu800ZXqU"
+      },
+      {
+        "slug": "mh-libro-nicho-dorado",
+        "label": "Libro Nicho Dorado",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Nicho Dorado.",
+        "driveId": "180zB8SsV48yiMycgyA6aLZHkdGMVPjgq"
+      },
+      {
+        "slug": "mh-desarrollador-nicho-dorado",
+        "label": "Desarrollador Nicho Dorado",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Nicho Dorado.",
+        "driveId": "1PewC5_nCEgjCxGyQMAWceFODPwT27cGU"
+      },
+      {
+        "slug": "mh-desarrollo-de-avatar-dorado",
+        "label": "Desarrollo de Avatar Dorado",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Nicho Dorado.",
+        "driveId": "1EJxBvb957LBbvLrGHObL5aLABERphD-u"
+      },
+      {
+        "slug": "mh-libro-oferta-irresistible",
+        "label": "Libro Oferta Irresistible",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Oferta Irresistible.",
+        "driveId": "1Xm8u6RKqzCiBFB3RVUIYbrVYsuDjkNvd"
+      },
+      {
+        "slug": "mh-libro-de-precio",
+        "label": "Libro de Precio",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Oferta Irresistible.",
+        "driveId": "1u8lmENVfOpdmdN7TkHTMFKTxv9_NpI9T"
+      },
+      {
+        "slug": "mh-psicologia-de-ventas",
+        "label": "Psicología de ventas",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Oferta Irresistible.",
+        "driveId": "1B6TIrfX1ZdCed480-AJ0bDw30oySXDRQ"
+      },
+      {
+        "slug": "mh-compaginador-de-oferta-productivizacion",
+        "label": "Compaginador de Oferta (Productivización)",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Oferta Irresistible.",
+        "driveId": "1CaF0Lg4pOSsLMjKSu9dhI-je0AJ-CEy1"
+      },
+      {
+        "slug": "mh-libro-de-validacion",
+        "label": "Libro de Validación",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Validación de Oferta y Ventas de Alto Valor.",
+        "driveId": "1h52Iel5sgnFJSqacHkrBqSgRJVe0blk6"
+      },
+      {
+        "slug": "mh-script-de-ventas-infalible",
+        "label": "Script de Ventas Infalible",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Validación de Oferta y Ventas de Alto Valor.",
+        "driveId": "1reJvwrfQvUaeEjrzAOZiDp9A3hKq25oo"
+      },
+      {
+        "slug": "mh-estrategia-sniper",
+        "label": "Estrategia Sniper",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Validación de Oferta y Ventas de Alto Valor.",
+        "driveId": "1HyGb1L83zv8dRZWd5Rz9nPVgD9oWzTyH"
+      },
+      {
+        "slug": "mh-estrategia-farming-de-leads",
+        "label": "Estrategia Farming de Leads",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Validación de Oferta y Ventas de Alto Valor.",
+        "driveId": "1OFg-tr4OrVjuTu5MTHFKJyZAI0XQ5WEl"
+      },
+      {
+        "slug": "mh-desarrollador-de-vsl",
+        "label": "Desarrollador de VSL",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Validación de Oferta y Ventas de Alto Valor.",
+        "driveId": "1O63fDwnM8D29FzzZWdugnmPosWQPgdEL"
+      },
+      {
+        "slug": "mh-funnel-individual-a-llamada",
+        "label": "Funnel Individual a Llamada",
+        "tipo": "pdf",
+        "cardDesc": "Workbook · Validación de Oferta y Ventas de Alto Valor.",
+        "driveId": "1fgX2yGXTgh0y-RXfY2CiwZouZJqoFaHh"
       }
     ]
   }

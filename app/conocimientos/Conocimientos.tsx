@@ -96,7 +96,7 @@ function Card({ badge, nota, titulo, desc, onClick, ariaLabel }: { badge: string
         {nota && <span className="al-rescard-nota">{nota}</span>}
       </span>
       <span className="al-rescard-title">{titulo}</span>
-      <span className="al-rescard-desc">{desc}</span>
+      {desc && <span className="al-rescard-desc">{desc}</span>}
       <span className="al-rescard-go">Abrir <span className="al-arr">→</span></span>
     </button>
   );
@@ -133,6 +133,17 @@ function Selector({ enter }: { enter: (slug: string) => void }) {
 
 // ── Hub del curso ────────────────────────────────────────────────────────────
 function Hub({ curso, goClase, goRecurso }: { curso: Curso; goClase: (n: number) => void; goRecurso: (slug: string) => void }) {
+  // Cursos con módulos (grupo) se agrupan por sub-título; los planos van en grilla.
+  const grupos = useMemo(() => {
+    const m = new Map<string, Clase[]>();
+    for (const c of curso.clases) { const g = c.grupo || ''; if (!m.has(g)) m.set(g, []); m.get(g)!.push(c); }
+    return [...m.entries()];
+  }, [curso]);
+  const conModulos = curso.clases.some((c) => c.grupo);
+  const claseCard = (c: Clase) => (
+    <Card key={c.n} badge={`Clase ${nn(c.vn ?? c.n)}`} titulo={c.titulo} desc={c.cardDesc}
+      ariaLabel={`Abrir ${c.titulo}`} onClick={() => goClase(c.n)} />
+  );
   return (
     <>
       <section className="al-hero">
@@ -142,12 +153,18 @@ function Hub({ curso, goClase, goRecurso }: { curso: Curso; goClase: (n: number)
       </section>
       <section className="al-sec">
         <div className="al-seclabel"><span>El curso</span><span className="al-vol">{curso.clases.length} clases · {curso.volumen}</span></div>
-        <div className="al-grid">
-          {curso.clases.map((c) => (
-            <Card key={c.n} badge={`Clase ${nn(c.n)}`} titulo={c.titulo} desc={c.cardDesc}
-              ariaLabel={`Abrir clase ${c.n}`} onClick={() => goClase(c.n)} />
-          ))}
-        </div>
+        {conModulos ? (
+          <div className="al-modstack">
+            {grupos.map(([g, cs]) => (
+              <div key={g} className="al-modgroup">
+                <h3 className="al-modtitle">{g}</h3>
+                <div className="al-grid">{cs.map(claseCard)}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="al-grid">{curso.clases.map(claseCard)}</div>
+        )}
       </section>
       <section className="al-sec">
         <div className="al-seclabel"><span>Recursos</span><span className="al-vol">Agentes · prompts · catálogos</span></div>
@@ -465,6 +482,10 @@ const CSS = `
 .cono .al-sec{ margin-top:44px; }
 .cono .al-seclabel{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); padding-bottom:12px; border-bottom:1.5px solid var(--ink-15); margin-bottom:18px; }
 .cono .al-vol{ color:var(--ink-40); font-size:11px; }
+
+/* Cursos con módulos: cada grupo con su sub-título */
+.cono .al-modstack{ display:flex; flex-direction:column; gap:30px; }
+.cono .al-modtitle{ font-family:var(--disp); font-weight:800; font-size:17px; letter-spacing:-.01em; color:var(--ink); margin:0 0 14px; padding-left:12px; border-left:4px solid var(--lime); line-height:1.2; }
 
 /* Grilla de tarjetas */
 .cono .al-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:14px; }
