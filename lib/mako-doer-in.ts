@@ -424,18 +424,30 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
       }
 
       if (!respuesta) {
+        // Ruteo DETERMINÍSTICO: el doer ya tiene `pin` (leído arriba con import estático,
+        // confiable) → decide ACÁ, sin delegar la detección adentro de chatClaudeTools
+        // (cuyo lookup por import dinámico caía en silencio a Opus). Si el dueño pineó una
+        // IA barata (Gemini/Groq), corremos el loop de tools DIRECTO ahí; si falla, avisamos
+        // el error (NUNCA caemos a Claude ni gastamos Opus). Pin Claude o sin pin → Claude.
         try {
-          const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
-            feature: 'mako-doer-in', maxSteps: 8,
-            ...(pin ? {} : { model: ruta.model }),
-            sinFallbackClaude: true, // si el pin (Gemini/Groq) falla, NO caer a Claude: avisamos el error, no gastamos Claude en silencio
-            effort: ruta.effort,
-            motivo: `${ruta.motivo} «${recorte}»`,
-          });
-          respuesta = (text ?? '').trim();
+          if (pin && pin.provider !== 'anthropic') {
+            const r = await chatCheapTools(system, msgs, tools, runTool, {
+              provider: pin.provider as 'groq' | 'openai' | 'gemini', model: pin.model,
+              feature: 'mako-doer-in', maxSteps: 8, motivo: `${pin.provider} ${ruta.motivo} «${recorte}»`,
+            });
+            respuesta = (r.text ?? '').trim();
+          } else {
+            const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
+              feature: 'mako-doer-in', maxSteps: 8,
+              model: pin ? pin.model : ruta.model,
+              effort: ruta.effort,
+              motivo: `${ruta.motivo} «${recorte}»`,
+            });
+            respuesta = (text ?? '').trim();
+          }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error('[mako-doer-in] IA falló (sin fallback a Claude):', msg);
+          console.error('[mako-doer-in] IA falló:', msg);
           respuesta = `⚠️ No pude responder ahora: falló la IA (${msg.slice(0, 140)}). Reintentá en un momento o avisá a soporte.`;
         }
       }
