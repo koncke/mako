@@ -10,6 +10,7 @@ import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual
 import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
 import { getWorkspaceActual } from '@/lib/workspace';
+import { cuotasProveedores } from '@/lib/ia-cuotas';
 import { IntegracionesBoard } from './IntegracionesBoard';
 import { requireRolWs } from '@/lib/tab-access';
 
@@ -50,6 +51,10 @@ export default async function IntegracionesPage() {
   const ws = await getWorkspaceActual();
   const snippetLanding = ws == null ? null : landingSnippet(await getOrCreateLandingToken(ws));
 
+  // Cuota GRATIS consumida hoy por cada IA barata (para el gauge "cuánto queda"
+  // de cada proveedor y para el aviso proactivo de rotación). Nunca rompe la página.
+  const cuotas = await cuotasProveedores().catch(() => []);
+
   return (
     <IntegracionesBoard
       integraciones={integraciones}
@@ -57,6 +62,7 @@ export default async function IntegracionesPage() {
       metaError={metaError}
       incidentes={incidentes}
       snippetLanding={snippetLanding}
+      cuotas={cuotas}
     />
   );
 }

@@ -26,6 +26,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { runWithWorkspace, OWNER_WS } from '@/lib/workspace';
 import { getSupabaseServer } from '@/lib/supabase';
 import { transcribirAudio, chatCheap, chatCheapTools, cheapDisponible } from '@/lib/ai-cheap';
+import { ordenarPorCuota } from '@/lib/ia-cuotas';
 import { rutearDoer } from '@/lib/mako-router';
 import { overrideDeFeature } from '@/lib/model-registry';
 
@@ -430,31 +431,20 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         // el error (NUNCA caemos a Claude ni gastamos Opus). Pin Claude o sin pin → Claude.
         try {
           if (pin && pin.provider !== 'anthropic') {
-            try {
-              const r = await chatCheapTools(system, msgs, tools, runTool, {
-                provider: pin.provider as 'groq' | 'openai' | 'gemini', model: pin.model,
-                // maxTokens amplio para no truncar (varias preguntas / resumen + links).
-                feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${pin.provider} ${ruta.motivo} «${recorte}»`,
-              });
-              respuesta = (r.text ?? '').trim();
-            } catch (eg) {
-              // La IA barata falló (típico: HTTP 429 = rate limit del free tier de Gemini; el
-              // doer hace VARIOS pedidos por mensaje). NUNCA caemos a Claude (evitar ese gasto):
-              // ROTAMOS entre las otras IA baratas (Groq gratis → OpenAI barato). Si TODAS fallan,
-              // re-lanzamos para que el catch externo muestre el error (no gastamos Claude).
-              console.warn(`[mako-doer-in] ${pin.provider} falló (${eg instanceof Error ? eg.message : String(eg)}) → roto a otra IA barata`);
-              let ok = false;
-              // Solo proveedores con function-calling fiable (el doer usa tools). OpenRouter
-              // ":free" varía mucho en tools → fuera de esta rotación; OpenAI (barato) al final.
-              for (const prov of ['groq', 'cerebras', 'mistral', 'openai'] as const) {
-                if (prov === pin.provider) continue; // no reintentar la que ya falló
-                try {
-                  const r2 = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${ruta.motivo} «${recorte}» · fallback ${prov}` });
-                  if (r2.text && !r2.text.startsWith('(')) { respuesta = r2.text.trim(); ok = true; break; }
-                } catch (e2) { console.warn(`[mako-doer-in] fallback ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
-              }
-              if (!ok) throw eg;
+            // ROTACIÓN PROACTIVA de IA baratas (NUNCA Claude): armamos [pineado + las que
+            // soportan tools] y las ORDENAMOS POR CUOTA (las cerca del tope van al final) →
+            // probamos primero las que todavía pueden, sin esperar el 429. OpenRouter ":free"
+            // queda afuera (tools inconsistentes); OpenAI (barato) es el último de red.
+            const cands = [pin.provider, 'groq', 'cerebras', 'mistral', 'openai'].filter((p, i, a) => a.indexOf(p) === i);
+            const orden = await ordenarPorCuota(cands).catch(() => cands);
+            let ultErr: unknown = null;
+            for (const prov of orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>) {
+              try {
+                const r = await chatCheapTools(system, msgs, tools, runTool, { provider: prov, model: prov === pin.provider ? pin.model : undefined, feature: 'mako-doer-in', maxSteps: 8, maxTokens: 2500, motivo: `${prov} ${ruta.motivo} «${recorte}»` });
+                if (r.text && !r.text.startsWith('(')) { respuesta = r.text.trim(); break; }
+              } catch (e2) { ultErr = e2; console.warn(`[mako-doer-in] ${prov} falló: ${e2 instanceof Error ? e2.message : String(e2)}`); }
             }
+            if (!respuesta) throw ultErr ?? new Error('todas las IA baratas fallaron');
           } else {
             const { text } = await chatClaudeTools(system, msgs, tools, runTool, {
               feature: 'mako-doer-in', maxSteps: 8,

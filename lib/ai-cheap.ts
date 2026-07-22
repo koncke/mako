@@ -15,6 +15,7 @@ import 'server-only';
 import { recordUsage, recordSttUsage } from '@/lib/anthropic-usage';
 import type { ToolDef, ToolRunner, RichMsg, ToolsResult } from '@/lib/anthropic';
 import { credWs } from '@/lib/credenciales';
+import { ordenarPorCuota } from '@/lib/ia-cuotas';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 type Prov = { base: string; key: string; chatModel: string; sttModel: string; nombre: ProvName };
@@ -133,7 +134,9 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
 export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
 export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number }): Promise<string> {
-  for (const prov of opts.provs ?? CASCADA_GRATIS) {
+  // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
+  const orden = await ordenarPorCuota((opts.provs ?? CASCADA_GRATIS).map(String)).catch(() => (opts.provs ?? CASCADA_GRATIS).map(String));
+  for (const prov of orden as ProvName[]) {
     try {
       const t = await chatCheap({ system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, timeoutMs: opts.timeoutMs });
       if (t.trim()) return t;

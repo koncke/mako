@@ -21,6 +21,7 @@ import { Carrusel, EnlaceMaKo } from '../_components/PanelMarketing';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import type { MetaHealth } from '@/lib/meta-health-ui';
 import { procesoLegible, proveedorLegible, modeloLegible, motivoLegible } from '@/lib/ia-labels';
+import type { CuotaProv } from '@/lib/ia-cuotas';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import ServicioConfigForm from './ServicioConfigForm';
 
@@ -60,6 +61,18 @@ const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(
 const fmtHora = (iso: string) => { try { return new Date(iso).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch { return ''; } };
 const mxn = (n: number) => `$${(Number(n) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// De la cuota GRATIS de hoy, elige la métrica que MANDA (la de mayor % consumido:
+// pedidos/día o tokens/día) y la deja lista para el gauge "cuánto queda". Así cada
+// proveedor muestra su tope real (Gemini por pedidos, Groq por tokens, etc.).
+function cuotaVista(c: CuotaProv): { usados: string; limite: string; pct: number; unidad: string; agotado: boolean } {
+  const rT = c.tokensDia ? c.tokens / c.tokensDia : 0;
+  const rR = c.rpd ? c.requests / c.rpd : 0;
+  const pct = Math.min(100, Math.max(2, Math.round(c.pct * 100)));
+  if (c.tokensDia != null && rT >= rR) return { usados: fmtTok(c.tokens), limite: fmtTok(c.tokensDia), pct, unidad: 'tok', agotado: c.agotado };
+  if (c.rpd != null) return { usados: String(c.requests), limite: String(c.rpd), pct, unidad: 'pedidos', agotado: c.agotado };
+  return { usados: fmtTok(c.tokens), limite: '—', pct: 2, unidad: 'tok', agotado: c.agotado };
+}
+
 
 const Spark = ({ size = 15 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="-12 -12 24 24" style={{ overflow: 'visible', flex: 'none' }}>
@@ -93,13 +106,15 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding }: {
+export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cuotas = [] }: {
   integraciones: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   incidentes: Incidente[];
   /** <script> con el token del workspace, listo para copiar. null = admin sin impersonar. */
   snippetLanding?: string | null;
+  /** Cuota gratis consumida hoy por cada IA barata (gauge "cuánto queda"). */
+  cuotas?: CuotaProv[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -247,7 +262,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       </section>
 
       {/* ═══ COSTO DE MAKO ═══ */}
-      <CostoMaKo usage={usage} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} onOpenService={(key) => setModal({ t: 'svc', key })} />
+      <CostoMaKo usage={usage} cuotas={cuotas} onVerOps={() => setModal({ t: 'hist' })} onCargarSaldo={cargar} onOpenService={(key) => setModal({ t: 'svc', key })} />
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
@@ -258,6 +273,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           i={svcByKey(modal.key)!}
           sev={sevOf(svcByKey(modal.key)!)}
           health={health} metaError={metaError} usage={usage}
+          cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
           onClose={() => setModal(null)}
           // `integraciones` viene del server component: al guardar/quitar una
@@ -274,7 +290,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
 }
 
 // ── Costo de MaKo ─────────────────────────────────────────────────────────────
-function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: Resumen | null; onVerOps: () => void; onCargarSaldo: () => void; onOpenService: (key: string) => void }) {
+function CostoMaKo({ usage, cuotas, onVerOps, onCargarSaldo, onOpenService }: { usage: Resumen | null; cuotas: CuotaProv[]; onVerOps: () => void; onCargarSaldo: () => void; onOpenService: (key: string) => void }) {
   const provs = usage?.porProveedor ?? [];
   const feats = (usage?.porFeature ?? []).slice(0, 8);
   const maxFeat = Math.max(1, ...feats.map((f) => f.costUsd));
@@ -310,7 +326,10 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: R
         {provs.map((p) => {
           const low = p.restanteUsd !== null && p.restanteUsd <= 5;
           const lim = LIMITE_FREE[p.provider] ?? { cap: 'plan gratis' };
-          const pct = lim.tokensDia ? Math.min(100, Math.max(2, (p.tokensHoy / lim.tokensDia) * 100)) : 0;
+          // Cuota gratis de hoy (pedidos o tokens, según el tope real del proveedor):
+          // habilita el gauge "cuánto queda" en TODOS los free, no solo Groq.
+          const cuota = cuotas.find((x) => x.provider === p.provider) ?? null;
+          const cv = cuota ? cuotaVista(cuota) : null;
           const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
           return (
             <div key={p.provider} role="button" tabIndex={0} title={`Ver detalle de ${proveedorLegible(p.provider)}`}
@@ -325,14 +344,16 @@ function CostoMaKo({ usage, onVerOps, onCargarSaldo, onOpenService }: { usage: R
                   : <span style={{ marginLeft: 'auto', width: 7, height: 7, borderRadius: '50%', background: low ? 'var(--warn-fill)' : 'var(--good)' }} />}
               </div>
               {p.gratis ? (
-                // Gratis: no se mide en $. Groq topea por tokens/día → gauge con barra.
-                // Gemini topea por solicitudes/día + tokens/min → uso de hoy sin barra falsa.
+                // Gratis: no se mide en $, sino en CUOTA de hoy. Cada free tier topea distinto
+                // (Groq por tokens/día, Gemini/Cerebras/Mistral/OpenRouter por pedidos/día): el
+                // gauge muestra la métrica que MANDA con su barra. Si estamos cerca del tope, se
+                // pinta ámbar (MaKo ya lo salta en la rotación antes del 429).
                 <>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6, marginBottom: 7 }}>
-                    <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>uso de hoy</span>
-                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{fmtTok(p.tokensHoy)}{lim.tokensDia ? <span style={{ color: 'var(--faint)' }}> / {fmtTok(lim.tokensDia)}</span> : <span style={{ color: 'var(--faint)' }}> tok</span>}</span>
+                    <span style={{ fontSize: 12.5, color: 'var(--dim)' }}>{cv?.agotado ? 'sin cuota hoy' : 'cuánto queda hoy'}</span>
+                    <span style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{cv ? <>{cv.usados}<span style={{ color: 'var(--faint)' }}> / {cv.limite} {cv.unidad}</span></> : <>{fmtTok(p.tokensHoy)}<span style={{ color: 'var(--faint)' }}> tok</span></>}</span>
                   </div>
-                  {lim.tokensDia && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${pct}%`, borderRadius: 5, background: '#F55036' }} /></div>}
+                  {cv && <div style={{ height: 7, borderRadius: 5, background: 'var(--border)' }}><div style={{ height: 7, width: `${cv.pct}%`, borderRadius: 5, background: cv.agotado ? 'var(--warn-fill)' : '#F55036' }} /></div>}
                   <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)', marginTop: 6 }}>{lim.cap}</div>
                 </>
               ) : (
@@ -638,8 +659,8 @@ function CodigoLanding({ snippet }: { snippet: string | null }) {
 // toda la configuración —incluido el aviso de seguridad, que vive dentro del
 // form—. Alto fijo y scroll adentro. En angosto apilan (ver .mk-svc-modal en
 // globals.css).
-function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClose, onCambio }: {
-  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; snippetLanding?: string | null; onClose: () => void; onCambio: () => void;
+function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding, onClose, onCambio }: {
+  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; onClose: () => void; onCambio: () => void;
 }) {
   const chip = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
@@ -686,14 +707,16 @@ function ServicioModal({ i, sev, health, metaError, usage, snippetLanding, onClo
       ];
     }
     actions.push({ label: i.key === 'anthropic' ? 'Ver saldo de Claude ↗' : 'Cargar saldo en OpenAI ↗', href: i.key === 'anthropic' ? 'https://console.anthropic.com/settings/billing' : 'https://platform.openai.com/settings/organization/billing', primary: i.key === 'openai' });
-  } else if (i.key === 'groq') {
-    const prov = usage?.porProveedor?.find((p) => p.provider === 'groq');
-    if (prov) {
-      facts = [
-        { k: 'Uso de hoy', v: `${fmtTok(prov.tokensHoy)} tok`, c: 'var(--ink)' },
-        { k: 'Tokens del mes', v: `${fmtTok(prov.tokens)} tok`, c: 'var(--ink)' },
-      ];
-    }
+  } else if (cuota) {
+    // IA GRATIS (Groq/Gemini/Cerebras/Mistral/OpenRouter): su tope no es dinero sino
+    // CUOTA de hoy. Mostramos la métrica que manda (pedidos o tokens/día) + el consumo
+    // del mes. Es el "cuánto queda" que antes solo tenía Groq → ahora todos.
+    const cv = cuotaVista(cuota);
+    const prov = usage?.porProveedor?.find((p) => p.provider === i.key);
+    facts = [
+      { k: cv.agotado ? 'Sin cuota hoy' : 'Cuánto queda hoy', v: `${cv.usados} / ${cv.limite} ${cv.unidad}`, c: cv.agotado ? 'var(--warn)' : 'var(--ink)' },
+      { k: 'Consumo del mes', v: `${fmtTok(prov?.tokens ?? 0)} tok`, c: 'var(--ink)' },
+    ];
   } else if (i.key === 'google') {
     // El OAuth de Google Calendar es un redirect en la MISMA pestaña.
     actions.push({ label: 'Conectar Google Calendar', href: '/api/integraciones/google-calendar', primary: true, sameTab: true });
