@@ -231,7 +231,7 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
   },
   {
     name: 'proponer_tareas_plan',
-    description: 'PROPONE agregar TAREAS al plan del negocio. Usala cuando el dueño te pasa una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resolvé vos lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Para lo que NO podés deducir (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad), NO hagas el ida-y-vuelta por WhatsApp: pasá esas dudas en el campo "notas" — el DUEÑO las responde en la pantalla de revisión de la app. La tool te devuelve cómo seguir: para el dueño, un LINK a esa pantalla (pasáselo, NO pidas "sí"); para un cliente, deja la acción pendiente y ahí sí pedís el "sí".',
+    description: 'PROPONE agregar TAREAS al plan del negocio. Usala cuando te pasan una lista de cosas para el plan (aunque venga desordenada). Cada tarea necesita al menos un título. Resolvé vos lo DEDUCIBLE (a qué proyecto va, dedup con ver_plan). Para lo que NO podés deducir (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad), NO hagas el ida-y-vuelta por WhatsApp: pasá esas dudas en "preguntas" (cada una con 2-4 opciones) — se responden de a UNA en la pantalla de revisión de la app. La tool te devuelve un LINK a esa pantalla: pasáselo tal cual, NO pidas "sí" ni repitas la lista por el chat.',
     input_schema: {
       type: 'object',
       properties: {
@@ -250,10 +250,17 @@ export const MAKO_ACCION_TOOLS: ToolDef[] = [
             required: ['titulo'],
           },
         },
-        notas: {
+        preguntas: {
           type: 'array',
-          description: 'Opcional. Tus preguntas/dudas para que el dueño resuelva EN LA APP (fechas/urgencia, si un ítem es 1 o varias tareas, prioridad, qué sería "listo"). Se muestran en la pantalla de revisión. Cortas y concretas, máximo 3-4.',
-          items: { type: 'string' },
+          description: 'Opcional (recomendado). Lo que NO pudiste deducir, para que lo respondan en la app de a UNA. Cada pregunta corta + 2-4 opciones probables (respuestas típicas, cortas) para elegir de un clic. Ej: {"pregunta":"¿El módulo de Webinars es una tarea o lo separamos?","opciones":["Una sola","Separar en grabar/analizar/seguir"]}. Máximo 4.',
+          items: {
+            type: 'object',
+            properties: {
+              pregunta: { type: 'string', description: 'la pregunta, corta y concreta.' },
+              opciones: { type: 'array', description: '2-4 respuestas probables (cortas).', items: { type: 'string' } },
+            },
+            required: ['pregunta'],
+          },
         },
       },
       required: ['tareas'],
@@ -384,24 +391,26 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0)
           .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
           .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 600) : undefined }))
           .filter((t) => t.titulo);
-        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "notas" — no preguntes por acá.' });
-        const notasRaw = (input as { notas?: unknown }).notas;
-        const notas = Array.isArray(notasRaw) ? notasRaw.map((n) => String(n).trim()).filter(Boolean).slice(0, 6) : [];
-        const lista = tareas.map((t, i) => `${i + 1}. ${t.titulo}${t.proyecto ? ` (proyecto: ${t.proyecto})` : ''}${t.prioridad !== 'media' ? ` [${t.prioridad}]` : ''}${t.deadline ? ` — vence ${t.deadline}` : ''}`).join('\n');
+        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "preguntas" — no preguntes por acá.' });
+        const preguntasRaw = (input as { preguntas?: unknown }).preguntas;
+        const preguntas = Array.isArray(preguntasRaw)
+          ? preguntasRaw.map((p) => {
+              if (typeof p === 'string') return { pregunta: p.trim().slice(0, 300), opciones: [] as string[] };
+              const o = (p ?? {}) as Record<string, unknown>;
+              return { pregunta: String(o.pregunta ?? '').trim().slice(0, 300), opciones: Array.isArray(o.opciones) ? o.opciones.map((x) => String(x).trim()).filter(Boolean).slice(0, 5) : [] };
+            }).filter((p) => p.pregunta).slice(0, 5)
+          : [];
         const resumen = `Agregar ${tareas.length} tarea${tareas.length === 1 ? '' : 's'} al plan`;
 
-        // DUEÑO: borrador + link a /plan/revisar (nada de ida-y-vuelta ni "sí" por WhatsApp).
-        if (ws === OWNER_WS) {
-          try {
-            const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), notas, resumen, origen: 'whatsapp' });
-            const link = `${APP_URL}/plan/revisar/${id}`;
-            return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: notas.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}${notas.length ? ` y ${notas.length} pregunta${notas.length === 1 ? '' : 's'}` : ''}. Mandale al dueño UNA línea corta + este link para que revise, responda y confirme EN LA APP (NO pidas "sí" acá, NO repitas la lista): ${link}` });
-          } catch (e) {
-            return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
-          }
+        // BORRADOR + link a /plan/revisar para TODOS (dueño y clientes): nada de ida-y-vuelta
+        // ni "sí" por WhatsApp. Las preguntas se responden de a una en la app.
+        try {
+          const id = await crearPropuesta({ tareas: tareas.map((t) => ({ titulo: t.titulo, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, prioridad: t.prioridad })), preguntas, resumen, origen: 'whatsapp' });
+          const link = `${APP_URL}/plan/revisar/${id}`;
+          return JSON.stringify({ ok: true, borrador: true, link, tareas: tareas.length, preguntas: preguntas.length, instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 1 ? '' : 's'}${preguntas.length ? ` y ${preguntas.length} pregunta${preguntas.length === 1 ? '' : 's'}` : ''}. Mandá UNA línea corta + este link para que lo revisen, respondan y confirmen EN LA APP (NO pidas "sí" acá, NO repitas la lista): ${link}` });
+        } catch (e) {
+          return JSON.stringify({ ok: false, error: `No pude armar el borrador: ${e instanceof Error ? e.message : 'error'}` });
         }
-        // CLIENTE: pendiente + "sí" (su tablero va por todo.ts).
-        return proponer('tareas_plan', { tareas }, `${resumen}:\n${lista}`);
       }
 
       case 'listar_pendientes': {
