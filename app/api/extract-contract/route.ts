@@ -12,6 +12,7 @@ import type { NextRequest } from 'next/server';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { getPromptText } from '@/lib/prompt-render';
 import { CONTRACT_EXTRACT_DEFAULT } from '@/lib/prompt-defaults';
+import { leerDocumentoIA } from '@/lib/ai-cheap';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -19,9 +20,6 @@ export const maxDuration = 120;
 const MAX_BYTES = 20 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const oai = process.env.OPENAI_API_KEY;
-  if (!oai) return Response.json({ error: 'OPENAI_API_KEY no configurada' }, { status: 500 });
-
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ error: 'form inválido' }, { status: 400 }); }
   const file = form.get('file') as File | null;
@@ -69,22 +67,20 @@ export async function POST(req: NextRequest) {
 
   const prompt = await getPromptText('contracts.extract_payment_plan.user', CONTRACT_EXTRACT_DEFAULT);
 
-  // PDF → documento; imagen → visión.
+  // PDF → documento; imagen → visión. Lo lee la IA multimodal más barata que tenga
+  // key (Gemini gratis → OpenAI), nunca Claude.
   const isPdf = mime.includes('pdf') || nombreArchivo.toLowerCase().endsWith('.pdf');
-  const content = isPdf
-    ? [{ type: 'text', text: prompt }, { type: 'file', file: { filename: nombreArchivo.toLowerCase().endsWith('.pdf') ? nombreArchivo : 'contrato.pdf', file_data: dataUrl } }]
-    : [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } }];
 
   try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${oai}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content }] }),
-    });
-    const j = await r.json();
-    if (j.error) return Response.json({ error: `openai: ${j.error.message}` }, { status: 502 });
+    let modelText: string;
+    try {
+      const out = await leerDocumentoIA({ dataUrl, isPdf, nombreArchivo, prompt, json: true, feature: 'extract-contract', motivo: `lead ${leadId}`, timeoutMs: 100000 });
+      modelText = out.text;
+    } catch (e) {
+      return Response.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
+    }
     let parsed: Record<string, unknown> = {};
-    try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta' }, { status: 502 }); }
+    try { parsed = JSON.parse(modelText || '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta' }, { status: 502 }); }
 
     const servicio = (parsed.servicio ?? {}) as Record<string, unknown>;
     const asumido: string[] = [];

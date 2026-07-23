@@ -8,6 +8,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { leerDocumentoIA } from '@/lib/ai-cheap';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -20,9 +21,6 @@ Devolvé SOLO un objeto JSON (usá null si el dato no aparece):
 No inventes. No agregues texto fuera del JSON.`;
 
 export async function POST(req: NextRequest) {
-  const oai = process.env.OPENAI_API_KEY;
-  if (!oai) return Response.json({ error: 'OPENAI_API_KEY no configurada' }, { status: 500 });
-
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ error: 'form inválido' }, { status: 400 }); }
   const file = form.get('file') as File | null;
@@ -52,20 +50,17 @@ export async function POST(req: NextRequest) {
   if (dbErr) return Response.json({ error: `leads: ${dbErr.message}` }, { status: 500 });
 
   const isPdf = mime.includes('pdf') || (file.name || '').toLowerCase().endsWith('.pdf');
-  const content = isPdf
-    ? [{ type: 'text', text: PROMPT }, { type: 'file', file: { filename: file.name || 'fiscal.pdf', file_data: dataUrl } }]
-    : [{ type: 'text', text: PROMPT }, { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } }];
 
   try {
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${oai}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'gpt-4o', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'user', content }] }),
-    });
-    const j = await r.json();
-    if (j.error) return Response.json({ error: `openai: ${j.error.message}`, doc_nombre }, { status: 502 });
+    let modelText: string;
+    try {
+      const out = await leerDocumentoIA({ dataUrl, isPdf, nombreArchivo: file.name || 'fiscal.pdf', prompt: PROMPT, json: true, feature: 'extract-deal-fiscal', motivo: `lead ${leadId}`, timeoutMs: 100000 });
+      modelText = out.text;
+    } catch (e) {
+      return Response.json({ error: e instanceof Error ? e.message : String(e), doc_nombre }, { status: 502 });
+    }
     let parsed: Record<string, unknown> = {};
-    try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta', doc_nombre }, { status: 502 }); }
+    try { parsed = JSON.parse(modelText || '{}'); } catch { return Response.json({ error: 'no se pudo parsear la respuesta', doc_nombre }, { status: 502 }); }
     const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
     return Response.json({
       razon: str(parsed.razon),

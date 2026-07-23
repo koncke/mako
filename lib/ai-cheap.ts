@@ -145,6 +145,78 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   return '';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Lectura de DOCUMENTOS / IMÁGENES (contratos, comprobantes) con IA multimodal.
+// Cascada GRATIS-primero SIN Claude: Gemini (docs+imágenes, free tier) → OpenAI
+// (docs+imágenes, barato). Cada uno se usa solo si tiene su key (credWs: fila del
+// cliente o env del dueño). Devuelve el texto crudo del modelo (JSON string) del
+// primero que funcione. Claude queda para el razonamiento fino, no para OCR.
+// ─────────────────────────────────────────────────────────────────────────────
+export const VISION_CASCADE: ProvName[] = ['gemini', 'openai'];
+
+type DocOpts = { dataUrl: string; isPdf: boolean; nombreArchivo: string; prompt: string; json?: boolean; feature?: string; motivo?: string; timeoutMs?: number };
+
+export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; provider: ProvName }> {
+  const errores: string[] = [];
+  const sinKey: ProvName[] = [];
+  for (const prov of VISION_CASCADE) {
+    const key = await credWs(prov === 'gemini' ? 'GEMINI_API_KEY' : 'OPENAI_API_KEY');
+    if (!key) { sinKey.push(prov); continue; }
+    try {
+      const text = prov === 'gemini' ? await leerConGemini(key, opts) : await leerConOpenAI(key, opts);
+      if (text.trim()) return { text, provider: prov };
+      errores.push(`${prov}: respuesta vacía`);
+    } catch (e) {
+      errores.push(`${prov}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (errores.length) throw new Error(`No se pudo leer el documento con ninguna IA. ${errores.join(' · ')}`);
+  const nombres = sinKey.map((p) => (p === 'gemini' ? 'Gemini (gratis)' : 'OpenAI')).join(' o ');
+  throw new Error(`No hay ninguna IA con visión configurada. Cargá una API key de ${nombres || 'Gemini u OpenAI'} en Integraciones.`);
+}
+
+async function leerConOpenAI(key: string, o: DocOpts): Promise<string> {
+  const model = process.env.OPENAI_VISION_MODEL || 'gpt-4o';
+  const content = o.isPdf
+    ? [{ type: 'text', text: o.prompt }, { type: 'file', file: { filename: o.nombreArchivo.toLowerCase().endsWith('.pdf') ? o.nombreArchivo : 'contrato.pdf', file_data: o.dataUrl } }]
+    : [{ type: 'text', text: o.prompt }, { type: 'image_url', image_url: { url: o.dataUrl, detail: 'high' } }];
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, temperature: 0, ...(o.json ? { response_format: { type: 'json_object' } } : {}), messages: [{ role: 'user', content }] }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(o.timeoutMs ?? 100000),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
+  void recordUsage(o.feature || 'leer-documento', model, j.usage, o.motivo, 'openai');
+  return j.choices?.[0]?.message?.content ?? '';
+}
+
+async function leerConGemini(key: string, o: DocOpts): Promise<string> {
+  // Endpoint NATIVO (no el OpenAI-compat): maneja PDF e imágenes vía inline_data.
+  const model = process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  const m = o.dataUrl.match(/^data:([^;]+);base64,([\s\S]*)$/);
+  const mimeType = m?.[1] || (o.isPdf ? 'application/pdf' : 'image/jpeg');
+  const b64 = m?.[2] ?? '';
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: o.prompt }, { inline_data: { mime_type: mimeType, data: b64 } }] }],
+      generationConfig: { temperature: 0, ...(o.json ? { response_mime_type: 'application/json' } : {}) },
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(o.timeoutMs ?? 100000),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.error) throw new Error(j?.error?.message || `HTTP ${res.status}`);
+  const text = (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('').trim();
+  const um = j.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
+  void recordUsage(o.feature || 'leer-documento', model, um ? { prompt_tokens: um.promptTokenCount, completion_tokens: um.candidatesTokenCount, total_tokens: um.totalTokenCount } : undefined, o.motivo, 'gemini');
+  return text;
+}
+
 // Bloques (tool_use/tool_result/text) → texto plano. El historial del doer ya viene
 // como texto; esto es defensivo por si entra un Block[].
 function bloqueATexto(content: RichMsg['content']): string {
