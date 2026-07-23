@@ -55,6 +55,9 @@ export type Feature = {
   nota?: string; // estado honesto (en activación / en construcción)
   caso?: FeatureCaso; // prueba: un cliente real con sus números
   objecion?: FeatureObjecion; // la objeción propia de esta feature
+  /** Subtítulo de la card en la grilla. Si falta, cae al hook del showcase y
+   *  después al metaDesc (que es de SEO y suele ser demasiado largo para la card). */
+  hook?: string;
   // PLACEHOLDER: demo/captura del hero (ej '/vsl-assets/crm-demo.png' o un .mp4).
   // Si queda vacío, se muestra un recuadro placeholder 16:9.
   heroImg?: string;
@@ -222,24 +225,24 @@ export const FEATURES: Record<string, Feature> = {
         verMas: { texto: "Descubrí cómo protegemos tus claves", href: "/vsl/integraciones", label: "Integraciones" },
       },
       {
-        title: "Con MaKo vas a ver el recorrido completo de tus leads: desde que vieron tu anuncio hasta que te pagaron.",
+        title: "Vas a ver el recorrido de tus leads: del anuncio al pago.",
         bullets: [
-          "El camino entero en una sola línea: <strong>vio tu anuncio → entró a tu landing → miró tu VSL → agendó → vino a la reunión → pagó</strong>.",
-          "En cada escalón vas a saber cuántos entraron y cuántos siguieron. <strong>El agujero deja de ser una sospecha y pasa a ser un número.</strong>",
+          "El camino entero en una sola línea: <strong>vieron tu anuncio → entraron a tu landing → miraron tu VSL → agendaron → vinieron a la reunión → pagaron</strong>.",
+          "<strong>Y ahí vas a ver exactamente dónde se te caen.</strong> No “algo pasa”: el escalón, con nombre y número.",
+          "Sabiendo dónde está el agujero, dejás de tocar todo a la vez. Arreglás <em>ese</em> paso y el resto del funnel se acomoda.",
           "Y como el recorrido termina en el pago, recién ahí sabés <strong>cuánto te costó un cliente de verdad</strong> — no cuánto te costó un lead.",
-          "No es la foto de ayer: se actualiza solo mientras trabajás.",
         ],
-        verMas: { texto: "Y cuánto de todo eso ya está cobrado", href: "/vsl/cobranza", label: "Cobranza y Revenue real" },
+        verMas: { texto: "Descubrí cómo MaKo te avisa automáticamente cuando algo falla", href: "/vsl/semaforo", label: "El Semáforo" },
       },
       {
-        title: "Y vas a poder seguir, uno por uno, el comportamiento de cada lead.",
+        title: "Y vas a seguir, uno por uno, a cada lead.",
         bullets: [
-          "De cada lead vas a ver <strong>cuántas veces entró a tu landing</strong>, y en cuántos días distintos.",
-          "<strong>Cuántas veces miró tu VSL</strong> y <strong>hasta qué parte llegó</strong>, con semáforo.",
-          "Todo en una línea de tiempo: entró, miró hasta el 27%, volvió al otro día, llegó al 88%, agendó.",
+          "De cada lead vas a ver <strong>cuántas veces entró a tu landing</strong> y <strong>hasta qué parte de tu VSL llegó</strong>.",
+          "<strong>Y con eso le hablás distinto a cada uno.</strong> No es lo mismo el que se fue en el minuto uno que el que llegó al 88% y no agendó.",
+          "Al que casi cierra le mandás el empujón que le falta. Al que ni miró, otra cosa. <em>El mismo mensaje para todos es el que no convierte.</em>",
           "Tu reproductor te da el promedio anónimo. <strong>MaKo te dice quién.</strong>",
         ],
-        verMas: { texto: "Y qué mandarle según hasta dónde llegó", href: "/vsl/seguimiento", label: "Seguimiento automático" },
+        verMas: { texto: "Descubrí cómo MaKo automatiza todos tus mensajes", href: "/vsl/seguimiento", label: "Seguimiento automático" },
       },
     ],
     // El caso de Mauricio y la objeción ya viven en la sección compartida (igual
@@ -252,6 +255,7 @@ export const FEATURES: Record<string, Feature> = {
   'pipeline': {
     slug: 'pipeline',
     name: "Armá tu embudo",
+    hook: "Editás una fila y el resto se escribe solo.",
     icon: ICON["funnel"],
     headline: "Editás una fila. El resto del embudo se escribe solo.",
     lead: "El embudo real de un VSL Funnel no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las nutriciones de No-Show por reunión, la de No-Paga y la reactivación de fríos — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. Acá editás solo la fila del pipeline activo y el resto <em>se deriva solo</em>.",

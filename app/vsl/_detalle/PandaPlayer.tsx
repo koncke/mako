@@ -48,11 +48,30 @@ export default function PandaPlayer({ src, title }: { src: string; title: string
     // scrollea y el PiP no dispara jamás. Reenviamos el scroll del contenedor a
     // window para que el handler de Panda reciba el evento y flote el video.
     const scroller = document.querySelector<HTMLElement>('.mk-det');
-    if (scroller) {
-      const fwd = () => window.dispatchEvent(new Event('scroll'));
-      scroller.addEventListener('scroll', fwd, { passive: true });
-      return () => scroller.removeEventListener('scroll', fwd);
-    }
+    if (!scroller) return;
+
+    // …y por el mismo motivo hay que devolverlo a su lugar nosotros: Panda decide
+    // el "volver" con `window.scrollY <= umbral`, y acá scrollY SIEMPRE es 0, así
+    // que esa condición nunca se cumple y el video se quedaba flotando para
+    // siempre. Cuando el hueco que dejó (el placeholder de Panda) vuelve a
+    // entrar en pantalla, restauramos los estilos originales y lo sacamos.
+    const restaurar = () => {
+      const ifr = document.getElementById(playerId) as HTMLIFrameElement | null;
+      if (!ifr || ifr.style.position !== 'fixed') return;
+      const hueco = ifr.parentElement?.querySelector<HTMLElement>(':scope > div');
+      if (!hueco) return;
+      if (hueco.getBoundingClientRect().top < -8) return;   // todavía estamos abajo
+      try {
+        const o = JSON.parse(ifr.dataset.originalStyles || '{}') as Record<string, string>;
+        (['position', 'bottom', 'right', 'left', 'top', 'width', 'height', 'zIndex'] as const)
+          .forEach((k) => { ifr.style[k] = o[k] || ''; });
+      } catch { ifr.removeAttribute('style'); }
+      hueco.remove();
+    };
+
+    const onScroll = () => { window.dispatchEvent(new Event('scroll')); restaurar(); };
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', onScroll);
   }, [guid, playerId]);
 
   return (

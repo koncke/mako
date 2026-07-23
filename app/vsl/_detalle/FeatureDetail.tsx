@@ -16,7 +16,19 @@ import { FEATURES, FEATURE_ORDER, type Feature } from './features';
 import { Visual, type VisualSpec } from './Visual';
 import { FEATURE_VISUALS } from './feature-visuals';
 import PandaPlayer from './PandaPlayer';
+import CasoCarrusel from './CasoCarrusel';
 import { SHOWCASE_BY_SLUG } from '../showcase';
+
+// Color del tile de cada card, calcado de la landing principal (agrupa por
+// familia: azul = el núcleo, ámbar = publicidad/creativos, verde = dinero y
+// post-venta, gris = análisis). El resto cae a azul, como las cards inyectadas.
+const TONO: Record<string, [string, string]> = {
+  api: ['#FBF0DA', '#E0890C'], ads: ['#FBF0DA', '#E0890C'], script: ['#FBF0DA', '#E0890C'],
+  closing: ['#EEF0F4', '#3A4250'], experimentos: ['#EEF0F4', '#3A4250'],
+  seguimiento: ['#E7F5EC', '#1E9E57'], cobranza: ['#E7F5EC', '#1E9E57'],
+  contrato: ['#E7F5EC', '#1E9E57'], customer: ['#E7F5EC', '#1E9E57'],
+};
+const tono = (s: string): [string, string] => TONO[s] ?? ['#EAF1FE', '#2F6FED'];
 
 const CALENDLY = '/vsl#beta';
 
@@ -93,24 +105,29 @@ function CasoMauricio() {
         </div>
       </div>
 
-      {/* Bloque 2: por qué nada estándar lo hubiera resuelto (texto + descartes) */}
+      {/* Bloque 2: texto a la izquierda + carrusel de fotos a la derecha */}
       <div className="mk-hist-row mk-hist-row2">
         <div className="mk-hist-txt">
           <p className="mk-hist-lead">No existe ningún método estándar que hubiera resuelto el caso de Mauricio.</p>
-          <p>Lo que necesitaba era alguien que se metiera de verdad en su negocio y tomara, con datos, las decisiones correctas <strong>para su caso</strong>. No para uno genérico. Para el suyo.</p>
-        </div>
-        <div className="mk-hist-descartes">
           {[
-            { t: 'Ninguna app de marketing', d: 'Todas le mostraban datos sueltos — nunca su negocio completo, ni qué hacer con ellos.' },
-            { t: 'Ningún curso de anuncios', d: 'Te enseñan una fórmula que funcionó en otro negocio, no la lectura de lo que pasa dentro del tuyo.' },
-            { t: 'Ningún media buyer', d: 'Le habría subido el presupuesto sin ver que escalaba una campaña que no iba a funcionar.' },
+            { t: 'Ninguna app de marketing lo habría resuelto.', d: 'No existe una pensada para un VSL Funnel: todas le mostraban datos sueltos, nunca su negocio completo ni qué hacer con ellos.' },
+            { t: 'Ningún curso de anuncios lo habría sacado adelante.', d: 'Te enseñan una fórmula que funcionó en otro negocio, no la lectura de lo que estaba pasando, en vivo, dentro del suyo.' },
+            { t: 'Un media buyer le habría subido el presupuesto.', d: 'Indefinidamente, creyendo que gastar más lo arregla todo — sin ver que escalaba una campaña que nunca iba a funcionar.' },
           ].map((x) => (
             <div key={x.t} className="mk-descarte">
               <span className="mk-descarte-x" aria-hidden="true">✕</span>
               <div><span className="mk-descarte-t">{x.t}</span><span className="mk-descarte-d">{x.d}</span></div>
             </div>
           ))}
+          <div className="mk-hist-check">
+            <span className="mk-hist-check-ic" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg>
+            </span>
+            <span>Lo que Mauricio necesitaba era alguien que se metiera de verdad en su negocio y tomara, con datos, las decisiones correctas para su caso.</span>
+          </div>
+          <p className="mk-hist-cierre">No para un caso genérico. Para el suyo. <span className="mk-hist-cierre-b">Eso es lo que hago contigo.</span></p>
         </div>
+        <div className="mk-hist-carrcol"><CasoCarrusel /></div>
       </div>
     </section>
   );
@@ -258,25 +275,27 @@ export default function FeatureDetail({ slug }: { slug: string }) {
         {/* ── Explorá el resto: mismas cards que la landing principal.
             La feature ACTUAL aparece marcada "Tú estás aquí" y no es clickeable. */}
         <nav className="mk-more" aria-label="Otras funcionalidades">
-          <h2 className="mk-more-h">Explorá el resto de MaKo</h2>
+          <h2 className="mk-more-h">Todo lo que tu VSL Funnel necesita, en una sola app</h2>
           <div className="mk-more-grid">
             {FEATURE_ORDER.map((s) => {
               const o = FEATURES[s];
-              const sc = SHOWCASE_BY_SLUG[s];
+              const [bg, fg] = tono(s);
               const nombre = o.name.split(' — ')[0];
-              const hook = sc?.hook ?? o.metaDesc;
+              const hook = o.hook ?? SHOWCASE_BY_SLUG[s]?.hook ?? o.metaDesc;
+              const ic = <span className="mk-more-ic" style={{ background: bg, color: fg }}><Icon paths={o.icon} size={24} /></span>;
               if (s === slug) {
                 return (
                   <div key={s} className="mk-more-card mk-more-card-here" aria-current="page">
-                    <span className="mk-more-ic"><Icon paths={o.icon} size={24} /></span>
+                    {ic}
                     <span className="mk-more-name">{nombre}</span>
+                    <span className="mk-more-hook">{hook}</span>
                     <span className="mk-more-here">Estás acá</span>
                   </div>
                 );
               }
               return (
                 <a key={s} href={`/vsl/${s}`} className="mk-more-card">
-                  <span className="mk-more-ic"><Icon paths={o.icon} size={24} /></span>
+                  {ic}
                   <span className="mk-more-name">{nombre}</span>
                   <span className="mk-more-hook">{hook}</span>
                 </a>
@@ -454,13 +473,29 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-hist-result { margin-top: 4px; padding: 20px 22px; border-radius: 14px; background: #fff; border-left: 3px solid #2F6FED; box-shadow: 0 16px 40px -26px rgba(47,111,237,.45); font-size: 16.5px; line-height: 1.6; color: #2E3646; }
 .mk-hist-result strong { color: #12151B; font-weight: 600; }
 /* Segundo bloque del caso: texto + descartes (por qué nada estándar servía) */
-.mk-hist-row2 { margin-top: 44px; align-items: center; }
-.mk-hist-lead { font-size: 20px !important; line-height: 1.4 !important; font-weight: 600 !important; color: #12151B !important; }
-.mk-hist-descartes { flex: 1 1 440px; min-width: 300px; display: flex; flex-direction: column; gap: 12px; }
+.mk-hist-row2 { margin-top: 56px; align-items: flex-start; }
+.mk-hist-lead { font-size: 21px !important; line-height: 1.35 !important; font-weight: 600 !important; color: #12151B !important; }
 .mk-descarte { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 13px; background: #fff; border: 1px solid #E7ECF5; }
 .mk-descarte-x { flex: none; width: 24px; height: 24px; border-radius: 7px; background: #FCEBEC; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 .mk-descarte-t { display: block; font-size: 14.5px; font-weight: 600; color: #12151B; }
 .mk-descarte-d { display: block; font-size: 13.5px; line-height: 1.5; color: #5B6472; margin-top: 2px; }
+.mk-hist-check { display: flex; gap: 11px; align-items: flex-start; margin-top: 6px; }
+.mk-hist-check-ic { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.mk-hist-check span:last-child { font-size: 16px; line-height: 1.56; color: #12151B; font-weight: 500; }
+.mk-hist-cierre { margin: 8px 0 0 !important; font-size: 18.5px !important; line-height: 1.5 !important; font-weight: 600 !important; color: #12151B !important; }
+.mk-hist-cierre-b { color: #2F6FED; }
+
+/* Carrusel de fotos del caso (igual que la landing) */
+.mk-hist-carrcol { flex: 1 1 330px; min-width: 280px; max-width: 400px; }
+.mk-carr { position: relative; aspect-ratio: 3 / 4; border-radius: 18px; overflow: hidden; background: #101319; box-shadow: 0 24px 50px -28px rgba(16,19,25,.45); }
+.mk-carr-track { display: flex; width: 100%; height: 100%; transition: transform .55s cubic-bezier(.4,0,.2,1); }
+.mk-carr-track img { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+.mk-carr-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; background: linear-gradient(transparent, rgba(16,19,25,.5)); pointer-events: none; }
+.mk-carr-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.25); color: #101319; }
+.mk-carr-prev { left: 12px; } .mk-carr-next { right: 12px; }
+.mk-carr-dots { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 7px; }
+.mk-carr-dot { width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: rgba(255,255,255,.45); }
+.mk-carr-dot.on { background: #fff; width: 18px; border-radius: 999px; }
 
 .mk-quote { max-width: 820px; margin: 44px auto 0; padding: 6px 0 6px 20px; border-left: 3px solid #2F6FED; font-size: 19px; line-height: 1.5; font-style: italic; font-weight: 500; color: #2E3646; }
 
@@ -476,15 +511,16 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-section-eyebrow-solo { margin-bottom: 22px; }
 .mk-hero-row + .mk-cta + .mk-section-eyebrow { margin-top: 64px; }
 
-/* "Explorá el resto": mismas cards que la landing principal (icono, nombre, hook) */
-.mk-more { margin-top: 76px; }
-.mk-more-h { margin: 0 0 22px; font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; color: #12151B; text-align: center; }
-.mk-more-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
-.mk-more-card { display: flex; flex-direction: column; background: #fff; border: 1px solid #EAECF1; border-radius: 12px; padding: 24px 22px; min-height: 172px; text-decoration: none; box-shadow: 0 1px 2px rgba(16,19,25,.03); transition: box-shadow .22s ease, transform .22s ease; }
+/* "Explorá el resto": CALCADO de la grilla de la landing principal
+   (4 columnas · gap 16 · card 28/26 · min-height 206 · tile 46 · hook 14/1.55) */
+.mk-more { margin-top: 84px; }
+.mk-more-h { margin: 0 0 40px; font-size: 36px; line-height: 1.15; letter-spacing: -0.03em; font-weight: 600; color: #12151B; text-align: center; text-wrap: balance; }
+.mk-more-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+.mk-more-card { display: flex; flex-direction: column; background: #fff; border: 1px solid #EAECF1; border-radius: 12px; padding: 28px 26px; min-height: 206px; text-decoration: none; box-shadow: 0 1px 2px rgba(16,19,25,.03); transition: box-shadow .22s ease, transform .22s ease; }
 .mk-more-card:hover { box-shadow: 0 14px 34px -18px rgba(16,19,25,.28); transform: translateY(-3px); }
-.mk-more-ic { width: 46px; height: 46px; border-radius: 12px; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; flex: none; margin-bottom: 16px; }
+.mk-more-ic { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none; margin-bottom: 18px; }
 .mk-more-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: #12151B; }
-.mk-more-hook { font-size: 13.5px; line-height: 1.5; color: #6B7280; margin-top: 8px; }
+.mk-more-hook { font-size: 14px; line-height: 1.55; color: #6B7280; margin-top: 9px; }
 /* La feature actual: marcada, sin hover, no clickeable */
 .mk-more-card-here { background: #F4F7FD; border-color: #CFE0FA; box-shadow: none; cursor: default; position: relative; }
 .mk-more-card-here:hover { transform: none; box-shadow: none; }

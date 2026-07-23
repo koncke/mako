@@ -76,7 +76,8 @@ function drawIcon(ctx: CanvasRenderingContext2D, type: string, s: number, color:
   else if (type === 'gsheets') { rr(ctx, -s * 0.21, -s * 0.26, s * 0.42, s * 0.52, s * 0.05); ctx.stroke(); ctx.lineWidth = s * 0.05; ctx.beginPath(); ctx.moveTo(0, -s * 0.26); ctx.lineTo(0, s * 0.26); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-s * 0.21, -s * 0.08); ctx.lineTo(s * 0.21, -s * 0.08); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-s * 0.21, s * 0.09); ctx.lineTo(s * 0.21, s * 0.09); ctx.stroke(); }
 }
 function chip(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, scale: number, opacity: number, type: string, color: string) {
-  if (opacity <= 0.001) return;
+  // scale ~0 colapsa el rounded-rect y el canvas lo puede pintar como una raya
+  if (opacity <= 0.001 || scale <= 0.02) return;
   ctx.save(); ctx.globalAlpha = opacity; ctx.translate(cx, cy); ctx.scale(scale, scale);
   ctx.save(); ctx.shadowColor = 'rgba(16,19,25,0.20)'; ctx.shadowBlur = s * 0.34; ctx.shadowOffsetY = s * 0.13;
   ctx.fillStyle = '#fff'; rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.fill(); ctx.restore();
@@ -101,7 +102,7 @@ function sparkle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: numbe
   ctx.closePath(); ctx.fillStyle = color; ctx.fill(); ctx.restore();
 }
 function starBadge(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, scale: number, opacity: number) {
-  if (opacity <= 0.001) return;
+  if (opacity <= 0.001 || scale <= 0.02) return;   // idem: escala 0 = raya
   ctx.save(); ctx.globalAlpha = opacity; ctx.translate(cx, cy); ctx.scale(scale, scale);
   ctx.save(); ctx.shadowColor = 'rgba(26,23,18,0.45)'; ctx.shadowBlur = size * 0.4; ctx.shadowOffsetY = size * 0.16;
   ctx.fillStyle = '#1A1712'; rr(ctx, -size / 2, -size / 2, size, size, size * 0.28); ctx.fill(); ctx.restore();
@@ -196,13 +197,16 @@ function ConnectCanvas() {
 // ── cxJourney: el recorrido del lead como los logos conectándose con flechas ──
 // Estilo VSL: cada app aparece, una flecha se dibuja hacia la siguiente, y un
 // pulso recorre el camino. En bucle. Real logos.
+// Plural: acá hablamos de los leads en general, no de uno.
+// `caen` marca el escalón donde se pierde la mayoría → salta el warning y la
+// cinta se FRENA ahí (es el punto de la sección: ver dónde estás fallando).
 const JOURNEY = [
-  { img: 'meta.png', label: 'Vio el anuncio' },
-  { img: 'landing.svg', label: 'Entró a tu web' },
-  { img: 'vsl.png', label: 'Miró tu VSL' },
-  { img: 'calendly.png', label: 'Agendó' },
-  { img: 'whatsapp.png', label: 'Habló con vos' },
-  { img: 'pago.svg', label: 'Pagó' },
+  { img: 'meta.png', label: 'Vieron tu anuncio', n: '9.140' },
+  { img: 'landing.svg', label: 'Entraron a la landing', n: '2.310' },
+  { img: 'vsl.png', label: 'Miraron tu VSL', n: '1.204' },
+  { img: 'calendly.png', label: 'Agendaron', n: '186', caen: true },
+  { img: 'whatsapp.png', label: 'Hablaron con vos', n: '92' },
+  { img: 'pago.svg', label: 'Pagaron', n: '31' },
 ];
 const JIMG: Record<string, HTMLImageElement> = {};
 let jLoading = false;
@@ -218,75 +222,99 @@ function jReady(img: string): HTMLImageElement | null {
 const eoC = (x: number) => 1 - Math.pow(1 - x, 3);
 const eoB = (x: number) => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 
+// Cinta HORIZONTAL: los pasos van pasando de derecha a izquierda y la cinta se
+// FRENA en el escalón donde se cae la mayoría, con un warning. Sin título: un
+// gráfico nunca lleva título (lo dice el copy al lado).
 function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
   ensureJourney();
-  const BLUE = '#2F6FED', INK = '#12151B', DIM = '#6B7280', LINE = '#DFE6F1', GREEN = '#1E9E57';
-  const n = JOURNEY.length;
-  // dos filas de 3 para que entren cómodas y grandes
-  const cols = 3, rows = 2, tile = Math.min(58, W * 0.15);
-  const cw = W / cols, rh = (H - 30) / rows;
-  const pos = JOURNEY.map((_, i) => {
-    const r = Math.floor(i / cols); let c = i % cols;
-    if (r % 2 === 1) c = cols - 1 - c;                 // serpentea: fila 2 al revés
-    return { x: cw * c + cw / 2, y: 34 + rh * r + rh / 2 - 6 };
-  });
-  const STEP = 620, APP = 380, ARR = 300, LOOP = STEP * n + 1400;
-  const tt = t % LOOP;
+  const BLUE = '#2F6FED', INK = '#12151B', DIM = '#6B7280', LINE = '#DFE6F1', GREEN = '#1E9E57', RED = '#DC2626';
+  const n = JOURNEY.length, iCae = JOURNEY.findIndex((s) => s.caen);
+  const tile = Math.min(76, W * 0.21), gap = tile * 1.5, step = tile + gap;
+  const cy = H * 0.46;
 
-  ctx.font = "700 13px 'Geist', system-ui, sans-serif";
-  ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('El recorrido de tu cliente', 22, 22);
-
-  // flechas entre pasos (se dibujan en secuencia)
-  for (let i = 0; i < n - 1; i++) {
-    const born = i * STEP + APP, p = clamp((tt - born) / ARR, 0, 1);
-    if (p <= 0) continue;
-    const a = pos[i], b = pos[i + 1], e = eoC(p);
-    // punto de salida/entrada en el borde del tile
-    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
-    const sx = a.x + ux * (tile * 0.62), sy = a.y + uy * (tile * 0.62);
-    const exf = b.x - ux * (tile * 0.62), eyf = b.y - uy * (tile * 0.62);
-    const cx2 = lerp(sx, exf, e), cy2 = lerp(sy, eyf, e);
-    ctx.save();
-    ctx.strokeStyle = BLUE; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
-    ctx.setLineDash([6, 6]); ctx.lineDashOffset = -(t / 22) % 12;
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(cx2, cy2); ctx.stroke();
-    ctx.setLineDash([]);
-    if (p > 0.9) {                                     // punta de flecha
-      const hh = 6;
-      ctx.beginPath(); ctx.moveTo(exf, eyf);
-      ctx.lineTo(exf - ux * hh - uy * hh * 0.7, eyf - uy * hh + ux * hh * 0.7);
-      ctx.lineTo(exf - ux * hh + uy * hh * 0.7, eyf - uy * hh - ux * hh * 0.7);
-      ctx.closePath(); ctx.fillStyle = BLUE; ctx.fill();
-    }
-    ctx.restore();
+  // ── recorrido de la cinta: avanza un paso por vez y se detiene en el que falla
+  const AVANCE = 900, ESPERA = 500, FRENO = 2600, FIN = 1200;
+  const tramo = AVANCE + ESPERA;
+  const tTotal = iCae * tramo + FRENO + (n - 1 - iCae) * tramo + FIN;
+  const tt = t % tTotal;
+  let foco: number;                       // paso enfocado (con decimales = en transición)
+  if (tt < iCae * tramo) {
+    const k = Math.floor(tt / tramo), r = (tt % tramo) / AVANCE;
+    foco = k + eoC(clamp(r, 0, 1));
+  } else if (tt < iCae * tramo + FRENO) {
+    foco = iCae;                          // FRENA acá: es el punto de la sección
+  } else {
+    const d = tt - (iCae * tramo + FRENO), k = Math.floor(d / tramo), r = (d % tramo) / AVANCE;
+    foco = Math.min(n - 1, iCae + k + eoC(clamp(r, 0, 1)));
   }
+  const originX = W * 0.30 - foco * step;  // el paso enfocado queda a la izquierda-centro
 
-  // tiles con logo + label
+  // ── línea base + tramos ya recorridos
+  ctx.save();
+  ctx.strokeStyle = LINE; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(originX, cy); ctx.lineTo(originX + (n - 1) * step, cy); ctx.stroke();
+  ctx.strokeStyle = BLUE; ctx.lineWidth = 2.5;
+  ctx.setLineDash([7, 7]); ctx.lineDashOffset = -(t / 20) % 14;
+  ctx.beginPath(); ctx.moveTo(originX, cy); ctx.lineTo(originX + foco * step, cy); ctx.stroke();
+  ctx.restore();
+
   for (let i = 0; i < n; i++) {
-    const born = i * STEP, ap = clamp((tt - born) / APP, 0, 1);
-    if (ap <= 0) continue;
-    const last = i === n - 1;
-    const sc = lerp(0.6, 1, eoB(ap)), P = pos[i];
-    ctx.save(); ctx.globalAlpha = eoC(ap); ctx.translate(P.x, P.y); ctx.scale(sc, sc);
-    ctx.save(); ctx.shadowColor = 'rgba(16,19,25,0.16)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 5;
+    const x = originX + i * step;
+    if (x < -tile * 1.6 || x > W + tile * 1.6) continue;
+    const activo = i <= foco + 0.02, esCae = i === iCae, last = i === n - 1;
+    // el enfocado se agranda; los ya pasados quedan atenuados
+    const cerca = 1 - Math.min(1, Math.abs(i - foco));
+    const sc = lerp(0.82, 1.06, cerca), al = activo ? lerp(0.45, 1, cerca) : 0.3;
+    const borde = esCae && activo ? RED : last && activo ? GREEN : LINE;
+
+    ctx.save(); ctx.globalAlpha = al; ctx.translate(x, cy); ctx.scale(sc, sc);
+    ctx.save(); ctx.shadowColor = 'rgba(16,19,25,0.18)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 6;
+    rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
     rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28);
-    ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
-    rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28);
-    ctx.lineWidth = last ? 2 : 1; ctx.strokeStyle = last ? GREEN : LINE; ctx.stroke();
+    ctx.lineWidth = borde === LINE ? 1 : 2.2; ctx.strokeStyle = borde; ctx.stroke();
     const im = jReady(JOURNEY[i].img);
     if (im) {
-      const box = tile * 0.6, fit = box / Math.max(im.naturalWidth, im.naturalHeight);
+      const box = tile * 0.56, fit = box / Math.max(im.naturalWidth, im.naturalHeight);
       const w = im.naturalWidth * fit, h = im.naturalHeight * fit;
       ctx.save(); rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28); ctx.clip();
       ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
     }
     ctx.restore();
-    // label
-    ctx.save(); ctx.globalAlpha = eoC(ap);
-    ctx.font = "600 11.5px 'Geist', system-ui, sans-serif";
-    ctx.fillStyle = last ? GREEN : DIM; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(JOURNEY[i].label, P.x, P.y + tile / 2 + 6);
+
+    // label + cuántos llegaron
+    ctx.save(); ctx.globalAlpha = al; ctx.textAlign = 'center';
+    ctx.font = "600 12px 'Geist', system-ui, sans-serif";
+    ctx.fillStyle = esCae && activo ? RED : last && activo ? GREEN : DIM; ctx.textBaseline = 'top';
+    ctx.fillText(JOURNEY[i].label, x, cy + tile * 0.62);
+    ctx.font = "700 15px 'Geist Mono', ui-monospace, monospace";
+    ctx.fillStyle = INK; ctx.fillText(JOURNEY[i].n, x, cy + tile * 0.62 + 17);
+    ctx.restore();
+  }
+
+  // ── WARNING sobre el escalón que se cae
+  if (Math.abs(foco - iCae) < 0.06) {
+    const x = originX + iCae * step;
+    const ap = eoC(clamp((tt - iCae * tramo) / 340, 0, 1));
+    const txt = 'Acá se te caen la mayoría';
+    ctx.save();
+    ctx.font = "700 12.5px 'Geist', system-ui, sans-serif";
+    const wTxt = ctx.measureText(txt).width, padH = 13, bw = wTxt + padH * 2 + 22, bh = 32;
+    const by = cy - tile * 0.62 - bh - 12 + lerp(8, 0, ap);
+    ctx.globalAlpha = ap;
+    ctx.save(); ctx.shadowColor = 'rgba(220,38,38,0.28)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
+    rr(ctx, x - bw / 2, by, bw, bh, 10); ctx.fillStyle = '#FEF2F2'; ctx.fill(); ctx.restore();
+    rr(ctx, x - bw / 2, by, bw, bh, 10); ctx.lineWidth = 1.4; ctx.strokeStyle = '#F7C6C6'; ctx.stroke();
+    // "!" en círculo
+    ctx.beginPath(); ctx.arc(x - bw / 2 + padH + 7, by + bh / 2, 8, 0, Math.PI * 2);
+    ctx.fillStyle = RED; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = "800 11px 'Geist', system-ui, sans-serif";
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('!', x - bw / 2 + padH + 7, by + bh / 2 + 0.5);
+    ctx.font = "700 12.5px 'Geist', system-ui, sans-serif"; ctx.fillStyle = '#B91C1C'; ctx.textAlign = 'left';
+    ctx.fillText(txt, x - bw / 2 + padH + 20, by + bh / 2);
+    // punta hacia el tile
+    ctx.beginPath(); ctx.moveTo(x, by + bh + 7); ctx.lineTo(x - 6, by + bh); ctx.lineTo(x + 6, by + bh);
+    ctx.closePath(); ctx.fillStyle = '#FEF2F2'; ctx.fill();
     ctx.restore();
   }
 }
