@@ -16,6 +16,7 @@ import { FEATURES, FEATURE_ORDER, type Feature } from './features';
 import { Visual, type VisualSpec } from './Visual';
 import { FEATURE_VISUALS } from './feature-visuals';
 import PandaPlayer from './PandaPlayer';
+import { SHOWCASE_BY_SLUG } from '../showcase';
 
 const CALENDLY = '/vsl#beta';
 
@@ -74,6 +75,7 @@ function CasoMauricio() {
         <h2 className="mk-hist-h">De meses por debajo de <span className="mk-nowrap">$10k USD</span> a más de <span className="mk-mark">$70k USD</span> en tres meses.</h2>
         <p className="mk-hist-sub">Sin cambiar la oferta. Sin cambiar el funnel.</p>
       </div>
+      {/* Bloque 1: video + historia + resultado */}
       <div className="mk-hist-row">
         <div className="mk-hist-vidcol">
           <div className="mk-hist-vid">
@@ -88,6 +90,26 @@ function CasoMauricio() {
           <div className="mk-hist-result">
             El resultado: de meses por debajo de los <strong>$10k</strong> a más de <strong>$70k en tres meses</strong>, de forma consistente. 14k en abril, 20k en mayo, +40k en junio. La misma oferta. El mismo funnel. <strong>Lo único que cambió fue que empezó a decidir con datos.</strong>
           </div>
+        </div>
+      </div>
+
+      {/* Bloque 2: por qué nada estándar lo hubiera resuelto (texto + descartes) */}
+      <div className="mk-hist-row mk-hist-row2">
+        <div className="mk-hist-txt">
+          <p className="mk-hist-lead">No existe ningún método estándar que hubiera resuelto el caso de Mauricio.</p>
+          <p>Lo que necesitaba era alguien que se metiera de verdad en su negocio y tomara, con datos, las decisiones correctas <strong>para su caso</strong>. No para uno genérico. Para el suyo.</p>
+        </div>
+        <div className="mk-hist-descartes">
+          {[
+            { t: 'Ninguna app de marketing', d: 'Todas le mostraban datos sueltos — nunca su negocio completo, ni qué hacer con ellos.' },
+            { t: 'Ningún curso de anuncios', d: 'Te enseñan una fórmula que funcionó en otro negocio, no la lectura de lo que pasa dentro del tuyo.' },
+            { t: 'Ningún media buyer', d: 'Le habría subido el presupuesto sin ver que escalaba una campaña que no iba a funcionar.' },
+          ].map((x) => (
+            <div key={x.t} className="mk-descarte">
+              <span className="mk-descarte-x" aria-hidden="true">✕</span>
+              <div><span className="mk-descarte-t">{x.t}</span><span className="mk-descarte-d">{x.d}</span></div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -169,63 +191,63 @@ export default function FeatureDetail({ slug }: { slug: string }) {
 
         {!f.videoEmbed && <CtaBand />}
 
-        {/* ── Cómo funciona (título principal) ──────────────────────────────── */}
-        <h2 className="mk-como-h">Cómo funciona</h2>
+        {/* ── Cómo funciona: título + filas, todo sobre el fondo de la sección ── */}
+        <section className="mk-como">
+          <h2 className="mk-como-h">Cómo funciona</h2>
+          <div className="mk-rows">
+            {f.groups.map((g, i) => (
+              <div key={g.title} className={`mk-row ${i % 2 === 1 ? 'mk-row-rev' : ''}`}>
+                <div className="mk-row-text">
+                  <div className="mk-cap-head">
+                    <span className="mk-cap-num">{String(i + 1).padStart(2, '0')}</span>
+                    <h3 className="mk-cap-title">{g.title}</h3>
+                  </div>
 
-        <div className="mk-rows">
-          {f.groups.map((g, i) => (
-            <div key={g.title} className={`mk-row ${i % 2 === 1 ? 'mk-row-rev' : ''}`}>
-              <div className="mk-row-text">
-                <div className="mk-cap-head">
-                  <span className="mk-cap-num">{String(i + 1).padStart(2, '0')}</span>
-                  <h3 className="mk-cap-title">{g.title}</h3>
-                </div>
-
-                {/* Bloque de preguntas incómodas: logo + app + pregunta */}
-                {g.preguntas ? (
-                  <>
-                    {g.preguntaLead && <p className="mk-preg-lead">{g.preguntaLead}</p>}
-                    <ul className="mk-preg-list">
-                      {g.preguntas.map((p, j) => (
-                        <li key={j} className="mk-preg">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={`/vsl-assets/logos/${p.logo}`} alt="" className="mk-preg-logo" />
-                          <div className="mk-preg-body">
-                            <span className="mk-preg-app">{p.app}</span>
-                            <span className="mk-preg-q">{p.q}</span>
-                          </div>
-                        </li>
+                  {/* Bloque de preguntas incómodas: logo + app + pregunta */}
+                  {g.preguntas ? (
+                    <>
+                      {g.preguntaLead && <p className="mk-preg-lead">{g.preguntaLead}</p>}
+                      <ul className="mk-preg-list">
+                        {g.preguntas.map((p, j) => (
+                          <li key={j} className="mk-preg">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={`/vsl-assets/logos/${p.logo}`} alt="" className="mk-preg-logo" />
+                            <div className="mk-preg-body">
+                              <span className="mk-preg-app">{p.app}</span>
+                              <span className="mk-preg-q">{p.q}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                      {/* Cierre destacado como card (no párrafo suelto) */}
+                      {g.cierre && (
+                        <div className="mk-cierre">
+                          <span className="mk-cierre-star" aria-hidden="true">
+                            <svg width="18" height="18" viewBox="-12 -12 24 24"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg>
+                          </span>
+                          <span dangerouslySetInnerHTML={{ __html: g.cierre }} />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <ul className="mk-cap-list">
+                      {g.bullets.map((b, j) => (
+                        <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
                       ))}
                     </ul>
-                    {g.cierre && <p className="mk-preg-cierre" dangerouslySetInnerHTML={{ __html: g.cierre }} />}
-                  </>
-                ) : (
-                  <ul className="mk-cap-list">
-                    {g.bullets.map((b, j) => (
-                      <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
-                    ))}
-                  </ul>
-                )}
+                  )}
 
-                {g.verMas && (
-                  <a href={g.verMas.href} className="mk-vermas">
-                    {g.verMas.texto} <span className="mk-vermas-l">{g.verMas.label} →</span>
-                  </a>
-                )}
+                  {g.verMas && (
+                    <a href={g.verMas.href} className="mk-vermas">
+                      {g.verMas.texto} <span className="mk-vermas-l">{g.verMas.label} →</span>
+                    </a>
+                  )}
+                </div>
+                <div className="mk-row-media"><Panel spec={groupVisual(i)} /></div>
               </div>
-              <div className="mk-row-media"><Panel spec={groupVisual(i)} /></div>
-            </div>
-          ))}
-        </div>
-
-        {f.quote && <blockquote className="mk-quote">{f.quote}</blockquote>}
-
-        {f.nota && (
-          <div className="mk-nota">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 9v4" /><path d="M12 16v.01" /><path d="M12 3a9 9 0 1 0 0 18a9 9 0 0 0 0 -18z" /></svg>
-            <span>{f.nota}</span>
+            ))}
           </div>
-        )}
+        </section>
 
         {/* ── CTA band (siempre después de Cómo funciona) ───────────────────── */}
         <div className="mk-cta-end"><CtaBand /></div>
@@ -233,16 +255,30 @@ export default function FeatureDetail({ slug }: { slug: string }) {
         {/* ── Caso Mauricio: idéntico en todas las features (como la landing) ── */}
         <CasoMauricio />
 
-        {/* ── Resto de funcionalidades ─────────────────────────────────────── */}
+        {/* ── Explorá el resto: mismas cards que la landing principal.
+            La feature ACTUAL aparece marcada "Tú estás aquí" y no es clickeable. */}
         <nav className="mk-more" aria-label="Otras funcionalidades">
-          <div className="mk-section-eyebrow">Explorá el resto</div>
+          <h2 className="mk-more-h">Explorá el resto de MaKo</h2>
           <div className="mk-more-grid">
-            {FEATURE_ORDER.filter((s) => s !== slug).map((s) => {
+            {FEATURE_ORDER.map((s) => {
               const o = FEATURES[s];
+              const sc = SHOWCASE_BY_SLUG[s];
+              const nombre = o.name.split(' — ')[0];
+              const hook = sc?.hook ?? o.metaDesc;
+              if (s === slug) {
+                return (
+                  <div key={s} className="mk-more-card mk-more-card-here" aria-current="page">
+                    <span className="mk-more-ic"><Icon paths={o.icon} size={24} /></span>
+                    <span className="mk-more-name">{nombre}</span>
+                    <span className="mk-more-here">Estás acá</span>
+                  </div>
+                );
+              }
               return (
                 <a key={s} href={`/vsl/${s}`} className="mk-more-card">
-                  <span className="mk-more-ic"><Icon paths={o.icon} size={18} /></span>
-                  <span className="mk-more-name">{o.name}</span>
+                  <span className="mk-more-ic"><Icon paths={o.icon} size={24} /></span>
+                  <span className="mk-more-name">{nombre}</span>
+                  <span className="mk-more-hook">{hook}</span>
                 </a>
               );
             })}
@@ -340,18 +376,23 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-section-eyebrow { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #2F6FED; margin: 0 0 10px; }
 .mk-section-h { margin: 0 0 30px; font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; color: #12151B; }
 
-/* "Cómo funciona" como título principal de la sección */
-.mk-como-h { margin: 72px 0 8px; font-size: 38px; line-height: 1.12; letter-spacing: -0.025em; font-weight: 600; color: #12151B; text-align: center; }
+/* Sección "Cómo funciona": título + filas, TODO sobre un fondo propio (banda a
+   todo el ancho) que la separa del hero. El título vive dentro de esta banda. */
+.mk-como { position: relative; margin-top: 68px; padding: 56px 0 60px; }
+.mk-como::before { content: ''; position: absolute; inset: 0; left: 50%; width: 100vw; transform: translateX(-50%); background: #F5F8FD; border-top: 1px solid #EDF1F7; border-bottom: 1px solid #EDF1F7; }
+.mk-como > * { position: relative; }
+.mk-como-h { margin: 0 0 36px; font-size: 38px; line-height: 1.12; letter-spacing: -0.025em; font-weight: 600; color: #12151B; text-align: center; }
 
-/* Filas alternadas gráfico/texto.
-   Cada bloque alterna el color de fondo a TODO EL ANCHO (la banda se sale del
-   contenedor con 100vw) para que se lea dónde termina una sección y empieza la
-   otra. El contenido va position:relative para quedar por encima de la banda. */
+/* Filas gráfico/texto, separadas por un divisor fino (el fondo lo pone .mk-como).
+   align-items: stretch + la media que llena su columna → el gráfico/animación
+   del costado se ADAPTA a la altura del texto, sin quedar chico con aire arriba
+   y abajo. */
 .mk-rows { display: flex; flex-direction: column; gap: 0; }
-.mk-row { display: flex; gap: 44px; align-items: center; position: relative; padding: 46px 0; }
-.mk-row::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%); }
-.mk-row:nth-child(odd)::before { background: #F5F8FD; }
-.mk-row > * { position: relative; }
+.mk-row { display: flex; gap: 44px; align-items: stretch; padding: 40px 0; }
+.mk-row + .mk-row { border-top: 1px solid #E5EBF4; }
+.mk-row-text { display: flex; flex-direction: column; justify-content: center; }
+.mk-row-media { display: flex; }
+.mk-row-media .mk-panel { flex: 1; display: flex; align-items: center; justify-content: center; }
 .mk-row-rev { flex-direction: row-reverse; }
 .mk-row-text { flex: 1 1 0; min-width: 0; }
 .mk-row-media { flex: 1 1 0; min-width: 0; }
@@ -372,8 +413,10 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-preg-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .mk-preg-app { font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #2F6FED; text-transform: uppercase; }
 .mk-preg-q { font-size: 15px; line-height: 1.45; color: #2E3646; }
-.mk-preg-cierre { margin: 20px 0 0; font-size: 16px; line-height: 1.6; color: #454C58; }
-.mk-preg-cierre strong { font-weight: 600; color: #12151B; }
+/* Cierre destacado como card (no párrafo): dorado suave, con la estrella MaKo */
+.mk-cierre { display: flex; gap: 12px; margin-top: 14px; padding: 15px 17px; border-radius: 14px; background: linear-gradient(135deg, #FFF8EC, #FEFCF6); border: 1px solid #F2E2BC; font-size: 15.5px; line-height: 1.55; color: #4A4133; }
+.mk-cierre-star { flex: none; width: 32px; height: 32px; border-radius: 9px; background: #1A1712; display: flex; align-items: center; justify-content: center; }
+.mk-cierre strong { font-weight: 700; color: #12151B; }
 
 /* Puente a otra funcionalidad — SIEMPRE una línea */
 .mk-vermas { display: inline-flex; align-items: baseline; gap: 8px; margin-top: 20px; font-size: 14px; color: #5B6472; text-decoration: none; }
@@ -410,6 +453,14 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-hist-txt em { font-style: italic; }
 .mk-hist-result { margin-top: 4px; padding: 20px 22px; border-radius: 14px; background: #fff; border-left: 3px solid #2F6FED; box-shadow: 0 16px 40px -26px rgba(47,111,237,.45); font-size: 16.5px; line-height: 1.6; color: #2E3646; }
 .mk-hist-result strong { color: #12151B; font-weight: 600; }
+/* Segundo bloque del caso: texto + descartes (por qué nada estándar servía) */
+.mk-hist-row2 { margin-top: 44px; align-items: center; }
+.mk-hist-lead { font-size: 20px !important; line-height: 1.4 !important; font-weight: 600 !important; color: #12151B !important; }
+.mk-hist-descartes { flex: 1 1 440px; min-width: 300px; display: flex; flex-direction: column; gap: 12px; }
+.mk-descarte { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 13px; background: #fff; border: 1px solid #E7ECF5; }
+.mk-descarte-x { flex: none; width: 24px; height: 24px; border-radius: 7px; background: #FCEBEC; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.mk-descarte-t { display: block; font-size: 14.5px; font-weight: 600; color: #12151B; }
+.mk-descarte-d { display: block; font-size: 13.5px; line-height: 1.5; color: #5B6472; margin-top: 2px; }
 
 .mk-quote { max-width: 820px; margin: 44px auto 0; padding: 6px 0 6px 20px; border-left: 3px solid #2F6FED; font-size: 19px; line-height: 1.5; font-style: italic; font-weight: 500; color: #2E3646; }
 
@@ -425,12 +476,19 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-section-eyebrow-solo { margin-bottom: 22px; }
 .mk-hero-row + .mk-cta + .mk-section-eyebrow { margin-top: 64px; }
 
-.mk-more { margin-top: 64px; }
-.mk-more-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 14px; }
-.mk-more-card { display: flex; align-items: center; gap: 10px; padding: 13px 14px; background: #fff; border: 1px solid #EAECF1; border-radius: 12px; text-decoration: none; transition: border-color .18s ease, transform .18s ease; }
-.mk-more-card:hover { border-color: #BFD3F7; transform: translateY(-2px); }
-.mk-more-ic { width: 32px; height: 32px; border-radius: 9px; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; flex: none; }
-.mk-more-name { font-size: 13.5px; font-weight: 500; line-height: 1.25; color: #12151B; }
+/* "Explorá el resto": mismas cards que la landing principal (icono, nombre, hook) */
+.mk-more { margin-top: 76px; }
+.mk-more-h { margin: 0 0 22px; font-size: 30px; line-height: 1.15; letter-spacing: -0.02em; font-weight: 600; color: #12151B; text-align: center; }
+.mk-more-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.mk-more-card { display: flex; flex-direction: column; background: #fff; border: 1px solid #EAECF1; border-radius: 12px; padding: 24px 22px; min-height: 172px; text-decoration: none; box-shadow: 0 1px 2px rgba(16,19,25,.03); transition: box-shadow .22s ease, transform .22s ease; }
+.mk-more-card:hover { box-shadow: 0 14px 34px -18px rgba(16,19,25,.28); transform: translateY(-3px); }
+.mk-more-ic { width: 46px; height: 46px; border-radius: 12px; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; flex: none; margin-bottom: 16px; }
+.mk-more-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: #12151B; }
+.mk-more-hook { font-size: 13.5px; line-height: 1.5; color: #6B7280; margin-top: 8px; }
+/* La feature actual: marcada, sin hover, no clickeable */
+.mk-more-card-here { background: #F4F7FD; border-color: #CFE0FA; box-shadow: none; cursor: default; position: relative; }
+.mk-more-card-here:hover { transform: none; box-shadow: none; }
+.mk-more-here { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #2F6FED; background: #E4EEFD; padding: 4px 9px; border-radius: 999px; }
 
 .mk-foot { border-top: 1px solid #EEF0F3; background: #FBFCFE; margin-top: 80px; }
 .mk-foot-in { max-width: 1060px; margin: 0 auto; padding: 36px 28px 44px; }
@@ -440,7 +498,7 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-foot-copy { margin-top: 22px; font-size: 13px; color: #99A1AE; }
 
 @media (max-width: 860px) {
-  .mk-hero-row, .mk-row, .mk-row-rev { flex-direction: column; gap: 24px; align-items: stretch; }
+  .mk-hero-row, .mk-row, .mk-row-rev, .mk-hist-row, .mk-hist-row2 { flex-direction: column; gap: 24px; align-items: stretch; }
   .mk-hero-text { order: 0; }
   .mk-hist-vidcol { max-width: 320px; margin: 0 auto; }
 }
@@ -450,7 +508,8 @@ body:has(.mk-det) aside { display: none !important; }
   .mk-h1 { font-size: 31px; }
   .mk-lead { font-size: 17px; }
   .mk-lead-punch { font-size: 19px; }
-  .mk-como-h { font-size: 30px; margin-top: 52px; }
+  .mk-como-h { font-size: 30px; }
+  .mk-more-h { font-size: 25px; }
   .mk-hist-h { font-size: 27px; }
   .mk-section-h { font-size: 24px; }
   .mk-cta { padding: 32px 22px; }

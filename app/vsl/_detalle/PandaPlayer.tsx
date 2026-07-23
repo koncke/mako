@@ -42,6 +42,17 @@ export default function PandaPlayer({ src, title }: { src: string; title: string
         });
       } catch { /* ignore */ }
     });
+
+    // pipScrollFollow escucha `window` scroll, pero la página de feature scrollea
+    // DENTRO de .mk-det (position:fixed; overflow:auto), así que window nunca
+    // scrollea y el PiP no dispara jamás. Reenviamos el scroll del contenedor a
+    // window para que el handler de Panda reciba el evento y flote el video.
+    const scroller = document.querySelector<HTMLElement>('.mk-det');
+    if (scroller) {
+      const fwd = () => window.dispatchEvent(new Event('scroll'));
+      scroller.addEventListener('scroll', fwd, { passive: true });
+      return () => scroller.removeEventListener('scroll', fwd);
+    }
   }, [guid, playerId]);
 
   return (

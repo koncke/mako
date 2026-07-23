@@ -5,16 +5,35 @@
   'use strict';
   var DURATION = 9000;
 
+  // 10 logos REALES de empresas (mismos que las features y el VSL).
   var LOGOS = [
-    { type: 'meta',     color: '#0866FF', label: '¿Meta?',          fx: 0.14, fy: 0.30, slot: 0 },
-    { type: 'claude',   color: '#D97757', label: '¿Claude?',        fx: 0.39, fy: 0.21, slot: 2 },
-    { type: 'gdocs',    color: '#4285F4', label: '¿Google Docs?',   fx: 0.62, fy: 0.25, slot: 4 },
-    { type: 'youtube',  color: '#FF0000', label: '¿YouTube?',       fx: 0.86, fy: 0.31, slot: 6 },
-    { type: 'whatsapp', color: '#25D366', label: '¿WhatsApp?',      fx: 0.16, fy: 0.74, slot: 1 },
-    { type: 'gmail',    color: '#EA4335', label: '¿Gmail?',         fx: 0.41, fy: 0.79, slot: 3 },
-    { type: 'calendly', color: '#006BFF', label: '¿Calendly?',      fx: 0.64, fy: 0.77, slot: 5 },
-    { type: 'gsheets',  color: '#0F9D58', label: '¿Google Sheets?', fx: 0.87, fy: 0.70, slot: 7 }
+    { type: 'meta',     color: '#0866FF', label: '¿Meta?',     fx: 0.13, fy: 0.26, slot: 0, img: 'meta.png' },
+    { type: 'youtube',  color: '#FF0000', label: '¿YouTube?',  fx: 0.37, fy: 0.17, slot: 2, img: 'youtube.png' },
+    { type: 'gmail',    color: '#EA4335', label: '¿Gmail?',    fx: 0.62, fy: 0.19, slot: 4, img: 'gmail.png' },
+    { type: 'gdocs',    color: '#4285F4', label: '¿Docs?',     fx: 0.86, fy: 0.27, slot: 6, img: 'docs.png' },
+    { type: 'meet',     color: '#00832D', label: '¿Meet?',     fx: 0.10, fy: 0.55, slot: 8, img: 'meet.png' },
+    { type: 'gsheets',  color: '#0F9D58', label: '¿Sheets?',   fx: 0.90, fy: 0.55, slot: 9, img: 'sheets.png' },
+    { type: 'whatsapp', color: '#25D366', label: '¿WhatsApp?', fx: 0.15, fy: 0.80, slot: 1, img: 'whatsapp.png' },
+    { type: 'calendly', color: '#006BFF', label: '¿Calendly?', fx: 0.40, fy: 0.84, slot: 3, img: 'calendly.png' },
+    { type: 'claude',   color: '#D97757', label: '¿Claude?',   fx: 0.64, fy: 0.84, slot: 5, img: 'claude.png' },
+    { type: 'panda',    color: '#111111', label: '¿Panda?',    fx: 0.88, fy: 0.80, slot: 7, img: 'panda.png' }
   ];
+
+  // Caché de imágenes de logos (cargadas una vez). La animación va en bucle, así
+  // que apenas cargan aparecen dibujadas; hasta entonces cae al ícono dibujado.
+  var LOGO_IMG = {}, logosLoading = false;
+  function ensureLogos() {
+    if (logosLoading || typeof window === 'undefined') return;
+    logosLoading = true;
+    for (var i = 0; i < LOGOS.length; i++) {
+      var im = new Image(); im.src = '/vsl-assets/logos/' + LOGOS[i].img;
+      LOGO_IMG[LOGOS[i].type] = im;
+    }
+  }
+  function logoReady(type) {
+    var im = LOGO_IMG[type];
+    return im && im.complete && im.naturalWidth > 0 ? im : null;
+  }
 
   // ---- timeline (ms) ----
   var appearStart = 300, appearStep = 330, appearDur = 360;
@@ -93,7 +112,15 @@
     ctx.fillStyle = '#fff'; rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.fill();
     ctx.restore();
     ctx.strokeStyle = 'rgba(16,19,25,0.07)'; ctx.lineWidth = 1; rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.stroke();
-    drawIcon(ctx, type, s, color);
+    var im = logoReady(type);
+    if (im) {
+      var box = s * 0.62, fit = box / Math.max(im.naturalWidth, im.naturalHeight);
+      var w = im.naturalWidth * fit, h = im.naturalHeight * fit;
+      ctx.save(); rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.clip();
+      ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
+    } else {
+      drawIcon(ctx, type, s, color);
+    }
     ctx.restore();
   }
 
@@ -125,6 +152,7 @@
   }
 
   function draw(ctx, t, W, H) {
+    ensureLogos();
     var cx = W / 2, cy = H * 0.50;
     var chipSize = Math.max(40, Math.min(W, H) * 0.17);
     var starSize = chipSize * 1.18;

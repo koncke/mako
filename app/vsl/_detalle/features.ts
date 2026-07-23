@@ -209,9 +209,8 @@ export const FEATURES: Record<string, Feature> = {
     videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f&autoplay=true&color=%232F6FED",
     groups: [
       {
-        title: "Para ver la salud de tu negocio, hoy abrís seis pestañas distintas",
+        title: "Para ver la salud de tu negocio, hoy abrís seis pestañas distintas, ¿no?",
         bullets: [],
-        preguntaLead: "¿Podés responderme esto rápido, sin abrir nada?",
         preguntas: [
           { logo: "meta.png", app: "Meta", q: "¿Sabés cuál es tu anuncio ganador y cuál deberías apagar hoy?" },
           { logo: "landing.svg", app: "Tu landing", q: "¿Estás trackeando, lead por lead, cuántas veces entró cada uno?" },
@@ -223,30 +222,29 @@ export const FEATURES: Record<string, Feature> = {
         verMas: { texto: "Descubrí cómo protegemos tus claves", href: "/vsl/integraciones", label: "Integraciones" },
       },
       {
-        title: "El recorrido completo, del anuncio al pago",
+        title: "Con MaKo vas a ver el recorrido completo de tus leads: desde que vieron tu anuncio hasta que te pagaron.",
         bullets: [
           "El camino entero en una sola línea: <strong>vio tu anuncio → entró a tu landing → miró tu VSL → agendó → vino a la reunión → pagó</strong>.",
-          "En cada escalón sabés cuántos entraron y cuántos siguieron. <strong>El agujero deja de ser una sospecha y pasa a ser un número.</strong>",
+          "En cada escalón vas a saber cuántos entraron y cuántos siguieron. <strong>El agujero deja de ser una sospecha y pasa a ser un número.</strong>",
           "Y como el recorrido termina en el pago, recién ahí sabés <strong>cuánto te costó un cliente de verdad</strong> — no cuánto te costó un lead.",
           "No es la foto de ayer: se actualiza solo mientras trabajás.",
         ],
         verMas: { texto: "Y cuánto de todo eso ya está cobrado", href: "/vsl/cobranza", label: "Cobranza y Revenue real" },
       },
       {
-        title: "Y no solo el total: persona por persona",
+        title: "Y vas a poder seguir, uno por uno, el comportamiento de cada lead.",
         bullets: [
-          "De cada lead ves <strong>cuántas veces entró a tu landing</strong>, y en cuántos días distintos.",
+          "De cada lead vas a ver <strong>cuántas veces entró a tu landing</strong>, y en cuántos días distintos.",
           "<strong>Cuántas veces miró tu VSL</strong> y <strong>hasta qué parte llegó</strong>, con semáforo.",
           "Todo en una línea de tiempo: entró, miró hasta el 27%, volvió al otro día, llegó al 88%, agendó.",
-          "Tu reproductor te da el promedio anónimo. <strong>Esto te dice quién.</strong>",
+          "Tu reproductor te da el promedio anónimo. <strong>MaKo te dice quién.</strong>",
         ],
         verMas: { texto: "Y qué mandarle según hasta dónde llegó", href: "/vsl/seguimiento", label: "Seguimiento automático" },
       },
     ],
     // El caso de Mauricio y la objeción ya viven en la sección compartida (igual
-    // que la landing principal) y en el VSL — no se repiten acá.
-    quote: "El mismo negocio, en una sola pantalla.",
-    nota: "Vivo y en producción: las fuentes se conectan, el recorrido se arma solo y el comportamiento por lead se mide desde que la persona entra a tu landing. Lo único que no podemos reconstruir es el pasado: un lead que entró antes de conectar el tracking no tiene historial, y no hay forma de inventarlo.",
+    // que la landing principal) y en el VSL — no se repiten acá. Sin quote ni
+    // nota: en una landing son relleno que no vende.
     metaTitle: "Funnel MaKo: todo tu negocio conectado en una pantalla",
     metaDesc: "Meta, tu landing, tu VSL, Calendly, WhatsApp y tus llamadas conectados y en vivo. Del primer clic al pago, con CAC real y ROAS cobrado — y el comportamiento de cada lead, uno por uno.",
   },
