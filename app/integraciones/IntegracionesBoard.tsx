@@ -86,7 +86,7 @@ const card: CSSProperties = { background: 'var(--surface)', border: '1px solid v
 const capMono: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)' };
 
 // Orden de categorías del diseño.
-const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'IA Generativa', 'Reuniones', 'Datos'];
+const CAT_ORDER = ['Publicidad', 'Mensajería', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos'];
 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
@@ -175,6 +175,11 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   for (const i of integraciones) {
     const s = sevOf(i);
     if (s === 'good') continue;
+    // El agente (Claude Code) es OPCIONAL y se instala del lado del usuario: mientras
+    // no tenga token queda "Por configurar" en la grilla (honesto), pero no es un
+    // pendiente que haya que resolver → no lo empujamos a "Requiere tu atención"
+    // (sería ruido para un cliente que ni programa).
+    if (i.key === 'agente') continue;
     let motivo = i.estado === 'falta' ? i.detalle : 'Requiere atención';
     if (i.key === 'meta') {
       motivo = health
@@ -286,9 +291,6 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
         })}
       </section>
 
-      {/* ═══ TU AGENTE (CLAUDE CODE) ═══ */}
-      <AgenteClaudeCode tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
-
       {/* ═══ COSTO DE MAKO ═══ */}
       <CostoMaKo usage={usage} cuotas={cuotas} onVerOps={() => setModal({ t: 'hist' })} onOpenService={(key) => setModal({ t: 'svc', key })} />
 
@@ -303,6 +305,8 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           health={health} metaError={metaError} usage={usage}
           cuota={cuotas.find((c) => c.provider === modal.key) ?? null}
           snippetLanding={snippetLanding}
+          agenteToken={agenteToken ?? null}
+          appUrl={appUrl ?? ''}
           onClose={() => setModal(null)}
           // Al guardar saldo/créditos: refetch del uso (client) + refresh del server
           // (para que las cuotas de Gemini pago se recalculen). Gemini free→pago se ve al toque.
@@ -588,23 +592,20 @@ function resaltar(code: string): Array<{ t: string; c: string }> {
   return out;
 }
 
-// ── Tu agente (Claude Code) ────────────────────────────────────────────────
-// Tutorial + credencial para enchufar el agente que el usuario YA tiene en su
-// compu. No es una tarjeta de "servicio conectado": no hay API ajena que pinguear
-// (la skill se instala del otro lado), así que vive como sección propia y nunca
-// muestra un rojo de "falta configurar" por algo que es opcional.
-//
-// Lo que instala: la skill le enseña al agente a NO crear tareas — deja un
-// borrador con preguntas y el Perro Guardián puntúa al aplicar. Mismo camino que
-// MaKo por WhatsApp.
-function AgenteClaudeCode({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
+// ── Tutorial del agente (Claude Code) — vive DENTRO del modal ────────────────
+// El "cómo instalar" de la integración `agente`. Igual que CodigoLanding: no hay
+// API key que pegar — se genera un token, se copia una skill y listo. La skill le
+// enseña al agente a NO crear tareas: deja un borrador con preguntas y el Perro
+// Guardián puntúa al aplicar (mismo camino que MaKo por WhatsApp).
+function TutorialAgente({ tokenInicial, appUrl }: { tokenInicial: string | null; appUrl: string }) {
   const [token, setToken] = useState<string | null>(tokenInicial);
   const [generando, setGenerando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copiado, setCopiado] = useState<'skill' | 'token' | null>(null);
+  const [copiado, setCopiado] = useState<'skill' | 'token' | 'ruta' | null>(null);
   const [verSkill, setVerSkill] = useState(false);
 
   const skill = useMemo(() => agenteSkillMarkdown(appUrl, token ?? ''), [appUrl, token]);
+  const listo = !!token;
 
   const generar = async () => {
     setGenerando(true); setError(null);
@@ -616,72 +617,85 @@ function AgenteClaudeCode({ tokenInicial, appUrl }: { tokenInicial: string | nul
     finally { setGenerando(false); }
   };
 
-  const copiar = async (que: 'skill' | 'token', texto: string) => {
+  const copiar = async (que: 'skill' | 'token' | 'ruta', texto: string) => {
     try { await navigator.clipboard.writeText(texto); setCopiado(que); setTimeout(() => setCopiado(null), 1800); }
     catch { setError('No pudimos copiarlo solos — seleccionalo y copialo a mano.'); }
   };
 
   const btnPrimario: CSSProperties = { padding: '9px 15px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' };
-  const btnSecundario: CSSProperties = { padding: '9px 15px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+  const btnSecundario: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+  const codeInline: CSSProperties = { fontFamily: MONO, fontSize: 12, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '1px 6px', color: 'var(--ink)' };
+
   const paso = (n: number, titulo: ReactNode, cuerpo: ReactNode) => (
-    <div style={{ display: 'grid', gridTemplateColumns: '26px 1fr', gap: 13, alignItems: 'start' }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)', fontFamily: MONO, fontSize: 12, fontWeight: 600, color: 'var(--dim)' }}>{n}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '24px 1fr', gap: 12, alignItems: 'start' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 999, background: 'var(--ink)', color: 'var(--surface)', fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{n}</span>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)', marginBottom: 6 }}>{titulo}</div>
+        <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', marginBottom: 7, lineHeight: 1.35 }}>{titulo}</div>
         {cuerpo}
       </div>
     </div>
   );
 
   return (
-    <section style={{ ...card, marginTop: 32, padding: '22px 30px 26px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 6 }}>
-        <h2 style={{ fontWeight: 600, fontSize: 20, letterSpacing: '-0.017em', margin: 0, color: 'var(--ink)' }}>Tu agente (Claude Code)</h2>
-        <span style={{ ...capMono, fontSize: 10 }}>Opcional</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px', fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
+        ¿Programás con <strong style={{ color: 'var(--ink)' }}>Claude Code</strong>? Instalá esta skill (3 pasos, sin API key) y tu agente
+        va a <strong style={{ color: 'var(--ink)' }}>mirar tu plan</strong> antes de arrancar y a <strong style={{ color: 'var(--ink)' }}>proponerte tareas</strong>.
+        Nunca las crea solo: deja un borrador que revisás vos y que prioriza el Perro Guardián.
       </div>
-      <p style={{ margin: '0 0 20px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55, maxWidth: 720 }}>
-        Si programás con Claude Code, esta skill le enseña a mirar tu plan antes de arrancar y a proponerte
-        tareas por el mismo camino que MaKo por WhatsApp: un borrador con preguntas que revisás vos y que
-        puntúa el Perro Guardián. El agente nunca escribe tareas por su cuenta.
-      </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {paso(1, 'Generá tu token', token ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-            <code style={{ fontFamily: MONO, fontSize: 11.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '7px 11px', color: 'var(--dim)', userSelect: 'all', wordBreak: 'break-all' }}>{token}</code>
-            <button type="button" style={btnSecundario} onClick={() => copiar('token', token)}>{copiado === 'token' ? '¡Copiado!' : 'Copiar'}</button>
-            <button type="button" style={{ ...btnSecundario, color: 'var(--faint)' }} onClick={generar} disabled={generando}>{generando ? 'Rotando…' : 'Rotar'}</button>
-            <span style={{ fontSize: 12, color: 'var(--faint)' }}>Es una credencial: no la pegues en un repo público. Al rotarla, la anterior deja de servir.</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 17 }}>
+        {/* PASO 1 — token */}
+        {paso(1, 'Generá tu token de conexión', listo ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <code style={{ fontFamily: MONO, fontSize: 11, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', color: 'var(--dim)', userSelect: 'all', wordBreak: 'break-all', flex: '1 1 200px', minWidth: 0 }}>{token}</code>
+              <button type="button" style={btnSecundario} onClick={() => copiar('token', token!)}>{copiado === 'token' ? '¡Copiado!' : 'Copiar'}</button>
+              <button type="button" style={{ ...btnSecundario, color: 'var(--faint)' }} onClick={generar} disabled={generando} title="Genera uno nuevo e invalida el anterior">{generando ? 'Rotando…' : 'Rotar'}</button>
+            </div>
+            <span style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.5 }}>Es una credencial: identifica tu espacio. No la subas a un repo público. Si la rotás, la anterior deja de funcionar.</span>
           </div>
         ) : (
-          <button type="button" style={btnPrimario} onClick={generar} disabled={generando}>{generando ? 'Generando…' : 'Generar token'}</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <button type="button" style={btnPrimario} onClick={generar} disabled={generando}>{generando ? 'Generando…' : 'Generar token'}</button>
+            <span style={{ fontSize: 12, color: 'var(--faint)' }}>Un click. Queda guardado y se embebe en la skill del paso 2.</span>
+          </div>
         ))}
 
-        {paso(2, <>Creá <code style={{ fontFamily: MONO, fontSize: 12.5 }}>{AGENTE_SKILL_PATH}</code> en tu proyecto y pegá la skill</>, (
+        {/* PASO 2 — instalar la skill */}
+        {paso(2, 'Instalá la skill en tu proyecto', (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
-              <button type="button" style={token ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'default' }} disabled={!token} onClick={() => copiar('skill', skill)}>
-                {copiado === 'skill' ? '¡Copiada!' : 'Copiar skill'}
-              </button>
-              <button type="button" style={btnSecundario} onClick={() => setVerSkill((v) => !v)}>{verSkill ? 'Ocultar' : 'Ver'}</button>
+            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+              Creá el archivo <button type="button" onClick={() => copiar('ruta', AGENTE_SKILL_PATH)} style={{ ...codeInline, cursor: 'pointer' }} title="Copiar ruta">{copiado === 'ruta' ? '¡copiada!' : AGENTE_SKILL_PATH}</button> en tu proyecto y pegá la skill adentro.
             </div>
-            {!token && <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>Generá el token primero: viene embebido en el archivo.</span>}
+            <div style={{ display: 'flex', gap: 9, flexWrap: 'wrap' }}>
+              <button type="button" style={listo ? btnPrimario : { ...btnPrimario, opacity: 0.45, cursor: 'not-allowed' }} disabled={!listo} onClick={() => copiar('skill', skill)}>
+                {copiado === 'skill' ? '¡Skill copiada!' : 'Copiar skill'}
+              </button>
+              <button type="button" style={btnSecundario} onClick={() => setVerSkill((v) => !v)}>{verSkill ? 'Ocultar' : 'Ver la skill'}</button>
+            </div>
+            {!listo && <span style={{ fontSize: 12, color: 'var(--faint)' }}>Generá el token primero: viene embebido en el archivo.</span>}
             {verSkill && (
-              <pre style={{ margin: 0, minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '13px 15px', maxHeight: 260, overflow: 'auto', fontFamily: MONO, fontSize: 11, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dim)', userSelect: 'all' }}>{skill}</pre>
+              <pre style={{ margin: 0, minWidth: 0, background: CODE.bg, border: `1px solid ${CODE.bd}`, borderRadius: 12, padding: '12px 14px', maxHeight: 220, overflow: 'auto', fontFamily: MONO, fontSize: 10.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--dim)', userSelect: 'all' }}>{skill}</pre>
             )}
           </div>
         ))}
 
-        {paso(3, 'Pedíselo', (
-          <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6 }}>
-            <em style={{ color: 'var(--ink)' }}>&ldquo;Mirá mi plan antes de arrancar&rdquo;</em> o <em style={{ color: 'var(--ink)' }}>&ldquo;anotá esto&rdquo;</em>.
-            Te va a devolver un link a un borrador para revisar — ahí contestás las preguntas y el Perro puntúa.
+        {/* PASO 3 — usarlo */}
+        {paso(3, 'Pedíselo a tu agente', (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
+            <div>Escribile, por ejemplo:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Mirá mi plan antes de arrancar con esto.”</span>
+              <span style={{ padding: '8px 12px', borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--ink)', fontSize: 13 }}>“Anotá esto en mi plan.”</span>
+            </div>
+            <div>Te devuelve un <strong style={{ color: 'var(--ink)' }}>link a un borrador</strong>. Lo abrís, respondés las preguntas y el Perro le pone la prioridad. Recién ahí entra al tablero.</div>
           </div>
         ))}
       </div>
 
-      {error && <div style={{ marginTop: 14, fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>{error}</div>}
-    </section>
+      {error && <div style={{ fontSize: 12.5, color: 'var(--warn)', fontWeight: 500 }}>{error}</div>}
+    </div>
   );
 }
 
@@ -878,8 +892,8 @@ function SaldoEditor({ provider, gemini, saldo, restante, gastoMes, onGuardado }
   );
 }
 
-function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding, onClose, onCambio, onRefetchUsage }: {
-  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
+function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding, agenteToken, appUrl, onClose, onCambio, onRefetchUsage }: {
+  i: Integracion; sev: 'good' | 'warn' | 'bad'; health: MetaHealth | null; metaError: string | null; usage: Resumen | null; cuota: CuotaProv | null; snippetLanding?: string | null; agenteToken?: string | null; appUrl?: string; onClose: () => void; onCambio: () => void; onRefetchUsage: () => void;
 }) {
   const chip = sev === 'good' ? { bg: 'var(--good-bg)', fg: 'var(--good)', word: 'Conectada' }
     : sev === 'warn' ? { bg: 'var(--warn-bg)', fg: 'var(--warn)', word: 'Por configurar' }
@@ -939,6 +953,8 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
 
   // La landing no se configura con credenciales: se configura copiando un código.
   const esLanding = i.key === 'landing';
+  // El agente tampoco: token + skill del lado del usuario. Mismo molde que la landing.
+  const esAgente = i.key === 'agente';
 
   return (
     // Alto FIJO e igual para todos los servicios (el de 1 sola key y el de 6):
@@ -996,7 +1012,9 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
             <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} restante={usage?.porProveedor?.find((p) => p.provider === i.key)?.restanteUsd ?? null} gastoMes={usage?.porProveedor?.find((p) => p.provider === i.key)?.costMesUsd ?? 0} onGuardado={onRefetchUsage} />
           )}
 
-          {esLanding ? (
+          {esAgente ? (
+            <TutorialAgente tokenInicial={agenteToken ?? null} appUrl={appUrl ?? ''} />
+          ) : esLanding ? (
             <CodigoLanding snippet={snippetLanding ?? null} />
           ) : mostrarForm ? (
             // onEstado avisa cuando el servicio pasó a conectado (o dejó de estarlo):

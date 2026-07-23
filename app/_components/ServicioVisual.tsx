@@ -12,6 +12,8 @@
 // pero conviene montarlo una sola vez arriba del árbol.
 // =============================================================================
 
+import { GuardianIcon } from '../plan/board/GuardianIcon';
+
 // ── Iconos de marca por servicio (color de fondo + símbolo SVG) ──────────────
 // REGLA: acá solo van logos OFICIALES, copiados tal cual de la fuente de la marca
 // (ver BrandDefs). Si no conseguimos el vector oficial de un servicio, NO se
@@ -41,6 +43,11 @@ export const ICON: Record<string, IconDef> = {
   youtube: { sym: 'ic-youtube', bg: '#FF0000' },
   supabase: { sym: 'ic-supabase', bg: '#1F2937' },
   landing: { sym: 'ic-landing', bg: '#7C5CFF' },
+  // Agente (Claude Code): no es una marca externa — es el Perro Guardián de MaKo.
+  // Tile neutro con borde (como google/panda) para que el escudo dorado + el perro
+  // (var(--accent) / var(--ink)) se lean en claro y en oscuro. El SVG lo dibuja
+  // SvcIcon con <GuardianIcon>, no por <symbol>.
+  agente: { bg: 'var(--surface-2)', bd: '1px solid var(--border-strong)' },
 };
 export const iconFor = (k: string): IconDef => ICON[k] ?? { sym: 'ic-supabase', bg: '#1F2937' };
 
@@ -50,9 +57,11 @@ export function SvcIcon({ k, size = 21, box = 34, radius = 9 }: { k: string; siz
     // Decorativo: el nombre del servicio SIEMPRE va al lado. Sin esto, el
     // letter-mark se lee doble ("P Panda Video").
     <span aria-hidden style={{ width: box, height: box, flex: 'none', borderRadius: radius, background: ic.bg, border: ic.bd, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      {ic.letter
-        ? <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: Math.round(box * 0.46), lineHeight: 1, letterSpacing: '-0.03em', color: ic.fg ?? '#fff' }}>{ic.letter}</span>
-        : <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>}
+      {k === 'agente'
+        ? <GuardianIcon size={Math.round(box * 0.68)} />
+        : ic.letter
+          ? <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: Math.round(box * 0.46), lineHeight: 1, letterSpacing: '-0.03em', color: ic.fg ?? '#fff' }}>{ic.letter}</span>
+          : <svg width={size} height={size} viewBox="0 0 24 24"><use href={`#${ic.sym}`} /></svg>}
     </span>
   );
 }

@@ -107,4 +107,11 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/integraciones.ts: la única integración cuyo estado son eventos REALES
     { t: 'La única que se prueba de verdad', d: 'Las demás se ven "conectadas" porque hay credencial. Esta se pone en verde solo cuando llega un evento real.' },
   ],
+  // El agente de código (Claude Code) enchufado al plan. Sin API key: se instala
+  // una skill del lado del usuario y habla por /api/agente/plan con un token.
+  agente: [
+    { t: 'Mira tu plan antes de arrancar', d: 'Tu agente lee tus tareas y proyectos, así no duplica lo que ya está anotado y te avisa si hay algo urgente o vencido.' },
+    { t: 'Te propone, no decide', d: 'Cuando encuentra algo para anotar, deja un borrador con preguntas. Vos respondés y el Perro Guardián le pone la prioridad.' },
+    { t: 'El mismo proceso que WhatsApp', d: 'No inventa prioridades ni ensucia el tablero: entra por el mismo camino que MaKo por WhatsApp. Un solo criterio para todo.' },
+  ],
 };
