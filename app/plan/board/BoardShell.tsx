@@ -263,7 +263,10 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     if (guardianNuevasRef.current || !hayWelcome) return;
     guardianNuevasRef.current = true;
     if (!welcomeTasks.some((t) => !t.scoreRazon)) return; // ya las puntuó el server
-    const id = setTimeout(() => { void rePriorizar(); }, 1500);
+    // Igual que el disparador de arriba: si el Perro SERVER-SIDE está corriendo sobre
+    // estas mismas tareas, no lo pisamos con una corrida client-side (puntuaba dos veces
+    // y la segunda le ganaba a la del server).
+    const id = setTimeout(() => { if (skipRePrio.current) return; void rePriorizar(); }, 1500);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome]);
@@ -314,30 +317,56 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // (arrancando de la sugerencia del usuario) y decide su columna final (#10).
   const crearConGuardian = async (d: { title: string; detalle: string; labelIds: string[]; userScore: number; motivoNinguno: string; nuevoProyecto: string; nuevoProyEmoji: string; argumento: string }) => {
     let labelIds = d.labelIds;
-    // Si el usuario dijo que el proyecto todavía no existe, lo creamos inline.
+    const proyIds: string[] = [];
+    // Si el usuario dijo que el proyecto todavía no existe, lo creamos inline. Nace en 50
+    // (la escala es 1-100; el 5 viejo lo dejaba último siempre) y con alta en el historial,
+    // igual que un proyecto creado desde WhatsApp.
     if (d.nuevoProyecto.trim()) {
       const newId = uid();
-      void board.createLabel({ id: newId, emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 5, detalle: '', historial: [] });
+      void board.createLabel({ id: newId, emoji: d.nuevoProyEmoji || '🏷', name: d.nuevoProyecto.trim(), color: SWATCHES[labels.length % SWATCHES.length], score: 50, detalle: '', historial: [{ id: uid(), ts: Date.now(), actor: 'user', text: 'Creó el proyecto — alta manual' }] });
       labelIds = [newId];
+      proyIds.push(newId);
     }
     const starter = d.userScore || 50;
-    const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined);
+    const t = await board.create(d.title, prioFromScore(starter), labelIds.length ? labelIds : undefined, { detalle: d.detalle });
     if (!t) return null;
-    if (d.detalle) board.setDetalle(t.id, d.detalle, '');
+    // Los HECHOS que aportó el usuario (no su número: la prioridad la decide el Perro).
     const partes: string[] = [];
     if (d.argumento) partes.push(d.argumento);
-    partes.push(`El usuario la propone en ${d.userScore} (${PLABEL[prioFromScore(starter)]}) — podés corregirlo si no corresponde.`);
     if (!labelIds.length && d.motivoNinguno) partes.push(`Sin proyecto: ${d.motivoNinguno}.`);
-    const argFinal = partes.join(' ') || '(sin argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
-    try {
-      const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen, uso: 'Nueva tarea' }) }).then((r) => r.json());
-      if (j.ok && typeof j.score === 'number') {
-        board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
-        showUsage(j.usage, 'nueva tarea');
-        return { id: t.id, score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
-      }
-    } catch { /* fallback abajo */ }
-    return { id: t.id, score: starter, razon: '', respuesta: 'No pude priorizar ahora; quedó donde la propusiste. Podés debatirla después.', prio: displayPrio({ ...t, score: starter }, topProjectId) };
+    const contexto = partes.join(' ');
+
+    // UNIFICACIÓN: una tarea cargada a mano recibe EXACTAMENTE el mismo trato que una de
+    // WhatsApp o de una reunión → el Perro server-side, que la ancla contra la pirámide del
+    // plan (no contra el número que propuso el usuario), le arma la checklist y le describe
+    // el proyecto nuevo. El debate 1-a-1 quedaba de rubber-stamp: su veredicto más duro
+    // ("rechaza") dejaba la tarea justo donde el usuario la había puesto.
+    if (board.repo?.priorizarNuevas) {
+      skipRePrio.current = true;
+      try {
+        const r = await board.repo.priorizarNuevas([t.id], proyIds, contexto || '(sin argumento del usuario: puntuala por impacto objetivo contra el resto del plan)');
+        if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
+        setTimeout(() => { skipRePrio.current = false; }, 3500);
+        const p = r?.patches.find((x) => x.id === t.id);
+        if (p?.score != null) {
+          return { id: t.id, score: p.score, razon: p.scoreRazon ?? '', respuesta: p.scoreRazon ?? '', prio: displayPrio({ ...t, score: p.score }, topProjectId) };
+        }
+      } catch (e) { console.warn('[alta] priorizarNuevas', e); skipRePrio.current = false; }
+    } else {
+      // Board del cliente (sin Perro server-side): debate client-side, como antes.
+      const argFinal = contexto || '(sin argumento: puntualo por impacto objetivo comparándolo con el resto del plan)';
+      try {
+        const j = await fetch('/api/mako-guardian', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'debatir', tarea: d.title + (d.detalle ? `\n\n${d.detalle}` : ''), scoreActual: starter, argumento: argFinal, plan: planResumen, uso: 'Nueva tarea' }) }).then((r) => r.json());
+        if (j.ok && typeof j.score === 'number') {
+          board.setScore(t.id, j.score, `Priorizada al crear · score ${j.score}`, 'ia', j.razon);
+          showUsage(j.usage, 'nueva tarea');
+          return { id: t.id, score: j.score, razon: j.razon ?? '', respuesta: j.respuesta ?? '', prio: displayPrio({ ...t, score: j.score }, topProjectId) };
+        }
+      } catch { /* fallback abajo */ }
+    }
+    // Sin veredicto: devolvemos el score REAL con el que quedó la fila (antes se mostraba
+    // el número que había tipeado el usuario, que no era el guardado).
+    return { id: t.id, score: t.score, razon: '', respuesta: 'No pude priorizar ahora; quedó con una prioridad provisoria. Podés debatirla después.', prio: displayPrio(t, topProjectId) };
   };
 
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
@@ -355,17 +384,27 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     if (usaServerPerro) skipRePrio.current = true;
     const ids: string[] = [];
     for (const c of cands) {
-      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente, altaText });
+      // el detalle va DENTRO del alta: si se escribiera después, el Perro server-side
+      // podría leer la fila antes de que llegue y puntuar solo con el título.
+      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente, altaText, detalle: c.detalle });
       if (!t) continue;
-      if (c.detalle) board.setDetalle(t.id, c.detalle, '');
       ids.push(t.id);
     }
     if (ids.length) board.showUndo(`${ids.length} tarea${ids.length > 1 ? 's' : ''} de la reunión al plan`, () => ids.forEach((id) => board.removeSilent(id)));
     // UNIFICACIÓN (#1): el Perro server-side puntúa/describe estas tareas nuevas y les arma
-    // checklist, igual que las de WhatsApp. Persiste en plan_tareas; se ve al refrescar.
-    // Best-effort: si falla, el fallback client-side queda disponible.
+    // checklist, igual que las de WhatsApp — y con el MISMO contexto (de dónde salieron),
+    // que antes no le pasábamos: puntuaba "(sin brief adicional)".
     if (usaServerPerro && ids.length) {
-      try { await board.repo!.priorizarNuevas!(ids); } catch (e) { console.warn('[reunion] priorizarNuevas', e); skipRePrio.current = false; }
+      const contexto = fuente?.tipo === 'fathom' ? `Salieron de la reunión «${fuente.etiqueta ?? ''}» (Fathom): son compromisos que se asumieron ahí.`
+        : fuente?.tipo === 'archivo' ? `Salieron del archivo «${fuente.etiqueta ?? ''}» que subió el dueño.`
+          : '';
+      const proyIds = [...new Set(cands.map((c) => c.proyectoId).filter((x): x is string => !!x))];
+      try {
+        const r = await board.repo!.priorizarNuevas!(ids, proyIds, contexto);
+        // Traer el veredicto a la pantalla. Sin esto la UI mostraba el score adivinado por
+        // la extracción y el próximo guardado del board le pisaba encima al Perro.
+        if (r) board.aplicarPerroServer(r.patches, r.proyectosPatch);
+      } catch (e) { console.warn('[reunion] priorizarNuevas', e); skipRePrio.current = false; }
     }
     if (usaServerPerro) setTimeout(() => { skipRePrio.current = false; }, 3500);
   };

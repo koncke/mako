@@ -19,6 +19,11 @@ import type { BoardTask, Label } from '@/app/plan/board/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+// 'priorizar-nuevas' dispara 3 llamadas al Perro en paralelo (score + checklists +
+// proyectos). Con el default de Vercel (10s) el request moría por timeout y las tareas
+// quedaban con el score que adivinó la extracción — en silencio. Mismo valor que
+// /api/mako-guardian y /api/checklist-coach.
+export const maxDuration = 120;
 
 export async function GET() {
   if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
@@ -80,8 +85,10 @@ export async function POST(req: NextRequest) {
       const proyectoIds = Array.isArray(body.proyectoIds) ? (body.proyectoIds as unknown[]).map(String).filter(Boolean) : [];
       const contexto = typeof body.contexto === 'string' ? body.contexto : '';
       if (!ids.length) return NextResponse.json({ ok: false, error: 'faltan ids' }, { status: 400 });
-      const conteo = await priorizarNuevasOwner(ids, proyectoIds, contexto);
-      return NextResponse.json({ ok: true, conteo });
+      const r = await priorizarNuevasOwner(ids, proyectoIds, contexto);
+      // `patches` vuelve al board para que aplique score/razón/detalle/checklist sin
+      // recargar (y no los pise con su estado viejo en el próximo guardado).
+      return NextResponse.json({ ok: true, conteo: r, patches: r?.patches ?? [], proyectosPatch: r?.proyectosPatch ?? [] });
     }
     if (action === 'migrar') {
       const tareas = (body.tareas as BoardTask[] | undefined) ?? [];

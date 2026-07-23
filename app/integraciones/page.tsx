@@ -9,6 +9,7 @@ import { getIntegraciones } from '@/lib/integraciones';
 import { reconciliarIncidentes, problemaMeta, getIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
+import { getAgenteToken } from '@/lib/agente-token';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { cuotasProveedores } from '@/lib/ia-cuotas';
 import { IntegracionesBoard } from './IntegracionesBoard';
@@ -16,6 +17,13 @@ import { requireRolWs } from '@/lib/tab-access';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+// Misma forma de armar la URL absoluta que lib/landing-token.ts y lib/evolution.ts.
+const APP_URL = (
+  process.env.APP_BASE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  'https://dashboard-marketing-six.vercel.app'
+).replace(/\/+$/, '');
 
 export default async function IntegracionesPage() {
   await requireRolWs([], { nav: 'integraciones' });
@@ -55,6 +63,11 @@ export default async function IntegracionesPage() {
   // de cada proveedor y para el aviso proactivo de rotación). Nunca rompe la página.
   const cuotas = await cuotasProveedores().catch(() => []);
 
+  // Token del agente externo (Claude Code). Se LEE, no se acuña: es una credencial
+  // real (da lectura del plan del workspace), así que solo nace cuando el humano
+  // aprieta el botón. null = todavía no generó ninguno.
+  const agenteToken = ws == null ? null : await getAgenteToken(ws).catch(() => null);
+
   return (
     <IntegracionesBoard
       integraciones={integraciones}
@@ -63,6 +76,8 @@ export default async function IntegracionesPage() {
       incidentes={incidentes}
       snippetLanding={snippetLanding}
       cuotas={cuotas}
+      agenteToken={agenteToken}
+      appUrl={APP_URL}
     />
   );
 }

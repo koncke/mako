@@ -57,7 +57,8 @@ await sql`insert into plan_propuestas (id, workspace_id, estado, origen, resumen
 - `tareas`: `[{ titulo, proyecto, detalle, deadline? }]`. **No mandes `prioridad`**: la decide
   el Perro. `proyecto` = el NOMBRE exacto de un proyecto existente (mirá `plan_proyectos`)
   para no duplicarlo; si no existe, se crea con ese nombre.
-- `notas` = las **preguntas** `[{ pregunta, tipo, opciones }]`.
+- `notas` = las **preguntas** `[{ pregunta, tipo, opciones }]`. **Mandá al menos una**:
+  sin preguntas el wizard aplica con `contexto=''` y el Perro puntúa a ciegas.
 - `eliminar`: `[{ id, motivo }]` si esta carga deja tareas viejas obsoletas o duplicadas.
 
 ### Las preguntas (mismas reglas que MaKo)
@@ -97,4 +98,10 @@ y arma las checklists. **No insertes nada más.**
 - El **historial** es obligatorio para lo que toca la IA/el agente: la propuesta ya entra con
   `origen: 'claude-code'` y `aplicarPropuesta` estampa la fuente en cada tarjeta.
 - Para el board de un **cliente** (no el super-admin) el camino es `lib/todo`
-  (`experimento_tareas`), no este.
+  (`experimento_tareas`). Se aplica solo: `aplicarPropuesta` detecta el workspace y manda
+  al board que corresponde, y desde jul-2026 el cliente TAMBIÉN recibe al Perro
+  (`priorizarNuevasCliente`, lib/todo-guardian.ts).
+- Esta skill es la versión "de adentro" (habla con la base porque corre en la máquina del
+  dev). La que instala un **cliente** en SU Claude Code sale de /integraciones → "Tu agente"
+  y habla por `/api/agente/plan` con un token; el texto vive en `lib/agente-skill.ts`.
+  Si cambiás las reglas de acá, cambialas también allá.

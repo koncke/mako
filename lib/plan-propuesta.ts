@@ -12,6 +12,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, type Prioridad } from '@/lib/todo';
+import { priorizarNuevasCliente } from '@/lib/todo-guardian';
 import { chatCheapCascade } from '@/lib/ai-cheap';
 import { parseJsonObject } from '@/lib/campaign-structurer';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
@@ -177,6 +178,11 @@ export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTar
           } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
         }
         if (!ids.length) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
+        // MISMO trato que el board del dueño: el Perro puntúa lo nuevo contra el plan del
+        // cliente, le arma la checklist y deja rastro. Antes el cliente era el único
+        // origen sin Perro: sus tareas entraban con la prioridad que adivinó MaKo.
+        await priorizarNuevasCliente(ids.map(Number).filter(Number.isFinite), contexto ?? '')
+          .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return 0; });
       }
       for (const eid of aBorrar) { const n = Number(eid); if (Number.isFinite(n)) await borrarTarea(n).catch((e) => console.error('[plan-propuesta] borrar cliente:', e instanceof Error ? e.message : String(e))); }
     }

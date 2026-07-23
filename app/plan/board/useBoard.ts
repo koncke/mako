@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useUndoToast } from '../../_components/UndoToast';
-import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
+import { type BoardTask, type Label, type BoardUser, type Repo, type Hist, type Actor, type Fuente, type Prio, type Check, type GuardPatch, type GuardProjPatch, PLABEL, MAX_PRIORIDAD, HIST_CAP, uid, clampPct, clampScore, clampProj, prioFromScore, scoreFromPrio } from './types';
 
 export type GuardScore = { id: string; score: number; razon: string; impacto?: number; esfuerzo?: number };
 
@@ -53,7 +53,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     markDirty(id);
   }
 
-  const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string }): Promise<BoardTask | null> => {
+  const create = async (title: string, priority: Prio, labelsIn?: string[], meta?: { origen?: Actor; fuente?: Fuente; altaText?: string; detalle?: string }): Promise<BoardTask | null> => {
     const v = title.trim(); if (!v) return null;
     const maxN = tasks.reduce((m, t) => Math.max(m, t.num), 0);
     const labels0 = labelsIn && labelsIn.length ? labelsIn : (repo.labelMode === 'single' && labels[0] ? [labels[0].id] : []);
@@ -62,7 +62,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     // origen + fuente + texto del alta: por default es una tarjeta del usuario, pero
     // quien la crea desde otra fuente (Fathom/WhatsApp/archivo) los pasa por `meta`.
     const actor: Actor = meta?.origen ?? 'user';
-    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false };
+    const draft: BoardTask = { id: 'tmp' + uid(), num: maxN + 1, emoji: emoji0, title: v, detalle: meta?.detalle ?? '', priority, score: scoreFromPrio[priority], progress: 0, deadline: '', labels: labels0, checklist: [], historial: [{ id: uid(), ts: now(), actor, text: meta?.altaText || 'Creó la tarjeta' }], origen: actor, fuente: meta?.fuente, enPrioridad: false };
     setTasks((ts) => [draft, ...ts]);
     try {
       const canon = await repo.createTask(draft);
@@ -121,6 +121,36 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
     tareas.forEach((t) => markDirty(t.id));
     setLabels((ls) => ls.map((l) => { const g = proyectos.find((p) => p.id === l.id); return g ? { ...l, score: clampProj(g.score), scoreRazon: g.razon || l.scoreRazon } : l; }));
     proyectos.forEach((p) => { const l = labels.find((x) => x.id === p.id); if (l) void repo.saveLabel({ ...l, score: clampProj(p.score), scoreRazon: p.razon || l.scoreRazon }).catch((e) => console.error('[board] saveLabel', e)); });
+  };
+
+  // Igual que applyGuardian pero para el Perro SERVER-SIDE: la DB ya quedó escrita, así
+  // que acá solo sincronizamos la pantalla. NADA de markDirty/saveTask: volver a guardar
+  // desde el navegador es justo lo que borraba el trabajo del Perro (upsert de fila
+  // completa con el estado viejo). Trae también detalle y checklist, que el path client
+  // no tiene.
+  const aplicarPerroServer = (patches: GuardPatch[], proys: GuardProjPatch[] = []) => {
+    if (patches.length) {
+      setTasks((ts) => ts.map((x) => {
+        const p = patches.find((q) => q.id === x.id); if (!p) return x;
+        return {
+          ...x,
+          score: p.score != null ? clampScore(p.score) : x.score,
+          priority: p.priority ?? (p.score != null ? prioFromScore(clampScore(p.score)) : x.priority),
+          scoreRazon: p.scoreRazon || x.scoreRazon,
+          impacto: p.impacto ?? x.impacto,
+          esfuerzo: p.esfuerzo ?? x.esfuerzo,
+          detalle: p.detalle || x.detalle,
+          checklist: p.checklist?.length ? p.checklist : x.checklist,
+          historial: p.historialEntry ? [p.historialEntry, ...x.historial].slice(0, HIST_CAP) : x.historial,
+        };
+      }));
+    }
+    if (proys.length) {
+      setLabels((ls) => ls.map((l) => {
+        const p = proys.find((q) => q.id === l.id); if (!p) return l;
+        return { ...l, score: clampProj(p.score), scoreRazon: p.scoreRazon || l.scoreRazon, impacto: p.impacto ?? l.impacto, esfuerzo: p.esfuerzo ?? l.esfuerzo, emoji: p.emoji || l.emoji, detalle: p.detalle || l.detalle };
+      }));
+    }
   };
 
   // tope de "En prioridad": cuenta solo las NO completadas (consistente con la vista)
@@ -242,7 +272,7 @@ export function useBoard(initialTasks: BoardTask[], initialLabels: Label[], user
   return {
     tasks, labels, user, repo,
     labelById: (id: string) => labels.find((l) => l.id === id) ?? null,
-    create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, toggleEnPrioridad, setChecklist, replaceTask,
+    create, remove, removeSilent, patch, moveTo, setScore, applyGuardian, aplicarPerroServer, toggleEnPrioridad, setChecklist, replaceTask,
     setTitle, setDetalle, setProgress, toggleDone, setDeadline, setTaskLabels, undoHist,
     createLabel, patchLabel, patchLabelLog, undoLabelHist, deleteLabel, deleteLabelYTareas, reset,
     undo, showUndo: show, clearUndo: clear,

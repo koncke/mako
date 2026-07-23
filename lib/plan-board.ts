@@ -10,7 +10,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
-import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente } from '@/app/plan/board/types';
+import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
@@ -231,28 +231,35 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
  *  (2) a los proyectos nuevos les pone emoji + descripción + score distinto (antes
  *  quedaban 📁/50/sin detalle). NO re-puntúa el resto. Devuelve el conteo por columna +
  *  cuántos proyectos trabajó (o null). Queda en el historial de IA (feature mako-guardian). */
-export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] = [], contexto = ''): Promise<{ tareas: Record<Prio, number>; proyectos: number } | null> {
+export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] = [], contexto = ''): Promise<GuardResult | null> {
   return enPlan(async () => {
     if (!ids.length && !proyectoIds.length) return null;
     const db = await getTenantDb();
     const idSet = new Set(ids);
     const projSet = new Set(proyectoIds);
     const [tRes, pRes] = await Promise.all([
-      db.from('plan_tareas').select('id, title, detalle, score, progress, labels'),
+      db.from('plan_tareas').select('id, title, detalle, score, progress, labels, historial'),
       db.from('plan_proyectos').select('id, name, score'),
     ]);
-    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown }>;
+    const filasT = (tRes.data ?? []) as Array<{ id: string; title: string; detalle: string; score: number; progress: number; labels: unknown; historial: unknown }>;
     const filasP = (pRes.data ?? []) as Array<{ id: string; name: string; score: number }>;
+    const nombreProy = new Map(filasP.map((p) => [p.id, str(p.name)]));
 
-    const nuevas = filasT.filter((r) => idSet.has(r.id)).map((r) => ({
-      id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle),
-      proyecto: asArr<unknown>(r.labels).map(String)[0] ?? undefined,
-    }));
+    // `proyecto` va con el NOMBRE (el Perro tiene que poder razonar "esto es del
+    // Objetivo Principal"; con el id leía "p1m2x3k"). El id queda aparte para agrupar.
+    const nuevas = filasT.filter((r) => idSet.has(r.id)).map((r) => {
+      const pid = asArr<unknown>(r.labels).map(String)[0] ?? undefined;
+      return {
+        id: r.id, titulo: str(r.title, 'Tarea'), detalle: str(r.detalle), proyectoId: pid,
+        proyecto: pid ? (nombreProy.get(pid) ?? pid) : undefined,
+        historial: asArr<Hist>(r.historial),
+      };
+    });
     const existentesT = filasT.filter((r) => !idSet.has(r.id) && int(r.progress) < 100).map((r) => ({ titulo: str(r.title), score: int(r.score) }));
     const proyNuevos = filasP.filter((p) => projSet.has(p.id)).map((p) => ({ id: p.id, nombre: str(p.name, 'Proyecto') }));
     const existentesP = filasP.filter((p) => !projSet.has(p.id)).map((p) => ({ nombre: str(p.name), score: int(p.score) }));
     const tareasPorProy = proyNuevos.map((p) => {
-      const titulos = nuevas.filter((n) => n.proyecto === p.id).map((n) => n.titulo);
+      const titulos = nuevas.filter((n) => n.proyectoId === p.id).map((n) => n.titulo);
       return `[${p.id}] ${p.nombre}: ${titulos.join('; ') || '(sin tareas)'}`;
     }).join('\n');
 
@@ -265,26 +272,49 @@ export async function priorizarNuevasOwner(ids: string[], proyectoIds: string[] 
 
     const cuenta: Record<Prio, number> = { alta: 0, media: 0, baja: 0, futuro: 0 };
     const byId = new Map(scoreRes.tareas.map((t) => [t.id, t]));
+    const ahora = Date.now();
+    // Lo que el Perro dejó escrito, para DEVOLVERLO. Sin esto el board del navegador
+    // sigue con el estado viejo y el próximo saveTask (upsert de la fila entera) borra
+    // score, razón, detalle y checklist recién puestos.
+    const patches: GuardPatch[] = [];
     await Promise.all(nuevas.map((n) => {
       const g = byId.get(n.id);
       const enr = checklistRes[n.id];
       const patch: Row = { updated_at: new Date().toISOString() };
+      const out: GuardPatch = { id: n.id };
       if (g) {
         const prio = prioFromScore(g.score);
         cuenta[prio]++;
         patch.score = g.score; patch.score_razon = g.razon || null; patch.impacto = g.impacto ?? null; patch.esfuerzo = g.esfuerzo ?? null; patch.priority = prio;
+        Object.assign(out, { score: g.score, scoreRazon: g.razon || '', impacto: g.impacto, esfuerzo: g.esfuerzo, priority: prio });
       }
-      if (enr?.detalle) patch.detalle = enr.detalle; // descripción sólida del Perro (pisa la fina de MaKo)
-      if (enr?.items.length) patch.checklist = enr.items.map((text): Check => ({ id: genId('c'), text, done: false }));
+      if (enr?.detalle) { patch.detalle = enr.detalle; out.detalle = enr.detalle; } // descripción sólida del Perro (pisa la fina de MaKo)
+      if (enr?.items.length) {
+        const checklist = enr.items.map((text): Check => ({ id: genId('c'), text, done: false }));
+        patch.checklist = checklist; out.checklist = checklist;
+      }
       if (Object.keys(patch).length <= 1) return Promise.resolve(undefined); // solo updated_at
+      // RASTRO: toda pasada de la IA por una tarjeta queda en el historial (regla del
+      // dueño). Antes el Perro puntuaba en silencio y la tarjeta no decía quién la movió.
+      const texto = g
+        ? `MaKo la priorizó — score ${g.score} (${g.razon || 'sin razón'})`.slice(0, 220)
+        : 'MaKo le escribió la descripción y la checklist';
+      const entrada: Hist = { id: genId('h'), ts: ahora, actor: 'ia', text: texto };
+      patch.historial = [entrada, ...n.historial].slice(0, 40);
+      out.historialEntry = entrada;
+      patches.push(out);
       return db.from('plan_tareas').update(patch).eq('id', n.id).then(() => undefined);
     }));
 
-    await Promise.all(proyRes.proyectos.map((p) =>
-      db.from('plan_proyectos').update({ score: p.score, score_razon: p.razon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null, emoji: p.emoji || '📁', detalle: p.detalle || '', updated_at: new Date().toISOString() }).eq('id', p.id).then(() => undefined),
+    const proyectosPatch: GuardProjPatch[] = proyRes.proyectos.map((p) => ({
+      id: p.id, score: p.score, scoreRazon: p.razon || '', impacto: p.impacto, esfuerzo: p.esfuerzo,
+      emoji: p.emoji || '📁', detalle: p.detalle || '',
+    }));
+    await Promise.all(proyectosPatch.map((p) =>
+      db.from('plan_proyectos').update({ score: p.score, score_razon: p.scoreRazon || null, impacto: p.impacto ?? null, esfuerzo: p.esfuerzo ?? null, emoji: p.emoji, detalle: p.detalle, updated_at: new Date().toISOString() }).eq('id', p.id).then(() => undefined),
     ));
 
-    return { tareas: cuenta, proyectos: proyRes.proyectos.length };
+    return { tareas: cuenta, proyectos: proyectosPatch.length, patches, proyectosPatch };
   });
 }
 

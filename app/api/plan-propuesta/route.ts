@@ -7,7 +7,7 @@
 // Guardado a SUPER-ADMIN: el board del /plan es de la agencia (OWNER_WS lo fuerza la capa).
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSesionAdmin } from '@/lib/auth';
+import { getUsuarioActual } from '@/lib/auth';
 import { aplicarPropuesta, descartarPropuesta, profundizarPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,12 @@ export const revalidate = 0;
 export const maxDuration = 120; // aplicar corre el Perro (varias pasadas)
 
 export async function POST(req: NextRequest) {
-  if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  // Sesión válida alcanza: NO alcanza con ser admin de la PLATAFORMA. Todo lo que hace
+  // esta ruta (getPropuesta/aplicar/profundizar) está scopeado al workspace del request,
+  // así que nadie toca borradores de otro. Con getSesionAdmin() un admin-cliente entraba
+  // al wizard, contestaba todas las preguntas y comía 403 justo al apretar "Crear" —
+  // el cliente literalmente no podía terminar el flujo.
+  if (!(await getUsuarioActual())) return NextResponse.json({ ok: false, error: 'sin sesión' }, { status: 401 });
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');

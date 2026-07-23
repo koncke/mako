@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import { BoardShell } from './board/BoardShell';
 import { useBoard } from './board/useBoard';
-import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
+import { type BoardTask, type Label, type Repo, type BoardUser, type Hist, type Prio, type Fuente, type Actor, type GuardPatch, type GuardProjPatch, type GuardResult, prioFromScore, clampScore, pidDe, HIST_CAP, scoreFromPrio, uid } from './board/types';
 
 const K9 = 'mako_plan_v9', K_PROJS = 'mako_plan_projs_v7';
 const SEED_TS = Date.parse('2026-07-13T12:00:00Z');
@@ -729,7 +729,7 @@ function construirInbox(items: TareaInboxRaw[], existentes: BoardTask[], labels:
 }
 
 // Pega a la API del board (DB). Devuelve la tarea/proyecto canónico cuando aplica.
-async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string }> {
+async function apiPlan(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?: BoardTask; proyecto?: Label; error?: string; patches?: GuardPatch[]; proyectosPatch?: GuardProjPatch[]; conteo?: GuardResult | null }> {
   return fetch('/api/plan-board', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -748,7 +748,14 @@ export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser;
     deleteLabel: async (id) => { await apiPlan({ action: 'borrar-proyecto', id }); },
     // Corre el Perro server-side sobre las tareas nuevas (por ids) — mismo trato que
     // WhatsApp. Persiste score/razón/checklist en plan_tareas. Best-effort (no rompe el alta).
-    priorizarNuevas: async (ids, proyectoIds, contexto) => { await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' }); },
+    // OJO: hay que mirar j.ok. apiPlan NUNCA tira (atrapa y devuelve {ok:false}), así que
+    // sin este chequeo un 403/500/504 resolvía como ÉXITO: el board creía que el Perro
+    // había corrido, no activaba el fallback y nadie se enteraba de nada.
+    priorizarNuevas: async (ids, proyectoIds, contexto) => {
+      const j = await apiPlan({ action: 'priorizar-nuevas', ids, proyectoIds: proyectoIds ?? [], contexto: contexto ?? '' });
+      if (!j.ok) throw new Error(j.error || 'no se pudo priorizar');
+      return { tareas: j.conteo?.tareas ?? { alta: 0, media: 0, baja: 0, futuro: 0 }, proyectos: j.conteo?.proyectos ?? 0, patches: j.patches ?? [], proyectosPatch: j.proyectosPatch ?? [] };
+    },
   };
   const board = useBoard(tareas, proyectos, user, repo);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.

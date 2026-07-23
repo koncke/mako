@@ -74,6 +74,17 @@ export type Label = { id: string; pid?: string; emoji: string; name: string; col
 export const pidDe = (l: { pid?: string }, i: number) => l.pid || `P${i + 1}`;
 export type BoardUser = { nombre: string; avatarUrl: string };
 
+// Lo que el Perro server-side le dejó a UNA tarjeta. Vuelve al navegador para que el
+// board lo aplique en el acto: si no vuelve, la UI sigue mostrando el score viejo y el
+// próximo saveTask (upsert de la fila entera) le pisa lo que el Perro acaba de escribir.
+export type GuardPatch = {
+  id: string; score?: number; scoreRazon?: string; impacto?: number; esfuerzo?: number;
+  priority?: Prio; detalle?: string; checklist?: Check[]; historialEntry?: Hist;
+};
+/** Ídem para un proyecto nuevo (emoji + descripción + score del Perro). */
+export type GuardProjPatch = { id: string; score: number; scoreRazon: string; impacto?: number; esfuerzo?: number; emoji: string; detalle: string };
+export type GuardResult = { tareas: Record<Prio, number>; proyectos: number; patches: GuardPatch[]; proyectosPatch: GuardProjPatch[] };
+
 // Persistencia inyectada por cada parent. Todo async; useBoard es optimista.
 export type Repo = {
   labelMode: 'single' | 'multi';          // admin: 1 proyecto/tarea; cliente: n categorías
@@ -92,7 +103,7 @@ export type Repo = {
   // ubicándolas en la pirámide existente + checklists. Lo implementa SOLO el board del
   // dueño (plan_tareas); así Fathom/archivo/alta reciben el MISMO trato que WhatsApp.
   // El board del cliente no lo tiene (usa su Perro client-side) → opcional.
-  priorizarNuevas?(ids: string[], proyectoIds?: string[], contexto?: string): Promise<void>;
+  priorizarNuevas?(ids: string[], proyectoIds?: string[], contexto?: string): Promise<GuardResult | null>;
 };
 
 export const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
