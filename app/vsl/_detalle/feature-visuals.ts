@@ -20,10 +20,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "cxJourney"
       },
-      {
-        "type": "leadChat",
-        "title": "Un lead, paso por paso"
-      }
+      { "type": "cxChat" }
     ]
   },
   "pipeline": {

@@ -200,11 +200,13 @@ function ConnectCanvas() {
 // Plural: acá hablamos de los leads en general, no de uno.
 // `caen` marca el escalón donde se pierde la mayoría → salta el warning y la
 // cinta se FRENA ahí (es el punto de la sección: ver dónde estás fallando).
+// Logos que la gente RECONOCE de una: YouTube para el VSL y Meet para la
+// reunión (más conocidos que Panda y Calendly, que hacen lo mismo).
 const JOURNEY = [
   { img: 'meta.png', label: 'Vieron tu anuncio', n: '9.140' },
   { img: 'landing.svg', label: 'Entraron a la landing', n: '2.310' },
-  { img: 'vsl.png', label: 'Miraron tu VSL', n: '1.204' },
-  { img: 'calendly.png', label: 'Agendaron', n: '186', caen: true },
+  { img: 'youtube.png', label: 'Miraron tu VSL', n: '1.204' },
+  { img: 'meet.png', label: 'Agendaron', n: '186', caen: true },
   { img: 'whatsapp.png', label: 'Hablaron con vos', n: '92' },
   { img: 'pago.svg', label: 'Pagaron', n: '31' },
 ];
@@ -232,20 +234,20 @@ function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: num
   const tile = Math.min(76, W * 0.21), gap = tile * 1.5, step = tile + gap;
   const cy = H * 0.46;
 
-  // ── recorrido de la cinta: avanza un paso por vez y se detiene en el que falla
-  const AVANCE = 900, ESPERA = 500, FRENO = 2600, FIN = 1200;
-  const tramo = AVANCE + ESPERA;
-  const tTotal = iCae * tramo + FRENO + (n - 1 - iCae) * tramo + FIN;
+  // ── recorrido de la cinta. Movimiento CONTINUO (nada de saltos de paso en
+  // paso): la cinta se desliza parejo y solo se detiene donde se cae la mayoría.
+  const VEL = 1500;                       // ms por paso, deslizando
+  const FRENO = 2800, FIN = 1400;
+  const tTotal = iCae * VEL + FRENO + (n - 1 - iCae) * VEL + FIN;
   const tt = t % tTotal;
-  let foco: number;                       // paso enfocado (con decimales = en transición)
-  if (tt < iCae * tramo) {
-    const k = Math.floor(tt / tramo), r = (tt % tramo) / AVANCE;
-    foco = k + eoC(clamp(r, 0, 1));
-  } else if (tt < iCae * tramo + FRENO) {
-    foco = iCae;                          // FRENA acá: es el punto de la sección
+  let foco: number;                       // posición continua sobre la cinta
+  if (tt < iCae * VEL) {
+    foco = eInOut(tt / (iCae * VEL)) * iCae;          // arranca y llega suave al freno
+  } else if (tt < iCae * VEL + FRENO) {
+    foco = iCae;                                       // FRENA: es el punto de la sección
   } else {
-    const d = tt - (iCae * tramo + FRENO), k = Math.floor(d / tramo), r = (d % tramo) / AVANCE;
-    foco = Math.min(n - 1, iCae + k + eoC(clamp(r, 0, 1)));
+    const d = tt - (iCae * VEL + FRENO), tramo2 = (n - 1 - iCae) * VEL;
+    foco = iCae + eInOut(clamp(d / tramo2, 0, 1)) * (n - 1 - iCae);
   }
   const originX = W * 0.30 - foco * step;  // el paso enfocado queda a la izquierda-centro
 
@@ -294,8 +296,8 @@ function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: num
   // ── WARNING sobre el escalón que se cae
   if (Math.abs(foco - iCae) < 0.06) {
     const x = originX + iCae * step;
-    const ap = eoC(clamp((tt - iCae * tramo) / 340, 0, 1));
-    const txt = 'Acá se te caen la mayoría';
+    const ap = eoC(clamp((tt - iCae * VEL) / 340, 0, 1));
+    const txt = 'Acá se cae la mayoría';
     ctx.save();
     ctx.font = "700 12.5px 'Geist', system-ui, sans-serif";
     const wTxt = ctx.measureText(txt).width, padH = 13, bw = wTxt + padH * 2 + 22, bh = 32;
@@ -341,7 +343,134 @@ function JourneyCanvas() {
   return <canvas ref={ref} style={{ width: '100%', height: 264, display: 'block', borderRadius: 14 }} />;
 }
 
-const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas };
+// ── cxChat: MaKo avisándote por WhatsApp, con los mensajes llegando de a uno ──
+// Es lo que MaKo YA hace. Diseño calcado de WhatsApp (oscuro, burbuja verde a la
+// derecha = MaKo, gris a la izquierda = vos) y en bucle.
+type Msg =
+  | { de: 'mako' | 'yo'; t: string; hora: string; tipo?: undefined }
+  | { de: 'mako'; tipo: 'pdf'; nombre: string; meta: string; hora: string; t?: undefined };
+const CHAT: Msg[] = [
+  { de: 'mako', t: '🔵 Entró un lead nuevo: *José Rodríguez*, de la campaña RECON de Julio.', hora: '09:14' },
+  { de: 'mako', t: 'Vio tu VSL hasta el *27%* y se fue. Todavía no agendó.', hora: '09:16' },
+  { de: 'mako', t: 'Volvió a entrar y esta vez llegó al *88%*, pero no agendó. ¿Le mando el seguimiento?', hora: '12:41' },
+  { de: 'yo', t: 'Sí, dale', hora: '12:43' },
+  { de: 'mako', t: '✅ Listo. *José agendó* para mañana a las 15:00.', hora: '18:02' },
+  { de: 'mako', tipo: 'pdf', nombre: 'Ficha del lead — José Rodríguez.PDF', meta: '2 páginas · PDF · 148 kB', hora: '18:02' },
+];
+const WA_BG = '#0B141A', WA_VERDE = '#005C4B', WA_GRIS = '#202C33', WA_TXT = '#E9EDEF', WA_HORA = 'rgba(233,237,239,0.5)';
+
+function wrap(ctx: CanvasRenderingContext2D, txt: string, maxW: number): string[] {
+  const out: string[] = [];
+  for (const parr of txt.split('\n')) {
+    let linea = '';
+    for (const w of parr.split(' ')) {
+      const p = linea ? linea + ' ' + w : w;
+      if (ctx.measureText(p.replace(/\*/g, '')).width > maxW && linea) { out.push(linea); linea = w; } else linea = p;
+    }
+    out.push(linea);
+  }
+  return out;
+}
+// pinta un texto con *negritas* entre asteriscos
+function txtBold(ctx: CanvasRenderingContext2D, s: string, x: number, y: number, size: number) {
+  let cx = x;
+  for (const parte of s.split(/(\*[^*]+\*)/g)) {
+    if (!parte) continue;
+    const bold = parte.startsWith('*') && parte.endsWith('*');
+    const limpio = bold ? parte.slice(1, -1) : parte;
+    ctx.font = `${bold ? 700 : 400} ${size}px 'Geist', system-ui, sans-serif`;
+    ctx.fillText(limpio, cx, y);
+    cx += ctx.measureText(limpio).width;
+  }
+}
+
+function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+  ctx.save();
+  ctx.fillStyle = WA_BG; ctx.fillRect(0, 0, W, H);
+
+  const FS = 12.5, LH = 17, PAD = 9, RAD = 9, maxBub = W * 0.72;
+  const PASO = 1400, LOOP = CHAT.length * PASO + 2600;
+  const tt = t % LOOP;
+  const vistos = Math.min(CHAT.length, Math.floor(tt / PASO) + 1);
+
+  // medir todo para poder anclar el chat abajo (como WhatsApp: crece hacia arriba)
+  ctx.font = `400 ${FS}px 'Geist', system-ui, sans-serif`;
+  const bloques = CHAT.map((m) => {
+    if (m.tipo === 'pdf') return { m, lineas: [] as string[], h: 96 };
+    const l = wrap(ctx, m.t!, maxBub - PAD * 2 - 30);
+    return { m, lineas: l, h: l.length * LH + PAD * 2 + 6 };
+  });
+  // Anclado abajo: cuando ya no entra, los más viejos se van por arriba —
+  // igual que un chat de verdad.
+  let total = 0; for (let i = 0; i < vistos; i++) total += bloques[i].h + 8;
+  let y = H - 12 - total;
+
+  for (let i = 0; i < vistos; i++) {
+    const b = bloques[i], m = b.m, mia = m.de === 'mako';
+    const ap = eoC(clamp((tt - i * PASO) / 320, 0, 1));
+    const dy = lerp(10, 0, ap);
+    const wBub = m.tipo === 'pdf' ? maxBub
+      : Math.min(maxBub, Math.max(...b.lineas.map((l) => ctx.measureText(l.replace(/\*/g, '')).width)) + PAD * 2 + 34);
+    const x = mia ? W - 12 - wBub : 12;
+
+    ctx.save(); ctx.globalAlpha = ap; ctx.translate(0, dy);
+    rr(ctx, x, y, wBub, b.h, RAD);
+    ctx.fillStyle = mia ? WA_VERDE : WA_GRIS; ctx.fill();
+
+    if (m.tipo === 'pdf') {
+      // vista previa + fila del documento, como el adjunto de WhatsApp
+      rr(ctx, x + 6, y + 6, wBub - 12, 40, 6); ctx.fillStyle = '#FFFFFF'; ctx.fill();
+      ctx.fillStyle = '#B8C4CC'; ctx.font = `400 7px 'Geist', system-ui, sans-serif`;
+      for (let k = 0; k < 4; k++) ctx.fillRect(x + 14, y + 15 + k * 7, (wBub - 40) * (k === 3 ? 0.4 : 0.8), 2.5);
+      // ícono PDF
+      rr(ctx, x + 10, y + 54, 26, 30, 4); ctx.fillStyle = '#E74C3C'; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = `800 8.5px 'Geist', system-ui, sans-serif`;
+      ctx.textAlign = 'center'; ctx.fillText('PDF', x + 23, y + 72); ctx.textAlign = 'left';
+      ctx.fillStyle = WA_TXT; ctx.font = `600 11.5px 'Geist', system-ui, sans-serif`;
+      ctx.fillText(m.nombre.length > 34 ? m.nombre.slice(0, 33) + '…' : m.nombre, x + 44, y + 66);
+      ctx.fillStyle = WA_HORA; ctx.font = `400 10px 'Geist', system-ui, sans-serif`;
+      ctx.fillText(m.meta, x + 44, y + 80);
+    } else {
+      ctx.fillStyle = WA_TXT; ctx.textBaseline = 'alphabetic';
+      b.lineas.forEach((l, k) => txtBold(ctx, l, x + PAD, y + PAD + LH * (k + 0.75), FS));
+    }
+    // hora + doble check
+    ctx.fillStyle = WA_HORA; ctx.font = `400 9.5px 'Geist', system-ui, sans-serif`;
+    ctx.textAlign = 'right'; ctx.fillText(m.hora, x + wBub - (mia ? 20 : 8), y + b.h - 7); ctx.textAlign = 'left';
+    if (mia) {
+      ctx.strokeStyle = '#53BDEB'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      const cx0 = x + wBub - 16, cy0 = y + b.h - 11;
+      ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(cx0 + 2.6, cy0 + 3); ctx.lineTo(cx0 + 7, cy0 - 2.6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx0 + 4, cy0); ctx.lineTo(cx0 + 6.6, cy0 + 3); ctx.lineTo(cx0 + 11, cy0 - 2.6); ctx.stroke();
+    }
+    ctx.restore();
+    y += b.h + 8;
+  }
+  ctx.restore();
+}
+
+function ChatCanvas() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const c = canvas as HTMLCanvasElement & { _w: number; _h: number; _dpr: number };
+    let raf = 0, t0: number | null = null, dead = false;
+    const size = () => {
+      const r = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      c._w = Math.max(1, r.width); c._h = Math.max(1, r.height); c._dpr = dpr;
+      canvas.width = Math.round(c._w * dpr); canvas.height = Math.round(c._h * dpr);
+    };
+    const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { drawChat(ctx, t, c._w, c._h); } catch { /* ignore */ } };
+    const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); paint(now - t0); raf = requestAnimationFrame(loop); };
+    size(); raf = requestAnimationFrame(loop);
+    const onResize = () => size(); window.addEventListener('resize', onResize);
+    return () => { dead = true; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+  }, []);
+  return <canvas ref={ref} style={{ width: '100%', height: 430, display: 'block', borderRadius: 14 }} />;
+}
+
+const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas, cxChat: ChatCanvas };
 
 export function VisualCanvas({ type }: { type: string }) {
   const C = CANVAS_REGISTRY[type];

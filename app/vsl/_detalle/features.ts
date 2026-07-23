@@ -225,7 +225,7 @@ export const FEATURES: Record<string, Feature> = {
         verMas: { texto: "Descubrí cómo protegemos tus claves", href: "/vsl/integraciones", label: "Integraciones" },
       },
       {
-        title: "Vas a ver el recorrido de tus leads: del anuncio al pago.",
+        title: "Con MaKo vas a ver el recorrido de tus leads: del anuncio al pago.",
         bullets: [
           "El camino entero en una sola línea: <strong>vieron tu anuncio → entraron a tu landing → miraron tu VSL → agendaron → vinieron a la reunión → pagaron</strong>.",
           "<strong>Y ahí vas a ver exactamente dónde se te caen.</strong> No “algo pasa”: el escalón, con nombre y número.",
