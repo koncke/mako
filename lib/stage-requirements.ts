@@ -156,7 +156,11 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
     if (nivel >= 3 && !v.fechaJ2?.trim()) steps.push({ id: 'fechaJ2', label: 'Fecha de la Reunión 2' });
 
     const r2DebeEstarCompleta = nivel >= 4 || (nivel >= 3 && yaPaso(v.fechaJ2, v.hoyISO, v.atJ2));
-    if (r2DebeEstarCompleta && v.fechaJ2) {
+    // Etapas que exigen la R2 COMPLETA (facturando/ganado, nivel>=4) piden la
+    // asistencia/fathom aunque todavía no haya fecha: el wizard la carga en el
+    // mismo paso. Sin esto, la asistencia quedaba fuera de los pasos (fecha aún
+    // nula al montar) pero el server la exigía después → el movimiento fallaba.
+    if (r2DebeEstarCompleta && (v.fechaJ2 || nivel >= 4)) {
       if (v.asistioJ2 == null) steps.push({ id: 'asistenciaR2', label: 'Asistencia a la Reunión 2' });
       if (v.asistioJ2 !== false && !hayFathom && !steps.some((s) => s.id === 'fathomR1')) {
         steps.push({ id: 'fathomR2', label: 'Link de Fathom (R2)' });
