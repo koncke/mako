@@ -247,7 +247,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
   const totalMonto = parseFloat(monto) || 0;
   const sumaCuotas = cuotas.reduce((s, c) => s + (parseFloat(c.monto) || 0), 0);
-  const cuotasCuadran = requeridos.has('plan') ? Math.abs(sumaCuotas - totalMonto) < 0.5 && sumaCuotas > 0 : true;
+  // El plan debe cubrir el monto de cierre, pero se tolera una diferencia chica:
+  // el deal se pacta en USD y los cobros suelen ser en MXN, así que al convertir
+  // cada cuota quedan diferencias de redondeo (centavos a unos pocos dólares).
+  const tolCuotas = Math.max(1, totalMonto * 0.005);
+  const cuotasCuadran = requeridos.has('plan') ? Math.abs(sumaCuotas - totalMonto) <= tolCuotas && sumaCuotas > 0 : true;
 
   const respondido = (() => {
     switch (paso) {
@@ -479,8 +483,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       cuerpo = <textarea value={motivoNoR1} onChange={(e) => setMotivoNoR1(e.target.value)} placeholder="Ej: cerró directo por WhatsApp, cliente referido…" autoFocus style={{ ...compInput, minHeight: 80, textAlign: 'left', lineHeight: 1.5 }} />;
       break;
     case 'huboR2':
-      pregunta = '¿Hubo Reunión 2?';
-      cuerpo = boolStep(huboR2, setHuboR2, 'Sí, hubo R2', 'No hubo R2');
+      pregunta = '¿Hubo una Reunión 2, o cerraste en la R1?';
+      sub = 'Si cerraste en la primera llamada (sin una segunda reunión), elegí «Cerré en la R1».';
+      cuerpo = boolStep(huboR2, setHuboR2, 'Sí, hubo R2', 'Cerré en la R1 (sin R2)');
       break;
     case 'motivoNoR2':
       pregunta = '¿Por qué no hubo Reunión 2?';
@@ -670,7 +675,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'plan':
       pregunta = '¿Cómo se van a cobrar las cuotas?';
-      sub = `Las cuotas tienen que sumar el monto de cierre (${totalMonto ? '$' + totalMonto.toLocaleString('en-US') : 'definilo en el paso anterior'}).`;
+      sub = `Las cuotas tienen que sumar el monto de cierre (${totalMonto ? '$' + totalMonto.toLocaleString('en-US') : 'definilo en el paso anterior'}). Se toleran diferencias chicas por el cambio USD/MXN. Si es una reserva, cargá el plan completo estimado: la reserva es la primera cuota.`;
       cuerpo = (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {cuotas.map((c, i) => (
