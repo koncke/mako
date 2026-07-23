@@ -10,6 +10,8 @@ import 'server-only';
 import { credWs } from './credenciales';
 import { landingRecibioEventos } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
+import { capaDef } from './capas';
+import { getCapaActual } from './workspace';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -92,7 +94,12 @@ async function estadoGoogleCalendar(): Promise<Pick<Integracion, 'estado' | 'det
 }
 
 export async function getIntegraciones(): Promise<Integracion[]> {
-  return Promise.all(DEFS.map(async (d) => {
+  // La CAPA decide qué categorías ve este workspace: al super-admin no le sirve
+  // Publicidad/Mensajería/Datos (no corre ads ni mide su propio VSL) y mostrárselas
+  // es una lista de rojos de un negocio que no tiene. null = ve todas.
+  const cats = capaDef(await getCapaActual()).categoriasIntegraciones;
+  const defs = cats == null ? DEFS : DEFS.filter((d) => cats.includes(d.categoria));
+  return Promise.all(defs.map(async (d) => {
     if (d.key === 'landing') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
     }

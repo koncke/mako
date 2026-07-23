@@ -18,7 +18,7 @@
 /** Los pasos posibles del wizard. Cada capa elige cuáles y en qué orden. */
 export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'fase' | 'retro' | 'plan';
 
-export type CapaId = 'pm' | 'completo';
+export type CapaId = 'pm' | 'completo' | 'superadmin';
 
 export type CapaDef = {
   id: CapaId;
@@ -44,6 +44,12 @@ export type CapaDef = {
   briefGrupos: string[] | null;
   /** Integraciones que el cliente DEBE conectar y probar para salir del paso 1. */
   integracionesRequeridas: string[];
+  /**
+   * CATEGORÍAS de /integraciones que la capa ve (Publicidad, Mensajería,
+   * Inteligencia, IA Generativa, Reuniones, Datos). null = todas. Un SuperAdmin no
+   * mide su propio VSL ni corre ads: mostrarle Meta/Datos es ruido de otro negocio.
+   */
+  categoriasIntegraciones: string[] | null;
   /**
    * ¿Se le siembra el board con los proyectos de un negocio VSL (Meta Ads,
    * anuncio ganador, funnel…)? Para quien compró solo el Plan eso es ruido de
@@ -71,6 +77,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // priorizar con criterio de SU negocio.
     briefGrupos: ['negocio'],
     integracionesRequeridas: [],
+    categoriasIntegraciones: null,
     seedBoardVsl: false,
   },
   completo: {
@@ -88,7 +95,27 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // largo bien resuelto (y hasta lo extrae de un documento con IA).
     briefGrupos: ['negocio'],
     integracionesRequeridas: ['meta', 'whatsapp'],
+    categoriasIntegraciones: null,
     seedBoardVsl: true,
+  },
+  // El espacio propio del SUPER-ADMIN de la agencia (no es un cliente): usa MaKo
+  // para SU trabajo — su plan, su Perro, sus reuniones (Fathom) y sus IA. NO corre
+  // ads, no tiene CRM de leads ni mide su propio VSL, así que Publicidad (Meta),
+  // Mensajería y Datos son ruido de otro negocio. El canal no oficial de WhatsApp
+  // de MaKo no vive acá: es la tab de admin "WhatsApp de MaKo" (/agencia).
+  superadmin: {
+    id: 'superadmin',
+    nombre: 'SuperAdmin (agencia)',
+    descripcion: 'El espacio propio del super-admin: su plan, sus reuniones y sus IA. Sin ads, sin CRM, sin VSL.',
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos'],
+    userNavKeys: null,
+    // Sin wizard: el super-admin no hace onboarding de cliente.
+    onboarding: [],
+    briefGrupos: ['negocio'],
+    integracionesRequeridas: [],
+    // Solo lo que de verdad usa: sus IA, la voz y sus reuniones (Fathom).
+    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Reuniones'],
+    seedBoardVsl: false,
   },
 };
 
