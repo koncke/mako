@@ -1,89 +1,89 @@
 ---
 name: plan-tareas
 description: >
-  Revisar el PLAN del dueño (board /plan) ANTES de arrancar una tarea grande, y dejarle
-  tareas nuevas marcadas con el chat de dónde salieron (origen Claude Code). Usar al
+  Revisar el PLAN del super-admin (board /plan) ANTES de arrancar una tarea grande, y
+  proponerle tareas nuevas por el MISMO camino que MaKo en WhatsApp: un BORRADOR con
+  preguntas de contexto que él revisa en la app y que puntúa el Perro Guardián. Usar al
   empezar un trabajo sustancial en este repo, o cuando identifiques algo que vale la pena
-  anotar para Martín. El board del super-admin vive en localStorage; se lee por la foto
-  (mako.plan.snapshot) y se le deja tarea por la bandeja (mako.plan.inbox).
+  anotar. NUNCA insertar en plan_tareas a mano: eso saltea el Perro.
 ---
 
 # Plan de tareas de MaKo (board /plan)
 
-El board del super-admin (`/plan/agencia`) vive en el **localStorage del navegador** del
-dueño: ni el servidor ni vos lo ven directo (bloqueo #177). Pero:
-- El board **empuja una foto** de sólo-lectura → setting `mako.plan.snapshot` (proyectos +
-  tareas abiertas con score y deadline).
-- El board **lee una bandeja** al abrir → setting `mako.plan.inbox`; la mergea (dedup por
-  `refId`) a su localStorage.
+El board del super-admin vive en **Supabase** (`plan_tareas` / `plan_proyectos`, mig 0093),
+en **su propio workspace** (el que tiene `capa='superadmin'`; Mauricio/ws1 usa otro board,
+`experimento_tareas`, y NO es este). El viejo puente localStorage + `mako.plan.inbox/ops/
+snapshot` **está muerto**: no lo uses.
 
-El script `scripts/plan.mjs` habla con esas dos settings usando el `service_role` de
-`.env.local` (que **apunta a PROD**). Corré siempre desde la raíz del repo.
+## LA REGLA (no negociable)
 
-## 1. Revisá el plan ANTES de trabajar (obligatorio en tareas grandes)
+**Todo origen que carga tareas pasa por el MISMO proceso**: se resuelve lo deducible →
+se preguntan los HECHOS que faltan → **el Perro Guardián puntúa**. Da igual si viene de
+WhatsApp, de Fathom, de un archivo o de Claude Code.
 
-```bash
-node .claude/skills/plan-tareas/scripts/plan.mjs review
+⛔ **NUNCA hagas `insert into plan_tareas`.** Saltea las preguntas, el Perro, la checklist
+y la descripción del proyecto — y deja una tarea con prioridad inventada por vos.
+✅ **Creá una PROPUESTA** (`plan_propuestas`) y pasale el link. La app corre el wizard y el
+Perro con las credenciales del dueño (que vos no tenés: se descifran con
+`CREDENCIALES_SECRET`, que solo vive en Vercel).
+
+## 1. Revisá el plan ANTES de trabajar
+
+Leé directo de la base (read-only). Resolvé el workspace por capa, no lo hardcodees:
+
+```js
+// node --experimental-strip-types, con dotenv sobre .env.local (apunta a PROD)
+const [{ id: ws }] = await sql`select id from workspaces where capa = 'superadmin' limit 1`;
+const tareas = await sql`select num, title, score, priority, progress, deadline
+                         from plan_tareas where workspace_id = ${ws} and progress < 100
+                         order by score desc limit 60`;
+const proys  = await sql`select pid, name, score from plan_proyectos
+                         where workspace_id = ${ws} order by score desc`;
 ```
 
-Imprime los proyectos y las tareas abiertas **ordenadas por prioridad**, marcando las
-**ALTA** (score ≥ 75) y las **vencidas**. Reglas:
-- Si lo que vas a hacer **ya está** en la lista → NO dupliques: es esa tarea, continuala.
-- Si hay **ALTA/vencidas** relacionadas con tu trabajo, mencionáselas a Martín.
-- La foto puede tener minutos de atraso (se refresca cuando el dueño abre `/plan`).
+- Si lo que vas a hacer **ya está** en la lista → NO dupliques: continuá esa tarea.
+- Si hay **ALTA** (score ≥ 75) o **vencidas** relacionadas con tu trabajo, mencionáselas.
 
-## 2. Dejá tareas nuevas CON su procedencia
+## 2. Proponé tareas nuevas (borrador + link)
 
-Cuando identifiques algo que vale la pena anotar (y no exista ya), dejáselo en la bandeja
-**con el chat de dónde salió** — así el board lo muestra con el chip "Claude Code" + link:
+Insertá UNA fila en `plan_propuestas` y entregá el link `/plan/revisar/<id>`:
 
-```bash
-node .claude/skills/plan-tareas/scripts/plan.mjs add \
-  --title "Cerrar la fuga cross-tenant de webhooks" \
-  --priority alta \
-  --project "Seguridad" \
-  --detalle "Contexto de por qué / qué hay que hacer" \
-  --chat "Auditoría de aislamiento (esta sesión)" \
-  --url "https://github.com/mbustos-digital/dashboard-marketing/commit/<sha>"
+```js
+await sql`insert into plan_propuestas (id, workspace_id, estado, origen, resumen, tareas, notas, eliminar)
+          values (${id}, ${ws}, 'pendiente', 'claude-code', ${resumen},
+                  ${sql.json(tareas)}, ${sql.json(preguntas)}, ${sql.json([])})`;
 ```
 
-- `--title` (obligatorio). `--priority` alta|media|baja|futuro (default media).
-- `--project` nombre (si no existe, el board lo crea). `--detalle` contexto.
-- **`--chat`**: el TEMA del chat/sesión de donde salió (es la etiqueta de procedencia). Poné
-  algo reconocible; es lo que resuelve el "¿de qué chat salió esta tarea?".
-- **`--url`** (opcional): un link real que la respalde — commit, PR o issue de GitHub. Las
-  sesiones de Claude Code CLI no tienen URL propia; usá el commit/PR como ancla.
+- `tareas`: `[{ titulo, proyecto, detalle, deadline? }]`. **No mandes `prioridad`**: la decide
+  el Perro. `proyecto` = el NOMBRE exacto de un proyecto existente (mirá `plan_proyectos`)
+  para no duplicarlo; si no existe, se crea con ese nombre.
+- `notas` = las **preguntas** `[{ pregunta, tipo, opciones }]`.
+- `eliminar`: `[{ id, motivo }]` si esta carga deja tareas viejas obsoletas o duplicadas.
 
-La tarea entra con `origen: 'code'` y `fuente: { tipo: 'claude-code', etiqueta, url }`, así el
-historial dice "Claude Code hizo tal cosa" (regla: la IA/el agente SIEMPRE deja rastro).
+### Las preguntas (mismas reglas que MaKo)
 
-## 3. Modificá tareas que YA existen (por su #num)
+Son para **sacarle CONTEXTO al dueño y que EL PERRO decida**, nunca para que él elija la
+prioridad (exagera, se encariña, no sabe priorizar).
 
-Todas operan por el **#num** que ves en `review`. Se encolan en `mako.plan.ops` y el board
-las aplica cuando el dueño lo abre, dejando rastro en el historial (actor Claude Code). Pasá
-`--chat "<tema>"` para que quede de qué sesión salió.
+- ⛔ Prohibido: "¿qué prioridad le das?", "¿cuál te urge primero?", "¿alta/media/baja?".
+- ✅ Preguntá HECHOS: deadlines duros, qué BLOQUEA o de qué DEPENDE, qué mueve en plata y
+  en cuánto, qué sería "listo", si es 1 tarea o varias.
+- Si la respuesta es obvia o se contradice con lo que ya sabés, **no la preguntes**.
+- **Variá el formato** eligiendo el mejor para cada una:
+  `multi` (varias válidas a la vez — sin opción "Ambas/Todas", que tilde varias) ·
+  `opcion` (excluyente) · `escala` (1-5) · `comparacion` (A vs B).
+  **Nada de preguntas abiertas**: siempre con opciones para tocar.
 
-```bash
-node .claude/skills/plan-tareas/scripts/plan.mjs done     --num 132            # marcar completada (progreso 100%)
-node .claude/skills/plan-tareas/scripts/plan.mjs reopen   --num 132            # reabrir (progreso 0%)
-node .claude/skills/plan-tareas/scripts/plan.mjs priority --num 132 --score 90 # subir/bajar prioridad (score 1-100)
-node .claude/skills/plan-tareas/scripts/plan.mjs project  --num 132 --project "Seguridad"   # reasignar (crea el proyecto si no existe)
-node .claude/skills/plan-tareas/scripts/plan.mjs edit     --num 132 --title "Nuevo título" --priority alta --deadline 2026-08-01 --detalle "…"
-node .claude/skills/plan-tareas/scripts/plan.mjs delete   --num 132            # borrar la tarea
-```
+## 3. Entregá el link y pará
 
-- `edit` acepta cualquier combinación de `--title` / `--detalle` / `--priority` (alta|media|baja|futuro) / `--deadline` (YYYY-MM-DD).
-- Si el `#num` ya no existe (se borró), la op se ignora sin romper nada.
-- Reflejá SIEMPRE lo que hiciste: cuando termines un trabajo que corresponde a una tarea del
-  plan, marcala `done` — así el tablero del dueño queda al día solo (pedido explícito de Martín).
+Pasale `/plan/revisar/<id>`. Él contesta de a una, aplica, y recién ahí el Perro puntúa,
+describe los proyectos nuevos y arma las checklists. **No insertes nada más.**
 
-## Límites y cuidados
+## Cuidados
 
-- **Escribe en PROD** (la bandeja del dueño real). No la uses para pruebas; para probar,
-  borrá después el item de `mako.plan.inbox`.
-- **Aplicación diferida:** las ops (add/done/edit/…) NO tocan el board en vivo — se aplican
-  cuando el dueño ABRE /plan (su localStorage). Si no lo abre, no se ven todavía. Es esperado.
-- Para tareas de un **cliente** (no el dueño) el board vive en la base (`experimento_tareas`),
-  no en esta bandeja; ese caso va por `lib/todo`, no por acá.
-- Backfill histórico: las tareas viejas del SEED NO tienen chat registrado y **no se puede
-  reconstruir** sin inventarlo. Esta procedencia es hacia adelante.
+- **Escribe en PROD** (`.env.local` apunta a prod). No lo uses para pruebas; si probás,
+  borrá la propuesta después (`delete from plan_propuestas where id = ...`).
+- El **historial** es obligatorio para lo que toca la IA/el agente: la propuesta ya entra con
+  `origen: 'claude-code'` y `aplicarPropuesta` estampa la fuente en cada tarjeta.
+- Para el board de un **cliente** (no el super-admin) el camino es `lib/todo`
+  (`experimento_tareas`), no este.
