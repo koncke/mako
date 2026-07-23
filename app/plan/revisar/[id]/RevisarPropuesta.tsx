@@ -8,12 +8,23 @@
 // y describe el PERRO (nadie toca la prioridad a mano acá) y la revisión final se ve
 // en el plan (modal "MaKo cargó tareas"). Las respuestas viajan como CONTEXTO al Perro.
 
-import { useState, type CSSProperties } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { WizardShell } from '../../../_components/WizardShell';
 import { ChoiceBody } from '../../board/guardian-form';
 import type { Propuesta, PropuestaPregunta } from '@/lib/plan-propuesta';
 
 const SANS = "'Geist', sans-serif";
+
+// Loader mientras MaKo genera las repreguntas dinámicas — un spinner, NO el input.
+function DynLoader() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '18px 0' }}>
+      <style>{'@keyframes mkSpin{to{transform:rotate(360deg)}}'}</style>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'mkSpin .8s linear infinite' }} />
+      <span style={{ fontSize: 13, color: 'var(--dim)' }}>Analizando tus respuestas para profundizar…</span>
+    </div>
+  );
+}
 
 // Cuerpo de una pregunta según su FORMATO: opción (default), multi (varias), escala 1-5,
 // o texto libre. Así MaKo puede variar el tipo de pregunta, no solo multiple-choice.
@@ -72,6 +83,25 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
   const [dynResp, setDynResp] = useState<Record<number, string>>({});
   const [dynFetched, setDynFetched] = useState(false);
   const [dynLoading, setDynLoading] = useState(false);
+  // Persistencia (#2): si te salís del form y volvés al link, retomás donde ibas
+  // (respuestas + repreguntas dinámicas incluidas). Vive en localStorage por propuesta.
+  const LS_KEY = `mako.revisar.${prop.id}`;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw) as { paso?: number; resp?: Record<number, string>; dynQs?: PropuestaPregunta[]; dynResp?: Record<number, string>; dynFetched?: boolean };
+      if (Array.isArray(s.dynQs)) setDynQs(s.dynQs);
+      if (s.dynResp) setDynResp(s.dynResp);
+      if (s.dynFetched) setDynFetched(true);
+      if (s.resp) setResp(s.resp);
+      if (typeof s.paso === 'number') setPaso(s.paso);
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ paso, resp, dynQs, dynResp, dynFetched })); } catch { /* ignore */ }
+  }, [LS_KEY, paso, resp, dynQs, dynResp, dynFetched]);
   const irPlan = () => { window.location.href = '/plan'; };
   const nT = prop.tareas.length;
   // Cuántos proyectos abarcan las tareas (distintos nombres referenciados) — el dueño
@@ -114,6 +144,7 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       const body = action === 'aplicar' ? { action, id: prop.id, eliminarIds: [...elimSel], contexto } : { action, id: prop.id };
       const r = await fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((res) => res.json());
       if (!r.ok) { setError(r.error || 'No se pudo.'); setBusy(false); return; }
+      try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ } // ya se aplicó/descartó
       setDone(action === 'aplicar' ? 'aplicada' : 'descartada');
       setTimeout(irPlan, 1300);
     } catch (e) { setError(e instanceof Error ? e.message : 'Error de red.'); setBusy(false); }
@@ -149,7 +180,9 @@ export function RevisarPropuesta({ prop }: { prop: Propuesta }) {
       onSiguiente={avanzar}
       onConfirmar={() => enviar('aplicar')}
     >
-      {cur.kind === 'q' ? (
+      {dynLoading ? (
+        <DynLoader />
+      ) : cur.kind === 'q' ? (
         <PreguntaBody q={prop.preguntas[cur.i]} value={resp[cur.i] || ''} onChange={(v) => setResp((r) => ({ ...r, [cur.i]: v }))} />
       ) : cur.kind === 'dyn' ? (
         <PreguntaBody q={dynQs[cur.i]} value={dynResp[cur.i] || ''} onChange={(v) => setDynResp((r) => ({ ...r, [cur.i]: v }))} />

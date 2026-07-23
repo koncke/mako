@@ -103,11 +103,12 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
 // NUNCA la prioridad. IA barata (nunca Claude), formatos variados. Si no hay nada que
 // profundizar, devuelve lista vacía y el wizard sigue de largo.
 const PROFUNDIZAR_SYSTEM = `Sos MaKo, cargando tareas al plan de un negocio. El dueño ya respondió unas preguntas de contexto. Tu trabajo: decidir si hace falta PROFUNDIZAR con PREGUNTAS DE SEGUIMIENTO para que EL PERRO GUARDIÁN pueda decidir la prioridad con buen criterio.
-VOS decidís cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más: pedí lo que te falta para que el Perro no priorice a ciegas.
-⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió y valen la pena aclarar: un deadline que apareció, una dependencia o bloqueo, un número de plata, un alcance ambiguo, qué sería "listo".
-Variá el formato con "tipo": "opcion" (una) · "multi" (varias válidas) · "escala" (1-5) · "texto" (abierta) · "comparacion" (A vs B). Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
+VOS decidís cuántas: pueden ser NINGUNA (si lo respondido ya alcanza), una, o las que de verdad hagan falta. No inventes por inventar ni te cortes por miedo a preguntar de más.
+⛔ REGLA DURA: NUNCA preguntes qué prioridad poner ni qué le urge — eso lo decide el Perro (el dueño exagera y no sabe priorizar). Preguntá HECHOS que una respuesta previa recién abrió: un deadline que apareció, una dependencia o bloqueo, un número de plata, un alcance ambiguo, qué sería "listo".
+CRITERIO — cada pregunta tiene que TENER SENTIDO y sumar: si la respuesta es obvia, se contradice con lo ya dicho, o no cambia nada para el Perro, NO la hagas.
+CRITERIO — elegí el TIPO por pregunta (pensá cuál es el mejor): "multi" si pueden valer VARIAS respuestas a la vez (no agregues una opción "Ambas/Todas": que tilde varias) · "opcion" si es una elección EXCLUYENTE · "escala" para intensidad 1-5 · "comparacion" para enfrentar DOS ítems. NADA de preguntas ABIERTAS: siempre con opciones para tocar. Para opcion/multi/comparacion pasá 2-6 "opciones" cortas.
 Devolvé EXCLUSIVAMENTE un objeto JSON (sin markdown) con esta forma EXACTA:
-{ "preguntas": [ { "pregunta": "<corta, sobre un hecho>", "tipo": "opcion|multi|escala|texto|comparacion", "opciones": ["...", "..."] } ] }
+{ "preguntas": [ { "pregunta": "<corta, sobre un hecho>", "tipo": "opcion|multi|escala|comparacion", "opciones": ["...", "..."] } ] }
 Español rioplatense. Si no hace falta ninguna, { "preguntas": [] }.`;
 
 export async function profundizarPropuesta(id: string, respuestas: Array<{ pregunta: string; respuesta: string }>): Promise<PropuestaPregunta[]> {
