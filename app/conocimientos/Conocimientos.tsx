@@ -15,6 +15,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CURSOS, type Curso, type Clase, type Recurso } from './curso';
+import { CURSO_VSL } from './curso-vsl';
+
+// curso.ts es AUTO-GENERADO desde transcripciones: los módulos escritos a mano
+// viven en su propio archivo y se suman acá.
+const TODOS: Curso[] = [...CURSOS, CURSO_VSL];
 
 const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
 const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
@@ -106,7 +111,7 @@ function Card({ badge, nota, titulo, desc, onClick, ariaLabel }: { badge: string
 function Selector({ enter }: { enter: (slug: string) => void }) {
   const cats = useMemo(() => {
     const m: Record<string, Curso[]> = {};
-    for (const c of CURSOS) (m[c.categoria] = m[c.categoria] || []).push(c);
+    for (const c of TODOS) (m[c.categoria] = m[c.categoria] || []).push(c);
     return m;
   }, []);
   return (
@@ -190,9 +195,14 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
         <h1 className="al-h1 al-h1-sm">{c.titulo}</h1>
       </div>
 
+      {/* El recuadro "Video no disponible" solo tiene sentido en una clase que SÍ
+          es de video (tiene transcripción) y quedó sin el archivo. En un módulo
+          escrito, ese hueco enorme es ruido. */}
       {c.videoId ? (
         <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /></div>
-      ) : <div className="al-video al-video-x"><span>Video no disponible</span></div>}
+      ) : c.transcripcion.length > 0 || c.transcripcionNota ? (
+        <div className="al-video al-video-x"><span>Video no disponible</span></div>
+      ) : null}
 
       {c.resumen && (
         <div className="al-block">
@@ -379,7 +389,7 @@ export default function Conocimientos() {
   const cursoSlug = params.get('curso');
   const claseN = params.get('clase');
   const rSlug = params.get('r');
-  const curso = cursoSlug ? CURSOS.find((c) => c.slug === cursoSlug) : undefined;
+  const curso = cursoSlug ? TODOS.find((c) => c.slug === cursoSlug) : undefined;
 
   const viewKey = params.toString();
   const scrollKey = (k: string) => 'cono-scroll:' + k;

@@ -440,7 +440,7 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number
 
   const HEAD = 48, FOOT = 46;
   const FS = 12.5, LH = 17, PAD = 9, RAD = 9, maxBub = W * 0.72;
-  const PASO = 1400, LOOP = CHAT.length * PASO + 2600;
+  const PASO = 2100, LOOP = CHAT.length * PASO + 3800;   // que dé tiempo a leer
   const tt = t % LOOP;
   const vistos = Math.min(CHAT.length, Math.floor(tt / PASO) + 1);
 

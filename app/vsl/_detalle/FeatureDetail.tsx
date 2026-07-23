@@ -243,10 +243,16 @@ export default function FeatureDetail({ slug }: { slug: string }) {
                     </ul>
                   )}
 
+                  {/* El CTA se repite al cierre de cada bloque: es el momento en
+                      que el visitante acaba de entender el valor. */}
+                  <div><a href={CALENDLY} className="mk-btn-sec"><CalIcon />Agenda tu llamada</a></div>
+
                   {g.verMas && (
-                    <a href={g.verMas.href} className="mk-vermas">
-                      {g.verMas.texto} <span className="mk-vermas-l">{g.verMas.label} →</span>
-                    </a>
+                    <div className="mk-vermas-wrap">
+                      <a href={g.verMas.href} className="mk-vermas">
+                        {g.verMas.texto} <span className="mk-vermas-l">{g.verMas.label} →</span>
+                      </a>
+                    </div>
                   )}
                 </div>
                 <div className="mk-row-media"><Panel spec={groupVisual(i)} /></div>
@@ -403,10 +409,17 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cierre-star { flex: none; width: 32px; height: 32px; border-radius: 9px; background: #1A1712; display: flex; align-items: center; justify-content: center; }
 .mk-cierre strong { font-weight: 700; color: #12151B; }
 
-/* Puente a otra funcionalidad — SIEMPRE una línea */
-.mk-vermas { display: inline-flex; align-items: baseline; gap: 8px; margin-top: 20px; font-size: 14px; color: #5B6472; text-decoration: none; }
+/* Puente a otra funcionalidad. display:inline a propósito: si el texto se va a
+   dos líneas, el link azul queda pegado al final de la frase, como en un párrafo
+   normal — no empujado a la derecha en su propia columna. */
+.mk-vermas { display: inline; font-size: 14px; line-height: 1.55; color: #5B6472; text-decoration: none; }
+.mk-vermas-wrap { margin-top: 18px; }
 .mk-vermas:hover .mk-vermas-l { text-decoration: underline; }
 .mk-vermas-l { font-weight: 600; color: #2F6FED; white-space: nowrap; }
+
+/* CTA al cierre de cada bloque de "Cómo funciona" (el mismo botón del hero,
+   pero al ancho del contenido). */
+.mk-btn-sec { display: inline-flex; align-items: center; justify-content: center; gap: 9px; margin-top: 24px; padding: 14px 26px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 14.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 14px 30px -14px rgba(47,111,237,.55); }
 
 /* Esquinas del marco: blancas sobre imagen oscura (video del caso), oscuras
    sobre el mini-VSL (fondo blanco) que se las comía. */
