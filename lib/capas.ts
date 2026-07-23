@@ -47,7 +47,7 @@ export type CapaDef = {
   /**
    * CATEGORÍAS de /integraciones que la capa ve (Publicidad, Mensajería,
    * Inteligencia, IA Generativa, Reuniones, Datos). null = todas. Un SuperAdmin no
-   * mide su propio VSL ni corre ads: mostrarle Meta/Datos es ruido de otro negocio.
+   * corre ads: mostrarle Publicidad y Mensajería es ruido de otro negocio.
    */
   categoriasIntegraciones: string[] | null;
   /**
@@ -113,8 +113,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     onboarding: [],
     briefGrupos: ['negocio'],
     integracionesRequeridas: [],
-    // Solo lo que de verdad usa: sus IA, la voz y sus reuniones (Fathom).
-    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Reuniones'],
+    // Sus IA, la voz, sus reuniones (Fathom) — y Datos: el super-admin SÍ mide su
+    // propio VSL. Los mini-VSL de cada funcionalidad viven en Panda y /vsl trackea
+    // landing + retención, así que necesita poder conectar Panda desde acá.
+    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Reuniones', 'Datos'],
     seedBoardVsl: false,
   },
 };

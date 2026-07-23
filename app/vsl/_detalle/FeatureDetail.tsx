@@ -100,26 +100,30 @@ export default function FeatureDetail({ slug }: { slug: string }) {
             texto de arriba es mínimo — lo largo lo cuenta el video.
             Sin video: el layout clásico de dos columnas (texto + gráfico). */}
         {f.videoEmbed ? (
-          <div className="mk-hero-vsl">
-            <div className="mk-eyebrow">
-              <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={22} /></span>
-              <span className="mk-eyebrow-txt">{f.name}</span>
-            </div>
-            <h1 className="mk-h1">{f.headline}</h1>
-            <p className="mk-lead" dangerouslySetInnerHTML={{ __html: f.lead }} />
-            <div className="mk-vsl">
-              <iframe
-                src={f.videoEmbed}
-                title={`${f.name} — cómo funciona`}
-                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-                allowFullScreen
-              />
-            </div>
-            {f.conecta && (
-              <div className="mk-chips mk-chips-c">
-                {f.conecta.map((c) => (<span key={c} className="mk-chip">{c}</span>))}
+          /* Mismo hero que la landing: texto + CTA a la izquierda, video a la
+             derecha. Con el botón acá arriba, la banda de CTA del hero sobra. */
+          <div className="mk-hero-row mk-hero-v">
+            <div className="mk-hero-text">
+              <div className="mk-eyebrow">
+                <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={22} /></span>
+                <span className="mk-eyebrow-txt">{f.name}</span>
               </div>
-            )}
+              <h1 className="mk-h1">{f.headline}</h1>
+              <p className="mk-lead" dangerouslySetInnerHTML={{ __html: f.lead }} />
+              <a href={CALENDLY} className="mk-btn-hero"><CalIcon />Agenda tu llamada</a>
+              <p className="mk-hero-nota">Diagnóstico gratuito de tu VSL Funnel</p>
+            </div>
+            <div className="mk-hero-media">
+              <div className="mk-vsl">
+                <span className="mk-cor tl" /><span className="mk-cor tr" /><span className="mk-cor bl" /><span className="mk-cor br" />
+                <iframe
+                  src={f.videoEmbed}
+                  title={`${f.name} — cómo funciona`}
+                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
           </div>
         ) : (
           <div className="mk-hero-row">
@@ -142,11 +146,14 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           </div>
         )}
 
-        <CtaBand />
+        {/* Con video, el CTA ya está en el hero: esta banda sería el mismo botón
+            dos veces en la misma pantalla. */}
+        {!f.videoEmbed && <CtaBand />}
 
         {/* ── Cómo funciona: filas alternadas gráfico/texto ─────────────────── */}
-        <div className="mk-section-eyebrow">Cómo funciona</div>
-        <h2 className="mk-section-h">Todo lo que hace por vos</h2>
+        {/* Sin H2 genérico: "Todo lo que hace por vos" seguido del título del
+            primer bloque eran dos titulares diciendo lo mismo. */}
+        <div className="mk-section-eyebrow mk-section-eyebrow-solo">Cómo funciona</div>
 
         <div className="mk-rows">
           {f.groups.map((g, i) => (
@@ -156,6 +163,14 @@ export default function FeatureDetail({ slug }: { slug: string }) {
                   <span className="mk-cap-num">{String(i + 1).padStart(2, '0')}</span>
                   <h3 className="mk-cap-title">{g.title}</h3>
                 </div>
+                {g.logos && (
+                  <div className="mk-logos">
+                    {g.logos.map((l) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={l} src={`/vsl-assets/logos/${l}`} alt="" className="mk-logo-tile" />
+                    ))}
+                  </div>
+                )}
                 <ul className="mk-cap-list">
                   {g.bullets.map((b, j) => (
                     <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
@@ -299,12 +314,13 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .mk-chip { font-size: 13px; font-weight: 500; color: #2F6FED; background: #EAF1FE; padding: 6px 13px; border-radius: 8px; }
 
-/* Hero con mini-VSL: texto centrado y corto, el video ocupa todo el ancho */
-.mk-hero-vsl { text-align: center; }
-.mk-hero-vsl .mk-eyebrow { justify-content: center; }
-.mk-hero-vsl .mk-h1 { font-size: 46px; max-width: 900px; margin-left: auto; margin-right: auto; }
-.mk-hero-vsl .mk-lead { max-width: 700px; margin-left: auto; margin-right: auto; margin-bottom: 30px; }
-.mk-chips-c { justify-content: center; margin-top: 22px; }
+/* Hero con mini-VSL: mismo layout que la landing (texto + CTA · video) */
+.mk-hero-v .mk-hero-text { flex: 0 1 452px; min-width: 280px; }
+.mk-hero-v .mk-hero-media { flex: 1 1 auto; min-width: 320px; }
+.mk-hero-v .mk-h1 { font-size: 44px; }
+.mk-hero-v .mk-lead { margin-bottom: 30px; }
+.mk-btn-hero { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 420px; padding: 17px 30px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 16px 34px -14px rgba(47,111,237,.55); }
+.mk-hero-nota { margin: 13px 0 0; font-size: 14px; color: #98A0AC; }
 .mk-vsl { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 70px -32px rgba(23,26,33,.5); }
 .mk-vsl iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
 
@@ -317,9 +333,15 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-section-eyebrow { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #2F6FED; margin: 0 0 10px; }
 .mk-section-h { margin: 0 0 30px; font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; color: #12151B; }
 
-/* Filas alternadas gráfico/texto */
-.mk-rows { display: flex; flex-direction: column; gap: 40px; }
-.mk-row { display: flex; gap: 44px; align-items: center; }
+/* Filas alternadas gráfico/texto.
+   Cada bloque alterna el color de fondo a TODO EL ANCHO (la banda se sale del
+   contenedor con 100vw) para que se lea dónde termina una sección y empieza la
+   otra. El contenido va position:relative para quedar por encima de la banda. */
+.mk-rows { display: flex; flex-direction: column; gap: 0; }
+.mk-row { display: flex; gap: 44px; align-items: center; position: relative; padding: 46px 0; }
+.mk-row::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 100vw; transform: translateX(-50%); }
+.mk-row:nth-child(odd)::before { background: #F5F8FD; }
+.mk-row > * { position: relative; }
 .mk-row-rev { flex-direction: row-reverse; }
 .mk-row-text { flex: 1 1 0; min-width: 0; }
 .mk-row-media { flex: 1 1 0; min-width: 0; }
@@ -332,6 +354,10 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cap-li em { font-style: italic; }
 .mk-check { color: #2F6FED; flex: none; margin-top: 2px; }
 
+/* Fila de logos reales arriba de los bullets */
+.mk-logos { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.mk-logo-tile { width: 42px; height: 42px; object-fit: contain; padding: 8px; border-radius: 11px; background: #fff; border: 1px solid #E7ECF5; }
+
 /* Puente a otra funcionalidad */
 .mk-vermas { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 18px; padding: 12px 15px; border-radius: 12px; background: #F4F7FD; border: 1px solid #E1E9F8; text-decoration: none; }
 .mk-vermas:hover { border-color: #BFD3F7; }
@@ -342,7 +368,10 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-caso { display: flex; gap: 36px; align-items: center; margin-top: 64px; padding: 30px; border-radius: 22px; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; }
 .mk-caso-vid { position: relative; flex: none; width: 260px; aspect-ratio: 9 / 15.6; border-radius: 16px; overflow: hidden; background: #0B0D12; }
 .mk-caso-vid video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Blancas sobre el video del caso (imagen oscura); oscuras sobre el mini-VSL,
+   que es de fondo blanco y se las comía. */
 .mk-cor { position: absolute; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.75); z-index: 2; }
+.mk-vsl .mk-cor { border-color: rgba(23,26,33,.30); }
 .mk-cor.tl { top: 9px; left: 9px; border-right: 0; border-bottom: 0; }
 .mk-cor.tr { top: 9px; right: 9px; border-left: 0; border-bottom: 0; }
 .mk-cor.bl { bottom: 9px; left: 9px; border-right: 0; border-top: 0; }
@@ -371,9 +400,10 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cta { background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; border-radius: 22px; padding: 40px 32px; text-align: center; }
 .mk-cta-h { font-size: 25px; font-weight: 600; letter-spacing: -0.01em; color: #12151B; }
 .mk-cta-p { margin: 8px 0 22px; font-size: 16px; line-height: 1.55; color: #5B6472; }
-.mk-hero-row + .mk-cta, .mk-hero-vsl + .mk-cta { margin-top: 40px; }
+.mk-hero-row + .mk-cta { margin-top: 40px; }
 .mk-cta-end { margin-top: 64px; }
 .mk-section-eyebrow { margin-top: 64px; }
+.mk-section-eyebrow-solo { margin-bottom: 22px; }
 .mk-hero-row + .mk-cta + .mk-section-eyebrow { margin-top: 64px; }
 
 .mk-more { margin-top: 64px; }

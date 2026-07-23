@@ -126,7 +126,7 @@
 
   function draw(ctx, t, W, H) {
     var cx = W / 2, cy = H * 0.50;
-    var chipSize = Math.max(40, Math.min(60, Math.min(W, H) * 0.155));
+    var chipSize = Math.max(40, Math.min(W, H) * 0.17);
     var starSize = chipSize * 1.18;
     var wordSize = starSize * 0.86;
     var fade = (t >= holdEnd) ? (1 - clamp((t - holdEnd) / (fadeEnd - holdEnd), 0, 1)) : 1;
@@ -220,7 +220,9 @@
       lg.addColorStop(0.5, '#F2A516');
       lg.addColorStop(0.58, '#171A21'); lg.addColorStop(1, '#171A21');
       ctx.fillStyle = lg;
-      ctx.fillText('MaKo', tx, cy);
+      // +6% del tamaño de la estrella: compensa el centro óptico de la tipografía,
+      // así el wordmark queda centrado con la estrella (mismo fix que el logo de abajo)
+      ctx.fillText('MaKo', tx, cy + starSize * 0.06);
       ctx.restore();
     }
 

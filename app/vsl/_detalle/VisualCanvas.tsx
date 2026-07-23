@@ -124,7 +124,8 @@ function drawMako(ctx: CanvasRenderingContext2D, t: number, W: number, H: number
     const tx = wordLeft + wShift, phase = (t % 2600) / 2600, gxc = tx - wordW * 0.4 + phase * (wordW * 1.8);
     const lg = ctx.createLinearGradient(gxc - wordW * 0.5, 0, gxc + wordW * 0.5, 0);
     lg.addColorStop(0, '#171A21'); lg.addColorStop(0.42, '#171A21'); lg.addColorStop(0.5, '#F2A516'); lg.addColorStop(0.58, '#171A21'); lg.addColorStop(1, '#171A21');
-    ctx.fillStyle = lg; ctx.fillText('MaKo', tx, cy); ctx.restore();
+    // +6% del tamaño de la estrella: compensa el centro óptico de la tipografía
+    ctx.fillStyle = lg; ctx.fillText('MaKo', tx, cy + starSize * 0.06); ctx.restore();
   }
   starBadge(ctx, starX, cy, starSize, starScale, starOp * fade);
 }
@@ -143,11 +144,15 @@ function ConnectCanvas() {
     };
     let reduce = false;
     try { reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { /* ignore */ }
-    const END = holdEnd - 40; // corre una vez (logos → colisión → estrella) y se sostiene en el lockup
+    // En BUCLE, igual que el hero de la landing: se sostiene en el lockup un rato
+    // y vuelve a empezar. Antes corría una sola vez y se congelaba — quien llegaba
+    // scrolleando encontraba una imagen quieta y se perdía la animación entera.
+    const HOLD = 1400;                    // cuánto se queda mostrando el lockup
+    const CICLO = holdEnd - 40 + HOLD;
     const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { drawMako(ctx, t, c._w, c._h); } catch { /* ignore */ } };
-    const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); const t = now - t0; paint(Math.min(t, END)); if (t < END) raf = requestAnimationFrame(loop); };
+    const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); const t = (now - t0) % CICLO; paint(Math.min(t, holdEnd - 40)); raf = requestAnimationFrame(loop); };
     size();
-    if (reduce) { paint(END); return () => { dead = true; }; } // sin movimiento: frame final estático
+    if (reduce) { paint(holdEnd - 40); return () => { dead = true; }; } // sin movimiento: frame final estático
     raf = requestAnimationFrame(loop);
     const onResize = () => size();
     window.addEventListener('resize', onResize);

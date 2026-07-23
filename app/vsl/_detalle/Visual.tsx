@@ -598,7 +598,82 @@ function MakoAnswer(s: VisualSpec) {
 }
 
 // ── Dispatcher ──────────────────────────────────────────────────────────────
+// ── 27. LeadChat (el recorrido de UNA persona, como mensajes que van llegando) ──
+// La alternativa "gráfica" a una tabla: se lee como un chat y se entiende sin
+// explicación. Cada burbuja entra con su propio delay.
+function LeadChat(s: VisualSpec) {
+  const msgs = A<{ t: string; texto: string; tone?: string }>(s.msgs, [
+    { t: 'Hoy 09:14', texto: 'Ingresó José Rodríguez' },
+    { t: 'Hoy 09:16', texto: 'Entró a la landing · vio 27% del VSL', tone: 'amber' },
+    { t: '+27 h', texto: 'Volvió · llegó al 88% del VSL', tone: 'green' },
+    { t: '+28 h', texto: 'Agendó llamada', tone: 'green' },
+  ]).slice(0, 4);
+  const H = 52, top = 46;
+  return (
+    <Frame>
+      <Title>{S(s.title, 'Un lead, paso por paso')}</Title>
+      {msgs.map((m, i) => {
+        const y = top + i * H, c = tone(m.tone);
+        return (
+          <g key={i} opacity="0">
+            <animate attributeName="opacity" from="0" to="1" dur="0.45s" begin={`${0.25 + i * 0.55}s`} fill="freeze" />
+            <rect x="30" y={y} width="340" height="40" rx="12" fill="#fff" stroke={LINE} />
+            <rect x="30" y={y} width="3.5" height="40" rx="2" fill={c} />
+            <circle cx="52" cy={y + 20} r="6" fill={c} opacity="0.18" />
+            <circle cx="52" cy={y + 20} r="2.6" fill={c} />
+            <text x="68" y={y + 17} fontSize="11.5" fontWeight="600" fill={INK} fontFamily={SANS}>{clip(m.texto, 40)}</text>
+            <text x="68" y={y + 31} fontSize="9.5" fill={DIM} fontFamily={MONO}>{clip(m.t, 22)}</text>
+          </g>
+        );
+      })}
+    </Frame>
+  );
+}
+
+// ── 28. LogoJourney (el recorrido: de una app a la otra, con flechas) ───────
+// Menos técnico que un embudo de porcentajes: se ve QUÉ herramienta toca la
+// persona en cada paso, y la flecha viaja para mostrar que están conectadas.
+function LogoJourney(s: VisualSpec) {
+  const pasos = A<{ logo: string; label: string }>(s.pasos, [
+    { logo: 'meta.png', label: 'Vio el anuncio' },
+    { logo: 'landing.svg', label: 'Entró a tu landing' },
+    { logo: 'vsl.png', label: 'Miró el VSL' },
+    { logo: 'calendly.png', label: 'Agendó' },
+    { logo: 'whatsapp.png', label: 'Habló con vos' },
+    { logo: 'pago.svg', label: 'Pagó' },
+  ]).slice(0, 6);
+  const n = pasos.length, top = 52, H = 40;
+  return (
+    <Frame>
+      <Title>{S(s.title, 'El recorrido de tu cliente')}</Title>
+      {pasos.map((p, i) => {
+        const y = top + i * H;
+        return (
+          <g key={i} opacity="0">
+            <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin={`${i * 0.16}s`} fill="freeze" />
+            <rect x="96" y={y} width="34" height="30" rx="9" fill={TILE} />
+            <image href={`/vsl-assets/logos/${p.logo}`} x="102" y={y + 6} width="22" height="18" preserveAspectRatio="xMidYMid meet" />
+            <text x="142" y={y + 19} fontSize="12" fontWeight="600" fill={INK} fontFamily={SANS}>{clip(p.label, 26)}</text>
+            {i < n - 1 && (
+              <g stroke={LINE} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d={`M113 ${y + 30} L113 ${y + H - 3}`} />
+                <path d={`M109.5 ${y + H - 6.5} L113 ${y + H - 3} L116.5 ${y + H - 6.5}`} />
+              </g>
+            )}
+          </g>
+        );
+      })}
+      {/* la flecha que recorre todo: son piezas sueltas, y sin embargo un camino */}
+      <circle cx="113" cy={top} r="4.5" fill={BLUE}>
+        <animate attributeName="cy" values={`${top};${top + (n - 1) * H}`} dur="3.2s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0;1;1;0" dur="3.2s" repeatCount="indefinite" />
+      </circle>
+    </Frame>
+  );
+}
+
 const REGISTRY: Record<string, (s: VisualSpec) => React.ReactElement> = {
+  leadChat: LeadChat, logoJourney: LogoJourney,
   funnel: Funnel, statTiles: StatTiles, semaphore: Semaphore, chatThread: ChatThread, barChart: BarChart,
   retentionCurve: RetentionCurve, kanban: Kanban, diffCard: DiffCard, pyramid: Pyramid, gauge: Gauge,
   byokKey: ByokKey, roleMatrix: RoleMatrix, phaseLadder: PhaseLadder, docExtract: DocExtract, signalFlow: SignalFlow,

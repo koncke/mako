@@ -15,6 +15,9 @@ export type FeatureGroup = {
   // PLACEHOLDER: ruta de captura para esta capacidad (ej '/vsl-assets/crm-captura.png').
   // Si queda vacío, se muestra un recuadro placeholder con el título como caption.
   img?: string;
+  // Logos reales (archivos de /vsl-assets/logos) en fila arriba de los bullets.
+  // Nombrar una app y no mostrarla desaprovecha el reconocimiento que ya tiene.
+  logos?: string[];
   // Puente a otra funcionalidad. Todo está conectado, así que a veces un bloque
   // roza otra feature: en vez de callarlo (y que el visitante se pierda la mitad
   // del valor porque solo entra a UNA landing) o de explicarlo acá (y mezclar),
@@ -208,38 +211,30 @@ export const FEATURES: Record<string, Feature> = {
           "<strong>WhatsApp y tus llamadas</strong>: cómo viene la conversación y qué se dijo de verdad.",
           "Las conectás una vez y quedan hablando entre ellas. No exportás, no pegás y no rehacés ningún Excel.",
         ],
+        logos: ["meta.png", "landing.svg", "vsl.png", "calendly.png", "whatsapp.png", "llamada.svg", "excel.svg"],
         verMas: { texto: "Cómo se conectan — con tus propias llaves y tu propio saldo", href: "/vsl/integraciones", label: "Integraciones" },
       },
       {
-        title: "El recorrido completo: de la impresión al pago",
+        title: "El recorrido completo, del anuncio al pago",
         bullets: [
-          "El camino entero en una sola línea: <strong>impresión → clic → landing → VSL → agenda → reunión → pago</strong>.",
+          "El camino entero en una sola línea: <strong>vio tu anuncio → entró a tu landing → miró tu VSL → agendó → vino a la reunión → pagó</strong>.",
           "En cada escalón sabés cuántos entraron y cuántos siguieron. <strong>El agujero deja de ser una sospecha y pasa a ser un número.</strong>",
+          "Y como el recorrido termina en el pago, recién ahí sabés <strong>cuánto te costó un cliente de verdad</strong> — no cuánto te costó un lead.",
           "No es la foto de ayer: se actualiza solo mientras trabajás.",
-          "Es el mismo negocio que ya tenías. La diferencia es que ahora lo ves entero de una.",
         ],
-      },
-      {
-        title: "Números que solo existen si está todo conectado",
-        bullets: [
-          "<strong>CAC real</strong>: lo que te cuesta un cliente de verdad, no lo que te cuesta un lead.",
-          "<strong>ROAS cobrado y ROAS vendido</strong>, separados: la distancia entre lo que firmaste y lo que entró a tu cuenta.",
-          "<strong>Cash Collected y lo pendiente</strong>: cuánto te deben ahora mismo, sin abrir el Excel de cobros.",
-          "Ninguno de los tres se puede calcular con las apps sueltas — cada uno cruza <em>lo que gastaste</em> en Meta con <em>lo que cobraste</em>. Por eso los ves acá y no allá.",
-        ],
+        verMas: { texto: "Y cuánto de todo eso ya está cobrado de verdad", href: "/vsl/cobranza", label: "Cobranza y Revenue real" },
       },
       {
         title: "Y no solo el total: persona por persona",
         bullets: [
           "De cada lead ves <strong>cuántas veces entró a tu landing</strong>, y en cuántos días distintos.",
-          "<strong>Cuántas veces reprodujo tu VSL</strong> y <strong>hasta qué porcentaje llegó</strong>, con semáforo.",
-          "Una línea de tiempo con lo que hizo: entró, reprodujo, llegó al 45%, volvió tres días después.",
+          "<strong>Cuántas veces miró tu VSL</strong> y <strong>hasta qué parte llegó</strong>, con semáforo.",
+          "Todo en una línea de tiempo: entró, miró hasta el 27%, volvió al otro día, llegó al 88%, agendó.",
           "Tu reproductor te da el promedio anónimo. <strong>Esto te dice quién.</strong>",
         ],
         verMas: { texto: "Y qué mandarle según hasta dónde llegó", href: "/vsl/seguimiento", label: "Seguimiento automático" },
       },
     ],
-    conecta: ["Meta Ads", "Calendly", "WhatsApp", "Fathom", "Tu landing y tu VSL"],
     caso: {
       video: "/vsl-assets/mauricio-funnel.mp4",
       quote: "La misma oferta. Lo único que cambió fue que empezó a decidir con datos.",
