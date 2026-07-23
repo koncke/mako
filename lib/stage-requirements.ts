@@ -144,7 +144,9 @@ export function stepsForStage(stageKey: string, v: StageReqValues): Step[] {
     const r1DebeEstarCompleta = nivel >= 3 || (nivel >= 1 && yaPaso(v.fechaJ1, v.hoyISO, v.atJ1));
     if (r1DebeEstarCompleta) {
       if (v.asistioJ1 == null) steps.push({ id: 'asistenciaR1', label: 'Asistencia a la Reunión 1' });
-      if (v.asistioJ1 !== false && v.calificado == null) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
+      // "¿Era calificado?" no se pregunta al cerrar (Ganado/venta): un cierre YA
+      // implica que calificaba. Sí se pregunta en etapas previas (agendaj2/facturando).
+      if (v.asistioJ1 !== false && v.calificado == null && !esVenta) steps.push({ id: 'calificado', label: '¿Era lead calificado?' });
       if (v.asistioJ1 !== false && !hayFathom) steps.push({ id: 'fathomR1', label: 'Link de Fathom (R1)' });
       // Closer: quien corrió la R1.
       if (v.asistioJ1 !== false && v.closer !== undefined && !v.closer?.trim()) steps.push({ id: 'closer', label: 'Closer asignado' });

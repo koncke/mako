@@ -110,6 +110,10 @@ export function LeadDetailBody({ lead, stages, pagos, initialTab, initialEdit, i
     fathomOmitido: !!lead.fathom_omitido,
     email: lead.email ?? null,
     tieneContrato: !!lead.contrato_path,
+    dealServicioOk: !!lead.deal_servicio?.que_es?.trim(),
+    dealPromesaOk: !!lead.deal_promesa?.resultado?.trim(),
+    dealFiscalOk: !!lead.deal_fiscal?.razon?.trim(),
+    dealObligacionesOk: (lead.deal_obligaciones?.cliente?.length ?? 0) > 0 || (lead.deal_obligaciones?.prestador?.length ?? 0) > 0,
   };
 
   // Solucionar (pasada única): SIEMPRE abre el wizard con TODO lo faltante

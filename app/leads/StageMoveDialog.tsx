@@ -50,6 +50,12 @@ export type MoveLeadInfo = {
   // Deal Details / documentos (para prefill + saber si hay contrato que leer).
   email?: string | null;
   tieneContrato?: boolean;
+  // ¿Ya están cargadas las secciones del Deal? Si falta alguna, el cierre ofrece
+  // leer el contrato para autocompletarlas (sin volverlas obligatorias).
+  dealServicioOk?: boolean;
+  dealPromesaOk?: boolean;
+  dealFiscalOk?: boolean;
+  dealObligacionesOk?: boolean;
 };
 
 export function leadToMoveInfo(l: CrmLead): MoveLeadInfo {
@@ -157,6 +163,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [autoOferta, setAutoOferta] = useState(true);
   const [autoBusy, setAutoBusy] = useState(false);
   const [autoReporte, setAutoReporte] = useState<string[] | null>(null);
+  const [autoR2NoEncontrada, setAutoR2NoEncontrada] = useState(false);
   const [resueltos, setResueltos] = useState<Set<PasoId>>(() => new Set());
 
   // Pasos que la etapa destino EXIGE con lo que el lead ya tiene (se calcula
@@ -209,21 +216,28 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (asistioJ2 !== false && requeridos.has('fathomR2')) p.push('fathomR2');
       }
     }
-    if (requeridos.has('monto')) p.push('monto');
-    if (requeridos.has('plan')) p.push('plan');
-    if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
-    // Higiene (Completar datos): setter/closer/empresa/teléfono al final.
-    if (requeridos.has('setter')) p.push('setter');
-    if (requeridos.has('closer')) p.push('closer');
-    if (requeridos.has('empresa')) p.push('empresa');
-    if (requeridos.has('telefono')) p.push('telefono');
-    // Deal Details (automático con IA del contrato o a mano), documentos y R2.
+    // Automatización del cierre PRIMERO: en un cierre (Ganado/Facturando) se ofrece
+    // leer el CONTRATO (dealAuto) para autocompletar servicio/promesa/fiscal/
+    // obligaciones ANTES de las preguntas manuales. En "Solucionar" además pide lo
+    // que el contrato no complete. No vuelve obligatorias las secciones (respeta el
+    // cierre por reserva sin contrato firmado todavía).
     const necesitaDeal = requeridos.has('dealServicio') || requeridos.has('dealPromesa') || requeridos.has('dealFiscal') || requeridos.has('dealObligaciones');
-    if (necesitaDeal) p.push('dealAuto');
+    const dealCompleto = !!(lead.dealServicioOk && lead.dealPromesaOk && lead.dealFiscalOk && lead.dealObligacionesOk);
+    if ((esCierre && !dealCompleto) || necesitaDeal) p.push('dealAuto');
     if (requeridos.has('dealServicio')) p.push('dealServicio');
     if (requeridos.has('dealPromesa')) p.push('dealPromesa');
     if (requeridos.has('dealFiscal')) p.push('dealFiscal');
     if (requeridos.has('dealObligaciones')) p.push('dealObligaciones');
+
+    if (requeridos.has('monto')) p.push('monto');
+    if (requeridos.has('plan')) p.push('plan');
+    if (requeridos.has('motivo')) { p.push('motivo'); p.push('motivoDetalle'); }
+    // Higiene (Completar datos): setter/closer/empresa/teléfono.
+    if (requeridos.has('setter')) p.push('setter');
+    if (requeridos.has('closer')) p.push('closer');
+    if (requeridos.has('empresa')) p.push('empresa');
+    if (requeridos.has('telefono')) p.push('telefono');
+    // Documentos fiscales / comprobantes / motivo de R2 externa: al final.
     if (requeridos.has('dealFiscalDoc')) p.push('dealFiscalDoc');
     if (requeridos.has('comprobante')) p.push('comprobante');
     if (requeridos.has('r2Respuestas')) p.push('r2Motivo');
@@ -237,7 +251,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       filtrados.unshift('auto');
     }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -317,7 +331,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           ...(pide('fechaJ2') && huboR2 !== false ? { fechaJ2: fechaJ2 || null } : {}),
           ...(pide('asistenciaR1') ? { asistioJ1 } : { asistioJ1: move.asistioJ1 }),
           ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
-          ...(pide('calificado') ? { calificado } : {}),
+          ...(pide('calificado') ? { calificado } : (to === 'ganado' ? { calificado: true } : {})),
           ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
           ...(pide('monto') ? { monto: totalMonto || null } : {}),
           ...(pide('motivo') ? { motivo: motivoFinal || null } : {}),
@@ -438,6 +452,10 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (r.fathomR2) ok.add('fathomR2');
       }
       setResueltos(ok);
+      // Si no apareció ninguna R2 (ni fecha ni asistencia) y el lead tampoco la
+      // tenía, probablemente se cerró en la R1: en el paso de R2 pedimos solo una
+      // confirmación en vez del alta manual completa.
+      setAutoR2NoEncontrada(!r.fechaJ2 && r.asistioJ2 == null && !lead.fechaJ2);
       setAutoReporte([
         ...(r.encontrado.length ? r.encontrado : ['No encontré nada en Calendly ni Fathom para este lead.']),
         ...r.faltante.map((f) => `A mano: ${f}`),
@@ -484,7 +502,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'huboR2':
       pregunta = '¿Hubo una Reunión 2, o cerraste en la R1?';
-      sub = 'Si cerraste en la primera llamada (sin una segunda reunión), elegí «Cerré en la R1».';
+      sub = autoR2NoEncontrada
+        ? 'MaKo no encontró una Reunión 2 en Calendly ni Fathom. Confirmá: si cerraste en la primera llamada, elegí «Cerré en la R1».'
+        : 'Si cerraste en la primera llamada (sin una segunda reunión), elegí «Cerré en la R1».';
       cuerpo = boolStep(huboR2, setHuboR2, 'Sí, hubo R2', 'Cerré en la R1 (sin R2)');
       break;
     case 'motivoNoR2':
