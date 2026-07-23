@@ -18,8 +18,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "cxConnect"
       },
       {
-        "type": "logoJourney",
-        "title": "El recorrido de tu cliente"
+        "type": "cxJourney"
       },
       {
         "type": "leadChat",

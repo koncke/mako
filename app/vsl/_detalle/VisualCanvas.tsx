@@ -193,7 +193,127 @@ function ConnectCanvas() {
   return <canvas ref={ref} style={{ width: '100%', height: 264, display: 'block', borderRadius: 14 }} />;
 }
 
-const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas };
+// ── cxJourney: el recorrido del lead como los logos conectándose con flechas ──
+// Estilo VSL: cada app aparece, una flecha se dibuja hacia la siguiente, y un
+// pulso recorre el camino. En bucle. Real logos.
+const JOURNEY = [
+  { img: 'meta.png', label: 'Vio el anuncio' },
+  { img: 'landing.svg', label: 'Entró a tu web' },
+  { img: 'vsl.png', label: 'Miró tu VSL' },
+  { img: 'calendly.png', label: 'Agendó' },
+  { img: 'whatsapp.png', label: 'Habló con vos' },
+  { img: 'pago.svg', label: 'Pagó' },
+];
+const JIMG: Record<string, HTMLImageElement> = {};
+let jLoading = false;
+function ensureJourney() {
+  if (jLoading || typeof window === 'undefined') return;
+  jLoading = true;
+  for (const s of JOURNEY) { const im = new Image(); im.src = `/vsl-assets/logos/${s.img}`; JIMG[s.img] = im; }
+}
+function jReady(img: string): HTMLImageElement | null {
+  const im = JIMG[img];
+  return im && im.complete && im.naturalWidth > 0 ? im : null;
+}
+const eoC = (x: number) => 1 - Math.pow(1 - x, 3);
+const eoB = (x: number) => { const c1 = 1.7, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+
+function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+  ensureJourney();
+  const BLUE = '#2F6FED', INK = '#12151B', DIM = '#6B7280', LINE = '#DFE6F1', GREEN = '#1E9E57';
+  const n = JOURNEY.length;
+  // dos filas de 3 para que entren cómodas y grandes
+  const cols = 3, rows = 2, tile = Math.min(58, W * 0.15);
+  const cw = W / cols, rh = (H - 30) / rows;
+  const pos = JOURNEY.map((_, i) => {
+    const r = Math.floor(i / cols); let c = i % cols;
+    if (r % 2 === 1) c = cols - 1 - c;                 // serpentea: fila 2 al revés
+    return { x: cw * c + cw / 2, y: 34 + rh * r + rh / 2 - 6 };
+  });
+  const STEP = 620, APP = 380, ARR = 300, LOOP = STEP * n + 1400;
+  const tt = t % LOOP;
+
+  ctx.font = "700 13px 'Geist', system-ui, sans-serif";
+  ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('El recorrido de tu cliente', 22, 22);
+
+  // flechas entre pasos (se dibujan en secuencia)
+  for (let i = 0; i < n - 1; i++) {
+    const born = i * STEP + APP, p = clamp((tt - born) / ARR, 0, 1);
+    if (p <= 0) continue;
+    const a = pos[i], b = pos[i + 1], e = eoC(p);
+    // punto de salida/entrada en el borde del tile
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), ux = dx / len, uy = dy / len;
+    const sx = a.x + ux * (tile * 0.62), sy = a.y + uy * (tile * 0.62);
+    const exf = b.x - ux * (tile * 0.62), eyf = b.y - uy * (tile * 0.62);
+    const cx2 = lerp(sx, exf, e), cy2 = lerp(sy, eyf, e);
+    ctx.save();
+    ctx.strokeStyle = BLUE; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+    ctx.setLineDash([6, 6]); ctx.lineDashOffset = -(t / 22) % 12;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(cx2, cy2); ctx.stroke();
+    ctx.setLineDash([]);
+    if (p > 0.9) {                                     // punta de flecha
+      const hh = 6;
+      ctx.beginPath(); ctx.moveTo(exf, eyf);
+      ctx.lineTo(exf - ux * hh - uy * hh * 0.7, eyf - uy * hh + ux * hh * 0.7);
+      ctx.lineTo(exf - ux * hh + uy * hh * 0.7, eyf - uy * hh - ux * hh * 0.7);
+      ctx.closePath(); ctx.fillStyle = BLUE; ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // tiles con logo + label
+  for (let i = 0; i < n; i++) {
+    const born = i * STEP, ap = clamp((tt - born) / APP, 0, 1);
+    if (ap <= 0) continue;
+    const last = i === n - 1;
+    const sc = lerp(0.6, 1, eoB(ap)), P = pos[i];
+    ctx.save(); ctx.globalAlpha = eoC(ap); ctx.translate(P.x, P.y); ctx.scale(sc, sc);
+    ctx.save(); ctx.shadowColor = 'rgba(16,19,25,0.16)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 5;
+    rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28);
+    ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+    rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28);
+    ctx.lineWidth = last ? 2 : 1; ctx.strokeStyle = last ? GREEN : LINE; ctx.stroke();
+    const im = jReady(JOURNEY[i].img);
+    if (im) {
+      const box = tile * 0.6, fit = box / Math.max(im.naturalWidth, im.naturalHeight);
+      const w = im.naturalWidth * fit, h = im.naturalHeight * fit;
+      ctx.save(); rr(ctx, -tile / 2, -tile / 2, tile, tile, tile * 0.28); ctx.clip();
+      ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
+    }
+    ctx.restore();
+    // label
+    ctx.save(); ctx.globalAlpha = eoC(ap);
+    ctx.font = "600 11.5px 'Geist', system-ui, sans-serif";
+    ctx.fillStyle = last ? GREEN : DIM; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(JOURNEY[i].label, P.x, P.y + tile / 2 + 6);
+    ctx.restore();
+  }
+}
+
+function JourneyCanvas() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    ensureJourney();
+    const c = canvas as HTMLCanvasElement & { _w: number; _h: number; _dpr: number };
+    let raf = 0, t0: number | null = null, dead = false;
+    const size = () => {
+      const r = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      c._w = Math.max(1, r.width); c._h = Math.max(1, r.height); c._dpr = dpr;
+      canvas.width = Math.round(c._w * dpr); canvas.height = Math.round(c._h * dpr);
+    };
+    const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { drawJourney(ctx, t, c._w, c._h); } catch { /* ignore */ } };
+    const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); paint(now - t0); raf = requestAnimationFrame(loop); };
+    size(); raf = requestAnimationFrame(loop);
+    const onResize = () => size(); window.addEventListener('resize', onResize);
+    return () => { dead = true; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+  }, []);
+  return <canvas ref={ref} style={{ width: '100%', height: 264, display: 'block', borderRadius: 14 }} />;
+}
+
+const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas };
 
 export function VisualCanvas({ type }: { type: string }) {
   const C = CANVAS_REGISTRY[type];
