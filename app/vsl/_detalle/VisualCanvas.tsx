@@ -234,20 +234,26 @@ function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: num
   const tile = Math.min(76, W * 0.21), gap = tile * 1.5, step = tile + gap;
   const cy = H * 0.46;
 
-  // ── recorrido de la cinta. Movimiento CONTINUO (nada de saltos de paso en
-  // paso): la cinta se desliza parejo y solo se detiene donde se cae la mayoría.
-  const VEL = 1500;                       // ms por paso, deslizando
-  const FRENO = 2800, FIN = 1400;
-  const tTotal = iCae * VEL + FRENO + (n - 1 - iCae) * VEL + FIN;
+  // ── recorrido de la cinta: se DESLIZA suave de un paso al siguiente y PARA en
+  // cada uno el tiempo suficiente para leerlo. Ni saltos secos ni un scroll
+  // continuo donde los pasos pasan borrosos.
+  const DESLIZA = 700, LEE = 900;         // moverse / quedarse quieto en cada paso
+  const EXTRA_CAE = 1000;                 // en el que se cae, un toque más (no eterno)
+  const FIN = 1100;
+  const paso = DESLIZA + LEE;
+  const tTotal = (n - 1) * paso + LEE + EXTRA_CAE + FIN;
   const tt = t % tTotal;
-  let foco: number;                       // posición continua sobre la cinta
-  if (tt < iCae * VEL) {
-    foco = eInOut(tt / (iCae * VEL)) * iCae;          // arranca y llega suave al freno
-  } else if (tt < iCae * VEL + FRENO) {
-    foco = iCae;                                       // FRENA: es el punto de la sección
-  } else {
-    const d = tt - (iCae * VEL + FRENO), tramo2 = (n - 1 - iCae) * VEL;
-    foco = iCae + eInOut(clamp(d / tramo2, 0, 1)) * (n - 1 - iCae);
+
+  // avanzar paso por paso acumulando, con la pausa extra en el que falla
+  let foco = 0, acc = 0;
+  for (let i = 0; i < n; i++) {
+    const espera = LEE + (i === iCae ? EXTRA_CAE : 0);
+    if (tt < acc + espera) { foco = i; break; }        // quieto, leyendo este paso
+    acc += espera;
+    if (i === n - 1) { foco = n - 1; break; }
+    if (tt < acc + DESLIZA) { foco = i + eInOut((tt - acc) / DESLIZA); break; }
+    acc += DESLIZA;
+    foco = i + 1;
   }
   const originX = W * 0.30 - foco * step;  // el paso enfocado queda a la izquierda-centro
 
@@ -296,7 +302,7 @@ function drawJourney(ctx: CanvasRenderingContext2D, t: number, W: number, H: num
   // ── WARNING sobre el escalón que se cae
   if (Math.abs(foco - iCae) < 0.06) {
     const x = originX + iCae * step;
-    const ap = eoC(clamp((tt - iCae * VEL) / 340, 0, 1));
+    const ap = eoC(clamp((tt - (iCae * paso)) / 300, 0, 1));
     const txt = 'Acá se cae la mayoría';
     ctx.save();
     ctx.font = "700 12.5px 'Geist', system-ui, sans-serif";
@@ -384,10 +390,55 @@ function txtBold(ctx: CanvasRenderingContext2D, s: string, x: number, y: number,
   }
 }
 
+// cabecera de WhatsApp: avatar de MaKo, nombre, y los íconos de la derecha
+function waHeader(ctx: CanvasRenderingContext2D, W: number, h: number) {
+  ctx.save();
+  ctx.fillStyle = '#202C33'; ctx.fillRect(0, 0, W, h);
+  // avatar: badge oscuro con la estrella dorada
+  const cx = 26, cy = h / 2;
+  ctx.beginPath(); ctx.arc(cx, cy, 15, 0, Math.PI * 2); ctx.fillStyle = '#1A1712'; ctx.fill();
+  sparkle(ctx, cx, cy, 8, '#F2B01E');
+  ctx.fillStyle = '#E9EDEF'; ctx.font = "700 13px 'Geist', system-ui, sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('MaKo', 50, cy - 1);
+  ctx.fillStyle = 'rgba(233,237,239,0.55)'; ctx.font = "400 10.5px 'Geist', system-ui, sans-serif";
+  ctx.fillText('en línea', 50, cy + 12);
+  // íconos: videollamada, llamada, ⋮
+  ctx.strokeStyle = '#AEBAC1'; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const ix = W - 86;
+  rr(ctx, ix, cy - 6, 14, 12, 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ix + 15, cy - 3); ctx.lineTo(ix + 20, cy - 6); ctx.lineTo(ix + 20, cy + 6); ctx.lineTo(ix + 15, cy + 3); ctx.closePath(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ix + 36, cy - 6); ctx.lineTo(ix + 40, cy - 2); ctx.lineTo(ix + 37, cy + 1); ctx.lineTo(ix + 43, cy + 7); ctx.lineTo(ix + 46, cy + 4); ctx.stroke();
+  ctx.fillStyle = '#AEBAC1';
+  for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(W - 22, cy - 6 + k * 6, 1.6, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+// barra de abajo: +, sticker, "Escribe un mensaje", micrófono
+function waFooter(ctx: CanvasRenderingContext2D, W: number, H: number, h: number) {
+  const y = H - h;
+  ctx.save();
+  ctx.fillStyle = '#111B21'; ctx.fillRect(0, y, W, h);
+  const cy = y + h / 2;
+  ctx.strokeStyle = '#8696A0'; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(16, cy - 6); ctx.lineTo(16, cy + 6); ctx.moveTo(10, cy); ctx.lineTo(22, cy); ctx.stroke();  // +
+  ctx.beginPath(); ctx.arc(42, cy, 7, 0, Math.PI * 2); ctx.stroke();                                                      // sticker
+  ctx.beginPath(); ctx.arc(39.5, cy - 2, 1, 0, Math.PI * 2); ctx.arc(44.5, cy - 2, 1, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(42, cy + 1, 3.4, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+  rr(ctx, 58, cy - 13, W - 58 - 40, 26, 13); ctx.fillStyle = '#2A3942'; ctx.fill();                                       // campo
+  ctx.fillStyle = '#8696A0'; ctx.font = "400 11.5px 'Geist', system-ui, sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('Escribe un mensaje', 70, cy);
+  const mx = W - 22;                                                                                                       // micrófono
+  ctx.strokeStyle = '#8696A0'; rr(ctx, mx - 3.5, cy - 9, 7, 11, 3.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(mx, cy + 1, 6, 0, Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(mx, cy + 7); ctx.lineTo(mx, cy + 10); ctx.stroke();
+  ctx.restore();
+}
+
 function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
   ctx.save();
   ctx.fillStyle = WA_BG; ctx.fillRect(0, 0, W, H);
 
+  const HEAD = 48, FOOT = 46;
   const FS = 12.5, LH = 17, PAD = 9, RAD = 9, maxBub = W * 0.72;
   const PASO = 1400, LOOP = CHAT.length * PASO + 2600;
   const tt = t % LOOP;
@@ -400,10 +451,11 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number
     const l = wrap(ctx, m.t!, maxBub - PAD * 2 - 30);
     return { m, lineas: l, h: l.length * LH + PAD * 2 + 6 };
   });
-  // Anclado abajo: cuando ya no entra, los más viejos se van por arriba —
-  // igual que un chat de verdad.
+  // Anclado abajo (sobre la barra de escribir): cuando ya no entra, los más
+  // viejos se van por arriba — igual que un chat de verdad.
   let total = 0; for (let i = 0; i < vistos; i++) total += bloques[i].h + 8;
-  let y = H - 12 - total;
+  let y = H - FOOT - 10 - total;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, HEAD, W, H - HEAD - FOOT); ctx.clip();
 
   for (let i = 0; i < vistos; i++) {
     const b = bloques[i], m = b.m, mia = m.de === 'mako';
@@ -446,6 +498,9 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number
     ctx.restore();
     y += b.h + 8;
   }
+  ctx.restore();                       // fin del clip de la zona de mensajes
+  waHeader(ctx, W, HEAD);
+  waFooter(ctx, W, H, FOOT);
   ctx.restore();
 }
 
@@ -467,7 +522,7 @@ function ChatCanvas() {
     const onResize = () => size(); window.addEventListener('resize', onResize);
     return () => { dead = true; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
   }, []);
-  return <canvas ref={ref} style={{ width: '100%', height: 430, display: 'block', borderRadius: 14 }} />;
+  return <canvas ref={ref} style={{ width: '100%', height: 480, display: 'block', borderRadius: 14 }} />;
 }
 
 const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas, cxChat: ChatCanvas };

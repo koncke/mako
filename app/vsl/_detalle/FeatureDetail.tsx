@@ -17,18 +17,7 @@ import { Visual, type VisualSpec } from './Visual';
 import { FEATURE_VISUALS } from './feature-visuals';
 import PandaPlayer from './PandaPlayer';
 import CasoCarrusel from './CasoCarrusel';
-import { SHOWCASE_BY_SLUG } from '../showcase';
-
-// Color del tile de cada card, calcado de la landing principal (agrupa por
-// familia: azul = el núcleo, ámbar = publicidad/creativos, verde = dinero y
-// post-venta, gris = análisis). El resto cae a azul, como las cards inyectadas.
-const TONO: Record<string, [string, string]> = {
-  api: ['#FBF0DA', '#E0890C'], ads: ['#FBF0DA', '#E0890C'], script: ['#FBF0DA', '#E0890C'],
-  closing: ['#EEF0F4', '#3A4250'], experimentos: ['#EEF0F4', '#3A4250'],
-  seguimiento: ['#E7F5EC', '#1E9E57'], cobranza: ['#E7F5EC', '#1E9E57'],
-  contrato: ['#E7F5EC', '#1E9E57'], customer: ['#E7F5EC', '#1E9E57'],
-};
-const tono = (s: string): [string, string] => TONO[s] ?? ['#EAF1FE', '#2F6FED'];
+import { gridHtml } from './grid-landing';
 
 const CALENDLY = '/vsl#beta';
 
@@ -276,32 +265,9 @@ export default function FeatureDetail({ slug }: { slug: string }) {
             La feature ACTUAL aparece marcada "Tú estás aquí" y no es clickeable. */}
         <nav className="mk-more" aria-label="Otras funcionalidades">
           <h2 className="mk-more-h">Todo lo que tu VSL Funnel necesita, en una sola app</h2>
-          <div className="mk-more-grid">
-            {FEATURE_ORDER.map((s) => {
-              const o = FEATURES[s];
-              const [bg, fg] = tono(s);
-              const nombre = o.name.split(' — ')[0];
-              const hook = o.hook ?? SHOWCASE_BY_SLUG[s]?.hook ?? o.metaDesc;
-              const ic = <span className="mk-more-ic" style={{ background: bg, color: fg }}><Icon paths={o.icon} size={24} /></span>;
-              if (s === slug) {
-                return (
-                  <div key={s} className="mk-more-card mk-more-card-here" aria-current="page">
-                    {ic}
-                    <span className="mk-more-name">{nombre}</span>
-                    <span className="mk-more-hook">{hook}</span>
-                    <span className="mk-more-here">Estás acá</span>
-                  </div>
-                );
-              }
-              return (
-                <a key={s} href={`/vsl/${s}`} className="mk-more-card">
-                  {ic}
-                  <span className="mk-more-name">{nombre}</span>
-                  <span className="mk-more-hook">{hook}</span>
-                </a>
-              );
-            })}
-          </div>
+          {/* Las cards salen TAL CUAL de la landing principal (ver grid-landing.ts):
+              mismos colores de marca y misma card oscura de MaKo, sin copia paralela. */}
+          <div className="mk-more-grid" dangerouslySetInnerHTML={{ __html: gridHtml(slug) }} />
         </nav>
       </main>
 
