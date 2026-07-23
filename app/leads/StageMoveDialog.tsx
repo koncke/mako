@@ -23,6 +23,12 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 const compInput: CSSProperties = { width: '100%', padding: '12px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface-2)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none', textAlign: 'center' };
 
+// "dd/mm/aaaa" (formato del extractor de contratos) → "aaaa-mm-dd" (input date). '' si no matchea.
+const dmyaIso = (s: string): string => {
+  const m = (s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+};
+
 export type StageMoveTarget = { to: string; asistioJ1?: boolean | null; asistioJ2?: boolean | null };
 
 export type MoveLeadInfo = {
@@ -88,6 +94,21 @@ function BigChoice({ options, value, onPick }: { options: Array<{ v: string; lab
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// Motivo rápido: chips de opciones frecuentes (setean el texto) + campo abierto.
+function MotivoQuick({ value, onChange, sugerencias, placeholder }: { value: string; onChange: (v: string) => void; sugerencias: string[]; placeholder: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+        {sugerencias.map((s) => {
+          const active = value.trim().toLowerCase() === s.toLowerCase();
+          return <button key={s} type="button" onClick={() => onChange(s)} style={{ padding: '9px 15px', borderRadius: 11, fontSize: 13.5, fontWeight: 700, fontFamily: SANS, cursor: 'pointer', background: active ? 'var(--ink)' : 'var(--surface)', border: '1px solid ' + (active ? 'var(--ink)' : 'var(--border-strong)'), color: active ? '#F3F5F8' : 'var(--ink)' }}>{s}</button>;
+        })}
+      </div>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ ...compInput, minHeight: 64, textAlign: 'left', lineHeight: 1.5 }} />
     </div>
   );
 }
@@ -400,6 +421,14 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         setObPrestador((j.obligaciones.prestador ?? []).join('\n'));
         ok.add('dealObligaciones'); rell.push('obligaciones');
       }
+      // PLAN DE PAGOS del contrato — lo más importante del cierre. El extractor
+      // devuelve total_usd + cuotas [{monto, fecha dd/mm/aaaa}]; los cargamos si el
+      // usuario no puso nada a mano, y marcamos monto/plan resueltos.
+      if (j.total_usd != null && !monto.trim()) { setMonto(String(j.total_usd)); ok.add('monto'); rell.push('monto de cierre'); }
+      if (Array.isArray(j.cuotas) && j.cuotas.length && cuotas.every((c) => !c.monto.trim())) {
+        setCuotas(j.cuotas.map((c: { monto?: number | string | null; fecha?: string | null }) => ({ monto: c.monto != null ? String(c.monto) : '', fecha: dmyaIso(c.fecha ?? '') })));
+        ok.add('plan'); rell.push('plan de cuotas');
+      }
       setResueltos(ok);
       setDealReporte(rell.length ? rell.map((x) => `Se completó: ${x}`) : ['El contrato no aportó datos nuevos para completar. Cargá a mano.']);
     } catch (e) {
@@ -498,18 +527,18 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'motivoNoR1':
       pregunta = '¿Por qué no hubo Reunión 1?';
-      cuerpo = <textarea value={motivoNoR1} onChange={(e) => setMotivoNoR1(e.target.value)} placeholder="Ej: cerró directo por WhatsApp, cliente referido…" autoFocus style={{ ...compInput, minHeight: 80, textAlign: 'left', lineHeight: 1.5 }} />;
+      cuerpo = <MotivoQuick value={motivoNoR1} onChange={setMotivoNoR1} sugerencias={['Cerró en el primer contacto', 'Cliente referido', 'Cerró por WhatsApp', 'Ya conocía el servicio']} placeholder="Ej: cerró directo por WhatsApp, cliente referido…" />;
       break;
     case 'huboR2':
-      pregunta = '¿Hubo una Reunión 2, o cerraste en la R1?';
+      pregunta = '¿Hubo una Reunión 2?';
       sub = autoR2NoEncontrada
-        ? 'MaKo no encontró una Reunión 2 en Calendly ni Fathom. Confirmá: si cerraste en la primera llamada, elegí «Cerré en la R1».'
-        : 'Si cerraste en la primera llamada (sin una segunda reunión), elegí «Cerré en la R1».';
-      cuerpo = boolStep(huboR2, setHuboR2, 'Sí, hubo R2', 'Cerré en la R1 (sin R2)');
+        ? 'MaKo no encontró una Reunión 2 en Calendly ni Fathom. Si cerraste en la primera llamada, confirmá con «No hubo R2».'
+        : 'Si cerraste en la primera llamada (sin una segunda reunión), elegí «No hubo R2».';
+      cuerpo = boolStep(huboR2, setHuboR2, 'Sí, hubo R2', 'No hubo R2');
       break;
     case 'motivoNoR2':
       pregunta = '¿Por qué no hubo Reunión 2?';
-      cuerpo = <textarea value={motivoNoR2} onChange={(e) => setMotivoNoR2(e.target.value)} placeholder="Ej: cerró en la misma R1…" autoFocus style={{ ...compInput, minHeight: 80, textAlign: 'left', lineHeight: 1.5 }} />;
+      cuerpo = <MotivoQuick value={motivoNoR2} onChange={setMotivoNoR2} sugerencias={['Cerró en la R1', 'Cerró por WhatsApp', 'No hizo falta una R2', 'Se reprogramó']} placeholder="Ej: cerró en la misma R1…" />;
       break;
     case 'fechaJ1':
       pregunta = '¿Cuándo es (o fue) la Reunión 1?';
@@ -755,6 +784,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }
 
   const enResumen = paso === 'resumen';
+  // Mientras MaKo lee el contrato / busca en Calendly, se bloquea todo (no avanzar,
+  // no volver, no cerrar) y se muestra un loader que tapa el pop-up.
+  const busy = dealBusy || autoBusy;
 
   // Paso final tras guardar (P8): ver detalle o salir. No re-cierra solo.
   if (guardado) {
@@ -775,8 +807,16 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   }
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+    <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ position: 'relative', width: '100%', maxWidth: 640, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+
+        {/* Loader que BLOQUEA todo mientras lee el contrato / busca reuniones */}
+        {busy && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 10, background: 'rgba(255,255,255,.78)', backdropFilter: 'blur(1.5px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+            <span aria-hidden style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', boxSizing: 'border-box', animation: 'spin .7s linear infinite' }} />
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', fontFamily: SANS }}>{dealBusy ? 'Leyendo el contrato…' : 'Buscando en Calendly y Fathom…'}</span>
+          </div>
+        )}
 
         {/* Header: logo · dots de progreso · cerrar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px' }}>
@@ -786,7 +826,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
               <span key={p + i} style={{ width: i === idx ? 22 : 8, height: 8, borderRadius: 999, background: i === idx ? 'var(--primary)' : i < idx ? 'var(--primary-weak, #B9CDF8)' : 'var(--border)', transition: 'width .2s' }} />
             ))}
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14, fontFamily: SANS }}>✕</button>
+          <button onClick={busy ? undefined : onClose} aria-label="Cerrar" disabled={busy} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.4 : 1, fontSize: 14, fontFamily: SANS }}>✕</button>
         </div>
 
         {/* Cuerpo centrado: una pregunta por paso */}
@@ -801,11 +841,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 20px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-          <button onClick={atras} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← {visitados.length === 0 ? 'Cancelar' : 'Atrás'}</button>
+          <button onClick={atras} disabled={busy} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, fontFamily: SANS }}>← {visitados.length === 0 ? 'Cancelar' : 'Atrás'}</button>
           {enResumen ? (
-            <button onClick={confirmar} disabled={pending} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Confirmar y mover'}</button>
+            <button onClick={confirmar} disabled={pending || busy} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 14.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS, opacity: pending || busy ? 0.6 : 1 }}>{pending ? 'Guardando…' : 'Confirmar y mover'}</button>
           ) : (
-            <button onClick={avanzar} disabled={!respondido} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: respondido ? 'var(--primary)' : 'var(--border)', color: respondido ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: respondido ? 'pointer' : 'default', fontFamily: SANS }}>Siguiente →</button>
+            <button onClick={avanzar} disabled={!respondido || busy} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: respondido && !busy ? 'var(--primary)' : 'var(--border)', color: respondido && !busy ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: respondido && !busy ? 'pointer' : 'default', fontFamily: SANS }}>Siguiente →</button>
           )}
         </div>
       </div>
