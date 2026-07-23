@@ -62,7 +62,12 @@ const resolverDesdeCookies = cache(async (): Promise<number | null> => {
     if (sesion.legacy) return OWNER_WS;        // login compartido viejo / dev → dueño
     if (sesion.rol === 'admin') {
       const store = await cookies();
-      return leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value); // ws o null
+      const imp = leerImpersonacion(store.get(IMPERSONATE_COOKIE)?.value);
+      // Impersonación GANA (entrar-como un cliente). Si no impersona, el admin cae a
+      // SU PROPIO workspace (si tiene uno asignado) → así un super-admin con espacio
+      // propio (ej. Martín) entra a lo suyo por default, sin pisar al dueño. null solo
+      // si el admin no tiene workspace → ve el panel /admin (contrato de siempre).
+      return imp ?? sesion.ws ?? null;
     }
     return sesion.ws ?? null;                   // usuario → su workspace
   }
