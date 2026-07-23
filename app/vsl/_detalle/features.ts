@@ -30,6 +30,11 @@ export type Feature = {
   // PLACEHOLDER: demo/captura del hero (ej '/vsl-assets/crm-demo.png' o un .mp4).
   // Si queda vacío, se muestra un recuadro placeholder 16:9.
   heroImg?: string;
+  // Mini-VSL de la funcionalidad, alojado en Panda. Cuando está, el hero pasa a
+  // ser el video (centrado, a todo el ancho) y el `lead` se acorta: lo largo lo
+  // cuenta el video, no un párrafo. El player acepta `autoplay` y `color` por
+  // querystring (arranca muteado — es lo único que permiten los navegadores).
+  videoEmbed?: string;
   metaTitle: string;
   metaDesc: string;
 };
@@ -171,8 +176,9 @@ export const FEATURES: Record<string, Feature> = {
     slug: 'funnel',
     name: "Tu funnel en un solo lugar",
     icon: ICON["funnel"],
-    headline: "Tu negocio entero en una pantalla. Por primera vez. Configurás cómo avanza tu lead una vez y MaKo te arma el resto del embudo solo.",
-    lead: "Hoy, para ver cómo va tu funnel, abrís Meta, tu reproductor de VSL, el Excel de cobros, el píxel, tu CRM... <em>seis pestañas para entender una sola cosa</em>. <strong>MaKo</strong> conecta todo y te muestra <strong>la salud real de tu funnel en vivo</strong>, del primer clic al contrato firmado: Meta, tu landing, tu VSL, Calendly, WhatsApp y tus llamadas, <strong>conectados y actualizándose solos</strong>. Donde antes intuías, <strong>ahora ves</strong>. Y donde antes veías números sueltos, ahora ves qué significan. Porque el embudo real de un VSL Funnel no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las tres nutriciones de No-Show por reunión, la de No-Paga, la reactivación de fríos y la ventana de preparación pre-R2 — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. En MaKo vos editás solo la fila del pipeline activo y el resto del embudo <em>se deriva solo</em> según el tipo de cada etapa. Y esa misma config se convierte en tu tablero CRM, en las opciones de \"Datos sin marcar\", en tu onboarding y en el contexto que lee MaKo.",
+    headline: "Tu negocio entero en una pantalla.",
+    lead: "Hoy saltás entre seis pestañas para entender una sola cosa. <strong>MaKo conecta tu funnel completo</strong> — del primer clic al pago — y te lo muestra ordenado y en vivo.",
+    videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f&autoplay=true&color=%232F6FED",
     groups: [
       {
         title: "Editás una banda, el sistema deriva las otras dos",

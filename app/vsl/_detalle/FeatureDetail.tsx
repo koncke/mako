@@ -95,25 +95,52 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           Todas las funcionalidades
         </a>
 
-        {/* ── Hero: texto + gráfico ─────────────────────────────────────── */}
-        <div className="mk-hero-row">
-          <div className="mk-hero-text">
+        {/* ── Hero ─────────────────────────────────────────────────────────
+            Con mini-VSL: el video ES el hero (centrado, a todo el ancho) y el
+            texto de arriba es mínimo — lo largo lo cuenta el video.
+            Sin video: el layout clásico de dos columnas (texto + gráfico). */}
+        {f.videoEmbed ? (
+          <div className="mk-hero-vsl">
             <div className="mk-eyebrow">
               <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={22} /></span>
               <span className="mk-eyebrow-txt">{f.name}</span>
             </div>
             <h1 className="mk-h1">{f.headline}</h1>
             <p className="mk-lead" dangerouslySetInnerHTML={{ __html: f.lead }} />
+            <div className="mk-vsl">
+              <iframe
+                src={f.videoEmbed}
+                title={`${f.name} — cómo funciona`}
+                allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                allowFullScreen
+              />
+            </div>
             {f.conecta && (
-              <div className="mk-chips">
+              <div className="mk-chips mk-chips-c">
                 {f.conecta.map((c) => (<span key={c} className="mk-chip">{c}</span>))}
               </div>
             )}
           </div>
-          <div className="mk-hero-media">
-            <Panel spec={vis?.hero} hero />
+        ) : (
+          <div className="mk-hero-row">
+            <div className="mk-hero-text">
+              <div className="mk-eyebrow">
+                <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={22} /></span>
+                <span className="mk-eyebrow-txt">{f.name}</span>
+              </div>
+              <h1 className="mk-h1">{f.headline}</h1>
+              <p className="mk-lead" dangerouslySetInnerHTML={{ __html: f.lead }} />
+              {f.conecta && (
+                <div className="mk-chips">
+                  {f.conecta.map((c) => (<span key={c} className="mk-chip">{c}</span>))}
+                </div>
+              )}
+            </div>
+            <div className="mk-hero-media">
+              <Panel spec={vis?.hero} hero />
+            </div>
           </div>
-        </div>
+        )}
 
         <CtaBand />
 
@@ -232,6 +259,15 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .mk-chip { font-size: 13px; font-weight: 500; color: #2F6FED; background: #EAF1FE; padding: 6px 13px; border-radius: 8px; }
 
+/* Hero con mini-VSL: texto centrado y corto, el video ocupa todo el ancho */
+.mk-hero-vsl { text-align: center; }
+.mk-hero-vsl .mk-eyebrow { justify-content: center; }
+.mk-hero-vsl .mk-h1 { font-size: 46px; max-width: 900px; margin-left: auto; margin-right: auto; }
+.mk-hero-vsl .mk-lead { max-width: 700px; margin-left: auto; margin-right: auto; margin-bottom: 30px; }
+.mk-chips-c { justify-content: center; margin-top: 22px; }
+.mk-vsl { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 70px -32px rgba(23,26,33,.5); }
+.mk-vsl iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+
 /* Panel que envuelve cada gráfico */
 .mk-panel { border-radius: 18px; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E7ECF5; padding: 18px; }
 .mk-panel-hero { box-shadow: 0 24px 60px -30px rgba(47,111,237,.35); }
@@ -264,7 +300,7 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cta { background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; border-radius: 22px; padding: 40px 32px; text-align: center; }
 .mk-cta-h { font-size: 25px; font-weight: 600; letter-spacing: -0.01em; color: #12151B; }
 .mk-cta-p { margin: 8px 0 22px; font-size: 16px; line-height: 1.55; color: #5B6472; }
-.mk-hero-row + .mk-cta { margin-top: 40px; }
+.mk-hero-row + .mk-cta, .mk-hero-vsl + .mk-cta { margin-top: 40px; }
 .mk-cta-end { margin-top: 64px; }
 .mk-section-eyebrow { margin-top: 64px; }
 .mk-hero-row + .mk-cta + .mk-section-eyebrow { margin-top: 64px; }
