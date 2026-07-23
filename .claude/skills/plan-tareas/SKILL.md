@@ -74,10 +74,21 @@ prioridad (exagera, se encariña, no sabe priorizar).
   `opcion` (excluyente) · `escala` (1-5) · `comparacion` (A vs B).
   **Nada de preguntas abiertas**: siempre con opciones para tocar.
 
-## 3. Entregá el link y pará
+## 3. Entregá el link ENTERO (o abrilo) y pará
 
-Pasale `/plan/revisar/<id>`. Él contesta de a una, aplica, y recién ahí el Perro puntúa,
-describe los proyectos nuevos y arma las checklists. **No insertes nada más.**
+⚠️ **Nunca pases un path suelto** (`/plan/revisar/<id>`): no es clickeable y obliga a
+armarlo a mano. Pasá **la URL COMPLETA**, y si podés, abrila directamente.
+
+```js
+const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+const link = `${APP_URL}/plan/revisar/${id}`;   // ← esto es lo que se entrega
+```
+
+(Es el mismo `APP_URL` que usa `lib/mako-doer-acciones.ts` para los links de WhatsApp:
+mantené UNA sola forma de armarlo.)
+
+Él contesta de a una, aplica, y recién ahí el Perro puntúa, describe los proyectos nuevos
+y arma las checklists. **No insertes nada más.**
 
 ## Cuidados
 
