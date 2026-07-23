@@ -18,6 +18,12 @@ export type FeatureGroup = {
   // Logos reales (archivos de /vsl-assets/logos) en fila arriba de los bullets.
   // Nombrar una app y no mostrarla desaprovecha el reconocimiento que ya tiene.
   logos?: string[];
+  // Bloque de PREGUNTAS incómodas: cada fila lleva el logo de la app + su nombre
+  // + una pregunta que el dueño hoy NO puede responder rápido. El logo va
+  // MATCHEADO a su pregunta, no suelto arriba. Sigue el hilo del gatillo del VSL.
+  preguntaLead?: string;   // "¿Podés responderme esto rápido?"
+  preguntas?: { logo: string; app: string; q: string }[];
+  cierre?: string;         // "Todo esto lo resuelve MaKo…" (admite <strong>)
   // Puente a otra funcionalidad. Todo está conectado, así que a veces un bloque
   // roza otra feature: en vez de callarlo (y que el visitante se pierda la mitad
   // del valor porque solo entra a UNA landing) o de explicarlo acá (y mezclar),
@@ -199,20 +205,22 @@ export const FEATURES: Record<string, Feature> = {
     name: "Tu funnel en un solo lugar",
     icon: ICON["funnel"],
     headline: "Tu negocio entero en una pantalla.",
-    lead: "Hoy saltás entre seis pestañas para entender una sola cosa. <strong>MaKo conecta tu funnel completo</strong> — del primer clic al pago — y te lo muestra ordenado y en vivo.",
+    lead: "Te hago una pregunta incómoda: <strong>¿podés ver tu negocio entero ahora mismo?</strong>",
     videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f&autoplay=true&color=%232F6FED",
     groups: [
       {
-        title: "Todo lo que hoy vive en seis pestañas, junto",
-        bullets: [
-          "<strong>Meta</strong>: cuánto gastaste y a cuánta gente le llegó.",
-          "<strong>Tu landing y tu VSL</strong>: quién entró, cuántas veces volvió y hasta qué minuto miró.",
-          "<strong>Calendly</strong>: quién agendó, quién apareció y quién te dejó plantado.",
-          "<strong>WhatsApp y tus llamadas</strong>: cómo viene la conversación y qué se dijo de verdad.",
-          "Las conectás una vez y quedan hablando entre ellas. No exportás, no pegás y no rehacés ningún Excel.",
+        title: "Para ver la salud de tu negocio, hoy abrís seis pestañas distintas",
+        bullets: [],
+        preguntaLead: "¿Podés responderme esto rápido, sin abrir nada?",
+        preguntas: [
+          { logo: "meta.png", app: "Meta", q: "¿Sabés cuál es tu anuncio ganador y cuál deberías apagar hoy?" },
+          { logo: "landing.svg", app: "Tu landing", q: "¿Estás trackeando, lead por lead, cuántas veces entró cada uno?" },
+          { logo: "vsl.png", app: "Tu VSL", q: "¿Sabés qué porcentaje de retención miró cada lead, uno por uno?" },
+          { logo: "calendly.png", app: "Calendly", q: "Si un lead no asistió, ¿sabés si se le hizo el seguimiento por WhatsApp y por email?" },
+          { logo: "llamada.svg", app: "Tus llamadas", q: "¿Sabés por qué un lead no cerró, y tenés un proceso de revisión como closer?" },
         ],
-        logos: ["meta.png", "landing.svg", "vsl.png", "calendly.png", "whatsapp.png", "llamada.svg", "excel.svg"],
-        verMas: { texto: "Cómo se conectan — con tus propias llaves y tu propio saldo", href: "/vsl/integraciones", label: "Integraciones" },
+        cierre: "Todo esto lo resuelve <strong>MaKo</strong>. Conectás tus aplicaciones una sola vez y quedan hablando entre ellas. No exportás, no pegás y no rehacés: <strong>MaKo lo hace todo</strong>.",
+        verMas: { texto: "Descubrí cómo protegemos tus claves", href: "/vsl/integraciones", label: "Integraciones" },
       },
       {
         title: "El recorrido completo, del anuncio al pago",
@@ -222,7 +230,7 @@ export const FEATURES: Record<string, Feature> = {
           "Y como el recorrido termina en el pago, recién ahí sabés <strong>cuánto te costó un cliente de verdad</strong> — no cuánto te costó un lead.",
           "No es la foto de ayer: se actualiza solo mientras trabajás.",
         ],
-        verMas: { texto: "Y cuánto de todo eso ya está cobrado de verdad", href: "/vsl/cobranza", label: "Cobranza y Revenue real" },
+        verMas: { texto: "Y cuánto de todo eso ya está cobrado", href: "/vsl/cobranza", label: "Cobranza y Revenue real" },
       },
       {
         title: "Y no solo el total: persona por persona",
@@ -235,21 +243,8 @@ export const FEATURES: Record<string, Feature> = {
         verMas: { texto: "Y qué mandarle según hasta dónde llegó", href: "/vsl/seguimiento", label: "Seguimiento automático" },
       },
     ],
-    caso: {
-      video: "/vsl-assets/mauricio-funnel.mp4",
-      quote: "La misma oferta. Lo único que cambió fue que empezó a decidir con datos.",
-      nombre: "Mauricio",
-      contexto: "Ya vendía. Tenía todo en un Excel que armaba de nuevo cada vez: miraba Meta, después Calendly, y el resto lo cargaba uno por uno.",
-      datos: [
-        { valor: "+$70k", label: "en 3 meses, desde menos de $10k" },
-        { valor: "×20", label: "su inversión en ads, sin que cayera el ROAS" },
-        { valor: "1", label: "sola pantalla, en vez de seis pestañas" },
-      ],
-    },
-    objecion: {
-      titulo: "\"Pero yo ya tengo mis números\"",
-      cuerpo: "Claro que los tenés. Repartidos en un montón de aplicaciones que no se hablan entre sí. Y eso no es tener tu negocio: <strong>es tener pedazos</strong>. Tu negocio no está roto. Está desparramado.",
-    },
+    // El caso de Mauricio y la objeción ya viven en la sección compartida (igual
+    // que la landing principal) y en el VSL — no se repiten acá.
     quote: "El mismo negocio, en una sola pantalla.",
     nota: "Vivo y en producción: las fuentes se conectan, el recorrido se arma solo y el comportamiento por lead se mide desde que la persona entra a tu landing. Lo único que no podemos reconstruir es el pasado: un lead que entró antes de conectar el tracking no tiene historial, y no hay forma de inventarlo.",
     metaTitle: "Funnel MaKo: todo tu negocio conectado en una pantalla",

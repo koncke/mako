@@ -10,17 +10,38 @@
 
 import { useEffect, useRef } from 'react';
 
-type Logo = { type: string; color: string; label: string; fx: number; fy: number; slot: number };
+type Logo = { type: string; color: string; label: string; fx: number; fy: number; slot: number; img: string };
+// 10 logos REALES de empresas (PNG en /vsl-assets/logos) — los mismos del VSL.
 const LOGOS: Logo[] = [
-  { type: 'meta', color: '#0866FF', label: '¿Meta?', fx: 0.14, fy: 0.30, slot: 0 },
-  { type: 'claude', color: '#D97757', label: '¿Claude?', fx: 0.39, fy: 0.21, slot: 2 },
-  { type: 'gdocs', color: '#4285F4', label: '¿Google Docs?', fx: 0.62, fy: 0.25, slot: 4 },
-  { type: 'youtube', color: '#FF0000', label: '¿YouTube?', fx: 0.86, fy: 0.31, slot: 6 },
-  { type: 'whatsapp', color: '#25D366', label: '¿WhatsApp?', fx: 0.16, fy: 0.74, slot: 1 },
-  { type: 'gmail', color: '#EA4335', label: '¿Gmail?', fx: 0.41, fy: 0.79, slot: 3 },
-  { type: 'calendly', color: '#006BFF', label: '¿Calendly?', fx: 0.64, fy: 0.77, slot: 5 },
-  { type: 'gsheets', color: '#0F9D58', label: '¿Google Sheets?', fx: 0.87, fy: 0.70, slot: 7 },
+  { type: 'meta', color: '#0866FF', label: '¿Meta?', fx: 0.13, fy: 0.26, slot: 0, img: 'meta.png' },
+  { type: 'youtube', color: '#FF0000', label: '¿YouTube?', fx: 0.37, fy: 0.17, slot: 2, img: 'youtube.png' },
+  { type: 'gmail', color: '#EA4335', label: '¿Gmail?', fx: 0.62, fy: 0.19, slot: 4, img: 'gmail.png' },
+  { type: 'gdocs', color: '#4285F4', label: '¿Docs?', fx: 0.86, fy: 0.27, slot: 6, img: 'docs.png' },
+  { type: 'meet', color: '#00832D', label: '¿Meet?', fx: 0.10, fy: 0.55, slot: 8, img: 'meet.png' },
+  { type: 'gsheets', color: '#0F9D58', label: '¿Sheets?', fx: 0.90, fy: 0.55, slot: 9, img: 'sheets.png' },
+  { type: 'whatsapp', color: '#25D366', label: '¿WhatsApp?', fx: 0.15, fy: 0.80, slot: 1, img: 'whatsapp.png' },
+  { type: 'calendly', color: '#006BFF', label: '¿Calendly?', fx: 0.40, fy: 0.84, slot: 3, img: 'calendly.png' },
+  { type: 'claude', color: '#D97757', label: '¿Claude?', fx: 0.64, fy: 0.84, slot: 5, img: 'claude.png' },
+  { type: 'panda', color: '#111111', label: '¿Panda?', fx: 0.88, fy: 0.80, slot: 7, img: 'panda.png' },
 ];
+
+// Caché de imágenes de logos, cargadas una vez a nivel de módulo. Como la
+// animación va en bucle, apenas cargan aparecen dibujadas.
+const LOGO_IMG: Record<string, HTMLImageElement> = {};
+let logosLoading = false;
+function ensureLogos() {
+  if (logosLoading || typeof window === 'undefined') return;
+  logosLoading = true;
+  for (const L of LOGOS) {
+    const im = new Image();
+    im.src = `/vsl-assets/logos/${L.img}`;
+    LOGO_IMG[L.type] = im;
+  }
+}
+function logoReady(type: string): HTMLImageElement | null {
+  const im = LOGO_IMG[type];
+  return im && im.complete && im.naturalWidth > 0 ? im : null;
+}
 const appearStart = 300, appearStep = 330, appearDur = 360;
 const lblFadeStart = 3250, lblFadeDur = 360;
 const convStart = 3550, collideEnd = 4520;
@@ -60,7 +81,17 @@ function chip(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, 
   ctx.save(); ctx.shadowColor = 'rgba(16,19,25,0.20)'; ctx.shadowBlur = s * 0.34; ctx.shadowOffsetY = s * 0.13;
   ctx.fillStyle = '#fff'; rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.fill(); ctx.restore();
   ctx.strokeStyle = 'rgba(16,19,25,0.07)'; ctx.lineWidth = 1; rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.stroke();
-  drawIcon(ctx, type, s, color); ctx.restore();
+  const im = logoReady(type);
+  if (im) {
+    // logo real, encajado dentro del tile con padding
+    const box = s * 0.62, iw = im.naturalWidth, ih = im.naturalHeight, fit = box / Math.max(iw, ih);
+    const w = iw * fit, h = ih * fit;
+    ctx.save(); rr(ctx, -s / 2, -s / 2, s, s, s * 0.27); ctx.clip();
+    ctx.drawImage(im, -w / 2, -h / 2, w, h); ctx.restore();
+  } else {
+    drawIcon(ctx, type, s, color); // fallback mientras carga
+  }
+  ctx.restore();
 }
 function sparkle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
   const k = r / 11; ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k);
@@ -135,6 +166,7 @@ function ConnectCanvas() {
   useEffect(() => {
     const canvas = ref.current; if (!canvas) return;
     const ctx = canvas.getContext('2d'); if (!ctx) return;
+    ensureLogos();
     const c = canvas as HTMLCanvasElement & { _w: number; _h: number; _dpr: number };
     let raf = 0, t0: number | null = null, dead = false;
     const size = () => {

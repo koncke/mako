@@ -15,6 +15,7 @@ import type { Metadata } from 'next';
 import { FEATURES, FEATURE_ORDER, type Feature } from './features';
 import { Visual, type VisualSpec } from './Visual';
 import { FEATURE_VISUALS } from './feature-visuals';
+import PandaPlayer from './PandaPlayer';
 
 const CALENDLY = '/vsl#beta';
 
@@ -63,6 +64,36 @@ function Panel({ spec, hero = false }: { spec: VisualSpec | undefined; hero?: bo
   );
 }
 
+// Caso de éxito de Mauricio — IDÉNTICO en todas las features (copiado de la
+// landing principal /vsl #historia). Es la prueba, y la prueba es la misma para
+// todo el producto: no cambia por funcionalidad.
+function CasoMauricio() {
+  return (
+    <section className="mk-hist">
+      <div className="mk-hist-head">
+        <h2 className="mk-hist-h">De meses por debajo de <span className="mk-nowrap">$10k USD</span> a más de <span className="mk-mark">$70k USD</span> en tres meses.</h2>
+        <p className="mk-hist-sub">Sin cambiar la oferta. Sin cambiar el funnel.</p>
+      </div>
+      <div className="mk-hist-row">
+        <div className="mk-hist-vidcol">
+          <div className="mk-hist-vid">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video muted autoPlay loop playsInline preload="metadata"><source src="/vsl-assets/mauricio.mp4" type="video/mp4" /></video>
+            <span className="mk-hist-badge"><span className="mk-hist-dot" />Mauricio, en vivo</span>
+          </div>
+        </div>
+        <div className="mk-hist-txt">
+          <p>Mauricio no era ningún novato. Más de 20 años de trayectoria, más de 30 mil seguidores y videos con <strong>millones de vistas</strong>. <em>Desde afuera, todo parecía estar bien.</em></p>
+          <p>Pero vendía por impulsos: un mes bien, dos flojos, y nunca sabía por qué. Miraba Meta por un lado, Calendly por otro, y el resto lo cargaba a mano en un Excel que rehacía cada vez.</p>
+          <div className="mk-hist-result">
+            El resultado: de meses por debajo de los <strong>$10k</strong> a más de <strong>$70k en tres meses</strong>, de forma consistente. 14k en abril, 20k en mayo, +40k en junio. La misma oferta. El mismo funnel. <strong>Lo único que cambió fue que empezó a decidir con datos.</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function FeatureDetail({ slug }: { slug: string }) {
   const f: Feature | undefined = FEATURES[slug];
   if (!f) return null;
@@ -90,48 +121,38 @@ export default function FeatureDetail({ slug }: { slug: string }) {
       </header>
 
       <main className="mk-det-main">
-        <a href={`/vsl#feat-${slug}`} className="mk-back">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
-          Todas las funcionalidades
-        </a>
+        {/* Fila de volver: link a la izquierda, nombre de la feature a la DERECHA
+            (a la misma altura), para que no compita con el h1 del hero. */}
+        <div className="mk-toprow">
+          <a href={`/vsl#feat-${slug}`} className="mk-back">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6l6 6" /></svg>
+            Todas las funcionalidades
+          </a>
+          <div className="mk-eyebrow mk-eyebrow-top">
+            <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={20} /></span>
+            <span className="mk-eyebrow-txt">{f.name}</span>
+          </div>
+        </div>
 
-        {/* ── Hero ─────────────────────────────────────────────────────────
-            Con mini-VSL: el video ES el hero (centrado, a todo el ancho) y el
-            texto de arriba es mínimo — lo largo lo cuenta el video.
-            Sin video: el layout clásico de dos columnas (texto + gráfico). */}
+        {/* ── Hero: texto + CTA · video (o gráfico) ─────────────────────────── */}
         {f.videoEmbed ? (
-          /* Mismo hero que la landing: texto + CTA a la izquierda, video a la
-             derecha. Con el botón acá arriba, la banda de CTA del hero sobra. */
           <div className="mk-hero-row mk-hero-v">
             <div className="mk-hero-text">
-              <div className="mk-eyebrow">
-                <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={22} /></span>
-                <span className="mk-eyebrow-txt">{f.name}</span>
-              </div>
               <h1 className="mk-h1">{f.headline}</h1>
-              <p className="mk-lead" dangerouslySetInnerHTML={{ __html: f.lead }} />
+              <p className="mk-lead mk-lead-punch" dangerouslySetInnerHTML={{ __html: f.lead }} />
               <a href={CALENDLY} className="mk-btn-hero"><CalIcon />Agenda tu llamada</a>
               <p className="mk-hero-nota">Diagnóstico gratuito de tu VSL Funnel</p>
             </div>
             <div className="mk-hero-media">
               <div className="mk-vsl">
                 <span className="mk-cor tl" /><span className="mk-cor tr" /><span className="mk-cor bl" /><span className="mk-cor br" />
-                <iframe
-                  src={f.videoEmbed}
-                  title={`${f.name} — cómo funciona`}
-                  allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
+                <PandaPlayer src={f.videoEmbed} title={`${f.name} — cómo funciona`} />
               </div>
             </div>
           </div>
         ) : (
           <div className="mk-hero-row">
             <div className="mk-hero-text">
-              <div className="mk-eyebrow">
-                <span className="mk-eyebrow-tile"><Icon paths={f.icon} size={22} /></span>
-                <span className="mk-eyebrow-txt">{f.name}</span>
-              </div>
               <h1 className="mk-h1">{f.headline}</h1>
               <p className="mk-lead" dangerouslySetInnerHTML={{ __html: f.lead }} />
               {f.conecta && (
@@ -146,14 +167,10 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           </div>
         )}
 
-        {/* Con video, el CTA ya está en el hero: esta banda sería el mismo botón
-            dos veces en la misma pantalla. */}
         {!f.videoEmbed && <CtaBand />}
 
-        {/* ── Cómo funciona: filas alternadas gráfico/texto ─────────────────── */}
-        {/* Sin H2 genérico: "Todo lo que hace por vos" seguido del título del
-            primer bloque eran dos titulares diciendo lo mismo. */}
-        <div className="mk-section-eyebrow mk-section-eyebrow-solo">Cómo funciona</div>
+        {/* ── Cómo funciona (título principal) ──────────────────────────────── */}
+        <h2 className="mk-como-h">Cómo funciona</h2>
 
         <div className="mk-rows">
           {f.groups.map((g, i) => (
@@ -163,23 +180,36 @@ export default function FeatureDetail({ slug }: { slug: string }) {
                   <span className="mk-cap-num">{String(i + 1).padStart(2, '0')}</span>
                   <h3 className="mk-cap-title">{g.title}</h3>
                 </div>
-                {g.logos && (
-                  <div className="mk-logos">
-                    {g.logos.map((l) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={l} src={`/vsl-assets/logos/${l}`} alt="" className="mk-logo-tile" />
+
+                {/* Bloque de preguntas incómodas: logo + app + pregunta */}
+                {g.preguntas ? (
+                  <>
+                    {g.preguntaLead && <p className="mk-preg-lead">{g.preguntaLead}</p>}
+                    <ul className="mk-preg-list">
+                      {g.preguntas.map((p, j) => (
+                        <li key={j} className="mk-preg">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/vsl-assets/logos/${p.logo}`} alt="" className="mk-preg-logo" />
+                          <div className="mk-preg-body">
+                            <span className="mk-preg-app">{p.app}</span>
+                            <span className="mk-preg-q">{p.q}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {g.cierre && <p className="mk-preg-cierre" dangerouslySetInnerHTML={{ __html: g.cierre }} />}
+                  </>
+                ) : (
+                  <ul className="mk-cap-list">
+                    {g.bullets.map((b, j) => (
+                      <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
                     ))}
-                  </div>
+                  </ul>
                 )}
-                <ul className="mk-cap-list">
-                  {g.bullets.map((b, j) => (
-                    <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
-                  ))}
-                </ul>
+
                 {g.verMas && (
                   <a href={g.verMas.href} className="mk-vermas">
-                    <span className="mk-vermas-t">{g.verMas.texto}</span>
-                    <span className="mk-vermas-l">{g.verMas.label} →</span>
+                    {g.verMas.texto} <span className="mk-vermas-l">{g.verMas.label} →</span>
                   </a>
                 )}
               </div>
@@ -187,40 +217,6 @@ export default function FeatureDetail({ slug }: { slug: string }) {
             </div>
           ))}
         </div>
-
-        {/* ── Caso real (prueba) ───────────────────────────────────────────── */}
-        {f.caso && (
-          <section className="mk-caso">
-            {f.caso.video && (
-              <div className="mk-caso-vid">
-                <span className="mk-cor tl" /><span className="mk-cor tr" /><span className="mk-cor bl" /><span className="mk-cor br" />
-                <video src={f.caso.video} muted loop playsInline autoPlay preload="metadata" />
-              </div>
-            )}
-            <div className="mk-caso-txt">
-              <div className="mk-section-eyebrow mk-caso-eyebrow">No es teoría</div>
-              <blockquote className="mk-caso-q">{f.caso.quote}</blockquote>
-              <p className="mk-caso-ctx">{f.caso.contexto}</p>
-              <div className="mk-caso-datos">
-                {f.caso.datos.map((d) => (
-                  <div key={d.label} className="mk-dato">
-                    <span className="mk-dato-v">{d.valor}</span>
-                    <span className="mk-dato-l">{d.label}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mk-caso-nom">— {f.caso.nombre}</div>
-            </div>
-          </section>
-        )}
-
-        {/* ── Objeción ─────────────────────────────────────────────────────── */}
-        {f.objecion && (
-          <section className="mk-obj">
-            <h3 className="mk-obj-h">{f.objecion.titulo}</h3>
-            <p className="mk-obj-p" dangerouslySetInnerHTML={{ __html: f.objecion.cuerpo }} />
-          </section>
-        )}
 
         {f.quote && <blockquote className="mk-quote">{f.quote}</blockquote>}
 
@@ -231,8 +227,11 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           </div>
         )}
 
-        {/* ── CTA band (cierre) ────────────────────────────────────────────── */}
+        {/* ── CTA band (siempre después de Cómo funciona) ───────────────────── */}
         <div className="mk-cta-end"><CtaBand /></div>
+
+        {/* ── Caso Mauricio: idéntico en todas las features (como la landing) ── */}
+        <CasoMauricio />
 
         {/* ── Resto de funcionalidades ─────────────────────────────────────── */}
         <nav className="mk-more" aria-label="Otras funcionalidades">
@@ -296,8 +295,11 @@ body:has(.mk-det) aside { display: none !important; }
 
 .mk-det-main { max-width: 1060px; margin: 0 auto; padding: 40px 28px 40px; }
 
-.mk-back { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: #5B6472; text-decoration: none; margin-bottom: 30px; }
+.mk-toprow { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 30px; }
+.mk-back { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: #5B6472; text-decoration: none; }
 .mk-back:hover { color: #2F6FED; }
+.mk-eyebrow-top { margin-bottom: 0; }
+.mk-eyebrow-top .mk-eyebrow-tile { width: 34px; height: 34px; border-radius: 9px; }
 
 /* Hero: texto + gráfico */
 .mk-hero-row { display: flex; gap: 44px; align-items: center; }
@@ -314,11 +316,16 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .mk-chip { font-size: 13px; font-weight: 500; color: #2F6FED; background: #EAF1FE; padding: 6px 13px; border-radius: 8px; }
 
-/* Hero con mini-VSL: mismo layout que la landing (texto + CTA · video) */
-.mk-hero-v .mk-hero-text { flex: 0 1 452px; min-width: 280px; }
-.mk-hero-v .mk-hero-media { flex: 1 1 auto; min-width: 320px; }
+/* Hero con mini-VSL: mismo layout que la landing (texto + CTA · video).
+   El video pesa más que el texto — es lo que engancha. */
+.mk-hero-v { align-items: center; }
+.mk-hero-v .mk-hero-text { flex: 0 1 400px; min-width: 280px; }
+.mk-hero-v .mk-hero-media { flex: 1.25 1 540px; min-width: 340px; }
 .mk-hero-v .mk-h1 { font-size: 44px; }
 .mk-hero-v .mk-lead { margin-bottom: 30px; }
+/* Subtítulo impactante: grande, el gatillo en color, sin explicar de más. */
+.mk-lead-punch { font-size: 21px; line-height: 1.5; color: #48505E; }
+.mk-lead-punch strong { color: #2F6FED; font-weight: 700; }
 .mk-btn-hero { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 420px; padding: 17px 30px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 16px 34px -14px rgba(47,111,237,.55); }
 .mk-hero-nota { margin: 13px 0 0; font-size: 14px; color: #98A0AC; }
 .mk-vsl { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 70px -32px rgba(23,26,33,.5); }
@@ -332,6 +339,9 @@ body:has(.mk-det) aside { display: none !important; }
 
 .mk-section-eyebrow { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #2F6FED; margin: 0 0 10px; }
 .mk-section-h { margin: 0 0 30px; font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; color: #12151B; }
+
+/* "Cómo funciona" como título principal de la sección */
+.mk-como-h { margin: 72px 0 8px; font-size: 38px; line-height: 1.12; letter-spacing: -0.025em; font-weight: 600; color: #12151B; text-align: center; }
 
 /* Filas alternadas gráfico/texto.
    Cada bloque alterna el color de fondo a TODO EL ANCHO (la banda se sale del
@@ -354,43 +364,52 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cap-li em { font-style: italic; }
 .mk-check { color: #2F6FED; flex: none; margin-top: 2px; }
 
-/* Fila de logos reales arriba de los bullets */
-.mk-logos { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-.mk-logo-tile { width: 42px; height: 42px; object-fit: contain; padding: 8px; border-radius: 11px; background: #fff; border: 1px solid #E7ECF5; }
+/* Bloque de preguntas incómodas: logo + app + pregunta */
+.mk-preg-lead { margin: 0 0 16px; font-size: 16px; font-weight: 600; color: #12151B; }
+.mk-preg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.mk-preg { display: flex; align-items: center; gap: 13px; padding: 12px 14px; border-radius: 13px; background: #fff; border: 1px solid #E7ECF5; }
+.mk-preg-logo { width: 30px; height: 30px; object-fit: contain; flex: none; }
+.mk-preg-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mk-preg-app { font-size: 12px; font-weight: 700; letter-spacing: .02em; color: #2F6FED; text-transform: uppercase; }
+.mk-preg-q { font-size: 15px; line-height: 1.45; color: #2E3646; }
+.mk-preg-cierre { margin: 20px 0 0; font-size: 16px; line-height: 1.6; color: #454C58; }
+.mk-preg-cierre strong { font-weight: 600; color: #12151B; }
 
-/* Puente a otra funcionalidad */
-.mk-vermas { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 18px; padding: 12px 15px; border-radius: 12px; background: #F4F7FD; border: 1px solid #E1E9F8; text-decoration: none; }
-.mk-vermas:hover { border-color: #BFD3F7; }
-.mk-vermas-t { font-size: 14px; color: #5B6472; }
-.mk-vermas-l { font-size: 14px; font-weight: 600; color: #2F6FED; white-space: nowrap; }
+/* Puente a otra funcionalidad — SIEMPRE una línea */
+.mk-vermas { display: inline-flex; align-items: baseline; gap: 8px; margin-top: 20px; font-size: 14px; color: #5B6472; text-decoration: none; }
+.mk-vermas:hover .mk-vermas-l { text-decoration: underline; }
+.mk-vermas-l { font-weight: 600; color: #2F6FED; white-space: nowrap; }
 
-/* Caso real */
-.mk-caso { display: flex; gap: 36px; align-items: center; margin-top: 64px; padding: 30px; border-radius: 22px; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; }
-.mk-caso-vid { position: relative; flex: none; width: 260px; aspect-ratio: 9 / 15.6; border-radius: 16px; overflow: hidden; background: #0B0D12; }
-.mk-caso-vid video { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* Blancas sobre el video del caso (imagen oscura); oscuras sobre el mini-VSL,
-   que es de fondo blanco y se las comía. */
+/* Esquinas del marco: blancas sobre imagen oscura (video del caso), oscuras
+   sobre el mini-VSL (fondo blanco) que se las comía. */
 .mk-cor { position: absolute; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.75); z-index: 2; }
-.mk-vsl .mk-cor { border-color: rgba(23,26,33,.30); }
+.mk-vsl .mk-cor { border-color: rgba(23,26,33,.28); }
 .mk-cor.tl { top: 9px; left: 9px; border-right: 0; border-bottom: 0; }
 .mk-cor.tr { top: 9px; right: 9px; border-left: 0; border-bottom: 0; }
 .mk-cor.bl { bottom: 9px; left: 9px; border-right: 0; border-top: 0; }
 .mk-cor.br { bottom: 9px; right: 9px; border-left: 0; border-top: 0; }
-.mk-caso-txt { flex: 1 1 0; min-width: 0; }
-.mk-caso-eyebrow { margin-top: 0 !important; }
-.mk-caso-q { margin: 0 0 14px; font-size: 22px; line-height: 1.4; font-style: italic; font-weight: 500; color: #12151B; }
-.mk-caso-ctx { margin: 0 0 22px; font-size: 15.5px; line-height: 1.6; color: #5B6472; }
-.mk-caso-datos { display: flex; flex-wrap: wrap; gap: 26px; }
-.mk-dato { display: flex; flex-direction: column; gap: 2px; }
-.mk-dato-v { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; color: #2F6FED; }
-.mk-dato-l { font-size: 13px; line-height: 1.35; color: #5B6472; max-width: 190px; }
-.mk-caso-nom { margin-top: 20px; font-size: 14px; font-weight: 600; color: #12151B; }
 
-/* Objeción */
-.mk-obj { max-width: 820px; margin: 56px auto 0; }
-.mk-obj-h { margin: 0 0 12px; font-size: 24px; line-height: 1.25; letter-spacing: -0.015em; font-weight: 600; color: #12151B; }
-.mk-obj-p { margin: 0; font-size: 17px; line-height: 1.65; color: #48505E; }
-.mk-obj-p strong { font-weight: 600; color: #12151B; }
+/* Caso Mauricio (idéntico a la landing principal) */
+.mk-hist { margin: 76px 0 0; padding: 68px 0; position: relative; }
+.mk-hist::before { content: ''; position: absolute; inset: 0; left: 50%; width: 100vw; transform: translateX(-50%); background: #F5F7FA; border-top: 1px solid #EEF0F3; border-bottom: 1px solid #EEF0F3; }
+.mk-hist > * { position: relative; }
+.mk-hist-head { text-align: center; max-width: 860px; margin: 0 auto 48px; }
+.mk-hist-h { margin: 0; font-size: 33px; line-height: 1.22; letter-spacing: -0.025em; font-weight: 600; color: #12151B; text-wrap: balance; }
+.mk-nowrap { white-space: nowrap; }
+.mk-mark { background: linear-gradient(transparent 55%, rgba(47,111,237,.2) 55%); }
+.mk-hist-sub { margin: 15px 0 0; font-size: 18px; font-weight: 500; color: #5B6472; }
+.mk-hist-row { display: flex; flex-wrap: wrap; gap: 44px; align-items: flex-start; }
+.mk-hist-vidcol { flex: 1 1 300px; min-width: 260px; max-width: 380px; }
+.mk-hist-vid { position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: #101319; box-shadow: 0 24px 50px -28px rgba(16,19,25,.45); }
+.mk-hist-vid video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mk-hist-badge { position: absolute; top: 13px; left: 13px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: rgba(16,19,25,.5); backdrop-filter: blur(6px); font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: rgba(236,239,244,.9); }
+.mk-hist-dot { width: 6px; height: 6px; border-radius: 50%; background: #ED6A5E; }
+.mk-hist-txt { flex: 1 1 440px; min-width: 300px; display: flex; flex-direction: column; gap: 15px; }
+.mk-hist-txt p { margin: 0; font-size: 16.5px; line-height: 1.68; color: #4A515E; }
+.mk-hist-txt strong { font-weight: 600; color: #12151B; }
+.mk-hist-txt em { font-style: italic; }
+.mk-hist-result { margin-top: 4px; padding: 20px 22px; border-radius: 14px; background: #fff; border-left: 3px solid #2F6FED; box-shadow: 0 16px 40px -26px rgba(47,111,237,.45); font-size: 16.5px; line-height: 1.6; color: #2E3646; }
+.mk-hist-result strong { color: #12151B; font-weight: 600; }
 
 .mk-quote { max-width: 820px; margin: 44px auto 0; padding: 6px 0 6px 20px; border-left: 3px solid #2F6FED; font-size: 19px; line-height: 1.5; font-style: italic; font-weight: 500; color: #2E3646; }
 
@@ -423,13 +442,16 @@ body:has(.mk-det) aside { display: none !important; }
 @media (max-width: 860px) {
   .mk-hero-row, .mk-row, .mk-row-rev { flex-direction: column; gap: 24px; align-items: stretch; }
   .mk-hero-text { order: 0; }
-  .mk-caso { flex-direction: column; gap: 24px; align-items: stretch; padding: 22px; }
-  .mk-caso-vid { width: 100%; max-width: 260px; margin: 0 auto; }
+  .mk-hist-vidcol { max-width: 320px; margin: 0 auto; }
 }
 @media (max-width: 768px) {
   .mk-det-main { padding: 30px 20px 30px; }
+  .mk-toprow { flex-wrap: wrap; gap: 10px; }
   .mk-h1 { font-size: 31px; }
   .mk-lead { font-size: 17px; }
+  .mk-lead-punch { font-size: 19px; }
+  .mk-como-h { font-size: 30px; margin-top: 52px; }
+  .mk-hist-h { font-size: 27px; }
   .mk-section-h { font-size: 24px; }
   .mk-cta { padding: 32px 22px; }
   .mk-more-grid { grid-template-columns: repeat(2,1fr); }

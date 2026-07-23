@@ -51,6 +51,13 @@ export type CapaDef = {
    */
   categoriasIntegraciones: string[] | null;
   /**
+   * KEYS puntuales de integración que la capa NO ve, aunque su categoría esté
+   * habilitada. Para el super-admin: ve la categoría Datos (por Panda, mide su
+   * propio VSL) pero no YouTube; ve Reuniones (por Fathom, sus llamadas) pero no
+   * Calendly ni Google Calendar — no agenda R1/R2 de leads de un funnel ajeno.
+   */
+  integracionesOcultas?: string[];
+  /**
    * ¿Se le siembra el board con los proyectos de un negocio VSL (Meta Ads,
    * anuncio ganador, funnel…)? Para quien compró solo el Plan eso es ruido de
    * otro negocio: arranca con el board limpio y crea sus proyectos con MaKo.
@@ -116,7 +123,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Sus IA, la voz, sus reuniones (Fathom) — y Datos: el super-admin SÍ mide su
     // propio VSL. Los mini-VSL de cada funcionalidad viven en Panda y /vsl trackea
     // landing + retención, así que necesita poder conectar Panda desde acá.
-    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Reuniones', 'Datos'],
+    categoriasIntegraciones: ['Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Datos'],
+    // …pero no las tres que son de un funnel de ventas de leads: YouTube (mide un
+    // VSL en YT), Calendly y Google Calendar (agenda R1/R2). El super-admin no las usa.
+    integracionesOcultas: ['youtube', 'calendly', 'google'],
     seedBoardVsl: false,
   },
 };

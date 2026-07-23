@@ -11,7 +11,8 @@ import { credWs } from './credenciales';
 import { landingRecibioEventos } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
-import { getCapaActual } from './workspace';
+import { getCapaActual, getWorkspaceActual } from './workspace';
+import { getAgenteToken } from './agente-token';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -60,6 +61,10 @@ const DEFS: Def[] = [
   // estadoLanding). El usuario no pega credenciales: copia un <script> con su
   // token y lo pega donde tenga la landing (Lovable, Framer, Webflow, WP…).
   { key: 'landing', nombre: 'Landing / VSL', categoria: 'Datos', descripcion: 'Mide visitas y retención del VSL desde tu landing, esté donde esté.', envs: [] },
+  // Agente (Claude Code): como la landing, no se configura con una API key — se
+  // instala una skill del lado del usuario y se conecta con un token. Su estado se
+  // mide por señal REAL (¿generó el token?), no por env (ver estadoAgente).
+  { key: 'agente', nombre: 'Claude Code', categoria: 'Agentes', descripcion: 'Tu agente de código lee tu plan y te propone tareas — las prioriza el Perro Guardián.', envs: [] },
 ];
 
 const envGlobalReal = (k: string) => Boolean(process.env[k] && String(process.env[k]).trim());
@@ -93,18 +98,42 @@ async function estadoGoogleCalendar(): Promise<Pick<Integracion, 'estado' | 'det
   return { estado: 'falta', detalle: 'Entrá con Google para conectar tu agenda.' };
 }
 
+// Agente (Claude Code): no hay env ni credencial cifrada que chequear (la skill
+// vive en la máquina del usuario). La señal HONESTA de "conectada" es que ya haya
+// acuñado su token — el paso que enlaza su agente con este workspace. Sin token
+// todavía no se conectó: queda "por configurar" (ámbar, nunca rojo), como la
+// landing antes del primer evento. Nunca lanza: es una tarjeta, no puede tumbar la
+// página.
+async function estadoAgente(): Promise<Pick<Integracion, 'estado' | 'detalle'>> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws != null && (await getAgenteToken(ws))) {
+      return { estado: 'conectada', detalle: 'Token generado — tu agente puede leer tu plan y proponerte tareas.' };
+    }
+  } catch (e) {
+    console.error(`[integraciones] chequeo del agente falló: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return { estado: 'falta', detalle: 'Generá tu token e instalá la skill en tu Claude Code.' };
+}
+
 export async function getIntegraciones(): Promise<Integracion[]> {
   // La CAPA decide qué categorías ve este workspace: al super-admin no le sirve
   // Publicidad/Mensajería/Datos (no corre ads ni mide su propio VSL) y mostrárselas
   // es una lista de rojos de un negocio que no tiene. null = ve todas.
-  const cats = capaDef(await getCapaActual()).categoriasIntegraciones;
-  const defs = cats == null ? DEFS : DEFS.filter((d) => cats.includes(d.categoria));
+  const cap = capaDef(await getCapaActual());
+  const cats = cap.categoriasIntegraciones;
+  const ocultas = new Set(cap.integracionesOcultas ?? []);
+  const defs = (cats == null ? DEFS : DEFS.filter((d) => cats.includes(d.categoria)))
+    .filter((d) => !ocultas.has(d.key));
   return Promise.all(defs.map(async (d) => {
     if (d.key === 'landing') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoLanding()) };
     }
     if (d.key === 'google') {
       return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoGoogleCalendar()) };
+    }
+    if (d.key === 'agente') {
+      return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoAgente()) };
     }
     // Servicios de plataforma: se evalúan contra el env global (agencia).
     // Per-cliente: contra las credenciales del workspace actual.

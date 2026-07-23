@@ -598,31 +598,43 @@ function MakoAnswer(s: VisualSpec) {
 }
 
 // ── Dispatcher ──────────────────────────────────────────────────────────────
-// ── 27. LeadChat (el recorrido de UNA persona, como mensajes que van llegando) ──
-// La alternativa "gráfica" a una tabla: se lee como un chat y se entiende sin
-// explicación. Cada burbuja entra con su propio delay.
+// ── 27. LeadChat (el recorrido de UNA persona, como un feed de actividad) ──
+// La alternativa "gráfica" a una tabla: se lee como notificaciones que van
+// llegando. Cada tarjeta trae acción, hora, y para el VSL una barra de retención.
 function LeadChat(s: VisualSpec) {
-  const msgs = A<{ t: string; texto: string; tone?: string }>(s.msgs, [
-    { t: 'Hoy 09:14', texto: 'Ingresó José Rodríguez' },
-    { t: 'Hoy 09:16', texto: 'Entró a la landing · vio 27% del VSL', tone: 'amber' },
-    { t: '+27 h', texto: 'Volvió · llegó al 88% del VSL', tone: 'green' },
-    { t: '+28 h', texto: 'Agendó llamada', tone: 'green' },
+  const msgs = A<{ t: string; texto: string; sub?: string; tone?: string; pct?: number }>(s.msgs, [
+    { t: 'Hoy 09:14', texto: 'Ingresó José Rodríguez', sub: 'Nuevo lead desde Meta', tone: 'blue' },
+    { t: '09:16', texto: 'Entró a tu landing', sub: 'Miró tu VSL', tone: 'amber', pct: 27 },
+    { t: '+27 h', texto: 'Volvió a entrar', sub: 'Esta vez llegó más lejos', tone: 'green', pct: 88 },
+    { t: '+28 h', texto: 'Agendó una llamada', sub: 'R1 · mañana 15:00', tone: 'green' },
   ]).slice(0, 4);
-  const H = 52, top = 46;
+  const H = 60, top = 44;
   return (
     <Frame>
       <Title>{S(s.title, 'Un lead, paso por paso')}</Title>
       {msgs.map((m, i) => {
-        const y = top + i * H, c = tone(m.tone);
+        const y = top + i * H, c = tone(m.tone), hasPct = typeof m.pct === 'number';
         return (
           <g key={i} opacity="0">
-            <animate attributeName="opacity" from="0" to="1" dur="0.45s" begin={`${0.25 + i * 0.55}s`} fill="freeze" />
-            <rect x="30" y={y} width="340" height="40" rx="12" fill="#fff" stroke={LINE} />
-            <rect x="30" y={y} width="3.5" height="40" rx="2" fill={c} />
-            <circle cx="52" cy={y + 20} r="6" fill={c} opacity="0.18" />
-            <circle cx="52" cy={y + 20} r="2.6" fill={c} />
-            <text x="68" y={y + 17} fontSize="11.5" fontWeight="600" fill={INK} fontFamily={SANS}>{clip(m.texto, 40)}</text>
-            <text x="68" y={y + 31} fontSize="9.5" fill={DIM} fontFamily={MONO}>{clip(m.t, 22)}</text>
+            <animate attributeName="opacity" from="0" to="1" dur="0.45s" begin={`${0.2 + i * 0.6}s`} fill="freeze" />
+            <rect x="24" y={y} width="352" height="50" rx="13" fill="#fff" stroke={LINE} />
+            {/* punto de estado */}
+            <circle cx="46" cy={y + (hasPct ? 18 : 25)} r="9" fill={c} opacity="0.14" />
+            <circle cx="46" cy={y + (hasPct ? 18 : 25)} r="3.4" fill={c} />
+            {/* acción + hora */}
+            <text x="66" y={y + (hasPct ? 17 : 21)} fontSize="12" fontWeight="700" fill={INK} fontFamily={SANS}>{clip(m.texto, 30)}</text>
+            <text x="352" y={y + (hasPct ? 17 : 21)} textAnchor="end" fontSize="9.5" fill={DIM} fontFamily={MONO}>{clip(m.t, 14)}</text>
+            {m.sub && <text x="66" y={y + (hasPct ? 31 : 36)} fontSize="10.5" fill={DIM} fontFamily={SANS}>{clip(m.sub, 40)}</text>}
+            {/* barra de retención del VSL */}
+            {hasPct && (
+              <>
+                <rect x="66" y={y + 38} width="230" height="6" rx="3" fill="#EEF2F8" />
+                <rect x="66" y={y + 38} width="0" height="6" rx="3" fill={c}>
+                  <animate attributeName="width" from="0" to={230 * (m.pct! / 100)} dur="0.8s" begin={`${0.5 + i * 0.6}s`} fill="freeze" />
+                </rect>
+                <text x="352" y={y + 43} textAnchor="end" fontSize="11" fontWeight="700" fill={c} fontFamily={MONO}>{m.pct}%</text>
+              </>
+            )}
           </g>
         );
       })}
@@ -630,43 +642,47 @@ function LeadChat(s: VisualSpec) {
   );
 }
 
-// ── 28. LogoJourney (el recorrido: de una app a la otra, con flechas) ───────
-// Menos técnico que un embudo de porcentajes: se ve QUÉ herramienta toca la
-// persona en cada paso, y la flecha viaja para mostrar que están conectadas.
+// ── 28. LogoJourney (el recorrido del anuncio al pago, con logos + cuántos siguen) ──
+// Cada paso es una tarjeta con el logo REAL de la app, la acción, y una barra con
+// cuánta gente llegó hasta ahí — el embudo hecho recorrido, no porcentajes secos.
 function LogoJourney(s: VisualSpec) {
-  const pasos = A<{ logo: string; label: string }>(s.pasos, [
-    { logo: 'meta.png', label: 'Vio el anuncio' },
-    { logo: 'landing.svg', label: 'Entró a tu landing' },
-    { logo: 'vsl.png', label: 'Miró el VSL' },
-    { logo: 'calendly.png', label: 'Agendó' },
-    { logo: 'whatsapp.png', label: 'Habló con vos' },
-    { logo: 'pago.svg', label: 'Pagó' },
+  const pasos = A<{ logo: string; label: string; n: string; w: number }>(s.pasos, [
+    { logo: 'meta.png', label: 'Vio el anuncio', n: '9.140', w: 1 },
+    { logo: 'landing.svg', label: 'Entró a tu landing', n: '2.310', w: 0.66 },
+    { logo: 'vsl.png', label: 'Miró el VSL', n: '1.204', w: 0.5 },
+    { logo: 'calendly.png', label: 'Agendó', n: '186', w: 0.34 },
+    { logo: 'whatsapp.png', label: 'Habló con vos', n: '92', w: 0.22 },
+    { logo: 'pago.svg', label: 'Pagó', n: '31', w: 0.12 },
   ]).slice(0, 6);
-  const n = pasos.length, top = 52, H = 40;
+  const n = pasos.length, top = 44, H = 41, x0 = 28, barX = 150, barW = 190;
   return (
     <Frame>
       <Title>{S(s.title, 'El recorrido de tu cliente')}</Title>
+      {/* espina que conecta todo */}
+      <path d={`M${x0 + 17} ${top + 18} L${x0 + 17} ${top + (n - 1) * H + 18}`} stroke={LINE} strokeWidth="2" />
       {pasos.map((p, i) => {
-        const y = top + i * H;
+        const y = top + i * H, cy = y + 18, last = i === n - 1;
         return (
           <g key={i} opacity="0">
-            <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin={`${i * 0.16}s`} fill="freeze" />
-            <rect x="96" y={y} width="34" height="30" rx="9" fill={TILE} />
-            <image href={`/vsl-assets/logos/${p.logo}`} x="102" y={y + 6} width="22" height="18" preserveAspectRatio="xMidYMid meet" />
-            <text x="142" y={y + 19} fontSize="12" fontWeight="600" fill={INK} fontFamily={SANS}>{clip(p.label, 26)}</text>
-            {i < n - 1 && (
-              <g stroke={LINE} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                <path d={`M113 ${y + 30} L113 ${y + H - 3}`} />
-                <path d={`M109.5 ${y + H - 6.5} L113 ${y + H - 3} L116.5 ${y + H - 6.5}`} />
-              </g>
-            )}
+            <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin={`${i * 0.14}s`} fill="freeze" />
+            {/* tile del logo */}
+            <rect x={x0} y={y} width="34" height="34" rx="10" fill="#fff" stroke={last ? BLUE : LINE} strokeWidth={last ? 1.6 : 1} />
+            <image href={`/vsl-assets/logos/${p.logo}`} x={x0 + 6} y={y + 6} width="22" height="22" preserveAspectRatio="xMidYMid meet" />
+            {/* acción */}
+            <text x={barX} y={y + 12} fontSize="11.5" fontWeight="600" fill={INK} fontFamily={SANS}>{clip(p.label, 22)}</text>
+            {/* barra de cuántos llegaron */}
+            <rect x={barX} y={y + 20} width={barW} height="7" rx="3.5" fill="#EEF2F8" />
+            <rect x={barX} y={y + 20} width="0" height="7" rx="3.5" fill={last ? GREEN : BLUE}>
+              <animate attributeName="width" from="0" to={barW * Math.max(0.05, p.w)} dur="0.7s" begin={`${0.2 + i * 0.14}s`} fill="freeze" />
+            </rect>
+            <text x={barX + barW} y={y + 12} textAnchor="end" fontSize="11" fontWeight="700" fill={last ? GREEN : INK} fontFamily={MONO}>{p.n}</text>
           </g>
         );
       })}
-      {/* la flecha que recorre todo: son piezas sueltas, y sin embargo un camino */}
-      <circle cx="113" cy={top} r="4.5" fill={BLUE}>
-        <animate attributeName="cy" values={`${top};${top + (n - 1) * H}`} dur="3.2s" repeatCount="indefinite" />
-        <animate attributeName="opacity" values="0;1;1;0" dur="3.2s" repeatCount="indefinite" />
+      {/* pulso que recorre la espina: piezas sueltas y sin embargo un camino */}
+      <circle cx={x0 + 17} cy={top + 18} r="4.5" fill={BLUE}>
+        <animate attributeName="cy" values={`${top + 18};${top + (n - 1) * H + 18}`} dur="3.4s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="0;1;1;0" dur="3.4s" repeatCount="indefinite" />
       </circle>
     </Frame>
   );
