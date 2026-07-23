@@ -11,6 +11,7 @@ import 'server-only';
 
 import { getSupabaseServer } from '@/lib/supabase';
 import { getSaldo } from '@/lib/anthropic-usage';
+import { OWNER_WS, getWorkspaceActual } from '@/lib/workspace';
 
 export type LimiteProv = { label: string; rpd?: number; tokensDia?: number; nota?: string };
 export const LIMITES_PROVEEDOR: Record<string, LimiteProv> = {
@@ -36,14 +37,18 @@ async function limitesEfectivos(): Promise<Record<string, LimiteProv>> {
 export type UsoProv = { requests: number; tokens: number };
 export type CuotaProv = { provider: string; requests: number; tokens: number; rpd?: number; tokensDia?: number; pct: number; agotado: boolean; label: string; nota?: string };
 
-/** Uso de HOY por proveedor (pedidos + tokens), de anthropic_usage. */
+/** Uso de HOY por proveedor (pedidos + tokens), de anthropic_usage. Estas IA son todas
+ *  BYOK (gratis por-cliente), así que el uso se cuenta SOLO en el workspace del request:
+ *  el gauge "cuánto queda hoy" de Mauricio (ws1) no debe incluir el Gemini de Martín (ws9). */
 export async function usoHoyProveedores(): Promise<Record<string, UsoProv>> {
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const ws = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
   const out: Record<string, UsoProv> = {};
   try {
     const { data } = await getSupabaseServer()
       .from('anthropic_usage')
       .select('provider, input_tokens, output_tokens')
+      .eq('workspace_id', ws)
       .gte('created_at', dayStart.toISOString())
       .limit(20000);
     for (const r of (data ?? []) as Array<{ provider: string | null; input_tokens: number | null; output_tokens: number | null }>) {

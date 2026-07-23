@@ -10,8 +10,19 @@
 // =============================================================================
 
 import 'server-only';
-import { OWNER_WS } from './workspace';
+import { OWNER_WS, getWorkspaceActual } from './workspace';
 import { getSupabaseServer } from './supabase';
+
+// A QUÉ workspace pertenece el saldo/gasto de un proveedor.
+//  · anthropic (Claude): key ÚNICA de la agencia, compartida → SIEMPRE OWNER_WS.
+//    (Es lo único que ws1/Mauricio comparte con el super-admin, junto con Panda.)
+//  · el resto (gemini/openai/groq/…): BYOK por cliente → el workspace del request.
+//    Así el saldo que Martín carga en Gemini vive en SU ws (9), no se cuela en ws1.
+// Best-effort: sin contexto de workspace (algún cron suelto) cae a OWNER_WS.
+async function wsDeProveedor(provider?: string | null): Promise<number> {
+  if (!provider || provider === 'anthropic') return OWNER_WS;
+  try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; }
+}
 
 export type UsageInfo = {
   inputTokens: number;
@@ -64,9 +75,12 @@ export function costFor(model: string, u: { input: number; output: number; cache
 
 async function insertUsage(row: Record<string, unknown>): Promise<void> {
   try {
-    // La API key es del pool de la agencia → registramos SIEMPRE contra OWNER_WS
-    // con el cliente crudo (no getTenantDb, que scopea) para no fragmentar el gasto.
-    await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: OWNER_WS, ...row });
+    // Claude va contra la key compartida de la agencia → OWNER_WS. El resto (BYOK)
+    // se registra en el workspace del request, así el gasto de Gemini de Martín (ws9)
+    // NO aparece en el de Mauricio (ws1). Cliente crudo (no getTenantDb): el ws lo
+    // decide wsDeProveedor, no el scoping automático.
+    const ws = await wsDeProveedor(row.provider as string | undefined);
+    await getSupabaseServer().from('anthropic_usage').insert({ workspace_id: ws, ...row });
   } catch (e) {
     console.warn(`[anthropic-usage] no se registró el uso: ${e instanceof Error ? e.message : String(e)}`);
   }
@@ -125,9 +139,9 @@ export type UsageSummary = {
   historial: UsageItem[];   // últimas operaciones (cronológico, con el motivo)
 };
 
-// El saldo es GLOBAL de la agencia (las API keys son únicas por proveedor): se
-// lee/escribe SIEMPRE contra OWNER_WS con el cliente crudo. Un saldo POR PROVEEDOR
-// (Claude/OpenAI/Groq); la key de Claude conserva su nombre viejo por compat.
+// El saldo de Claude es GLOBAL de la agencia (key única, compartida) → OWNER_WS. El
+// del resto es POR-WORKSPACE (BYOK): wsDeProveedor decide dónde vive. La key de
+// Claude conserva su nombre viejo (anthropic_saldo) por compat.
 export const PROVEEDORES = ['anthropic', 'openai', 'groq', 'gemini'] as const;
 export type Proveedor = (typeof PROVEEDORES)[number];
 const keySaldo = (p: string) => (p === 'anthropic' ? 'anthropic_saldo' : `saldo.${p}`);
@@ -135,9 +149,10 @@ const keySaldo = (p: string) => (p === 'anthropic' ? 'anthropic_saldo' : `saldo.
 export async function getSaldo(provider: string = 'anthropic'): Promise<Saldo | null> {
   let raw: string | null = null;
   try {
+    const ws = await wsDeProveedor(provider);
     const { data } = await getSupabaseServer()
       .from('app_settings').select('value')
-      .eq('workspace_id', OWNER_WS).eq('key', keySaldo(provider)).maybeSingle();
+      .eq('workspace_id', ws).eq('key', keySaldo(provider)).maybeSingle();
     raw = (data?.value as string | undefined) ?? null;
   } catch (e) {
     console.warn(`[anthropic-usage] no se pudo leer el saldo (${provider}): ${e instanceof Error ? e.message : String(e)}`);
@@ -157,10 +172,11 @@ export async function getSaldo(provider: string = 'anthropic'): Promise<Saldo | 
 export async function setSaldo(usd: number, setAt: string, provider: string = 'anthropic'): Promise<void> {
   const prev = await getSaldo(provider);
   const cargas = [...(prev?.cargas ?? []), { usd, at: setAt }];
+  const ws = await wsDeProveedor(provider);
   const { error } = await getSupabaseServer()
     .from('app_settings')
     .upsert(
-      { workspace_id: OWNER_WS, key: keySaldo(provider), value: JSON.stringify({ usd, setAt, cargas }), updated_at: new Date().toISOString() },
+      { workspace_id: ws, key: keySaldo(provider), value: JSON.stringify({ usd, setAt, cargas }), updated_at: new Date().toISOString() },
       { onConflict: 'workspace_id,key' },
     );
   if (error) throw new Error(`Error guardando saldo de IA (${provider}): ${error.message}`);
@@ -178,10 +194,11 @@ export async function agregarCarga(usdAgregado: number, provider: string = 'anth
   const cargas = [...base, { usd: usdAgregado, at }];
   const usd = Number(((prev?.usd ?? 0) + usdAgregado).toFixed(4));
   const setAt = prev?.setAt ?? at;
+  const ws = await wsDeProveedor(provider);
   const { error } = await getSupabaseServer()
     .from('app_settings')
     .upsert(
-      { workspace_id: OWNER_WS, key: keySaldo(provider), value: JSON.stringify({ usd, setAt, cargas }), updated_at: at },
+      { workspace_id: ws, key: keySaldo(provider), value: JSON.stringify({ usd, setAt, cargas }), updated_at: at },
       { onConflict: 'workspace_id,key' },
     );
   if (error) throw new Error(`Error guardando carga de IA (${provider}): ${error.message}`);
@@ -200,17 +217,21 @@ export async function getUsageSummary(): Promise<UsageSummary> {
   const setAts = [sAnthropic, sOpenai, sGroq, sGemini].filter(Boolean).map((s) => (s as Saldo).setAt);
   const desde = setAts.length ? [monthStart, ...setAts].sort()[0] : monthStart;
 
-  // GLOBAL (sin filtro de workspace): el gasto total es contra las API keys únicas
-  // de la agencia, igual que el saldo. Cliente crudo, no getTenantDb() (scopeado).
+  // Dos lecturas: Claude es compartido (SIEMPRE OWNER_WS); el resto (BYOK) es del
+  // workspace del request. Así en ws1 (Mauricio) NO aparece el Gemini de Martín (ws9).
+  const wsActual = await (async () => { try { return (await getWorkspaceActual()) ?? OWNER_WS; } catch { return OWNER_WS; } })();
+  const cols = 'created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens';
   let rows: Row[] = [];
   try {
-    const { data } = await getSupabaseServer()
-      .from('anthropic_usage')
-      .select('created_at, feature, motivo, model, provider, cost_usd, input_tokens, output_tokens')
-      .gte('created_at', desde)
-      .order('created_at', { ascending: false })
-      .limit(20000);
-    rows = (data ?? []) as Row[];
+    const supa = getSupabaseServer();
+    const [rShared, rOwn] = await Promise.all([
+      // Claude + filas legacy sin provider (se tratan como anthropic): compartido.
+      supa.from('anthropic_usage').select(cols).eq('workspace_id', OWNER_WS).or('provider.eq.anthropic,provider.is.null').gte('created_at', desde).order('created_at', { ascending: false }).limit(20000),
+      // Gemini/OpenAI/gratis: solo del workspace actual (si es OWNER_WS, son las de ws1).
+      supa.from('anthropic_usage').select(cols).eq('workspace_id', wsActual).neq('provider', 'anthropic').gte('created_at', desde).order('created_at', { ascending: false }).limit(20000),
+    ]);
+    rows = ([...(rShared.data ?? []), ...(rOwn.data ?? [])] as Row[])
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
   } catch (e) {
     console.warn(`[anthropic-usage] no se pudo leer el resumen: ${e instanceof Error ? e.message : String(e)}`);
   }

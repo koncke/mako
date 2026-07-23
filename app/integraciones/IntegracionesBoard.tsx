@@ -1007,8 +1007,12 @@ function ServicioModal({ i, sev, health, metaError, usage, cuota, snippetLanding
           )}
 
           {/* Saldo / créditos: solo para las IA de pago (Claude, OpenAI, Gemini). Acá
-              se carga/edita — ya NO en el tile. Para Gemini es lo que lo pasa a tier pago. */}
-          {(i.key === 'anthropic' || i.key === 'openai' || i.key === 'gemini') && (
+              se carga/edita — ya NO en el tile. Para Gemini es lo que lo pasa a tier pago.
+              Claude es la key COMPARTIDA de la agencia (siempre conectada); OpenAI/Gemini
+              son BYOK → el editor solo aparece si ESTE workspace tiene la key conectada. Si
+              no, es de otro workspace (p.ej. Gemini de Martín en el espacio de Mauricio) y no
+              debe mostrar saldo ni cargas acá. */}
+          {(i.key === 'anthropic' || ((i.key === 'openai' || i.key === 'gemini') && i.estado === 'conectada')) && (
             <SaldoEditor provider={i.key} gemini={i.key === 'gemini'} saldo={usage?.porProveedor?.find((p) => p.provider === i.key)?.saldo ?? null} restante={usage?.porProveedor?.find((p) => p.provider === i.key)?.restanteUsd ?? null} gastoMes={usage?.porProveedor?.find((p) => p.provider === i.key)?.costMesUsd ?? 0} onGuardado={onRefetchUsage} />
           )}
 
