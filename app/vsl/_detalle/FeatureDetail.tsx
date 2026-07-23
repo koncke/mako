@@ -146,7 +146,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
 
         {/* ── Cómo funciona: filas alternadas gráfico/texto ─────────────────── */}
         <div className="mk-section-eyebrow">Cómo funciona</div>
-        <h2 className="mk-section-h">Todo lo que {f.name} hace por vos</h2>
+        <h2 className="mk-section-h">Todo lo que hace por vos</h2>
 
         <div className="mk-rows">
           {f.groups.map((g, i) => (
@@ -161,11 +161,51 @@ export default function FeatureDetail({ slug }: { slug: string }) {
                     <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
                   ))}
                 </ul>
+                {g.verMas && (
+                  <a href={g.verMas.href} className="mk-vermas">
+                    <span className="mk-vermas-t">{g.verMas.texto}</span>
+                    <span className="mk-vermas-l">{g.verMas.label} →</span>
+                  </a>
+                )}
               </div>
               <div className="mk-row-media"><Panel spec={groupVisual(i)} /></div>
             </div>
           ))}
         </div>
+
+        {/* ── Caso real (prueba) ───────────────────────────────────────────── */}
+        {f.caso && (
+          <section className="mk-caso">
+            {f.caso.video && (
+              <div className="mk-caso-vid">
+                <span className="mk-cor tl" /><span className="mk-cor tr" /><span className="mk-cor bl" /><span className="mk-cor br" />
+                <video src={f.caso.video} muted loop playsInline autoPlay preload="metadata" />
+              </div>
+            )}
+            <div className="mk-caso-txt">
+              <div className="mk-section-eyebrow mk-caso-eyebrow">No es teoría</div>
+              <blockquote className="mk-caso-q">{f.caso.quote}</blockquote>
+              <p className="mk-caso-ctx">{f.caso.contexto}</p>
+              <div className="mk-caso-datos">
+                {f.caso.datos.map((d) => (
+                  <div key={d.label} className="mk-dato">
+                    <span className="mk-dato-v">{d.valor}</span>
+                    <span className="mk-dato-l">{d.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mk-caso-nom">— {f.caso.nombre}</div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Objeción ─────────────────────────────────────────────────────── */}
+        {f.objecion && (
+          <section className="mk-obj">
+            <h3 className="mk-obj-h">{f.objecion.titulo}</h3>
+            <p className="mk-obj-p" dangerouslySetInnerHTML={{ __html: f.objecion.cuerpo }} />
+          </section>
+        )}
 
         {f.quote && <blockquote className="mk-quote">{f.quote}</blockquote>}
 
@@ -292,6 +332,37 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cap-li em { font-style: italic; }
 .mk-check { color: #2F6FED; flex: none; margin-top: 2px; }
 
+/* Puente a otra funcionalidad */
+.mk-vermas { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-top: 18px; padding: 12px 15px; border-radius: 12px; background: #F4F7FD; border: 1px solid #E1E9F8; text-decoration: none; }
+.mk-vermas:hover { border-color: #BFD3F7; }
+.mk-vermas-t { font-size: 14px; color: #5B6472; }
+.mk-vermas-l { font-size: 14px; font-weight: 600; color: #2F6FED; white-space: nowrap; }
+
+/* Caso real */
+.mk-caso { display: flex; gap: 36px; align-items: center; margin-top: 64px; padding: 30px; border-radius: 22px; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; }
+.mk-caso-vid { position: relative; flex: none; width: 260px; aspect-ratio: 9 / 15.6; border-radius: 16px; overflow: hidden; background: #0B0D12; }
+.mk-caso-vid video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mk-cor { position: absolute; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.75); z-index: 2; }
+.mk-cor.tl { top: 9px; left: 9px; border-right: 0; border-bottom: 0; }
+.mk-cor.tr { top: 9px; right: 9px; border-left: 0; border-bottom: 0; }
+.mk-cor.bl { bottom: 9px; left: 9px; border-right: 0; border-top: 0; }
+.mk-cor.br { bottom: 9px; right: 9px; border-left: 0; border-top: 0; }
+.mk-caso-txt { flex: 1 1 0; min-width: 0; }
+.mk-caso-eyebrow { margin-top: 0 !important; }
+.mk-caso-q { margin: 0 0 14px; font-size: 22px; line-height: 1.4; font-style: italic; font-weight: 500; color: #12151B; }
+.mk-caso-ctx { margin: 0 0 22px; font-size: 15.5px; line-height: 1.6; color: #5B6472; }
+.mk-caso-datos { display: flex; flex-wrap: wrap; gap: 26px; }
+.mk-dato { display: flex; flex-direction: column; gap: 2px; }
+.mk-dato-v { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; color: #2F6FED; }
+.mk-dato-l { font-size: 13px; line-height: 1.35; color: #5B6472; max-width: 190px; }
+.mk-caso-nom { margin-top: 20px; font-size: 14px; font-weight: 600; color: #12151B; }
+
+/* Objeción */
+.mk-obj { max-width: 820px; margin: 56px auto 0; }
+.mk-obj-h { margin: 0 0 12px; font-size: 24px; line-height: 1.25; letter-spacing: -0.015em; font-weight: 600; color: #12151B; }
+.mk-obj-p { margin: 0; font-size: 17px; line-height: 1.65; color: #48505E; }
+.mk-obj-p strong { font-weight: 600; color: #12151B; }
+
 .mk-quote { max-width: 820px; margin: 44px auto 0; padding: 6px 0 6px 20px; border-left: 3px solid #2F6FED; font-size: 19px; line-height: 1.5; font-style: italic; font-weight: 500; color: #2E3646; }
 
 .mk-nota { max-width: 820px; margin: 26px auto 0; display: flex; align-items: flex-start; gap: 9px; background: #FFF7E8; border: 1px solid #F6E2B8; border-radius: 12px; padding: 13px 15px; font-size: 14px; line-height: 1.5; color: #8A5A06; }
@@ -322,6 +393,8 @@ body:has(.mk-det) aside { display: none !important; }
 @media (max-width: 860px) {
   .mk-hero-row, .mk-row, .mk-row-rev { flex-direction: column; gap: 24px; align-items: stretch; }
   .mk-hero-text { order: 0; }
+  .mk-caso { flex-direction: column; gap: 24px; align-items: stretch; padding: 22px; }
+  .mk-caso-vid { width: 100%; max-width: 260px; margin: 0 auto; }
 }
 @media (max-width: 768px) {
   .mk-det-main { padding: 30px 20px 30px; }

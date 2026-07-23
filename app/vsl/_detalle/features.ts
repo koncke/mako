@@ -15,7 +15,24 @@ export type FeatureGroup = {
   // PLACEHOLDER: ruta de captura para esta capacidad (ej '/vsl-assets/crm-captura.png').
   // Si queda vacío, se muestra un recuadro placeholder con el título como caption.
   img?: string;
+  // Puente a otra funcionalidad. Todo está conectado, así que a veces un bloque
+  // roza otra feature: en vez de callarlo (y que el visitante se pierda la mitad
+  // del valor porque solo entra a UNA landing) o de explicarlo acá (y mezclar),
+  // se deja un renglón que lleva allá. Con criterio: solo si suma de verdad.
+  verMas?: { texto: string; href: string; label: string };
 };
+
+// Caso real, con video vertical opcional. Va después de los bloques.
+export type FeatureCaso = {
+  video?: string;
+  quote: string;
+  nombre: string;
+  contexto: string;
+  datos: { valor: string; label: string }[];
+};
+
+// La objeción que ataca el tema de ESTA feature. Una sola.
+export type FeatureObjecion = { titulo: string; cuerpo: string };
 
 export type Feature = {
   slug: string;
@@ -27,6 +44,8 @@ export type Feature = {
   conecta?: string[]; // chips de integraciones
   quote?: string; // frase-ejemplo de salida del producto
   nota?: string; // estado honesto (en activación / en construcción)
+  caso?: FeatureCaso; // prueba: un cliente real con sus números
+  objecion?: FeatureObjecion; // la objeción propia de esta feature
   // PLACEHOLDER: demo/captura del hero (ej '/vsl-assets/crm-demo.png' o un .mp4).
   // Si queda vacío, se muestra un recuadro placeholder 16:9.
   heroImg?: string;
@@ -168,7 +187,7 @@ const ICON: Record<string, string[]> = {
 };
 
 export const FEATURE_ORDER = [
-  "funnel", "onboarding", "graphics", "crm", "api", "ads", "script", "closing", "seguimiento", "cobranza", "contrato", "customer", "semaforo", "experimentos", "prioridades", "retro", "fase-norte", "whatsapp", "email", "conocimiento", "mako", "integraciones", "equipo", "perfil-reportes",
+  "funnel", "pipeline", "onboarding", "graphics", "crm", "api", "ads", "script", "closing", "seguimiento", "cobranza", "contrato", "customer", "semaforo", "experimentos", "prioridades", "retro", "fase-norte", "whatsapp", "email", "conocimiento", "mako", "integraciones", "equipo", "perfil-reportes",
 ];
 
 export const FEATURES: Record<string, Feature> = {
@@ -179,6 +198,75 @@ export const FEATURES: Record<string, Feature> = {
     headline: "Tu negocio entero en una pantalla.",
     lead: "Hoy saltás entre seis pestañas para entender una sola cosa. <strong>MaKo conecta tu funnel completo</strong> — del primer clic al pago — y te lo muestra ordenado y en vivo.",
     videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f&autoplay=true&color=%232F6FED",
+    groups: [
+      {
+        title: "Todo lo que hoy vive en seis pestañas, junto",
+        bullets: [
+          "<strong>Meta</strong>: cuánto gastaste y a cuánta gente le llegó.",
+          "<strong>Tu landing y tu VSL</strong>: quién entró, cuántas veces volvió y hasta qué minuto miró.",
+          "<strong>Calendly</strong>: quién agendó, quién apareció y quién te dejó plantado.",
+          "<strong>WhatsApp y tus llamadas</strong>: cómo viene la conversación y qué se dijo de verdad.",
+          "Las conectás una vez y quedan hablando entre ellas. No exportás, no pegás y no rehacés ningún Excel.",
+        ],
+        verMas: { texto: "Cómo se conectan — con tus propias llaves y tu propio saldo", href: "/vsl/integraciones", label: "Integraciones" },
+      },
+      {
+        title: "El recorrido completo: de la impresión al pago",
+        bullets: [
+          "El camino entero en una sola línea: <strong>impresión → clic → landing → VSL → agenda → reunión → pago</strong>.",
+          "En cada escalón sabés cuántos entraron y cuántos siguieron. <strong>El agujero deja de ser una sospecha y pasa a ser un número.</strong>",
+          "No es la foto de ayer: se actualiza solo mientras trabajás.",
+          "Es el mismo negocio que ya tenías. La diferencia es que ahora lo ves entero de una.",
+        ],
+      },
+      {
+        title: "Números que solo existen si está todo conectado",
+        bullets: [
+          "<strong>CAC real</strong>: lo que te cuesta un cliente de verdad, no lo que te cuesta un lead.",
+          "<strong>ROAS cobrado y ROAS vendido</strong>, separados: la distancia entre lo que firmaste y lo que entró a tu cuenta.",
+          "<strong>Cash Collected y lo pendiente</strong>: cuánto te deben ahora mismo, sin abrir el Excel de cobros.",
+          "Ninguno de los tres se puede calcular con las apps sueltas — cada uno cruza <em>lo que gastaste</em> en Meta con <em>lo que cobraste</em>. Por eso los ves acá y no allá.",
+        ],
+      },
+      {
+        title: "Y no solo el total: persona por persona",
+        bullets: [
+          "De cada lead ves <strong>cuántas veces entró a tu landing</strong>, y en cuántos días distintos.",
+          "<strong>Cuántas veces reprodujo tu VSL</strong> y <strong>hasta qué porcentaje llegó</strong>, con semáforo.",
+          "Una línea de tiempo con lo que hizo: entró, reprodujo, llegó al 45%, volvió tres días después.",
+          "Tu reproductor te da el promedio anónimo. <strong>Esto te dice quién.</strong>",
+        ],
+        verMas: { texto: "Y qué mandarle según hasta dónde llegó", href: "/vsl/seguimiento", label: "Seguimiento automático" },
+      },
+    ],
+    conecta: ["Meta Ads", "Calendly", "WhatsApp", "Fathom", "Tu landing y tu VSL"],
+    caso: {
+      video: "/vsl-assets/mauricio-funnel.mp4",
+      quote: "La misma oferta. Lo único que cambió fue que empezó a decidir con datos.",
+      nombre: "Mauricio",
+      contexto: "Ya vendía. Tenía todo en un Excel que armaba de nuevo cada vez: miraba Meta, después Calendly, y el resto lo cargaba uno por uno.",
+      datos: [
+        { valor: "+$70k", label: "en 3 meses, desde menos de $10k" },
+        { valor: "×20", label: "su inversión en ads, sin que cayera el ROAS" },
+        { valor: "1", label: "sola pantalla, en vez de seis pestañas" },
+      ],
+    },
+    objecion: {
+      titulo: "\"Pero yo ya tengo mis números\"",
+      cuerpo: "Claro que los tenés. Repartidos en un montón de aplicaciones que no se hablan entre sí. Y eso no es tener tu negocio: <strong>es tener pedazos</strong>. Tu negocio no está roto. Está desparramado.",
+    },
+    quote: "El mismo negocio, en una sola pantalla.",
+    nota: "Vivo y en producción: las fuentes se conectan, el recorrido se arma solo y el comportamiento por lead se mide desde que la persona entra a tu landing. Lo único que no podemos reconstruir es el pasado: un lead que entró antes de conectar el tracking no tiene historial, y no hay forma de inventarlo.",
+    metaTitle: "Funnel MaKo: todo tu negocio conectado en una pantalla",
+    metaDesc: "Meta, tu landing, tu VSL, Calendly, WhatsApp y tus llamadas conectados y en vivo. Del primer clic al pago, con CAC real y ROAS cobrado — y el comportamiento de cada lead, uno por uno.",
+  },
+
+  'pipeline': {
+    slug: 'pipeline',
+    name: "Armá tu embudo",
+    icon: ICON["funnel"],
+    headline: "Editás una fila. El resto del embudo se escribe solo.",
+    lead: "El embudo real de un VSL Funnel no es <em>Lead → R1 → R2 → cierre</em>. Es eso <strong>más</strong> las nutriciones de No-Show por reunión, la de No-Paga y la reactivación de fríos — todo lo que nadie quiere modelar a mano y que en Miro se desactualiza a la semana. Acá editás solo la fila del pipeline activo y el resto <em>se deriva solo</em>.",
     groups: [
       {
         title: "Editás una banda, el sistema deriva las otras dos",
@@ -217,10 +305,10 @@ export const FEATURES: Record<string, Feature> = {
         ],
       },
     ],
-    conecta: ["Supabase", "Calendly", "Meta Ads / instant forms", "Fathom", "MaKo (Anthropic)"],
-    quote: "Tu negocio entero en una pantalla: modelás cómo avanza tu lead una vez, y el resto del embudo — y tu tablero CRM — se arman solos.",
+    conecta: ["Calendly", "Meta Ads / instant forms", "Fathom", "MaKo"],
+    quote: "Modelás cómo avanza tu lead una vez, y el resto del embudo — y tu tablero CRM — se arman solos.",
     nota: "Vivo y en producción: el editor edita, deriva y persiste por workspace, y ya alimenta CRM, Datos sin marcar, onboarding y MaKo. En activación (no lo prometemos como automático todavía): el motor de Automatizaciones de MaKo (T1-T6) que MUEVE leads solo corre en modo observación / dry-run — calcula los movimientos pero no toca nada hasta prenderse (gateado por CRM_AUTO_ENABLED).",
-    metaTitle: "Funnel MaKo: editá tu pipeline y el embudo se deriva solo",
+    metaTitle: "Armá tu embudo en MaKo: editás el pipeline y se deriva solo",
     metaDesc: "Editás solo el pipeline activo y MaKo deriva las nutriciones, el No-Show y las salidas. La misma config alimenta tu CRM, el onboarding y el contexto de MaKo. Plantilla VSL+Webinar lista.",
   },
 

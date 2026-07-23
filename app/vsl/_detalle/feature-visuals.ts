@@ -15,6 +15,94 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     },
     "groups": [
       {
+        "type": "cxConnect"
+      },
+      {
+        "type": "funnel",
+        "title": "Salud del funnel",
+        "stages": [
+          {
+            "label": "Impresiones",
+            "w": 1
+          },
+          {
+            "label": "Click",
+            "w": 0.55
+          },
+          {
+            "label": "Landing",
+            "w": 0.42
+          },
+          {
+            "label": "VSL",
+            "w": 0.28
+          },
+          {
+            "label": "Agenda",
+            "w": 0.16,
+            "tone": "green"
+          },
+          {
+            "label": "Pago",
+            "w": 0.08,
+            "tone": "green"
+          }
+        ]
+      },
+      {
+        "type": "statTiles",
+        "title": "Lo que solo se ve conectado",
+        "tiles": [
+          {
+            "label": "CAC real",
+            "value": "$630"
+          },
+          {
+            "label": "ROAS cobrado",
+            "value": "5.58x",
+            "tone": "green"
+          },
+          {
+            "label": "ROAS vendido",
+            "value": "9.04x",
+            "tone": "green"
+          }
+        ],
+        "rows": [
+          {
+            "name": "Cash Collected",
+            "amount": "$42.218",
+            "tone": "green"
+          },
+          {
+            "name": "Pendiente de cobro",
+            "amount": "$26.181",
+            "tone": "amber"
+          }
+        ]
+      },
+      {
+        "type": "retentionCurve",
+        "title": "Un lead, su retención",
+        "points": [
+          1,
+          0.95,
+          0.78,
+          0.62,
+          0.45,
+          0.41,
+          0.4
+        ],
+        "dropIndex": 4
+      }
+    ]
+  },
+  "pipeline": {
+    "hero": {
+      "type": "cxConnect"
+    },
+    "groups": [
+      {
         "type": "phaseLadder",
         "title": "Fila Activo",
         "phases": [
