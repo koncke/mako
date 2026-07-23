@@ -9,7 +9,7 @@
 // lo tocan a mano. Mapeo 1:1 con BoardTask/Label (jsonb para checklist/historial/fuente).
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
 import { puntuarNuevas, describirProyectosNuevos } from '@/lib/mako-guardian';
@@ -17,8 +17,12 @@ import { checklistsParaTareas } from '@/lib/checklist-coach';
 
 type Row = Record<string, unknown>;
 
-// El board es el de la agencia: forzamos OWNER_WS para todas las operaciones.
-const enPlan = <T,>(fn: () => Promise<T>): Promise<T> => runWithWorkspace(OWNER_WS, fn);
+// El board /plan es el ROADMAP DEL SUPER-ADMIN y vive en SU workspace. Antes se
+// forzaba OWNER_WS porque el admin no tenía espacio propio y caía al del dueño; ahora
+// que lo tiene, usamos el workspace del request (web: el suyo; doer: el del grupo).
+// OWNER_WS queda solo de red para contextos sin workspace (cron/boot).
+const enPlan = async <T,>(fn: () => Promise<T>): Promise<T> =>
+  runWithWorkspace((await getWorkspaceActual()) ?? OWNER_WS, fn);
 
 // id string estable para tareas/proyectos nuevos (el board usa ids de texto).
 const genId = (p: string): string => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

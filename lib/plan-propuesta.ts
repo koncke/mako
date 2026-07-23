@@ -9,7 +9,7 @@
 // cliente → su board (lib/todo). Nunca forzamos OWNER_WS.
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
 import { agregarTareasPlanOwner, priorizarNuevasOwner, borrarPlanTarea } from '@/lib/plan-board';
 import { crearTarea, crearCategoria, listCategorias, borrarTarea, type Prioridad } from '@/lib/todo';
 import { chatCheapCascade } from '@/lib/ai-cheap';
@@ -144,8 +144,12 @@ export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTar
     if (!base.length && !aBorrar.length) return { ok: false, ids: [], borradas: 0, error: 'No hay nada para crear ni borrar.' };
 
     let ids: string[] = [];
-    if (ws === OWNER_WS) {
-      // DUEÑO: board rico en plan_tareas + Perro (prioriza + checklists + proyectos).
+    // ¿Este workspace usa el board RICO (plan_tareas + Perro)? El del SUPER-ADMIN (su
+    // capa) —donde vive el roadmap— y, por compatibilidad, el dueño. Un cliente usa su
+    // board simple (lib/todo). Antes era solo OWNER_WS, cuando el admin caía ahí.
+    const usaPlanBoard = ws === OWNER_WS || (await getWorkspace(ws))?.capa === 'superadmin';
+    if (usaPlanBoard) {
+      // Board rico en plan_tareas + Perro (prioriza + checklists + proyectos).
       if (base.length) {
         const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
         const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle })), { tipo: fuenteTipo } as Fuente);
