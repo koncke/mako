@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { LANDING_HTML } from './landing-html';
-import { SHOWCASE_BY_SLUG } from './showcase';
+import { SHOWCASE_BY_SLUG, INJECT_ORDER, OCULTAS } from './showcase';
 
 declare global {
   interface Window {
@@ -60,12 +60,9 @@ export default function Landing() {
     // Las 9 features que no vienen en el HTML del diseño se inyectan como card
     // [slug, después-de]. El orden respeta las dependencias (cada "después-de" ya
     // tiene que existir cuando se inserta el siguiente).
-    const INJECT: Array<[string, string]> = [
-      ['onboarding', 'funnel'], ['graphics', 'onboarding'],
-      ['prioridades', 'experimentos'], ['retro', 'prioridades'], ['fase-norte', 'retro'],
-      ['conocimiento', 'email'], ['integraciones', 'mako'], ['equipo', 'integraciones'],
-      ['perfil-reportes', 'equipo'],
-    ];
+    // El orden vive en showcase.ts (INJECT_ORDER): lo comparten esta grilla y la
+    // que arman las páginas de funcionalidad, para que sean idénticas.
+    const INJECT = INJECT_ORDER;
     const featGrid = root.querySelector<HTMLElement>('.mk-feature-grid');
     const makeCard = (slug: string): HTMLAnchorElement => {
       const f = SHOWCASE_BY_SLUG[slug];
@@ -85,6 +82,9 @@ export default function Landing() {
       return a;
     };
     if (featGrid) {
+      // Funcionalidades que todavía no se muestran (Customer Success): fuera de
+      // la grilla, así queda el 4×6 exacto y no sobra una card suelta abajo.
+      for (const s of OCULTAS) featGrid.querySelector(`a[href="#m-${s}"]`)?.remove();
       for (const [slug, after] of INJECT) {
         if (!SHOWCASE_BY_SLUG[slug]) continue;
         if (featGrid.querySelector(`a[data-feature="${slug}"]`)) continue; // idempotente

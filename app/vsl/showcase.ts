@@ -25,10 +25,33 @@ export type ShowcaseFeature = {
 // Orden de las cards en la grilla de /vsl (24 features). Las 8 nuevas + prioridades
 // se inyectan en runtime desde Landing.tsx en estas posiciones.
 export const SHOWCASE_ORDER = [
-  'funnel', 'onboarding', 'graphics', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
-  'cobranza', 'contrato', 'customer', 'semaforo', 'experimentos', 'prioridades', 'retro', 'fase-norte',
+  'funnel', 'pipeline', 'onboarding', 'graphics', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
+  'cobranza', 'contrato', 'semaforo', 'experimentos', 'prioridades', 'retro', 'fase-norte',
   'whatsapp', 'email', 'conocimiento', 'mako', 'integraciones', 'equipo', 'perfil-reportes',
 ];
+
+/**
+ * Cards que NO vienen en el HTML del diseño y se inyectan en la grilla:
+ * [slug, después-de]. El orden importa — cada "después-de" ya tiene que existir
+ * cuando se inserta el siguiente. Es la ÚNICA fuente: lo usan la landing (que
+ * las inyecta en el DOM) y las páginas de funcionalidad (que arman el mismo
+ * HTML del lado del servidor).
+ */
+export const INJECT_ORDER: Array<[string, string]> = [
+  ['onboarding', 'funnel'], ['graphics', 'onboarding'],
+  ['prioridades', 'experimentos'], ['retro', 'prioridades'], ['fase-norte', 'retro'],
+  ['conocimiento', 'email'], ['integraciones', 'mako'], ['equipo', 'integraciones'],
+  ['perfil-reportes', 'equipo'],
+  // Va último para que quede pegado a funnel (si fuera primero, onboarding se
+  // metería entre los dos).
+  ['pipeline', 'funnel'],
+];
+
+/**
+ * Funcionalidades que existen pero NO se muestran todavía en la grilla.
+ * Customer Success es a futuro: sacarla deja la grilla en un 4×6 exacto.
+ */
+export const OCULTAS = new Set<string>(['customer']);
 
 export const SHOWCASE: ShowcaseFeature[] = [
   {
@@ -46,6 +69,14 @@ export const SHOWCASE: ShowcaseFeature[] = [
       'Marketing y ventas juntos: Meta, tu landing, tu VSL, Calendly, WhatsApp y tus llamadas, <strong>conectados y actualizándose solos</strong>.',
       'Donde antes intuías, <strong>ahora ves</strong>. Y donde antes veías números sueltos, ahora ves qué significan.',
     ],
+  },
+  {
+    slug: 'pipeline',
+    name: 'Armá tu embudo',
+    icon: [
+      'M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.414 -4.414a2 2 0 0 1 -.586 -1.414v-2.172z',
+    ],
+    hook: 'Editás una fila y el resto se escribe solo.',
   },
   {
     slug: 'crm',

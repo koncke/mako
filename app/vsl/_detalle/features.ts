@@ -199,7 +199,7 @@ const ICON: Record<string, string[]> = {
 };
 
 export const FEATURE_ORDER = [
-  "funnel", "pipeline", "onboarding", "graphics", "crm", "api", "ads", "script", "closing", "seguimiento", "cobranza", "contrato", "customer", "semaforo", "experimentos", "prioridades", "retro", "fase-norte", "whatsapp", "email", "conocimiento", "mako", "integraciones", "equipo", "perfil-reportes",
+  "funnel", "pipeline", "onboarding", "graphics", "crm", "api", "ads", "script", "closing", "seguimiento", "cobranza", "contrato", "semaforo", "experimentos", "prioridades", "retro", "fase-norte", "whatsapp", "email", "conocimiento", "mako", "integraciones", "equipo", "perfil-reportes",
 ];
 
 export const FEATURES: Record<string, Feature> = {

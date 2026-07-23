@@ -417,9 +417,9 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-vermas:hover .mk-vermas-l { text-decoration: underline; }
 .mk-vermas-l { font-weight: 600; color: #2F6FED; white-space: nowrap; }
 
-/* CTA al cierre de cada bloque de "Cómo funciona" (el mismo botón del hero,
-   pero al ancho del contenido). */
-.mk-btn-sec { display: inline-flex; align-items: center; justify-content: center; gap: 9px; margin-top: 24px; padding: 14px 26px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 14.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 14px 30px -14px rgba(47,111,237,.55); }
+/* CTA al cierre de cada bloque de "Cómo funciona": el mismo botón del hero y
+   SIEMPRE al ancho de la sección (no del contenido). */
+.mk-btn-sec { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 24px; padding: 16px 28px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 14px 30px -14px rgba(47,111,237,.55); }
 
 /* Esquinas del marco: blancas sobre imagen oscura (video del caso), oscuras
    sobre el mini-VSL (fondo blanco) que se las comía. */
@@ -495,15 +495,10 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-more { margin-top: 84px; }
 .mk-more-h { margin: 0 0 40px; font-size: 36px; line-height: 1.15; letter-spacing: -0.03em; font-weight: 600; color: #12151B; text-align: center; text-wrap: balance; }
 .mk-more-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
-.mk-more-card { display: flex; flex-direction: column; background: #fff; border: 1px solid #EAECF1; border-radius: 12px; padding: 28px 26px; min-height: 206px; text-decoration: none; box-shadow: 0 1px 2px rgba(16,19,25,.03); transition: box-shadow .22s ease, transform .22s ease; }
-.mk-more-card:hover { box-shadow: 0 14px 34px -18px rgba(16,19,25,.28); transform: translateY(-3px); }
-.mk-more-ic { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex: none; margin-bottom: 18px; }
-.mk-more-name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; color: #12151B; }
-.mk-more-hook { font-size: 14px; line-height: 1.55; color: #6B7280; margin-top: 9px; }
-/* La feature actual: marcada, sin hover, no clickeable */
-.mk-more-card-here { background: #F4F7FD; border-color: #CFE0FA; box-shadow: none; cursor: default; position: relative; }
-.mk-more-card-here:hover { transform: none; box-shadow: none; }
-.mk-more-here { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #2F6FED; background: #E4EEFD; padding: 4px 9px; border-radius: 999px; }
+/* Las cards traen su estilo inline desde la landing; acá solo va el hover
+   (la misma animación que allá) y el estado de "la actual". */
+.mk-more-grid > a:hover { transform: translateY(-3px); box-shadow: 0 20px 44px -22px rgba(16,19,25,.26); }
+.mk-more-grid > div[aria-current] { cursor: default; }
 
 .mk-foot { border-top: 1px solid #EEF0F3; background: #FBFCFE; margin-top: 80px; }
 .mk-foot-in { max-width: 1060px; margin: 0 auto; padding: 36px 28px 44px; }
