@@ -184,6 +184,32 @@ function Hub({ curso, goClase, goRecurso }: { curso: Curso; goClase: (n: number)
   );
 }
 
+// Transcripción diferida: puede ser enorme (+130k chars), así que NO viaja en el
+// bundle. Se sirve estática en /cono-tx/<videoId>.json y se baja al abrir el
+// <details>, una sola vez.
+function TranscriptLazy({ videoId }: { videoId: string }) {
+  const [paras, setParas] = useState<string[] | null>(null);
+  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const load = () => {
+    if (paras || state === 'loading') return;
+    setState('loading');
+    fetch(`/cono-tx/${videoId}.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: string[]) => { setParas(d); setState('idle'); })
+      .catch(() => setState('error'));
+  };
+  return (
+    <details className="al-det" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) load(); }}>
+      <summary>Ver transcripción</summary>
+      <div className="al-transcript">
+        {state === 'loading' && <p>Cargando transcripción…</p>}
+        {state === 'error' && <p>No se pudo cargar la transcripción.</p>}
+        {paras && paras.map((p, i) => <p key={i}>{p}</p>)}
+      </div>
+    </details>
+  );
+}
+
 // ── Detalle de clase ─────────────────────────────────────────────────────────
 function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; goRecurso: (slug: string) => void; back: () => void }) {
   const bySlug = useMemo(() => Object.fromEntries(curso.recursos.map((r) => [r.slug, r])), [curso]);
@@ -200,7 +226,7 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
           escrito, ese hueco enorme es ruido. */}
       {c.videoId ? (
         <div className="al-video"><iframe src={DRIVE_PREVIEW(c.videoId)} title={`Clase ${c.n}`} allow="autoplay; encrypted-media" allowFullScreen loading="lazy" /></div>
-      ) : c.transcripcion.length > 0 || c.transcripcionNota ? (
+      ) : c.hasTx || c.transcripcionNota ? (
         <div className="al-video al-video-x"><span>Video no disponible</span></div>
       ) : null}
 
@@ -211,11 +237,8 @@ function ClaseDetail({ curso, c, goRecurso, back }: { curso: Curso; c: Clase; go
         </div>
       )}
 
-      {c.transcripcion.length > 0 ? (
-        <details className="al-det">
-          <summary>Ver transcripción</summary>
-          <div className="al-transcript">{c.transcripcion.map((p, i) => <p key={i}>{p}</p>)}</div>
-        </details>
+      {c.hasTx && c.videoId ? (
+        <TranscriptLazy videoId={c.videoId} />
       ) : c.transcripcionNota ? <div className="al-nota">{c.transcripcionNota}</div> : null}
 
       {c.recursoSlugs.length > 0 && (
