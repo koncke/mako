@@ -659,8 +659,8 @@ function drawCracks(ctx: CanvasRenderingContext2D, cx: number, cy: number, p: nu
     for (const b of SHATTER) { ctx.beginPath(); ctx.moveTo(cx, cy); for (const pt of b) ctx.lineTo(cx + pt.x * e, cy + pt.y * e); ctx.stroke(); }
     for (let ring = 0; ring < 3; ring++) { ctx.beginPath(); for (let i = 0; i <= SHATTER.length; i++) { const b = SHATTER[i % SHATTER.length][ring]; const x = cx + b.x * e, y = cy + b.y * e; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); }
   };
-  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2.4; paint();
-  ctx.strokeStyle = '#2B303A'; ctx.lineWidth = 0.9; paint();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2.6; paint();
+  ctx.strokeStyle = 'rgba(124,134,148,0.6)'; ctx.lineWidth = 0.9; paint();   // gris, no negro
   ctx.restore();
 }
 
@@ -748,32 +748,42 @@ function drawCrmExcel(ctx: CanvasRenderingContext2D, t: number, W: number, H: nu
   } else {
     const snap = excelSnapshot(W, H), b = clamp(ai / 280, 0, 1) * 5;
     ctx.save(); ctx.filter = `blur(${b.toFixed(1)}px)`; if (snap) ctx.drawImage(snap, 0, 0, W, H); ctx.filter = 'none'; ctx.restore();
-    ctx.save(); ctx.globalAlpha = 0.5 * clamp(ai / 300, 0, 1); ctx.fillStyle = '#EEF1F6'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.58 * clamp(ai / 300, 0, 1); ctx.fillStyle = '#E8ECF2'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
     drawCracks(ctx, cx, impactY, ai / 180);        // astilla RÁPIDO y llega a los bordes
     if (ai < 160) { ctx.save(); ctx.globalAlpha = (1 - ai / 160) * 0.9; const g = ctx.createRadialGradient(cx, impactY, 0, cx, impactY, W * 0.6); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   }
   ctx.restore();
 
-  // TEXTO (mismo temblor). Todas las líneas, misma tipografía y tamaño.
-  ctx.save(); ctx.translate(sx, sy); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // TEXTO (mismo temblor). Contorno blanco para separarlo del vidrio gris.
+  ctx.save(); ctx.translate(sx, sy); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
   const linea = (txt: string, y: number, appearAt: number) => {
     const a = eoC(clamp((ai - appearAt) / 400, 0, 1)); if (a <= 0.001) return;
-    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#14171D';
-    ctx.font = "600 25px 'Geist', system-ui, sans-serif";
-    ctx.shadowColor = 'rgba(10,12,18,0.22)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
-    ctx.fillText(txt, cx, y); ctx.restore();
+    ctx.save(); ctx.globalAlpha = a; ctx.font = "600 25px 'Geist', system-ui, sans-serif";
+    ctx.lineWidth = 4.5; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.strokeText(txt, cx, y);
+    ctx.fillStyle = '#14171D'; ctx.fillText(txt, cx, y); ctx.restore();
+  };
+  // "Con MaKo": Con en oscuro + MaKo en azul (marca), diferenciado
+  const conMako = (y: number, appearAt: number) => {
+    const a = eoC(clamp((ai - appearAt) / 400, 0, 1)); if (a <= 0.001) return;
+    ctx.save(); ctx.globalAlpha = a; ctx.textAlign = 'left'; ctx.lineWidth = 4.5; ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = "600 25px 'Geist', system-ui, sans-serif"; const w1 = ctx.measureText('Con ').width;
+    ctx.font = "800 25px 'Geist', system-ui, sans-serif"; const w2 = ctx.measureText('MaKo').width;
+    const sX = cx - (w1 + w2) / 2;
+    ctx.font = "600 25px 'Geist', system-ui, sans-serif"; ctx.strokeText('Con ', sX, y); ctx.fillStyle = '#14171D'; ctx.fillText('Con ', sX, y);
+    ctx.font = "800 25px 'Geist', system-ui, sans-serif"; ctx.strokeText('MaKo', sX + w1, y); ctx.fillStyle = '#2F6FED'; ctx.fillText('MaKo', sX + w1, y);
+    ctx.restore();
   };
   if (tt >= EXCEL) {                                // BASTA cae PRIMERO
     const dropP = clamp((tt - EXCEL) / DROP, 0, 1);
     const by = tt < EXCEL + DROP ? lerp(-60, impactY, eiCubic(dropP)) : impactY;
     const scale = ai > 0 ? lerp(1.2, 1, eoCubic(clamp(ai / 160, 0, 1))) : 1;
-    ctx.save(); ctx.translate(cx, by); ctx.scale(scale, scale);
-    ctx.fillStyle = '#0E1116'; ctx.font = "800 68px 'Geist', system-ui, sans-serif";
-    ctx.shadowColor = 'rgba(10,12,18,0.28)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 5;
-    ctx.fillText('BASTA', 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(cx, by); ctx.scale(scale, scale); ctx.lineJoin = 'round';
+    ctx.font = "800 68px 'Geist', system-ui, sans-serif";
+    ctx.lineWidth = 7; ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.strokeText('BASTA', 0, 0);
+    ctx.fillStyle = '#0E1116'; ctx.fillText('BASTA', 0, 0); ctx.restore();
   }
   linea('de planillas aburridas', impactY + 58, 600);
-  linea('Con MaKo', impactY + 96, 1200);
+  conMako(impactY + 96, 1200);
   linea('Nunca más.', impactY + 134, 1800);
   ctx.restore();
 }
@@ -809,21 +819,29 @@ function drawCrmSecuencia(ctx: CanvasRenderingContext2D, t: number, W: number, H
   ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
   const trav: KCard = { name: 'José Rodríguez', tag: SEQ_TAGS[0], tone: 'blue' };
 
-  const STEP = 3300, TEXT = 1750, LOOP = SEQ_BEATS.length * STEP, tt = t % LOOP;
+  const STEP = 3600, TEXT = 2200, LOOP = SEQ_BEATS.length * STEP, tt = t % LOOP;
   const step = Math.min(SEQ_BEATS.length - 1, Math.floor(tt / STEP)), local = tt - step * STEP;
   const beat = SEQ_BEATS[step];
 
   if (local < TEXT) {
-    // FASE TEXTO — pregunta arriba y respuesta de MaKo abajo, las dos en grande
-    const outP = local > TEXT - 300 ? clamp((local - (TEXT - 300)) / 300, 0, 1) : 0;
+    // FASE TEXTO — pregunta arriba y respuesta de MaKo justo debajo (más junto)
+    const outP = local > TEXT - 320 ? clamp((local - (TEXT - 320)) / 320, 0, 1) : 0;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.font = "700 26px 'Geist', system-ui, sans-serif";
-    const qlines = wrap(ctx, beat.q, W * 0.84), lh = 33, ansGap = 30;
+    const qlines = wrap(ctx, beat.q, W * 0.84), lh = 33, ansGap = 16;
     const blockH = qlines.length * lh + ansGap, y0 = H / 2 - blockH / 2 + lh / 2;
     const qIn = eoC(clamp(local / 380, 0, 1)), qA = qIn * (1 - outP);
     if (qA > 0.001) { ctx.save(); ctx.globalAlpha = qA; ctx.fillStyle = '#14171D'; ctx.translate(0, lerp(10, 0, qIn)); qlines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * lh)); ctx.restore(); }
-    const aA = eoC(clamp((local - 760) / 380, 0, 1)) * (1 - outP);
-    if (aA > 0.001) { ctx.save(); ctx.globalAlpha = aA; ctx.fillStyle = '#2F6FED'; ctx.font = "600 22px 'Geist', system-ui, sans-serif"; ctx.fillText(beat.a, W / 2, y0 + qlines.length * lh + ansGap); ctx.restore(); }
+    // respuesta de MaKo: más pausada (aparece después) y con barrido dorado
+    const ansStart = 900, ansY = y0 + qlines.length * lh + ansGap;
+    const aA = eoC(clamp((local - ansStart) / 440, 0, 1)) * (1 - outP);
+    if (aA > 0.001) {
+      ctx.save(); ctx.globalAlpha = aA; ctx.font = "600 22px 'Geist', system-ui, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#2F6FED'; ctx.fillText(beat.a, W / 2, ansY);
+      const w = ctx.measureText(beat.a).width, x = W / 2 - w / 2, sp = clamp((local - ansStart) / 620, 0, 1);
+      if (sp > 0 && sp < 1) goldSweep(ctx, x - 8, ansY - 16, w + 16, 32, x + (sp * 1.3 - 0.15) * w);
+      ctx.restore();
+    }
     return;
   }
 
