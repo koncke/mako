@@ -57,7 +57,7 @@ export const CURSO_VSL: Curso = {
       resumen: `REGLAS DE ESTILO
 
 - **Fondo blanco, letras negras.** Nunca fondo oscuro.
-- **El texto en pantalla es EXACTO al audio**, palabra por palabra. Nada de recortar ni parafrasear.
+- **El texto en pantalla es EXACTO al audio**, palabra por palabra. Nada de recortar ni parafrasear. **Excepción: los números van como CIFRAS** en pantalla ("9 de cada 10", "1.400", "400 horas"), aunque el audio los diga con palabras.
 - **Énfasis en AZUL** (#2F6FED). El **dorado queda reservado solo para la palabra "MaKo"**.
 - **Texto gigante siempre en pantalla** — no aparece nadie — salvo cuando hay gráfico, logos, foto o demo.
 - **Apps: logos reales.** Aunque el locutor nombre pocas, se llena la pantalla con todas para dar sensación abrumadora.
@@ -67,6 +67,7 @@ MARCA DE AGUA
 
 - Badge oscuro (#2A251C→#171511) + estrella dorada (#F6D365→#EF9F27) + wordmark "MaKo" con barrido dorado de IZQUIERDA a DERECHA, en loop de 2,6 s.
 - Sin el texto "Marketing OS". Estrella y texto centrados verticalmente (el texto va nudgeado +6% del tamaño).
+- **La marca de agua va un poco MÁS ARRIBA del borde inferior**, no pegada abajo: la barra de progreso del reproductor tapa lo que queda al pie. Regla.
 
 ESTRUCTURA
 
@@ -154,7 +155,7 @@ TODO LO QUE APARECE, SUENA
 PRONUNCIACION EN ELEVENLABS
 
 - **No abusar de los breaks:** dejan la voz muy pausada. El guión ya pausa por puntuación. Para que salga dinámico: casi sin breaks, velocidad 1,05-1,12, estabilidad 0,30-0,35, estilo 0,45-0,55.
-- **Escribir fonético en español lo que el modelo lea mal.** MaKo se escribe "Máko" (sin acento sale "MaKó"). VSL se escribe en minúscula, "vsl" (validado: sale fluido en español; en mayúscula lo mezcla con inglés).
+- **Escribir fonético en español lo que el modelo lea mal.** MaKo se escribe "Máko" (sin acento sale "MaKó"). VSL se escribe en minúscula, "vsl", y sale fluido cuando está SOLO (ej. "Tu vsl."). PERO pegado a otra palabra (ej. "vsl funnel") a veces lo deletrea mal ("bu ese ele"); ahí escribirlo deletreado en español latino: "ve ese ele".
 - Regla general: cualquier sigla o marca que suene mal, se escribe como suena en español.
 - Un solo take por corrección: clavar texto y pronunciación ANTES de generar.
 
