@@ -639,30 +639,28 @@ const EXCEL_ROWS: ECell[][] = [
   [{ t: 'Marcelo' }, { t: '55 8' }, { t: '__EDIT__' }, { t: '' }, { t: '' }],
   [{ t: 'Jose Rodriguez' }, { t: '55 1234' }, { t: '', red: true }, { t: '' }, { t: 'dup?' }],
 ];
-// grietas de vidrio, generadas una sola vez de forma determinista (sin random en frame)
-function buildCracks() {
+// vidrio que se astilla ENTERO: radiales largas (llegan a los bordes) + anillos
+// de telaraña. Generado una sola vez, determinista (sin random en cada frame).
+function buildShatter() {
   let s = 7; const rnd = () => { s = (s * 48271) % 2147483647; return s / 2147483647; };
-  const arr: { x: number; y: number }[][] = [];
-  const branches = 11;
-  for (let i = 0; i < branches; i++) {
-    let ang = (i / branches) * Math.PI * 2 + (rnd() - 0.5) * 0.5, x = 0, y = 0;
-    const pts = [{ x, y }], steps = 3 + Math.floor(rnd() * 3), total = 80 + rnd() * 150;
-    for (let k = 0; k < steps; k++) { const seg = total / steps; ang += (rnd() - 0.5) * 0.7; x += Math.cos(ang) * seg; y += Math.sin(ang) * seg; pts.push({ x, y }); }
-    arr.push(pts);
+  const N = 18, RINGS = [46, 112, 195, 300, 430];
+  const br: { x: number; y: number }[][] = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    br.push(RINGS.map((r) => { const aa = a + (rnd() - 0.5) * 0.26, rd = r * (0.82 + rnd() * 0.45); return { x: Math.cos(aa) * rd, y: Math.sin(aa) * rd }; }));
   }
-  return arr;
+  return br;
 }
-const CRACKS = buildCracks();
+const SHATTER = buildShatter();
 function drawCracks(ctx: CanvasRenderingContext2D, cx: number, cy: number, p: number) {
-  const e = eoCubic(clamp(p, 0, 1));
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (const br of CRACKS) {
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    for (const pt of br) ctx.lineTo(cx + pt.x * e, cy + pt.y * e);
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2.6; ctx.stroke();
-    ctx.strokeStyle = '#2B303A'; ctx.lineWidth = 1; ctx.stroke();
-  }
-  ctx.beginPath(); ctx.arc(cx, cy, 5 * e, 0, Math.PI * 2); ctx.strokeStyle = '#2B303A'; ctx.lineWidth = 1.2; ctx.stroke();
+  const e = eoCubic(clamp(p, 0, 1)); if (e <= 0.001) return;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = clamp(p * 1.5, 0, 1);
+  const paint = () => {
+    for (const b of SHATTER) { ctx.beginPath(); ctx.moveTo(cx, cy); for (const pt of b) ctx.lineTo(cx + pt.x * e, cy + pt.y * e); ctx.stroke(); }
+    for (let ring = 0; ring < 3; ring++) { ctx.beginPath(); for (let i = 0; i <= SHATTER.length; i++) { const b = SHATTER[i % SHATTER.length][ring]; const x = cx + b.x * e, y = cy + b.y * e; i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); }
+  };
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 2.4; paint();
+  ctx.strokeStyle = '#2B303A'; ctx.lineWidth = 0.9; paint();
   ctx.restore();
 }
 
@@ -724,45 +722,51 @@ function drawExcel(ctx: CanvasRenderingContext2D, W: number, H: number, tt: numb
   }
 }
 
-// BASTA cae del cielo, rompe el Excel como un vidrio, y aparece la frase. El
-// Excel se sigue viendo atrás (velo tenue + sombra del texto para separarlo).
+// BASTA cae del cielo y astilla el Excel entero como un vidrio; después van
+// apareciendo las líneas de a una (se leen de a poco), centradas y espaciadas.
+// El Excel se sigue viendo atrás (velo tenue + sombra en el texto).
 function drawCrmExcel(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
-  const EXCEL = 2600, DROP = 480, HOLD = 3800, LOOP = EXCEL + DROP + HOLD, tt = t % LOOP;
-  const cx = W / 2, impactY = H * 0.34;
+  const EXCEL = 2400, DROP = 460, POST = 4600, LOOP = EXCEL + DROP + POST, tt = t % LOOP;
+  const cx = W / 2, impactY = H * 0.28;
   const ai = tt - (EXCEL + DROP);                 // ms desde el impacto (< 0 si aún no cayó)
   let sx = 0, sy = 0;                              // temblor breve al romperse
-  if (ai > 0 && ai < 260) { const d = 1 - ai / 260; sx = Math.sin(ai * 0.9) * 7 * d; sy = Math.cos(ai * 1.1) * 4 * d; }
+  if (ai > 0 && ai < 300) { const d = 1 - ai / 300; sx = Math.sin(ai * 0.9) * 8 * d; sy = Math.cos(ai * 1.1) * 5 * d; }
   ctx.save(); ctx.translate(sx, sy);
   ctx.fillStyle = '#F5F7FB'; ctx.fillRect(-8, -8, W + 16, H + 16);
   drawExcel(ctx, W, H, tt);                        // el Excel SIEMPRE detrás
   if (ai > 0) {
-    ctx.save(); ctx.globalAlpha = 0.4 * clamp(ai / 300, 0, 1); ctx.fillStyle = '#F7F8FB'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
-    drawCracks(ctx, cx, impactY, ai / 360);
-    if (ai < 150) { ctx.save(); ctx.globalAlpha = (1 - ai / 150) * 0.85; const g = ctx.createRadialGradient(cx, impactY, 0, cx, impactY, W * 0.5); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+    ctx.save(); ctx.globalAlpha = 0.42 * clamp(ai / 280, 0, 1); ctx.fillStyle = '#F7F8FB'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
+    drawCracks(ctx, cx, impactY, ai / 180);        // astilla RÁPIDO y llega a los bordes
+    if (ai < 160) { ctx.save(); ctx.globalAlpha = (1 - ai / 160) * 0.9; const g = ctx.createRadialGradient(cx, impactY, 0, cx, impactY, W * 0.6); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   }
-  if (tt >= EXCEL) {
+  ctx.restore();
+
+  // TEXTO (con el mismo temblor). Cada línea aparece en su momento.
+  ctx.save(); ctx.translate(sx, sy);
+  const linea = (txt: string, y: number, font: string, color: string, appearAt: number, star: boolean) => {
+    const a = eoC(clamp((ai - appearAt) / 400, 0, 1)); if (a <= 0.001) return;
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.shadowColor = 'rgba(10,12,18,0.34)'; ctx.shadowBlur = 13; ctx.shadowOffsetY = 4;
+    ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'middle';
+    if (star) {
+      const wlab = ctx.measureText(txt).width, sk = 14, startX = cx - (wlab + sk + 10) / 2;
+      sparkle(ctx, startX + sk / 2, y, sk / 2, '#F2B01E');
+      ctx.textAlign = 'left'; ctx.fillText(txt, startX + sk + 10, y);
+    } else { ctx.textAlign = 'center'; ctx.fillText(txt, cx, y); }
+    ctx.restore();
+  };
+  if (tt >= EXCEL) {                                // BASTA cae PRIMERO
     const dropP = clamp((tt - EXCEL) / DROP, 0, 1);
-    const y = tt < EXCEL + DROP ? lerp(-50, impactY, eiCubic(dropP)) : impactY;
-    const scale = ai > 0 ? lerp(1.18, 1, eoCubic(clamp(ai / 150, 0, 1))) : 1;
-    ctx.save(); ctx.translate(cx, y); ctx.scale(scale, scale);
-    ctx.shadowColor = 'rgba(10,12,18,0.38)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
-    ctx.fillStyle = '#14171D'; ctx.font = "800 60px 'Geist', system-ui, sans-serif";
+    const by = tt < EXCEL + DROP ? lerp(-60, impactY, eiCubic(dropP)) : impactY;
+    const scale = ai > 0 ? lerp(1.2, 1, eoCubic(clamp(ai / 160, 0, 1))) : 1;
+    ctx.save(); ctx.translate(cx, by); ctx.scale(scale, scale);
+    ctx.shadowColor = 'rgba(10,12,18,0.4)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#14171D'; ctx.font = "800 62px 'Geist', system-ui, sans-serif";
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('BASTA', 0, 0); ctx.restore();
-    if (ai > 120) {
-      const a1 = eoC(clamp((ai - 120) / 360, 0, 1));
-      ctx.save(); ctx.globalAlpha = a1; ctx.shadowColor = 'rgba(10,12,18,0.28)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
-      ctx.fillStyle = '#3A424E'; ctx.font = "600 19px 'Geist', system-ui, sans-serif";
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('de planillas aburridas', cx, impactY + 42); ctx.restore();
-    }
-    if (ai > 380) {
-      const a2 = eoC(clamp((ai - 380) / 360, 0, 1));
-      ctx.save(); ctx.globalAlpha = a2; ctx.font = "700 22px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
-      const label = 'Con MaKo', sk = 9, wlab = ctx.measureText(label).width, startX = cx - (wlab + sk + 8) / 2;
-      sparkle(ctx, startX + sk / 2, impactY + 78, sk / 2, '#F2B01E');
-      ctx.shadowColor = 'rgba(10,12,18,0.28)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
-      ctx.fillStyle = '#14171D'; ctx.textAlign = 'left'; ctx.fillText(label, startX + sk + 8, impactY + 78); ctx.restore();
-    }
   }
+  linea('de planillas aburridas', impactY + 66, "600 20px 'Geist', system-ui, sans-serif", '#3A424E', 600, false);
+  linea('Con MaKo', impactY + 118, "700 24px 'Geist', system-ui, sans-serif", '#14171D', 1300, true);
+  linea('Nunca más.', impactY + 166, "700 21px 'Geist', system-ui, sans-serif", '#2F6FED', 2000, false);
   ctx.restore();
 }
 
@@ -790,37 +794,49 @@ function goldSweep(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.fillStyle = g; ctx.fillRect(edge - 16, y - 2, 26, h + 4); ctx.restore();
 }
 
+// Ritmo en dos tiempos por paso: PRIMERO la pregunta en grande y centrada (sin
+// kanban); DESPUÉS desaparece y aparece el kanban con la respuesta de MaKo y el
+// barrido dorado agregando / moviendo la card. Nunca todo junto.
 function drawCrmSecuencia(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
   ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
-  const capTop = 14, boardTop = 76, boardH = H - boardTop - 12;
-  const cols = kbColumns(W, boardTop, boardH);
   const trav: KCard = { name: 'José Rodríguez', tag: SEQ_TAGS[0], tone: 'blue', star: true };
 
-  const BEAT = 2300, ACT_START = 850, ACT_DUR = 680, TAIL = 900;
-  const LOOP = SEQ_BEATS.length * BEAT + TAIL, tt = t % LOOP;
-  let bi = Math.floor(tt / BEAT); const inTail = bi >= SEQ_BEATS.length;
-  const local = inTail ? BEAT : tt - bi * BEAT; if (inTail) bi = SEQ_BEATS.length - 1;
-  const beat = SEQ_BEATS[bi];
-  const actP = clamp((local - ACT_START) / ACT_DUR, 0, 1);
+  const STEP = 3100, TEXT = 1350, LOOP = SEQ_BEATS.length * STEP, tt = t % LOOP;
+  const step = Math.min(SEQ_BEATS.length - 1, Math.floor(tt / STEP)), local = tt - step * STEP;
+  const beat = SEQ_BEATS[step];
 
-  // caption: la pregunta arriba, la respuesta de MaKo (con estrella) abajo
-  const qA = eoC(clamp(local / 360, 0, 1));
-  ctx.save(); ctx.globalAlpha = qA; ctx.fillStyle = '#6A7484';
-  ctx.font = "500 14px 'Geist', system-ui, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(beat.q, W / 2, capTop + 14); ctx.restore();
-  if (local > 380) {
-    const aA = eoC(clamp((local - 380) / 360, 0, 1));
-    ctx.save(); ctx.globalAlpha = aA; ctx.font = "700 15px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
-    const lab = beat.a, wlab = ctx.measureText(lab).width, sk = 11, startX = W / 2 - (wlab + sk + 7) / 2;
-    sparkle(ctx, startX + sk / 2, capTop + 42, sk / 2, '#F2B01E');
-    ctx.fillStyle = '#14171D'; ctx.textAlign = 'left'; ctx.fillText(lab, startX + sk + 7, capTop + 42); ctx.restore();
+  if (local < TEXT) {
+    // FASE A — la pregunta en grande, centrada, SOLA (sin kanban)
+    const inP = eoC(clamp(local / 400, 0, 1));
+    const outP = local > TEXT - 300 ? clamp((local - (TEXT - 300)) / 300, 0, 1) : 0;
+    const a = inP * (1 - outP); if (a <= 0.001) return;
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(0, lerp(12, 0, inP));
+    ctx.font = "700 27px 'Geist', system-ui, sans-serif"; ctx.fillStyle = '#14171D';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lines = wrap(ctx, beat.q, W * 0.84), lh = 34, y0 = H / 2 - (lines.length - 1) * lh / 2;
+    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * lh));
+    ctx.restore();
+    return;
   }
 
+  // FASE B — desaparece el texto, aparece el kanban + respuesta + barrido
+  const lb = local - TEXT, kA = eoC(clamp(lb / 300, 0, 1));
+  const capTop = 14, boardTop = 76, boardH = H - boardTop - 12;
+  const cols = kbColumns(W, boardTop, boardH);
+  const aA = eoC(clamp((lb - 150) / 340, 0, 1));
+  if (aA > 0.001) {
+    ctx.save(); ctx.globalAlpha = aA; ctx.font = "700 15px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
+    const lab = beat.a, wlab = ctx.measureText(lab).width, sk = 12, startX = W / 2 - (wlab + sk + 8) / 2;
+    sparkle(ctx, startX + sk / 2, capTop + 16, sk / 2, '#F2B01E');
+    ctx.fillStyle = '#14171D'; ctx.textAlign = 'left'; ctx.fillText(lab, startX + sk + 8, capTop + 16); ctx.restore();
+  }
+
+  ctx.save(); ctx.globalAlpha = kA;
   cols.forEach((col) => kbColShell(ctx, col));
   SEQ_STATIC.forEach(({ col, card }) => { const s = kbSlot(cols[col], 0); kbCard(ctx, s.x, s.y, s.w, card); });
-
   const slotFor = (colIdx: number) => kbSlot(cols[colIdx], 1);
   trav.tag = SEQ_TAGS[beat.to]; trav.tone = SEQ_TONES[beat.to];
+  const actP = clamp((lb - 560) / 700, 0, 1);
 
   if (beat.kind === 'reveal') {
     const s = slotFor(beat.to);
@@ -839,6 +855,7 @@ function drawCrmSecuencia(ctx: CanvasRenderingContext2D, t: number, W: number, H
       goldSweep(ctx, mx, my, to.w, CARD_H, mx + (actP * 1.3 - 0.15) * to.w);
     } else { kbCard(ctx, to.x, to.y, to.w, trav); }
   }
+  ctx.restore();
 }
 
 const ExcelCanvas = makeCanvas(drawCrmExcel, 420);
