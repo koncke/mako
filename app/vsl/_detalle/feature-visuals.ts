@@ -318,113 +318,17 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
   },
   "crm": {
     "hero": {
-      "type": "kanban",
-      "cols": [
-        {
-          "label": "No Show",
-          "cards": 3,
-          "tone": "red"
-        },
-        {
-          "label": "Nutrición",
-          "cards": 5,
-          "tone": "amber"
-        },
-        {
-          "label": "Ganado",
-          "cards": 2,
-          "tone": "green"
-        }
-      ]
+      "type": "cxConnect"
     },
     "groups": [
       {
-        "type": "emailSequence",
-        "title": "Reactivación por umbral",
-        "steps": [
-          {
-            "day": "Día 2",
-            "subject": "→ Nutrición No Agenda"
-          },
-          {
-            "day": "Día 7",
-            "subject": "→ Reactivación"
-          },
-          {
-            "day": "Día 30",
-            "subject": "→ Reactivación fríos"
-          }
-        ]
+        "type": "cxCrmExcel"
       },
       {
-        "type": "diffCard",
-        "title": "MaKo movió un lead",
-        "rows": [
-          {
-            "field": "Estado",
-            "before": "Agendó",
-            "after": "No Show"
-          },
-          {
-            "field": "Etapa",
-            "before": "R1",
-            "after": "No Show R1"
-          },
-          {
-            "field": "Fathom",
-            "before": "—",
-            "after": "Link"
-          }
-        ]
+        "type": "cxMakoManos"
       },
       {
-        "type": "statTiles",
-        "title": "Por corrida",
-        "tiles": [
-          {
-            "label": "Tope llamadas",
-            "value": "25",
-            "tone": "blue"
-          },
-          {
-            "label": "Duplicados",
-            "value": "0",
-            "tone": "green"
-          },
-          {
-            "label": "Reintentos",
-            "value": "Auto",
-            "tone": "amber"
-          }
-        ]
-      },
-      {
-        "type": "makoAnswer",
-        "q": "¿Próxima acción?",
-        "a": "Reforzá el precio",
-        "detail": "Miró 80% del VSL, objeción de precio sin resolver en R1. Mandale el caso de ROI antes de R2."
-      },
-      {
-        "type": "funnel",
-        "title": "Requisitos por etapa",
-        "stages": [
-          {
-            "label": "Nuevo",
-            "w": 1
-          },
-          {
-            "label": "R1",
-            "w": 0.48
-          },
-          {
-            "label": "R2",
-            "w": 0.22
-          },
-          {
-            "label": "Ganado",
-            "w": 0.11
-          }
-        ]
+        "type": "cxCrmChat"
       }
     ]
   },

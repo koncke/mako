@@ -434,19 +434,19 @@ function waFooter(ctx: CanvasRenderingContext2D, W: number, H: number, h: number
   ctx.restore();
 }
 
-function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, msgs: Msg[], ownSide: 'mako' | 'yo') {
   ctx.save();
   ctx.fillStyle = WA_BG; ctx.fillRect(0, 0, W, H);
 
   const HEAD = 48, FOOT = 46;
   const FS = 12.5, LH = 17, PAD = 9, RAD = 9, maxBub = W * 0.72;
-  const PASO = 2100, LOOP = CHAT.length * PASO + 3800;   // que dé tiempo a leer
+  const PASO = 2100, LOOP = msgs.length * PASO + 3800;   // que dé tiempo a leer
   const tt = t % LOOP;
-  const vistos = Math.min(CHAT.length, Math.floor(tt / PASO) + 1);
+  const vistos = Math.min(msgs.length, Math.floor(tt / PASO) + 1);
 
   // medir todo para poder anclar el chat abajo (como WhatsApp: crece hacia arriba)
   ctx.font = `400 ${FS}px 'Geist', system-ui, sans-serif`;
-  const bloques = CHAT.map((m) => {
+  const bloques = msgs.map((m) => {
     if (m.tipo === 'pdf') return { m, lineas: [] as string[], h: 96 };
     const l = wrap(ctx, m.t!, maxBub - PAD * 2 - 30);
     return { m, lineas: l, h: l.length * LH + PAD * 2 + 6 };
@@ -458,7 +458,7 @@ function drawChat(ctx: CanvasRenderingContext2D, t: number, W: number, H: number
   ctx.save(); ctx.beginPath(); ctx.rect(0, HEAD, W, H - HEAD - FOOT); ctx.clip();
 
   for (let i = 0; i < vistos; i++) {
-    const b = bloques[i], m = b.m, mia = m.de === 'mako';
+    const b = bloques[i], m = b.m, mia = m.de === ownSide;
     const ap = eoC(clamp((tt - i * PASO) / 320, 0, 1));
     const dy = lerp(10, 0, ap);
     const wBub = m.tipo === 'pdf' ? maxBub
@@ -516,7 +516,7 @@ function ChatCanvas() {
       c._w = Math.max(1, r.width); c._h = Math.max(1, r.height); c._dpr = dpr;
       canvas.width = Math.round(c._w * dpr); canvas.height = Math.round(c._h * dpr);
     };
-    const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { drawChat(ctx, t, c._w, c._h); } catch { /* ignore */ } };
+    const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { drawChat(ctx, t, c._w, c._h, CHAT, 'mako'); } catch { /* ignore */ } };
     const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); paint(now - t0); raf = requestAnimationFrame(loop); };
     size(); raf = requestAnimationFrame(loop);
     const onResize = () => size(); window.addEventListener('resize', onResize);
@@ -525,7 +525,293 @@ function ChatCanvas() {
   return <canvas ref={ref} style={{ width: '100%', height: 480, display: 'block', borderRadius: 14 }} />;
 }
 
-const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas, cxChat: ChatCanvas };
+// ── cxCrmChat: MaKo maneja el CRM solo y te avisa por WhatsApp ────────────────
+// Mismo motor que cxChat, pero acá MaKo va a la IZQUIERDA (gris, entrante) y vos
+// a la DERECHA (verde, saliente) — como WhatsApp de verdad. Cada mensaje es una
+// cosa que MaKo hizo sola en el CRM, a lo largo de TODO el recorrido del lead:
+// entró → se agendó → vino → se enfrió → reactivación. Se entiende solo cada uno.
+const CRM_CHAT: Msg[] = [
+  { de: 'mako', t: 'Nuevo lead: *José Rodríguez*, de tu campaña de Julio. Lo cargué al CRM.', hora: '09:14' },
+  { de: 'mako', t: '*José Rodríguez* se agendó para dentro de 3 días. ¿Te armo su ficha para la reunión?', hora: '09:15' },
+  { de: 'yo', t: 'Dale 👍', hora: '09:16' },
+  { de: 'mako', tipo: 'pdf', nombre: 'Ficha — José Rodríguez.PDF', meta: '2 páginas · PDF · 148 kB', hora: '09:16' },
+  { de: 'mako', t: '*José Rodríguez* asistió a la llamada. Lo marqué *Presente* en el CRM.', hora: '15:42' },
+  { de: 'mako', t: '*José Rodríguez* lleva 1 día sin responder. Su freno en la llamada fue el precio.', hora: '10:20' },
+  { de: 'mako', t: '*José Rodríguez* lleva 2 días sin responder. Lo muevo a *Nutrición de Reactivación*.', hora: '11:05' },
+];
+
+function CrmChatCanvas() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current; if (!canvas) return;
+    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    const c = canvas as HTMLCanvasElement & { _w: number; _h: number; _dpr: number };
+    let raf = 0, t0: number | null = null, dead = false;
+    const size = () => {
+      const r = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      c._w = Math.max(1, r.width); c._h = Math.max(1, r.height); c._dpr = dpr;
+      canvas.width = Math.round(c._w * dpr); canvas.height = Math.round(c._h * dpr);
+    };
+    const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { drawChat(ctx, t, c._w, c._h, CRM_CHAT, 'yo'); } catch { /* ignore */ } };
+    const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); paint(now - t0); raf = requestAnimationFrame(loop); };
+    size(); raf = requestAnimationFrame(loop);
+    const onResize = () => size(); window.addEventListener('resize', onResize);
+    return () => { dead = true; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+  }, []);
+  return <canvas ref={ref} style={{ width: '100%', height: 480, display: 'block', borderRadius: 14 }} />;
+}
+
+// ── Factory de canvas: mismo bucle rAF para cualquier draw(ctx,t,W,H) ─────────
+// (evita repetir el boilerplate por cada gráfico nuevo; los que faltan son 20+)
+function makeCanvas(draw: (ctx: CanvasRenderingContext2D, t: number, W: number, H: number) => void, height: number) {
+  return function Fx() {
+    const ref = useRef<HTMLCanvasElement>(null);
+    useEffect(() => {
+      const canvas = ref.current; if (!canvas) return;
+      const ctx = canvas.getContext('2d'); if (!ctx) return;
+      const c = canvas as HTMLCanvasElement & { _w: number; _h: number; _dpr: number };
+      let raf = 0, t0: number | null = null, dead = false;
+      const size = () => {
+        const r = canvas.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        c._w = Math.max(1, r.width); c._h = Math.max(1, r.height); c._dpr = dpr;
+        canvas.width = Math.round(c._w * dpr); canvas.height = Math.round(c._h * dpr);
+      };
+      const paint = (t: number) => { ctx.setTransform(c._dpr, 0, 0, c._dpr, 0, 0); ctx.clearRect(0, 0, c._w, c._h); try { draw(ctx, t, c._w, c._h); } catch { /* ignore */ } };
+      const loop = (now: number) => { if (dead) return; if (t0 == null) t0 = now; const r = canvas.getBoundingClientRect(); if (Math.abs(r.width - c._w) > 1 || Math.abs(r.height - c._h) > 1) size(); paint(now - t0); raf = requestAnimationFrame(loop); };
+      size(); raf = requestAnimationFrame(loop);
+      const onResize = () => size(); window.addEventListener('resize', onResize);
+      return () => { dead = true; cancelAnimationFrame(raf); window.removeEventListener('resize', onResize); };
+    }, []);
+    return <canvas ref={ref} style={{ width: '100%', height, display: 'block', borderRadius: 14 }} />;
+  };
+}
+
+// ── Kanban compartido (gráficos del CRM) ─────────────────────────────────────
+type KTone = 'blue' | 'green' | 'amber' | 'gray';
+type KCard = { name: string; tag: string; tone: KTone; star?: boolean };
+const KB_INK = '#1B2432', KB_DIM = '#8A94A6', KB_LINE = '#E6EAF1', KB_COLBG = '#F1F4F9';
+const KB_TONE: Record<KTone, string> = { blue: '#2F6FED', green: '#1E9E57', amber: '#E0890C', gray: '#9AA5B5' };
+const KB_TITLES = ['Nuevos', 'Agendados', 'Ganados'];
+const COL_HEAD = 26, CARD_H = 42, CARD_GAP = 9, KB_PAD = 14, KB_COLGAP = 10;
+
+type Col = { title: string; x: number; y: number; w: number; h: number };
+function kbColumns(W: number, top: number, h: number): Col[] {
+  const n = KB_TITLES.length;
+  const colW = (W - KB_PAD * 2 - KB_COLGAP * (n - 1)) / n;
+  return KB_TITLES.map((title, i) => ({ title, x: KB_PAD + i * (colW + KB_COLGAP), y: top, w: colW, h }));
+}
+function kbSlot(col: Col, idx: number) {
+  return { x: col.x + 8, y: col.y + COL_HEAD + 8 + idx * (CARD_H + CARD_GAP), w: col.w - 16 };
+}
+function kbColShell(ctx: CanvasRenderingContext2D, col: Col) {
+  rr(ctx, col.x, col.y, col.w, col.h, 12); ctx.fillStyle = KB_COLBG; ctx.fill();
+  ctx.fillStyle = KB_DIM; ctx.font = "700 10px 'Geist', system-ui, sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(col.title.toUpperCase(), col.x + 12, col.y + 14);
+}
+function kbCard(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, card: KCard, alpha = 1, lift = 0) {
+  const h = CARD_H;
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.save(); ctx.shadowColor = `rgba(20,28,45,${(0.08 + lift * 0.14).toFixed(3)})`; ctx.shadowBlur = 7 + lift * 16; ctx.shadowOffsetY = 2 + lift * 7;
+  rr(ctx, x, y - lift * 3, w, h, 9); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+  const yy = y - lift * 3;
+  rr(ctx, x, yy, w, h, 9); ctx.strokeStyle = KB_LINE; ctx.lineWidth = 1; ctx.stroke();
+  rr(ctx, x, yy + 8, 3.5, h - 16, 2); ctx.fillStyle = KB_TONE[card.tone]; ctx.fill();
+  ctx.fillStyle = KB_INK; ctx.font = "600 11.5px 'Geist', system-ui, sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(card.name, x + 12, yy + 18);
+  ctx.fillStyle = KB_DIM; ctx.font = "400 9.5px 'Geist', system-ui, sans-serif"; ctx.fillText(card.tag, x + 12, yy + 32);
+  if (card.star) { rr(ctx, x + w - 22, yy + 6, 15, 15, 4); ctx.fillStyle = '#1A1712'; ctx.fill(); sparkle(ctx, x + w - 14.5, yy + 13.5, 4.2, '#F2B01E'); }
+  ctx.restore();
+}
+
+// ── cxCrmExcel: el Excel precario que CORTA al tablero limpio de MaKo ─────────
+// Situación A del cliente (llenar el CRM a mano en un Excel, con errores) y de
+// golpe el corte al tablero ordenado. Sin títulos: el contraste ES el mensaje.
+type ECell = { t: string; red?: boolean };
+const EXCEL_HEADS = ['Nombre', 'Teléfono', 'Estado', 'Fecha', 'Nota'];
+const EXCEL_ROWS: ECell[][] = [
+  [{ t: 'José Rodríguez' }, { t: '55 1234' }, { t: 'agendó?', red: true }, { t: '12/7' }, { t: '' }],
+  [{ t: 'laura m.' }, { t: '' }, { t: '???', red: true }, { t: '' }, { t: 'llamar!!' }],
+  [{ t: '#REF!', red: true }, { t: '', red: true }, { t: '', red: true }, { t: '' }, { t: '' }],
+  [{ t: 'Carlos' }, { t: '55 99..' }, { t: 'perdido?', red: true }, { t: '3/7' }, { t: 'no contesta' }],
+  [{ t: '' }, { t: '' }, { t: '' }, { t: '' }, { t: '' }],
+  [{ t: 'PEDRO G' }, { t: '5577' }, { t: 'GANADO' }, { t: '' }, { t: '' }],
+  [{ t: 'Marcelo' }, { t: '55 8' }, { t: '__EDIT__' }, { t: '' }, { t: '' }],
+  [{ t: 'Jose Rodriguez' }, { t: '55 1234' }, { t: '', red: true }, { t: '' }, { t: 'dup?' }],
+];
+const KB_AFTER: KCard[][] = [
+  [{ name: 'Laura Méndez', tag: 'Entró hace 2 min', tone: 'blue', star: true }, { name: 'Diego Sosa', tag: 'Entró hace 1 h', tone: 'blue' }],
+  [{ name: 'José Rodríguez', tag: 'Jueves 15:00', tone: 'amber', star: true }, { name: 'Ana Torres', tag: 'Viernes 11:00', tone: 'amber' }],
+  [{ name: 'Pedro Gómez', tag: 'Cerró · $4.500', tone: 'green', star: true }],
+];
+
+function drawExcel(ctx: CanvasRenderingContext2D, W: number, H: number, tt: number) {
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
+  // barra de archivo (acento verde tipo Excel)
+  ctx.fillStyle = '#F3F4F2'; ctx.fillRect(0, 0, W, 24);
+  ctx.fillStyle = '#1E7145'; ctx.fillRect(0, 0, 4, 24);
+  ctx.fillStyle = '#5A6470'; ctx.font = "600 11px 'Geist', system-ui, sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('CRM_leads_FINAL_v3.xlsx', 14, 12);
+  // rejilla
+  const gut = 26, top = 24, headH = 22, rowH = (H - top - headH) / EXCEL_ROWS.length;
+  const cols = EXCEL_HEADS.length, tableW = W - gut;
+  const frac = [0.30, 0.18, 0.20, 0.15, 0.17];
+  const cx: number[] = [gut]; for (let i = 0; i < cols; i++) cx.push(cx[i] + tableW * frac[i]);
+  // encabezado verde
+  ctx.fillStyle = '#217346'; ctx.fillRect(gut, top, tableW, headH);
+  ctx.fillStyle = '#F3F4F2'; ctx.fillRect(0, top, gut, headH);
+  ctx.fillStyle = '#FFFFFF'; ctx.font = "700 10.5px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
+  EXCEL_HEADS.forEach((h, i) => { ctx.textAlign = 'left'; ctx.fillText(h, cx[i] + 6, top + headH / 2); });
+  // filas
+  let editBox: { x: number; y: number; w: number; h: number; txt: string } | null = null;
+  EXCEL_ROWS.forEach((row, r) => {
+    const y = top + headH + r * rowH;
+    // gutter con número de fila
+    ctx.fillStyle = '#F3F4F2'; ctx.fillRect(0, y, gut, rowH);
+    ctx.fillStyle = '#98A2AE'; ctx.font = "400 9px 'Geist', system-ui, sans-serif";
+    ctx.textAlign = 'center'; ctx.fillText(String(r + 1), gut / 2, y + rowH / 2);
+    row.forEach((cell, i) => {
+      const x = cx[i], w = cx[i + 1] - cx[i];
+      if (cell.red && cell.t) { ctx.fillStyle = 'rgba(226,86,86,0.10)'; ctx.fillRect(x, y, w, rowH); }
+      const editing = cell.t === '__EDIT__';
+      if (editing) { editBox = { x, y, w, h: rowH, txt: 'Presen' }; }
+      else if (cell.t) {
+        ctx.fillStyle = cell.red ? '#D64545' : '#3A424E';
+        ctx.font = "400 10px 'Geist', system-ui, sans-serif"; ctx.textAlign = 'left';
+        const s = cell.t.length > 16 ? cell.t.slice(0, 15) + '…' : cell.t;
+        ctx.fillText(s, x + 6, y + rowH / 2);
+      }
+    });
+  });
+  // gridlines
+  ctx.strokeStyle = '#E3E6E1'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i <= cols; i++) { const x = cx[i] ?? W; ctx.moveTo(x + 0.5, top); ctx.lineTo(x + 0.5, H); }
+  for (let r = 0; r <= EXCEL_ROWS.length; r++) { const y = top + headH + r * rowH; ctx.moveTo(gut, y + 0.5); ctx.lineTo(W, y + 0.5); }
+  ctx.moveTo(gut + 0.5, top); ctx.lineTo(gut + 0.5, H); ctx.stroke();
+  // celda en edición: borde verde de selección + cursor que parpadea
+  if (editBox) {
+    const b = editBox as { x: number; y: number; w: number; h: number; txt: string };
+    ctx.strokeStyle = '#217346'; ctx.lineWidth = 2; ctx.strokeRect(b.x + 1, b.y + 1, b.w - 2, b.h - 2);
+    ctx.fillStyle = '#3A424E'; ctx.font = "400 10px 'Geist', system-ui, sans-serif";
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.txt, b.x + 6, b.y + b.h / 2);
+    if (Math.floor(tt / 500) % 2 === 0) {
+      const cxx = b.x + 6 + ctx.measureText(b.txt).width + 1;
+      ctx.strokeStyle = '#3A424E'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(cxx, b.y + 5); ctx.lineTo(cxx, b.y + b.h - 5); ctx.stroke();
+    }
+  }
+}
+
+function drawCrmExcel(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+  const EXCEL = 3600, KAN = 3600, LOOP = EXCEL + KAN, tt = t % LOOP;
+  ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
+  if (tt < EXCEL) {
+    drawExcel(ctx, W, H, tt);
+  } else {
+    // tablero limpio, con las cards apareciendo escalonadas (MaKo lo ordenó)
+    const kt = tt - EXCEL;
+    const cols = kbColumns(W, 14, H - 28);
+    cols.forEach((col, ci) => {
+      kbColShell(ctx, col);
+      KB_AFTER[ci].forEach((card, idx) => {
+        const s = kbSlot(col, idx);
+        const ap = eoC(clamp((kt - 180 - (ci * 2 + idx) * 150) / 420, 0, 1));
+        if (ap <= 0.01) return;
+        kbCard(ctx, s.x, s.y, s.w, card, ap, lerp(0.6, 0, ap));
+      });
+    });
+  }
+  // el CORTE: flash blanco cortito justo al cambiar de fase
+  const dist = Math.min(tt, Math.abs(tt - EXCEL));
+  if (dist < 150) { ctx.save(); ctx.globalAlpha = (1 - dist / 150) * 0.9; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+}
+
+// ── cxMakoManos: las manos SALEN de la palabra MaKo y mueven las tarjetas ─────
+// Nada de realismo: brazos geométricos oscuros con acento dorado, anclados a la
+// palabra. Un lead (José) viaja Nuevos → Agendados → Ganados, movido por MaKo.
+const MM_STATIC: { col: number; idx: number; card: KCard }[] = [
+  { col: 0, idx: 0, card: { name: 'Laura Méndez', tag: 'Hace 5 min', tone: 'blue' } },
+  { col: 1, idx: 0, card: { name: 'Diego Sosa', tag: 'Jueves 15:00', tone: 'amber' } },
+  { col: 2, idx: 0, card: { name: 'Marta Pérez', tag: 'Cerró · $4.500', tone: 'green' } },
+];
+const MM_TRAVELER: KCard = { name: 'José Rodríguez', tag: 'Movido por MaKo', tone: 'blue', star: true };
+const MM_REST = [{ c: 0, i: 1 }, { c: 1, i: 1 }, { c: 2, i: 1 }];
+
+function lerp2(a: { x: number; y: number }, b: { x: number; y: number }, p: number) { return { x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p) }; }
+
+function drawArm(ctx: CanvasRenderingContext2D, base: { x: number; y: number }, hand: { x: number; y: number }, bend: number, holding: boolean) {
+  const mx = (base.x + hand.x) / 2 + bend, my = Math.min(base.y, hand.y) - 30;
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#1A1712'; ctx.lineWidth = 12;
+  ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.quadraticCurveTo(mx, my, hand.x, hand.y); ctx.stroke();
+  // mano: paleta redondeada geométrica con borde dorado
+  ctx.save(); ctx.shadowColor = 'rgba(26,23,18,0.30)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
+  rr(ctx, hand.x - 11, hand.y - 9, 22, 18, 7); ctx.fillStyle = '#1A1712'; ctx.fill(); ctx.restore();
+  ctx.strokeStyle = '#F2B01E'; ctx.lineWidth = 2; rr(ctx, hand.x - 11, hand.y - 9, 22, 18, 7); ctx.stroke();
+  if (holding) { ctx.fillStyle = '#F2B01E'; ctx.beginPath(); ctx.arc(hand.x, hand.y, 2.4, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+
+function drawMakoManos(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+  ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
+  const boardTop = 14, boardH = H - 84;
+  const cols = kbColumns(W, boardTop, boardH);
+  cols.forEach((col) => kbColShell(ctx, col));
+
+  // palabra MaKo abajo, centrada — los brazos salen de sus esquinas superiores
+  const wordY = H - 30;
+  ctx.font = "800 24px 'Geist', system-ui, sans-serif"; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  const wordW = ctx.measureText('MaKo').width, spark = 15, lockW = spark + 6 + wordW, wx = W / 2 - lockW / 2;
+  const baseL = { x: wx + spark * 0.4, y: wordY - 20 }, baseR = { x: wx + lockW, y: wordY - 20 };
+  const restL = { x: baseL.x - 6, y: baseL.y - 22 }, restR = { x: baseR.x + 6, y: baseR.y - 22 };
+
+  const slotHand = (m: { c: number; i: number }) => { const s = kbSlot(cols[m.c], m.i); return { x: s.x + s.w / 2, y: s.y + CARD_H }; };
+  const slotXY = (m: { c: number; i: number }) => { const s = kbSlot(cols[m.c], m.i); return { x: s.x, y: s.y }; };
+
+  const PRE = 400, MDUR = 2300, POST = 800, LOOP = PRE + 2 * MDUR + POST, tt = t % LOOP;
+  const reach = 650, carry = 1100, retract = MDUR - reach - carry;
+
+  let travCard: { x: number; y: number } = slotXY(MM_REST[0]);
+  let handL = restL, handR = restR, holdL = false, holdR = false;
+
+  const runMove = (mi: number, local: number) => {
+    const src = MM_REST[mi], dst = MM_REST[mi + 1];
+    const isL = mi === 0;
+    const home = isL ? restL : restR;
+    const srcH = slotHand(src), dstH = slotHand(dst);
+    let hand: { x: number; y: number }, holding = false;
+    if (local < reach) { hand = lerp2(home, srcH, eoCubic(local / reach)); travCard = slotXY(src); }
+    else if (local < reach + carry) { const p = eInOut((local - reach) / carry); hand = lerp2(srcH, dstH, p); travCard = { x: hand.x - (kbSlot(cols[0], 0).w) / 2, y: hand.y - CARD_H }; holding = true; }
+    else { hand = lerp2(dstH, home, eiCubic((local - reach - carry) / retract)); travCard = slotXY(dst); }
+    if (isL) { handL = hand; holdL = holding; } else { handR = hand; holdR = holding; }
+  };
+
+  if (tt < PRE) { travCard = slotXY(MM_REST[0]); }
+  else {
+    const w = tt - PRE;
+    if (w >= 2 * MDUR) travCard = slotXY(MM_REST[2]);
+    else { const mi = Math.min(1, Math.floor(w / MDUR)); runMove(mi, w - mi * MDUR); }
+  }
+
+  // cards estáticas
+  MM_STATIC.forEach(({ col, idx, card }) => { const s = kbSlot(cols[col], idx); kbCard(ctx, s.x, s.y, s.w, card); });
+  // brazo(s) primero, luego el card viajero encima (la mano lo sostiene por abajo)
+  drawArm(ctx, baseR, handR, 22, holdR);
+  drawArm(ctx, baseL, handL, -22, holdL);
+  const cw = kbSlot(cols[0], 0).w;
+  kbCard(ctx, travCard.x, travCard.y, cw, MM_TRAVELER, 1, (holdL || holdR) ? 1 : 0);
+
+  // la palabra MaKo (encima de las bases de los brazos)
+  sparkle(ctx, wx + spark / 2, wordY - 7, spark / 2, '#F2B01E');
+  ctx.fillStyle = '#1A1712'; ctx.font = "800 24px 'Geist', system-ui, sans-serif";
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('MaKo', wx + spark + 6, wordY);
+}
+
+const ExcelCanvas = makeCanvas(drawCrmExcel, 420);
+const ManosCanvas = makeCanvas(drawMakoManos, 420);
+
+const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas, cxChat: ChatCanvas, cxCrmChat: CrmChatCanvas, cxCrmExcel: ExcelCanvas, cxMakoManos: ManosCanvas };
 
 export function VisualCanvas({ type }: { type: string }) {
   const C = CANVAS_REGISTRY[type];
