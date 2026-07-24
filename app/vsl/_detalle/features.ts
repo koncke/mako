@@ -428,7 +428,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "CRM Automatizado",
     icon: ICON["crm"],
     headline: "El trabajo más aburrido del mundo, hecho por MaKo.",
-    lead: "«Me encanta llenar el CRM.» Eso no lo dijo nunca nadie. Y sin embargo, ahí estás: cargando el nombre, el teléfono, de dónde vino, marcando si vino a la llamada, pegando la grabación. Por cada persona que entra. <strong>MaKo lo llena por vos.</strong>",
+    lead: "«Me encanta llenar el CRM.» <strong>Eso no lo dijo nunca nadie.</strong>",
     videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=018788b3-453e-496c-86c1-124bae1fea4c&autoplay=true&color=%232F6FED",
     groups: [
       {
@@ -436,7 +436,7 @@ export const FEATURES: Record<string, Feature> = {
         bullets: [
           "Es el trabajo que <strong>no vende nada</strong>: el nombre, el teléfono, de dónde vino, si asistió a la llamada, el enlace de la grabación, cuánto te va a pagar. Y eso <strong>por cada lead que entra</strong>.",
           "Si no lo hacés, te quedás ciego. Así que lo dejás para la noche. O para el domingo. <strong>O no lo hacés.</strong>",
-          "Y ahí el pipeline se pudre: no por mala estrategia, sino por <strong>un dato que nadie cargó a tiempo</strong>.",
+          "Y ahí el embudo se pudre: no por mala estrategia, sino por <strong>un dato que nadie cargó a tiempo</strong>.",
         ],
       },
       {
@@ -445,20 +445,20 @@ export const FEATURES: Record<string, Feature> = {
           "<strong>Entra alguien por tu anuncio</strong> → la ficha se crea sola.",
           "<strong>Agenda una llamada</strong> → el lead se mueve solo a la etapa que toca.",
           "<strong>Terminó la reunión</strong> → MaKo busca la grabación y la engancha. ¿No se presentó? También lo sabe.",
-          "<strong>Dos días sin agendar</strong> → lo pone en seguimiento. <strong>Un mes frío</strong> → lo vuelve a poner en juego.",
+          "<strong>Dos días sin agendar</strong> → lo pasa a seguimiento.",
           "¿Falta un dato? Lo busca en tu agenda, en la llamada, en el contrato. Y <strong>todo queda anotado, con nombre y hora</strong>.",
         ],
-        cierre: "¿Qué te queda a vos? <strong>Mirar, y decir que sí.</strong> En el negocio de Mauricio, MaKo hizo más de <strong>1.400 movimientos en nueve días</strong> —nueve de cada diez de ese CRM—. Nadie arrastró una tarjeta.",
+        cierre: "En el negocio de Mauricio, MaKo hizo más de <strong>1.400 movimientos en nueve días</strong> —nueve de cada diez de ese CRM—. <strong>Nadie arrastró una tarjeta.</strong>",
         verMas: { texto: "Descubrí cómo MaKo analiza tus llamadas de venta", href: "/vsl/closing", label: "Closing Analyst" },
       },
       {
-        title: "No abrís el CRM. MaKo te cuenta todo por WhatsApp.",
+        title: "MaKo te cuenta todo por WhatsApp.",
         bullets: [
-          "Cada cosa que hace, te la avisa: <strong>entró un lead, se agendó, vino a la reunión, se enfrió</strong>. En tu WhatsApp, no en una pestaña más.",
+          "Cada cosa que hace, te la avisa: <strong>entró un lead, se agendó, vino a la reunión, no se presentó</strong>. En tu WhatsApp, no en una pestaña más.",
           "Antes de la reunión te pasa la <strong>ficha del lead lista</strong>, para que llegues sabiendo con quién vas a hablar.",
           "Vos respondés con un <em>«dale»</em>. El resto ya está hecho.",
         ],
-        cierre: "«Ya tengo mi CRM.» Claro. Y también tenés que perder el tiempo llenándolo. <strong>No existe un CRM pensado para un VSL funnel</strong>, uno que se llene solo. El tuyo no necesita más disciplina: <strong>necesita llenarse solo</strong>.",
+        cierre: "«Ya tengo mi CRM.» Claro. Y también tenés que perder el tiempo llenándolo. <strong>No existe un CRM pensado para un VSL funnel.</strong> El tuyo no necesita más disciplina: <strong>necesita llenarse solo</strong>.",
         verMas: { texto: "Descubrí cómo MaKo trabaja tu WhatsApp", href: "/vsl/whatsapp", label: "WhatsApp" },
       },
     ],
