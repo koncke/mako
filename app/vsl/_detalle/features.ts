@@ -463,8 +463,6 @@ export const FEATURES: Record<string, Feature> = {
       },
     ],
     conecta: ["Meta Ads", "Calendly", "Fathom", "WhatsApp"],
-    quote: "Tu CRM no necesita más disciplina. Necesita llenarse solo.",
-    nota: "El motor ya corre y mueve leads de verdad. La automatización 100% desatendida —que MaKo mueva tus leads 24/7 sin que confirmes nada— se enciende por cuenta, con vos mirando el primer tramo.",
     hook: "MaKo llena tu CRM por vos: crea la ficha, mueve el lead solo y engancha la grabación. Vos solo cerrás.",
     metaTitle: "CRM Automatizado para High Ticket | MaKo",
     metaDesc: "MaKo llena tu CRM por vos: crea la ficha cuando entra un lead, lo mueve de etapa solo, engancha la grabación de la llamada y te avisa todo por WhatsApp. Vos solo cerrás.",
