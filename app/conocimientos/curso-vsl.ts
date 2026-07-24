@@ -156,7 +156,11 @@ PRONUNCIACION EN ELEVENLABS
 - **No abusar de los breaks:** dejan la voz muy pausada. El guión ya pausa por puntuación. Para que salga dinámico: casi sin breaks, velocidad 1,05-1,12, estabilidad 0,30-0,35, estilo 0,45-0,55.
 - **Escribir fonético en español lo que el modelo lea mal.** MaKo se escribe "Máko" (sin acento sale "MaKó"). VSL se escribe en minúscula, "vsl" (validado: sale fluido en español; en mayúscula lo mezcla con inglés).
 - Regla general: cualquier sigla o marca que suene mal, se escribe como suena en español.
-- Un solo take por corrección: clavar texto y pronunciación ANTES de generar.`,
+- Un solo take por corrección: clavar texto y pronunciación ANTES de generar.
+
+REVISIÓN DE MARTÍN (regla)
+
+- Apenas queda una locución, copiarla a MaKo-VSL/<feature>/audio/ y **ABRIR esa carpeta** para que Martín la escuche y corrija ANTES de armar el video. El audio es la espina: si cambia, se re-alinea y se re-arma todo, así que se valida primero.`,
     },
     {
       n: 6,
