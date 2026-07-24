@@ -325,7 +325,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         "type": "cxCrmExcel"
       },
       {
-        "type": "cxMakoManos"
+        "type": "cxCrmSecuencia"
       },
       {
         "type": "cxCrmChat"

@@ -639,11 +639,32 @@ const EXCEL_ROWS: ECell[][] = [
   [{ t: 'Marcelo' }, { t: '55 8' }, { t: '__EDIT__' }, { t: '' }, { t: '' }],
   [{ t: 'Jose Rodriguez' }, { t: '55 1234' }, { t: '', red: true }, { t: '' }, { t: 'dup?' }],
 ];
-const KB_AFTER: KCard[][] = [
-  [{ name: 'Laura Méndez', tag: 'Entró hace 2 min', tone: 'blue', star: true }, { name: 'Diego Sosa', tag: 'Entró hace 1 h', tone: 'blue' }],
-  [{ name: 'José Rodríguez', tag: 'Jueves 15:00', tone: 'amber', star: true }, { name: 'Ana Torres', tag: 'Viernes 11:00', tone: 'amber' }],
-  [{ name: 'Pedro Gómez', tag: 'Cerró · $4.500', tone: 'green', star: true }],
-];
+// grietas de vidrio, generadas una sola vez de forma determinista (sin random en frame)
+function buildCracks() {
+  let s = 7; const rnd = () => { s = (s * 48271) % 2147483647; return s / 2147483647; };
+  const arr: { x: number; y: number }[][] = [];
+  const branches = 11;
+  for (let i = 0; i < branches; i++) {
+    let ang = (i / branches) * Math.PI * 2 + (rnd() - 0.5) * 0.5, x = 0, y = 0;
+    const pts = [{ x, y }], steps = 3 + Math.floor(rnd() * 3), total = 80 + rnd() * 150;
+    for (let k = 0; k < steps; k++) { const seg = total / steps; ang += (rnd() - 0.5) * 0.7; x += Math.cos(ang) * seg; y += Math.sin(ang) * seg; pts.push({ x, y }); }
+    arr.push(pts);
+  }
+  return arr;
+}
+const CRACKS = buildCracks();
+function drawCracks(ctx: CanvasRenderingContext2D, cx: number, cy: number, p: number) {
+  const e = eoCubic(clamp(p, 0, 1));
+  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const br of CRACKS) {
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    for (const pt of br) ctx.lineTo(cx + pt.x * e, cy + pt.y * e);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 2.6; ctx.stroke();
+    ctx.strokeStyle = '#2B303A'; ctx.lineWidth = 1; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, 5 * e, 0, Math.PI * 2); ctx.strokeStyle = '#2B303A'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.restore();
+}
 
 function drawExcel(ctx: CanvasRenderingContext2D, W: number, H: number, tt: number) {
   ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
@@ -703,115 +724,127 @@ function drawExcel(ctx: CanvasRenderingContext2D, W: number, H: number, tt: numb
   }
 }
 
+// BASTA cae del cielo, rompe el Excel como un vidrio, y aparece la frase. El
+// Excel se sigue viendo atrás (velo tenue + sombra del texto para separarlo).
 function drawCrmExcel(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
-  const EXCEL = 3600, KAN = 3600, LOOP = EXCEL + KAN, tt = t % LOOP;
-  ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
-  if (tt < EXCEL) {
-    drawExcel(ctx, W, H, tt);
-  } else {
-    // tablero limpio, con las cards apareciendo escalonadas (MaKo lo ordenó)
-    const kt = tt - EXCEL;
-    const cols = kbColumns(W, 14, H - 28);
-    cols.forEach((col, ci) => {
-      kbColShell(ctx, col);
-      KB_AFTER[ci].forEach((card, idx) => {
-        const s = kbSlot(col, idx);
-        const ap = eoC(clamp((kt - 180 - (ci * 2 + idx) * 150) / 420, 0, 1));
-        if (ap <= 0.01) return;
-        kbCard(ctx, s.x, s.y, s.w, card, ap, lerp(0.6, 0, ap));
-      });
-    });
+  const EXCEL = 2600, DROP = 480, HOLD = 3800, LOOP = EXCEL + DROP + HOLD, tt = t % LOOP;
+  const cx = W / 2, impactY = H * 0.34;
+  const ai = tt - (EXCEL + DROP);                 // ms desde el impacto (< 0 si aún no cayó)
+  let sx = 0, sy = 0;                              // temblor breve al romperse
+  if (ai > 0 && ai < 260) { const d = 1 - ai / 260; sx = Math.sin(ai * 0.9) * 7 * d; sy = Math.cos(ai * 1.1) * 4 * d; }
+  ctx.save(); ctx.translate(sx, sy);
+  ctx.fillStyle = '#F5F7FB'; ctx.fillRect(-8, -8, W + 16, H + 16);
+  drawExcel(ctx, W, H, tt);                        // el Excel SIEMPRE detrás
+  if (ai > 0) {
+    ctx.save(); ctx.globalAlpha = 0.4 * clamp(ai / 300, 0, 1); ctx.fillStyle = '#F7F8FB'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
+    drawCracks(ctx, cx, impactY, ai / 360);
+    if (ai < 150) { ctx.save(); ctx.globalAlpha = (1 - ai / 150) * 0.85; const g = ctx.createRadialGradient(cx, impactY, 0, cx, impactY, W * 0.5); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   }
-  // el CORTE: flash blanco cortito justo al cambiar de fase
-  const dist = Math.min(tt, Math.abs(tt - EXCEL));
-  if (dist < 150) { ctx.save(); ctx.globalAlpha = (1 - dist / 150) * 0.9; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-}
-
-// ── cxMakoManos: las manos SALEN de la palabra MaKo y mueven las tarjetas ─────
-// Nada de realismo: brazos geométricos oscuros con acento dorado, anclados a la
-// palabra. Un lead (José) viaja Nuevos → Agendados → Ganados, movido por MaKo.
-const MM_STATIC: { col: number; idx: number; card: KCard }[] = [
-  { col: 0, idx: 0, card: { name: 'Laura Méndez', tag: 'Hace 5 min', tone: 'blue' } },
-  { col: 1, idx: 0, card: { name: 'Diego Sosa', tag: 'Jueves 15:00', tone: 'amber' } },
-  { col: 2, idx: 0, card: { name: 'Marta Pérez', tag: 'Cerró · $4.500', tone: 'green' } },
-];
-const MM_TRAVELER: KCard = { name: 'José Rodríguez', tag: 'Movido por MaKo', tone: 'blue', star: true };
-const MM_REST = [{ c: 0, i: 1 }, { c: 1, i: 1 }, { c: 2, i: 1 }];
-
-function lerp2(a: { x: number; y: number }, b: { x: number; y: number }, p: number) { return { x: lerp(a.x, b.x, p), y: lerp(a.y, b.y, p) }; }
-
-function drawArm(ctx: CanvasRenderingContext2D, base: { x: number; y: number }, hand: { x: number; y: number }, bend: number, holding: boolean) {
-  const mx = (base.x + hand.x) / 2 + bend, my = Math.min(base.y, hand.y) - 30;
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#1A1712'; ctx.lineWidth = 12;
-  ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.quadraticCurveTo(mx, my, hand.x, hand.y); ctx.stroke();
-  // mano: paleta redondeada geométrica con borde dorado
-  ctx.save(); ctx.shadowColor = 'rgba(26,23,18,0.30)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
-  rr(ctx, hand.x - 11, hand.y - 9, 22, 18, 7); ctx.fillStyle = '#1A1712'; ctx.fill(); ctx.restore();
-  ctx.strokeStyle = '#F2B01E'; ctx.lineWidth = 2; rr(ctx, hand.x - 11, hand.y - 9, 22, 18, 7); ctx.stroke();
-  if (holding) { ctx.fillStyle = '#F2B01E'; ctx.beginPath(); ctx.arc(hand.x, hand.y, 2.4, 0, Math.PI * 2); ctx.fill(); }
+  if (tt >= EXCEL) {
+    const dropP = clamp((tt - EXCEL) / DROP, 0, 1);
+    const y = tt < EXCEL + DROP ? lerp(-50, impactY, eiCubic(dropP)) : impactY;
+    const scale = ai > 0 ? lerp(1.18, 1, eoCubic(clamp(ai / 150, 0, 1))) : 1;
+    ctx.save(); ctx.translate(cx, y); ctx.scale(scale, scale);
+    ctx.shadowColor = 'rgba(10,12,18,0.38)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
+    ctx.fillStyle = '#14171D'; ctx.font = "800 60px 'Geist', system-ui, sans-serif";
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('BASTA', 0, 0); ctx.restore();
+    if (ai > 120) {
+      const a1 = eoC(clamp((ai - 120) / 360, 0, 1));
+      ctx.save(); ctx.globalAlpha = a1; ctx.shadowColor = 'rgba(10,12,18,0.28)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+      ctx.fillStyle = '#3A424E'; ctx.font = "600 19px 'Geist', system-ui, sans-serif";
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('de planillas aburridas', cx, impactY + 42); ctx.restore();
+    }
+    if (ai > 380) {
+      const a2 = eoC(clamp((ai - 380) / 360, 0, 1));
+      ctx.save(); ctx.globalAlpha = a2; ctx.font = "700 22px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
+      const label = 'Con MaKo', sk = 9, wlab = ctx.measureText(label).width, startX = cx - (wlab + sk + 8) / 2;
+      sparkle(ctx, startX + sk / 2, impactY + 78, sk / 2, '#F2B01E');
+      ctx.shadowColor = 'rgba(10,12,18,0.28)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+      ctx.fillStyle = '#14171D'; ctx.textAlign = 'left'; ctx.fillText(label, startX + sk + 8, impactY + 78); ctx.restore();
+    }
+  }
   ctx.restore();
 }
 
-function drawMakoManos(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+// ── cxCrmSecuencia: pregunta → MaKo responde moviendo el lead, con barrido ────
+// Sin manos. Un texto pregunta ("¿entró un lead?"), MaKo responde ("lo agrega
+// al CRM") y la card aparece / se mueve sola con un barrido dorado.
+type SeqBeat = { q: string; a: string; kind: 'reveal' | 'move'; to: number };
+const SEQ_STATIC: { col: number; card: KCard }[] = [
+  { col: 0, card: { name: 'Ana Torres', tag: 'Entró por Meta', tone: 'blue' } },
+  { col: 1, card: { name: 'Diego Sosa', tag: 'Martes 16:00', tone: 'amber' } },
+  { col: 2, card: { name: 'Marta Pérez', tag: 'Cerró · $4.500', tone: 'green' } },
+];
+const SEQ_BEATS: SeqBeat[] = [
+  { q: '¿Entró un lead nuevo por Meta?', a: 'MaKo lo agrega al CRM', kind: 'reveal', to: 0 },
+  { q: '¿Ese lead agendó la llamada?', a: 'MaKo lo mueve solo', kind: 'move', to: 1 },
+  { q: '¿Cerró la venta?', a: 'MaKo lo pasa a Ganados', kind: 'move', to: 2 },
+];
+const SEQ_TAGS = ['Entró por Meta', 'Jueves 15:00', 'Cerró · $4.500'];
+const SEQ_TONES: KTone[] = ['blue', 'amber', 'green'];
+
+function goldSweep(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, edge: number) {
+  ctx.save(); ctx.beginPath(); rr(ctx, x, y, w, h, 9); ctx.clip();
+  const g = ctx.createLinearGradient(edge - 16, 0, edge + 8, 0);
+  g.addColorStop(0, 'rgba(242,176,30,0)'); g.addColorStop(0.65, 'rgba(242,176,30,0.9)'); g.addColorStop(1, 'rgba(255,246,214,0.95)');
+  ctx.fillStyle = g; ctx.fillRect(edge - 16, y - 2, 26, h + 4); ctx.restore();
+}
+
+function drawCrmSecuencia(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
   ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
-  const boardTop = 14, boardH = H - 84;
+  const capTop = 14, boardTop = 76, boardH = H - boardTop - 12;
   const cols = kbColumns(W, boardTop, boardH);
-  cols.forEach((col) => kbColShell(ctx, col));
+  const trav: KCard = { name: 'José Rodríguez', tag: SEQ_TAGS[0], tone: 'blue', star: true };
 
-  // palabra MaKo abajo, centrada — los brazos salen de sus esquinas superiores
-  const wordY = H - 30;
-  ctx.font = "800 24px 'Geist', system-ui, sans-serif"; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  const wordW = ctx.measureText('MaKo').width, spark = 15, lockW = spark + 6 + wordW, wx = W / 2 - lockW / 2;
-  const baseL = { x: wx + spark * 0.4, y: wordY - 20 }, baseR = { x: wx + lockW, y: wordY - 20 };
-  const restL = { x: baseL.x - 6, y: baseL.y - 22 }, restR = { x: baseR.x + 6, y: baseR.y - 22 };
+  const BEAT = 2300, ACT_START = 850, ACT_DUR = 680, TAIL = 900;
+  const LOOP = SEQ_BEATS.length * BEAT + TAIL, tt = t % LOOP;
+  let bi = Math.floor(tt / BEAT); const inTail = bi >= SEQ_BEATS.length;
+  const local = inTail ? BEAT : tt - bi * BEAT; if (inTail) bi = SEQ_BEATS.length - 1;
+  const beat = SEQ_BEATS[bi];
+  const actP = clamp((local - ACT_START) / ACT_DUR, 0, 1);
 
-  const slotHand = (m: { c: number; i: number }) => { const s = kbSlot(cols[m.c], m.i); return { x: s.x + s.w / 2, y: s.y + CARD_H }; };
-  const slotXY = (m: { c: number; i: number }) => { const s = kbSlot(cols[m.c], m.i); return { x: s.x, y: s.y }; };
-
-  const PRE = 400, MDUR = 2300, POST = 800, LOOP = PRE + 2 * MDUR + POST, tt = t % LOOP;
-  const reach = 650, carry = 1100, retract = MDUR - reach - carry;
-
-  let travCard: { x: number; y: number } = slotXY(MM_REST[0]);
-  let handL = restL, handR = restR, holdL = false, holdR = false;
-
-  const runMove = (mi: number, local: number) => {
-    const src = MM_REST[mi], dst = MM_REST[mi + 1];
-    const isL = mi === 0;
-    const home = isL ? restL : restR;
-    const srcH = slotHand(src), dstH = slotHand(dst);
-    let hand: { x: number; y: number }, holding = false;
-    if (local < reach) { hand = lerp2(home, srcH, eoCubic(local / reach)); travCard = slotXY(src); }
-    else if (local < reach + carry) { const p = eInOut((local - reach) / carry); hand = lerp2(srcH, dstH, p); travCard = { x: hand.x - (kbSlot(cols[0], 0).w) / 2, y: hand.y - CARD_H }; holding = true; }
-    else { hand = lerp2(dstH, home, eiCubic((local - reach - carry) / retract)); travCard = slotXY(dst); }
-    if (isL) { handL = hand; holdL = holding; } else { handR = hand; holdR = holding; }
-  };
-
-  if (tt < PRE) { travCard = slotXY(MM_REST[0]); }
-  else {
-    const w = tt - PRE;
-    if (w >= 2 * MDUR) travCard = slotXY(MM_REST[2]);
-    else { const mi = Math.min(1, Math.floor(w / MDUR)); runMove(mi, w - mi * MDUR); }
+  // caption: la pregunta arriba, la respuesta de MaKo (con estrella) abajo
+  const qA = eoC(clamp(local / 360, 0, 1));
+  ctx.save(); ctx.globalAlpha = qA; ctx.fillStyle = '#6A7484';
+  ctx.font = "500 14px 'Geist', system-ui, sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(beat.q, W / 2, capTop + 14); ctx.restore();
+  if (local > 380) {
+    const aA = eoC(clamp((local - 380) / 360, 0, 1));
+    ctx.save(); ctx.globalAlpha = aA; ctx.font = "700 15px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
+    const lab = beat.a, wlab = ctx.measureText(lab).width, sk = 11, startX = W / 2 - (wlab + sk + 7) / 2;
+    sparkle(ctx, startX + sk / 2, capTop + 42, sk / 2, '#F2B01E');
+    ctx.fillStyle = '#14171D'; ctx.textAlign = 'left'; ctx.fillText(lab, startX + sk + 7, capTop + 42); ctx.restore();
   }
 
-  // cards estáticas
-  MM_STATIC.forEach(({ col, idx, card }) => { const s = kbSlot(cols[col], idx); kbCard(ctx, s.x, s.y, s.w, card); });
-  // brazo(s) primero, luego el card viajero encima (la mano lo sostiene por abajo)
-  drawArm(ctx, baseR, handR, 22, holdR);
-  drawArm(ctx, baseL, handL, -22, holdL);
-  const cw = kbSlot(cols[0], 0).w;
-  kbCard(ctx, travCard.x, travCard.y, cw, MM_TRAVELER, 1, (holdL || holdR) ? 1 : 0);
+  cols.forEach((col) => kbColShell(ctx, col));
+  SEQ_STATIC.forEach(({ col, card }) => { const s = kbSlot(cols[col], 0); kbCard(ctx, s.x, s.y, s.w, card); });
 
-  // la palabra MaKo (encima de las bases de los brazos)
-  sparkle(ctx, wx + spark / 2, wordY - 7, spark / 2, '#F2B01E');
-  ctx.fillStyle = '#1A1712'; ctx.font = "800 24px 'Geist', system-ui, sans-serif";
-  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText('MaKo', wx + spark + 6, wordY);
+  const slotFor = (colIdx: number) => kbSlot(cols[colIdx], 1);
+  trav.tag = SEQ_TAGS[beat.to]; trav.tone = SEQ_TONES[beat.to];
+
+  if (beat.kind === 'reveal') {
+    const s = slotFor(beat.to);
+    if (actP <= 0) { rr(ctx, s.x, s.y, s.w, CARD_H, 9); ctx.setLineDash([4, 4]); ctx.strokeStyle = KB_LINE; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]); }
+    else if (actP < 1) {
+      const rw = s.w * eoCubic(actP);
+      ctx.save(); ctx.beginPath(); rr(ctx, s.x, s.y, Math.max(2, rw), CARD_H, 9); ctx.clip(); kbCard(ctx, s.x, s.y, s.w, trav); ctx.restore();
+      goldSweep(ctx, s.x, s.y, s.w, CARD_H, s.x + rw);
+    } else { kbCard(ctx, s.x, s.y, s.w, trav); }
+  } else {
+    const from = slotFor(beat.to - 1), to = slotFor(beat.to);
+    if (actP <= 0) { kbCard(ctx, from.x, from.y, from.w, trav); }
+    else if (actP < 1) {
+      const p = eInOut(actP), mx = lerp(from.x, to.x, p), my = lerp(from.y, to.y, p);
+      kbCard(ctx, mx, my, to.w, trav, 1, 1);
+      goldSweep(ctx, mx, my, to.w, CARD_H, mx + (actP * 1.3 - 0.15) * to.w);
+    } else { kbCard(ctx, to.x, to.y, to.w, trav); }
+  }
 }
 
 const ExcelCanvas = makeCanvas(drawCrmExcel, 420);
-const ManosCanvas = makeCanvas(drawMakoManos, 420);
+const SecuenciaCanvas = makeCanvas(drawCrmSecuencia, 430);
 
-const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas, cxChat: ChatCanvas, cxCrmChat: CrmChatCanvas, cxCrmExcel: ExcelCanvas, cxMakoManos: ManosCanvas };
+const CANVAS_REGISTRY: Record<string, () => React.ReactElement> = { cxConnect: ConnectCanvas, cxJourney: JourneyCanvas, cxChat: ChatCanvas, cxCrmChat: CrmChatCanvas, cxCrmExcel: ExcelCanvas, cxCrmSecuencia: SecuenciaCanvas };
 
 export function VisualCanvas({ type }: { type: string }) {
   const C = CANVAS_REGISTRY[type];
