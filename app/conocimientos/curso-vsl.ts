@@ -155,7 +155,7 @@ TODO LO QUE APARECE, SUENA
 PRONUNCIACION EN ELEVENLABS
 
 - **No abusar de los breaks:** dejan la voz muy pausada. El guión ya pausa por puntuación. Para que salga dinámico: casi sin breaks, velocidad 1,05-1,12, estabilidad 0,30-0,35, estilo 0,45-0,55.
-- **Escribir fonético en español lo que el modelo lea mal.** MaKo se escribe "Máko" (sin acento sale "MaKó"). VSL se escribe en minúscula, "vsl", y sale fluido cuando está SOLO (ej. "Tu vsl."). PERO pegado a otra palabra (ej. "vsl funnel") a veces lo deletrea mal ("bu ese ele"); ahí escribirlo deletreado en español latino: "ve ese ele".
+- **Escribir fonético en español lo que el modelo lea mal.** MaKo se escribe "Máko" (sin acento sale "MaKó"). VSL SIEMPRE en minúscula, "vsl" (opción validada por Martín en probe-vsl.txt: eligió "Escala tu vsl."). Sale fluido cuando "vsl" queda antes de un signo (punto/coma) o solo. OJO: pegado a otra palabra (ej. "vsl funnel") lo deletrea mal ("bu ese ele"). Solución: NO deletrear — reacomodar la frase para que "vsl" quede antes de puntuación (ej. "un funnel de vsl." en vez de "un vsl funnel").
 - Regla general: cualquier sigla o marca que suene mal, se escribe como suena en español.
 - Un solo take por corrección: clavar texto y pronunciación ANTES de generar.
 
