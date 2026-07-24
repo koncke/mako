@@ -429,6 +429,7 @@ export const FEATURES: Record<string, Feature> = {
     icon: ICON["crm"],
     headline: "El trabajo más aburrido del mundo, hecho por MaKo.",
     lead: "«Me encanta llenar el CRM.» Eso no lo dijo nunca nadie. Y sin embargo, ahí estás: cargando el nombre, el teléfono, de dónde vino, marcando si vino a la llamada, pegando la grabación. Por cada persona que entra. <strong>MaKo lo llena por vos.</strong>",
+    videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=018788b3-453e-496c-86c1-124bae1fea4c&autoplay=true&color=%232F6FED",
     groups: [
       {
         title: "Hoy tu CRM se llena a mano. Y siempre se te escapa alguno.",
