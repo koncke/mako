@@ -398,6 +398,8 @@ body:has(.vsl-root) aside { display: none !important; }
 .vsl-root .mk-feature-grid > a { position: relative; }
 .vsl-root .mk-feature-grid > a::after { content: '→'; margin-top: auto; padding-top: 14px; align-self: flex-end; font-size: 17px; font-weight: 600; color: #2F6FED; transition: transform .22s ease; }
 .vsl-root .mk-feature-grid > a:hover::after { transform: translateX(4px); }
+/* La card de MaKo es oscura: el azul no se ve. */
+.vsl-root .mk-feature-grid > a.mk-feature-mako::after { color: #fff; }
 /* CTA debajo de la grilla (mismo bloque que en las páginas de funcionalidad) */
 .vsl-root .mk-grid-cta { margin-top: 26px; padding: 40px 32px; border-radius: 22px; text-align: center; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; }
 .vsl-root .mk-grid-cta-h { font-size: 25px; font-weight: 600; letter-spacing: -0.01em; color: #12151B; }

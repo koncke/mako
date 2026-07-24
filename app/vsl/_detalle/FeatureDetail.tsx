@@ -505,6 +505,7 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-more-grid > a { position: relative; }
 .mk-more-grid > a::after { content: '→'; margin-top: auto; padding-top: 14px; align-self: flex-end; font-size: 17px; font-weight: 600; color: #2F6FED; transition: transform .22s ease; }
 .mk-more-grid > a:hover::after { transform: translateX(4px); }
+.mk-more-grid > a.mk-feature-mako::after { color: #fff; }   /* card oscura */
 
 /* La actual: borde que gira alrededor de la card para que se vea dónde estás.
    El truco es un conic-gradient rotando detrás, recortado a un anillo de 2px. */
