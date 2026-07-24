@@ -87,7 +87,7 @@ export const SHOWCASE: ShowcaseFeature[] = [
       'M13 11m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
       'M4 8h3', 'M4 12h3', 'M4 16h3',
     ],
-    hook: 'El trabajo más aburrido del mundo, hecho por ti.',
+    hook: 'MaKo llena tu CRM por vos: crea la ficha, mueve el lead solo y engancha la grabación.',
     intro: 'Cargar fichas y arrastrar leads de una fase a otra te roba horas, y <em>siempre se escapa alguno</em>. MaKo captura cada lead que entra, cruza sus datos y lo va <strong>moviendo de fase solo</strong>. Tú solo dedícate a cerrar.',
     points: [
       'Detecta por Calendly cada llamada que cae, la cruza con el lead correcto y lo avanza de fase. Hasta <strong>agenda la segunda llamada solo</strong>, leyendo la transcripción de la primera.',

@@ -249,28 +249,46 @@ OTRAS
       n: 9,
       grupo: 'La landing',
       titulo: 'Gráficos y animaciones',
-      cardDesc: 'La regla dura de validar antes de crear, y el reproductor de video.',
+      cardDesc: 'El norte (claridad > creatividad), los principios y el reproductor de video.',
       videoId: null,
       transcripcion: [],
       recursoSlugs: [],
       herramientas: [{ nombre: 'Panda Video', url: 'https://dashboard.pandavideo.com', nota: 'Hosting del mini-VSL de cada funcionalidad.' }],
-      resumen: `LA REGLA DURA
+      resumen: `EL NORTE
 
-**Antes de tocar cualquier gráfico o animación hay que hacer preguntas concretas y no crear nada hasta saber EXACTAMENTE qué se quiere ahí.** Los gráficos salieron mal dos veces por crearlos sin validar. Nada de asumir ni de copiar el template anterior.
+**Si tenés que elegir entre creatividad o claridad, elegí claridad.** Un gráfico existe para que se entienda simple y rápido. Ante la duda, la opción más clara le gana a la más ingeniosa. Casi todas las reglas de abajo salen de acá.
 
-REGLAS DE LOS GRAFICOS
+LA REGLA DURA (antes de crear)
 
-- **Un gráfico NUNCA lleva título propio:** el copy al lado ya lo explica.
-- **Las animaciones van en BUCLE.** Una que corre y se congela es peor que ninguna: quien llega scrolleando encuentra una imagen quieta.
-- **Fluido pero legible:** deslizarse suave de un paso al siguiente y quedarse quieto en cada uno el tiempo suficiente para leerlo. Ni saltos secos ni un scroll continuo donde todo pasa borroso.
-- **Un recorrido se entiende mejor como chat que como tabla.**
+**Describir el concepto y el flujo EN PALABRAS y esperar el OK. No crear nada hasta saber EXACTAMENTE qué va ahí.** Los gráficos del CRM tardaron muchísimo por saltear esto. Nada de asumir ni de copiar el template anterior.
+
+PRINCIPIOS (peleados con los del CRM)
+
+- **Una idea por gráfico, un elemento a la vez.** Nunca todo junto: primero el texto, DESPUÉS el tablero. Que se lea de a uno, pausado.
+- **Cada elemento se entiende solo.** Nombrar quién/qué/dónde (José = un lead, RECON = campaña de julio, en el CRM); no depender del anterior.
+- **Consistencia de tamaño y tipografía.** UN solo elemento héroe (grande); el resto comparte tamaño, peso y color. "Que cada cosa cambie es mucho."
+- **Legibilidad > efecto.** Texto sobre fondo cargado: difuminar/velar el fondo, contorno o sombra al texto, y decorativos (grietas, líneas) en gris, nunca en negro que compita con las letras.
+- **Si hacés un efecto, hacelo completo:** el vidrio rompe TODO el Excel, no una parte. Las medias tintas se leen como error.
+- **Nada de realismo forzado.** Si algo sale feo (las "manos" que movían tarjetas), se saca entero, no se pule. Mejor texto simple que dibujo mediocre.
+- **Sin adornos que no aporten.** El gráfico NUNCA lleva título. La estrella de MaKo no va "porque sí" (antes de "Con" no significaba nada → afuera).
+- **Diferenciá la marca con sutileza:** "MaKo" en azul dentro de la frase pega más que pegarle una estrella al lado.
+- **El timing es diseño:** aparecer de a uno, esperar a que se lea, subrayar la acción clave con un barrido dorado / energía. Fluido, no robótico.
+
+REGLAS TÉCNICAS
+
+- Las animaciones van en **BUCLE**. Una que corre y se congela es peor que ninguna: quien llega scrolleando encuentra una imagen quieta.
+- **Un recorrido se entiende mejor como chat de WhatsApp que como tabla.**
+- Fondo blanco/claro; el **dorado** reservado para MaKo y para el barrido de la acción; el **azul (#2F6FED)** para el énfasis y para la palabra "MaKo".
 
 EL REPRODUCTOR
 
-- El flotante que sigue al scroll existe: es el embed oficial con su API, no un parámetro de la URL.
-- **Ojo:** la página de funcionalidad scrollea dentro de un contenedor fijo, no en la ventana. El reproductor depende de la ventana para flotar y para volver, así que hay que hacerle ver el scroll real del contenedor.
-- El video **arranca muteado siempre**: ningún navegador permite autoplay con sonido.
-- **La configuración del player es por biblioteca, no por video:** cambiar algo afecta a todos los videos de la cuenta.`,
+- El flotante que sigue al scroll es el embed oficial con su API, no un parámetro de la URL.
+- **Ojo:** la página de funcionalidad scrollea dentro de un contenedor fijo, no en la ventana. Hay que hacerle ver el scroll real del contenedor para que flote y vuelva.
+- Arranca **muteado siempre**. La config del player es **por biblioteca, no por video**: cambiar algo afecta a todos.
+
+PROCESO
+
+- Martín prefiere verlo **VIVO** (pushear a main) más que descripciones. Para iterar rápido, tiras de capturas: varios frames del loop lado a lado.`,
     },
     {
       n: 10,

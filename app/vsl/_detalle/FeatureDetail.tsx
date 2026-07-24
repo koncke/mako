@@ -225,15 +225,6 @@ export default function FeatureDetail({ slug }: { slug: string }) {
                           </li>
                         ))}
                       </ul>
-                      {/* Cierre destacado como card (no párrafo suelto) */}
-                      {g.cierre && (
-                        <div className="mk-cierre">
-                          <span className="mk-cierre-star" aria-hidden="true">
-                            <svg width="18" height="18" viewBox="-12 -12 24 24"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg>
-                          </span>
-                          <span dangerouslySetInnerHTML={{ __html: g.cierre }} />
-                        </div>
-                      )}
                     </>
                   ) : (
                     <ul className="mk-cap-list">
@@ -241,6 +232,16 @@ export default function FeatureDetail({ slug }: { slug: string }) {
                         <li key={j} className="mk-cap-li"><Check /><span dangerouslySetInnerHTML={{ __html: b }} /></li>
                       ))}
                     </ul>
+                  )}
+
+                  {/* Cierre destacado como card — vale para cualquier tipo de bloque */}
+                  {g.cierre && (
+                    <div className="mk-cierre">
+                      <span className="mk-cierre-star" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="-12 -12 24 24"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg>
+                      </span>
+                      <span dangerouslySetInnerHTML={{ __html: g.cierre }} />
+                    </div>
                   )}
 
                   {/* El CTA se repite al cierre de cada bloque: es el momento en
