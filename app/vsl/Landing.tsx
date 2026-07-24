@@ -108,6 +108,19 @@ export default function Landing() {
       a.setAttribute('href', '/vsl/' + slug); // click → landing dedicada de la feature
     });
 
+    // (4) CTA debajo de la grilla: es el punto donde el visitante ya vio TODO lo
+    // que hace el producto — el mejor momento para pedirle la llamada.
+    if (featGrid && !featGrid.parentElement?.querySelector('.mk-grid-cta')) {
+      const cta = document.createElement('div');
+      cta.className = 'mk-grid-cta';
+      cta.innerHTML =
+        '<div class="mk-grid-cta-h">¿Lo querés andando en tu negocio?</div>' +
+        '<p class="mk-grid-cta-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>' +
+        '<a href="#beta" class="mk-grid-cta-b">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" /><path d="M16 3l0 4" /><path d="M8 3l0 4" /><path d="M4 11l16 0" /><path d="M8 15h2v2h-2z" /></svg>Agenda tu llamada</a>';
+      featGrid.insertAdjacentElement('afterend', cta);
+    }
+
     // (5) "Volver" desde una landing (/vsl#feat-<slug>): al cargar, devolver el
     // scroll a la card de donde salió el usuario. Los ids se agregan recién arriba,
     // así que el scroll nativo no la encuentra. Además .vsl-root tiene
@@ -300,7 +313,11 @@ export default function Landing() {
       startNet();
     } else if (!document.getElementById('vsl-makoanim')) {
       const sc = document.createElement('script');
-      sc.id = 'vsl-makoanim'; sc.src = '/vsl-assets/mako-anim.js'; sc.onload = startNet;
+      // ?v= obligatorio: el archivo vive en una ruta fija, así que sin versión el
+      // navegador puede seguir sirviendo la copia vieja de la animación (nos pasó:
+      // en el server ya estaban los logos reales y en pantalla seguían los viejos).
+      // Subir el número cada vez que se toque mako-anim.js.
+      sc.id = 'vsl-makoanim'; sc.src = '/vsl-assets/mako-anim.js?v=3'; sc.onload = startNet;
       document.body.appendChild(sc);
     } else {
       startNet();
@@ -377,6 +394,15 @@ body:has(.vsl-root) aside { display: none !important; }
 /* Hover de las cards de features (reemplaza el style-hover del diseño). */
 .vsl-root .mk-feature-grid > a { transition: box-shadow .22s ease, transform .22s ease; cursor: pointer; }
 .vsl-root .mk-feature-grid > a:hover { transform: translateY(-3px); box-shadow: 0 20px 44px -22px rgba(16,19,25,.26); }
+/* Flecha al pie de cada card: deja claro que se puede entrar. */
+.vsl-root .mk-feature-grid > a { position: relative; }
+.vsl-root .mk-feature-grid > a::after { content: '→'; margin-top: auto; padding-top: 14px; align-self: flex-end; font-size: 17px; font-weight: 600; color: #2F6FED; transition: transform .22s ease; }
+.vsl-root .mk-feature-grid > a:hover::after { transform: translateX(4px); }
+/* CTA debajo de la grilla (mismo bloque que en las páginas de funcionalidad) */
+.vsl-root .mk-grid-cta { margin-top: 26px; padding: 40px 32px; border-radius: 22px; text-align: center; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E3EAF6; }
+.vsl-root .mk-grid-cta-h { font-size: 25px; font-weight: 600; letter-spacing: -0.01em; color: #12151B; }
+.vsl-root .mk-grid-cta-p { margin: 8px 0 22px; font-size: 16px; line-height: 1.55; color: #5B6472; }
+.vsl-root .mk-grid-cta-b { display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 16px 30px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 15px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 12px 26px -14px rgba(47,111,237,.5); }
 
 /* Grilla a 4 columnas (16 features quedan parejas). Las media queries de más
    abajo la bajan a 2 en tablet/móvil. */

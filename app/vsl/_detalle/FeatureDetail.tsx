@@ -274,6 +274,9 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           {/* Las cards salen TAL CUAL de la landing principal (ver grid-landing.ts):
               mismos colores de marca y misma card oscura de MaKo, sin copia paralela. */}
           <div className="mk-more-grid" dangerouslySetInnerHTML={{ __html: gridHtml(slug) }} />
+          {/* El visitante ya vio TODO el producto: el mejor momento para pedirle
+              la llamada. Mismo bloque que en la landing principal. */}
+          <div className="mk-more-cta"><CtaBand /></div>
         </nav>
       </main>
 
@@ -495,10 +498,39 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-more { margin-top: 84px; }
 .mk-more-h { margin: 0 0 40px; font-size: 36px; line-height: 1.15; letter-spacing: -0.03em; font-weight: 600; color: #12151B; text-align: center; text-wrap: balance; }
 .mk-more-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
-/* Las cards traen su estilo inline desde la landing; acá solo va el hover
-   (la misma animación que allá) y el estado de "la actual". */
+.mk-more-cta { margin-top: 26px; }
+/* Las cards traen su estilo inline desde la landing; acá van el hover, la
+   flecha del pie y el estado de "la actual". */
 .mk-more-grid > a:hover { transform: translateY(-3px); box-shadow: 0 20px 44px -22px rgba(16,19,25,.26); }
+.mk-more-grid > a { position: relative; }
+.mk-more-grid > a::after { content: '→'; margin-top: auto; padding-top: 14px; align-self: flex-end; font-size: 17px; font-weight: 600; color: #2F6FED; transition: transform .22s ease; }
+.mk-more-grid > a:hover::after { transform: translateX(4px); }
+
+/* La actual: borde que gira alrededor de la card para que se vea dónde estás.
+   El truco es un conic-gradient rotando detrás, recortado a un anillo de 2px. */
+@property --mk-ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes mkGira { to { --mk-ang: 360deg; } }
+@keyframes mkGiraFallback { to { transform: rotate(360deg); } }
+/* SIN isolation ni transform acá: crearían un contexto de apilado y el z-index:-1
+   del anillo dejaría de irse detrás del fondo blanco de la card (se pinta encima
+   y tapa el texto). */
 .mk-more-grid > div[aria-current] { cursor: default; }
+.mk-more-grid > div[aria-current]::before {
+  content: ''; position: absolute; inset: -2px; border-radius: 14px; z-index: -1;
+  background: conic-gradient(from var(--mk-ang), transparent 0deg, transparent 250deg, #7FA9F7 300deg, #2F6FED 340deg, #2F6FED 360deg);
+  animation: mkGira 2.8s linear infinite;
+}
+/* Navegadores sin @property: el gradiente no puede animarse, así que gira el
+   elemento entero (mismo efecto, sin quedarse en un borde estático). */
+@supports not (background: conic-gradient(from var(--mk-ang), red, blue)) {
+  .mk-more-grid > div[aria-current]::before {
+    inset: -40%; border-radius: 0;
+    background: conic-gradient(transparent 0deg, transparent 250deg, #7FA9F7 300deg, #2F6FED 360deg);
+    animation: mkGiraFallback 2.8s linear infinite;
+  }
+  .mk-more-grid > div[aria-current] { overflow: hidden; border-radius: 12px; }
+  .mk-more-grid > div[aria-current]::after { content: ''; position: absolute; inset: 2px; border-radius: 10px; background: #fff; z-index: -1; }
+}
 
 .mk-foot { border-top: 1px solid #EEF0F3; background: #FBFCFE; margin-top: 80px; }
 .mk-foot-in { max-width: 1060px; margin: 0 auto; padding: 36px 28px 44px; }
