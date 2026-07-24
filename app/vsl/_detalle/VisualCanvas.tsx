@@ -722,51 +722,59 @@ function drawExcel(ctx: CanvasRenderingContext2D, W: number, H: number, tt: numb
   }
 }
 
-// BASTA cae del cielo y astilla el Excel entero como un vidrio; después van
-// apareciendo las líneas de a una (se leen de a poco), centradas y espaciadas.
-// El Excel se sigue viendo atrás (velo tenue + sombra en el texto).
+// snapshot del Excel (una sola vez) para poder difuminarlo barato con 1 blit.
+let _excelSnap: HTMLCanvasElement | null = null, _excelSnapKey = '';
+function excelSnapshot(W: number, H: number) {
+  const key = `${Math.round(W)}x${Math.round(H)}`;
+  if (_excelSnap && _excelSnapKey === key) return _excelSnap;
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(W)); c.height = Math.max(1, Math.round(H));
+  const cc = c.getContext('2d'); if (cc) drawExcel(cc, W, H, 0);
+  _excelSnap = c; _excelSnapKey = key; return c;
+}
+
+// BASTA cae y astilla el Excel; al romperse el Excel se DIFUMINA (blur) para que
+// el texto tenga contraste. Las 4 líneas comparten tamaño y tipografía (BASTA es
+// la única grande) y aparecen de a una, todo centrado. Sin estrella.
 function drawCrmExcel(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
-  const EXCEL = 2400, DROP = 460, POST = 4600, LOOP = EXCEL + DROP + POST, tt = t % LOOP;
-  const cx = W / 2, impactY = H * 0.28;
+  const EXCEL = 2400, DROP = 460, POST = 4800, LOOP = EXCEL + DROP + POST, tt = t % LOOP;
+  const cx = W / 2, impactY = H * 0.37;
   const ai = tt - (EXCEL + DROP);                 // ms desde el impacto (< 0 si aún no cayó)
   let sx = 0, sy = 0;                              // temblor breve al romperse
   if (ai > 0 && ai < 300) { const d = 1 - ai / 300; sx = Math.sin(ai * 0.9) * 8 * d; sy = Math.cos(ai * 1.1) * 5 * d; }
   ctx.save(); ctx.translate(sx, sy);
   ctx.fillStyle = '#F5F7FB'; ctx.fillRect(-8, -8, W + 16, H + 16);
-  drawExcel(ctx, W, H, tt);                        // el Excel SIEMPRE detrás
-  if (ai > 0) {
-    ctx.save(); ctx.globalAlpha = 0.42 * clamp(ai / 280, 0, 1); ctx.fillStyle = '#F7F8FB'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
+  if (ai <= 0) {
+    drawExcel(ctx, W, H, tt);                       // nítido, con el cursor tipeando
+  } else {
+    const snap = excelSnapshot(W, H), b = clamp(ai / 280, 0, 1) * 5;
+    ctx.save(); ctx.filter = `blur(${b.toFixed(1)}px)`; if (snap) ctx.drawImage(snap, 0, 0, W, H); ctx.filter = 'none'; ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.5 * clamp(ai / 300, 0, 1); ctx.fillStyle = '#EEF1F6'; ctx.fillRect(-8, -8, W + 16, H + 16); ctx.restore();
     drawCracks(ctx, cx, impactY, ai / 180);        // astilla RÁPIDO y llega a los bordes
     if (ai < 160) { ctx.save(); ctx.globalAlpha = (1 - ai / 160) * 0.9; const g = ctx.createRadialGradient(cx, impactY, 0, cx, impactY, W * 0.6); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   }
   ctx.restore();
 
-  // TEXTO (con el mismo temblor). Cada línea aparece en su momento.
-  ctx.save(); ctx.translate(sx, sy);
-  const linea = (txt: string, y: number, font: string, color: string, appearAt: number, star: boolean) => {
+  // TEXTO (mismo temblor). Todas las líneas, misma tipografía y tamaño.
+  ctx.save(); ctx.translate(sx, sy); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const linea = (txt: string, y: number, appearAt: number) => {
     const a = eoC(clamp((ai - appearAt) / 400, 0, 1)); if (a <= 0.001) return;
-    ctx.save(); ctx.globalAlpha = a;
-    ctx.shadowColor = 'rgba(10,12,18,0.34)'; ctx.shadowBlur = 13; ctx.shadowOffsetY = 4;
-    ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'middle';
-    if (star) {
-      const wlab = ctx.measureText(txt).width, sk = 14, startX = cx - (wlab + sk + 10) / 2;
-      sparkle(ctx, startX + sk / 2, y, sk / 2, '#F2B01E');
-      ctx.textAlign = 'left'; ctx.fillText(txt, startX + sk + 10, y);
-    } else { ctx.textAlign = 'center'; ctx.fillText(txt, cx, y); }
-    ctx.restore();
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#14171D';
+    ctx.font = "600 25px 'Geist', system-ui, sans-serif";
+    ctx.shadowColor = 'rgba(10,12,18,0.22)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.fillText(txt, cx, y); ctx.restore();
   };
   if (tt >= EXCEL) {                                // BASTA cae PRIMERO
     const dropP = clamp((tt - EXCEL) / DROP, 0, 1);
     const by = tt < EXCEL + DROP ? lerp(-60, impactY, eiCubic(dropP)) : impactY;
     const scale = ai > 0 ? lerp(1.2, 1, eoCubic(clamp(ai / 160, 0, 1))) : 1;
     ctx.save(); ctx.translate(cx, by); ctx.scale(scale, scale);
-    ctx.shadowColor = 'rgba(10,12,18,0.4)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
-    ctx.fillStyle = '#14171D'; ctx.font = "800 62px 'Geist', system-ui, sans-serif";
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('BASTA', 0, 0); ctx.restore();
+    ctx.fillStyle = '#0E1116'; ctx.font = "800 68px 'Geist', system-ui, sans-serif";
+    ctx.shadowColor = 'rgba(10,12,18,0.28)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 5;
+    ctx.fillText('BASTA', 0, 0); ctx.restore();
   }
-  linea('de planillas aburridas', impactY + 66, "600 20px 'Geist', system-ui, sans-serif", '#3A424E', 600, false);
-  linea('Con MaKo', impactY + 118, "700 24px 'Geist', system-ui, sans-serif", '#14171D', 1300, true);
-  linea('Nunca más.', impactY + 166, "700 21px 'Geist', system-ui, sans-serif", '#2F6FED', 2000, false);
+  linea('de planillas aburridas', impactY + 58, 600);
+  linea('Con MaKo', impactY + 96, 1200);
+  linea('Nunca más.', impactY + 134, 1800);
   ctx.restore();
 }
 
@@ -794,49 +802,41 @@ function goldSweep(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.fillStyle = g; ctx.fillRect(edge - 16, y - 2, 26, h + 4); ctx.restore();
 }
 
-// Ritmo en dos tiempos por paso: PRIMERO la pregunta en grande y centrada (sin
-// kanban); DESPUÉS desaparece y aparece el kanban con la respuesta de MaKo y el
-// barrido dorado agregando / moviendo la card. Nunca todo junto.
+// Dos tiempos por paso: PRIMERO el texto en grande y centrado — la pregunta y,
+// debajo, la respuesta de MaKo; DESPUÉS desaparece TODO el texto y aparece el
+// kanban SOLO (sin una sola letra) con el barrido dorado. Sin estrella en José.
 function drawCrmSecuencia(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
   ctx.fillStyle = '#F5F7FB'; ctx.fillRect(0, 0, W, H);
-  const trav: KCard = { name: 'José Rodríguez', tag: SEQ_TAGS[0], tone: 'blue', star: true };
+  const trav: KCard = { name: 'José Rodríguez', tag: SEQ_TAGS[0], tone: 'blue' };
 
-  const STEP = 3100, TEXT = 1350, LOOP = SEQ_BEATS.length * STEP, tt = t % LOOP;
+  const STEP = 3300, TEXT = 1750, LOOP = SEQ_BEATS.length * STEP, tt = t % LOOP;
   const step = Math.min(SEQ_BEATS.length - 1, Math.floor(tt / STEP)), local = tt - step * STEP;
   const beat = SEQ_BEATS[step];
 
   if (local < TEXT) {
-    // FASE A — la pregunta en grande, centrada, SOLA (sin kanban)
-    const inP = eoC(clamp(local / 400, 0, 1));
+    // FASE TEXTO — pregunta arriba y respuesta de MaKo abajo, las dos en grande
     const outP = local > TEXT - 300 ? clamp((local - (TEXT - 300)) / 300, 0, 1) : 0;
-    const a = inP * (1 - outP); if (a <= 0.001) return;
-    ctx.save(); ctx.globalAlpha = a; ctx.translate(0, lerp(12, 0, inP));
-    ctx.font = "700 27px 'Geist', system-ui, sans-serif"; ctx.fillStyle = '#14171D';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const lines = wrap(ctx, beat.q, W * 0.84), lh = 34, y0 = H / 2 - (lines.length - 1) * lh / 2;
-    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * lh));
-    ctx.restore();
+    ctx.font = "700 26px 'Geist', system-ui, sans-serif";
+    const qlines = wrap(ctx, beat.q, W * 0.84), lh = 33, ansGap = 30;
+    const blockH = qlines.length * lh + ansGap, y0 = H / 2 - blockH / 2 + lh / 2;
+    const qIn = eoC(clamp(local / 380, 0, 1)), qA = qIn * (1 - outP);
+    if (qA > 0.001) { ctx.save(); ctx.globalAlpha = qA; ctx.fillStyle = '#14171D'; ctx.translate(0, lerp(10, 0, qIn)); qlines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * lh)); ctx.restore(); }
+    const aA = eoC(clamp((local - 760) / 380, 0, 1)) * (1 - outP);
+    if (aA > 0.001) { ctx.save(); ctx.globalAlpha = aA; ctx.fillStyle = '#2F6FED'; ctx.font = "600 22px 'Geist', system-ui, sans-serif"; ctx.fillText(beat.a, W / 2, y0 + qlines.length * lh + ansGap); ctx.restore(); }
     return;
   }
 
-  // FASE B — desaparece el texto, aparece el kanban + respuesta + barrido
-  const lb = local - TEXT, kA = eoC(clamp(lb / 300, 0, 1));
-  const capTop = 14, boardTop = 76, boardH = H - boardTop - 12;
+  // FASE KANBAN — SIN texto. Solo el tablero + la acción con barrido dorado.
+  const lb = local - TEXT, kA = eoC(clamp(lb / 320, 0, 1));
+  const boardTop = 24, boardH = H - boardTop - 16;
   const cols = kbColumns(W, boardTop, boardH);
-  const aA = eoC(clamp((lb - 150) / 340, 0, 1));
-  if (aA > 0.001) {
-    ctx.save(); ctx.globalAlpha = aA; ctx.font = "700 15px 'Geist', system-ui, sans-serif"; ctx.textBaseline = 'middle';
-    const lab = beat.a, wlab = ctx.measureText(lab).width, sk = 12, startX = W / 2 - (wlab + sk + 8) / 2;
-    sparkle(ctx, startX + sk / 2, capTop + 16, sk / 2, '#F2B01E');
-    ctx.fillStyle = '#14171D'; ctx.textAlign = 'left'; ctx.fillText(lab, startX + sk + 8, capTop + 16); ctx.restore();
-  }
-
   ctx.save(); ctx.globalAlpha = kA;
   cols.forEach((col) => kbColShell(ctx, col));
   SEQ_STATIC.forEach(({ col, card }) => { const s = kbSlot(cols[col], 0); kbCard(ctx, s.x, s.y, s.w, card); });
   const slotFor = (colIdx: number) => kbSlot(cols[colIdx], 1);
   trav.tag = SEQ_TAGS[beat.to]; trav.tone = SEQ_TONES[beat.to];
-  const actP = clamp((lb - 560) / 700, 0, 1);
+  const actP = clamp((lb - 450) / 700, 0, 1);
 
   if (beat.kind === 'reveal') {
     const s = slotFor(beat.to);
