@@ -1224,6 +1224,32 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     },
     "groups": [
       {
+        "type": "rcBar",
+        "title": "Tu dashboard de siempre",
+        "bars": [
+          {
+            "label": "Alcance",
+            "v": 88
+          },
+          {
+            "label": "Clics",
+            "v": 64
+          },
+          {
+            "label": "Costo",
+            "v": 92
+          },
+          {
+            "label": "Cierres",
+            "v": 41
+          }
+        ]
+      },
+      {
+        "type": "alertCard",
+        "text": "Tus campañas dicen «activa». Pero la cuenta no entrega: los leads caen a cero y nadie lo ve."
+      },
+      {
         "type": "pyramid",
         "title": "Focos por urgencia",
         "tiers": [
@@ -1242,37 +1268,6 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
         ]
       },
       {
-        "type": "rcBar",
-        "title": "Creativo fatigado",
-        "bars": [
-          {
-            "label": "Frecuencia",
-            "v": 88,
-            "tone": "red"
-          },
-          {
-            "label": "CPL 7d",
-            "v": 92,
-            "tone": "red"
-          },
-          {
-            "label": "CPL 28d",
-            "v": 58
-          }
-        ]
-      },
-      {
-        "type": "rcGauge",
-        "value": 28,
-        "big": "28%",
-        "label": "Cierre",
-        "tone": "amber"
-      },
-      {
-        "type": "alertCard",
-        "text": "Campañas en ACTIVE, pero la cuenta Meta no entrega. Los leads caen a cero y nadie lo ve."
-      },
-      {
         "type": "chatThread",
         "title": "MaKo · 7:00",
         "msgs": [
@@ -1282,44 +1277,11 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
           },
           {
             "from": "in",
-            "text": "Cuenta Meta frenada"
+            "text": "Cuenta de anuncios frenada"
           },
           {
             "from": "out",
             "text": "Voy a revisar"
-          }
-        ]
-      },
-      {
-        "type": "statTiles",
-        "title": "Incidentes",
-        "tiles": [
-          {
-            "label": "Abiertos",
-            "value": "1",
-            "tone": "red"
-          },
-          {
-            "label": "Resueltos",
-            "value": "3",
-            "tone": "green"
-          },
-          {
-            "label": "Caída total",
-            "value": "2h 14m",
-            "tone": "amber"
-          }
-        ],
-        "rows": [
-          {
-            "name": "Meta · entrega",
-            "amount": "2h 14m",
-            "tone": "red"
-          },
-          {
-            "name": "Cobranza",
-            "amount": "41m",
-            "tone": "amber"
           }
         ]
       }
