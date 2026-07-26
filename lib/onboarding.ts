@@ -68,6 +68,21 @@ export async function saveAnswers(answers: Record<string, string>): Promise<void
   await setSetting(ANSWERS_KEY, JSON.stringify(answers));
 }
 
+// Gemini Flash (y varios modelos gratis) a veces devuelven el JSON envuelto en
+// ```json…``` o con texto alrededor, AUNQUE les pidamos response_format json_object.
+// Un JSON.parse pelado tira y deja los campos vacíos → el archivo queda "sin datos
+// útiles" aunque la IA sí corrió (bug real en prod con Gemini). Igual que hace
+// chatCheapJson en lib/ai-cheap: si el parse directo falla, extraemos el primer
+// objeto {...} del texto a mano.
+function parseJsonLoose(raw: string | null | undefined): Record<string, unknown> {
+  const s = (raw || '').trim();
+  if (!s) return {};
+  try { return JSON.parse(s) as Record<string, unknown>; } catch { /* probamos extraer */ }
+  const m = s.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]) as Record<string, unknown>; } catch { /* nos rendimos */ } }
+  return {};
+}
+
 // Extrae respuestas de un texto (template completado o doc del cliente) y las
 // mapea a los campos pedidos. Va por la IA barata del workspace (chatCheapCascade:
 // Groq/OpenAI/… con credWs) — NO por process.env, así usa las keys que el cliente
@@ -86,8 +101,7 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('onboarding.extract.system', ONBOARDING_EXTRACT_TEMPLATE, { lista });
   const crudo = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'onboarding-extract', motivo: 'Extraer campos del brief de un documento', provs: CASCADA_DOCS });
-  let parsed: Record<string, unknown> = {};
-  try { parsed = JSON.parse(crudo || '{}'); } catch { parsed = {}; }
+  const parsed = parseJsonLoose(crudo);
   const campos = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : parsed) as Record<string, unknown>;
   const out: Record<string, string> = {};
   for (const f of fields) {
@@ -109,8 +123,7 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS });
   // out vacío = ninguna IA respondió (sin key de Gemini/Groq/OpenAI en el workspace).
   if (!out) return { campos: {}, razonamiento: '', sinIA: true };
-  let parsed: Record<string, unknown> = {};
-  try { parsed = JSON.parse(out || '{}'); } catch { parsed = {}; }
+  const parsed = parseJsonLoose(out);
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
   const campos: Record<string, string> = {};
   for (const f of fields) {
