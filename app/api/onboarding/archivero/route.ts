@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { extraerDeArchivo } from '@/lib/onboarding';
-import { leerDocumentoIA } from '@/lib/ai-cheap';
+import { leerDocumentoIA, docsIADisponible } from '@/lib/ai-cheap';
 import {
   flatFields, insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
 } from '@/lib/archivero';
@@ -46,6 +46,9 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
     // 1) Capa de texto (la mayoría de los PDFs la tienen): rápida, confiable y sin
     //    gastar visión. Antes TODO PDF iba por visión y un PDF de texto volvía vacío.
     try {
+      // pdfjs (dentro de unpdf) usa Math.sumPrecise, que no existe en Node <22.
+      const M = Math as unknown as { sumPrecise?: (a: number[]) => number };
+      if (typeof M.sumPrecise !== 'function') M.sumPrecise = (a) => a.reduce((x, y) => x + y, 0);
       const { extractText, getDocumentProxy } = await import('unpdf');
       const pdf = await getDocumentProxy(new Uint8Array(buf));
       const { text } = await extractText(pdf, { mergePages: true });
@@ -87,6 +90,11 @@ export async function POST(req: NextRequest) {
 
   return runWithWorkspace(ws, async () => {
     try {
+      // Sin una IA para leer los docs, subir no sirve: avisamos claro (y no guardamos
+      // archivos que quedarían "sin datos"). Gemini es gratis y alcanza (ver #onboarding).
+      if (!(await docsIADisponible())) {
+        return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Cargá tu API key de Gemini (es gratis) en Integraciones y volvé a analizar.' }, { status: 400 });
+      }
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const warnings: string[] = [];
       let leidos = 0;
@@ -94,7 +102,8 @@ export async function POST(req: NextRequest) {
         const { texto, warning } = await leerArchivo(file);
         if (warning) { warnings.push(warning); continue; }
         if (!texto.trim()) { warnings.push(`No pude sacar texto de "${file.name}".`); continue; }
-        const { campos, razonamiento } = await extraerDeArchivo(texto, fields, 24000);
+        const { campos, razonamiento, sinIA } = await extraerDeArchivo(texto, fields, 24000);
+        if (sinIA) { warnings.push(`No pude analizar "${file.name}" con la IA — reintentá en un momento.`); continue; }
         const id = randomUUID();
         const buf = Buffer.from(await file.arrayBuffer());
         const path = await subirBinario(ws, id, buf, file.type || '');

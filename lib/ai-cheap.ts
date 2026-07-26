@@ -77,6 +77,17 @@ async function proveedorStt(): Promise<Prov | null> {
 export async function cheapDisponible(): Promise<boolean> { return (await proveedor()) !== null; }
 export async function sttDisponible(): Promise<boolean> { return (await proveedorStt()) !== null; }
 
+// Cascada para LEER DOCUMENTOS del negocio (El Archivero, onboarding-extract). A
+// diferencia de CASCADA_GRATIS, INCLUYE Gemini y lo pone primero: es la IA gratis y
+// generosa que el cliente carga en el onboarding (#4), así que la extracción tiene
+// que poder usarla. Sin esto, un workspace con SOLO key de Gemini extrae vacío.
+export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
+/** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
+export async function docsIADisponible(): Promise<boolean> {
+  for (const p of CASCADA_DOCS) { if (await provDe(p)) return true; }
+  return false;
+}
+
 // Ante un 404 de "modelo no encontrado", listamos los modelos que SÍ acepta la key
 // (GET /models, OpenAI-compat) y los metemos en el error → nunca más adivinamos el id.
 async function modelosDisponibles(p: Prov): Promise<string> {

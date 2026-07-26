@@ -108,7 +108,9 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
     // después alimenta la generación de ángulos y creativos.
     briefGrupos: null,
-    integracionesRequeridas: ['meta', 'whatsapp'],
+    // Solo Meta en el arranque: con las Fases + El Archivero + Meta ya alcanza para
+    // una valoración. WhatsApp se conecta después (no bloquea el onboarding).
+    integracionesRequeridas: ['meta'],
     categoriasIntegraciones: null,
     seedBoardVsl: true,
   },

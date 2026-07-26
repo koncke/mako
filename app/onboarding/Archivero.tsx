@@ -109,6 +109,8 @@ export function Archivero({ onEstado, onFacts }: {
   const grupos: { label: string; campos: Campo[] }[] = [];
   for (const c of est.brief) { let g = grupos.find((x) => x.label === c.grupo); if (!g) { g = { label: c.grupo, campos: [] }; grupos.push(g); } g.campos.push(c); }
   const fuenteTxt = (k: string) => { const f = est.fuente[k]; return !f ? '' : f.tipo === 'manual' ? 'a mano' : (f.nombre || 'un archivo'); };
+  // Docs enteros que faltan: si un grupo (Oferta/Avatar) está TODO vacío, sugerimos subir ese documento.
+  const docsFaltantes = grupos.filter((g) => /oferta|avatar/i.test(g.label) && g.campos.length > 0 && g.campos.every((c) => !(est.answers[c.key] ?? '').trim())).map((g) => g.label.toLowerCase());
 
   const cajaWarn = warnings.length > 0 && (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px' }}>
@@ -168,6 +170,14 @@ export function Archivero({ onEstado, onFacts }: {
               <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45 }}>Lo que ningún documento resolvió. Te los pregunto de a uno.</div>
             </div>
             <button type="button" onClick={() => setVista('huecos')} style={{ ...btnPrimary, flex: 'none' }}>Completar</button>
+          </div>
+        )}
+
+        {docsFaltantes.length > 0 && !editando && (
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, padding: '0 2px' }}>
+            De tus documentos todavía no saqué tu {docsFaltantes.map((d, i) => (
+              <span key={d}>{i > 0 ? ' ni tu ' : ''}<b style={{ color: 'var(--ink)' }}>{d}</b></span>
+            ))}. ¿Tenés un documento de {docsFaltantes.length === 1 ? 'eso' : 'esos'}? Subilo arriba.
           </div>
         )}
 

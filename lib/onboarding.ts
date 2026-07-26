@@ -8,7 +8,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
-import { chatCheapCascade } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS } from './ai-cheap';
 
 export type FieldType = 'text' | 'number' | 'textarea';
 export type Field = { key: string; label: string; type: FieldType; placeholder?: string };
@@ -85,7 +85,7 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
   if (!texto.trim() || fields.length === 0) return {};
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('onboarding.extract.system', ONBOARDING_EXTRACT_TEMPLATE, { lista });
-  const crudo = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'onboarding-extract', motivo: 'Extraer campos del brief de un documento' });
+  const crudo = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'onboarding-extract', motivo: 'Extraer campos del brief de un documento', provs: CASCADA_DOCS });
   let parsed: Record<string, unknown> = {};
   try { parsed = JSON.parse(crudo || '{}'); } catch { parsed = {}; }
   const campos = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : parsed) as Record<string, unknown>;
@@ -100,13 +100,15 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
 // El Archivero procesa UN archivo por vez (no todo concatenado) para poder atribuir
 // qué campo salió de qué documento y dar un razonamiento por archivo. Devuelve los
 // campos que encontró + una frase corta de qué aportó ese documento.
-export const ARCHIVERO_EXTRACT_TEMPLATE = `Sos un extractor de datos del negocio. Recibís el texto de UN documento del cliente y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}, "razonamiento": "<una frase corta>"}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). El "razonamiento" es UNA sola frase natural y breve de qué aportó este documento (ej: "Definió el avatar y su dolor principal", "Detalla la oferta y el precio"). Si el documento no aporta nada útil, campos vacío y razonamiento explicándolo. Claves válidas (clave: qué pide):\n{{lista}}`;
+export const ARCHIVERO_EXTRACT_TEMPLATE = `Sos un extractor de datos del negocio. Recibís el texto de UN documento del cliente y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}, "razonamiento": "<una frase corta>"}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). El "razonamiento" es UNA sola frase que EMPIEZA nombrando qué tipo de documento es (Avatar, Oferta, Nicho, o mixto) y qué aportó (ej: "Documento de Avatar: define quién es el cliente y su dolor principal", "Documento de Oferta: nombre, precio y garantía"). Si el documento no aporta nada útil, campos vacío y el razonamiento lo explica. Claves válidas (clave: qué pide):\n{{lista}}`;
 
-export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string }> {
-  if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '' };
+export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean }> {
+  if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '', sinIA: false };
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('archivero.extract.system', ARCHIVERO_EXTRACT_TEMPLATE, { lista });
-  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio' });
+  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS });
+  // out vacío = ninguna IA respondió (sin key de Gemini/Groq/OpenAI en el workspace).
+  if (!out) return { campos: {}, razonamiento: '', sinIA: true };
   let parsed: Record<string, unknown> = {};
   try { parsed = JSON.parse(out || '{}'); } catch { parsed = {}; }
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
@@ -116,7 +118,7 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
     if (v != null && String(v).trim()) campos[f.key] = String(v).trim();
   }
   const razonamiento = typeof parsed.razonamiento === 'string' ? parsed.razonamiento.trim().slice(0, 240) : '';
-  return { campos, razonamiento };
+  return { campos, razonamiento, sinIA: false };
 }
 
 /** Texto del perfil del negocio para inyectar en el contexto de MaKo. */
