@@ -939,6 +939,7 @@ export const FEATURES: Record<string, Feature> = {
     name: "Semáforo del Negocio",
     icon: ICON["semaforo"],
     headline: "Demasiada métrica paraliza. Un color no.",
+    videoEmbed: "https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=8b1d420a-00bd-4f18-9c6a-730067a5125c&autoplay=true&color=%232F6FED",
     lead: "MaKo cruza tus anuncios, tu pipeline y tu cobranza y te da la salud real de tu negocio en un <strong>semáforo, en vivo</strong>. Verde, avanzás. Rojo, algo importante necesita tu atención hoy. No te muestra veinte gráficos: <strong>te dice cuál problema atacar primero</strong> y te lleva justo a donde se arregla. Y no te suelta — si hay algo en rojo, <strong>MaKo te insiste por WhatsApp hasta que lo resolvés</strong>. Porque vos no vivís mirando dashboards de KPIs: querés saber <strong>qué se está prendiendo fuego ahora mismo y cuánto te cuesta en cierres</strong>. El Semáforo colapsa la salud de tu negocio en <strong>una sola luz roja/ámbar/verde</strong> con un veredicto en castellano — y cada foco linkea al lead, a la cuota o al anuncio que lo resuelve. <em>No es un número muerto: es el panel de lo que le sangra plata a un funnel de tráfico pago antes de que sea tarde.</em>",
     groups: [
       {

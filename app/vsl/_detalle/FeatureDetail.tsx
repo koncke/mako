@@ -172,10 +172,10 @@ export default function FeatureDetail({ slug }: { slug: string }) {
               <p className="mk-hero-nota">Diagnóstico gratuito de tu VSL Funnel</p>
             </div>
             <div className="mk-hero-media">
-              <div className="mk-vsl">
-                <span className="mk-cor tl" /><span className="mk-cor tr" /><span className="mk-cor bl" /><span className="mk-cor br" />
-                <PandaPlayer src={f.videoEmbed} title={`${f.name} — cómo funciona`} />
-              </div>
+              {/* El recuadro (.mk-vsl), las esquinas y el flotante con su botón
+                  de cerrar los arma PandaPlayer: necesita el hueco en el flujo
+                  para no dar un salto cuando el video pasa a flotar. */}
+              <PandaPlayer src={f.videoEmbed} title={`${f.name} — cómo funciona`} />
             </div>
           </div>
         ) : (
@@ -359,8 +359,22 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-lead-punch strong { color: #2F6FED; font-weight: 700; }
 .mk-btn-hero { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 420px; padding: 17px 30px; border-radius: 12px; background: #2F6FED; color: #fff; text-decoration: none; font-size: 16px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; box-shadow: 0 16px 34px -14px rgba(47,111,237,.55); }
 .mk-hero-nota { margin: 13px 0 0; font-size: 14px; color: #98A0AC; }
-.mk-vsl { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 70px -32px rgba(23,26,33,.5); }
+/* El "slot" guarda el hueco del video en el flujo: cuando el player pasa a
+   flotar (position:fixed) la página no da un salto. */
+.mk-vsl-slot { position: relative; aspect-ratio: 16 / 9; }
+.mk-vsl { position: absolute; inset: 0; border-radius: 18px; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 70px -32px rgba(23,26,33,.5); }
 .mk-vsl iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+
+/* Picture-in-Picture propio: el video sigue al scroll en una esquina. */
+.mk-vsl-pip { position: fixed; inset: auto 24px 24px auto; width: min(360px, 34vw); height: auto; aspect-ratio: 16 / 9;
+  z-index: 60; border-radius: 14px; box-shadow: 0 26px 60px -18px rgba(11,13,18,.55); animation: mkPipIn .22s ease-out; }
+@keyframes mkPipIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+.mk-vsl-pip .mk-cor { display: none; }
+.mk-vsl-x { position: absolute; top: 8px; right: 8px; z-index: 2; width: 30px; height: 30px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; cursor: pointer; color: #fff; background: rgba(12,15,22,.72); backdrop-filter: blur(3px);
+  box-shadow: 0 2px 10px rgba(0,0,0,.35); transition: background .15s, transform .15s; }
+.mk-vsl-x:hover { background: rgba(12,15,22,.92); transform: scale(1.08); }
+@media (max-width: 860px) { .mk-vsl-pip { inset: auto 12px 12px auto; width: min(260px, 56vw); } }
 
 /* Panel que envuelve cada gráfico */
 .mk-panel { border-radius: 18px; background: linear-gradient(160deg,#EFF4FE,#F8FAFD); border: 1px solid #E7ECF5; padding: 18px; }

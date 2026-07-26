@@ -1,17 +1,22 @@
 'use client';
 
 // =============================================================================
-// PandaPlayer — el embed oficial de Panda con Picture-in-Picture que sigue al
-// scroll (pipScrollFollow). Cuando el video sale de pantalla, se encoge a una
-// esquina y sigue reproduciéndose mientras el visitante baja.
+// PandaPlayer — el embed de Panda con Picture-in-Picture PROPIO: cuando el video
+// sale de pantalla se encoge a una esquina y sigue reproduciéndose; con un botón
+// para cerrarlo que devuelve el video arriba y en pausa.
 // =============================================================================
-// Panda NO tiene esto por querystring: hay que cargar su api.v2.js y llamar
-// p.pipScrollFollow({panda_id_player}) cuando el player está listo. El id del
-// iframe DEBE ser `panda-<guid>` para que la API lo encuentre.
+// El PiP lo manejamos nosotros (no `pipScrollFollow` de Panda) por dos razones:
+// su flotante es suyo y no admite un botón de cerrar, y su lógica depende de
+// `window.scrollY`, que acá vale siempre 0 porque la página scrollea DENTRO de
+// .mk-det (position:fixed; overflow:auto). Con IntersectionObserver sobre ese
+// contenedor no hace falta parchear nada global.
+//
+// De la API de Panda solo usamos `pause()`. El iframe NUNCA se re-parenta: solo
+// cambia de CSS (absolute -> fixed), así que la reproducción no se corta.
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-type PandaInstance = { pipScrollFollow: (o: { panda_id_player: string }) => void };
+type PandaInstance = { pause: () => void };
 declare global {
   interface Window {
     pandascripttag?: Array<() => void>;
@@ -24,8 +29,14 @@ const API_SRC = 'https://player.pandavideo.com.br/api.v2.js';
 export default function PandaPlayer({ src, title }: { src: string; title: string }) {
   const guid = (src.match(/[?&]v=([^&]+)/) || [])[1] || '';
   const playerId = `panda-${guid}`;
+  const slotRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<PandaInstance | null>(null);
   const wired = useRef(false);
+  // Mientras volvemos al tope tras cerrar, no dejamos que el flotante reaparezca.
+  const cerrando = useRef(false);
+  const [pip, setPip] = useState(false);
 
+  // ── API de Panda (solo para poder pausar al cerrar) ──
   useEffect(() => {
     if (!guid || wired.current) return;
     wired.current = true;
@@ -36,50 +47,67 @@ export default function PandaPlayer({ src, title }: { src: string; title: string
     }
     window.pandascripttag = window.pandascripttag || [];
     window.pandascripttag.push(() => {
-      try {
-        const p = new window.PandaPlayer!(playerId, {
-          onReady() { try { p.pipScrollFollow({ panda_id_player: playerId }); } catch { /* ignore */ } },
-        });
-      } catch { /* ignore */ }
+      try { playerRef.current = new window.PandaPlayer!(playerId, {}); } catch { /* ignore */ }
     });
-
-    // La página de feature scrollea DENTRO de .mk-det (position:fixed;
-    // overflow:auto), no en window. Y pipScrollFollow de Panda depende de window
-    // en las dos direcciones: escucha `window.scroll` para flotar y compara
-    // `window.scrollY <= umbral` para volver. Con window quieto, scrollY vale
-    // siempre 0 → nunca flotaba, y restaurándolo a mano Panda se quedaba con su
-    // flag interno en "flotando" y ya no volvía a salir.
-    //
-    // Por eso, en vez de pelear con su lógica, le hacemos ver el scroll REAL:
-    // reenviamos el evento y hacemos que window.scrollY devuelva el scroll del
-    // contenedor. Panda maneja flotar Y volver, tantas veces como haga falta.
-    const scroller = document.querySelector<HTMLElement>('.mk-det');
-    if (!scroller) return;
-
-    const desc = { configurable: true, get: () => scroller.scrollTop };
-    try {
-      Object.defineProperty(window, 'scrollY', desc);
-      Object.defineProperty(window, 'pageYOffset', desc);
-    } catch { /* si el navegador no deja, al menos flota */ }
-
-    const fwd = () => window.dispatchEvent(new Event('scroll'));
-    scroller.addEventListener('scroll', fwd, { passive: true });
-    return () => {
-      scroller.removeEventListener('scroll', fwd);
-      try {
-        delete (window as unknown as Record<string, unknown>).scrollY;
-        delete (window as unknown as Record<string, unknown>).pageYOffset;
-      } catch { /* ignore */ }
-    };
   }, [guid, playerId]);
 
+  // ── PiP: flota cuando el hueco del video se fue por ARRIBA de la pantalla ──
+  // Con listener de scroll y no IntersectionObserver: el IO depende de que el
+  // navegador esté pintando (en una pestaña de fondo no dispara) y acá el
+  // comportamiento tiene que ser exacto.
+  useEffect(() => {
+    const slot = slotRef.current;
+    const scroller = document.querySelector<HTMLElement>('.mk-det');
+    if (!slot || !scroller) return;
+
+    const evaluar = () => {
+      const tope = scroller.getBoundingClientRect().top;
+      const fueraPorArriba = slot.getBoundingClientRect().bottom < tope + 8;
+      if (!fueraPorArriba) { cerrando.current = false; setPip(false); return; }  // se ve: se rearma
+      if (!cerrando.current) setPip(true);
+    };
+
+    evaluar();
+    scroller.addEventListener('scroll', evaluar, { passive: true });
+    window.addEventListener('resize', evaluar);
+    return () => {
+      scroller.removeEventListener('scroll', evaluar);
+      window.removeEventListener('resize', evaluar);
+    };
+  }, []);
+
+  // Cerrar = pausar + volver arriba del todo (y queda listo para volver a flotar).
+  const cerrar = useCallback(() => {
+    try { playerRef.current?.pause(); } catch { /* ignore */ }
+    cerrando.current = true;
+    setPip(false);
+    document.querySelector<HTMLElement>('.mk-det')?.scrollTo({ top: 0, behavior: 'smooth' });
+    // Red de seguridad: el guard se libera solo cuando el video vuelve a verse,
+    // así que si el scroll suave no corre o lo interrumpen a mitad de camino, el
+    // flotante quedaría bloqueado para siempre. Con esto siempre se rearma.
+    window.setTimeout(() => { cerrando.current = false; }, 1200);
+  }, []);
+
   return (
-    <iframe
-      id={playerId}
-      src={src}
-      title={title}
-      allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-      allowFullScreen
-    />
+    <div className="mk-vsl-slot" ref={slotRef}>
+      <div className={`mk-vsl${pip ? ' mk-vsl-pip' : ''}`}>
+        <span className="mk-cor tl" /><span className="mk-cor tr" />
+        <span className="mk-cor bl" /><span className="mk-cor br" />
+        <iframe
+          id={playerId}
+          src={src}
+          title={title}
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+          allowFullScreen
+        />
+        {pip && (
+          <button type="button" className="mk-vsl-x" onClick={cerrar} aria-label="Cerrar el video">
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
