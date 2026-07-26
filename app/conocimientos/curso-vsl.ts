@@ -17,7 +17,7 @@ export const CURSO_VSL: Curso = {
   eyebrow: 'Método interno',
   titulo: 'Reglas para crear tu VSL y Landing Page - Martin Koncke',
   subtitulo: 'Todo lo aprendido produciendo los mini-VSL de las funcionalidades: guión, video, audio y landing. Revisar ANTES de entregar.',
-  volumen: '42 reglas',
+  volumen: '43 reglas',
   recursos: [],
   clases: [
     {
@@ -29,7 +29,11 @@ export const CURSO_VSL: Curso = {
       transcripcion: [],
       recursoSlugs: [],
       herramientas: [],
-      resumen: `CHECKLIST ANTES DE ENTREGAR CADA GUION
+      resumen: `EMPEZÁ POR EL NORTE
+
+- **Antes de escribir una palabra, definí el NORTE de la feature:** su diferencial, el argumento central de marketing. Todo —guión, gráficos, landing— cuelga de ahí; si el Norte no está claro, no arranques. Ej. Semáforo: NO es "otro dashboard con más datos" (de esos hay miles y abruman, y el emprendedor no es analista: quiere tomar acción); ES IA que vigila la salud del negocio y te AVISA qué atender hoy. Los dashboards siguen ahí para cuando quieras profundizar; el semáforo es el día a día.
+
+CHECKLIST ANTES DE ENTREGAR CADA GUION
 
 - **Impersonal.** Lo narra una voz de IA, no aparece ninguna persona. Nada en primera persona de Martín: no "construí MaKo", no "te acompaño", no "soy Martín". MaKo se narra impersonal: "aquí es donde entra MaKo".
 - **Picante.** Preguntas retóricas que exponen: "hazte una pregunta incómoda", "eso no es tener un sistema, es tener una intuición". Sin picante no convierte.
@@ -71,7 +75,7 @@ MARCA DE AGUA
 
 ESTRUCTURA
 
-1. **Intro:** la animación de logos colisionando hasta formar MaKo, acelerada 1,5× (unos 5,6 s) sobre fondo blanco, con música fuerte y efectos.
+1. **Intro:** la animación de logos colisionando hasta formar MaKo, acelerada 1,5× (unos 5,6 s) sobre fondo blanco, con música fuerte y efectos. **Los logos son los REALES de marca** — los MISMOS que el hero de /vsl (public/vsl-assets/logos, con **Panda** incluido), en tarjetas blancas y sin etiqueta. NUNCA los planos/placeholder ni una versión sin Panda.
 2. **Después entra el narrador** con el texto cinético.`,
     },
     {
