@@ -1,20 +1,22 @@
 // =============================================================================
-// /api/script-analyst/avatares — vocabulario de avatares (CRUD = lista completa)
+// /api/ads-analyst/angles — vocabulario de ángulos (CRUD = lista completa)
 // =============================================================================
-// GET  → { ok, avatares }          lista vigente (vacía si el cliente no definió).
-// POST → body { avatares: Avatar[] }  reemplaza la lista entera. Puede quedar vacía.
-// Mismo data (app_settings 'script_avatares') que edita el onboarding del cliente.
+// GET  → { ok, angles }            lista vigente (custom o los 5 default).
+// POST → body { angles: Angle[] }  reemplaza la lista entera (crear/editar/borrar
+//        = mandar la lista nueva). Valida y persiste en app_settings.
+// El override por anuncio (angle_override) sobrevive; los ads ya clasificados con
+// un ángulo que se borró siguen mostrando su clave (gris) hasta re-analizarse.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getAvatares, setAvatares } from '@/lib/script-avatares';
+import { getAngles, setAngles } from '@/lib/script-angles';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const avatares = await getAvatares();
-    return Response.json({ ok: true, avatares });
+    const angles = await getAngles();
+    return Response.json({ ok: true, angles });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({ ok: false, error: message }, { status: 500 });
@@ -22,13 +24,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { avatares?: unknown };
+  let body: { angles?: unknown };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   try {
-    const avatares = await setAvatares(body.avatares);
-    console.log(`[script-analyst:avatares] guardados ${avatares.length} avatares`);
-    return Response.json({ ok: true, avatares });
+    const angles = await setAngles(body.angles);
+    console.log(`[ads-analyst:angles] guardados ${angles.length} ángulos`);
+    return Response.json({ ok: true, angles });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({ ok: false, error: message }, { status: 400 });

@@ -47,8 +47,8 @@ export const SLIDES: Record<string, Slide[]> = {
     { t: 'Cada peso, a la vista', d: 'Qué proceso gastó cuánto, con qué modelo y cuándo. Sin sorpresas a fin de mes.' },
   ],
   openai: [
-    // lib/transcribe.ts (whisper-1 + gpt-4o-mini) → alimenta lib/script-analyst.ts
-    { t: 'Escucha tus creativos', d: 'Transcribe el video de cada anuncio y lo parte en secciones. Eso es lo que después lee el Script Analyst.' },
+    // lib/transcribe.ts (whisper-1 + gpt-4o-mini) → alimenta lib/ads-analyst.ts
+    { t: 'Escucha tus creativos', d: 'Transcribe el video de cada anuncio y lo parte en secciones. Eso es lo que después lee el Ads Analyst.' },
     // lib/transcribe.ts (transcribeMediaBuffer) → /conocimiento
     { t: 'Tus clases, en texto', d: 'Subís la grabación de un curso y queda como conocimiento consultable de MaKo.' },
     // lib/ai-cheap.ts: provDe('groq') ?? provDe('openai')

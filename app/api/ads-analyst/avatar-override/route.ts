@@ -1,12 +1,12 @@
 // =============================================================================
-// POST /api/script-analyst/avatar-override — corrige a mano el avatar de un ad
+// POST /api/ads-analyst/avatar-override — corrige a mano el avatar de un ad
 // =============================================================================
 // Body: { ad_id, avatar }. Escribe avatar_override (sobrevive al re-análisis).
 // avatar=null (o vacío) limpia el override y vuelve a la clasificación de la IA.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { setAvatarOverride } from '@/lib/script-analyst';
+import { setAvatarOverride } from '@/lib/ads-analyst';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,11 +22,11 @@ export async function POST(req: NextRequest) {
 
   try {
     await setAvatarOverride(adId, avatar);
-    console.log(`[script-analyst:avatar-override] ad_id=${adId} avatar=${avatar ?? '(auto)'}`);
+    console.log(`[ads-analyst:avatar-override] ad_id=${adId} avatar=${avatar ?? '(auto)'}`);
     return Response.json({ ok: true, ad_id: adId, avatar });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[script-analyst:avatar-override] error ad_id=${adId}: ${message}`);
+    console.error(`[ads-analyst:avatar-override] error ad_id=${adId}: ${message}`);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

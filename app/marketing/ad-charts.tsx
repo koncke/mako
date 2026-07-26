@@ -17,10 +17,10 @@ import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tool
 import { geoMercator, geoPath } from 'd3-geo';
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import type { SenalRecon } from '@/lib/queries';
-import type { ScriptView } from '@/lib/script-analyst';
+import type { ScriptView } from '@/lib/ads-analyst';
 import { VEREDICTO_BADGE } from './AnuncioCard';
 import { MakoButton } from '../_components/ChartIA';
-import { FunnelModal, applyAngles, applyAvatares, type AngleDef, type AvatarDef } from '../script-analyst/ScriptsBrowser';
+import { FunnelModal, applyAngles, applyAvatares, type AngleDef, type AvatarDef } from '../ads-analyst/ScriptsBrowser';
 
 // ── Tipos (shape de /api/ad-insights y /api/account-insights) ──
 export type BD = { label: string; impressions: number; reach: number; agendas: number; spend_usd: number };
@@ -570,9 +570,9 @@ function MexicoMap({ regiones, metric, fmt }: { regiones: BD[]; metric: BdKey; f
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AdDetailTabs — vista de detalle UNIFICADA (Ads Manager + Script Analyst).
+// AdDetailTabs — vista de detalle UNIFICADA (Ads Manager + Ads Analyst).
 // Mismo modal con pestañas internas: Rendimiento (Meta) · Audiencia (desgloses) ·
-// Guion (análisis de Script Analyst). Cada origen le pasa un AdHead normalizado;
+// Guion (análisis de Ads Analyst). Cada origen le pasa un AdHead normalizado;
 // la pestaña Guion trae la ScriptView por prop o la busca por ad_id.
 // ─────────────────────────────────────────────────────────────────────────────
 export type AdHead = {
@@ -622,20 +622,20 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
   // callers no importan ad-charts de forma estática y no se infla su bundle).
   const head: AdHead | null = senal ? senalToHead(senal) : scriptView ? scriptViewToHead(scriptView) : null;
   const adId = head?.adId ?? '';
-  // Vocabulario de ángulos para la pestaña Guion: del prop (Script Analyst) o
+  // Vocabulario de ángulos para la pestaña Guion: del prop (Ads Analyst) o
   // buscado (Ads Manager). Solo se vuelca si hay lista → no pisa con default.
   const [angleList, setAngleList] = useState<AngleDef[]>(angles ?? []);
   const [avatarList, setAvatarList] = useState<AvatarDef[]>(avatares ?? []);
   useEffect(() => {
     if (angles && angles.length) return;
     let alive = true;
-    fetch('/api/script-analyst/angles').then((r) => r.json()).then((j) => { if (alive && j.ok) setAngleList(j.angles); }).catch(() => {});
+    fetch('/api/ads-analyst/angles').then((r) => r.json()).then((j) => { if (alive && j.ok) setAngleList(j.angles); }).catch(() => {});
     return () => { alive = false; };
   }, [angles]);
   useEffect(() => {
-    if (avatares) return; // ya vino por prop (Script Analyst), incluso si está vacío
+    if (avatares) return; // ya vino por prop (Ads Analyst), incluso si está vacío
     let alive = true;
-    fetch('/api/script-analyst/avatares').then((r) => r.json()).then((j) => { if (alive && j.ok) setAvatarList(j.avatares); }).catch(() => {});
+    fetch('/api/ads-analyst/avatares').then((r) => r.json()).then((j) => { if (alive && j.ok) setAvatarList(j.avatares); }).catch(() => {});
     return () => { alive = false; };
   }, [avatares]);
   if (angleList.length) applyAngles(angleList);
@@ -663,7 +663,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
     if (!adId) return;
     setSvState('loading');
     try {
-      const r = await fetch(`/api/script-analyst/view?ad_id=${encodeURIComponent(adId)}`);
+      const r = await fetch(`/api/ads-analyst/view?ad_id=${encodeURIComponent(adId)}`);
       const j = await r.json();
       if (j.ok && j.view) { setSv(j.view); setSvState('ready'); }
       else { setSv(null); setSvState('none'); }
@@ -675,7 +675,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
   async function reanalizar(adId: string) {
     setReMsg('Re-analizando…');
     try {
-      const r = await fetch('/api/script-analyst/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId }) });
+      const r = await fetch('/api/ads-analyst/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló');
       setReMsg('Listo.'); await fetchSv(); router.refresh();
@@ -684,7 +684,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
   async function setAngleOverride(adId: string, angle: string | null) {
     setReMsg(angle ? 'Cambiando ángulo…' : 'Volviendo a la IA…');
     try {
-      const r = await fetch('/api/script-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
+      const r = await fetch('/api/ads-analyst/angle-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, angle }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló');
       setReMsg('Listo.'); await fetchSv(); router.refresh();
@@ -693,7 +693,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
   async function setAvatarOverride(adId: string, avatar: string | null) {
     setReMsg(avatar ? 'Cambiando avatar…' : 'Volviendo a la IA…');
     try {
-      const r = await fetch('/api/script-analyst/avatar-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, avatar }) });
+      const r = await fetch('/api/ads-analyst/avatar-override', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ad_id: adId, avatar }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló');
       setReMsg('Listo.'); await fetchSv(); router.refresh();
@@ -770,7 +770,7 @@ export function AdDetailTabs({ senal, scriptView = null, desde, hasta, angles, a
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'flex-start', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 22px' }}>
-                <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Este anuncio todavía no tiene análisis de guion en Scripts Analyst.</div>
+                <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5 }}>Este anuncio todavía no tiene análisis de guion en Ads Analyst.</div>
                 <button type="button" onClick={() => reanalizar(head.adId)} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}>Analizar este guion</button>
                 {reMsg && <span style={{ fontSize: 12, color: 'var(--faint)' }}>{reMsg}</span>}
               </div>

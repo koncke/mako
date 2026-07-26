@@ -604,7 +604,7 @@ export const FEATURES: Record<string, Feature> = {
 
   'script': {
     slug: 'script',
-    name: "Script Analyst",
+    name: "Ads Analyst",
     icon: ICON["script"],
     headline: "Dejá de adivinar qué creativo funciona. Que lo diga la data.",
     lead: "Cada anuncio gana o pierde plata todos los días, y vos <em>no sabés por qué</em>. Sabés que un video ad rinde y otro no, pero no en qué línea del guion se te va la gente. <strong>MaKo transcribe todos tus creativos solo</strong>, los cruza con su retención real de Meta y los ordena en un mapa: cuál escalar, a cuál cambiarle el gancho, cuál reescribir y cuál apagar. Ves <strong>palabra por palabra en qué segundo se cae tu video</strong> —y si el problema es el gancho o lo que viene después—, dónde cae la audiencia antes del CTA y qué ángulo te agenda por cada $1.000. Y antes de gastar un peso en producir, <strong>pegás un guion nuevo y MaKo lo valora antes de que lo grabes</strong>: te dice si se parece a lo que ya te cierra o si repite tu ángulo saturado. Además detecta <em>patrones que solo no ves</em> —\"atacás siempre al dolor y dejaste sin probar los testimonios\"— todo medido contra el perfil real de tu cuenta, no contra benchmarks de internet.",
@@ -657,7 +657,7 @@ export const FEATURES: Record<string, Feature> = {
     ],
     conecta: ["Meta Ads", "CRM propio (leads → cierres)", "Claude Opus", "Transcripción de video ads", "Supabase", "Vercel Cron"],
     quote: "Dejá de adivinar por qué gana un anuncio: mirá el bloque del guion donde se te cae la gente.",
-    metaTitle: "Script Analyst — auditá el guion de tus video ads de Meta | MaKo",
+    metaTitle: "Ads Analyst — auditá el guion de tus video ads de Meta | MaKo",
     metaDesc: "MaKo lee el guion de cada video ad, lo parte en bloques y le superpone tu retención real de Meta para mostrarte dónde se cae la audiencia. Cruza guion, métricas y cierres de tu CRM, y valora guiones nuevos contra el perfil real de tu cuenta antes de gastar.",
   },
 
@@ -1152,7 +1152,7 @@ export const FEATURES: Record<string, Feature> = {
         ],
       },
     ],
-    conecta: ["Meta Ads", "CRM / Nutrición", "Closing Analyst", "Script Analyst", "Revenue", "Experimentos", "To-do / Perro Guardián"],
+    conecta: ["Meta Ads", "CRM / Nutrición", "Closing Analyst", "Ads Analyst", "Revenue", "Experimentos", "To-do / Perro Guardián"],
     quote: "Tu frente compra barato pero el embudo pierde por dos agujeros. Acá está cuánto te cuesta, y acá está el experimento que ya arrancó a medirlo.",
     nota: "Estado real, sin humo: la Retro es 100% a demanda — la disparás vos desde el wizard, no hay cron que la corra sola cada semana (el nombre 'Retro semanal' es aspiracional). El gate de accountability (que el Perro te frene antes de correr una Retro nueva si dejaste deuda) existe en backend y es configurable en 3 modos, pero todavía no está surface en el wizard: no esperes que 'te bloquee' como experiencia visible aún.",
     metaTitle: "Retro / Accountability — el cerebro que cruza tu embudo y te da la fuga en dólares | MaKo",

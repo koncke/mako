@@ -1,11 +1,11 @@
 'use client';
 
 // =============================================================================
-// ScriptsBrowser — Scripts Analyst (port del diseño "Scripts Analyst.dc.html")
+// ScriptsBrowser — Ads Analyst (port del diseño "Ads Analyst.dc.html")
 // =============================================================================
 // Toda la lógica determinística (verdicto, confianza, retención por beat,
 // patrones ganadores, cuadrante) se calcula acá sobre los ScriptView que arma
-// el server (lib/script-analyst.ts). Las conclusiones de MaKo se derivan de los
+// el server (lib/ads-analyst.ts). Las conclusiones de MaKo se derivan de los
 // patrones reales del período. La curva de retención sale de los cuartiles de
 // Meta y los tiempos de cada beat los estima Claude (ambos rotulados).
 // =============================================================================
@@ -15,14 +15,14 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { TaxonomyManager } from '../components/TaxonomyManager';
-import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/script-analyst';
+import type { ScriptView, ScriptAnalystView, QuadPoint, Valoracion, ScriptDraft } from '@/lib/ads-analyst';
 
 // Vista de detalle unificada (pestañas Rendimiento/Audiencia/Guion). Vive en
 // ad-charts (recharts + d3) → se carga on-demand al abrir un guion. El import es
 // dinámico, así que no hay ciclo estático con ad-charts (que sí importa de acá).
 const AdDetailTabs = dynamic(() => import('../marketing/ad-charts').then((m) => m.AdDetailTabs), { ssr: false });
 
-// Script Analyst no tiene selector de fecha: la pestaña Rendimiento usa "todo el
+// Ads Analyst no tiene selector de fecha: la pestaña Rendimiento usa "todo el
 // histórico" (≈3 años hacia atrás → el endpoint agrega toda la vida del anuncio).
 function allHistoryRange(): { desde: string; hasta: string } {
   const hoy = new Date();
@@ -364,7 +364,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
   async function sincronizar(force = false) {
     setSyncing(true); setSyncMsg('Analizando guiones…');
     try {
-      const r = await fetch('/api/script-analyst/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force }) });
+      const r = await fetch('/api/ads-analyst/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló el sync');
       setSyncMsg(`${j.analizados} analizados${j.restantes > 0 ? ` · quedan ${j.restantes}` : ''}.`);
@@ -379,7 +379,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
     if (v === 'todo') { setQuadPoints(null); return; }
     setQuadLoading(true);
     try {
-      const r = await fetch(`/api/script-analyst/quadrant?dias=${encodeURIComponent(v)}`);
+      const r = await fetch(`/api/ads-analyst/quadrant?dias=${encodeURIComponent(v)}`);
       const j = await r.json();
       setQuadPoints(j.ok ? (j.points as QuadPoint[]) : []);
     } catch { setQuadPoints([]); }
@@ -389,7 +389,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
     if (guionText.trim().length < 80) { setValError('Pegá el guion completo (unas líneas) para poder valorarlo.'); return; }
     setValorando(true); setValError(null); setValoracion(null);
     try {
-      const r = await fetch('/api/script-analyst/valorar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guion: guionText }) });
+      const r = await fetch('/api/ads-analyst/valorar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ guion: guionText }) });
       const j = await r.json();
       if (!j.ok) throw new Error(j.error || 'falló');
       setValoracion(j.valoracion as Valoracion);
@@ -399,7 +399,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
   }
   function viewDraft(d: ScriptDraft) { setValoracion(d.valoracion); setGuionText(d.guion); setValError(null); }
   async function borrarDraft(id: number) {
-    try { await fetch(`/api/script-analyst/valorar?id=${id}`, { method: 'DELETE' }); router.refresh(); } catch { /* no crítico */ }
+    try { await fetch(`/api/ads-analyst/valorar?id=${id}`, { method: 'DELETE' }); router.refresh(); } catch { /* no crítico */ }
   }
 
   const reliable = useMemo(() => ads.filter((a) => confidence(a) !== 'baja'), [ads]);
@@ -748,7 +748,7 @@ export function ScriptsBrowser({ data, errorMsg, drafts = [], angles = [], avata
       </section>
 
       {/* GUIONES */}
-      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/script-analyst/guiones" angles={angles} avatares={avatares} />
+      <GuionesPanel scripts={visible} onOpen={setOpenAd} limit={8} fullHref="/ads-analyst/guiones" angles={angles} avatares={avatares} />
 
       <footer style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', paddingTop: 6, lineHeight: 1.6 }}>
         Patrones automáticos · Meta Ads (spend · frecuencia · retención de video por cuartiles) × CRM (agendas y cierres). La retención por beat se estima con los cuartiles de Meta y los tiempos de cada bloque con el ritmo de lectura. Los guiones de muestra chica quedan fuera de los patrones.

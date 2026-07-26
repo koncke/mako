@@ -1,5 +1,5 @@
 // =============================================================================
-// GET /api/cron/script-analyst-sync — drena el análisis de guiones en background
+// GET /api/cron/ads-analyst-sync — drena el análisis de guiones en background
 // =============================================================================
 // Cada corrida procesa un lote (presupuesto de tiempo) y se autocompleta en las
 // siguientes, después de que transcribe-ads haya generado los transcripts.
@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { syncScriptAnalyses } from '@/lib/script-analyst';
+import { syncScriptAnalyses } from '@/lib/ads-analyst';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const resultados = await correrPorWorkspace('meta', async () => {
       const res = await syncScriptAnalyses();
       console.log(
-        `[cron:script-analyst-sync] cand=${res.candidatos} ya=${res.ya_procesados} ` +
+        `[cron:ads-analyst-sync] cand=${res.candidatos} ya=${res.ya_procesados} ` +
         `analizados=${res.analizados} descartados=${res.descartados} err=${res.errores} ` +
         `restantes=${res.restantes} ms=${res.ms}`,
       );
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ ok: true, workspaces: resultados });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[cron:script-analyst-sync] error: ${message}`);
+    console.error(`[cron:ads-analyst-sync] error: ${message}`);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

@@ -52,7 +52,7 @@ const AREA_TOOL: Record<AreaId, ToolId> = {
 };
 const AREA_TAB: Record<AreaId, string> = {
   adquisicion: 'Marketing', nutricion: 'CRM', conversion: 'Closing Analyst',
-  creativos: 'Script Analyst', revenue: 'Graphics', experimentos: 'Experiments',
+  creativos: 'Ads Analyst', revenue: 'Graphics', experimentos: 'Experiments',
 };
 // Ícono de cada tab en el rail de la ejecución (claves de app/_components/icons.tsx).
 const AREA_ICON: Record<AreaId, string> = {

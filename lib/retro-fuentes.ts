@@ -26,7 +26,7 @@ import {
 } from './queries';
 import { getSecuenciasConStats } from './nutricion';
 import { getClosingViewData } from './closing';
-import { getScriptAnalystView, type ScriptView } from './script-analyst';
+import { getScriptAnalystView, type ScriptView } from './ads-analyst';
 import { getCuotasPendientes } from './pagos';
 import { listExperimentos, type Experimento } from '@/lib/experimentos';
 import { fmtUSD, fmtNum, fmtDDMMYYYY } from './format';

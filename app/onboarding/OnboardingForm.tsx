@@ -43,13 +43,13 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
   const [extrayendo, setExtrayendo] = useState(false);
   const [extractMsg, setExtractMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  // Vocabulario de ángulos + avatares de los anuncios (mismo dato que Script Analyst).
+  // Vocabulario de ángulos + avatares de los anuncios (mismo dato que Ads Analyst).
   const [taxOpen, setTaxOpen] = useState(false);
   const [taxAngles, setTaxAngles] = useState<TaxItem[]>([]);
   const [taxAvatares, setTaxAvatares] = useState<TaxItem[]>([]);
   const fetchTax = () => {
-    fetch('/api/script-analyst/angles').then((r) => r.json()).then((j) => { if (j.ok) setTaxAngles(j.angles); }).catch(() => {});
-    fetch('/api/script-analyst/avatares').then((r) => r.json()).then((j) => { if (j.ok) setTaxAvatares(j.avatares); }).catch(() => {});
+    fetch('/api/ads-analyst/angles').then((r) => r.json()).then((j) => { if (j.ok) setTaxAngles(j.angles); }).catch(() => {});
+    fetch('/api/ads-analyst/avatares').then((r) => r.json()).then((j) => { if (j.ok) setTaxAvatares(j.avatares); }).catch(() => {});
   };
 
   useEffect(() => {

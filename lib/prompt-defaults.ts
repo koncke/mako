@@ -3,7 +3,7 @@
 // =============================================================================
 // Módulo liviano (sin imports pesados): lo comparten el registro de prompts
 // (lib/prompt-registry.ts) y los call sites (rutas /api, lib/mako-context).
-// Los prompts grandes (closing, script-analyst, validador, etc.) viven en su
+// Los prompts grandes (closing, ads-analyst, validador, etc.) viven en su
 // propio archivo y se exportan desde ahí; estos son los fragmentos chicos.
 // =============================================================================
 

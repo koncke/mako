@@ -1,5 +1,5 @@
 // =============================================================================
-// GET /api/script-analyst/quadrant?dias=N — puntos del cuadrante por ventana
+// GET /api/ads-analyst/quadrant?dias=N — puntos del cuadrante por ventana
 // =============================================================================
 // Filtro de fecha PROPIO del gráfico (no de toda la tab): recalcula hook rate y
 // retención al CTA de cada guion en los últimos N días. Sin `dias` → histórico
@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getQuadrantData } from '@/lib/script-analyst';
+import { getQuadrantData } from '@/lib/ads-analyst';
 import { hoyEnTijuana } from '@/lib/date-utils';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     return Response.json({ ok: true, dias: desde ? dias : null, desde: desde ?? null, hasta: hasta ?? null, count: points.length, points });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[script-analyst:quadrant] error: ${message}`);
+    console.error(`[ads-analyst:quadrant] error: ${message}`);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

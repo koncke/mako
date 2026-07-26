@@ -304,9 +304,9 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     ejemplo: `🎧 Analicé tus últimas 6 llamadas de venta. La objeción que más te frena es *"lo tengo que consultar con mi socio"* (4 de 6). Te preparé una forma de adelantarte a eso en la R1. ¿Te la paso? — MaKo`,
   },
   {
-    id: 'script-ganador', titulo: 'Script Analyst: guion ganador por retención', categoria: 'accion',
+    id: 'script-ganador', titulo: 'Ads Analyst: guion ganador por retención', categoria: 'accion',
     prioridad: 'baja', semaforo: 'na', requiereRespuesta: true, yaImplementado: 'no',
-    disparador: 'lib/script-analyst cruza retención por cuartiles con guiones.',
+    disparador: 'lib/ads-analyst cruza retención por cuartiles con guiones.',
     ejemplo: `📽️ De tus video ads, el que mejor retiene es "Historia cliente": 62% llega al segundo 30. El gancho de precio pierde al 40% en los primeros 5 seg. Conviene *clonar la estructura del ganador*. ¿Armamos un guion nuevo con ese molde? — MaKo`,
   },
 

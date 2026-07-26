@@ -1,5 +1,5 @@
 // =============================================================================
-// Scripts Analyst — analizar los GUIONES de los video ads.
+// Ads Analyst — analizar los GUIONES de los video ads.
 // =============================================================================
 // Cruza dos mundos para decir qué guion vale la pena escalar y por qué:
 //   • Lo CUALITATIVO (estable, derivado del transcript con Claude/Opus y guardado
@@ -333,11 +333,11 @@ async function analyzeTranscript(t: TranscriptRow, angles: Angle[], avatares: Av
   try {
     const [system, user] = await Promise.all([buildSystemAnalisis(angles, avatares), buildUserPrompt(t)]);
     const text = await chatClaude(system, [{ role: 'user', content: user }], {
-      // Sin model hardcodeado: el override de /modelos-ia (feature 'script-analyst') manda.
+      // Sin model hardcodeado: el override de /modelos-ia (feature 'ads-analyst') manda.
       thinking: true,
       effort: 'high',
       maxTokens: 6000,
-      feature: 'script-analyst',
+      feature: 'ads-analyst',
     });
     const raw = parseJsonObject(text) as ClaudeScript;
     return { ok: true, analysis: raw };
@@ -774,7 +774,7 @@ function buildScriptView(r: StoredView, m: AdMetrics, cierres: number): ScriptVi
   };
 }
 
-/** Datos para /script-analyst: TODOS los guiones analizados con sus métricas
+/** Datos para /ads-analyst: TODOS los guiones analizados con sus métricas
  *  vivas de todo el histórico (sin filtro de fecha). */
 export async function getScriptAnalystView(): Promise<ScriptAnalystView> {
   const supabase = (await getTenantDb());

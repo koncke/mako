@@ -27,7 +27,7 @@ import type { MarketingMetricRow } from './types';
 import { pollMetaLeads } from './meta-leads';
 import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from './transcribe';
 import { getPromptText } from './prompt-render';
-import { syncScriptAnalyses } from './script-analyst';
+import { syncScriptAnalyses } from './ads-analyst';
 import { syncClosingCalls } from './closing';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
 import { fetchPandaRangeStats } from './panda';
@@ -355,7 +355,7 @@ async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean
   }
   // Pasada completa: sin errores → listo. Con errores pero ALGÚN éxito → otra
   // pasada (los reintenta el próximo tick). Solo errores → cerrar con aviso
-  // (los que queden se reintentan a mano desde Script Analyst).
+  // (los que queden se reintentan a mano desde Ads Analyst).
   if (erroresRun === 0) return true;
   if (exitos > 0) return false;
   await marcar((j) => { j.detail = `${terminados} transcriptos · ${erroresRun} con error (se reintentan después)`; });

@@ -1,5 +1,5 @@
 // =============================================================================
-// POST /api/script-analyst/valorar — valora un GUION NUEVO (sin datos)
+// POST /api/ads-analyst/valorar — valora un GUION NUEVO (sin datos)
 // =============================================================================
 // Body: { guion, dur? }. Corre Claude comparando el guion contra el perfil real
 // de la cuenta (lo que ya rinde) y devuelve una valoración. NO persiste nada
@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { valorarGuion, saveDraft, deleteDraft } from '@/lib/script-analyst';
+import { valorarGuion, saveDraft, deleteDraft } from '@/lib/ads-analyst';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -27,11 +27,11 @@ export async function POST(req: NextRequest) {
     if (!res.ok) return Response.json({ ok: false, error: res.error }, { status: 500 });
     // Guardar al historial. Si el guardado falla, NO perdemos la valoración.
     let saved = false;
-    try { await saveDraft(guion, res.valoracion); saved = true; } catch (e) { console.error(`[script-analyst:valorar] guardado falló: ${e instanceof Error ? e.message : String(e)}`); }
+    try { await saveDraft(guion, res.valoracion); saved = true; } catch (e) { console.error(`[ads-analyst:valorar] guardado falló: ${e instanceof Error ? e.message : String(e)}`); }
     return Response.json({ ok: true, valoracion: res.valoracion, saved });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[script-analyst:valorar] error: ${message}`);
+    console.error(`[ads-analyst:valorar] error: ${message}`);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }
@@ -44,7 +44,7 @@ export async function DELETE(req: NextRequest) {
     return Response.json({ ok: true, id });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[script-analyst:valorar] delete error: ${message}`);
+    console.error(`[ads-analyst:valorar] delete error: ${message}`);
     return Response.json({ ok: false, error: message }, { status: 500 });
   }
 }

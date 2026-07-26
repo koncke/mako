@@ -5,8 +5,8 @@
 // =============================================================================
 // Una sola modal con dos secciones. Cada ítem: color, nombre y una descripción
 // (que también guía a la IA al clasificar). Guarda las dos listas enteras contra
-// /api/script-analyst/angles y /api/script-analyst/avatares (misma data que el
-// onboarding del cliente). Reusable desde Script Analyst y desde el onboarding.
+// /api/ads-analyst/angles y /api/ads-analyst/avatares (misma data que el
+// onboarding del cliente). Reusable desde Ads Analyst y desde el onboarding.
 
 import { useRef, useState, type CSSProperties } from 'react';
 
@@ -54,8 +54,8 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved }: { angles
     try {
       const payload = (rows: Row[]) => rows.map((r) => ({ key: r.key || undefined, label: r.label.trim(), color: r.color, desc: r.desc.trim() || undefined }));
       const [ra, rv] = await Promise.all([
-        fetch('/api/script-analyst/angles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ angles: payload(aRows) }) }).then((r) => r.json()),
-        fetch('/api/script-analyst/avatares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatares: payload(vRows) }) }).then((r) => r.json()),
+        fetch('/api/ads-analyst/angles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ angles: payload(aRows) }) }).then((r) => r.json()),
+        fetch('/api/ads-analyst/avatares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatares: payload(vRows) }) }).then((r) => r.json()),
       ]);
       if (!ra.ok) throw new Error(ra.error || 'no se pudieron guardar los ángulos');
       if (!rv.ok) throw new Error(rv.error || 'no se pudieron guardar los avatares');

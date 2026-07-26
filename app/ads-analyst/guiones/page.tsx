@@ -1,11 +1,11 @@
 // =============================================================================
-// /script-analyst/guiones — lista completa de guiones (ruta "ver todos")
+// /ads-analyst/guiones — lista completa de guiones (ruta "ver todos")
 // =============================================================================
-// La tab /script-analyst previsualiza 6 guiones; esta ruta muestra los N con el
+// La tab /ads-analyst previsualiza 6 guiones; esta ruta muestra los N con el
 // mismo toggle tabla/tarjetas y el modal de embudo. Solo lee.
 // =============================================================================
 
-import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/script-analyst';
+import { getScriptAnalystView, type ScriptAnalystView } from '@/lib/ads-analyst';
 import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { requireRolWs } from '@/lib/tab-access';
@@ -40,7 +40,7 @@ export default async function GuionesPage() {
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
       <header style={{ marginBottom: 22 }}>
-        <a href="/script-analyst" style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.06em', color: 'var(--faint)', textDecoration: 'none' }}>← Scripts Analyst</a>
+        <a href="/ads-analyst" style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.06em', color: 'var(--faint)', textDecoration: 'none' }}>← Ads Analyst</a>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 13, marginTop: 8 }}>
           <h1 style={{ fontWeight: 600, fontSize: 40, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Todos los guiones</h1>
           <span style={{ fontSize: 15, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums' }}>{data.scripts.length}</span>
@@ -53,7 +53,7 @@ export default async function GuionesPage() {
         </div>
       ) : data.scripts.length === 0 ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '32px', fontSize: 14, color: 'var(--dim)' }}>
-          Todavía no hay guiones analizados. Sincronizá desde la tab de Scripts Analyst.
+          Todavía no hay guiones analizados. Sincronizá desde la tab de Ads Analyst.
         </div>
       ) : (
         <GuionesFull scripts={data.scripts} angles={angles} avatares={avatares} />

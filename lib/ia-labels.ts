@@ -16,7 +16,7 @@ export const IA_FEATURE_LABEL: Record<string, string> = {
   'checklist-coach': 'Perro Guardián · coach de tareas',
   // Análisis
   closing: 'Análisis de llamadas de venta',
-  'script-analyst': 'Análisis de guiones de ads',
+  'ads-analyst': 'Análisis de guiones de ads',
   'script-valorador': 'Valoración de guion',
   experimentos: 'Análisis de experimentos',
   lead_insights: 'Insights del lead',

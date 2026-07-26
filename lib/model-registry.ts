@@ -53,7 +53,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   { feature: 'closing', label: 'Análisis de llamadas de venta', grupo: 'Análisis', def: CLAUDE(), pii: true, recomendado: CLAUDE(), nota: 'Transcript + decisión comercial sobre PII. El análisis insignia: Opus.' },
   { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: CLAUDE(), pii: true, recomendado: CLAUDE(), nota: 'Síntesis multi-fuente sobre PII. Opus.' },
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: CLAUDE(), recomendado: CLAUDE(), nota: 'El análisis más pesado del producto. Opus.' },
-  { feature: 'script-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: SONNET, nota: 'Lectura estructural creativa. Sonnet.' },
+  { feature: 'ads-analyst', label: 'Analizar guion de anuncio', grupo: 'Análisis', def: SONNET, nota: 'Lectura estructural creativa. Sonnet.' },
   { feature: 'script-valorador', label: 'Valorar guion nuevo', grupo: 'Análisis', def: SONNET },
   { feature: 'plan-fathom', label: 'Extraer tareas de una reunión (Fathom)', grupo: 'Análisis', def: SONNET, nota: 'El problema NO era el modelo sino que se cortaba el transcript (14k→completo): con la reunión entera, Sonnet saca los 16 action items reales igual que Opus, y más barato. 1 vez por reunión (cacheada).' },
 

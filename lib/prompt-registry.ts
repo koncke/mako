@@ -37,7 +37,7 @@ import {
   SCRIPT_ANALYSIS_USER_TEMPLATE,
   SCRIPT_VALORACION_SYSTEM_TEMPLATE,
   SCRIPT_VALORACION_USER_TEMPLATE,
-} from './script-analyst';
+} from './ads-analyst';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { LEAD_INSIGHTS_SYSTEM_TEMPLATE, LEAD_INSIGHTS_USER_TEMPLATE } from './lead-insights';
 import {
@@ -380,7 +380,7 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
-    group: 'Análisis y valoración de guiones de ads (Script Analyst)',
+    group: 'Análisis y valoración de guiones de ads (Ads Analyst)',
     icon: '🎬',
     blurb: 'MaKo lee guiones de video ads, los disecciona en bloques y valora guiones nuevos contra lo que ya rinde.',
     entries: [

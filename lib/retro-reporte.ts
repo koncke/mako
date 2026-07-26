@@ -24,14 +24,14 @@ export type ToolId =
   | 'vsl' | 'landing' | 'offer' | 'cs' | 'todo' | 'chats';
 
 export const TOOL_LABEL: Record<ToolId, string> = {
-  market: 'Market Analyst', crm: 'CRM', closing: 'Closing Analyst', script: 'Script Analyst',
+  market: 'Market Analyst', crm: 'CRM', closing: 'Closing Analyst', script: 'Ads Analyst',
   graphics: 'Graphics', crosses: 'Cruces', vsl: 'VSL Analyst', landing: 'Landing Analyst',
   offer: 'Offer Analyst', cs: 'CS Analyst', todo: 'To-do', chats: 'Chats (WA, Email, IG)',
 };
 
 /** Ruta real de la app para "Ver en {tab} →" (null = todavía no existe la tab). */
 export const TOOL_HREF: Partial<Record<ToolId, string>> = {
-  market: '/marketing', crm: '/leads', closing: '/closing', script: '/script-analyst',
+  market: '/marketing', crm: '/leads', closing: '/closing', script: '/ads-analyst',
   graphics: '/graphics', todo: '/plan',
 };
 
@@ -127,7 +127,7 @@ export type RetroCharts = {
   crm?: { split: Array<{ label: string; valor: number; tone: 'good' | 'bad' | 'gris' }> };
   /** Closing: embudo comercial corto + score. */
   closing?: { pasos: Array<{ label: string; valor: number }>; score?: number | null };
-  /** Script Analyst: guiones para el cuadrante hook × retención. */
+  /** Ads Analyst: guiones para el cuadrante hook × retención. */
   script?: { guiones: Array<{ nombre: string; hook: number; ret: number; spend: number }> };
 };
 

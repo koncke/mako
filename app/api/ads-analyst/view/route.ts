@@ -1,5 +1,5 @@
 // =============================================================================
-// GET /api/script-analyst/view?ad_id=... — UNA ScriptView por anuncio
+// GET /api/ads-analyst/view?ad_id=... — UNA ScriptView por anuncio
 // =============================================================================
 // La usa la pestaña "Guion" de la vista de detalle unificada cuando se abre
 // desde Ads Manager (que tiene el SenalRecon pero no la ScriptView). Devuelve
@@ -7,7 +7,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getScriptView } from '@/lib/script-analyst';
+import { getScriptView } from '@/lib/ads-analyst';
 
 export const dynamic = 'force-dynamic';
 

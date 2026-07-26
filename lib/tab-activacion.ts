@@ -117,20 +117,20 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
 
   script: {
     key: 'script',
-    titulo: 'Script Analyst',
+    titulo: 'Ads Analyst',
     servicio: 'meta',
     eyebrow: '✦ Con Meta Ads conectado',
     queFalta: 'Con tu cuenta de Meta, MaKo baja y transcribe el video de cada anuncio, y recién ahí lo analiza. Se llena solo en segundo plano.',
     ademas: 'Los patrones ganadores necesitan histórico: con pocos anuncios corridos, MaKo va a ser prudente en vez de inventar.',
     slides: [
-      // lib/script-analyst.ts (StoredBeat/BEAT_KINDS son 9). OJO: t0 lo ESTIMA
+      // lib/ads-analyst.ts (StoredBeat/BEAT_KINDS son 9). OJO: t0 lo ESTIMA
       // Claude por ritmo de lectura — el transcript no trae timestamps (:250).
       { t: 'El guion partido en bloques', d: 'Gancho, problema, mecanismo, prueba, oferta y CTA — hasta 9 tipos de bloque, cada uno con su tramo estimado por ritmo de lectura y la retención que llegó hasta ahí.' },
-      // lib/script-analyst.ts:14-19 — cuartiles p25/p50/p75/p100 sobre plays de 3s
+      // lib/ads-analyst.ts:14-19 — cuartiles p25/p50/p75/p100 sobre plays de 3s
       { t: 'Dónde te abandonan', d: 'La curva se reconstruye desde los cuartiles que reporta Meta y se interpola por bloque — está rotulado que es estimación, no una curva segundo a segundo.' },
-      // lib/script-analyst.ts:618 getScriptMetrics — histórico acumulado del anuncio
+      // lib/ads-analyst.ts:618 getScriptMetrics — histórico acumulado del anuncio
       { t: 'Qué guion escalar', d: 'Ángulo, hook rate, frecuencia, agendas y cierres de todo el histórico del anuncio: un guion se juzga por lo acumulado, no por un rango de fechas.' },
-      // lib/script-analyst.ts:964-974 Valoracion + /api/script-analyst/valorar
+      // lib/ads-analyst.ts:964-974 Valoracion + /api/ads-analyst/valorar
       { t: 'Valorá un guion sin gastar', d: 'Pegás un guion que todavía no corrió y MaKo lo compara contra el perfil real de tu cuenta: qué patrones tuyos cumple, cuáles no, y un plan de validación con presupuesto y días mínimos.' },
     ],
   },

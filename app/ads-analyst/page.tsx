@@ -1,5 +1,5 @@
 // =============================================================================
-// /script-analyst — Scripts Analyst
+// /ads-analyst — Ads Analyst
 // =============================================================================
 // Analiza los GUIONES de los video ads: cruza el análisis cualitativo de Claude
 // (ángulo, gancho, beats, diagnóstico — guardado en script_analyses) con las
@@ -7,11 +7,11 @@
 // retención por cuartiles, agendas, cierres, frecuencia). Sin filtro de fecha:
 // un guion se juzga por su desempeño acumulado, no por un período.
 //
-// La data cualitativa la llena /api/script-analyst/sync + el cron, después de
+// La data cualitativa la llena /api/ads-analyst/sync + el cron, después de
 // que transcribe-ads haya generado los transcripts. La página solo lee.
 // =============================================================================
 
-import { getScriptAnalystView, getDrafts, type ScriptAnalystView, type ScriptDraft } from '@/lib/script-analyst';
+import { getScriptAnalystView, getDrafts, type ScriptAnalystView, type ScriptDraft } from '@/lib/ads-analyst';
 import { getAngles, DEFAULT_ANGLES, type Angle } from '@/lib/script-angles';
 import { getAvatares, type Avatar } from '@/lib/script-avatares';
 import { ScriptsBrowser } from './ScriptsBrowser';
@@ -58,11 +58,11 @@ export default async function ScriptAnalystPage() {
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 70px' }}>
       <header style={{ marginBottom: 8 }}>
         <div style={{ fontFamily: MONO, fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>
-          Script Analyst · histórico completo
+          Ads Analyst · histórico completo
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="notepencil" size={34} /></span>
-          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Script Analyst</h1>
+          <h1 style={{ fontWeight: 600, fontSize: 46, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Ads Analyst</h1>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 999, background: 'var(--good-bg)', border: '1px solid var(--good)', color: 'var(--good)', fontSize: 12.5, fontWeight: 600 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--good)' }} />Meta Ads
           </span>
