@@ -117,8 +117,8 @@ dueño)**.
   su salud/insights de Meta, su Closing). El resolver `credWs` (`lib/credenciales.ts`)
   devuelve la fila cifrada del workspace; para el **dueño** (workspace 1), si esa
   fila todavía no existe, cae al env del server como respaldo de arranque. Un
-  **cliente** solo ve su fila — nunca el token del dueño. Anthropic/OpenAI/
-  Telegram siguen compartidos (los provee la agencia).
+  **cliente** solo ve su fila — nunca el token del dueño. Anthropic y OpenAI
+  siguen compartidos (los provee la agencia).
 - **Fase 2b (pendiente):** **ingesta automática por cliente** — los 12 crons
   iterando por workspace + config por-workspace (qué video es el VSL, page id,
   flags de envío). Hasta 2b, los crons corren solo para el dueño, así que un

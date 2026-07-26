@@ -215,7 +215,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       }
     ]
   },
-  "graphics": {
+  "dashboard": {
     "hero": {
       "type": "rcRetention",
       "title": "Retención del VSL",

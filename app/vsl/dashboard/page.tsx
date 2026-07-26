@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import FeatureDetail, { featureMetadata } from "../_detalle/FeatureDetail";
 
-export const metadata: Metadata = featureMetadata("graphics");
+export const metadata: Metadata = featureMetadata("dashboard");
 
 export default function Page() {
-  return <FeatureDetail slug="graphics" />;
+  return <FeatureDetail slug="dashboard" />;
 }

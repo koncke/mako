@@ -25,7 +25,7 @@ export type ShowcaseFeature = {
 // Orden de las cards en la grilla de /vsl (24 features). Las 8 nuevas + prioridades
 // se inyectan en runtime desde Landing.tsx en estas posiciones.
 export const SHOWCASE_ORDER = [
-  'funnel', 'pipeline', 'onboarding', 'graphics', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
+  'funnel', 'pipeline', 'onboarding', 'dashboard', 'crm', 'api', 'ads', 'script', 'closing', 'seguimiento',
   'cobranza', 'contrato', 'semaforo', 'experimentos', 'prioridades', 'retro', 'fase-norte',
   'whatsapp', 'email', 'conocimiento', 'mako', 'integraciones', 'equipo', 'perfil-reportes',
 ];
@@ -38,7 +38,7 @@ export const SHOWCASE_ORDER = [
  * HTML del lado del servidor).
  */
 export const INJECT_ORDER: Array<[string, string]> = [
-  ['onboarding', 'funnel'], ['graphics', 'onboarding'],
+  ['onboarding', 'funnel'], ['dashboard', 'onboarding'],
   ['prioridades', 'experimentos'], ['retro', 'prioridades'], ['fase-norte', 'retro'],
   ['conocimiento', 'email'], ['integraciones', 'mako'], ['equipo', 'integraciones'],
   ['perfil-reportes', 'equipo'],
@@ -105,7 +105,7 @@ export const SHOWCASE: ShowcaseFeature[] = [
       'M15 6v3h3l3 -3h-3v-3z',
       'M15 9l-3 3',
     ],
-    hook: 'Meta es tan buena como lo que le dejas ver.',
+    hook: 'Meta aprende de tus reuniones agendadas, no de formularios sueltos.',
     intro: 'El píxel sabe quién hizo clic. No sabe quién llegó a la llamada descalificado, ni quién se vio tu VSL entero y compró. MaKo le devuelve a Meta esas <strong>conversiones reales</strong> (el CAPI) para que salga a buscar más gente como la que te paga, <em>no más curiosos</em>.',
     points: [
       'Le manda a Meta señales que el píxel no puede ver: <strong>quién vio del 5% al 100% de tu VSL</strong> y quién llegó calificado a tu llamada.',
@@ -317,8 +317,8 @@ export const SHOWCASE: ShowcaseFeature[] = [
     hook: 'Tu primer login ya conoce tu negocio.',
   },
   {
-    slug: 'graphics',
-    name: 'Graphics',
+    slug: 'dashboard',
+    name: 'Dashboard',
     icon: ['M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M9 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M15 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M4 20l14 0'],
     hook: 'Gráficos que te dicen qué hacer, no solo qué pasó.',
   },

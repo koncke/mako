@@ -168,7 +168,7 @@ const ICON: Record<string, string[]> = {
     "M12 6l0 13",
     "M21 6l0 13",
   ],
-  'graphics': [
+  'dashboard': [
     "M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z",
     "M9 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z",
     "M15 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z",
@@ -199,7 +199,7 @@ const ICON: Record<string, string[]> = {
 };
 
 export const FEATURE_ORDER = [
-  "funnel", "pipeline", "onboarding", "graphics", "crm", "api", "ads", "script", "closing", "seguimiento", "cobranza", "contrato", "semaforo", "experimentos", "prioridades", "retro", "fase-norte", "whatsapp", "email", "conocimiento", "mako", "integraciones", "equipo", "perfil-reportes",
+  "funnel", "pipeline", "onboarding", "dashboard", "crm", "api", "ads", "script", "closing", "seguimiento", "cobranza", "contrato", "semaforo", "experimentos", "prioridades", "retro", "fase-norte", "whatsapp", "email", "conocimiento", "mako", "integraciones", "equipo", "perfil-reportes",
 ];
 
 export const FEATURES: Record<string, Feature> = {
@@ -363,10 +363,10 @@ export const FEATURES: Record<string, Feature> = {
     metaDesc: "Conectás Meta, contestás 3 preguntas y MaKo lee 365 días de tus ads, transcribe tus creativos, analiza tus llamadas de Fathom y te entrega tu primera Retro. Sin pantalla en blanco.",
   },
 
-  'graphics': {
-    slug: 'graphics',
-    name: "Graphics (reportes visuales)",
-    icon: ICON["graphics"],
+  'dashboard': {
+    slug: 'dashboard',
+    name: "Dashboard",
+    icon: ICON["dashboard"],
     headline: "Tus gráficos ya no te dejan solo frente a la barra",
     lead: "<strong>Abrís Looker o Data Studio, ves una barra que sube, otra que baja, y te quedás igual de perdido:</strong> ¿apago este anuncio o lo escalo? ¿dónde se me cae el funnel entre el VSL y el cierre? Un reporte lindo no vende High Ticket; una <strong>decisión</strong> sí. Graphics te arma tu embudo exacto —Impresión→Click→Landing→VSL→cierre→cobro— con las tasas de paso reales de Meta, y le pega a <em>cada</em> gráfico un botón que abre a MaKo: un analista que ya conoce la fase de tu negocio, tu metodología y tus experimentos validados, y te responde mirando <strong>los números exactos de ese gráfico</strong>, no una captura ni un chat genérico pegado al costado.",
     groups: [

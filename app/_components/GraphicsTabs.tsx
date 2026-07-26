@@ -30,7 +30,7 @@ export function GraphicsTabs() {
   // filtro de fecha).
   return (
     <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
-      <span style={{ display: 'inline-flex', color: 'var(--accent)', marginBottom: 5 }} title="Graphics"><Icon name="graphics" size={29} /></span>
+      <span style={{ display: 'inline-flex', color: 'var(--accent)', marginBottom: 5 }} title="Dashboard"><Icon name="graphics" size={29} /></span>
       {TABS.map((t) => {
         const on = pathname === t.href || pathname.startsWith(t.href + '/');
         return (

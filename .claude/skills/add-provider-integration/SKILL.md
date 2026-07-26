@@ -45,7 +45,7 @@ async function mpFetch(path: string, init?: RequestInit) {
 - **Per-cliente → `credWs('CLAVE')`** (`lib/credenciales.ts`): dueño usa env de
   Vercel, cliente su fila cifrada. NUNCA `process.env` directo para servicios
   per-cliente.
-- **Servicio global de la agencia** (Telegram/Google/Anthropic/OpenAI/Supabase):
+- **Servicio global de la agencia** (Google/Anthropic/OpenAI/Supabase):
   ese sí lee `process.env`; marcalo `global: true` en `integraciones.ts`.
 - **Placeholder `PENDING…`** cuenta como NO configurado (`esValorReal` lo filtra).
 - **Excepción documentada**: una key compartida de una cuenta única de la agencia

@@ -42,6 +42,13 @@ const nextConfig: NextConfig = {
     return [
       { source: '/todo', destination: '/plan', permanent: false },
       { source: '/todo/:path*', destination: '/plan/:path*', permanent: false },
+      // /graphics se renombró a /dashboard (así lo llama todo el mundo) y
+      // /script-analyst a /ads-analyst. Los links viejos siguen andando.
+      { source: '/graphics', destination: '/dashboard', permanent: false },
+      { source: '/graphics/:path*', destination: '/dashboard/:path*', permanent: false },
+      { source: '/vsl/graphics', destination: '/vsl/dashboard', permanent: false },
+      { source: '/script-analyst', destination: '/ads-analyst', permanent: false },
+      { source: '/script-analyst/:path*', destination: '/ads-analyst/:path*', permanent: false },
     ];
   },
   // Cabeceras de seguridad globales (defense-in-depth). Subset SEGURO: no toca

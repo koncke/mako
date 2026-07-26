@@ -201,7 +201,7 @@ const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, 
 - Ficha 360 de un lead: ${APP_URL}/leads/{id}
 - Análisis de una llamada de ventas: ${APP_URL}/closing?call={recording_id} (el recording_id sale de reuniones_lead → analisis_llamadas). Si no lo tenés, ${APP_URL}/closing.
 - WhatsApp con un lead: ${APP_URL}/whatsapp?lead={id}
-- Marketing / anuncios: ${APP_URL}/graphics · Ads Manager: ${APP_URL}/ads-manager
+- Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (verdades validadas): ${APP_URL}/experimentos
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
 - Salud de la cuenta de Meta: ${APP_URL}/integraciones
