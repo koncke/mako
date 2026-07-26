@@ -57,10 +57,17 @@ export async function setManual(m: Record<string, string>): Promise<void> {
   await setSetting(MANUAL_KEY, JSON.stringify(m));
 }
 
+// El Archivero solo se ocupa del brief que alimenta los ÁNGULOS: a qué te dedicás,
+// la OFERTA y el AVATAR. El objetivo/freno (diagnóstico del Norte) y el Personaje de
+// Marca se piden en otra parte del onboarding — no salen de docs de avatar/oferta.
+export function esCampoArchivero(key: string): boolean {
+  return key === 'negocio_que_hace' || key.startsWith('oferta_') || key.startsWith('avatar_');
+}
+
 // ── Campos del schema, aplanados (para extraer y para detectar huecos) ───────
 export async function flatFields(): Promise<Array<{ key: string; label: string; type: string; placeholder?: string; grupo: string }>> {
   const schema = await getSchema();
-  return schema.flatMap((g) => g.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label })));
+  return schema.flatMap((g) => g.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label }))).filter((f) => esCampoArchivero(f.key));
 }
 
 // ── Archivos (tabla, scopeada por workspace) ─────────────────────────────────
@@ -146,7 +153,7 @@ export async function buildEstado(persist: boolean): Promise<ArchiveroEstado> {
   const [files, schema, manual] = await Promise.all([listFiles(), getSchema(), getManual()]);
   const { answers, fuente } = computeEffective(files, manual);
   if (persist) await saveAnswers(answers);
-  const brief = schema.flatMap((g) => g.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label })));
+  const brief = schema.flatMap((g) => g.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label }))).filter((c) => esCampoArchivero(c.key));
   const gaps = brief.filter((c) => !(answers[c.key] ?? '').trim()).map((c) => c.key);
   return { files: files.map(pubFile), brief, answers, fuente, gaps, esSuperAdmin: Boolean(await getSesionAdmin()) };
 }

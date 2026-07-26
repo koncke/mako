@@ -33,7 +33,11 @@ const btnGhost: CSSProperties = { padding: '11px 18px', borderRadius: 11, border
 const link: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 
-export function Archivero({ onEstado }: { onEstado?: (answers: Record<string, string>) => void }) {
+export function Archivero({ onEstado, onFacts }: {
+  onEstado?: (answers: Record<string, string>) => void;
+  /** Los campos ya conocidos, para pintarlos en el panel negro (la "prueba"). */
+  onFacts?: (facts: { k: string; v: string }[]) => void;
+}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [vista, setVista] = useState<Vista>('inicio');
   const [cargando, setCargando] = useState(true);
@@ -48,7 +52,11 @@ export function Archivero({ onEstado }: { onEstado?: (answers: Record<string, st
   const [gapVal, setGapVal] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); }, [onEstado]);
+  const aplicar = useCallback((e: Estado) => {
+    setEst(e);
+    onEstado?.(e.answers);
+    onFacts?.(e.brief.filter((c) => (e.answers[c.key] ?? '').trim()).map((c) => ({ k: c.label, v: e.answers[c.key] })));
+  }, [onEstado, onFacts]);
 
   const cargar = useCallback(async () => {
     try { const j = await (await fetch('/api/onboarding/archivero')).json(); if (j.ok) aplicar(j as Estado); else setErr(j.error || 'No se pudo cargar.'); }

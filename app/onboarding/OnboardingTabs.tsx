@@ -4,20 +4,46 @@
 // OnboardingTabs — el hub de "Onboarding" (menú de la foto): cargar el negocio
 // =============================================================================
 // El Archivero (soltá tus docs) + Funnel (cómo vendés) + Ángulos y avatares (el
-// vocabulario). Todo EN EL LUGAR. El panel de Funnel llega server-rendered desde
-// la page; El Archivero y Ángulos son self-contained (se traen su data).
+// vocabulario). Tabs tipo píldora (igual que /plan). El Archivero va dentro del
+// MISMO marco del wizard: panel negro "así trabaja MaKo" (que se llena con lo que
+// MaKo va entendiendo) + la card a la derecha.
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Archivero } from './Archivero';
 import { AngulosPanel } from '../configuraciones/AngulosPanel';
+import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
+import { BrandDefs } from '../_components/ServicioVisual';
+import type { Slide } from '@/lib/servicio-slides';
 
 const SANS = "'Geist', sans-serif";
 type TabKey = 'archivero' | 'funnel' | 'angulos';
 
+const SLIDES: Slide[] = [
+  { t: 'MaKo trabaja con TU negocio', d: 'Lo que sale de tus documentos entra en cada análisis y cada respuesta: deja de darte consejos de manual y te habla de lo tuyo.' },
+  { t: 'De tus documentos a tus ángulos', d: 'Tu avatar, tu oferta y tu nicho son la materia prima con la que MaKo arma los ángulos de tus anuncios.' },
+  { t: 'La prueba, no la promesa', d: 'A medida que subís documentos, este panel se llena con lo que MaKo entendió de tu negocio.' },
+];
+
+// El Archivero dentro del marco partido del wizard (mismo grid .mk-svc-modal).
+function ArchiveroFrame() {
+  const [facts, setFacts] = useState<Fact[]>([]);
+  return (
+    <>
+      <BrandDefs />
+      <div className="mk-svc-modal" style={{ maxWidth: 980, margin: '0 auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', minHeight: 560 }}>
+        <PanelMarketing servicioKey="landing" nombre="MaKo" slides={SLIDES} facts={facts} eyebrow="✦ Así trabaja MaKo" />
+        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflowY: 'auto', padding: '30px clamp(20px,4vw,40px)' }}>
+          <Archivero onFacts={(f) => setFacts(f)} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function OnboardingTabs({ funnelPanel }: { funnelPanel: ReactNode }) {
   const [tab, setTab] = useState<TabKey>('archivero');
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
-    { key: 'archivero', label: 'El Archivero', panel: <Archivero /> },
+    { key: 'archivero', label: 'El Archivero', panel: <ArchiveroFrame /> },
     { key: 'funnel', label: 'Funnel', panel: funnelPanel },
     { key: 'angulos', label: 'Ángulos y avatares', panel: <AngulosPanel /> },
   ];
