@@ -104,6 +104,12 @@ async function proximoNum(db: Awaited<ReturnType<typeof getTenantDb>>): Promise<
   return max + 1;
 }
 
+/** El número P# más alto usado por los proyectos (0 si ninguno). El pid VISIBLE (P1,
+ *  P2…) es estable y distinto del id-slug; los proyectos nuevos deben recibir el
+ *  siguiente. Antes NO se asignaba → los proyectos de MaKo nacían sin P# (bug). */
+const pidNum = (pid?: string | null): number => { const m = /^P(\d+)$/i.exec((pid ?? '').trim()); return m ? parseInt(m[1], 10) : 0; };
+const maxPid = (proyectos: Array<{ pid?: string }>): number => proyectos.reduce((m, p) => Math.max(m, pidNum(p.pid)), 0);
+
 // ── tareas ─────────────────────────────────────────────────────────────────
 export async function crearPlanTarea(draft: BoardTask): Promise<BoardTask> {
   return enPlan(async () => {
@@ -133,7 +139,13 @@ export async function borrarPlanTarea(id: string): Promise<void> {
 export async function crearPlanProyecto(draft: Label): Promise<Label> {
   return enPlan(async () => {
     const db = await getTenantDb();
-    const proj: Label = { ...draft, id: draft.id && !draft.id.startsWith('tmp') ? draft.id : genId('p') };
+    // pid VISIBLE (P#) estable: si el draft no lo trae, tomamos el siguiente libre.
+    let pid = draft.pid;
+    if (!pid) {
+      const { data } = await db.from('plan_proyectos').select('pid');
+      pid = `P${maxPid((data ?? []) as Array<{ pid?: string }>) + 1}`;
+    }
+    const proj: Label = { ...draft, pid, id: draft.id && !draft.id.startsWith('tmp') ? draft.id : genId('p') };
     const { error } = await db.from('plan_proyectos').insert(labelToRow(proj));
     if (error) throw new Error(`crearPlanProyecto: ${error.message}`);
     return proj;
@@ -212,6 +224,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     // (b) por su grupo propuesto — existente exacto, o crear uno nuevo (dedup por nombre).
     const nuevosProy: Label[] = [];
     const ruteadasA = new Map<string, string[]>(); // idExistente → títulos ruteados (para el historial)
+    let siguientePid = maxPid(proyectos) + 1; // P# estable para cada proyecto nuevo (antes nacían sin id)
     const projDeTarea: (string | undefined)[] = validos.map((it, i) => {
       const asignado = ruteo[i];
       if (asignado) {
@@ -227,7 +240,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       if (!nid) {
         nid = genId('p');
         byName.set(k, nid);
-        nuevosProy.push({ id: nid, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
+        nuevosProy.push({ id: nid, pid: `P${siguientePid++}`, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
       }
       return nid;
     });

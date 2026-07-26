@@ -48,9 +48,11 @@ function agrupar<T extends { score: number }>(items: T[], tipoDe: (x: T) => stri
     .map(([tipo, arr]) => ({ tipo, label: FUENTE_INFO[tipo]?.label ?? tipo, items: arr.slice().sort((x, y) => y.score - x.score) }));
 }
 
-export function TareasCreadasModal({ tasks, projects, renderTaskCard, renderProjCard, onClose }: {
+export function TareasCreadasModal({ tasks, projects, proyNuevoIds, renderTaskCard, renderProjCard, onClose }: {
   tasks: BoardTask[];
   projects: Label[];
+  /** ids de los proyectos que se CREARON en esta carga (el resto se REUTILIZÓ). */
+  proyNuevoIds?: Set<string>;
   renderTaskCard: (t: BoardTask) => ReactNode; // CardTile real (kanban), lo pasa BoardShell
   renderProjCard: (l: Label) => ReactNode;      // ProyectoCardTile real, lo pasa BoardShell
   onClose: () => void;
@@ -68,9 +70,15 @@ export function TareasCreadasModal({ tasks, projects, renderTaskCard, renderProj
   const hayProy = projects.length > 0;
   const verProy = tab === 'proyectos' && hayProy;
 
-  // Ordenadas por prioridad (score DESC) dentro de cada grupo de origen.
+  // Proyectos: se agrupan en NUEVOS vs REUTILIZADOS (lo que pidió Martín), no por
+  // origen — así se ve de una qué creó MaKo y a qué proyecto EXISTENTE le sumó tareas.
+  // Tareas: por origen (WhatsApp/MaKo/…), ordenadas por prioridad dentro de cada grupo.
+  const porScore = (a: { score: number }, b: { score: number }) => b.score - a.score;
   const grupos: Array<{ tipo: string; label: string; items: Array<BoardTask | Label> }> = verProy
-    ? agrupar<Label>(projects, (l) => l.fuente?.tipo ?? 'mako')
+    ? [
+        { tipo: 'nuevos', label: 'Proyectos nuevos', items: projects.filter((l) => proyNuevoIds?.has(l.id)).slice().sort(porScore) },
+        { tipo: 'reutilizados', label: 'Reutilizó (le sumó tareas)', items: projects.filter((l) => !proyNuevoIds?.has(l.id)).slice().sort(porScore) },
+      ].filter((g) => g.items.length > 0)
     : agrupar<BoardTask>(tasks, (t) => fuenteEfectiva(t).tipo);
 
   const tabBtn = (activo: boolean): CSSProperties => ({ padding: '7px 14px', borderRadius: 9, border: 'none', background: activo ? 'var(--primary-bg)' : 'transparent', color: activo ? 'var(--primary)' : 'var(--dim)', fontSize: 13, fontWeight: activo ? 700 : 500, cursor: 'pointer', fontFamily: SANS });
@@ -95,10 +103,12 @@ export function TareasCreadasModal({ tasks, projects, renderTaskCard, renderProj
         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px 14px' }}>
           {grupos.map((g) => (
             <div key={g.tipo} style={{ marginBottom: 14 }}>
-              {/* UN header por origen (con logo), en vez de un chip por tarjeta. */}
+              {/* Proyectos: header "Nuevos" ✨ / "Reutilizó" ♻️. Tareas: por origen (con logo). */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '2px 4px 9px' }}>
-                <OrigenIcon tipo={g.tipo} />
-                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.03em', color: 'var(--primary)' }}>desde {g.label}</span>
+                {verProy
+                  ? <span style={{ fontSize: 13 }}>{g.tipo === 'nuevos' ? '✨' : '♻️'}</span>
+                  : <OrigenIcon tipo={g.tipo} />}
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.03em', color: g.tipo === 'reutilizados' ? 'var(--dim)' : 'var(--primary)' }}>{verProy ? g.label : `desde ${g.label}`}</span>
                 <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>· {g.items.length}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: verProy ? 'repeat(auto-fill, minmax(240px, 1fr))' : 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12, alignContent: 'start', alignItems: 'start' }}>

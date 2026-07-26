@@ -133,6 +133,11 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // Los proyectos que tocan esas tareas nuevas (para la tab "Proyectos" del modal).
   const welcomeProjIds = new Set(welcomeTasks.flatMap((t) => t.labels));
   const welcomeProjects = labels.filter((l) => welcomeProjIds.has(l.id));
+  // Cuáles se CREARON en esta carga vs se REUTILIZARON: un proyecto nuevo nace junto
+  // con las tareas del lote (su alta en el historial es de ~el mismo momento); uno
+  // reutilizado es viejo. Ventana holgada (5 min) porque el lote entra en segundos.
+  const welcomeTs = welcomeTasks.reduce((min, t) => { const ts = t.historial.length ? t.historial[t.historial.length - 1].ts : 0; return ts && ts < min ? ts : min; }, Infinity);
+  const proyNuevoIds = new Set(welcomeProjects.filter((l) => { const cre = l.historial.length ? Math.min(...l.historial.map((h) => h.ts)) : 0; return cre >= welcomeTs - 300000; }).map((l) => l.id));
   const marcarWelcomeVisto = () => {
     try {
       const raw = localStorage.getItem(dlKey('mako_plan_welcome_seen'));
@@ -528,7 +533,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         onLuego={() => setDatosConfirm(false)} />}
       {/* Bienvenida "MaKo cargó tareas": PRIMERO al entrar (gatea el DatosModal). No se
           apila sobre un detalle abierto por deep-link (?tarea=): ahí espera a que se cierre. */}
-      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects}
+      {welcomeVisible && !openId && !openProj && !peekProjId && <TareasCreadasModal tasks={welcomeTasks} projects={welcomeProjects} proyNuevoIds={proyNuevoIds}
         renderTaskCard={(t) => <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} />}
         renderProjCard={(l) => <ProyectoCardTile l={l} prog={projProgress(tasks, l.id)} isTop={l.id === topProjectId} onOpen={() => setOpenProj(l.id)} />}
         onClose={() => setWelcomeVisible(false)} />}
