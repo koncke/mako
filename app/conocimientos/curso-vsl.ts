@@ -252,6 +252,7 @@ OTRAS
 - **Los cierres fuertes van como card destacada**, no como párrafo suelto.
 - **Plural cuando hablamos de leads en general**, singular solo cuando el bloque es de UN lead.
 - **Nombres correctos:** es "Landing", no "tu web".
+- **EL NOMBRE DE CADA FUNCIONALIDAD SE ENTIENDE SOLO, SIN CONTEXTO.** Explícito le gana a ingenioso, siempre. "Ads Manager para VSL Funnel" y "WhatsApp" se entienden a la primera; "Bandeja de ventas", "El Perro Guardián" suelto o "Arrancá con tu negocio adentro" NO: necesitan que alguien te los explique. Prohibida la jerga interna y los apodos que solo entendemos nosotros — eso hace ver la app JUNIOR. Test: si se lo decís a alguien de afuera y tiene que preguntar qué es, el nombre está mal. Los apodos con personalidad (el Perro Guardián) solo valen ACOMPAÑADOS de la palabra explícita ("Prioridades — El Perro Guardián"), nunca solos.
 - **El puente a otra funcionalidad siempre arranca con "Descubrí cómo…"** y enlaza a la que MEJOR continúa el hilo, no a la más obvia.`,
     },
     {
