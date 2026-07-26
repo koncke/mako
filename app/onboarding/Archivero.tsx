@@ -38,6 +38,7 @@ export function Archivero({ onEstado }: { onEstado?: (answers: Record<string, st
   const [vista, setVista] = useState<Vista>('inicio');
   const [cargando, setCargando] = useState(true);
   const [drag, setDrag] = useState(false);
+  const [cola, setCola] = useState<{ file: File; url: string | null }[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
@@ -55,19 +56,30 @@ export function Archivero({ onEstado }: { onEstado?: (answers: Record<string, st
   }, [aplicar]);
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Un solo gesto: elegir/soltar archivos LOS SUBE (sin botón aparte, sin cola).
-  const subir = async (archivos: File[]) => {
-    if (!archivos.length) return;
+  // Sumar a la cola (acumulativo, con preview para imágenes). Todavía NO analiza:
+  // podés soltar todos los documentos que quieras y recién ahí darle a Analizar.
+  const addCola = (fl: FileList | null) => {
+    const arr = fl ? Array.from(fl) : [];
+    if (!arr.length) return;
+    setCola((prev) => {
+      const map = new Map(prev.map((c) => [c.file.name + c.file.size, c]));
+      for (const f of arr) { const k = f.name + f.size; if (!map.has(k)) map.set(k, { file: f, url: f.type.startsWith('image/') ? URL.createObjectURL(f) : null }); }
+      return Array.from(map.values());
+    });
+  };
+  const quitarCola = (k: string) => setCola((prev) => { const c = prev.find((x) => x.file.name + x.file.size === k); if (c?.url) URL.revokeObjectURL(c.url); return prev.filter((x) => x.file.name + x.file.size !== k); });
+
+  const analizar = async () => {
+    if (!cola.length) return;
     setVista('leyendo'); setErr(null); setWarnings([]);
     try {
-      const fd = new FormData(); archivos.forEach((f) => fd.append('file', f));
+      const fd = new FormData(); cola.forEach((c) => fd.append('file', c.file));
       const j = await (await fetch('/api/onboarding/archivero', { method: 'POST', body: fd })).json();
       setWarnings(Array.isArray(j.warnings) ? j.warnings : []);
-      if (j.brief) { aplicar(j as Estado); setVista('resumen'); }
+      if (j.brief) { aplicar(j as Estado); cola.forEach((c) => c.url && URL.revokeObjectURL(c.url)); setCola([]); setVista('resumen'); }
       else { setErr(j.error || 'No se pudo procesar.'); setVista('inicio'); }
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setVista('inicio'); }
   };
-  const onFiles = (fl: FileList | null) => { const a = fl ? Array.from(fl) : []; if (a.length) subir(a); };
 
   const borrar = async (id: string) => {
     setConfirmDel(null); setErr(null);
@@ -99,9 +111,11 @@ export function Archivero({ onEstado }: { onEstado?: (answers: Record<string, st
   // ── LEYENDO ────────────────────────────────────────────────────────────────
   if (vista === 'leyendo') {
     return (
-      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '52px 0' }}>
-        <div style={{ ...eyebrow, color: 'var(--dim)' }}>MaKo está leyendo tus documentos</div>
-        <div style={{ fontSize: 13, color: 'var(--faint)', marginTop: 10, lineHeight: 1.6 }}>Ordenando tu avatar, tu oferta y tu nicho.<br />Tarda unos segundos.</div>
+      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '96px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <style>{'@keyframes arch-spin{to{transform:rotate(360deg)}}'}</style>
+        <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'arch-spin .8s linear infinite' }} />
+        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', marginTop: 24 }}>MaKo está leyendo tus documentos</div>
+        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Ordenando tu avatar, tu oferta y tu nicho.<br />Tarda unos segundos.</div>
       </div>
     );
   }
@@ -225,21 +239,43 @@ export function Archivero({ onEstado }: { onEstado?: (answers: Record<string, st
     );
   }
 
-  // ── INICIO (un solo botón) ──────────────────────────────────────────────────
+  // ── INICIO (dropzone grande + cola con preview + Analizar) ──────────────────
+  const ext = (n: string) => (n.split('.').pop() || 'DOC').toUpperCase().slice(0, 4);
   return (
-    <div style={{ maxWidth: 560, margin: '0 auto' }}>
+    <div style={{ maxWidth: 640, margin: '0 auto' }}>
       <label
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); onFiles(e.dataTransfer.files); }}
-        style={{ display: 'block', cursor: 'pointer', border: `1.5px dashed ${drag ? 'var(--primary)' : 'var(--border-strong)'}`, background: drag ? 'var(--primary-bg)' : 'var(--surface-2)', borderRadius: 16, padding: '40px 24px', textAlign: 'center', transition: 'all .15s' }}>
-        <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
-        <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)' }}>Soltá acá todo lo de tu negocio</div>
-        <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Avatar, oferta, nicho, producto, guiones de venta, tu web…<br />PDF, Word, texto o imágenes. Todos juntos — MaKo los ordena.</div>
-        <div style={{ marginTop: 20 }}><span style={{ ...btnPrimary, display: 'inline-block' }}>Elegir archivos</span></div>
+        onDrop={(e) => { e.preventDefault(); setDrag(false); addCola(e.dataTransfer.files); }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', minHeight: 340, border: `1.5px dashed ${drag ? 'var(--primary)' : 'var(--border-strong)'}`, background: drag ? 'var(--primary-bg)' : 'var(--surface-2)', borderRadius: 20, padding: '48px 28px', textAlign: 'center', transition: 'all .15s' }}>
+        <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { addCola(e.target.files); e.target.value = ''; }} />
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v12" /></svg>
+        <div style={{ fontSize: 23, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', marginTop: 18 }}>Soltá acá todo lo de tu negocio</div>
+        <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 10, lineHeight: 1.6, maxWidth: 420 }}>Avatar, oferta, nicho, producto, guiones de venta, tu web…<br />PDF, Word, texto o imágenes. Todos los que quieras — MaKo los ordena.</div>
+        <div style={{ marginTop: 26 }}><span style={{ ...btnPrimary, display: 'inline-block', padding: '13px 26px', fontSize: 15.5 }}>Elegir archivos</span></div>
       </label>
 
-      {(hayPerfil || hayArchivos) && (
-        <div style={{ textAlign: 'center', marginTop: 18 }}>
+      {cola.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            {cola.map((c) => {
+              const k = c.file.name + c.file.size;
+              return (
+                <div key={k} style={{ width: 96 }}>
+                  <div style={{ position: 'relative', width: 96, height: 96, borderRadius: 12, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {c.url ? <img src={c.url} alt={c.file.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{ext(c.file.name)}</span>}
+                    <button type="button" aria-label="Quitar" onClick={() => quitarCola(k)} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 999, border: 'none', background: 'rgba(18,21,27,.7)', color: '#fff', fontSize: 11, lineHeight: '20px', cursor: 'pointer', padding: 0 }}>✕</button>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: 'var(--faint)', marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.file.name}</div>
+                </div>
+              );
+            })}
+          </div>
+          <button type="button" onClick={analizar} style={{ ...btnPrimary, width: '100%', marginTop: 18, padding: '14px', fontSize: 15.5 }}>✦ Analizar {cola.length} documento{cola.length === 1 ? '' : 's'}</button>
+        </div>
+      )}
+
+      {(hayPerfil || hayArchivos) && cola.length === 0 && (
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
           <button type="button" onClick={() => setVista('resumen')} style={link}>Ver lo que MaKo ya sabe de tu negocio →</button>
         </div>
       )}

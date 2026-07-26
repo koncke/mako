@@ -3,28 +3,22 @@
 // =============================================================================
 // ConfigInnerTabs — UNA sola fila de tabs de /configuraciones
 // =============================================================================
-// Notificaciones · Identidades fiscales · Teléfonos · Funnel · Onboarding ·
-// Equipo cargan EN EL LUGAR (sin redirigir). Los paneles de Funnel/Onboarding/
-// Equipo se renderizan en el server (page.tsx) y llegan como props para que su
-// data (getFunnel/onboarding) siga cargándose server-side. Método sigue siendo
-// una ruta propia (admin de agencia). "Integraciones" vive en su propia tab.
+// Notificaciones · Identidades fiscales · Equipo cargan EN EL LUGAR (sin
+// redirigir). El panel de Equipo se renderiza en el server (page.tsx) y llega
+// como prop. Método sigue siendo una ruta propia (admin de agencia). El Archivero,
+// el Funnel y los Ángulos se mudaron a "Onboarding" (menú de la foto de perfil).
 
 import Link from 'next/link';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { NotificacionesPanel } from '../perfil/NotificacionesPanel';
 import { IdentidadesFiscalesPanel } from './IdentidadesFiscalesPanel';
-import { TelefonosPanel } from './TelefonosPanel';
-import { EtiquetasWhatsAppPanel } from './EtiquetasWhatsAppPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'telefonos' | 'etiquetas' | 'funnel' | 'archivero' | 'angulos' | 'equipo';
+type TabKey = 'notif' | 'fiscal' | 'equipo';
 
-export function ConfigInnerTabs({ funnelPanel, archiveroPanel, angulosPanel, equipoPanel }: {
-  /** Paneles server-rendered embebidos (data cargada en page.tsx). */
-  funnelPanel: ReactNode;
-  archiveroPanel: ReactNode;
-  angulosPanel: ReactNode;
+export function ConfigInnerTabs({ equipoPanel }: {
+  /** Panel server-rendered embebido (data cargada en page.tsx). */
   equipoPanel: ReactNode;
 }) {
   const [tab, setTab] = useState<TabKey>('notif');
@@ -37,15 +31,9 @@ export function ConfigInnerTabs({ funnelPanel, archiveroPanel, angulosPanel, equ
     return () => { alive = false; };
   }, []);
 
-  // Cada tab con su panel embebido (todas EN EL LUGAR, sin navegar).
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
     { key: 'notif', label: 'Notificaciones', panel: <NotificacionesPanel /> },
     { key: 'fiscal', label: 'Identidades fiscales', panel: <IdentidadesFiscalesPanel /> },
-    { key: 'telefonos', label: 'Teléfonos', panel: <TelefonosPanel /> },
-    { key: 'etiquetas', label: 'Etiquetas WhatsApp', panel: <EtiquetasWhatsAppPanel /> },
-    { key: 'funnel', label: 'Funnel', panel: funnelPanel },
-    { key: 'archivero', label: 'El Archivero', panel: archiveroPanel },
-    { key: 'angulos', label: 'Ángulos y avatares', panel: angulosPanel },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },
   ];
   // Solo el Método (agencia) sigue siendo ruta aparte.
@@ -68,7 +56,6 @@ export function ConfigInnerTabs({ funnelPanel, archiveroPanel, angulosPanel, equ
           <Link key={l.href} href={l.href} style={{ ...base, fontWeight: 500, color: 'var(--dim)' }}>{l.label} <span aria-hidden style={{ fontSize: 10, opacity: 0.5 }}>↗</span></Link>
         ))}
       </div>
-      {/* TODO a full width (paneles anchos y formularios por igual). */}
       {activo?.panel}
     </div>
   );

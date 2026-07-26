@@ -8,6 +8,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
+import { chatCheapCascade } from './ai-cheap';
 
 export type FieldType = 'text' | 'number' | 'textarea';
 export type Field = { key: string; label: string; type: FieldType; placeholder?: string };
@@ -68,8 +69,9 @@ export async function saveAnswers(answers: Record<string, string>): Promise<void
 }
 
 // Extrae respuestas de un texto (template completado o doc del cliente) y las
-// mapea a los campos pedidos, con la API de OpenAI ya usada en el repo.
-const OAI = 'https://api.openai.com/v1';
+// mapea a los campos pedidos. Va por la IA barata del workspace (chatCheapCascade:
+// Groq/OpenAI/… con credWs) — NO por process.env, así usa las keys que el cliente
+// tiene cargadas en Integraciones en vez de romper con "OPENAI_API_KEY no definida".
 
 // {{lista}} = los campos pedidos (clave: qué pide). El esquema JSON de salida es
 // fijo: si lo cambiás, ajustá también el parseo de abajo.
@@ -80,21 +82,12 @@ export const ONBOARDING_EXTRACT_TEMPLATE = `Sos un extractor de datos. Recibís 
 // pasada — ahí conviene subir el techo (gpt-4o-mini tiene 128k de contexto y es
 // barato). No es la longitud del doc: es lo que llega al prompt.
 export async function extractAnswersFromText(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 12000): Promise<Record<string, string>> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error('OPENAI_API_KEY no definida');
   if (!texto.trim() || fields.length === 0) return {};
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('onboarding.extract.system', ONBOARDING_EXTRACT_TEMPLATE, { lista });
-  const r = await fetch(`${OAI}/chat/completions`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, { role: 'user', content: texto.slice(0, maxChars) }] }),
-    cache: 'no-store',
-  });
-  const j = await r.json();
-  if (!r.ok || j.error) throw new Error(`extract: ${j?.error?.message ?? r.status}`);
+  const crudo = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'onboarding-extract', motivo: 'Extraer campos del brief de un documento' });
   let parsed: Record<string, unknown> = {};
-  try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { parsed = {}; }
+  try { parsed = JSON.parse(crudo || '{}'); } catch { parsed = {}; }
   const campos = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : parsed) as Record<string, unknown>;
   const out: Record<string, string> = {};
   for (const f of fields) {
@@ -110,21 +103,12 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
 export const ARCHIVERO_EXTRACT_TEMPLATE = `Sos un extractor de datos del negocio. Recibís el texto de UN documento del cliente y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}, "razonamiento": "<una frase corta>"}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). El "razonamiento" es UNA sola frase natural y breve de qué aportó este documento (ej: "Definió el avatar y su dolor principal", "Detalla la oferta y el precio"). Si el documento no aporta nada útil, campos vacío y razonamiento explicándolo. Claves válidas (clave: qué pide):\n{{lista}}`;
 
 export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string }> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error('OPENAI_API_KEY no definida');
   if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '' };
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('archivero.extract.system', ARCHIVERO_EXTRACT_TEMPLATE, { lista });
-  const r = await fetch(`${OAI}/chat/completions`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, { role: 'user', content: texto.slice(0, maxChars) }] }),
-    cache: 'no-store',
-  });
-  const j = await r.json();
-  if (!r.ok || j.error) throw new Error(`extraerDeArchivo: ${j?.error?.message ?? r.status}`);
+  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 1500, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio' });
   let parsed: Record<string, unknown> = {};
-  try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { parsed = {}; }
+  try { parsed = JSON.parse(out || '{}'); } catch { parsed = {}; }
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
   const campos: Record<string, string> = {};
   for (const f of fields) {

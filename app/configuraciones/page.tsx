@@ -1,34 +1,19 @@
 // =============================================================================
-// /configuraciones — hub de ajustes: Notificaciones · Identidades fiscales ·
-// Teléfonos · Funnel · Onboarding · Equipo (TODO en el lugar, sin redirigir)
+// /configuraciones — hub de ajustes: Notificaciones · Identidades fiscales · Equipo
 // =============================================================================
-// Los paneles de Funnel/Onboarding/Equipo se resuelven acá (server) para que su
-// data siga cargándose server-side y llegan embebidos a ConfigInnerTabs.
+// El Archivero, el Funnel y los Ángulos y avatares se mudaron a "Onboarding"
+// (menú de la foto de perfil). Acá quedan los ajustes de la cuenta.
 
 import { Icon } from '../_components/icons';
 import { ConfigInnerTabs } from './ConfigInnerTabs';
-import { FunnelEditor } from '../funnel/FunnelEditor';
-import { Archivero } from '../onboarding/Archivero';
-import { AngulosPanel } from './AngulosPanel';
 import { EquipoView } from '../equipo/EquipoView';
 import { requireRolWs } from '@/lib/tab-access';
-import { getFunnel } from '@/lib/leads';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function ConfiguracionesPage() {
   await requireRolWs([], { nav: 'configuraciones' });
-
-  // Paneles embebidos (misma data que sus rutas propias, resuelta server-side).
-  const { pipeline, suppressed } = await getFunnel();
-  const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
-
-  // El Archivero: el cliente tira sus documentos y MaKo arma el perfil. Es
-  // self-contained (se trae su estado); requireRolWs ya gateó el onboarding, así
-  // que quien llega acá lo terminó (o es el dueño).
-  const archiveroPanel = <Archivero />;
-  const angulosPanel = <AngulosPanel />;
 
   const equipoPanel = (
     <div>
@@ -43,8 +28,8 @@ export default async function ConfiguracionesPage() {
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="config" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Notificaciones, identidades fiscales, teléfonos y el resto de los ajustes en un solo lugar.</p>
-      <ConfigInnerTabs funnelPanel={funnelPanel} archiveroPanel={archiveroPanel} angulosPanel={angulosPanel} equipoPanel={equipoPanel} />
+      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Notificaciones, identidades fiscales y tu equipo, en un solo lugar.</p>
+      <ConfigInnerTabs equipoPanel={equipoPanel} />
     </main>
   );
 }
