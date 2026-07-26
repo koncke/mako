@@ -24,7 +24,7 @@ function slug(s: string): string {
 
 const inp: CSSProperties = { border: '1px solid var(--border-strong)', borderRadius: 9, background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, padding: '8px 11px', outline: 'none', width: '100%' };
 
-export function TaxonomyManager({ angles, avatares, onClose, onSaved }: { angles: TaxItem[]; avatares: TaxItem[]; onClose: () => void; onSaved: () => void }) {
+export function TaxonomyManager({ angles, avatares, onClose, onSaved, inline = false }: { angles: TaxItem[]; avatares: TaxItem[]; onClose?: () => void; onSaved: () => void; inline?: boolean }) {
   const uid = useRef(0);
   const seed = (list: TaxItem[]): Row[] => list.map((a) => ({ uid: uid.current++, key: a.key, label: a.label, color: a.color, desc: a.desc ?? '' }));
   const [aRows, setARows] = useState<Row[]>(() => seed(angles));
@@ -93,6 +93,25 @@ export function TaxonomyManager({ angles, avatares, onClose, onSaved }: { angles
       </div>
     );
   };
+
+  // Inline (tab de Configuraciones): sin backdrop, sin ✕ ni Cancelar; solo las
+  // secciones + Guardar. Misma lógica, otra carcasa.
+  if (inline) {
+    return (
+      <div style={{ maxWidth: 720 }}>
+        <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 20px', lineHeight: 1.5, maxWidth: 640 }}>El vocabulario con el que se clasifican tus guiones y creativos. Se aplica al re-analizar o sincronizar; lo ya clasificado con uno que borres lo sigue mostrando hasta re-analizarse.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {section({ title: 'Ángulos del mensaje', blurb: 'El enfoque del guion (visionario, dolor, testimonio…). Tiene que quedar al menos uno.', rows: aRows, setRows: setARows, placeholder: 'Nombre del ángulo (ej. Autoridad)' })}
+          <div style={{ height: 1, background: 'var(--border)' }} />
+          {section({ title: 'Avatares (público objetivo)', blurb: 'A quién le habla el anuncio. Pueden quedar en cero.', rows: vRows, setRows: setVRows, placeholder: 'Nombre del avatar (ej. Dueño de clínica)' })}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 22 }}>
+          <button onClick={save} disabled={saving} style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: saving ? 'var(--border-strong)' : 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'Guardando…' : 'Guardar'}</button>
+          <span style={{ fontSize: 12.5, color: err ? 'var(--bad)' : 'var(--faint)' }}>{err ?? `${aRows.length} ángulo${aRows.length === 1 ? '' : 's'} · ${vRows.length} avatar${vRows.length === 1 ? '' : 'es'}`}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>

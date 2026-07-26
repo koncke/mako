@@ -104,6 +104,37 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
   return out;
 }
 
+// El Archivero procesa UN archivo por vez (no todo concatenado) para poder atribuir
+// qué campo salió de qué documento y dar un razonamiento por archivo. Devuelve los
+// campos que encontró + una frase corta de qué aportó ese documento.
+export const ARCHIVERO_EXTRACT_TEMPLATE = `Sos un extractor de datos del negocio. Recibís el texto de UN documento del cliente y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}, "razonamiento": "<una frase corta>"}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). El "razonamiento" es UNA sola frase natural y breve de qué aportó este documento (ej: "Definió el avatar y su dolor principal", "Detalla la oferta y el precio"). Si el documento no aporta nada útil, campos vacío y razonamiento explicándolo. Claves válidas (clave: qué pide):\n{{lista}}`;
+
+export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string }> {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OPENAI_API_KEY no definida');
+  if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '' };
+  const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
+  const sys = await renderPrompt('archivero.extract.system', ARCHIVERO_EXTRACT_TEMPLATE, { lista });
+  const r = await fetch(`${OAI}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, { role: 'user', content: texto.slice(0, maxChars) }] }),
+    cache: 'no-store',
+  });
+  const j = await r.json();
+  if (!r.ok || j.error) throw new Error(`extraerDeArchivo: ${j?.error?.message ?? r.status}`);
+  let parsed: Record<string, unknown> = {};
+  try { parsed = JSON.parse(j.choices?.[0]?.message?.content ?? '{}'); } catch { parsed = {}; }
+  const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
+  const campos: Record<string, string> = {};
+  for (const f of fields) {
+    const v = raw[f.key];
+    if (v != null && String(v).trim()) campos[f.key] = String(v).trim();
+  }
+  const razonamiento = typeof parsed.razonamiento === 'string' ? parsed.razonamiento.trim().slice(0, 240) : '';
+  return { campos, razonamiento };
+}
+
 /** Texto del perfil del negocio para inyectar en el contexto de MaKo. */
 export async function perfilNegocioTexto(): Promise<string> {
   const [schema, answers] = await Promise.all([getSchema(), getAnswers()]);

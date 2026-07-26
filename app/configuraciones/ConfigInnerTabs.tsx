@@ -18,12 +18,13 @@ import { EtiquetasWhatsAppPanel } from './EtiquetasWhatsAppPanel';
 
 const SANS = "'Geist', sans-serif";
 
-type TabKey = 'notif' | 'fiscal' | 'telefonos' | 'etiquetas' | 'funnel' | 'onboarding' | 'equipo';
+type TabKey = 'notif' | 'fiscal' | 'telefonos' | 'etiquetas' | 'funnel' | 'archivero' | 'angulos' | 'equipo';
 
-export function ConfigInnerTabs({ funnelPanel, onboardingPanel, equipoPanel }: {
+export function ConfigInnerTabs({ funnelPanel, archiveroPanel, angulosPanel, equipoPanel }: {
   /** Paneles server-rendered embebidos (data cargada en page.tsx). */
   funnelPanel: ReactNode;
-  onboardingPanel: ReactNode;
+  archiveroPanel: ReactNode;
+  angulosPanel: ReactNode;
   equipoPanel: ReactNode;
 }) {
   const [tab, setTab] = useState<TabKey>('notif');
@@ -43,7 +44,8 @@ export function ConfigInnerTabs({ funnelPanel, onboardingPanel, equipoPanel }: {
     { key: 'telefonos', label: 'Teléfonos', panel: <TelefonosPanel /> },
     { key: 'etiquetas', label: 'Etiquetas WhatsApp', panel: <EtiquetasWhatsAppPanel /> },
     { key: 'funnel', label: 'Funnel', panel: funnelPanel },
-    { key: 'onboarding', label: 'Onboarding', panel: onboardingPanel },
+    { key: 'archivero', label: 'El Archivero', panel: archiveroPanel },
+    { key: 'angulos', label: 'Ángulos y avatares', panel: angulosPanel },
     { key: 'equipo', label: 'Equipo', panel: equipoPanel },
   ];
   // Solo el Método (agencia) sigue siendo ruta aparte.

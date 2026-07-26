@@ -41,6 +41,7 @@ export function runWithWorkspace<T>(ws: number | null, fn: () => T): T {
 // y credenciales NO están acá: se manejan con scoping explícito en sus libs
 // (settings.ts, leads.ts, credenciales.ts) por su semántica de key/singleton.
 const TENANT_TABLES = new Set<string>([
+  'archivero_files',
   'ad_transcripts', 'adset_budget_daily', 'anthropic_usage', 'chart_chats', 'chart_sessions',
   'closing_analyses', 'email_broadcast_envios', 'email_broadcasts', 'evolution_contactos', 'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'landing_visits', 'lead_audit', 'leads', 'marketing_metrics_daily',

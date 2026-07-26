@@ -12,7 +12,6 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MakoLogo, MakoIntro } from '../_components/MakoBrand';
 import { TaxonomyManager, type TaxItem } from '../components/TaxonomyManager';
 import { Dropdown } from '../components/Dropdown';
-import { Archivero } from './Archivero';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -76,10 +75,6 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
   const group: Group | undefined = schema[stepSafe];
   const faltan = group ? group.fields.filter((f) => !(answers[f.key] ?? '').trim()) : [];
   const completo = !!group && faltan.length === 0;
-
-  // El Archivero consume el brief APLANADO con el nombre del grupo (para reagrupar
-  // el review); acá el schema es anidado (Group[]).
-  const flatBrief = schema.flatMap((g) => g.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label })));
 
   // Descargar el template de la fase (markdown con las preguntas).
   const descargarTemplate = (g: Group) => {
@@ -171,18 +166,9 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
           </div>
         </div>
       ) : (
-        <div style={{ maxWidth: 620, margin: '0 auto' }}>
-          {/* ── El Archivero: tirá todo suelto y MaKo ordena el brief de una ── */}
-          <div style={{ ...card, marginTop: 18 }}>
-            <h2 style={{ fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', margin: '0 0 4px' }}>El Archivero</h2>
-            <p style={{ fontSize: 13, color: 'var(--dim)', margin: '0 0 14px', lineHeight: 1.5 }}>Tirá acá todo lo suelto de tu negocio —avatar, oferta, nicho, tu web o Instagram— y MaKo lo lee y te ordena el perfil de una. Después revisás y corregís.</p>
-            <Archivero brief={flatBrief} answers={answers} setAnswers={setAnswers} onGuardar={guardar} />
-          </div>
-
-          {/* ── A mano: una fase por pantalla, con template ── */}
-          <div style={{ maxWidth: 560, margin: '26px auto 0', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ textAlign: 'center', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', margin: '0 0 16px' }}>o completalo a mano, paso por paso ↓</div>
-            <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.docx" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && group) subirTemplate(f, group); e.target.value = ''; }} />
+        // ── Wizard: una fase por pantalla, con template ──
+        <div style={{ maxWidth: 560, margin: '0 auto', minHeight: embedded ? undefined : 'calc(100vh - 240px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <input ref={fileRef} type="file" accept=".txt,.md,.markdown,.docx" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f && group) subirTemplate(f, group); e.target.value = ''; }} />
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 7, marginBottom: 10 }}>
             {schema.map((_, i) => <span key={i} style={{ width: i === stepSafe ? 22 : 7, height: 7, borderRadius: 999, background: i === stepSafe ? 'var(--primary)' : i < stepSafe ? 'var(--primary-weak)' : 'var(--border-strong)', transition: 'all .2s' }} />)}
@@ -232,7 +218,6 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
               <Link href="/metodo" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conectá tus integraciones (Método) →</Link>
             </div>
           )}
-        </div>
         </div>
       )}
 

@@ -24,7 +24,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Archivero, type BriefCampo } from './Archivero';
+import { Archivero } from './Archivero';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
@@ -43,7 +43,7 @@ type Servicio = { key: string; nombre: string; requerido: boolean; conectada: bo
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
 type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'retro' | 'plan';
-// BriefCampo se define y exporta en ./Archivero (aplanado + grupo). Se importa arriba.
+type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
   steps: Record<Paso, { done: boolean }>;
@@ -383,9 +383,8 @@ export function OnboardingWizard() {
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
         onSiguiente={() => {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
-          // El Archivero guarda el brief ENTERO (lo que extrajo + lo que el
-          // cliente corrigió en la revisión), de una.
-          if (p.key === 'archivero') return avanzar(() => post('/api/onboarding', { action: 'brief', brief: answers }));
+          // El Archivero persiste por su cuenta (sus propios endpoints); acá solo avanzamos.
+          if (p.key === 'archivero') return avanzar();
           if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel', templateId: tpl }));
           if (p.key === 'metas') return avanzar(() => post('/api/onboarding', { action: 'config', settings: { objetivo_cierres: cierres.trim(), objetivo_cash_usd: cash.trim() } }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
@@ -443,8 +442,8 @@ export function OnboardingWizard() {
           </div>
         )}
 
-        {/* ── El Archivero: tirá tus docs, MaKo arma el perfil ── */}
-        {p.key === 'archivero' && <Archivero brief={data.brief} answers={answers} setAnswers={setAnswers} />}
+        {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
+        {p.key === 'archivero' && <Archivero onEstado={setAnswers} />}
 
         {/* ── Brief: una pregunta, un campo ── */}
         {campoBrief && (campoBrief.type === 'textarea'

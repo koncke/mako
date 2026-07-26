@@ -8,13 +8,11 @@
 import { Icon } from '../_components/icons';
 import { ConfigInnerTabs } from './ConfigInnerTabs';
 import { FunnelEditor } from '../funnel/FunnelEditor';
-import { OnboardingForm } from '../onboarding/OnboardingForm';
-import { OnboardingWizard } from '../onboarding/OnboardingWizard';
+import { Archivero } from '../onboarding/Archivero';
+import { AngulosPanel } from './AngulosPanel';
 import { EquipoView } from '../equipo/EquipoView';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
-import { getEstadoOnboarding } from '@/lib/onboarding-state';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,14 +24,11 @@ export default async function ConfiguracionesPage() {
   const { pipeline, suppressed } = await getFunnel();
   const funnelPanel = <FunnelEditor embedded initialPipeline={pipeline} initialSuppressed={suppressed} />;
 
-  const ws = await getWorkspaceActual();
-  let onboardingPanel: React.ReactNode;
-  if (ws == null || ws === OWNER_WS) {
-    onboardingPanel = <OnboardingForm embedded />;
-  } else {
-    const estado = await getEstadoOnboarding();
-    onboardingPanel = estado.status === 'done' ? <OnboardingForm embedded /> : <OnboardingWizard />;
-  }
+  // El Archivero: el cliente tira sus documentos y MaKo arma el perfil. Es
+  // self-contained (se trae su estado); requireRolWs ya gateó el onboarding, así
+  // que quien llega acá lo terminó (o es el dueño).
+  const archiveroPanel = <Archivero />;
+  const angulosPanel = <AngulosPanel />;
 
   const equipoPanel = (
     <div>
@@ -49,7 +44,7 @@ export default async function ConfiguracionesPage() {
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Configuraciones</h1>
       </header>
       <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Notificaciones, identidades fiscales, teléfonos y el resto de los ajustes en un solo lugar.</p>
-      <ConfigInnerTabs funnelPanel={funnelPanel} onboardingPanel={onboardingPanel} equipoPanel={equipoPanel} />
+      <ConfigInnerTabs funnelPanel={funnelPanel} archiveroPanel={archiveroPanel} angulosPanel={angulosPanel} equipoPanel={equipoPanel} />
     </main>
   );
 }
