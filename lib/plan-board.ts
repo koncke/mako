@@ -12,7 +12,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
-import { puntuarNuevas, describirProyectosNuevos, cruzarProyectos } from '@/lib/mako-guardian';
+import { puntuarNuevas, describirProyectosNuevos, asignarTareasAProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 
 type Row = Record<string, unknown>;
@@ -192,64 +192,66 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const idsExist = new Set(proyectos.map((p) => p.id)); // MaKo a veces pasa el id/slug del proyecto existente
     const resolverProy = (nombre?: string): string | undefined => { const n = nombre?.trim(); if (!n) return undefined; return byName.get(n.toLowerCase()) ?? (idsExist.has(n) ? n : undefined); };
 
-    // 1a. FUSIÓN SEMÁNTICA de proyectos (el Perro, ANTES de crear). El dedupe de abajo
-    // es por nombre EXACTO; un nombre escrito distinto ("Onboarding & UX" vs "Arranque
-    // del cliente: onboarding…") creaba un proyecto redundante y el Perro solo llegaba a
-    // describirlo, tarde. Acá, por cada nombre propuesto que NO matchea exacto, el Perro
-    // decide si es EL MISMO que uno existente; si sí, apuntamos ese nombre al proyecto
-    // existente (byName) → resolverProy manda las tareas ahí y no se crea nada nuevo.
-    const propuestosNoExactos = [...new Set(
-      validos.map((it) => it.proyecto?.trim()).filter((n): n is string => !!n && !byName.has(n.toLowerCase()) && !idsExist.has(n)),
-    )];
-    const fusionadosLog: Array<{ id: string; texto: string }> = [];
-    if (propuestosNoExactos.length && proyectos.length) {
-      const tareasDe = (nombre: string) => validos.filter((it) => it.proyecto?.trim() === nombre).map((it) => it.titulo.trim());
-      const cruce = await cruzarProyectos(
-        propuestosNoExactos.map((nombre) => ({ nombre, tareas: tareasDe(nombre) })),
+    // 1a. RUTEO POR TAREA (el Perro, ANTES de crear). El dedupe por nombre EXACTO no
+    // alcanza: MaKo inventa nombres nuevos ("Onboarding & UX") y encima MEZCLA tareas de
+    // varios temas en un grupo. Acá el Perro decide, POR CADA TAREA, a qué proyecto
+    // EXISTENTE va (o null = trabajo nuevo → se respeta el grupo de MaKo). Así "Onboarding
+    // & UX" se reparte solo (modo simple→Diseño SIMPLE, onboarding→Arranque) y no nace un
+    // proyecto duplicado. Calibrado para NO forzar los ambiguos (mejor "nuevo").
+    const ruteo: Record<number, string> = {}; // índice de tarea → id de proyecto existente
+    if (proyectos.length) {
+      const r = await asignarTareasAProyectos(
+        validos.map((it) => ({ titulo: it.titulo.trim(), grupo: it.proyecto?.trim() })),
         proyectos.map((p) => ({ id: p.id, nombre: p.name })),
-        'Fusionar proyectos propuestos con el plan',
-      ).catch((e) => { console.error('[plan-board] cruzarProyectos:', e instanceof Error ? e.message : String(e)); return { cruces: [] }; });
-      const nombreExistente = new Map(proyectos.map((p) => [p.id, p.name]));
-      for (const c of cruce.cruces) {
-        const nombre = propuestosNoExactos[c.i];
-        if (!nombre) continue;
-        byName.set(nombre.toLowerCase(), c.idExistente); // las tareas de este nombre → proyecto existente
-        // RASTRO en el proyecto existente (regla del historial): MaKo mandó tareas acá en
-        // vez de crear "nombre". Auditable y reversible si se equivocó.
-        fusionadosLog.push({ id: c.idExistente, texto: `MaKo mandó acá las tareas de «${nombre.slice(0, 60)}» en vez de crear un proyecto nuevo${c.razon ? ` — ${c.razon.slice(0, 120)}` : ''}` });
-        console.log(`[plan-board] fusión de proyecto: "${nombre}" → "${nombreExistente.get(c.idExistente)}" (${c.razon})`);
-      }
+        'Rutear tareas nuevas a proyectos existentes',
+      ).catch((e) => { console.error('[plan-board] asignarTareasAProyectos:', e instanceof Error ? e.message : String(e)); return { asign: [] as Array<{ i: number; idExistente: string }> }; });
+      for (const a of r.asign) ruteo[a.i] = a.idExistente;
     }
 
+    // 2. proyecto RESUELTO de cada tarea: (a) el Perro la ruteó a un existente, o
+    // (b) por su grupo propuesto — existente exacto, o crear uno nuevo (dedup por nombre).
     const nuevosProy: Label[] = [];
-    for (const it of validos) {
+    const ruteadasA = new Map<string, string[]>(); // idExistente → títulos ruteados (para el historial)
+    const projDeTarea: (string | undefined)[] = validos.map((it, i) => {
+      const asignado = ruteo[i];
+      if (asignado) {
+        const l = ruteadasA.get(asignado) ?? []; l.push(it.titulo.trim()); ruteadasA.set(asignado, l);
+        return asignado;
+      }
       const nombre = it.proyecto?.trim();
-      if (!nombre) continue;
+      if (!nombre) return undefined;
+      const exist = resolverProy(nombre);
+      if (exist) return exist;
       const k = nombre.toLowerCase();
-      if (byName.has(k) || idsExist.has(nombre)) continue; // ya existe (por nombre o por id, o fusionado arriba) → no duplicar
-      const id = genId('p');
-      byName.set(k, id);
-      nuevosProy.push({ id, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
-    }
+      let nid = byName.get(k);
+      if (!nid) {
+        nid = genId('p');
+        byName.set(k, nid);
+        nuevosProy.push({ id: nid, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
+      }
+      return nid;
+    });
     if (nuevosProy.length) {
       const base = proyectos.length;
       const { error } = await db.from('plan_proyectos').insert(nuevosProy.map((l, i) => labelToRow(l, base + i)));
       if (error) throw new Error(`agregarTareasPlanOwner proyectos: ${error.message}`);
     }
-    // Estampar el historial de las fusiones en los proyectos existentes (append, best-effort).
-    for (const f of fusionadosLog) {
-      const p = proyectos.find((x) => x.id === f.id);
+    // RASTRO en cada proyecto existente que recibió tareas ruteadas (regla del historial,
+    // auditable/reversible): "MaKo ruteó N tareas acá en vez de crear un proyecto nuevo".
+    for (const [pid, tits] of ruteadasA) {
+      const p = proyectos.find((x) => x.id === pid);
       if (!p) continue;
-      const hist = [{ id: genId('h'), ts: ahora, actor, text: f.texto }, ...(p.historial ?? [])].slice(0, 40);
-      await db.from('plan_proyectos').update({ historial: hist, updated_at: new Date().toISOString() }).eq('id', f.id)
-        .then(({ error }) => { if (error) console.error('[plan-board] historial fusión:', error.message); });
+      const texto = `MaKo ruteó ${tits.length} tarea${tits.length > 1 ? 's' : ''} acá (en vez de crear un proyecto nuevo): ${tits.map((t) => `«${t.slice(0, 40)}»`).join(', ')}`.slice(0, 300);
+      const hist = [{ id: genId('h'), ts: ahora, actor, text: texto }, ...(p.historial ?? [])].slice(0, 40);
+      await db.from('plan_proyectos').update({ historial: hist, updated_at: new Date().toISOString() }).eq('id', pid)
+        .then(({ error }) => { if (error) console.error('[plan-board] historial ruteo:', error.message); });
     }
 
-    // 2. tareas: #num autoritativo (server) + score inicial por prioridad.
+    // 3. tareas: #num autoritativo (server) + score inicial por prioridad.
     const start = await proximoNum(db);
     const tareas: BoardTask[] = validos.map((it, i) => {
       const prio: Prio = it.prioridad ?? 'media';
-      const projId = resolverProy(it.proyecto);
+      const projId = projDeTarea[i];
       return {
         id: genId('t'), num: start + i, emoji: '📌', title: it.titulo.trim().slice(0, 200),
         detalle: it.detalle?.slice(0, 600) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,

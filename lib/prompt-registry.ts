@@ -70,7 +70,7 @@ import {
 } from './checklist-coach';
 import { PLAN_FATHOM_SYSTEM_TEMPLATE, PLAN_FATHOM_USER_TEMPLATE } from './plan-fathom';
 import { GUARDIAN_SYSTEM_TEMPLATE, GUARDIAN_USER_TEMPLATE, GUARDIAN_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_DEBATE_USER_TEMPLATE, GUARDIAN_PROJ_DEBATE_SYSTEM_TEMPLATE, GUARDIAN_PROJ_DEBATE_USER_TEMPLATE, ELIMINAR_SYSTEM_TEMPLATE, ELIMINAR_USER_TEMPLATE, DUP_SYSTEM_TEMPLATE, DUP_USER_TEMPLATE } from './mako-guardian';
-import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, CRUCE_PROY_SYSTEM_TEMPLATE, CRUCE_PROY_USER_TEMPLATE } from './mako-guardian';
+import { CRUCE_SYSTEM_TEMPLATE, CRUCE_USER_TEMPLATE, RUTEAR_SYSTEM_TEMPLATE, RUTEAR_USER_TEMPLATE } from './mako-guardian';
 import { GATE_SYSTEM_TEMPLATE, GATE_USER_TEMPLATE } from './retro-gate';
 import {
   EXP_SUGGEST_SYSTEM_DEFAULT, EXP_SUGGEST_USER_DEFAULT,
@@ -674,18 +674,18 @@ export const REGISTRY: Group[] = [
         context: 'Le pasa las candidatas y el plan actual. No borres los slots {{candidatas}}/{{plan}}.',
       },
       {
-        key: 'guardian.cruce-proy.system', source: 'override',
-        label: 'Fusionar proyectos propuestos con el plan (system)', kind: 'system', dynamic: true,
+        key: 'guardian.rutear.system', source: 'override',
+        label: 'Rutear tareas nuevas a proyectos existentes (system)', kind: 'system', dynamic: true,
         variables: [v('jsonShape', 'forma EXACTA del JSON')], scope: 'static-only', sensitive: true,
-        default: CRUCE_PROY_SYSTEM_TEMPLATE,
-        context: 'Al cargar tareas, MaKo decide si un proyecto que iba a crear es en realidad uno que YA existe (escrito con otro nombre) para mandar las tareas ahí en vez de duplicar. Ante la duda: proyecto nuevo. No borres el slot {{jsonShape}}.',
+        default: RUTEAR_SYSTEM_TEMPLATE,
+        context: 'Al cargar tareas, MaKo decide POR TAREA a qué proyecto EXISTENTE va cada una (o si es trabajo nuevo), así no crea proyectos duplicados. Es preferible "nuevo" antes que forzar una tarea a un proyecto sólo parecido. No borres el slot {{jsonShape}}.',
       },
       {
-        key: 'guardian.cruce-proy.user', source: 'override',
-        label: 'Proyectos propuestos + plan (user)', kind: 'user', dynamic: true,
-        variables: [v('propuestos', 'proyectos que se iban a crear + sus tareas'), v('plan', 'los proyectos que ya existen')], scope: 'full', sensitive: false,
-        default: CRUCE_PROY_USER_TEMPLATE,
-        context: 'Le pasa los proyectos propuestos (con sus tareas) y los proyectos existentes. No borres los slots {{propuestos}}/{{plan}}.',
+        key: 'guardian.rutear.user', source: 'override',
+        label: 'Tareas nuevas + plan (user)', kind: 'user', dynamic: true,
+        variables: [v('tareas', 'las tareas nuevas con el grupo que propuso MaKo'), v('plan', 'los proyectos que ya existen')], scope: 'full', sensitive: false,
+        default: RUTEAR_USER_TEMPLATE,
+        context: 'Le pasa las tareas nuevas y los proyectos existentes. No borres los slots {{tareas}}/{{plan}}.',
       },
       {
         key: 'guardian.duplicados.system', source: 'override',
