@@ -968,22 +968,17 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
   const modeLabel = sortMode === 'creacion' ? 'Por creación' : 'Por prioridad';
   const ordenResumen = `${modeLabel} ${sortDir === 'asc' ? '↑' : '↓'}`;
 
-  // Las 4 categorías (las que apliquen: en Proyectos no va "Proyecto", etc.).
-  const cats: Array<{ key: FiltroVista; label: string; resumen: string; activo: boolean }> = [
-    { key: 'estado', label: 'Estado', resumen: estadoLabel, activo: doneFilter !== 'all' },
-  ];
+  // Categorías del menú. ORDENAR va PRIMERO (pedido de Martín). El resto: las que
+  // apliquen (en la vista Proyectos no va "Proyecto", etc.).
+  const cats: Array<{ key: FiltroVista; label: string; resumen: string; activo: boolean }> = [];
+  if (sortMode && setSortMode) cats.push({ key: 'orden', label: 'Ordenar', resumen: ordenResumen, activo: false });
+  cats.push({ key: 'estado', label: 'Estado', resumen: estadoLabel, activo: doneFilter !== 'all' });
   if (labels && labels.length > 0) cats.push({ key: 'proyecto', label: 'Proyecto', resumen: proyResumen, activo: !!fLabels?.size });
   if (fOrigen && setFOrigen) cats.push({ key: 'origen', label: 'Origen', resumen: origenResumen, activo: !!fOrigen.size });
-  if (sortMode && setSortMode) cats.push({ key: 'orden', label: 'Ordenar', resumen: ordenResumen, activo: false });
 
   const catRow: CSSProperties = { ...rowBtn, justifyContent: 'space-between', padding: '10px 9px' };
   const resumenTxt = (activo: boolean): CSSProperties => ({ fontSize: 12, color: activo ? 'var(--primary)' : 'var(--faint)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 });
   const backBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 };
-
-  // La dirección se rotula según el modo (más claro que "asc/desc").
-  const dirOps: Array<['desc' | 'asc', string]> = sortMode === 'creacion'
-    ? [['desc', 'Más nuevas primero'], ['asc', 'Más viejas primero']]
-    : [['desc', 'Mayor prioridad primero'], ['asc', 'Menor prioridad primero']];
 
   return (
     <span style={{ position: 'relative' }}>
@@ -1037,19 +1032,18 @@ function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, es
                 </button>
               ))}
               {vista === 'orden' && (
-                <>
-                  {([['score', 'Por prioridad'], ['creacion', 'Por creación']] as Array<['score' | 'creacion', string]>).map(([v, label]) => (
-                    <button key={v} onClick={() => setSortMode?.(v)} style={{ ...rowBtn, background: sortMode === v ? 'var(--primary-bg)' : 'transparent', fontWeight: sortMode === v ? 700 : 500 }}>
-                      <span style={radio(sortMode === v)} /><span>{label}</span>
+                // Toggle clásico: 1 clic ordena, otro clic sobre el MISMO invierte la
+                // dirección (flecha ↓/↑). Clic en el otro criterio arranca en ↓ (desc).
+                ([['score', 'Por prioridad'], ['creacion', 'Por creación']] as Array<['score' | 'creacion', string]>).map(([v, label]) => {
+                  const activo = sortMode === v;
+                  return (
+                    <button key={v} onClick={() => { if (activo) setSortDir?.(sortDir === 'desc' ? 'asc' : 'desc'); else { setSortMode?.(v); setSortDir?.('desc'); } }}
+                      style={{ ...rowBtn, justifyContent: 'space-between', background: activo ? 'var(--primary-bg)' : 'transparent', fontWeight: activo ? 700 : 500 }}>
+                      <span>{label}</span>
+                      <span style={{ fontSize: 15, lineHeight: 1, color: activo ? 'var(--primary)' : 'var(--faint)', width: 14, textAlign: 'center' }}>{activo ? (sortDir === 'asc' ? '↑' : '↓') : ''}</span>
                     </button>
-                  ))}
-                  <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '2px 4px 6px', marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 10 }}>Dirección</div>
-                  {dirOps.map(([v, label]) => (
-                    <button key={v} onClick={() => setSortDir?.(v)} style={{ ...rowBtn, background: sortDir === v ? 'var(--primary-bg)' : 'transparent', fontWeight: sortDir === v ? 700 : 500 }}>
-                      <span style={radio(sortDir === v)} /><span>{label}</span>
-                    </button>
-                  ))}
-                </>
+                  );
+                })
               )}
             </>
           )}
