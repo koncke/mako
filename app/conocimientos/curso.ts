@@ -2339,6 +2339,34 @@ export const CURSOS: Curso[] = [
       {
         "n": 70,
         "vn": 1,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Planificación de Validación",
+        "modulo": 6,
+        "titulo": "1. Planificación de Validación",
+        "cardDesc": "",
+        "videoId": "1UqfQXPA0seJuQ_8_PAMEHmYvxHeQmkzD",
+        "resumen": "Esta clase de **Planificación de Validación** (Módulo 5, \"Validación de Oferta y Ventas de Alto Valor\") te da los pasos concretos para planificar y accionar la etapa donde empezás a **captar clientes y validar tu oferta irresistible**. Ojo: acá todavía no se crea el contenido de la oferta, solo se planifica captar y vender.\n\n**Los 5 pasos de la planificación:**\n- **1. Cantidad de clientes:** que sea **alcanzable y manejable**: entre **5 y 10 clientes**. El objetivo NO es volumen, es validar todo el journey, los scripts de venta, la entrega, la hipótesis de oferta y la de precio. Aunque tengas comunidad enorme, no captes de más (Sofía, con comunidad grande, apuntó a no más de **15** en su primera validación). **Menos de 5 es red flag**: con 5 ya recopilás datos cualitativos suficientes; hacé *stretching* para llegar a ese piso.\n- **2. Ingresos / margen:** apuntá a un **margen de ganancia del 60-70%**. En validación no corresponde invertir fuerte en anuncios, plataformas ni equipo. Si te queda 10-20-30%, la propuesta ya no cierra, porque al escalar (más recursos) el margen se evapora salvo que subas precios.\n- **3. Leads necesarios:** con un **conversion rate del 10%** (buena tasa para esta etapa), necesitás **100 buenos leads para captar 10 clientes**. Ese 10% se cumple si hiciste todo bien: creatividades y mensajes que le hablan al **avatar/dolor específico** de tu documento de cliente ideal, los funnels de captación y una oferta realmente irresistible.\n- **4. Fechas por etapa (ingeniería inversa):** primero definís la fecha de arranque de la entrega, y desde ahí hacia atrás. Recomendación: **planificación** máx. 1 semana (días), **captación** 2 semanas, **ventas** 3 semanas (total 5 semanas, que ya es holgado, apuntá a bajarlo), y **entrega** = lo que dure tu oferta (2, 3, 6 meses, un año). Si el miedo te lleva a aplazar, volvé al ejercicio de **mentalidad** (definir miedos) y apoyate en tu consultor.\n- **5. Accionables por etapa:** los vas a compaginar en un mismo **dashboard** con las tareas específicas de cada etapa.\n\n**Concepto central: \"El sentido lo creás vos\".** No es necesario ni aconsejable tener la oferta ya creada: se **construye junto a los clientes**, con instancias de feedback en el medio. Podés vender algo que arranca dentro de un mes usando escasez, urgencia, cupos y el beneficio de sumarse ahora; el cliente lo cree si hablás con confianza y le das el motivo.\n\n**Ejemplo:** cuando abrieron Negocios Exitosos y MasteryHaus, el contenido no estaba creado: solo tenían un **índice/estructura** (el one-pager de la oferta) que usaron para vender y proyectar entregables por semanas. No lo hagas mega-pro (estudio, cámara, micrófono caros): vas a tener que reeditarlo, es plata al pedo en esta etapa.\n\n**Conclusión:** validá con pocos clientes, cuidando el margen, apoyándote en números simples (100 leads → 10 clientes) y fechas cortas hechas por ingeniería inversa, construyendo la oferta *con* la gente en vez de encerrarte a crearla de cero.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 71,
+        "vn": 2,
+        "grupo": "Validación de Oferta y Ventas de Alto Valor · Planificación de Validación",
+        "modulo": 6,
+        "titulo": "2. Master Planner y Accionables",
+        "cardDesc": "",
+        "videoId": "1ui9u6mLi_guf6rRlJRkoSzAirUtv8xUR",
+        "resumen": "Esta clase recorre en detalle el **Master Planner**, el documento (un Google Sheet) donde Sofía agrupa TODO un lanzamiento de una oferta irresistible, dentro de la **Planificación de Validación**. Su filosofía: \"simple pero bueno\", nada de complejizar con ClickUp, Notion o Airtable todavía —con este sheet ellos facturaron **más de 7 cifras en dólares**; las plataformas robustas quedan para cuando ya vendiste y querés escalar (Master y Pro).\n\n**Puntos clave que remarca:**\n- **One-pager de planificación:** nombre de la oferta, número de clientes e ingresos objetivo, fecha de inicio, link a la oferta, canales y tipo de funnel, link a la estrategia, y **links importantes** (carrito, Stripe, PayPal, Hotmart, datos bancarios, formulario de aplicación o VSL) más recursos extra pegados con \"chips\".\n- **Proyección simple del todo (no por mes):** clientes × precio = ingresos brutos; luego **costos fijos** (Canva, ClickFunnels, Zapier) vs **variables** (Stripe ≈ **13,5%/14,5%** por transacción, en columnas grises con fórmula que no se tocan) y **gastos de personas** (CEO, líder, consultor, editor; closer/setter NO contemplarlo aún) → da profit y márgenes.\n- **Accionables por etapas** con estado, responsable (chip o nombre), fecha límite, link a documentos y área encargada (o por \"momento\" si aún no tenés áreas): planificación (el \"antes\"), durante captación/venta, después, onboarding, durante el programa y final. Ejemplos de planificación: diseñar landing/VSL, pedir creatividades, **pixel de seguimiento**, crear **UTMs**, integrar con ActiveCampaign (email), configurar **banners por IP** (landing por país, ej. México en pesos mexicanos).\n- **Tablero/calendario anual por colores:** pintás la fecha de apertura y hacés **ingeniería inversa** hacia atrás (apertura, preparación/onboarding, venta, captación, planificación); ordena al equipo y avisa si te atrasás. Las **sesiones de maestría** van el último jueves de cada mes.\n- **CRM simple para seguir leads:** nombre, mail, teléfono, redes, estado (contactado 1/2/3 veces, invitado, agendada, hecha, ganado/perdido), prioridad (muy alta/alta/baja), oferta que le interesa (ej. Buildy Pro), monto, forma de pago (tarjeta, efectivo, transferencia, PayPal o híbrido), **señal**, contrato (enviado/firmado), comentarios y link al legajo en Drive.\n- **La \"señal\" para bajar fricción:** si el programa sale $6000 y el formulario filtra a quien tiene $3000, esa persona **seña con esos $3000** y a 30 días abona el resto —el número del filtro es el que ayuda a cerrar objeciones.\n- **Notas** (decisiones de equipo, ej. cambios de precio) y **Validaciones** (hipótesis a probar, ej. \"¿cerramos más con fondo negro en la llamada?\", con tareas y resultados).\n\n**Conclusión:** documentá todo lo que aprendés y probás —en su negocio rige que **\"nada se borra nunca\"** (carpetas de archivos antiguos)—. El Master Planner te da de un solo pantallazo la proyección, las acciones, fechas y responsables de tu oferta. La clave es simplificar, más en momentos de aceleración. El link para copiar el documento está debajo del video; apoyate en tu consultor y en las mentorías semanales.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 72,
+        "vn": 1,
         "grupo": "Marketing Perpetuo · TikTok",
         "modulo": 6,
         "titulo": "MKT Perpetuo -12",
@@ -2351,7 +2379,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 71,
+        "n": 73,
         "vn": 2,
         "grupo": "Marketing Perpetuo · TikTok",
         "modulo": 6,
@@ -2365,7 +2393,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 72,
+        "n": 74,
         "vn": 3,
         "grupo": "Marketing Perpetuo · TikTok",
         "modulo": 6,
@@ -2379,7 +2407,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 73,
+        "n": 75,
         "vn": 4,
         "grupo": "Marketing Perpetuo · TikTok",
         "modulo": 6,
@@ -2393,7 +2421,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 74,
+        "n": 76,
         "vn": 5,
         "grupo": "Marketing Perpetuo · TikTok",
         "modulo": 6,
@@ -2407,7 +2435,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 75,
+        "n": 77,
         "vn": 6,
         "grupo": "Marketing Perpetuo · TikTok",
         "modulo": 6,
@@ -2421,7 +2449,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 76,
+        "n": 78,
         "vn": 1,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2435,7 +2463,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 77,
+        "n": 79,
         "vn": 2,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2449,7 +2477,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 78,
+        "n": 80,
         "vn": 3,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2463,7 +2491,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 79,
+        "n": 81,
         "vn": 4,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2477,7 +2505,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 80,
+        "n": 82,
         "vn": 5,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2491,7 +2519,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 81,
+        "n": 83,
         "vn": 6,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2505,7 +2533,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 82,
+        "n": 84,
         "vn": 7,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2519,7 +2547,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 83,
+        "n": 85,
         "vn": 8,
         "grupo": "Marketing Perpetuo · LinkedIn",
         "modulo": 6,
@@ -2533,7 +2561,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 84,
+        "n": 86,
         "vn": 1,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2547,7 +2575,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 85,
+        "n": 87,
         "vn": 2,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2561,7 +2589,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 86,
+        "n": 88,
         "vn": 3,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2575,7 +2603,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 87,
+        "n": 89,
         "vn": 4,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2589,7 +2617,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 88,
+        "n": 90,
         "vn": 5,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2603,7 +2631,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 89,
+        "n": 91,
         "vn": 6,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2617,7 +2645,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 90,
+        "n": 92,
         "vn": 7,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2631,7 +2659,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 91,
+        "n": 93,
         "vn": 8,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2645,7 +2673,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 92,
+        "n": 94,
         "vn": 9,
         "grupo": "Marketing Perpetuo · Instagram / Facebook",
         "modulo": 6,
@@ -2659,7 +2687,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 93,
+        "n": 95,
         "vn": 1,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2673,7 +2701,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 94,
+        "n": 96,
         "vn": 2,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2687,7 +2715,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 95,
+        "n": 97,
         "vn": 3,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2701,7 +2729,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 96,
+        "n": 98,
         "vn": 4,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2715,7 +2743,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 97,
+        "n": 99,
         "vn": 5,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2729,7 +2757,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 98,
+        "n": 100,
         "vn": 6,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2743,7 +2771,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 99,
+        "n": 101,
         "vn": 7,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2757,7 +2785,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 100,
+        "n": 102,
         "vn": 8,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2771,7 +2799,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 101,
+        "n": 103,
         "vn": 9,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2785,7 +2813,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 102,
+        "n": 104,
         "vn": 10,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2799,7 +2827,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 103,
+        "n": 105,
         "vn": 11,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2813,7 +2841,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 104,
+        "n": 106,
         "vn": 12,
         "grupo": "Marketing Perpetuo · Email / Newsletter",
         "modulo": 6,
@@ -2827,7 +2855,119 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 105,
+        "n": 107,
+        "vn": 1,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo",
+        "cardDesc": "",
+        "videoId": "147lQ9gfpEGWaRI_Mnkm7wP-cFT71sX9G",
+        "resumen": "Esta clase abre la serie sobre el **podcast** dentro del **Marketing Perpetuo**, presentándolo como una **plataforma de nutrición** que vive en el medio del funnel. Sofía recuerda la anatomía del funnel: arriba está el **contenido corto** (reels, posts, artículos de TikTok, Instagram, Facebook, LinkedIn) que capta audiencia, y en el medio el **contenido largo de nutrición** (YouTube, newsletter y, acá, el podcast) al que se direcciona a esa gente para **nutrirla, posicionarte, generar confianza y autoridad**, y convertir a desconocidos en potenciales clientes.\n\n**Puntos clave que remarca:**\n- **Caso real \"Pasada Acción\"**, el podcast de Sofía lanzado en **2023**: con memes, historias y posts en Instagram/Facebook/LinkedIn concentrados en el lanzamiento, a los **3 días** llegó al **puesto 2 de los más escuchados de Argentina**. Hoy sigue en el **top 10 argentino** y ya entra en rankings de **México, Colombia y Chile**. La razón de sostenerlo en el tiempo es, justamente, el **marketing perpetuo**.\n- **Por qué el podcast nutre:** implica un **nivel de compromiso mucho mayor** que el contenido corto. Ver Instagram en el sillón deslizando pantalla es casi automático; escuchar un podcast exige una **acción consciente**: dar clic, ir a otra plataforma, sentarse a escuchar episodios largos.\n- **Anclaje a hábitos cotidianos:** la gente escucha podcasts yendo al trabajo en auto o transporte público, saliendo a caminar o correr, en el desayuno. Ese anclaje te da **más tiempo y más espacio para aportar valor** y construir vínculo (10 minutos de escucha vs. un minuto y medio de scroll).\n- **La meta:** generando contenido **sistemáticamente** y sosteniendo la rueda, te hacés **parte de la rutina** de tu \"lincho dorado\" (cliente ideal), y con el tiempo eso crea vínculo, posicionamiento, confianza y autoridad.\n\n**Conclusión:** es la lección introductoria del bloque; a partir de acá se ve **cómo pensar el podcast desde cero**, lanzarlo y hacer girar la rueda con la maquinaria del marketing perpetuo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 108,
+        "vn": 2,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-01",
+        "cardDesc": "",
+        "videoId": "1EIu2rzTI-TMDb5cO7M7RK88rMPaa_4vM",
+        "resumen": "Primera clase del bloque de **Podcast** dentro de **Marketing Perpetuo**: Sofía te lleva a tomar las **decisiones estructurales** que fijan la expectativa de tu audiencia sobre qué van a encontrar al dar play. Todo se decide en base a **dos variables**: tu **nicho dorado** y sus hábitos de consumo, y tu **tiempo, foco y recursos** (lo que puedas **sostener en el tiempo** sin romper la cadena de creación, clave sobre todo al principio para generar el hábito de escucha).\n\n**Puntos clave que remarca:**\n- **Frecuencia:** diaria, semanal o mensual. Decidila por lo que puedas sostener.\n- **Duración:** cortos (**5-15 min**), medios (**15-40 min**) o largos (**40 min a 1 h+**). Se complementa con la frecuencia: **mensual → largo** (una sola chance al mes, aprovechá para aportar más valor); **semanal → corto o medio**; **diario → corto**, como \"pastillas de contenido\" (un episodio largo diario genera dolor de escucha). Su **recomendación: semanal + corto/medio**, porque crea el hábito de escucha y baja la barrera de producción.\n- **Miniatura:** no te vuelvas loco con el diseño. Tres claves: **mantenerla simple**, **colores que contrasten** (blancos o llamativos que despeguen del fondo) y **figura humana** (las personas conectan con personas). \n- **Calendarización:** definí **día y horario fijos** y sostenelos; sugiere **10:00 a.m.** o **18-19 h** (al salir/entrar de la oficina o al correr), pero validalo con tu audiencia.\n- **Formato:** **unipersonal** (un solo host aportando valor) o **entrevista** (host que invita referentes del nicho). La entrevista **exige mucho más** (buscar, seleccionar, traer y grabar invitados): elegí según tu nivel.\n\n**Ejemplos:** su podcast **\"Paso a la acción\"** (semanal, sale los lunes, ~10-15 min, unipersonal, portada amarilla). Portadas modelo: *Psicología al desnudo* (Marina Mammoliti, fondo violeta), *Tag arriba para la CEO* (fondo negro con placa blanca), Moria Casán, *The Tim Ferriss Show*. Formato entrevista: *Tementes* (Diego Barajas) y *Épicamente* (negocios y marketing en México).\n\n**Conclusión:** estos parámetros son los cimientos del podcast. Investigá qué hace tu competencia, **bajá la barrera de entrada** y definí cada punto en función de tu nicho y de lo que puedas sostener antes de avanzar.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 109,
+        "vn": 3,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-02",
+        "cardDesc": "",
+        "videoId": "1VpvPtD_CisHSJW0-Cf8-XwBxx12mpMCs",
+        "resumen": "Segunda clase del bloque **Podcast** dentro de **Marketing Perpetuo**: las **mejores prácticas para crear cada episodio** de tu podcast, ya sea reciclando contenido o armándolo desde cero.\n\n**Puntos clave que remarca:**\n- **Bajá la barrera de entrada**: no te abrumes. Cualquier contenido que aporte valor y tenga **audio de calidad** (que se entienda, no que sea profesional) sirve de primer episodio. Si no tenés qué reciclar, creá desde cero volviendo a **Master Copy** y **estructura de contenidos ganadores**: inicio + **hook**, nudo (punto de dolor) y desenlace (la solución donde te posicionás).\n- **Audio grato de escuchar**: sin ruidos ni interrupciones; una de las principales razones de abandono es que no sea cómodo de oír. No hace falta micrófono pro — sirve hasta el de los auriculares; muchos empezaron grabando dentro de un placard.\n- **Títulos = tu primer hook** (hay dos hooks: el título y los primeros segundos del audio). Debe generar **curiosidad + identificación**. Fórmulas que funcionan: **\"Cómo\" + resolución del dolor** (\"Cómo vivir más livianos\", \"Hacerse rico en 2024 sin ser experto\"); **\"Por qué\" + dolor** (\"¿Por qué los cambios no siempre son algo malo?\"); **punto de dolor + solución** en versión corta (\"¿Te cuesta arrancar? Gana la procrastinación con estos hacks\"). Recomienda variarlos y validarlos con tu nicho.\n- **Evitá las intros genéricas**: la musiquita igual de 5-10s desperdicia los segundos más valiosos. Abrí con el hook/pregunta y, si querés, meté la intro después.\n- **Storytelling**: las personas conectan con personas. La métrica que define si un episodio funciona es el **porcentaje de retención** (cuánto tiempo se quedan escuchando); es la señal que usa el algoritmo para escalar. Planteá preguntas, dá soluciones y **prometé valor al final** (\"al final vas a ver los tres hacks…\").\n- **Mensaje de cierre y seguidores**: más seguidores = más pantallas donde se imprime tu contenido = más clics = más señal al algoritmo. Meté un **CTA a que te sigan** (al medio o al final).\n- **Enumerá tus episodios**: por lo psicológico (ver tu avance genera dopamina) y porque **ordena la experiencia** del oyente nuevo que llega y ve 40 episodios de valor. Sugiere el número **al final** (como en el podcast con Sofi) para no entorpecer la lectura del título; Tim Ferriss lo pone al principio (#número).\n- **Legales y derechos** (para que no te baneen el canal): no replicar contenido ajeno, **no usar música sin derechos** — usá la **librería gratuita de YouTube** (libre de derechos, link en el módulo) — y evitar nombres y logos de otras marcas.\n\n**Conclusión:** si no tenés contenido para reciclar, creá desde cero con Master Copy y la estructura de contenidos ganadores; si ya lo tenés, sé guardián de que el audio se escuche claro.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 110,
+        "vn": 4,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-03",
+        "cardDesc": "",
+        "videoId": "1YU1rRLyhov8IKwZZCYg1dHtgBkkd4l_L",
+        "resumen": "Tercera clase del bloque **Podcast** (Marketing Perpetuo): una vez estructurado el podcast y aprendidas las buenas prácticas para crear episodios, Sofía explica **cómo funciona el algoritmo del podcast** y cómo configurar el **SEO** para que las plataformas te posicionen frente a tu público ideal. La idea de fondo: plataformas como YouTube permiten mucha profundidad de SEO (palabras clave, títulos, descripciones), mientras que el podcasting (tipo Spotify) tiene herramientas más acotadas, pero igual hay señales que podés mandarle al algoritmo.\n\n**Puntos clave que remarca:**\n\n- **Dos frentes a trabajar:** el algoritmo en sí y la configuración SEO (palabras clave, copies, títulos, todo lo que le da información al algoritmo para posicionarte). El objetivo siempre es **ser preciso** con las palabras que usás.\n- **Retención = primera variable.** El algoritmo prueba tu contenido con un segmento y, según cómo reaccionen, lo escala a más gente o lo frena. En podcast la señal de interés es **cuánto tiempo escucha la audiencia** (hasta qué minuto llegan en promedio). Por eso el **storytelling** (hooks, nudos, desenlaces) es clave para retener. Retención promedio saludable: **70%** — apuntá como mínimo a eso.\n- **Impresiones = segunda variable.** Cantidad de veces que tu portada o episodio aparece en pantalla. Más impresiones → más chances de clic; más clics + más retención → más señales de interés. Por eso necesitás **buena portada, buenos títulos y buenas descripciones**.\n- **Dos instancias de SEO:** la del podcast en general (al crearlo) y la de cada episodio.\n\n**Configurar el SEO del podcast:**\n- **Nombre/título:** nada de azar. Tiene que ser un **hook**, resumir el valor que aportás, hablar de tu nicho y ser **claro** para que la audiencia entienda. Ejemplos: *\"Pasa a la acción con Sofía Contreras\"* (te invita a algo práctico y accionable), *\"The Diary of a CEO\"* de **Steven Bartlett** (diario íntimo → lado B, secretos del mundo de los negocios), *\"Psicología al desnudo\"* (nicho claro + info democratizada).\n- **Descripción:** posicionamiento estratégico. Contá **brevemente quién sos, tu autoridad y qué valor/qué van a encontrar**, y meté palabras clave del título para reforzarlas. Ejemplo de **David Oviedo**: primero su recorrido (estaba quebrado, dejó la universidad, a los 18 armó una industria de lanzamientos) y recién al final de qué va el podcast. Ejemplo de **Sofía**: primero su carrera y autoridad (CEO de Mastery Haus, consultora), después qué vas a encontrar (herramientas y metodologías de productividad, mentalidad y negocios).\n- **Categorías:** agregá la **etiqueta** que mejor represente tu nicho (negocios, hábitos saludables, deportes…); es una señal fuerte de dónde mostrarte.\n- **Transcripciones:** activá el botón que pasa el audio a texto. No es súper preciso todavía, pero suma checks a la plataforma y las palabras refuerzan la idea de tu podcast y ayudan a la búsqueda.\n\n**Configurar el SEO de cada episodio** (hacerlo siempre que lances uno). En Spotify solo tenés **título y descripción**, no hay hashtags —por eso más adelante se ve la importancia de redirigir audiencias al canal. El **título** es el primer hook que define el clic e introduce palabras clave; el **copy** resume el tema del episodio **repitiendo esas mismas palabras clave** para duplicar la señal. Ejemplo: título *\"Cómo ganar el videojuego de los negocios\"* con un copy que repite \"negocios\", \"videojuego\", etc.\n\n**Conclusión:** el podcast da menos margen de SEO que YouTube, pero hay bastante por hacer. Dejá todo pulido y bien implementado (título, descripción, categoría, transcripción, retención e impresiones) para que el algoritmo detecte la información y te potencie frente a tu público ideal.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 111,
+        "vn": 5,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-04",
+        "cardDesc": "",
+        "videoId": "1qFR8FbMf1ptqdNYgOYo-Mt7DDtsQ-bWX",
+        "resumen": "Clase 100% práctica de **Marketing Perpetuo / Podcast**: un tutorial paso a paso para **crear y configurar tu perfil de creador en Spotify for Podcasters** (podcasters.spotify.com), con foco en dejarlo optimizado para SEO y para el algoritmo. El link y el paso a paso también están en el **libro de Marketing Perpetuo**.\n\n**Puntos clave que remarca:**\n\n- **Alta de cuenta:** primero necesitás una cuenta de oyente en **Spotify.com** (mail, fecha de nacimiento, contraseña). Con esa misma cuenta entrás a **podcasters.spotify.com**, te registrás y las cuentas se vinculan solas. Para poder publicar episodios hay que **verificar el correo** haciendo clic en el link que llega al mail.\n- **Configuración del canal (menú izquierda → Configuración)**, con tres solapas: **Información** (todo el detalle), **Disponibilidad** (distribuir a otras plataformas) y **Equipo** (versión beta, para sumar mails de tu equipo que gestionen la cuenta).\n- **Título:** pensalo estratégico, que haga clic con tu audiencia y funcione como **adelanto del valor** del canal.\n- **Descripción:** primero **posicionarte** (destacar desde qué lugar hablás, eso sienta tu autoridad) y luego un párrafo sobre la temática (\"en este podcast vas a encontrar las herramientas para…\").\n- **Mensajes de voz de oyentes:** función opcional para recibir feedback; no afecta el SEO, la activás según tu criterio.\n- **Autor:** el nombre del anfitrión (usa de ejemplo \"Juan Silviano\").\n- **Portada:** simple, que no abrume, **colores que contrasten**, título legible; si hay **figura humana** conecta más (\"las personas conectan con personas\"). Tamaño recomendado: **1400 × 1400 píxeles**, se sube desde el botón \"actualizar portada\".\n- **Etiqueta/categoría:** clave elegir bien (negocios, humor, educación, salud, etc.), porque el algoritmo te muestra a audiencias que escuchan otros podcasts de esa misma categoría. Ejemplo elegido: **negocios → marketing**. Además, **idioma** (elige español–Argentina) y si el contenido es **apto o explícito** (el canal de Sofía queda apto).\n- **Config solo de Spotify:** desactivar **recomendaciones de otros creadores** al final del episodio (no querés que la audiencia se fugue); en **episodio destacado del perfil**, dejar siempre el **último** para generar señales de interacción en los primeros segundos del lanzamiento (o un episodio de bienvenida si tu nicho debería empezar por ahí).\n- **Extras que ayudan al algoritmo:** activar **transcripciones** (audio a texto) y usar **capítulos** (fragmentos temáticos como en YouTube), automáticos o manuales marcando los minutos en la descripción (ej. 00:00 intro, 1:43 siguiente capítulo). También preguntas y respuestas automáticas, link del podcast, sitio web y redes sociales.\n- **Disponibilidad:** al lanzar el primer episodio se genera un **link RSS** que copiás y pegás en Amazon Music, Apple Podcast, Castbox y más para distribuir.\n- Todo esto **se puede modificar a futuro**, no es estático.\n\nUna vez guardado, la home muestra el **dashboard** con estadísticas (seguidores, oyentes mensuales, reproducciones, crecimiento) y la vista de episodios. **Monetización** existe (patrocinadores) pero acá no se usa.\n\n**Conclusión:** el proceso es intuitivo; lo estratégico es pensar bien **nombre, descripción y categoría**. La próxima lección cubre cómo configurar y programar un episodio. Es un trabajo de **validación, iteración y juego de largo plazo**.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 112,
+        "vn": 6,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-05",
+        "cardDesc": "",
+        "videoId": "1mmLGmtQC7LMqrrmC8bAxwoHkUkpwsKC8",
+        "resumen": "Clase práctica del módulo **Marketing Perpetuo / Podcast**: el **paso a paso para programar un episodio** en la plataforma de podcasting (Spotify for Podcasters). Sofía muestra cada campo y deja recomendaciones de criterio, no solo el \"dónde clickear\".\n\n**Puntos clave que remarca:**\n- En la **página de inicio** ves tus métricas (reproducciones, seguidores, performance del canal). Para cargar, vas al menú izquierdo → **Nuevo episodio**.\n- Se pueden subir **audio y video**. El video todavía no está optimizado (siguen trabajando los algoritmos), pero es viable si querés validarlo.\n- La edición interna de audio (cortar, unir, música, efectos) **están por quitarla** y migrarla afuera, a **Riverside**. Su consejo fuerte: **llegá a esta instancia con la pieza final ya terminada**, para no depender de plataformas externas ni quedar colgado si la página cambia o se rompe.\n- **Título:** dejá **limpia la primera parte** para agilizar la lectura y poné el **número de episodio al final**, así la audiencia nueva ve hacia atrás cuánto contenido hay (formato de \"títulos ganadores\").\n- **Descripción:** un copy corto sobre la temática, con opción de **agregar links** (marcás la palabra → opción link → pegás la URL) para un call to action hacia otra parte del funnel o contenido de nutrición. Hay negrita, cursiva e ítems.\n- **Fecha de publicación:** ahora o **programada**. Ideal para trabajar por **batch**: si tenés contenido en tu **bóveda**, lo dejás programado y te olvidás de la config.\n- **Contenido explícito:** marcar sí/no según malas palabras o aptitud de público.\n- **Contenido promocional:** su recomendación firme es **dejar el panel de nutrición libre de marcas** (marcar \"no\"). Es un espacio para generar vínculo con la audiencia; no venderles, y menos algo que es de otros. Eso da **más credibilidad y confianza**.\n- **Información adicional:** si es episodio completo o avance, número de temporada y de episodio. La **portada** toma la del podcast automáticamente; sugiere **no** poner una específica por episodio para mantener todo unificado y sin confusión.\n- Luego **Siguiente** → página de **interacciones**: preguntas y respuestas automáticas y **encuestas** (¿te gustó?) para incentivar comentarios y aportar valor.\n- Al final se **revisa y se programa**. En el video no puede programar porque es una cuenta de prueba sin la verificación hecha.\n\n**Conclusión:** dominá la mecánica de carga, pero sobre todo llegá con la pieza final lista y cuidá la nutrición manteniéndola sin publicidad para no romper la confianza con tu audiencia.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 113,
+        "vn": 7,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-06",
+        "cardDesc": "",
+        "videoId": "1Fqxgszy6-ddHFZdUdJQMR9uJDFowdhP1",
+        "resumen": "Este episodio del módulo **Marketing Perpetuo / Podcast** cierra la serie: ya se vio por qué el **podcast es una plataforma de nutrición** dentro del funnel, cómo estructurarlo, cómo crear o reciclar episodios y cómo configurar el canal. Acá el foco es **calendarizar y distribuir** los episodios, sirva para un **lanzamiento desde cero** o para una publicación sistemática ya en marcha.\n\n**Puntos clave que remarca:**\n- **Requisito previo: la bóveda de contenidos** pulida y lista. Es una carpeta en Drive, bien rotulada y fácil de encontrar, que contiene todo el contenido largo y corto listo para publicar (si hay dudas, volver a la lección de **pirámide de contenidos**).\n- **Repaso del flujo:** (1) **crear o reciclar** el episodio —cualquier contenido con audio claro que aporte valor sirve: entrevistas, sesiones 1-1, videos viejos de YouTube; Sofía cuenta que ellos lanzaron con audios de sus videos de YouTube para bajar la barrera de entrada. Si no hay material, se crea desde cero con **estructura de contenidos ganadores** y el **master copy**. (2) De cada contenido largo salen **piezas cortas** (posts, cortes para reels, fragmentos para artículo de LinkedIn). (3) Registrar cada pieza en la **plantilla de stock de contenidos** (el Excel con nombre de pieza y redes) y volcarlas al **calendario de contenidos mensual**.\n- **La limitación de las plataformas de podcast:** a diferencia de Instagram o YouTube, Spotify **no permite generar movimiento de audiencia dentro de la plataforma** (no podés mandar de una historia al post, ni de un short al video). Por eso el objetivo es **traer audiencia desde afuera** hacia el podcast: del contenido corto al contenido de nutrición.\n- **Regla madre:** el **contenido corto dirige al contenido largo de nutrición**, y **TODA** pieza debe llevar un **call to action** (\"hacé clic acá para escuchar el episodio completo\" o \"respondeme *podcast* y te mando el link\").\n- **El objetivo es un pico de audiencia** en el momento del estreno: como enseña la lección de algoritmos, los primeros segundos definen si el algoritmo detecta interés. Para eso hay que **generar expectativa previa** y tener gente lista para accionar en ese instante.\n- **El calendario en acción:** ellos lanzan el podcast los **lunes**, y ese día **todas las plataformas direccionan al podcast** (cada color del calendario es una red: violeta = Instagram; H = historia, P = post/podcast → historia y post de Instagram van al podcast; LinkedIn y Facebook con posts; reel en TikTok; post en YouTube). Todos los lunes buscan el pico de escuchas.\n\n**Ejemplo real (lanzamiento de marzo 2023):** empezaron a **fijar expectativas con anticipación**. El **5 de marzo** mandaron un mail al newsletter (el \"cortito\") anunciando que venía el podcast, faltando ~10 días. El **4 de marzo** subieron historias tipo tráiler con portada, recorte de audio y cierre \"próximamente en Spotify\", generando momentos wow. Un día antes volvieron a avisar por email que el **lunes 13 de marzo** salía en todas las plataformas. El **día del lanzamiento** sacaron un post con CTA \"dejá la palabra *podcast* y te envío el link\", replicado en LinkedIn, Facebook e historias; recibieron muchísimos comentarios porque la audiencia ya venía preparada. Los días siguientes siguieron con **storytelling** en historias contando el logro (**puesto 26**, luego **puesto 3** y **puesto 2** en el ranking de Argentina), agradeciendo y **haciendo parte a la comunidad** —porque quien se siente parte de algo, interactúa más.\n\n**Cómo se aplica hoy, semana a semana:** un episodio (largo → Spotify) se fragmenta en un **reel con animaciones y audio de Sofía** que se publica en YouTube, Instagram, LinkedIn, Facebook y TikTok, más **posts**; y **todos los domingos** el newsletter tiene un espacio exclusivo con el episodio de la semana. En las historias del lunes arrancan con un **hook** sobre un dolor, plantean la solución e invitan a hacer clic al podcast.\n\n**Conclusión:** así funciona la **maquinaria de marketing perpetuo** y la **pirámide de contenidos**: top of funnel = contenido corto que atrae; medio del funnel = contenido de nutrición (el podcast). Del corto se dirige al largo, se nutre, se genera vínculo, confianza y autoridad, y se construye una relación a largo plazo que eventualmente convierte en clientes. Las tres claves: **bóveda de contenidos**, **entender la pirámide** y que **absolutamente todo el contenido lleve un call to action** hacia el contenido largo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 114,
+        "vn": 8,
+        "grupo": "Marketing Perpetuo · Podcast",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-07",
+        "cardDesc": "",
+        "videoId": "1cAFS_A43F1t7nkAQe7jauTN28uTuPuv9",
+        "resumen": "Esta clase del módulo **Marketing Perpetuo / Podcast** se mete de lleno en **qué medir en un podcast**, y la métrica reina es la **retención de audiencia**: el porcentaje promedio de escucha de un episodio, es decir, cuánto tiempo en promedio lo escuchan las personas del total de la audiencia.\n\nPuntos clave que remarca:\n- **Por qué importa:** la retención le da señales al algoritmo (Spotify) de que tu contenido es interesante, y así lo muestra exponencialmente a más segmentos de audiencia. Subirla depende de **saber contar buenas historias** que capten y sostengan la atención en el tiempo, apoyándote siempre en tu **master copy** y tu **estructura de contenidos ganadores**.\n- **El número de referencia:** un **60% es una retención saludable** y el piso mínimo al que apuntar; el objetivo es siempre superarlo.\n- **Dónde verlo:** en la plataforma de podcasters, entrás a la sección **Episodios** del menú lateral, hacés clic en cualquiera y se abre la página con el porcentaje de retención.\n- **Tu propio promedio:** más allá del 60%, hay que **llevar un registro** de tu retención a lo largo del tiempo, sacar tu promedio y apuntar a superarlo. Si bajó, buscar el insight de qué se hizo distinto para no repetirlo; si subió, ver qué se hizo bien y replicarlo.\n- **Duración vs. retención:** cuanto **más largo el episodio, más tiende a bajar la retención** porque la gente abandona; por eso conviene estandarizar duración y frecuencia para poder medir con lógica.\n\n**Ejemplo:** una captura de un episodio del podcast *Pasar a la Acción* de Sofía muestra un **88% de retención**, por encima del 60% saludable.\n\n**Conclusión:** con la frase que repite Sophie —**\"todo lo que se puede medir, se puede mejorar\"**—, la idea es seguir de cerca la retención para entender qué funciona, mejorarlo y llegar a nuevas audiencias. Y ahora sí, a pasar a la acción y poner a correr tu podcast.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 115,
         "vn": 1,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
@@ -2841,8 +2981,22 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 106,
+        "n": 116,
         "vn": 2,
+        "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
+        "modulo": 6,
+        "titulo": "Dominar YouTube -01",
+        "cardDesc": "",
+        "videoId": "1XWDOIfK2E5JHYRlHWxif7LK8BJK1_qdW",
+        "resumen": "Este clip del módulo **Marketing Perpetuo (YouTube)** muestra, en concreto, cómo **organizar la producción de contenido** una vez que ya tenés definidos tus **pilares temáticos**: el sistema para pasar de una idea suelta a un guion listo para grabar. Sofía y su equipo lo hacen en **ClickUp**, pero aclara que podés replicarlo en **Google Sheets** o **Word**: lo que importa es mantenerlo **simple** y llegar al día de grabación con todo pulido para hacer foco solo en grabar.\n\nPuntos clave que remarca:\n- **Estructura en ClickUp:** una carpeta \"YouTube\" con dos listas —**Ideas** y **Videos full** (videos listos para publicar o publicados)— más un documento tipo Sheets de \"ideas random\" que funciona como **memoria externa** y se filtra hacia la lista de ideas.\n- **Template de cada idea (columnas):** nombre/acercamiento al título, **responsable asignada** (en su caso Mica, a cargo del contenido), **categorías** = pilares temáticos (negocios, productividad, mentalidad; sumaron entretenimiento y libros), y **estado** (en proceso, revisión, ajustes, terminado).\n- **Instancia de check con Sofi siempre:** cada idea terminada se le asigna para su feedback; si hay correcciones deja el estado en \"ajustes\" y el equipo la retrabaja hasta \"terminado\". Si delegás esto, tené tu propia instancia de revisión.\n- **Dentro de la tarjeta (desplegable del template):** el **script de video** con la estructura **hook, introducción, nudo y desenlace**, desarrollados brevemente como disparadores para grabar; más campos de tamaños/títulos, **ideas generales** e **inspiración/referencias** (ejemplo: guardaron info de un video de **Alex Hormozi** como referencia).\n- **Flujo final:** cuando la estructura está cerrada, la tarea pasa de la lista de **Ideas** a la de **Videos full**, arrastrando la tarjeta (sin tocar nada aunque salga el cartel), lista para grabar o publicar.\n\nConclusión: pasar en limpio y mantener el orden simple para poder **accionar**; elegí la herramienta que mejor calce con tu estructura, pero llegá a grabar con los guiones listos.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 117,
+        "vn": 3,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -02",
@@ -2855,8 +3009,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 107,
-        "vn": 3,
+        "n": 118,
+        "vn": 4,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -03",
@@ -2869,8 +3023,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 108,
-        "vn": 4,
+        "n": 119,
+        "vn": 5,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -04",
@@ -2883,8 +3037,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 109,
-        "vn": 5,
+        "n": 120,
+        "vn": 6,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -05",
@@ -2897,8 +3051,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 110,
-        "vn": 6,
+        "n": 121,
+        "vn": 7,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -06",
@@ -2911,8 +3065,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 111,
-        "vn": 7,
+        "n": 122,
+        "vn": 8,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -07",
@@ -2925,8 +3079,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 112,
-        "vn": 8,
+        "n": 123,
+        "vn": 9,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -08",
@@ -2939,8 +3093,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 113,
-        "vn": 9,
+        "n": 124,
+        "vn": 10,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -09",
@@ -2953,8 +3107,8 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 114,
-        "vn": 10,
+        "n": 125,
+        "vn": 11,
         "grupo": "Marketing Perpetuo · YouTube (pasos para dominarlo)",
         "modulo": 6,
         "titulo": "Dominar YouTube -10",
@@ -2967,7 +3121,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 115,
+        "n": 126,
         "vn": 1,
         "grupo": "Marketing Perpetuo · YouTube (estrategia)",
         "modulo": 6,
@@ -2981,7 +3135,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 116,
+        "n": 127,
         "vn": 2,
         "grupo": "Marketing Perpetuo · YouTube (estrategia)",
         "modulo": 6,
@@ -2995,7 +3149,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 117,
+        "n": 128,
         "vn": 3,
         "grupo": "Marketing Perpetuo · YouTube (estrategia)",
         "modulo": 6,
@@ -3009,7 +3163,329 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 118,
+        "n": 129,
+        "vn": 1,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-19",
+        "cardDesc": "",
+        "videoId": "1PjvnNaCY_rqGs8AoqeZ54ksD1T-dh2rp",
+        "resumen": "Esta clase abre el módulo de **Marketing Perpetuo** con el concepto de **pirámide de contenidos**: cómo crear contenido de forma sistemática para que \"la rueda nunca deje de girar\". La **ley fundamental** que repite es que **todo contenido puede y debe convertirse en más contenido**.\n\n**Puntos clave que remarca:**\n\n- **El problema de crear contenido aislado:** aparecen muchos puntos de dolor (idear, grabar, editar, publicar), se hace a cuentagotas cuando encontrás un hueco, sin estrategia y dependiendo de las ganas y la motivación. Así la creación termina última en la lista de prioridades.\n- **La solución (la pirámide):** poner el esfuerzo en crear **una pieza larga de valor** —en su caso, videos de YouTube— y luego **fragmentarla** en piezas chicas (reels, posts, artículos, mails). Se trata de **exprimir al máximo** ese contenido largo para armar una **\"bóveda de contenidos\"**, un stock que te deja \"estrellado\" de material. Así pasás de crear contenido todos los días sin sistema a **crearlo una vez al mes**.\n- **Cubre las tres etapas del funnel de una:** arriba, contenido corto (captación de audiencias en frío); en el medio, contenido largo (nutre y convierte en leads calificados); abajo, la conversión/venta.\n- **Jornadas de grabación:** **Sophie** bloquea su agenda **una vez al mes** (a veces cada dos) y graba todo de una tirada: hasta **5 o 6 videos de YouTube de 15 a 20 minutos**, y de cada uno pueden salir **6, 7 u 8 reels**. Con eso genera material para todo el mes.\n- **Por qué todo desprende de YouTube:** es el **segundo buscador más grande** después de Google, **indexa por años** y el contenido **no caduca** si tenés buen SEO y las palabras clave; es donde más se ven videos (más que Netflix) y —a diferencia del podcast o el newsletter— **no hace falta redireccionar tráfico** porque el algoritmo posiciona solo. Es su mayor espacio de nutrición y vínculos profundos, junto con el newsletter y el podcast (que se nutre de los audios de YouTube).\n- **Crear de cero o reciclar:** sirve cualquier cosa que aporte valor a tu nicho dorado. En video: entrevistas previas o futuras, podcasts de terceros, conferencias, sesiones de consultoría o grabar desde cero. En escrito: ebooks, libros, fragmentos, documentos internos de procesos convertidos en post o artículo de LinkedIn.\n\n**Ejemplo:** cuando arrancaron con YouTube, **reciclaron contenido de las consultorías de Sophie**, sacando cortes de esos videos. Fue la forma de **bajar la barrera de entrada**, generar el hábito de publicar e ir optimizando de a poco.\n\n**Conclusión:** si ya tenés material, reciclalo; si no tenés nada, no te preocupes, se construye desde cero plataforma por plataforma. La idea es **sistematizar** para no depender nunca de la motivación ni del tiempo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 130,
+        "vn": 2,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-20",
+        "cardDesc": "",
+        "videoId": "1cej_9kqyrOeP0ou1HeEBJwV6V72uPbAp",
+        "resumen": "Esta clase de **Marketing Perpetuo** enseña cómo bajar de la **pirámide de contenidos**: agarrar un **contenido largo** (en el caso de Sofi, videos largos de YouTube) e **identificar dentro fragmentos de formato corto** para distribuir en todas las plataformas, sin depender de las ganas, la motivación ni el azar. La regla de oro: cada **micro pieza tiene que funcionar por fuera del video** y aportar valor por sí sola.\n\n**Puntos clave que remarca:**\n- **Cómo identificar el contenido corto:** volver a ver el contenido largo, pero ahora buscando fragmentarlo, teniendo presente la **estructura de contenidos ganadores: inicio, nudo y desenlace** (hook + dolor del cliente + la solución que te posiciona). Se trata de identificar hooks y momentos de valor.\n- **Herramientas para encontrar puntos de dolor/interés:**\n  - **YouTube Analytics:** muestra los **momentos clave de retención** del video; los \"piquitos\" de audiencia (ej. un pico al final) marcan un punto de interés que puede volverse un reel, un post o un artículo. Si no se puede fragmentar, sirve como disparador para próximos contenidos.\n  - **Newsletter:** comparar aperturas y retención. Ejemplo de dos cortitos de Sofi: el que peor funcionó tuvo **39% de retención** y el mejor **6% de tasa de apertura** (según transcripción); el más relevante tiene material reutilizable.\n  - **Comunidad:** las **partes más compartidas** de tus cortitos (ej. los que publican los domingos y les llegan notificaciones de fragmentos) son referencia directa para nuevos posts/reels.\n  - **Podcast:** los episodios con más reproducciones y retención señalan qué temas interesan más.\n- **El desafío de los reels (armar un \"Frankenstein\"):** los fragmentos para copy/post/artículo solo hay que redactarlos, pero encontrar un **reel de corrido** dentro del video largo no siempre pasa. La técnica es **marcar tiempos y frases** (inicio de la frase → fin de la frase, ej. desde el 00:10 \"tengo éxito...\") en un documento para el equipo de edición.\n\n**Ejemplo:** en el documento real que usan con edición, el **Reel 1** salió de corrido (una sola línea, del 01:02 al 01:54); el **Reel 2** fue un Frankenstein, uniendo un primer tramo con otro que arranca del 4:19 al 4:25. De un solo video de YouTube sacaron **6 reels, 1 episodio de podcast y 1 carrusel** (podrían ser más).\n\n**Cómo se distribuye:** el **video full** va a YouTube y Facebook; los **reels** a Shorts, Instagram, TikTok, LinkedIn y Facebook; el **audio** al podcast en Spotify; los **posts/copies** a YouTube, Instagram, LinkedIn, Facebook y mails. Una sola pieza larga multiplica las acciones en todas las plataformas: esa es la fórmula del contenido perpetuo.\n\n**Conclusión:** toda pieza —corta o larga— va a tu **bóveda de contenidos**, cuya gestión se ve en la próxima lección.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 131,
+        "vn": 3,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-21",
+        "cardDesc": "",
+        "videoId": "1k_i0Q9JXhzBC8nP77f0LEMkTiVCy5XCQ",
+        "resumen": "Esta clase de **Marketing Perpetuo** enseña a **administrar y guardar** todo el contenido que ya grabaste, editaste y fragmentaste (piezas largas y cortas), para que \"en el caudal nada se pierda\" y todo sea fácil de acceder. La herramienta central es la **Bóveda de Contenidos**: una serie de carpetas en Drive más una plantilla de Google Sheets.\n\n**Puntos clave que remarca:**\n- **La bóveda vive en Drive**, dentro de una carpeta \"Marketing\". Como su **pieza madre** de contenido es **YouTube**, nombran TODO partiendo de ahí: `YT + número de video + título`, así las carpetas quedan cronológicas.\n- Dentro de cada carpeta de video hay subcarpetas: **artículos, materiales, podcast, posts, reels, el archivo de ajustes y el video final**.\n  - **Artículos**: los insights escritos del video que sirven para copy o artículos de LinkedIn o email marketing.\n  - **Materiales**: los crudos. Insiste: NUNCA deshacerse de ellos, por si hay que reeditar.\n  - **Podcast**: los audios; de un solo video largo pueden salir varios episodios cortos.\n  - **Posts** y **Reels**: las piezas ya editadas.\n  - **Ajustes**: el documento (visto en la lección anterior) donde con el equipo de diseño detallan cortes de reels y formas de edición.\n  - **Video final**: nombrado `YT + número + \"final\"`; así como está sale a YouTube y Facebook.\n- **Regla de oro (muy insistente)**: definir UNA nomenclatura y respetarla para todo (le ponen el número de video de YouTube a cada carpeta y archivo, ej. `reel + número + video de YT`), para encontrar cualquier archivo suelto más adelante.\n\n**La plantilla de Stock de Contenidos** (descargable de la carpeta de contenidos del blog de marketing):\n- **Columna A**: número de video de YouTube (1, 2, 3…), linkeada a la carpeta del video para acceder rápido.\n- **Columna B**: título del video.\n- **Columna C**: todos los contenidos que se sacan de ese video (posts, reels, artículos, podcast, todo).\n- **Columna D**: título de cada contenido para identificarlo.\n- Luego columnas por **red social** (Instagram, TikTok, Facebook, YouTube, LinkedIn y Podcast): al planificar el calendario se va **tildando** qué contenido ya se calendarizó, para no repetir ni equivocarse.\n\n**Conclusión:** la plantilla es simple pero hay que mantenerla al día y completa, porque es la visión del stock disponible que hace funcionar la **máquina de marketing perpetuo**. En la próxima lección: cómo distribuir y calendarizar los contenidos.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 132,
+        "vn": 4,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-22",
+        "cardDesc": "",
+        "videoId": "1HnZZjDZOCZAupT5sAka5RdkuXgG4KE8P",
+        "resumen": "Esta clase del módulo **Marketing Perpetuo** (submódulo **Pirámide de contenidos**) enseña a **calendarizar y distribuir** los contenidos de todo un mes, apoyándote en dos herramientas: la **plantilla de stock de contenidos** y tu **bóveda**. La idea central es que todo funcione como una **rueda que gira todos los días**, donde cada pieza corta empuja hacia una pieza larga de nutrición.\n\n**Puntos clave que remarca:**\n\n- **Paso 1 — Definir los días del contenido largo** (nutrición / *middle of the funnel*): **lunes** sale el podcast *Paso a Acción*, **miércoles** el video de **YouTube** full y **domingos** la edición del *cortito* de **newsletter**. Hay que respetar esos días para generar **expectativa** en la comunidad.\n- **Paso 2 — Definir cantidad y frecuencia del contenido corto** (*top of the funnel*). Recomendación: subir **la mayor cantidad posible**, porque más contenido con un funnel optimizado = más leads = más clientes. Su esquema: **Instagram** 1 reel/post/carrusel por día + ~3 historias diarias, 5 veces por semana (dejan **48 hs sin historias**, decisión estratégica para potenciar el engagement al volver); **TikTok** 1 reel diario; **LinkedIn** 1 reel + 1 posteo diario, 5 veces por semana; **YouTube Shorts** 2 por semana; **YouTube Posts** 2 por semana.\n- **Paso 3 — Calendarizar con un propósito**: dirigir audiencia a los contenidos largos. Clave de algoritmo: enviar **señales de interés apenas se publica** para que el algoritmo lo muestre a más gente; por eso hay que **acercar la mayor cantidad de audiencia lo más rápido posible**.\n\n**Ejemplo del lunes (podcast):** ese día *todo* el marketing apunta al podcast. Post/reel en Instagram con la narrativa del episodio + adelanto + **CTA**; historias generando debate e insinuando el tema + CTA; reel/fragmento en TikTok + CTA; post en LinkedIn desde el **dolor que resuelve** + CTA; y un **mail a toda la base** avisando el estreno. Los días sin contenido largo, igual se publica corto pero siempre con un **CTA** que reconduce al largo.\n\nSobre el **calendario** (descargable en la carpeta de contenidos de Marketing Perpetuo): cada celda es una pieza, con colores de referencia — **violeta=Instagram, azul=LinkedIn, celeste=Facebook, negro=TikTok, rojo=YouTube, verde=Podcast**.\n\n**Automatización que muestra:** una pieza corta con el CTA *\"deja la palabra podcast\"* dispara un bot en Instagram vía **ManyChat** (se ve al final del módulo), que responde a esa palabra-disparador con un DM que lleva al episodio.\n\n**Conclusión:** calendarizá siendo objetivo y con el funnel como foco. Toda pieza corta debe llevar, con CTA claro, a una pieza larga de nutrición; esa es la máquina de marketing perpetuo girando a diario.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 133,
+        "vn": 1,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · General",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo",
+        "cardDesc": "",
+        "videoId": "1EBeGjn-hCPGOIvqX8lblt0COwoqwhRDy",
+        "resumen": "Esta clase abre el módulo de **Marketing Perpetuo**, un concepto propio del equipo de Sofía Contreras: una estrategia sistemática de posicionamiento orgánico que, atada a un funnel, se vuelve **eterna**. Sofía arranca con una prueba: casi nadie llega a ellos por un solo anuncio, sino por el **correo de los domingos**, los **videos largos de YouTube** o el **podcast**. Ese es el punto: sostener presencia en el tiempo para que la gente confíe cada vez más.\n\n**Puntos clave que remarca:**\n- **Por qué \"perpetuo\":** el contenido se apalanca en plataformas que son en sí motores de búsqueda, así que lo que creás nunca desaparece. Contenido de valor sistemático + estrategia sólida + funnel = atracción de clientes eterna.\n- **Qué genera:** audiencia, confianza y sobre todo **autoridad**. Una **marca personal** fuerte baja las barreras de la venta, disminuye el **costo de adquisición**, acorta el proceso de compra y hace que los clientes lleguen \"calientes\" en vez de \"fríos\".\n- **Analogía humana:** la confianza se construye con múltiples puntos de contacto, igual que una amistad (recién ahí le pedís al amigo que te busque al aeropuerto a las 5 a.m.).\n- **Orgánico vs. pago:** el posicionamiento se puede lograr solo con anuncios, pero hay sobrepoblación de gurús y pagar ads es fácil; lo difícil (y valioso) es el contenido orgánico constante. Quien te ve en un anuncio te va a **googlear** para corroborar, y lo orgánico es lo que te respalda.\n- **Ser dueño de tus leads:** depender solo de anuncios es frágil. Ejemplo real: con el cambio de políticas de **iOS**, Meta/Facebook perdió precisión de tracking y hubo gente que perdió **millones de dólares** de un mes para el otro.\n- **Barreras bajas en lo orgánico:** frente a un anuncio la gente tiene la guardia alta; en el scroll orgánico busca aprender o entretenerse, así que si identificás bien dolores y deseos del nicho, la relación se construye más fácil. Plataformas mencionadas: **Instagram, X (Twitter), Facebook, TikTok, LinkedIn, Spotify/podcast y YouTube**.\n- **Sistema escalable:** el objetivo es una máquina que genere cientos de piezas en muchas plataformas de forma sistemática, sin depender de la motivación. Sofía usa hoy el mismo sistema con **3 personas** que cuando era ella sola; permite subir volumen sin que se rompa.\n- **El negocio detrás:** muchos crean contenido pero no lo monetizan; vos ya tenés un negocio, y atarlo a la creación de contenido es la verdadera máquina. La meta final es **sacar su propia cara** del centro para que el negocio siga corriendo sin ella (por eso apuesta a una plataforma específica que revelará más adelante).\n\n**Conclusión:** el marketing perpetuo es el juego de largo plazo que pocos juegan; quien se compromete construye un negocio infalible sobre una marca personal sólida. En los próximos videos se desarma el funnel paso a paso y la maquinaria de contenido, con **Juan** (su content strategist hace 3+ años) y **Nika** acompañando dudas en la comunidad de Circle.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 134,
+        "vn": 2,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · General",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-01",
+        "cardDesc": "",
+        "videoId": "10-JzkPumAjrygolFEfBRb2hZEUYAPNPW",
+        "resumen": "**De qué va:** primer video del módulo de **Marketing Perpetuo** de MasteryHaus. Sofía abre con la idea que ordena todo el módulo: cada acción de marketing —ads, orgánico, cualquier plataforma— sirve para **comprar \"real estate mental\"** (bienes raíces mentales), es decir, **comprar tiempo en la mente de las personas**. Cita a Gary Vee: *\"I day trade attention for a living\"*. El **trade-off** de esa atención es la **confianza**, y sobre esa audiencia después apalancás el negocio.\n\n**Puntos clave que remarca:**\n- Se necesitan **mínimo 5 puntos de contacto** para una decisión de compra; ellos buscan muchos más, para generar **relación y confianza con valor real**. Distingue su **contenido de valor** del **contenido de entretenimiento** (MrBeast): los dos pueden sostener negocios enormes.\n- El **juego nuevo** es captar la mayor atención **de las personas correctas, en la plataforma correcta, con el mensaje correcto**. Hablarle a todo el mundo (posicionamiento demasiado amplio) trae **leads no calificados**, encarece la venta y hace perder el tiempo de los vendedores. **El filtro se hace con el contenido.**\n- El **funnel de marketing perpetuo**: captar atención → convertir en leads interesados aportando valor en el tiempo → poner un CTA de venta → transformarlos en clientes.\n- La **bola de nieve**: contenido bueno que la gente comparte y recomienda. Hay que **facilitar el compartir** con CTAs estratégicos (el vendedor de local físico que orienta; el botón de suscribirse en YouTube; el correo del domingo que cierra con *\"si te reenviaron este correo, haz clic acá para suscribirte\"*).\n- **Anclaje marca–concepto clave** vía **temas troncales**. Ejemplo propio: **Sofía Bauter** = productividad, negocios y mentalidad. **Podcast → productividad, YouTube → negocios, newsletter → mentalidad**. Insiste en **experimentar constantemente** qué funciona, en qué plataforma y con qué mensaje.\n- **Todo comunica**: ya tenés marca personal aunque no la hayas pensado. Hay estrategia detrás de cada detalle —ella vestida de negro (con dorados), el uso de las manos, las uñas— ligado a su **arquetipo**.\n\n**Ejemplos de apalancamiento en audiencia:** Rivy con **B-Friends** (tokens cripto que dan acceso a sus eventos); **MrBeast**, que ató su masividad a negocios masivos (**hamburguesas** y **chocolate**, hoy vendido principalmente en **Walmart**); **Logan Paul** con la bebida energizante **Prime**.\n\n**Conclusión:** sí existe una **plataforma de marketing perpetuo por excelencia** —no Instagram, no por donde ella arrancó—, y adelanta que es **YouTube**. En los próximos videos explica por qué conviene incorporarlo a todo tu posicionamiento.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 135,
+        "vn": 3,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · General",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-02",
+        "cardDesc": "",
+        "videoId": "1u8-_xjzAJzgFVDV7ou7_JYGsskS9d-sw",
+        "resumen": "Sofía desarma su **funnel de marketing perpetuo**, el único embudo que armaría si tuviera que elegir uno: el mismo que usan en su negocio. La lógica del embudo es que arriba entra mucha gente (**público frío**) y se va achicando a medida que la persona entra a tu universo, vas comprando **\"real estate mental\"** y la vas calentando hasta la conversión. Todo se sostiene en dos patas que no pueden ir separadas: **orgánico y pago** (apoyarse solo en ads es inviable por la sobreabundancia de gurús y el boom de la IA; lo orgánico da respaldo cuando te buscan).\n\n**Puntos clave que remarca:**\n- **Top of the funnel (frío / atracción):** todo **formato corto** para llegar a audiencias nuevas — TikTok, Reels de Instagram, LinkedIn, YouTube Shorts, y YouTube (con buen **SEO**, el algoritmo lo empuja). Más **anuncios** en Meta, YouTube y Google, y **shoutouts** (pagás para que una cuenta grande del nicho, con millones de seguidores, te mencione y te posicione). El objetivo es un **mecanismo de tráfico**: mensaje claro + tráfico consistente, sistematizado con la **pirámide de contenidos** para que no dependa de tu motivación.\n- **Middle of the funnel (nutrición / vínculo):** contenidos largos donde la persona profundiza — **YouTube, podcast, email**, historias (cada una enganchada a la siguiente) y hasta un **libro** (un asset que la persona se lleva a la intimidad y de vacaciones). Cada formato va atado a un momento y un sentimiento: el podcast al correr o cocinar, YouTube en el living para tomar notas, el **correo del domingo** con un café al lado. Acá se genera el **mecanismo de leads interesados**: contenido de valor consistente + recabar feedback de los leads (Juan lo detalla aparte).\n- **CTAs y remarketing:** los llamados a la acción llevan a una **landing**, un **VSL** (landing en video) o un **webinar** grabado que abre carrito. Con **remarketing** volvés a impactar a quienes ya tuvieron contacto: primero 3-4 piezas de valor, después la oferta.\n- **Bottom of the funnel (conversión):** la persona deja sus datos, tiene una llamada con vos o tu equipo, y ahí se vende con la **oferta** + un **script de ventas** único y optimizado que todo el equipo replica (eso lo vuelve **sistematizable**).\n\n**El funnel no termina en la venta:** la **entrega del servicio** también es marketing, porque los clientes satisfechos traen más clientes. Requiere **onboarding con un \"time to value\"** rápido y un mecanismo de entrega medido etapa por etapa, lo que habilita el **semáforo de salud** del cliente (**verde / amarillo / rojo**). Después viene el **mecanismo de upsell** (pasar al siguiente nivel) y el cliente se convierte en **caso de éxito**: se graba el testimonio de forma sistematizada y se vuelca a anuncios y orgánico, alimentando de nuevo el top del embudo. Parte de la facturación se **reinvierte en marketing**, sobre todo en etapas incipientes o de validación de oferta.\n\n**Conclusión:** gracias a sistematizar cada pieza —atracción, nutrición, ventas, entrega, upsell y testimonios— facturan **seis cifras todos los meses** y pueden dar saltos de nivel sin romper el negocio, en un ciclo **iterativo e incremental**. Todo un negocio, dice, se puede reducir a este único embudo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 136,
+        "vn": 4,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · General",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-03",
+        "cardDesc": "",
+        "videoId": "1Mvt5osY2s0Q7ldUMFzUtkw70OVeUQeeG",
+        "resumen": "Esta clase de **Marketing Perpetuo** gira alrededor de un solo modelo mental, quizás el más importante para sostener contenido en el tiempo: **bajar la barrera de entrada**. Sofía lo plantea como una herramienta de mentalidad —\"como abrir una cajita de herramientas y sacar algo que me ayude a pensar\"— que su equipo aplica para todo. La pregunta madre que lo dispara: **\"¿Cómo se vería esto si hacerlo fuera simple?\"**. La lógica: lo que más cuesta es *accionar*, y una vez que arrancás es mucho más fácil mantenerlo; así se genera la bola de nieve de constancia que habilita posicionamiento y el \"éxito de la noche a la mañana\" (que en realidad viene de años de acción).\n\n**Puntos clave que remarca:**\n- **El podcast (caso estrella).** Juan quería que Sofía se pusiera a grabar; ella no tenía tiempo. En vez de eso, extrajeron los audios de los **+100 videos de YouTube** ya grabados. Resultado: Juan armó **70 episodios en dos semanas** ≈ **año y medio** de contenido (uno por semana). Sumado a anunciar la fecha por todas las plataformas y automatizar con bot (mensaje automático al escribir la palabra \"podcast\"), llegó al **puesto 2 del ranking general de Argentina en 2 semanas**, top 10 todo el primer año, y top en México (puesto 8 en negocios), Chile, Argentina y hasta puesto 132 en Colombia. \"Nos bajan los límites de las fronteras.\"\n- **El Cortito (newsletter).** Se preguntó cómo sostenerlo fácil: tenía que ser **corto y fácil de leer** (por eso \"cortitos reales\") y nutrirse de **temas que ya analizaba en la semana**. Empezó en Mailchimp y migró a **Substack** (simple, hecha para creadores, gratis al arrancar, sin límite de suscriptores, buena entregabilidad). Publicado semanalmente hace **~3 años**.\n- **YouTube.** Misma conversación con el equipo (Cési y Caro): no iba a grabar. Usaron **cientos de llamadas de consultoría grabadas**, entrevistas, charlas y **mashups** (remix de videos con conceptos similares, \"como un DJ de contenido\"). Arrancaron con **28 videos** = **7 meses** de contenido. Tip: filtrar el canal al revés para ver ese material inicial.\n- **Numerar el contenido.** Sirve psicológicamente (ves cuánto avanzaste) y para que quien llega al correo/episodio 27 sepa que hay 27 previos y pueda ir al archivo con un link.\n\n**Cómo escaló sin romperse:** cuando ya tocaba producir contenido propio, la respuesta a \"¿cómo lo hago simple?\" fue: que **grabe y edite otra persona** (no ella), en una **fecha fija recurrente cada mes** que le congela la agenda y obliga al equipo a preparar todo hacia atrás y organizarse hacia adelante. Así lo sistematizó para ella, su equipo y sus editores; un año después ya filmaba con equipo audiovisual, equipamiento (al principio alquilado) y jornadas de rodaje.\n\n**Conclusión:** no hace falta el mejor equipo —uno de sus videos más vistos (**~115.000 reproducciones**) lo grabó con el celular en vacaciones cuando se quedaron sin stock. Solemos sobrecargar las cosas; casi siempre se resuelven más simple de lo que pensamos. La clave de toda la maquinaria es la **constancia y la consistencia**, y bajar la barrera de entrada —igual que para ir al gimnasio o comer sano— es lo que la vuelve sostenible. Juan luego mostrará la **pirámide de creación de contenido** (cómo lo largo se transforma en piezas cortas: artículos, posts, etc.).",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 137,
+        "vn": 1,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Contenido de valor",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-14",
+        "cardDesc": "",
+        "videoId": "1oJ-sLKf-o-_z9DjONY-uULiioV4bvVkY",
+        "resumen": "Clase de apertura del módulo de **Marketing Perpetuo**. La da **Juan Seguiano**, líder del equipo de marketing de Sofi (trabaja con ella hace casi tres años, terminando su licenciatura en comunicación en la UBA), que va a acompañar todo el módulo. Antes de entrar en materia, muestra la **foto del resultado**: qué logró el negocio sosteniendo estas estrategias en el tiempo, para que se vea que el marketing perpetuo funciona.\n\n**Puntos clave que remarca:**\n- **Podcast \"Pasar a la Acción\"** (lanzado el año pasado): al 2º día llegó al puesto **20**, al 3er día al puesto **3**. Estuvo todo el año en el **top 10** de Argentina y hoy también rankea en negocios en **México, Perú, Colombia y Chile**. Más de **120.000 reproducciones mensuales**, creciendo exponencialmente.\n- **YouTube**: de **8.000** a más de **254.000 visitas mensuales**; el canal pasó de **3.000** a más de **50.000 suscriptores**.\n- **Instagram**: de **134.000** a más de **470.000** seguidores (**+250%**).\n- **TikTok**: de **40.000** a más de **290.000** seguidores (**+625%**).\n- Ese **posicionamiento** los llevó a medios masivos argentinos: **Luzu TV, Urbana Play, Olga, Filo News, Infobae**, entre otros.\n\nY el punto de fondo: estas acciones diarias **se transformaron en siete cifras en dólares** para el negocio.\n\n**Conclusión:** el objetivo del marketing perpetuo es **captar audiencias, nutrirlas y convertirlas en futuros clientes** para hacer crecer el negocio. Los números no son suerte, son el reflejo de acciones sostenidas día a día, y eso es lo que el módulo va a enseñar paso a paso.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 138,
+        "vn": 2,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Contenido de valor",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-15",
+        "cardDesc": "",
+        "videoId": "10miJZFtQt6qG1D2A2h3Owx-TQJxRVKC_",
+        "resumen": "Esta pieza del módulo de **Marketing Perpetuo** desarma un mito: el **algoritmo no es tu enemigo**, es una herramienta que hay que incorporar a la estrategia. Sofía lo define como una **red neuronal tecnológica basada en el comportamiento de los usuarios** dentro de una plataforma: si muestran o no interés en el contenido.\n\nPuntos clave que remarca:\n- **Cómo funciona:** el algoritmo toma tu pieza y la **testea con un segmento de usuarios**. Según cómo reaccionen, decide el camino. La variable que manda es el **interés/interacción**: likes, comentarios, veces que se comparte o se guarda. Cada acción es una **señal**; si es positiva, prueba la pieza con nuevos segmentos, de forma **escalonada**, hasta liberarla y, en el mejor caso, volverla viral.\n- **Si nadie interactúa**, el algoritmo entiende que el contenido no es relevante y deja de mostrarlo. Eso no es un castigo: es **información**. Quiere decir que algo falló (el mensaje, o que **no le hablaste a tu nicho dorado**). La lectura correcta es **revisar la pieza, iterar y volver a lanzarla**.\n- Ningún gran creador —**Gary V, Alex Hormozi, Mr. Beast**— culpa al algoritmo por un contenido que no funciona. Hay que tomarlo como **fuente de información** de lo que sirve y lo que no.\n- **La métrica clave es el engagement**: la suma de todas las interacciones (likes, comentarios, compartidos, guardados) **dividida por el alcance, por 100** para tener un porcentaje. Existen varias fórmulas, pero recomienda elegir una y **respetarla siempre** para no \"mezclar peras con manzanas\" al comparar datos.\n\nEjemplo con números: una publicación con **57.471 interacciones** sobre un **alcance de 518.320**, por 100, da **11%** de engagement. El engagement es la brújula para detectar tus **contenidos ganadores**, los que más \"hacen clic\" con tu nicho dorado.\n\nConclusión: el algoritmo es tu **mayor aliado** para alcanzar audiencias nuevas. Marca un camino de **iteración, optimización y mejora** del contenido diario; a partir de ahora se integra dentro de las estrategias de marketing perpetuo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 139,
+        "vn": 3,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Contenido de valor",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-16",
+        "cardDesc": "",
+        "videoId": "1VqmUV8yXoHFOcjCIX10thU72U4xNdglV",
+        "resumen": "Esta clase de **Marketing Perpetuo** presenta el **Master Copy**, el documento madre del que sale TODO tu contenido para crearlo de forma sistemática y sin dolor. Sofía lo plantea como una herramienta para **iterar**: si un posteo no funcionó, lo analizás, ves qué falló, lo modificás y lo relanzás con nuevos aprendizajes; el Master Copy centraliza la info de valor para que esa toma de decisiones sea simple.\n\n**Puntos clave que remarca:**\n- Sirve para tres cosas: **1)** reducir el dolor de crear contenido, **2)** tomar decisiones enfocadas (sacando lo azaroso del día a día) y **3)** crear contenido que **atrae al lead correcto**.\n- Mantra: **\"views ain't shit\"** — no buscamos vistas ni seguidores por vanidad; el objetivo es captar al lead correcto que, tras pasar por el funnel de nutrición, se convierte en cliente. Todo comunica para potenciar el negocio.\n- **Componentes del Master Copy:** el **avatar** (tu nicho dorado / cliente ideal), el **objetivo principal** (su dolor principal), el **objetivo secundario** (el dolor que le sigue), la **queja principal** (de qué se queja cuando no logra lo que desea) y los **ángulos y argumentos** (soluciones alineadas a tu oferta irresistible que te posicionan).\n- Todo el contenido debe salir del Master Copy para dar **hilo conductor, congruencia y coherencia**: cuando alguien ve un anuncio y entra a tu perfil, tiene que ver un mensaje coherente.\n\n**Ejemplo desarrollado:**\n- **Avatar:** coaches, consultores, propietarios de agencias y proveedores de servicios online que generan al menos **$2000 al mes** y desean escalar con un negocio sólido y sistemático.\n- **Objetivo principal:** más clientes con menos esfuerzo y sacrificio; mejor calidad de leads, operaciones simples e ingresos recurrentes.\n- **Objetivo secundario:** dejar de ser los únicos que deciden; un equipo de expertos confiables y un negocio que funcione sin ellos, para liberar tiempo con familia y amigos.\n- **Queja principal:** clientes que son un dolor, tener que perseguirlos para que paguen, equipos y agencias de bajo rendimiento, no saber qué funciona y depender de su participación constante (\"sienten que están en el mismo lugar hace años\").\n- **Ángulos y argumentos (lista tan larga como quieran):** el negocio puede ser predecible, sin depender de lanzamientos para subsistir; debe ser una máquina sistemática de generar potenciales clientes, cerrarlos y entregar un servicio ganador que te haga recomendar; un servicio supremo permite apuntar a más volumen y baja el costo de adquisición en anuncios.\n\n**Cómo armarlo simple con ChatGPT:** pegás la definición de Master Copy del libro de Marketing Perpetuo y le pedís que confirme que la entendió respondiendo solo \"sí\"; después cargás el **desarrollador de nicho dorado** (del módulo de Nicho Dorado) y le pedís que complete cada punto cruzando ambos.\n\n**Conclusión:** usá ChatGPT como acelerador del pensamiento, **no como palabra santa** — leé y profundizá sus respuestas con lo que vos sabés de tu servicio, tu negocio y tu nicho.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 140,
+        "vn": 4,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Contenido de valor",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-17",
+        "cardDesc": "",
+        "videoId": "1IfXS-0JSqny9e3EYq8SafVVgLUOh18f4",
+        "resumen": "Esta clase de **Marketing Perpetuo** (dentro de \"MKT Perpetuo y pirámide de contenidos / Contenido de valor\") explica la **estructura de un contenido ganador**, que Sophie compara con la de un libro: todo contenido necesita **inicio, nudo y desenlace**. La lógica de fondo es que las personas conectamos con personas y con historias, así que hay que llevar esa narrativa a cada pieza que creamos.\n\n**Puntos clave que remarca:**\n\n- **El hook (inicio):** es el gancho que capta la atención y es lo más importante del contenido. Ahí debe ir la mayor parte de tu esfuerzo, porque si el hook no funciona nadie hace clic y todo el trabajo del desarrollo se pierde. Consumimos contenido escroleando sin fin, abandonamos series en 10-15 minutos, así que el tiempo para conectar es cortísimo. El hook cambia según el formato: en un **newsletter** es el **asunto**; en **YouTube**, el **thumbnail (miniatura) + título**; en los **anuncios**, los **primeros 3 segundos**. Aplica a todo: post, reel, podcast, newsletter.\n- **El nudo:** es el **punto de dolor** al que le hablás a tu nicho. Se saca de **Master Copy** (los \"objetivo 1\", \"objetivo 2\" y la queja que bajaste ahí), y funciona como disparador para pensar los dolores. Es la parte donde tu **nicho dorado** se siente comprendido.\n- **El desenlace:** es la **solución** que aportás a ese dolor, con los argumentos y ángulos que también salen del Master Copy. Por eso insiste en completar ese documento: de ahí se abre el abanico de posibilidades para crear contenido.\n\n**Ejemplo (dos posts propios de Sophie):** mismo formato (fondo negro, texto blanco) y mismo mes, pero resultados muy distintos. El que **funcionó** (6732 interacciones) arranca con el hook contraintuitivo *\"No hacer nada en realidad es hacer mucho\"* (dirigido a gente de productividad/desarrollo personal, desafiando la creencia de que ser productivo es estar siempre ocupado). Desarrolla el nudo (vivir ajetreados, en el futuro, con baja calidad de vida), empatiza, cuenta una mini-historia sobre la importancia de descansar, cierra con un mensaje final (*\"tomate 5 minutos y vas a ver cuánto estuviste haciendo de más\"*) y suma un **call to action**: dejar la palabra \"cortito\" para recibir el newsletter y leer el contenido completo. Cumple inicio, nudo, desenlace y CTA. El que **no funcionó** (1577 interacciones) partía de un hook aceptable (*\"Cuántas veces el miedo a lo que podía pasar te impidió avanzar\"*, apoyado en la técnica de Tim Ferriss de definir/prevenir/reparar), pero el nudo quedaba poco desarrollado, **no tenía desenlace ni cierre** (ningún estado final al que llegar) y **no tenía call to action** que invitara a interactuar; mucha gente abandonó a la mitad.\n\n**Conclusión:** los contenidos que fallan es porque les falta alguno de los elementos —un buen hook, el nudo, o el desenlace con su CTA—. La clave es **aprender a contar historias** y sostener la atención durante todo el relato.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 141,
+        "vn": 5,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Contenido de valor",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-18",
+        "cardDesc": "",
+        "videoId": "1-LWSqlLbYM1yNdbA3e_cvb5JXNtilDRS",
+        "resumen": "Esta clase del módulo **6. Marketing Perpetuo** (\"MKT Perpetuo y pirámide de contenidos / Contenido de valor\") responde a una pregunta que aparece siempre al armar el funnel: **¿tiene sentido estar en todas las plataformas?** La respuesta es un no rotundo. Con **una sola plataforma bien gestionada** ya podés tener un negocio en marcha, y si le enchufás una **plataforma secundaria de nutrición**, tenés gran parte del juego ganado.\n\n**Puntos clave que remarca:**\n- El objetivo de todo lo que hacés en marketing es **captar audiencias nuevas del \"pincho/nicho dorado\", nutrirlas con contenido de valor y convertirlas en clientes**. No tiene sentido invertir tiempo donde no está tu nicho.\n- Recordá cómo funciona el **funnel de marketing perpetuo**: en la **punta**, contenido corto de atracción en frío (reels, posts, artículos en Instagram, LinkedIn, Facebook, TikTok); en el **medio**, contenido de nutrición largo (YouTube, podcast, newsletter).\n- **¿Por dónde empezar? La respuesta la tiene tu nicho dorado**: estar donde está, consumir y valorar lo que consume tu cliente ideal. Si todavía no la definiste, usá el **prompt del libro de Marketing Perpetuo en ChatGPT** (le pedís que sugiera plataformas según tu \"desarrollador de nicho dorado\" adjunto), pero **no lo tomes al pie de la letra**: contrastá con tu mercado real.\n- **Foco tipo láser, una plataforma a la vez**: dominás y sistematizás una, la dejás corriendo, recién ahí pasás a la siguiente. El multitasking de gestionar todo a la vez rara vez da resultados.\n\n**Ejemplo (el propio recorrido de la marca):** arrancaron con **Instagram** (captación, nutrición y conversión con posts, reels, historias y links). Una vez pulida y sistematizada, pasaron al **newsletter** (mucha intimidad con la comunidad). Después subieron a **YouTube bajando la barrera de entrada**: en vez de crear desde cero, cortaron sesiones de consultoría de Sophie con clientes para generar el hábito de publicar; ya con el canal creciendo, empezaron contenido específico. Por último, tras decir muchas veces que no, lanzaron el **podcast**, que fue **top 10 todo el año en Argentina** y sigue en el ranking. Todo gracias a hacer foco.\n\n**Sobre la plataforma secundaria de nutrición**, recomienda el **newsletter** porque te hacés con la **base de datos de tus leads** (si Instagram desapareciera mañana, te quedás sin leads ni datos) y te deja leer comportamiento (qué mails abren, qué links clickean), generar vínculo, posicionarte y cerrar ventas. Destaca **YouTube** como plataforma de excelencia porque concentra casi todo el ecosistema: **shorts** (reels de menos de 1 min) para atraer en frío, **videos largos con buen SEO** (descripción y palabras clave para que los motores de búsqueda posicionen) para nutrir y generar autoridad, y **CTA con link a un lead magnet** en la descripción para capturar mails (en B2B pedís el dato) y nutrir con email marketing. **LinkedIn** también sirve: posts, videos y reels (validaron que funcionan bien) para captar, y mensajes que llevan a un **lead magnet** a cambio de un mail.\n\n**Conclusión:** elegí **una** plataforma que se ajuste a tu nicho dorado, optimizala al máximo, recién después sumá la segunda. Foco láser, una a una, pensando la ruta que hace tu cliente de frío a caliente. Es un juego de largo plazo: **iteración, medición y acción**.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 142,
+        "vn": 1,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-04",
+        "cardDesc": "",
+        "videoId": "1pq6EOzfbLyItxxIKbiRvgT9FMt3G9RzS",
+        "resumen": "Este clip del módulo **Marketing Perpetuo** (pirámide de contenidos) arranca uno de los pilares de tu comunicación: crear tu **personaje legendario**, o sea el personaje con el que las personas se van a ver reflejadas y que le da un marco a todo lo que comunicás. Sofía lo plantea como un paso previo (o correctivo) a comunicar: hacerlo **simplifica** tus mensajes, tus colores, tus palabras, tu forma de hablar y tu acercamiento a la audiencia, porque todo queda estructurado y es fácil de identificar y sostener.\n\nPuntos clave que remarca:\n- **Las personas conectan con personas**, no con motores de búsqueda: conectan con emociones, historias, personalidades. Un artículo o video engancha cuando hay una persona y una historia del otro lado; sin ese vínculo, no existe conexión.\n- El personaje legendario es el que **resiste las pruebas del tiempo** y **resalta entre la multitud**. Hoy cualquiera con un teléfono sube contenido, así que hay que destacar, y armar tu personaje es una de esas formas.\n- Se construye como un personaje de libro o película: se piensa desde la concepción, con distintos **componentes** que lo vuelven interesante. Los personajes interesantes tienen **matices** y **complejidad**.\n- La marca personal **no es un acto de creación, es un acto de autodescubrimiento**: identificar qué te hace ser vos, vivir tu esencia y sumarle los factores que te hacen resaltar y que probablemente ya tenés pero no comunicás ni visibilizás.\n\nConclusión: el recorrido se despliega en **siete puntos** que se ven uno a uno en profundidad. Al terminar la etapa, quedás con una **guía / hoja de ruta** que te deja decir, con una sola mirada, \"este es mi personaje legendario y esta es la forma en la que comunica\".",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 143,
+        "vn": 2,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-05",
+        "cardDesc": "",
+        "videoId": "1a6-1BKlSrE6n3a373Wfdv-3QAS_QDy2G",
+        "resumen": "Primer bloque para construir tu **personaje legendario**, y arranca por lo contraintuitivo: mostrar tus **desafíos, fallas y partes oscuras**, no tus aciertos. Sofía advierte que online casi todos comparten solo el éxito, y eso abre una **brecha** enorme con la audiencia (genera ansiedad y sensación de algo inalcanzable). La clave es **concordancia, no disonancia**: tu personaje es tu personalidad real con matices extra, no una máscara. Ella no muestra su vida personal, pero el mejor elogio que recibe es \"sos igual que en redes\".\n\n**Puntos clave que remarca:**\n- **Spiderman vs Batman**: Peter Parker es el personaje de Marvel más querido porque es un humano con defectos y problemas de adolescente, cercano y alcanzable; Batman (millonario, súper inteligente, artefactos) es inalcanzable y no genera identificación. Hacé tu personaje **cercano**.\n- **Carl Jung**: tenemos la **persona** (lo público que mostramos con orgullo), el **ego** que regula, y la **sombra** (lo que ocultamos o solo compartimos con íntimos). El trabajo es hacer una conjunción y **visibilizar ambas partes** —sin contar todas tus falencias todo el tiempo, sino metiéndolas en el discurso.\n\n**Ejercicios que propone:**\n1. Describí tu personalidad en **3 a 5 palabras** (rasgos que te dan orgullo) e identificá tu **superpoder**. Ejemplo de ella: *segura, enfocada, confiada*; superpoder = foco extremo → vuelve simple lo complejo.\n2. Identificá tu **palabra sombra**: eso que no compartís o de lo que no te sentís orgulloso. La de ella: *sobreexigencia* e *introversión*.\n3. Si no te sale, **mandá un mensaje a 5 personas cercanas** y preguntales qué te representa y cuál creen que es tu superpoder; mirá qué se repite. A ella las 5 le dijeron *persuasión* (nunca se había dado cuenta), y su pareja le señaló el *foco*. También podés preguntarles qué rasgo tuyo creen que no comunicás por vergüenza.\n\n**Transformar la sombra en positivo:** tomá tu palabra sombra y atale la transformación que habilitó, respondiendo: ¿qué me enseñó? ¿cómo me hizo más fuerte? Así construís tu **relato**. De ahí salen sus **anclajes de comunicación**: *\"workaholic en recuperación\"* (de sobreexigente y enfocada, pero en equilibrio) e *\"introvertida ruidosa\"* (idea que tomó del creador **Cris**, \"introvertido ruidoso\"). Aclara que **introversión/extroversión** es cómo recargás energía —solo o con muchos—, no si sos sociable (multitud = más de cinco personas que no conoce).\n\n**Conclusión:** estos anclajes se repiten en entrevistas, contenido, videos, posts y artículos para posicionarte con lo que querés comunicar. Este fue el **primer paso** (palabras + superpoder + sombra + su transformación); el siguiente son los **puntos de inflexión**.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 144,
+        "vn": 3,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-06",
+        "cardDesc": "",
+        "videoId": "1aMn3xurHUIm4WZkf7Aw0Yo1AbAxYR88C",
+        "resumen": "Esta clase del módulo **Marketing Perpetuo** enseña a construir tu **Personaje Legendario** usando los **arquetipos** de **Carl Jung** (padre de la psicología analítica). La idea de fondo es el **inconsciente colectivo**: imágenes y símbolos que todos los humanos interpretamos igual, heredados de generación en generación. Jung definió **12 arquetipos** (con 4 principales: sabio rey, héroe, mago y amante). Se ven en la cultura (Ocean's Eleven, Game of Thrones, el tarot, la religión) y el marketing los explota hace años, pero las **marcas personales** casi no —ahí está la oportunidad de diferenciarse. Sofía cita a un creador que, por tener su arquetipo tan desarrollado y polarizado, vende solo dos veces al año y factura **$2 millones** en minutos.\n\n**Puntos clave que remarca:**\n- Cada persona tiene un **arquetipo principal** y uno **secundario**; el secundario determina cómo actuás. En Marvel todos son héroe + otro: héroe común (Capitán América), héroe gobernante (Thor), héroe forajido (Hulk), héroe bufón (Spider-Man).\n- Los 12 con ejemplo y sombra: **Inocente** (Tom Hanks, Disney; confía de más), **Héroe** (Messi, Zelensky; arrogancia), **Cuidador** (Hagrid, Madre Teresa; no sabe decir no), **Explorador** (los Uquidines; no se aferra a nada), **Rebelde** (Milei y Greta, opuestos pero ambos rompen el statu quo; extremismo), **Amante** (Marilyn, Brando; miedo a no ser deseado), **Creador** (bloqueos por perfeccionismo), **Bufón** (Jimmy Fallon, Robin Williams; tapa sus sentimientos con humor), **Sabio** (Oprah, Hawking, la propia Sofía; le cuesta accionar por sobreanalizar), **Mago** (el más poderoso según Jung, transforma el mundo, marca=Apple/Steve Jobs; puede volverse manipulador), **Gobernante** (control y visión temporal; autoritario, no delega), **Persona común** (Reese Witherspoon, Franco Piso; busca pertenecer y pasa desapercibida).\n\n**Cómo identificar tus arquetipos:**\n1. Elegí dos, pero **filtrando/eliminando** lo que no te representa, no eligiendo de golpe.\n2. Validá con **tests gratuitos** (recomienda dos: \"IDR Labs Academy\" y uno de Kelly Putnam en EE.UU.). A ella le dan mitad sabio rey, mitad gobernante.\n3. Complementá con el **test de las 16 personalidades** (Myers-Briggs, también basado en Jung y sus opuestos: introvertido/extrovertido, sensitivo/intuitivo, pensar/sentir, juzgar/prospecting, y el extra asertivo/turbulento). Clave: mirar los **porcentajes**. A ella le da \"comandante\", 53% extrovertida, 98/90% en juicio y asertividad. El arquetipo es \"la caja\"; la personalidad es cómo operás dentro de ella. Aclara que introvertido/extrovertido es cómo **recargás energía**, no si sos sociable.\n4. Definí principal y secundario: el principal es con el que **podrías vivir toda la vida**. Sofía: sabio (podría vivir leyendo, pensando y enseñando sin hablar) + gobernante (guía su acción, liderazgo y carisma). De ahí sale **MasteryHaus/Master House** = \"la casa de la maestría\" (sabio + gobernante) y sus colores **negro y dorado**, de la realeza.\n\n**Ejercicio de bajada (3 preguntas):** ¿cuáles son tus motivaciones y valores?; ¿qué roles recurrentes ocupás en tus relaciones?; ¿qué personajes de películas/libros te marcaron? —porque tus favoritos suelen espejar tu arquetipo. Ella lo ejemplifica con Iron Man/Tony Stark (sabio-ingeniero con pose de gobernante frente al misil Jericho) y V de Vendetta (rebelde + gobernante + antihéroe). El ejercicio sirve además para recuperar partes de tu esencia que perdiste.\n\n**Conclusión:** cuando identificás y desarrollás tu conjunción de arquetipos, tu comunicación conecta a un nivel mucho más profundo, emociona y vende más; impacta en todo el negocio. El detalle completo de cada arquetipo está en el libro de marketing perpetuo para hacer el ejercicio.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 145,
+        "vn": 4,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-07",
+        "cardDesc": "",
+        "videoId": "14UuxGOlAeUimboZxp4TC7r7wOLhtCG0O",
+        "resumen": "Esta clase de **Marketing Perpetuo** (bloque **Personaje Legendario**) enseña a construir tu personaje y tu relato de marca a partir de los **incidentes incitadores** (*inciting incidents*): esos momentos dolorosos o traumáticos que, como dice **Stanley**, tienen todos los personajes interesantes y que te incitaron a accionar o cambiar de rumbo. Sofía sostiene que es muy poco probable que no hayas vivido ninguno, y tenerlos identificados sirve para tu comunicación, entrevistas y los \"puntos de inflexión\" del relato.\n\n**Puntos clave que remarca:**\n- Los incidentes incitadores son **puntos de inflexión / momentos de transformación**: el \"nudo\" donde tu vida cambió. Son la materia prima del contenido de **antes y después**.\n- De todos tus momentos, elegí solo **3 o 4 troncales** que construyan tu historia. No es contarlos todo el tiempo: son una **parte estratégica** dentro del **funnel de marketing perpetuo**, no toda tu comunicación.\n- **La adversidad es tu aliada**: aunque vendas software o le hables a líderes de empresas complejas, tu historia conecta, porque *\"los humanos les compran a seres humanos\"*.\n- El contenido de transformación **mide más interacción** en las métricas.\n\n**Ejercicio (los pasos):** 1) reflexionar sobre los momentos difíciles que te trajeron hasta hoy (familia, relaciones, trabajo); 2) qué **decisión** tomaste tras cada uno; 3) armar una lista con **situación → decisión → a dónde me llevó**. Es el ejercicio de **Steve Jobs**: **conectar los puntos hacia atrás** (solo cobran sentido mirando en retrospectiva).\n\n**Ejemplos propios de Sofía:** la foto con **dos teléfonos** cerrando una ronda de inversión de **$30 millones** (\"workaholic en recuperación\", vida insostenible) contrastada con hablar hoy en un auditorio, con más impacto y más dinero; el **accidente de su hermano** que la trajo de Europa a Argentina y a la aceleradora; darse cuenta de la falta de mujeres en tecnología (le dijeron que \"nunca iba a funcionar\") y fundar **Chicas en Tecnología**, ONG presente en 18 países; y la **beca en Israel** con 50 líderes mundiales donde no podía pagar un hotel de ~$150 la noche (casi su sueldo mensual) y se juró no volver a transitar eso.\n\n**Conclusión:** identificá tus incidentes incitadores para que tu personaje legendario tenga momentos de cambio de rumbo que conecten emocionalmente y alimenten tu contenido perpetuo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 146,
+        "vn": 5,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-08",
+        "cardDesc": "",
+        "videoId": "1qQ1wZl9c6fG8f697VxNTNVNsm8s3-kbX",
+        "resumen": "Esta clase, dentro de **Marketing Perpetuo** y bajo el bloque del **Personaje Legendario**, enseña a construir tu historia de marca a partir de tus **incidentes incitadores** (*inciting incidents*): esos sucesos, dolorosos o de quiebre, que te \"incitan\" a cambiar de rumbo. La premisa: todos los personajes interesantes tienen una historia de origen hecha de dolor y puntos de inflexión, y esos momentos son la materia prima de tu contenido y tu comunicación.\n\n**Puntos clave que remarca:**\n- Un **incidente incitador** es el momento en que \"pasa algo y la vida cambia\": funciona como el nudo del relato, donde la historia toma rumbo. Tenerlos identificados sirve para entrevistas, contenido y cualquier comunicación.\n- **Foco: elegí 3 o 4 troncales** (no todos) que sostengan tu historia.\n- **Pasos para identificarlos:** 1) Reflexionar sobre los momentos difíciles/de dolor que te trajeron hasta hoy (familia, relaciones, trabajo). 2) Qué **decisiones** tomaste tras cada uno. 3) Armar una **lista** con: situación → qué decisión tomé → a dónde me llevó.\n- **Ejercicio de Steve Jobs:** *conectar los puntos hacia atrás* — solo mirando el pasado das sentido a las rutas que tomaste.\n- **Uso para contenido:** el material de **antes/después o transformación** es el que más conecta y, según sus métricas, el que genera **muchísima interacción**.\n- **La adversidad es tu aliada:** aunque vendas software complejo a líderes de empresas, del otro lado hay personas, y *los humanos les compran a seres humanos*. Tu historia conecta.\n- Esto es una **parte estratégica** del funnel de marketing perpetuo, no toda tu comunicación.\n\n**Ejemplos propios de Sofía:** la foto con **dos teléfonos** cerrando una ronda de inversión de **$30 millones**, con una vida insostenible (se define *workaholic en recuperación*, con ciclos que la equilibran); el **accidente de su hermano** a sus ~21 años, que la hizo dejar un máster en Europa, quedarse en Argentina y entrar a una **aceleradora** que le cambió la vida; darse cuenta ahí de que **no había mujeres en tecnología** (a los eventos solo iban hombres, los founders eran hombres) y, pese a que una empresaria poderosa le dijo que \"nunca iba a funcionar\", fundar la ONG **Chicas en Tecnología**, hoy en **18 países** impactando a millones; y la **beca en Israel** con 50 mujeres líderes, donde no pudo pagar un hotel de **$150 la noche** (casi un mes de sueldo), tuvo que irse a un hostel y decidió \"nunca más volver a transitar esto\".\n\n**Conclusión:** identificá tus incidentes incitadores, elegí los troncales y convertí tu adversidad en el relato de transformación que va a conectar con quien te compra.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 147,
+        "vn": 6,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-09",
+        "cardDesc": "",
+        "videoId": "1yXWxbM7lqEEOT7ouu3x0ba2F8g-e2wcp",
+        "resumen": "Esta clase de **Marketing Perpetuo** arma los **pilares de contenido** y el **Personaje Legendario**: los temas con los que querés que te asocien y ese condimento que te vuelve inolvidable. La pregunta madre es simple: **¿con qué quiero que me asocien?**, y el ejercicio se hace **de lo macro a lo micro**, arrancando por lo que te hace vos, no solo por el negocio.\n\n**Puntos clave que remarca:**\n- **Elegí 3 pilares** que crucen lo que te apasiona con lo que le interesa a tu cliente. Sofía usa **negocios, productividad y mentalidad** (ligados a su arquetipo del sabio). Lo que te apasiona es lo que sostiene el contenido en el tiempo y se nota.\n- **Bajá cada pilar a 3 niveles de profundidad.** Nivel 1: el tópico macro. Nivel 2: **3 (hasta 5) subtemas** — negocios→servicios digitales, desarrollo de equipos, sistematización; productividad→hábitos, sistemas y su ángulo \"anti-gurú\" (adiós club de las 5 a.m.); mentalidad→modelos mentales, libros, autoconocimiento (estoicismo, arquetipos de Jung). Nivel 3: **ángulos y ejecuciones** (mentalidad de negocios, detrás de escena, \"habilidades para desarrollar X\") que se mixean con el nivel de arriba para generar contenido infinito.\n- **Las 3 preguntas guía:** 1) ¿Cuáles son los temas atados a mi personalidad + negocio + que le interesan a mis clientes? (el **match**). 2) ¿Los 3 (o 5) subtemas de cada uno? 3) ¿Qué puedo compartir/crear/hablar de cada subtema?\n\n**El factor transversal (Personaje Legendario):** por encima de los 3 pilares hay un **cuarto elemento transversal** que te vuelve excéntrico y único —tu \"musculosa con camisa de franela\", tu \"Don Quijote\"—. Ejemplos: **Alex Hormozi** (siempre igual, casi desprolijo, como statement de \"soy millonario sin traje\"); **Coral** (negocios + fisicoculturismo); **Gary Vee** (ventas de garaje/eBay); **Roy Williams** de Wizard Academy (todo tematizado con Don Quijote, rey del radio); **Mauro Stendel** (millonario en Lamborghini que escucha cumbia); **Casey Neistat** (Ray-Bans pintados de blanco y rayados); **Robert De Niro** con lentes de sol como personaje; y **Rosalind/coleccionista de libros antiguos** con su membresía y productos derivados.\n\n**Conclusión:** identificá tus 3 pilares, desgranalos de macro a micro en 3 niveles, y encontrá (o desarrollá) ese componente transversal que te diferencia por completo. Cuando lo tengas, empezá a comunicarlo: eso es lo que hace tu marca única.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 148,
+        "vn": 7,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-10",
+        "cardDesc": "",
+        "videoId": "17pHjj0dYXtHZFyb-2Z06Ve-OKhr3_z-M",
+        "resumen": "Esta clase de **Personaje Legendario** (dentro de Marketing Perpetuo) trata sobre el rol de los **mentores** en la construcción de tu personaje: esas personas que a lo largo de tu vida —padres, un amigo, un profe, alguien cercano o lejano, incluso un personaje de un libro— moldearon tus creencias, valores y forma de ver el mundo. Sofía lo ancla en el **viaje del héroe** (o arco del héroe): el héroe vive en su **mundo ordinario**, recibe una **llamada a la aventura**, la rechaza, y ahí aparece el **mentor** que lo ayuda a transicionar al **mundo especial**.\n\n**Puntos clave que remarca:**\n- El viaje del héroe le pasó a todos los personajes: Ulises, Harry Potter, Luke Skywalker, Spiderman, Kung Fu Panda, El Rey León. Incluye adversidades, enemigos, un **momento de entrenamiento** (Luke con Yoda), un momento de muerte/resurrección, la recompensa, el **elixir** y una gran lucha final (como el cierre de Harry Potter).\n- Es el encuentro con el mentor lo que nos empuja del mundo ordinario al especial. En la vida real, muchas veces son los **puntos de inflexión** con otras personas los que nos cambian de rumbo.\n- Tres preguntas para trabajar: **1)** ¿Quién le dio forma a tus creencias, valores y pensamientos? **2)** ¿Cuáles mentores (personificados) aportaron partes de tu personalidad y qué partes se fueron transformando? **3)** ¿Qué aprendiste de ellos y en qué te resististe al principio? (eso que estaba tan arraigado que te costó cambiar).\n\n**Ejemplo personal:** un compañero de su primer trabajo fue su mentor sin saberlo. Ella venía de un contexto familiar donde se sacaban muchos **supuestos** sobre las intenciones de los demás; él, cada vez que ella daba algo por seguro, le devolvía \"podría haber sido por esto, por esto, por esto…\", enseñándole a **tomar perspectiva**. Tardó mucho tiempo en incorporarlo.\n\n**Ejemplos de posicionamiento:** nombrar a tus mentores enriquece tu narrativa porque sus historias también configuran la tuya. Cita a **Bill Gates y Warren Buffett** (la madre de Gates insistió con \"dale una cena, Bill\"; terminaron todo el día juntos y nunca más se separaron) y a **Tony Robbins con Jim Rohn** (speaker motivacional cuya conferencia le cambió la vida a Tony; y Jim Rohn a su vez tuvo sus mentores, y esos los suyos: una cadena que cuenta una historia).\n\n**Conclusión:** incorporar a tus mentores en tu relato le suma matices a tu **personaje legendario** y lo hace cada vez más interesante y creíble.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 149,
+        "vn": 8,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-11",
+        "cardDesc": "",
+        "videoId": "1Q1usD0rH1nbVZgFAg-1JhqOInu2ZEFJA",
+        "resumen": "Este clip corto del módulo **Marketing Perpetuo** (pirámide de contenidos) trabaja un componente puntual del **Personaje Legendario**: la **ciudad** como parte de tu identidad. La idea central es que el lugar donde nacimos, crecimos y donde elegimos vivir hoy **moldea quiénes somos**, y por eso sirve como material para construir el personaje con el que creás contenido.\n\n**Puntos clave que remarca:**\n- Cada ciudad tiene una **personalidad** y evoca algo: **Los Ángeles** = lo superficial, la farándula, la búsqueda de fama, el trabajar sin parar; **Nueva York** = poder, dinero, estatus; **París** = amor, arte, artistas, lo romántico, la moda.\n- Hay que entender **de dónde venimos** (la ciudad que nos formó) y **dónde elegimos estar hoy**: ¿cambió esa ciudad?, ¿por qué sigo eligiéndola?, ¿qué tiene que está alineado con mi persona e intereses?\n\n**Ejemplo personal (Sofía):** es **cordobesa** (centro de Argentina) y vivió **11 años en Buenos Aires / Capital Federal**; se mudó a los ~23 con un **objetivo profesional súper específico**: sumarse como directora de operaciones de la **aceleradora**, abrir oficina allá y posicionarla en Buenos Aires. Esa ciudad fue una **catapulta** por su ritmo acelerado y sus oportunidades. Hoy elige un universo distinto: vive en **un valle, con un lago y montañas**, buscando otro ritmo de vida acorde a su momento.\n\n**Conclusión:** preguntate qué está diciendo de vos la ciudad donde vivís hoy. Y si notás que **no te representa**, tomalo como un **llamado a la acción**.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 150,
+        "vn": 9,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-12",
+        "cardDesc": "",
+        "videoId": "1tuUL8gVHEhWKlNbmNqnlFyuOuYNKE0cL",
+        "resumen": "Esta clase de **Marketing Perpetuo** (parte de la pirámide de contenidos y del **Personaje Legendario**) va sobre por qué necesitás **enemigos/villanos** para diferenciarte en un mundo saturado de gente creando contenido igual. La idea central: no podés ser **\"vainilla\"** (una persona del montón, sin opinión fuerte, sin nada que la diferencie). Para resaltar hay que buscar **polaridad/polarización** en tus mensajes, y eso exige un enemigo del otro lado.\n\n**Puntos clave que remarca:**\n- **Identificá tus villanos.** Preguntate: ¿en contra de qué estás?, ¿qué cosas te hacen enojar?, ¿qué hace tu competencia que te molesta y qué hacés vos distinto? Deben estar ligados a tus **pilares**. Los villanos no tienen que ser personas: pueden ser conceptos, productos o ideas.\n- **\"El enemigo de tu enemigo es tu amigo\".** Si tu cliente ideal ya tiene un enemigo, adoptalo como tuyo y se vuelven **aliados con un enemigo en común**. Eso genera identificación y sube el **engagement** (un bando te apoya fuerte, el otro te discute).\n- **Es más fácil y creíble decir contra qué estás que a favor.** En vez de \"estoy a favor de la honestidad / no vendemos humo\", conviene \"estoy en contra de X\". Así, del otro lado responden \"yo también estoy en contra de eso\".\n- **Etiquetá a tus enemigos.** Cuando le ponés etiqueta a algo, te adueñás del concepto y lo usás en toda tu comunicación.\n- **Frase plantilla:** \"estamos en el negocio de terminar con ___\". Variante para negocios: reformularla como una declaración fuerte (ej. \"somos la mejor aceleradora del mundo porque no tomamos equity y te hacemos ganar dinero\").\n- **Ejercicio sugerido:** analizá cuentas controversiales/polarizadas y mirá los comentarios: cuando alguien las ataca, aparecen 10-20-30 personas defendiéndolas porque comparten al mismo enemigo. Eso es lo que hay que lograr.\n\n**Ejemplos que da:** *Glucose Goddess* (villano = los picos de glucosa y comer azúcar al despertar); el enfoque **keto** contra el azúcar; **Javier Milei** con la etiqueta de \"la casta\"; **Andrew Tate** con \"la Matrix\"; **Cora Mujeres** con \"la emprendehambre\"; y su propia etiqueta pasada, **\"andá y hazé\"** (ante el miedo, hacelo o analizalo y reformulalo). Su bandera personal de polarización: **\"no hace falta despertarse temprano para tener éxito\"** / estar en contra de los gurús de la rutina matutina y del **club de las 5 a.m.**, y de quienes dicen que el éxito es ser millonario (para ella el éxito es subjetivo). También cita el caso de una clienta a la que le indignaba la falta de honestidad en su rubro, transformándolo en material de contenido.\n\n**Conclusión:** el objetivo es un mensaje claro que ejemplifique y especifique quiénes son tus enemigos, por qué sos diferente y qué te separa de ellos día a día. Hacerte enemigos + etiquetarlos + usarlos en tu comunicación te permite **polarizar la audiencia y empezar una pelea por tu propósito**, creando una audiencia que te ame.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 151,
+        "vn": 10,
+        "grupo": "Marketing Perpetuo · Pirámide de contenidos · Personaje Legendario",
+        "modulo": 6,
+        "titulo": "MKT Perpetuo-13",
+        "cardDesc": "",
+        "videoId": "1jQUGShJleMOXvoWXd95Ovvoo14LZ986C",
+        "resumen": "**De qué va:** clase de cierre del bloque **Personaje Legendario** (tu marca personal) dentro de Marketing Perpetuo. Sofía muestra el **gráfico final** que en el libro venís completando a lo largo del camino de autodescubrimiento, y explica cómo condensarlo en una sola hoja para usarlo en todo lo que publiques.\n\n**Puntos clave que remarca:**\n- El gráfico reúne todas las piezas del personaje: **arquetipo principal**, **secundario** y **compuesto**; tu **personalidad + superpoder** (las **5 palabras que te definen**, que le preguntás a una persona cercana, más el superpoder que identificás); tu **kriptonita/sombra**; tu **historia de origen**; el **incidente incitador** (la decisión donde se bifurcan los caminos, mirando hacia atrás para \"conectar los puntos\" como **Steve Jobs**); la **resurrección** (qué aprendiste y a dónde te llevó todo); tu **ciudad actual vs. la pasada** (por qué elegiste la actual y cómo la anterior te ayudó a ser quien sos hoy); tus **mentores** (de antes y de ahora) y cómo te moldearon para meterlos en tu narrativa; los **tres pilares** con los que te van a empezar a identificar; y tu **condimento extra**, el pilar **transversal** —\"la flecha que atraviesa todo\"— que te hace diferente, te hace sobresalir y define tu negocio (\"estamos en el negocio de acabar con tal cosa\").\n- El resultado es un **one pager** (como el que en las startups resume el proyecto en una sola página): tu personaje legendario resumido en una hoja. Después le vas agregando riqueza y escribís tu historia completa, ya bajada para reutilizar.\n- Esa narrativa se usa **en todos lados**: creatividades, videos, descripciones en cada plataforma, la bio de la web, la mini bio para entrevistas, programas y colaboraciones.\n- Lo crucial es mantenerlo **constante y coherente a lo largo del tiempo**.\n\n**Conclusión:** la gente busca **conexiones humanas**; hay que demostrar que de este lado hay un ser humano, no un robot ni una IA, para que quien está del otro lado se sienta cerca. En un mundo cada vez más saturado de creadores de contenido, la ventaja se gana con **autenticidad y diferenciación**: por eso hay que terminar de pulir el personaje legendario y empezar a comunicar y crear, porque ese personaje va a guiar absolutamente todo lo que hagas con tu marca.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 152,
         "vn": 1,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3023,7 +3499,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 119,
+        "n": 153,
         "vn": 2,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3037,7 +3513,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 120,
+        "n": 154,
         "vn": 3,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3051,7 +3527,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 121,
+        "n": 155,
         "vn": 4,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3065,7 +3541,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 122,
+        "n": 156,
         "vn": 5,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3079,7 +3555,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 123,
+        "n": 157,
         "vn": 6,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3093,7 +3569,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 124,
+        "n": 158,
         "vn": 7,
         "grupo": "Mastery Machine",
         "modulo": 6,
@@ -3107,8 +3583,36 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 125,
+        "n": 159,
         "vn": 8,
+        "grupo": "Mastery Machine",
+        "modulo": 6,
+        "titulo": "Mastery Machine-07",
+        "cardDesc": "",
+        "videoId": "19rvKo5EicchC99OHTya01VdbdF2N3fPO",
+        "resumen": "Esta clase de la sección **Mastery Machine** muestra, paso a paso, cómo armar una **automatización de email marketing** dentro de la plataforma para hacer **calentamiento de leads** con foco en venta, sin escribir correos a mano todos los días. Sofía entra por el menú lateral a la pestaña **Automatizaciones**, sugiere ordenar todo en carpetas para escalar sin lío, y crea un workflow desde cero.\n\nPuntos clave que remarca:\n- **Toda automatización parte de un disparador** (regla general). Acá elige el disparador **\"etiqueta de contacto\"**, con el filtro **\"etiqueta agregada\"** (también existe \"etiqueta removida\"). Ejemplo de etiqueta: **compró programa uno** — todos los que la tengan entran al flujo. Nombra la acción y guarda el disparador.\n- Con el **botón \"+\"** agrega el paso **\"Enviar un mail\"**. Aclara que desde acá también se puede mandar SMS, mensaje por **Slack**, hacer una llamada o escribir por **Instagram/Facebook DMs**, pero la clase se enfoca en mails.\n- Configura el correo: remitente (**Sofía Contreras**), email de salida (**hola@masterhaus.com**), asunto (se puede personalizar con el nombre) y cuerpo.\n- Suma un paso de **espera** (minutos, horas o días; o \"avanzado\" para ventanas de tiempo): pone **2 días** y luego un **segundo mail**. Al terminarlo, el contacto sale del flujo.\n- Le pone nombre al workflow (**\"calentamiento de leads\"**) y recién lo enciende una vez validado.\n\nLas **dos formas de cargar los mails**: (1) escribirlos directo en la interfaz, o (2) —la que recomienda— crearlos como **Templates** (Marketing → Emails → Templates, en carpeta propia) y después traerlos al paso con el menú desplegable, así los campos superiores se llenan solos.\n\nDetalle importante: el **link de baja/desuscripción** solo se puede insertar desde el template, no desde la automatización. Se hace seleccionando el texto (\"puedes darte de baja tocando aquí\"), agregando un **hipervínculo con la etiqueta email unsubscribe link** y, opcional, pintándolo de azul.\n\nCierra con las **estadísticas** (menú izquierdo o dentro del mail): enviados, aperturas, tasa de clics, respuestas y rebotes.\n\nConclusión: distingue **newsletter** de **automatización**. La automatización es una **secuencia fija con objetivo de venta**: cada quien arranca en el mail uno y baja escalón por escalón, pensado estratégicamente. El newsletter, en cambio, se actualiza día a día — quien se suscribe hoy recibe la edición actual, no el primer envío de hace cinco años. Por eso se mantienen los entornos separados.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 160,
+        "vn": 9,
+        "grupo": "Mastery Machine",
+        "modulo": 6,
+        "titulo": "Mastery Machine-08",
+        "cardDesc": "",
+        "videoId": "1DKYTs6r8DKjL6yMxSMF_z5qUI0pBL4O0",
+        "resumen": "Clase práctica del módulo **Mastery Machine** (Mastery Haus-08): un tutorial paso a paso de cómo **crear formularios** dentro de la plataforma, desde cero, para captar leads y ordenarlos.\n\nPuntos clave que remarca:\n- **Dónde:** menú lateral izquierdo → pestaña **Sites** → sección **Formularios**. Podés crear **carpetas** para tener orden, usar **templates** ya preconfigurados, o armar uno **desde cero**.\n- **Constructor:** en el menú izquierdo, con el símbolo **+**, agregás elementos arrastrando (drag & drop): nombre completo, primer nombre, apellido, fecha de cumpleaños, teléfono, mail, botones, dirección, ciudad, preguntas de una línea, textos amplios, **desplegables** y **múltiples opciones**. Sacás los que vienen por defecto para empezar limpio.\n- **Customizar bloque a bloque:** al pararte encima de un campo se abre un menú a la derecha. Ahí renombrás (ej. \"First Name\" → **Nombre**), lo marcás como **campo requerido** (aparece el **asterisco**), y con el ícono de estilo cambiás tamaño, si es **caja o línea**, márgenes y colores. También agregás **títulos** (con negrita, centrado, tipo de letra) e **imágenes**.\n- **Consentimiento:** si es un **lead magnet** o querés captar base de datos, dejá siempre un texto de política/permiso (ej. *\"quiero recibir información de valor sobre negocios y productividad\"*): ese clic es el consentimiento para mandarle mails.\n- **Lógicas** (arriba a la izquierda): el diferencial. Permite **redireccionar** según la respuesta (ej. si contestan la opción 2 → van a masterlyhouse.com/x), combinar varias respuestas, mostrar **mensajes personalizados**, **descalificar leads** (mensaje de rechazo o redirección) y **ocultar/mostrar campos** condicionalmente.\n\nEjemplo del propio entorno: cuando un lead responde algo que **no califica** (ej. un negocio de producto), lo derivan a una landing que agradece la aplicación pero aclara que solo trabajan con **negocios de servicios**.\n\nConclusión: guardá siempre y **ponele nombre a cada cosa** (ej. \"formulario uno\"); con los **tres puntos → Preview** ves el formulario ya funcionando. El formulario no es solo captura: bien armado con lógicas, **filtra y califica** a los leads solo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 161,
+        "vn": 10,
         "grupo": "Mastery Machine",
         "modulo": 6,
         "titulo": "Mastery Machine -09",
@@ -3121,8 +3625,36 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 126,
-        "vn": 9,
+        "n": 162,
+        "vn": 11,
+        "grupo": "Mastery Machine",
+        "modulo": 6,
+        "titulo": "Mastery Machine-10",
+        "cardDesc": "",
+        "videoId": "1WtxI9RUXv0ldwLpAW-kc_sDX0Y1IHCxT",
+        "resumen": "Clase práctica del módulo **Mastery Machine** donde Sofía muestra cómo usar el **CRM interno de la Mastermind** (lo encontrás en el menú lateral izquierdo como **Oportunidades**, un entorno de **Pipeline**). La idea es usarlo como **tracker**: podés armar un proceso de **captación** (aplicación → llamada de venta → seguimiento → conversión) o un proceso interno para ver la **salud de los clientes** y su avance en el journey map. El ejemplo es un CRM de ventas simple.\n\nPuntos clave que remarca:\n- **Antes de tocar la plataforma, volcá el proceso en un documento**: identificá las etapas reales que atraviesa el potencial cliente hasta convertirse en cliente. Las **columnas son los estados** de tu proceso.\n- **Para construir el pipeline**: pestaña superior **Pipelines** → crear nuevo → nombre (ej. \"CRM ventas\") → cargar las columnas. En el ejemplo: **Aplicación**, **Agendar llamada de ventas**, **Llamada agendada** (la agrega después, al lado de \"agendar\"), **Seguimiento**, **Cliente ganado**, **No agendó llamada de ventas** y **Cliente perdido**. Se reordenan con las flechitas y se guarda.\n- **La lógica de movimientos**: quien aplica y califica cae en *Aplicación*; ventas revisa y mueve a *Agendar llamada*, lo que **dispara automáticamente un mail** con el copy para agendar. Si agenda, la tarjeta se mueve sola a *Llamada agendada*; si pasa el tiempo sin agendar, va a *No agendó* (donde un rol puede levantar el teléfono y avisarle). Si se gana, pasa a *Seguimiento*. Cada movimiento se puede automatizar para **bajar la barrera operativa**.\n\nEjemplo de automatización (crear la tarjeta sola): ir a **Automatizaciones** → nuevo **workflow** desde cero. **Disparador**: \"Form completado\" (lo nombra \"formulario de aplicación\"), con filtro \"el formulario es → Formulario 1\". Paso 2: **crear el contacto** y agregarle la etiqueta **\"form aplicación\"**. Paso 3: **crear/actualizar una oportunidad** → acción \"crear contacto en CRM ventas\", elegir pipeline **CRM ventas**, columna **Aplicación**, y en el nombre de la oportunidad traer el **nombre del contacto** (opcionalmente valor del lead y fuente). Guardar, renombrar la automatización a **\"Form aplicación – CRM ventas\"**, publicar y guardar. Lo prueba entrando al formulario desde **Sitios**, lo completa como \"Juan / juan@masteryhouse.com\" y envía: la tarjeta aparece automáticamente en la columna *Aplicación*.\n\nTambién menciona que se puede **filtrar** la vista (por responsable, estadio, fecha de creación) y alternar entre **cuadrícula y lista**.\n\nConclusión: lo fundamental es entender que las columnas representan el estado de tu proceso y de cada potencial cliente, y que cada movimiento dentro del pipeline es automatizable. En la próxima lección profundiza en más automatizaciones para la Mastermind y el CRM.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 163,
+        "vn": 12,
+        "grupo": "Mastery Machine",
+        "modulo": 6,
+        "titulo": "Mastery Machine-11",
+        "cardDesc": "",
+        "videoId": "18Asb5CVHHX4HaF1QWhoo8gAjPzXYC9_h",
+        "resumen": "**De qué va:** clase práctica (tutorial de pantalla) del módulo **Mastery Machine** que muestra paso a paso cómo configurar y usar los **calendarios** dentro de la plataforma (la \"Master Machine\"), que funcionan muy parecido a **Calendly**: se pone logo, título y descripción, la persona elige un horario, completa sus datos y la reunión queda agendada automáticamente.\n\n**Puntos clave que remarca:**\n- **Primero, el equipo:** Configuraciones → pestaña **Mi staff** → Agregar. Se cargan nombre, apellido y el mail de ingreso, y se define **roles y permisos** (100% administrativo o usuario) y qué **espacios** ve cada persona dentro de la herramienta.\n- **Conectar Google Calendar por usuario:** cada miembro entra con su propio email (ej. juan@masterhouse.com), va a **Configuraciones → Mi perfil → configuraciones de calendarios → Agregar nuevo**, elige **Google Calendar** (para usar Google Calendar + **Google Meet**) y conecta su cuenta de Gmail con un clic. Al quedar listo aparece el **check verde**; después se **linkean los calendarios** y se configura la locación (Google Meet), la **zona horaria** y los días/rangos horarios de disponibilidad para tomar calls.\n- **Crear el calendario:** menú izquierdo → **Calendars → Configuración de calendarios → Crear un calendario**. Hay varios tipos: **personal, rotativo y colectivo**. En el personal se nombra (ej. \"Juan Ciglano Test\"), se **delega** al miembro que corresponde, se define la **URL**, la **duración** de las reuniones (media hora, 1 h), los días y rangos, y se confirma.\n- **Al editar** se profundiza: agregar **imagen** (el logo de MH), el copy de la **descripción**, agruparlo en una carpeta, y toda la **disponibilidad** — intervalo de horarios (se muestran cada media hora), duración, mínimo de días previos, cuántos días a futuro, **máximo de reuniones por día**, mínimo por usuario, y el **tiempo de colchón antes y después** de cada reunión.\n- Pasos extra: **formularios** para que las personas completen y **notificaciones** al agendarse una reunión (a los contactos, a la persona asignada, un email adicional) — se ve en detalle más adelante en **Automatizaciones**. También hay **customización** (vista clásica o no, colores, detalles).\n- **Compartir:** posicionarse en los **tres puntitos** → **Compartir** → ahí están los links y hasta el **código para embeber** el calendario en una landing.\n\n**Ejemplo del calendario grupal/rotativo:** funciona igual que el personal, con la única diferencia de que se agrega **más de una persona** (ej. Santiago, Paz) y se configura cómo se reparte su disponibilidad. En \"detalles de la reunión\" se les puede **asignar prioridades** a los miembros: poner a uno con prioridad máxima o a todos por igual.\n\n**Conclusión:** aunque existe la opción de **distribución equitativa**, Juan recomienda configurarlo siempre **por disponibilidad**, para darle prioridad a la agenda de la persona que va a tomar la llamada.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 164,
+        "vn": 13,
         "grupo": "Mastery Machine",
         "modulo": 6,
         "titulo": "Mastery Machine -12",
@@ -3135,7 +3667,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 127,
+        "n": 165,
         "vn": 1,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3149,7 +3681,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 128,
+        "n": 166,
         "vn": 2,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3163,7 +3695,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 129,
+        "n": 167,
         "vn": 3,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3177,7 +3709,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 130,
+        "n": 168,
         "vn": 4,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3191,7 +3723,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 131,
+        "n": 169,
         "vn": 5,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3205,7 +3737,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 132,
+        "n": 170,
         "vn": 6,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3219,7 +3751,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 133,
+        "n": 171,
         "vn": 7,
         "grupo": "Mastery Club (sesiones en vivo)",
         "modulo": 6,
@@ -3233,7 +3765,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 134,
+        "n": 172,
         "vn": 1,
         "grupo": "Sesiones de Maestría (en vivo)",
         "modulo": 6,
@@ -3247,7 +3779,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 135,
+        "n": 173,
         "vn": 2,
         "grupo": "Sesiones de Maestría (en vivo)",
         "modulo": 6,
@@ -3261,7 +3793,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 136,
+        "n": 174,
         "vn": 3,
         "grupo": "Sesiones de Maestría (en vivo)",
         "modulo": 6,
@@ -3275,7 +3807,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 137,
+        "n": 175,
         "vn": 4,
         "grupo": "Sesiones de Maestría (en vivo)",
         "modulo": 6,
@@ -3289,7 +3821,7 @@ export const CURSOS: Curso[] = [
         "herramientas": []
       },
       {
-        "n": 138,
+        "n": 176,
         "vn": 5,
         "grupo": "Sesiones de Maestría (en vivo)",
         "modulo": 6,
@@ -3297,6 +3829,258 @@ export const CURSOS: Curso[] = [
         "cardDesc": "",
         "videoId": "1fNQyn2kPzqXMK4IyEztRSPXQMaP7fuvB",
         "resumen": "Sesión en vivo de **Sesiones de Maestría** con Sofía (Sophie) y Juan, pensada como **puntapié al módulo de Marketing Perpetuo**. El eje: la **venta antes de la venta**, es decir, hacer bien la parte previa de marketing para que la venta se cierre casi sola.\n\nPuntos clave que remarca:\n- Un negocio tiene dos partes: **marketing (previo)** y **venta (posterior)**. Las startups fracasan por descuidar la previa.\n- Regla del **70%**: nadie decide comprar hasta recorrer ~70% de su camino, sumando muchos **puntos de contacto**. Sin eso: no-shows, leads no calificados, cierres bajos y gente que se va con la competencia.\n- Tres estados de negocio: **A** (casi todo venta fría, anuncio→landing, leads carísimos), **B** (fifty-fifty, algo de posicionamiento pero mail/**VSL** sin optimizar) y **C** (80-90% de esfuerzo previo, sistematizado). El objetivo es **C**.\n- El **VSL** (Video Sales Letter) es un **autofiltro**: define para quién es y para quién no.\n- **Funnel de marketing perpetuo** (funnel 10K): arriba = atracción (shorts, reels, TikTok, ads, **YouTube** por su algoritmo); medio = nutrición (YouTube, **podcast**, **newsletter**, historias) por ser espacios íntimos y orgánicos, en los que confiamos más. Ahí va el **70% del esfuerzo**.\n- \"**Views ain't shit**\": importa el mensaje correcto, a la persona correcta, en el momento correcto.\n- **Autoridad y apalancamiento**: entrevistas, conferencias y libro posicionan; guardar todo en un **vault** para reusar. Un video llega a miles; una llamada tiene techo de 1-1,5h.\n\nEjemplos: Flor descubre que su **podcast** es lo que más vende (\"escuchaba todas las mañanas\"); Benja tuvo 12 llamadas y cerró 1 por falta de previa; Julie con ~300k seguidores igual genera desconfianza. Escalera de precios: 12.000/5.000/3.000/1.000/500/47.\n\nConclusión: hacé **foco paso a paso** (nicho→oferta), apoyate en la comunidad y tus consultores, y pedí ayuda. El módulo se publica desde mañana con **sesiones semanales los lunes 12h**.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 177,
+        "vn": 1,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-01",
+        "cardDesc": "",
+        "videoId": "1DZSVj-vfqXQtkbNcdfquNhQRgerL86GQ",
+        "resumen": "Clase de apertura del módulo **Entrega del Servicio**, la parte que —dice Sofía— **\"hace o rompe\"** un negocio de servicios porque es su core. Si el servicio no entrega la transformación que prometió la **oferta irresistible**, los clientes se vuelven **detractores** que salen a hablar mal; el objetivo inverso es que sean tus **advocates/cheerleaders** y te traigan referidos. Ubica dónde estamos en el recorrido: **Etapa 1** (validar nicho, oferta y precio) y **Etapa 2** (implementar el funnel, ya con leads y script de venta) están hechas; ahora entramos a la **Etapa 3: validar el servicio y la transformación**.\n\nPuntos clave que remarca:\n- **La entrega es tu mejor inversión de marketing**: genera recomendaciones, casos de éxito y confianza para salir con la v2 de venta. Ojo: **satisfacción del cliente ≠ caso de éxito** (podés tener un cliente satisfecho que no sea caso de éxito).\n- Un **servicio pulido y sistematizado = clientes para toda la vida = negocio sólido y escalable**. Si sabés que los pasos A-B-C-D dan resultados, podés formar **closers, setters, triagers** y un equipo para que la venta y la entrega no dependan de vos, y hacer evolucionar al cliente al siguiente escalón de la **escalera de valor**.\n- Recién con la maquinaria pulida podés **\"abrir la canilla/grifo\" de clientes**. Ejemplo: un negocio pone todo el foco en posicionamiento y captación *porque* su entrega ya está muy pulida; abrir la canilla sin servicio pulido es \"comprarse un problema gigantesco\".\n- Estás en la **versión 1** de tu oferta: todo va a ser mejorable, por eso la validación previa se hizo con poca gente y volumen controlable.\n- **Loop iterativo incremental** (del mundo tech): v1 → analizar, planificar, diseñar → v2 → v3, creciendo escalonado y manejable (de 20 a 40, de 60 a 80), nunca de 5 a 100.\n\nPrincipios de la etapa: **entregar lo que prometiste** (desvíos solo milimétricos y con expectativas ajustadas), **sobre-comunicar** (mejor pecar de dar seguimiento que estar ausente), **hacerle la vida más fácil al cliente** (templates, playbooks, consultores 1:1, ganancias rápidas), acercarte y recabar todo el feedback posible, e identificar con un **análisis 80/20** qué importa y qué no. En la v2 aplicás el **\"trim the fat\"** (sacar la grasa): quitar lo que no hace falta para que igual logren resultados y agregar lo que simplifique el camino.\n\n**Sobre-entregar y generar casos de éxito** es el punto cúspide: momentos \"guau\" y adelantarte a los desafíos del cliente. Advertencia de fondo: sin un **fulfillment** que funcione, el negocio se quiebra y no escala; se construyen \"casas de naipes\" en vez de **fundaciones sólidas**.\n\nConclusión: retoma la **fórmula \"Coca-Cola\" (nicho, oferta, precio)** más la máquina que capta y sirve leads; optimizando recursos, tiempos y experiencia se sube el ticket y se reduce el costo de entrega para llegar a **márgenes de +60%**. Anticipa la próxima unidad —**marketing perpetuo** y **\"comprar real estate mental\"** (invertir tiempo en la mente del nicho para posicionamiento perpetuo)— y cierra prometiendo bajar el **funnel de entrega del servicio** paso a paso.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 178,
+        "vn": 2,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-02",
+        "cardDesc": "",
+        "videoId": "16VTOpgN5U9OIMyl5EX9eMmYrhuIgQJUJ",
+        "resumen": "Esta clase abre el **funnel de servicio**: lo que arranca una vez que el lead se transforma en cliente, dentro del funnel mayor de **100k de ingresos recurrentes mensuales**. Sofía muestra que, para cualquier tipo de servicio (incluso productos o un SaaS como ClickUp o Circle), el funnel siempre tiene los mismos tres componentes: **onboarding**, **entrega de la oferta irresistible / generación de resultados** y **oferta back-end de evolución**.\n\n**Puntos clave que remarca:**\n- **Onboarding.** Su misión es **reforzar la decisión de compra** y combatir el *client buyers remorse* (el remordimiento de compra que aparece a los días de comprar algo de alto valor). Se logra acelerando el onboarding, **aportando valor de entrada** y generando concordancia entre lo prometido y lo que el cliente ve.\n- **Setear expectativas.** Dejar clarísimo qué puede esperar de vos y qué debe hacer él para lograr los resultados. Si no se sientan bien acá, \"te comprás un problema\": el cliente arrastra expectativas desfasadas.\n- **Visión clara del norte.** Reducir la ansiedad mostrando qué pasa cada semana, vía roadmap o agenda.\n- **Acercarse al cliente.** El onboarding es el primer paso para el vínculo, con el objetivo de generar **clientes para toda la vida**.\n- **Reducir la fricción** siempre: una experiencia *seamless* donde todo fluye y la persona casi ni nota que está siendo onboardeada.\n- **Entrega y generación de resultados.** El objetivo es **sobre-entregar** y generar *quick wins* (ganancias rápidas). Entregar resultados es lo primordial.\n- **Oferta back-end.** Cuando el cliente ya tiene su caso de éxito y completó la oferta irresistible, se le ofrece el ascenso.\n\n**Ejemplo:** en la propia **Mastery Haus**, el alumno que ya logró su facturación, nicho, oferta de software y máquinas de servicio funcionando, evoluciona a **Mastery Pro**, la siguiente etapa con desafíos de equipo, implementación y volumen a medida que escala.\n\n**Conclusión:** el back-end sirve para **incrementar la estabilidad** y seguir acompañando el crecimiento del cliente. La clase deja planteado el mapa; las próximas explican cómo hacer funcionar cada parte para lograr un \"servicio supremo\".",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 179,
+        "vn": 3,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-03",
+        "cardDesc": "",
+        "videoId": "1FupB-PGym4sBL1Trd6YXnb-0loH0RcSD",
+        "resumen": "Esta clase de **Entrega del Servicio** enseña cómo hacer la **proyección y planificación de la entrega** de tu servicio, apoyándote en el **compaginador de oferta irresistible** que ya armaste en el módulo de oferta (ahí ya está mapeado nicho, tipo de cliente, ratio de entrega 1:1 / 1:pocos / 1:muchos, camino de éxito, entregables, bonos, garantía, precio). Con esos datos ya bajados, planificar la entrega es mucho más simple.\n\n**Puntos clave que remarca:**\n- Separá tu oferta en **frontend** (lo que ve el cliente: consultorías 1:1, mentorías grupales, sesiones mensuales, fórmula, comunidad) y **backend** (lo que no ve: ventas, equipo, recursos, plataformas).\n- El primer objetivo es **bajar una versión 1** a un documento de Word, **idealmente en Drive** (si no, se pierde), con el paso a paso de cada componente. \"Bajala como puedas\": lo importante es tener estructura, no perfección.\n- Esa versión 1 va evolucionando hasta convertirse en un **SOP (Standard Operating Procedure)**, que es simplemente \"una forma elegante de decirle a **procesos**\". Ahí definís recursos necesarios, personas involucradas, cuándo y cómo sucede cada cosa, y lo vas puliendo.\n- **Proceso, flujo de trabajo y SOP** son prácticamente lo mismo: no te compliques con la diferencia.\n- Desarrollá los SOPs **de a poco y escalonado**: demandan mucho análisis (feedback de clientes, tu vínculo con ellos, conversaciones del equipo). Si querés hacerlos todos de golpe, te quemás.\n- Marcá con un **check verde** el documento que ya está 100% chequeado; sin verde = tiene mejoras pendientes.\n\n**Por qué importa:** evita construir una **casa de naipes** que se cae con una brisa; querés fundaciones sólidas. Los SOPs te dan **resultados consistentes y medibles**, reducen el **error humano**, mejoran la velocidad (una persona nueva aprende con \"mirá este video / este documento\", sin que la capacites vos) y hacen el resultado **predecible**: la misma \"maquinaria\" da los mismos resultados la ejecute quien la ejecute, para que el negocio **no dependa de vos** y sea escalable. Analogía: hasta pilotos con más de 10.000 horas siguen **checklists** para no cometer errores.\n\n**Ejemplo:** Mastery se lanzó con un documento y una organización **desalineados** (la versión 1 fue \"un volcado de ideas\") y aun así **facturó más de $100.000 en cinco días**. Una versión imperfecta puede generar muchísimo dinero.\n\n**Conclusión:** en onboarding y en toda la entrega, primero **bajá una versión 1 como salga** y después **optimizá de forma iterativa** hasta llegar a SOPs pulidos y organizados en carpetas (procesos de vendedores, consultores, mentores, servicio, ventas).",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 180,
+        "vn": 4,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-04",
+        "cardDesc": "",
+        "videoId": "1fT_ildn6nuiXaQodXoU9momRUBpznEWi",
+        "resumen": "Esta clase arranca la etapa de **Entrega del Servicio** por la primera parte del **funnel del servicio**: el **onboarding** (que Sofía extiende hasta la **semana uno**). El punto central es que **el onboarding y la semana uno definen la expectativa y la experiencia del cliente**, así que tienen que salir perfectos y sin fricción.\n\n**Los tres focos del onboarding:**\n- **Generar una experiencia sin fricción**, que fluya.\n- **Definir expectativas claras**: que el cliente sepa qué pasos y acciones le tocan a él y cuáles hacemos nosotros para que alcance sus resultados.\n- **Reforzar la decisión de compra** (llevar a cero el remordimiento de compra).\n- Como **extra**, dibujarle un **mapa hacia el futuro**: qué puede esperar de acá en adelante.\n\nPara armarlo, Sofía te deja un **\"desarrollador de onboarding\"** con preguntas guía (borrás los ejemplos y ponés lo tuyo) y, como documento de lectura para inspirarte, el **workflow real de onboarding de Mastery Haus / MasTribu**.\n\n**Puntos clave que remarca:**\n- **Objetivos y pasos:** definí qué esperás lograr con el onboarding (comunicación clara, plan de comunicación, introducción a la plataforma, otorgar accesos, presentación del equipo) volcando lo que ya mapeaste en pasos anteriores; esta es una versión optimizada de tu v1.\n- **Puntos críticos y quién interviene en cada uno:** sirve para proyectar el onboarding, tanto si tenés una plataforma con contenido como si hacés acompañamiento uno a uno (es el mismo concepto). Ejemplo propio de Sofía: en su **consultoría tradicional de 6 meses**, el **primer mes era Discovery** (meterse en el negocio y el mercado del cliente, hablar con todos los involucrados, primera sesión de Discovery, analizar los datos) y recién ahí pasaba a la **etapa de implementación**, volcando todo lo recabado. Mapeá recursos de soporte, tiempos y responsables por etapa.\n- **Herramientas y recursos:** ejemplos que usan ellos: **DocuSign** (contratos), **Calendly** (agendas/llamadas), **Tracker de onboarding** (seguimiento), **paquetes de bienvenida**, y plataformas de comunidad tipo **Circle** o Google.\n- **Expectativas de comunicación (fundamental):** comunicá precios, entregables, roles, responsabilidades y métricas. Regla que subraya: **\"lo que no está prohibido/delimitado, está permitido\"**. Si no ponés marco, el cliente te escribe por WhatsApp un sábado a las 22:00 esperando respuesta. Si lo educás desde el inicio (mejor aún por contrato), acepta las reglas y se adapta.\n\n**Reforzar la decisión de compra — ejemplos:** guía de \"5 K rápidos\" para implementar ya (ej. cómo generar $5000 apenas entra al programa), **paquete de bienvenida sorpresa** enviado a su casa con merchandising/libros, u **onboarding acelerado** inmediato post-compra. Idea de fondo: cuando cerrás un cliente, tomás ese dinero y **sobre-entregás**, no sumando cosas de más sino invirtiendo en lo que reduce el remordimiento y aporta valor (plataformas que aceleran la comunicación y la experiencia, equipo, recursos que dan resultados más rápidos y te simplifican la gestión).\n\n**Personalizar la experiencia:** que el cliente sienta que **realmente lo ves** y que es único, que no se sienta un número. Eso baja el remordimiento y construye **clientes para toda la vida**. Ejemplos: **tarjeta con mensaje personalizado** junto al paquete de bienvenida, o un **avatar personalizado por cliente** (al estilo Apple), que algunas empresas ya usan al llegar a cierto nivel.\n\n**Conclusión:** respondiendo estas preguntas armás los puntos fundamentales de tu proceso de onboarding; después inspirate en el **workflow de MasTribu** para pulirlo.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 181,
+        "vn": 5,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-05",
+        "cardDesc": "",
+        "videoId": "1w4Nd16vKCZDHroWtUQOtcYc2KxVShJOC",
+        "resumen": "Quinta clase de **Entrega del Servicio**: cómo implementar tu oferta irresistible sin morir en el intento. La idea madre es **construir junto al cliente por etapas** — nada de tenerlo todo listo antes de vender. Sofía lo cuenta con su propia historia: cerró uno de sus primeros proyectos de consultoría por **cinco cifras en dólares** con el índice de entregables solo proyectado, nada implementado; fue armando el **Discovery** y cada etapa cliente por cliente, hasta convertirlo en un proceso **plug and play (dos clics)** que después evolucionó a sus programas digitales. Aplica igual si tenés muchos clientes a la vez, evergreen o uno a uno.\n\n**Puntos clave que remarca:**\n- **Proyectá los tiempos por adelantado**: la \"hoja desprolija\", dividiendo las entregas idealmente **por semana** (o por mes según tu desarrollo). Así cada semana tiene un \"esto tiene que suceder\" y podés medir si vos y el cliente avanzan.\n- **Medí el avance de cada cliente**: en Mastery ven quién consume qué contenido, quién hace el **check-in**, quién agenda su sesión de consultoría y quién no hace ningún paso. Ese mapa te deja accionar: hablar con los que quedan atrás y celebrar a los que avanzan. Si alguien no avanza, atajalo antes.\n- **Recabá feedback en cada instancia** (dejan un **SOP de recabación de feedback** de ejemplo) y **volcá lo aprendido a la semana siguiente**.\n- **Mantené lo simple** y **flexibilizá el alcance, no tu tiempo**: achicá el scope, contemplá que vas a tener poco tiempo entre entregas y otras cosas en tu vida. No necesitás estudio de grabación ni guía kilométrica; hay programas millonarios que son un simple documento de Word y funcionan. La pregunta guía: **\"¿cómo se vería esto si fuera simple?\"**\n- **No compares tu versión uno con la versión nueve** de nadie. El objetivo es sacar algo **desprolijo e incompleto** y contrastarlo con la realidad — *la realidad es lo único que existe*: lo que opinan tus clientes, no lo que imagina tu cabeza.\n\n**Ejemplo del loop:** en \"Negocios Exitosos\", su primer programa digital, la semana 1 salía el contenido de la unidad, la siguiente hacían los ejercicios, después una sesión de consultas en vivo, y dos semanas más tarde salía la unidad 2. Ese ritmo le daba tiempo para recabar feedback y optimizar sobre la marcha, repitiendo hasta acumular clientes que validaran la versión 1 y saltar a la versión 2.\n\n**Conclusión:** usá el **compaginador de oferta** y el **master planner** (semana por semana, con colores) para mapear cada paso desde que el cliente ingresa hasta que sale exitoso, y salí de acá con tu **documento de entrega de servicio** en versión desprolija. Agilidad y a la acción.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 182,
+        "vn": 6,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-06",
+        "cardDesc": "",
+        "videoId": "12sI1BZpk61JtV-knZQCgV-2-zOo72jBx",
+        "resumen": "Esta clase de **Entrega del Servicio** es una lista de **reglas generales que aceleran los resultados de tus clientes**, pensadas para incorporar en distintos puntos de tu **funnel de servicio**. Sofía las plantea como ajustes de experiencia que mejoran lo que el cliente logra y cómo lo vive.\n\n**Puntos clave que remarca:**\n\n- **Filtrá bien a tus clientes (desde la venta).** El esfuerzo de filtrar se hace en ventas, porque una vez que alguien compró es dificilísimo decirle que no es tu cliente. Solo tienen que entrar los de tu **nicho dorado / abordaje ideal**: si dejás entrar a cualquiera, \"te comprás un problema\": no avanzan con la oferta, se vuelven **detractores** y salen al mundo diciendo que tu oferta no funciona.\n- **Menos es más.** No agregues cosas solo por agregarlas; sumá únicamente lo que aporta valor real. En la **versión 1** vas a descubrir que algo que creías valioso el cliente no lo valora: sacalo, incluso dentro de la misma versión, en vez de arrastrarlo hasta la versión 2.\n- **Lo fundamental se trabaja primero.** Sentar las bases al inicio de la relación es lo que habilita los resultados. Ejemplo: arrancar por **mentalidad y expectativas** de lo que viene; en consultoría, empezar por conocer al cliente, el mercado y recabar información (y que el cliente también te conozca a vos).\n- **Generá ganancias rápidas / quick wins.** Usa la **analogía del libro**: un capítulo de 100 hojas sin títulos intermedios se siente eterno; con títulos intermedios y valor en cada uno, sentís que avanzás y hacés \"checks\". Igual que planificar el día en accionables que se empiezan y cierran en el día. Con el cliente: paso 1 completá esto, paso 2 presentate, paso 3 conocé a tu consultor —taca, taca, taca— y quick wins concretos, como **generar $5.000 al ingresar al programa**.\n- **No sobrecargues de información.** La gente se abruma. Ojo con la distinción: **sobrecomunicar ≠ sobreinformar**. Sobrecomunicar es hacer seguimiento (cómo va, si tiene dudas, por qué no aparece hace dos semanas); sobreinformar es tirarle todo el contenido sin decirle cómo avanzar. Solución: pautar semana a semana con check con el consultor, o usar **contenido tipo drip** que se va habilitando por tiempo, para que no se paralice ante \"una biblioteca entera\".\n- **Sobre-chequeá al cliente ausente.** Siempre es preferible chequear de más el recibimiento del cliente que está desaparecido: **sobre-chequear es mejor**.\n\n**Conclusión:** son puntos que profundizan la experiencia y aceleran resultados. Incorporalos en tu funnel de servicio y observá el impacto.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 183,
+        "vn": 7,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-07",
+        "cardDesc": "",
+        "videoId": "1aF1Bh4fLnC5d3G3hZmx23PoBr-HSu7Dz",
+        "resumen": "Clase de **Entrega del Servicio** dedicada a un solo tema: cómo **recopilar feedback** de los clientes para mejorar tu **oferta irresistible**. La premisa es que en la versión 1 de tu oferta el feedback es \"sí o sí\": necesitás recabar toda la información posible porque es lo que te permite iterar y que el cliente obtenga resultados.\n\n**Puntos clave que remarca:**\n- **Observá todo.** Estar con oídos y ojos en cada instancia de interacción del cliente con tu oferta (sesiones 1 a 1 con consultores, mentorías grupales, sesiones de maestría, la plataforma). Tu trabajo es observar, tomar notas y **documentar**. La belleza del online es que se puede documentar todo: grabar llamadas, capturas de pantalla, documentos.\n- **Creá una carpeta \"feedback\"** donde volcás absolutamente todo: formularios, capturas y un documento con los puntos de mejora de cada instancia.\n- **Identificá confusiones y problemas comunes.** Van a aparecer puntos de fricción y patrones repetidos entre clientes. Un **problema** ocurre cuando alguien entiende algo, lo aplica y no logra el resultado. Ejemplo real de **Mastery Build**: al inicio, los desafíos de **mentalidad** hacían que unos avanzaran rápido y otros se trabaran; detectarlo permitió incorporar instancias con \"doble clic\" en mentalidad.\n- **Mapeá todas las instancias donde recolectás feedback** usando un **SOP** (que siempre arranca con objetivo y a quién está dirigido).\n\n**Ejemplo — el SOP de feedback de MasteryBuild:** recopilan feedback en cuatro frentes: (1) la **Fórmula Master** (el contenido): mensajes que invitan a comentar y una **encuesta al final de cada módulo**; (2) las **sesiones** semanales y mensuales de maestría; (3) el **journey del usuario** en cada etapa (onboarding, evento de bienvenida, reunión del plan de acción, cada sesión 1 a 1, sesiones grupales semanales y el final del programa); y (4) el **análisis**. Herramientas: formularios en **Typeform** que se cargan automáticamente en una **planilla de Google** (integración Typeform–Drive) y encuestas dentro de **Circle** en cada sección de mentoría. El análisis combina un **reporte global** (diario y semanal, no mensual) con el **NPS (Net Promoter Score) por cliente**, para ver su evolución y detectar red flags, clientes que desaparecen o casos que van muy bien y ameritan una acción de recuperación.\n\n**Conclusión:** mapeá tus instancias de feedback y **optimizalas sobre la marcha**. Vas a descubrir que muchos clientes no completan los formularios; la solución que ellos incorporaron es que **el consultor abre el mismo formulario en una llamada y lo completa preguntándole al cliente**. La lógica de fondo: esta información es tan valiosa que hay que buscar todas las formas posibles de recolectarla sin exigirle esfuerzo al cliente.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 184,
+        "vn": 8,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-08",
+        "cardDesc": "",
+        "videoId": "1ub3-OOsxkpKJtQleI0l8SHzxVTJ9VQx4",
+        "resumen": "Esta clase del módulo **Entrega del Servicio** presenta la **ecuación de servicio y transformación**, un desarrollo propio de **Sofía Valderrama** (paralelo a la **ecuación de valor** de Alex Hormozi vista en el módulo de oferta). La fórmula tiene cuatro componentes: arriba, lo que se **incrementa** —**Satisfacción del cliente × Casos de éxito**—; abajo, lo que se **disminuye** —**Costo operativo × Tiempo de entrega**—. El resultado es un **negocio sólido y escalable**.\n\nPuntos clave que remarca:\n\n- **Satisfacción ≠ Casos de éxito** (se confunden seguido). Podés tener un cliente satisfecho, que te puntúa altísimo y ama el proceso, pero que no alcanza resultados: no es caso de éxito. Y al revés: alguien que sí logró la transformación pero quedó insatisfecho.\n- **Satisfacción del cliente**: se da cuando **la realidad alcanzada supera las expectativas**. Por eso hay que **setear bien las expectativas** en la llamada de venta y, si se desfasan durante el programa, recuperarlas con **conversaciones difíciles**. Objetivo: maximizar el **% de clientes satisfechos**, porque a mayor número, más **recomendaciones y upsell** (un cliente satisfecho recomienda aunque no sea caso de éxito). Cómo: **entregar lo que prometiste + recabar feedback** en un loop constante.\n- **Casos de éxito**: total de clientes que **alcanzan los resultados**; son la **prueba del valor real** del servicio. Objetivo: lograr el mayor **ratio de clientes → clientes exitosos** y subir la **probabilidad percibida** de que el cliente llegue a su resultado. Cómo: **reinvertir en el servicio** (recursos y equipo que aceleren resultados y te liberen tiempo) y **recabar casos de éxito**.\n- **Costo operativo**: todos los gastos de prestar el servicio. Objetivo: **minimizarlos sin comprometer la calidad**. Solo se recorta lo que no aporta valor —\"**trim the fat**\", sacar la grasa—, apoyándose en el **análisis posterior** del feedback y de cómo evoluciona el cliente en su funnel (onboarding → entrega → resultados → caso de éxito).\n- **Tiempo de entrega**: aplica tanto al servicio como a los **resultados**. Reducirlo no es acortar de seis a tres meses por decreto, sino que en ese lapso el cliente **efectivamente logre** la transformación. Objetivo: cumplir la **promesa de tiempo y de resultados** (que sea \"on point\") o acelerarlos. Cómo: un **roadmap detallado** (\"si hacés esto, lográs esto\"), que además permite **detectar desvíos** y dar seguimiento, y dejar lugar para **momentos wow** inesperados que suben la satisfacción.\n\nConclusión: pulir estos cuatro componentes —subir satisfacción y casos de éxito, bajar costo operativo y tiempo de entrega— es lo que convierte la entrega del servicio en un **negocio sólido y escalable**.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 185,
+        "vn": 9,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-09",
+        "cardDesc": "",
+        "videoId": "1FqRp2AoQuK8Nm8yt4rjEMKEMOidmCCoh",
+        "resumen": "Clase de la unidad de **Entrega del Servicio**, dada por **Jessica Barlusconi**, Customer Success Manager de Mastery Haus. Es un tutorial práctico de **DocuSign**, la plataforma de **firma electrónica** que usan para firmar contratos con los clientes (la misma con la que vos firmaste tu contrato). DocuSign es un software SaaS basado en la nube: junta firmas por **correo electrónico**, enviando a cada firmante un enlace seguro personal sobre el que debe firmar.\n\n**Puntos clave que remarca:**\n- **Seguridad y confidencialidad:** los documentos van **cifrados**; ni el proveedor de DocuSign ni nadie con acceso a la plataforma puede leer el contenido. Usa infraestructura de **clave pública (PKI)** con certificados estándar, y protocolos **HTTPS/SSL** en todo acceso y transferencia de datos.\n- **No repudio y trazabilidad:** cada transacción genera un **certificado de finalización** (registro de auditoría) que enumera quién firmó, cuándo y cómo. Una vez que las dos partes firman, el documento **ya no se puede modificar ni editar**; cualquier cambio quedaría registrado.\n- **Recomendación legal:** dejan **plantillas de contrato** propias, pero insisten en que un **abogado especializado** revise todo. No hagas modificaciones por tu cuenta sin chequearlas con tu equipo de leyes.\n\n**Cómo cargar un contrato (paso a paso del demo):** la plataforma tiene cinco pestañas (**Inicio, Gestionar, Plantillas, Informes, Configuración**). Creás la cuenta con mail y contraseña, confirmás por mail y cargás tu **firma digital**. Luego: 1) crear un **sobre** desde Inicio y subir el archivo (desde Drive, Dropbox o el escritorio) o usar una plantilla; 2) **añadir destinatarios** (vos y el cliente); 3) arrastrar los campos al final del documento —**firma y fecha** son los que siempre ponen, y hay más opciones: inicial, nombre, correo, empresa, cargo, texto, casilla de verificación—, asignando cada campo a su firmante por color; 4) **Enviar**. La fecha se completa automática el día de la firma. El sobre pasa a **Gestionar/bandeja de entrada** y muestra que falta una persona por firmar; cuando ambas partes firman, queda **completado** y podés descargar el documento firmado junto con su certificado de seguridad.\n\n**Conclusión:** firmar contratos con DocuSign es simple, rápido y seguro, y deja constancia legal inmodificable de cada acuerdo con el cliente.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 186,
+        "vn": 10,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-10",
+        "cardDesc": "",
+        "videoId": "1moUltX5jAk3EYT0LasZVG7yP531FHf7r",
+        "resumen": "Esta clase arma, paso a paso, el **procedimiento general de onboarding** de un cliente nuevo: desde la postventa hasta que ingresa a la comunidad/plataforma. Es un manual operativo pensado para los dos roles que lo ejecutan: **líderes de servicio / Customer Success** y **consultores**. El mapa son 7 pasos: **1) traspaso de venta a servicio, 2) firma de contrato, 3) bienvenida y formulario, 4) asignación de consultor, 5) plan de acción, 6) sesión estratégica, 7) bienvenida a la comunidad en plataforma.**\n\n**Puntos clave que remarca:**\n- **Paso 1 – Venta a servicio (a cargo del closer):** en la misma llamada de cierre se piden los datos para el contrato (**número de documento, nombre completo y dirección**), se avisa al cliente que lo contactarán, se completa el **CRM** (datos, forma de pago), se comunica al área de servicio y se sube la llamada de cierre a la carpeta de ventas.\n- **Paso 2 – Contrato (Customer Success):** revisa condiciones de pago en el CRM, crea la carpeta del cliente, manda **bienvenida inmediata por WhatsApp**, envía el contrato por **DocuSign** y pone un **recordatorio de firma a 48 horas**. Regla dura: no se arranca nada sin **primer pago hecho + firma de términos y condiciones** (marco legal, por garantía). Para cuotas propone una **planilla de seguimiento de pago** con columnas: nombre, mail, teléfono, fecha de venta, ticket, rescates (autocompleta), acuerdo de pago (desplegable), tipo de pago (ej. **adelanto de 2K, dos pagos de 3000 y último de 2000**), links de pago, acciones (cancelar/retomar/contactar/cobrado), **tres vencimientos** y aclaraciones.\n- **Paso 3 – Bienvenida y formulario (Customer Success):** mail de bienvenida + **formulario Typeform** desde el correo de servicio (ej. hola@masteryhaus). Muestra los **templates de mail** (con versión para una persona y para socios: un solo formulario del negocio). Se registra la recepción en el **onboarding tracker** (planilla con casillas de check por cada paso, o automatizado en **ClickUp/Zapier**), con **recordatorio a 48 h** a quien no completó. Nomenclatura de archivos: *programa + nombre* (ej. \"Masteri Bill Juan Pérez\").\n- **Paso 4 – Asignación de consultor (Customer Success):** analiza el formulario y elige el consultor más adecuado al tipo de negocio/cliente; le informa y comparte la carpeta de identidad.\n- **Paso 5 – Agendar sesión estratégica (consultor):** se presenta y manda **Calendly** por mail (con template \"te invitamos a agendar tu sesión estratégica\"), más recordatorio si no agenda en dos días y otro de \"mañana es tu sesión\". Crea un doc con anotaciones del cliente en su carpeta.\n- **Paso 6 – Sesión estratégica (consultor):** previo, arma el **plan de acción** particular con plantilla y crea el **canal privado del cliente en Circle**. Dinámica: **grabar todo**, presentar agenda y plan de acción, mostrar la plataforma y tutoriales, chequear accesos, **agendar las próximas 1-1**, pedir feedback y bajar la app. Después: bienvenida por el canal, guardar la grabación y tildar el tracker.\n- **Paso final – Seguimiento (consultor):** verifica que el cliente **entre y use la plataforma** y dé sus primeros pasos; recordatorio si no ingresa; que haga su presentación en el canal; se tilda en el tracker/CRM. **Customer Success** cierra el loop asegurando la **encuesta de feedback** y que los consultores cumplan todos los pasos.\n\n**Conclusión:** un onboarding no se improvisa; es un checklist con dueños claros por paso, recordatorios a 48 h, todo trackeado en planilla o CRM y con **todo grabado** para iterar y mejorar.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 187,
+        "vn": 11,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-11",
+        "cardDesc": "",
+        "videoId": "11ipdpiyn-16-oOYEi5Mz8ExftQCfL8CF",
+        "resumen": "Un recorrido práctico por la plantilla **Onboarding Tracker** dentro del módulo de **Entrega del Servicio**: cómo trackear el paso a paso de cada cliente nuevo apenas entra. Sofía aclara que es solo una forma **rápida, fácil y efectiva** de hacerlo —un simple **Google Sheet**—, pero que lo mismo se puede armar con un **CRM** o en **ClickUp**.\n\n**Puntos clave que remarca:**\n- **Datos base del cliente:** nombre, mail, a quién se asigna y en cuál de tus programas está inscripto. El programa se carga con un **menú desplegable** (Insertar → menú desplegable), y las etapas con **check boxes** insertados igual; todo es personalizable en colores y nombres.\n- **Etapas de onboarding con checks:** onboarding de marketing, primer pago, seguimiento, **contrato**, **swag** (envío de un regalo o producto con la marca como recibimiento), **D-map enviado**, **formulario de onboarding enviado**, **recibido por el cliente** y **completado**. Al lado se puede pegar el **link al formulario** para que los consultores lo vean fácil.\n- **Responsable:** otro insert para el **consultor** o persona encargada de ese cliente.\n- **Etapas de entrega:** agendamiento de la **sesión estratégica** → sesión realizada → agendamiento de la **llamada de plan de acción** → llamada realizada → **ingreso a la academia/plataforma o canal educativo**.\n\n**Conclusión:** una plantilla liviana y totalmente modificable para que nada del onboarding se caiga; la herramienta importa menos que tener el proceso mapeado y visible.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 188,
+        "vn": 12,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-12",
+        "cardDesc": "",
+        "videoId": "1jMc79jk-pixrc8rYgwDJFk09TzCeNdoS",
+        "resumen": "Clip cortito del módulo **Entrega del Servicio**: Sofía repasa los **emails de onboarding** que le mandás a un cliente nuevo apenas entra al programa. La idea es que tengas las **plantillas listas para copiar, pegar y reenviar**. Son básicamente tres correos que salen desde el arranque (el primero del mes).\n\n**Puntos clave que remarca:**\n\n- **Email 1 — Invitación a agendar la sesión estratégica.** Es el primero. Cuerpo tipo: *\"Hola Juan, soy Jessie, tu consultor personal del programa; mi objetivo es acompañarte a lograr estos resultados. Como primer paso vamos a agendar nuestra primera sesión estratégica\"*, con un **link de disponibilidad/calendario**. Después anticipa **qué va a pasar en esa sesión**: conocerse, hacer preguntas en base al **formulario que completó**, presentarle su **plan de acción**, darle **acceso a la comunidad** e inducción a la plataforma, crear el **canal privado exclusivo** de comunicación de los próximos meses y repasar cada parte para despejar dudas. Cierra emocionado, con un **link a resultados de otros clientes** (\"ir calentando motores\") y un \"nos vemos en la primera sesión\".\n- **Email 2 — Recordatorio.** Asunto *\"Recuerda que mañana es tu sesión estratégica\"*. Breve: le recuerda que mañana es la sesión, que **entre desde el link generado en el calendario** de la llamada, y queda a disposición por cualquier consulta previa.\n- **Email 3 — Meet & Greet (opcional, si lo hacen).** Invitación a un **encuentro en vivo** para que conozca a los líderes y demás participantes del programa. Incluye **fecha, hora y banda horaria** (elegida pensando en los usos horarios), y como objetivo que **se presente y conozca al resto**.\n\n**Conclusión:** son los correos base de un buen onboarding: agendar la primera sesión, recordarla y (si aplica) sumar al cliente a la comunidad con un meet & greet. Todo con plantillas prearmadas para no escribir cada vez de cero.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 189,
+        "vn": 13,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-13",
+        "cardDesc": "",
+        "videoId": "125jshpJHz4gCH0HaGqzToSDAslMhejcW",
+        "resumen": "Esta clase de **Entrega del Servicio** es un tutorial práctico de cómo armar el **formulario de onboarding**, la herramienta con la que conocés a fondo al cliente apenas entra al programa (sus problemas, su cuello de botella, todo lo útil para implementar). Sofía descarta Google Forms por su **límite de caracteres** y recomienda siempre **Typeform**, que no tiene ese tope, es muy intuitivo, trae plantillas y automatizaciones, e integra con **Google Sheets** y **ClickUp**.\n\n**Puntos clave que remarca:**\n- **Secciones del formulario:** sobre ti, tu rutina, gestión de tu tiempo, sobre el programa, sobre tu negocio, visión, ejecución de la estrategia, clientes, oferta y servicio, competencia, marketing, ventas, operaciones, y una pregunta final de **feedback**. El de ellos tiene **más de 200 preguntas**.\n- **Al crear formulario** hay 3 opciones: con IA, importar preguntas (traer las de Google Sheets), o empezar de cero. Nombre y categoría dan igual.\n- **Primera pantalla = datos del cliente:** teléfono, nombre, apellido, correo y empresa. La imagen se puede cambiar por la de tu programa. El **correo funciona como ID del cliente** para guiar las automatizaciones; el **número de documento** también, por ser dato único (sirve para contratos).\n- **Siempre empezá con una plantilla de texto** que le explique al cliente de qué va, cuánto dura y cómo responder; y separá cada sección con otro texto.\n- **Panel pregunta/diseño/lógica:** el ojito oculta campos, diseño cambia colores, y **lógica** abre un árbol de decisión con ramas. Ejemplo: ante \"¿Tenés otra oferta? Sí/No\", el \"Sí\" reenvía a completar las preguntas de esa segunda oferta y el \"No\" sigue el cuestionario.\n- Tipos de plantilla que más usan: elección múltiple (con orden aleatorio y campos obligatorios), **sí/no** (clave para el árbol) y **puntuación** 1-5 o 1-10 (para feedback).\n\n**Integración y procesamiento:** al **publicar** te da un link para mandar por mail. En Integraciones conectás **Google Sheets** (elegís el Drive, creás una hoja nueva y activás la integración): cada respuesta cae sola en la hoja. De ahí, dos caminos: **manual** —hoja nueva por cliente, copiar los campos y **pegado especial → transpuesto** para tener pregunta y respuesta lado a lado— o **automatizar con Zapier** (que pasa por Drive y demás), tema del próximo video.\n\n**Conclusión:** nunca toques la hoja automática (borrar campos o poner filtros puede desactivar la integración); ahí solo copiás y pegás. Armá una carpeta por cliente con su hoja de onboarding.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 190,
+        "vn": 14,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-14",
+        "cardDesc": "",
+        "videoId": "16Xc9paH8nSdNo4VAuWcSRXbCK8Lb8MSi",
+        "resumen": "Este clip es un recorrido práctico por la plantilla **Onboarding Tracker**, la herramienta que Sofía propone para ordenar la **entrega del servicio** cuando entra un cliente nuevo. Aclara que no es obligatorio: lo mismo se puede armar en un **CRM** o en **ClickUp**, pero ella comparte \"la forma rápida, fácil y efectiva\": un simple **Google Sheet** con los datos y el paso a paso de lo que va pasando a medida que el cliente avanza.\n\n**Puntos clave que remarca:**\n- **Datos base del cliente:** nombre, mail y **programa** en el que ingresó (esto último con un **menú desplegable** — Insertar → menú desplegable — que se personaliza con opciones, colores y nombres).\n- **Etapas del onboarding con check boxes** (también se insertan desde el menú): primer pago y seguimiento, **contrato**, **swag** (envío de un regalo, producto de marca u obsequio de recibimiento), **D-Map enviado**, **formulario de onboarding enviado**, **recibido por el cliente** y **completado**. Al lado se puede pegar un **link al formulario** para que los consultores lo vean fácil.\n- **Responsable asignado:** otro desplegable con el consultor o persona a cargo de ese cliente.\n- **Etapas de entrega:** agendamiento y realización de la **sesión estratégica**, agendamiento y realización de la **llamada de plan de acción**, e **ingreso a la academia/plataforma o canal educativo**.\n\n**Conclusión:** todo el sheet es totalmente personalizable — colores, columnas y etiquetas se adaptan a cada negocio. La idea es tener un tablero visual y liviano que muestre en qué punto del onboarding está cada cliente sin perder ningún paso.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 191,
+        "vn": 15,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-15",
+        "cardDesc": "",
+        "videoId": "1NXm-hvRFPK6Lz4JY5g40jLp1s5m3R-OY",
+        "resumen": "Esta clase de **Entrega del Servicio** es toda sobre **recabación de feedback**: cómo escuchar sistemáticamente al cliente para ir mejorando tu oferta. La premisa: una vez que tenés la versión 1, tu trabajo es **observar, dar soporte y documentar todo** (la belleza del online es que podés grabar y registrar cada cosa), identificando **confusiones comunes** y **problemas comunes** que se repiten.\n\n**Puntos clave que remarca:**\n\n- **Mapear dónde medís:** todos los puntos de contacto del customer journey con input del cliente sirven — onboarding, módulos, planificación, sesiones 1a1/grupales/de maestría, eventos presenciales, atención por sector, hasta la experiencia de pago. Al lanzar algo nuevo, mediciones **exhaustivas**; una vez aceitado, espaciás (con evaluar la satisfacción **una vez por mes** alcanza).\n- **NPS (Net Promoter Score):** el cliente califica del **1 al 10**. **Detractores 1-6**, **neutros/pasivos 7-8**, **promotores 9-10**. Mide la probabilidad de que te recomiende (boca en boca). Dato: las empresas centradas en el cliente logran **40% más ROI** y fidelizan **60% más**. Fórmula: **% promotores − % detractores** (los neutros = 0, \"borralos de tu mente\"); en fórmula, (promotores − detractores) × 100 / total. Ejemplo: 60% promotores, 10% detractores, 30% neutros → **NPS 50**. Los detractores pesan más porque cuentan la mala experiencia a mucha más gente. Benchmark: **>0 bueno, >50 excelente, >70 world class**.\n- **Implementación en Typeform:** datos del cliente (nombre, apellido, mail) → pregunta de especificidad (qué/quién califica + fecha + mentor/sector) → pregunta de recomendación 1-10 → pregunta de contexto (\"¿cómo podríamos mejorar?\"). Integrás con **Google Sheets** o un CRM.\n- **CES (Customer Effort Score):** mide el esfuerzo del cliente; a menos esfuerzo, más NPS. Escala de **Likert** (\"¿Qué tan difícil fue resolver la solicitud?\", de 1-5 o 1-7, muy difícil→muy fácil). Se mide en **etapas específicas**, no todo el tiempo. Categorías: bajo 1-2, moderado 3, alto 4-5. Fórmula: **% alto esfuerzo − % bajo esfuerzo** (−100 a +100); por debajo de 70% hay que eliminar obstáculos. Libro recomendado: **\"Effortless Experience\" de Matthew Dixon**.\n- **Churn (tasa de cancelación):** clientes perdidos en el mes / total al inicio. Ejemplo: 100 clientes, 5 bajas → **5%**. Un buen churn mensual está entre **1% y 3%** según el mercado.\n\n**Ejemplo (del libro):** una empresa de aspiradoras metía el repuesto que solía romperse directamente en la caja; era más barato que todo el costo operativo de llamadas y soporte, y subía la satisfacción porque el cliente ni percibía el problema.\n\n**Parte práctica:** armás el formulario corto en Typeform desde cero, lo integrás a Google Sheets y aplicás una **tabla dinámica** (filas = correo electrónico, que no cambia; columnas = módulo o consultor; valores = \"cómo calificarías\" con operación **promedio/average**). Con **formato condicional de escala de colores** (rojo=detractores, amarillo=neutros, verde=promotores) queda un **semáforo** que se actualiza solo y sirve para disparar alertas de servicio al cliente.\n\n**Conclusión:** medir NPS, CES y churn de forma sencilla y cercana a cada interacción, centralizarlo en una hoja viva y, más adelante, sumarle automatizaciones (ClickUp + Zapier) para notificaciones. Priorizar bajar el esfuerzo del cliente, más que el \"wow\" caro, es lo que sostiene la satisfacción y el crecimiento orgánico.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 192,
+        "vn": 16,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-16",
+        "cardDesc": "",
+        "videoId": "1n3vwZvOCvjyvlV4_Q3a9WTPUqOBMq8GP",
+        "resumen": "Esta clase de **Entrega del Servicio** va sobre la **salud del cliente**: cómo subir la retención y bajar el **churn** (bajas y cancelaciones) anticipándote con un **semáforo** que marca cuándo un cliente está en riesgo. La salud se mide de dos formas: por **etapas completadas** (progreso) y por **interacciones en la comunidad** (engagement).\n\n**Puntos clave que remarca:**\n- **Comportamientos exitosos** (los que, repetidos, acercan al cliente a la promesa): asistir a reuniones grupales y a la **1-a-1** con su consultor, completar módulos en tiempo y forma, cumplir requerimientos y usar los canales periódicamente, aplicar los hitos de cada módulo, hacer las primeras ventas y ayudar a compañeros.\n- **Verdes**: avanzan a paso firme, comprometidos y convencidos; festejan sus logros y los ajenos. Son ideales para pedir **referidos y casos de éxito**. Hay que seguir reconociéndolos, no dejar que se acomoden ni sientan que \"ya llegaron\": darles una **visión aspiracional** (\"el hombre muere cuando el deseo se agota\"). Sirve premiarlos con **reconocimientos** físicos o virtuales (regalo, placa, etiqueta) para que sean ejemplo.\n- **Amarillos**: no progresan como deberían o no están tan comprometidos, pero todavía no se desviaron del todo; riesgo de volverse rojos. Acción: **contacto proactivo** con mensaje personalizado según su personalidad, o una llamada para **generar compromiso, identificar expectativas y obstáculos, acordar próximos pasos y crear responsabilidad**. Si en 24 h no responde, cambiá el medio o subí la autoridad de quien contacta. Regla: tratar al cliente desaparecido como una deuda por cobrar, rotando medio de contacto y jerarquía.\n- **Rojos**: máximo riesgo de abandono; desconectados, no toman llamadas ni contestan, no consumen el contenido o dicen que \"no aplica a ellos\", critican sin evidencia. Acción: agendar una llamada lo antes posible (incluso llamarlo directo). En la charla, sin exponerlo ni avergonzarlo: pedir permiso para grabar, comparar su **estado inicial vs. actual**, entender motivos y pedir **feedback honesto y brutal**. Si está enojado, usar los **documentos de recuperación de servicio**.\n\n**Gatillos y tracker:** hay que sumar al **tracker de clientes** alertas de comportamientos no esperados y automatizarlas (o seguirlas con un **Customer Success Manager**). Ejemplos de gatillos: no contesta la encuesta, deja calificaciones de **7 o menos**, desaparece, falta a reuniones seguidas, cancela la 1-1 o queda muy atrasado frente al resto. Ojo con el **\"tractor/detractor silencioso\"** que no dice nada y su ausencia es la señal. Recomienda **reuniones semanales del equipo** para revisar el estado de cada cliente y activar gatillos; una vez etiquetado amarillo o rojo, seguir los pasos de cada caso.\n\n**La planilla (plantilla que dejan):** lista participantes y responsables por cliente, columnas de **hitos del programa** (mente desbloqueada, nicho definido, oferta, primeros leads, llamadas de venta, promesa cumplida, extra de la promesa, procesos documentados, asistencia al evento, marketing perpetuo aplicado) y un **seguimiento** semanal dividido por mes: el consultor tilda cada evento y se completa una barra de avance que muestra a simple vista quién está verde (todo tildado, cumplió la promesa) y quién quedó atrás. Además, un **overview general** con nombre, fecha de compra, si hizo onboarding, consultor asignado, link a la carpeta del cliente, fecha de inicio y de fin previsto, vacaciones, si logró la promesa y si recomendaría o trae referidos.\n\n**Conclusión:** medí siempre por feedback + avance en la plataforma, poné alertas para actuar apenas alguien \"se sale del carril\" y andá a buscarlo antes de que se convierta en baja.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 193,
+        "vn": 17,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-17",
+        "cardDesc": "",
+        "videoId": "1FcYMy_jrSHyiAJtRGNYDCiQOYhcwYG5p",
+        "resumen": "Esta clase de **Entrega del Servicio** es un manual paso a paso de cómo **obtener, producir y almacenar casos de éxito**: desde que un cliente cumple la promesa del programa hasta que el testimonio queda publicado y registrado. Todo se orquesta sobre una única columna de \"casos de éxito\" en el **CRM de clientes**, que dispara automatizaciones y tarjetas en **ClickUp** para cada equipo.\n\n**El flujo de estados (siempre sobre la misma columna del CRM):**\n- **Solicitado**: el consultor detecta el logro en una 1:1, le pide al cliente una entrevista con un mensaje que explica el propósito (entender los desafíos superados, las palabras que usa el cliente, sacar feedback para marketing y para mejorar).\n- **Agendado**: se manda un **Calendly**; a la cita entran el **CEO** (lidera) y el **Customer Success Manager** (CSM). Se genera automáticamente una tarjeta en ClickUp para ambos.\n- **Editar**: el CSM sube la grabación crudo al Drive/LUM con el formato **iniciales del programa + nombre completo + facturación lograda**, y cambia el estado; se dispara tarjeta para marketing.\n- **Edición en proceso** → **Subir a YouTube** → **Subir a la web** → **paso 7 (completo)**: cada cambio de estado genera la tarjeta con el accionable correspondiente al equipo de marketing.\n\n**Puntos clave que remarca:**\n- **Antes de grabar, validar la transformación**: confirmar que el cliente realmente cumplió la promesa (estado inicial vs. actual) para que el consultor no se haya equivocado.\n- **Consentimiento**: pedir permiso para grabar y avisar que se corta la grabación si el cliente se siente incómodo; que salga natural, sin forzar.\n- **Técnica (a cargo del CSM)**: video **horizontal**, buena iluminación, **HD**, buen micrófono, sin ruidos, buen fondo. Duración ideal de la entrevista: **5 a 15 minutos**. Que el cliente **no** nombre el programa y que se meta en la emoción del logro.\n- **Nomenclatura estricta** para que corran las automatizaciones. Ejemplo de archivo: *Master House Bill – Juan Pérez – $8000*.\n- **YouTube**: título con reglas de **SEO** y resultado numérico, palabras clave copiadas de otros videos del canal, **miniatura** con el branding del programa y el número. Se sube a los canales que correspondan (Sofía Contreras / Mastery Haus o los propios).\n- **Web**: subir nombre, logo de la empresa, situación inicial y final, período de la transformación, resultado y **evidencia** (capturas que unan el programa con el resultado).\n\n**El script de entrevista** que propone (líneas generales, adaptable): presentación (\"estamos con X que logró pasar de facturación inicial a facturación final\") + edad/de dónde/a qué se dedica → **estado inicial** (problemas, obstáculos, frustraciones) → **proceso de compra** (miedos, dudas, qué lo hizo dar el paso, por qué invirtió) → **transformación** (metas no económicas, atracción de leads, ventas, precios, retención, vida personal, dónde estaría sin el programa) → **recomendación** a alguien con dudas → **llamado a la acción** al programa.\n\n**Cierre**: en el paso 7 se genera una última tarjeta para el CSM: completar la **planilla de log de casos de éxito** (plantilla que dejan). Tiene desplegables para consultor/referente, nombre, apellido, mail, país, nicho, facturación inicial y final (con fórmula que calcula el crecimiento) y checkboxes de control: feedback dejado, referido, subido a web/redes/mail, premio entregado al cliente, si sube a un programa más alto o extensión, si es caso de estudio, y si está editado y publicado.",
+        "transcripcion": [],
+        "hasTx": true,
+        "recursoSlugs": [],
+        "herramientas": []
+      },
+      {
+        "n": 194,
+        "vn": 18,
+        "grupo": "Entrega del Servicio",
+        "modulo": 6,
+        "titulo": "Entrega del Servicio-18",
+        "cardDesc": "",
+        "videoId": "1ioh9qQ9CEw6BlS8sbH-ExOv2MLsiwAnS",
+        "resumen": "Esta clase del módulo **Entrega del Servicio** es un manual completo de **recuperación de servicio**: cómo prevenir y manejar clientes insatisfechos, cancelaciones, reembolsos y disputas.\n\nArranca con la teoría del **NPS**. El cerebro está cableado para recordar el dolor: un **detractor** (califica 1 a 6) le cuenta a mínimo 5 personas que no te compren; los **neutros** (7-8) son indiferentes y no comparten; los **promotores** (9-10) recomiendan, pero solo a una o dos personas. Un estudio comparó dos planes: subir detractores a neutros vs. subir neutros a promotores. Los neutros gastan 2-3x más que los detractores, y el **plan B (neutros→promotores) generó 8.8x más ingresos**. Conclusión: no gastes energía en rescatar tóxicos; enfocate en celebrar y hacer ganar más a los clientes exitosos.\n\n**Puntos clave que remarca:**\n- **Prevención con alarmas:** tu negocio necesita indicadores tempranos (tracker cualitativo rojo/amarillo/verde, KPIs, NPS) para anticipar el fantasma, detractor o reembolso antes de que escale. Ej.: si un cliente responde 7, se dispara una notificación en Slack para que Customer Success investigue.\n- **Setear expectativas desde el onboarding** (calidad, cantidad, frecuencia, condiciones de garantía) para evitar la desalineación, causa raíz de casi toda insatisfacción. **Resolvé la causa, no el síntoma.**\n- **Siempre llevá el conflicto a llamada, nunca a chat** (se lee el tono y lenguaje corporal), preguntá el porqué, reconocé tus errores primero para bajar defensas, y hacé **seguimiento a los 3-5 días**.\n- **Documentá todo** (acuerdos, entregas, grabaciones) para tener con qué defenderte ante tóxicos.\n- **Despedir clientes:** si en la 1ª o 2ª semana no quieren avanzar, desvinculalos (\"no abonamos la tierra donde crecen ortigas\"); invertí en árboles que dan frutos.\n\n**Scripts por caso (todos dirigidos a \"Juan\"):** sin tiempo, sin resultados, dificultad financiera (renegociar plazo, cash rápido, referidos), dejó de pagar (con Stripe cobrar monto menor, cobro manual, escalar autoridad), abrumado (paso chico, módulo de mentalidad), enfermedad (pausa empática), arrepentimiento de compra (bajar emociones), no quiere seguir el proceso, y **desaparecidos** (el iceberg: hacé seguimiento exhaustivo, rotá canal y hasta el mentor).\n\n**Pausas:** eliminan la garantía porque cortan el momentum; solo una, menor a 2 meses, extendiendo el programa.\n\n**Amenazas/difamación:** calmar y negociar con empatía; si no, escalar a legales. **Disputas** (el cliente desconoce el pago ante el banco): responder en menos de 24h con evidencia contundente —grabación del ingreso voluntario, contrato firmado, capturas del onboarding, del contenido, del mentor y de las llamadas de coaching— dándole 12h para resolver antes de subirla; con esa prueba se gana la disputa.\n\n**Proceso de reembolso (con ClickUp/CRM):** el consultor llena un **Typeform** con datos completos (facturación inicial vs. actual, logros, fracasos, progreso en ventas/prospección/contenido, pruebas de no-ejecución). Estados en la columna RM: agenda de llamada → agendado → auditado → 2ª llamada → reembolso salvado o efectuado. Se agenda rápido para emparejar la urgencia. La **auditoría** revisa tiempos, volumen, calidad, check-ins, consultorías, comunicación, comunidad (3 interacciones semanales), Success Tracker y pilares de ejecución (mentalidad, nicho, oferta, farming, leads, ventas, servicio). Segunda llamada: se presentan resultados; si el cliente continúa, se firma **nuevo acuerdo** (no compartir material ni comentarios negativos); si no, se negocia o escala a legales.\n\n**Conclusión / perfil de quien retiene:** buscá a alguien con experiencia en atención al cliente, coaching, psicología de ventas, empatía, paciencia y creatividad para negociar sin subir la tensión. Repasa principios estilo Dale Carnegie (elogio sincero, hacer preguntas en vez de dar órdenes, dejar que el otro salve su prestigio, admitir errores rápido). Recomienda el libro **\"Split the Difference\"** (Chris Voss) para negociación.",
         "transcripcion": [],
         "hasTx": true,
         "recursoSlugs": [],
