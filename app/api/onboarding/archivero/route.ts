@@ -42,11 +42,28 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
   }
   const esPdf = name.endsWith('.pdf') || (file.type || '') === 'application/pdf';
   const esImg = /\.(png|jpe?g|webp|gif)$/.test(name) || (file.type || '').startsWith('image/');
-  if (esPdf || esImg) {
-    const mime = esPdf ? 'application/pdf' : (file.type || 'image/jpeg');
-    const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
-    try { const { text } = await leerDocumentoIA({ dataUrl, isPdf: esPdf, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` }); return { texto: text }; }
-    catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
+  if (esPdf) {
+    // 1) Capa de texto (la mayoría de los PDFs la tienen): rápida, confiable y sin
+    //    gastar visión. Antes TODO PDF iba por visión y un PDF de texto volvía vacío.
+    try {
+      const { extractText, getDocumentProxy } = await import('unpdf');
+      const pdf = await getDocumentProxy(new Uint8Array(buf));
+      const { text } = await extractText(pdf, { mergePages: true });
+      if (text && text.trim().length > 80) return { texto: text };
+    } catch { /* sin capa de texto → probamos visión (PDF escaneado) */ }
+    // 2) PDF escaneado (imágenes) → visión.
+    try {
+      const dataUrl = `data:application/pdf;base64,${buf.toString('base64')}`;
+      const { text } = await leerDocumentoIA({ dataUrl, isPdf: true, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` });
+      return { texto: text };
+    } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
+  }
+  if (esImg) {
+    try {
+      const dataUrl = `data:${file.type || 'image/jpeg'};base64,${buf.toString('base64')}`;
+      const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: file.name, prompt: LEER_DOC, feature: 'El Archivero', motivo: `Leer "${file.name}"` });
+      return { texto: text };
+    } catch (e) { return { texto: '', warning: `No pude leer "${file.name}": ${msg(e)}` }; }
   }
   return { texto: '', warning: `"${file.name}": formato no soportado (subí .txt, .md, .docx, .pdf o una imagen).` };
 }

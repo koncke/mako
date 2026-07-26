@@ -21,13 +21,13 @@ export function OnboardingTabs({ funnelPanel }: { funnelPanel: ReactNode }) {
     { key: 'funnel', label: 'Funnel', panel: funnelPanel },
     { key: 'angulos', label: 'Ángulos y avatares', panel: <AngulosPanel /> },
   ];
-  const base: CSSProperties = { padding: '9px 15px', fontFamily: SANS, fontSize: 14, borderBottom: '2px solid transparent', marginBottom: -1 };
-  const tabBtn = (on: boolean): CSSProperties => ({ ...base, fontWeight: on ? 600 : 500, color: on ? 'var(--ink)' : 'var(--dim)', background: 'none', border: 'none', borderBottom: on ? '2px solid var(--accent)' : '2px solid transparent', cursor: 'pointer' });
+  // Tabs tipo píldora, mismo control segmentado que el board /plan.
+  const pill = (on: boolean): CSSProperties => ({ border: 'none', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--dim)', fontWeight: on ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: on ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS });
   const activo = TABS.find((t) => t.key === tab);
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', marginBottom: 22, flexWrap: 'wrap' }}>
-        {TABS.map((t) => <button key={t.key} type="button" onClick={() => setTab(t.key)} style={tabBtn(tab === t.key)}>{t.label}</button>)}
+      <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3, marginBottom: 24, flexWrap: 'wrap' }}>
+        {TABS.map((t) => <button key={t.key} type="button" onClick={() => setTab(t.key)} style={pill(tab === t.key)}>{t.label}</button>)}
       </div>
       {activo?.panel}
     </div>

@@ -32,11 +32,10 @@ export default async function OnboardingPage() {
 
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
         <span style={{ display: 'inline-flex', color: 'var(--accent)' }}><Icon name="contexto" size={34} /></span>
         <h1 style={{ fontWeight: 600, fontSize: 42, letterSpacing: '-0.025em', lineHeight: 1, margin: 0, color: 'var(--ink)' }}>Onboarding</h1>
       </header>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 22px', maxWidth: 720 }}>Cargá tu negocio en MaKo: soltá tus documentos en El Archivero, definí tu funnel y tu vocabulario de ángulos y avatares.</p>
       <OnboardingTabs funnelPanel={funnelPanel} />
     </main>
   );
