@@ -12,7 +12,7 @@ import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 import type { BoardTask, Label, Prio, Actor, Check, Hist, Fuente, GuardPatch, GuardProjPatch, GuardResult } from '@/app/plan/board/types';
 import { scoreFromPrio, prioFromScore } from '@/app/plan/board/types';
-import { puntuarNuevas, describirProyectosNuevos } from '@/lib/mako-guardian';
+import { puntuarNuevas, describirProyectosNuevos, cruzarProyectos } from '@/lib/mako-guardian';
 import { checklistsParaTareas } from '@/lib/checklist-coach';
 
 type Row = Record<string, unknown>;
@@ -191,12 +191,42 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
     const byName = new Map(proyectos.map((p) => [p.name.trim().toLowerCase(), p.id]));
     const idsExist = new Set(proyectos.map((p) => p.id)); // MaKo a veces pasa el id/slug del proyecto existente
     const resolverProy = (nombre?: string): string | undefined => { const n = nombre?.trim(); if (!n) return undefined; return byName.get(n.toLowerCase()) ?? (idsExist.has(n) ? n : undefined); };
+
+    // 1a. FUSIÓN SEMÁNTICA de proyectos (el Perro, ANTES de crear). El dedupe de abajo
+    // es por nombre EXACTO; un nombre escrito distinto ("Onboarding & UX" vs "Arranque
+    // del cliente: onboarding…") creaba un proyecto redundante y el Perro solo llegaba a
+    // describirlo, tarde. Acá, por cada nombre propuesto que NO matchea exacto, el Perro
+    // decide si es EL MISMO que uno existente; si sí, apuntamos ese nombre al proyecto
+    // existente (byName) → resolverProy manda las tareas ahí y no se crea nada nuevo.
+    const propuestosNoExactos = [...new Set(
+      validos.map((it) => it.proyecto?.trim()).filter((n): n is string => !!n && !byName.has(n.toLowerCase()) && !idsExist.has(n)),
+    )];
+    const fusionadosLog: Array<{ id: string; texto: string }> = [];
+    if (propuestosNoExactos.length && proyectos.length) {
+      const tareasDe = (nombre: string) => validos.filter((it) => it.proyecto?.trim() === nombre).map((it) => it.titulo.trim());
+      const cruce = await cruzarProyectos(
+        propuestosNoExactos.map((nombre) => ({ nombre, tareas: tareasDe(nombre) })),
+        proyectos.map((p) => ({ id: p.id, nombre: p.name })),
+        'Fusionar proyectos propuestos con el plan',
+      ).catch((e) => { console.error('[plan-board] cruzarProyectos:', e instanceof Error ? e.message : String(e)); return { cruces: [] }; });
+      const nombreExistente = new Map(proyectos.map((p) => [p.id, p.name]));
+      for (const c of cruce.cruces) {
+        const nombre = propuestosNoExactos[c.i];
+        if (!nombre) continue;
+        byName.set(nombre.toLowerCase(), c.idExistente); // las tareas de este nombre → proyecto existente
+        // RASTRO en el proyecto existente (regla del historial): MaKo mandó tareas acá en
+        // vez de crear "nombre". Auditable y reversible si se equivocó.
+        fusionadosLog.push({ id: c.idExistente, texto: `MaKo mandó acá las tareas de «${nombre.slice(0, 60)}» en vez de crear un proyecto nuevo${c.razon ? ` — ${c.razon.slice(0, 120)}` : ''}` });
+        console.log(`[plan-board] fusión de proyecto: "${nombre}" → "${nombreExistente.get(c.idExistente)}" (${c.razon})`);
+      }
+    }
+
     const nuevosProy: Label[] = [];
     for (const it of validos) {
       const nombre = it.proyecto?.trim();
       if (!nombre) continue;
       const k = nombre.toLowerCase();
-      if (byName.has(k) || idsExist.has(nombre)) continue; // ya existe (por nombre o por id) → no duplicar
+      if (byName.has(k) || idsExist.has(nombre)) continue; // ya existe (por nombre o por id, o fusionado arriba) → no duplicar
       const id = genId('p');
       byName.set(k, id);
       nuevosProy.push({ id, emoji: '📁', name: nombre.slice(0, 120), color: '#2F6FED', score: 50, detalle: '', fuente: fu, historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó el proyecto — ${desde}` }] });
@@ -205,6 +235,14 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
       const base = proyectos.length;
       const { error } = await db.from('plan_proyectos').insert(nuevosProy.map((l, i) => labelToRow(l, base + i)));
       if (error) throw new Error(`agregarTareasPlanOwner proyectos: ${error.message}`);
+    }
+    // Estampar el historial de las fusiones en los proyectos existentes (append, best-effort).
+    for (const f of fusionadosLog) {
+      const p = proyectos.find((x) => x.id === f.id);
+      if (!p) continue;
+      const hist = [{ id: genId('h'), ts: ahora, actor, text: f.texto }, ...(p.historial ?? [])].slice(0, 40);
+      await db.from('plan_proyectos').update({ historial: hist, updated_at: new Date().toISOString() }).eq('id', f.id)
+        .then(({ error }) => { if (error) console.error('[plan-board] historial fusión:', error.message); });
     }
 
     // 2. tareas: #num autoritativo (server) + score inicial por prioridad.
