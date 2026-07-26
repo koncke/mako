@@ -56,6 +56,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('all'); // #16: filtrar por estado (kanban)
   const [fOrigen, setFOrigen] = useState<Set<string>>(new Set());  // filtrar por ORIGEN (fuente: WhatsApp/Fathom/…)
   const [sortMode, setSortMode] = useState<'score' | 'creacion'>('score'); // orden de tareas/proyectos
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc'); // dirección: desc = mayor/más nuevo primero
   const [projFilter, setProjFilter] = useState<DoneFilter>('all');  // filtrar por estado (proyectos)
   const [openId, setOpenId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
@@ -432,7 +433,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         {view === 'proyectos' && <AvgChip avg={avgProj} hechas={hechosProj} total={labels.length} label="proyectos ✓" />}
         {view === 'kanban' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} />
+          <FilterMenu labels={labels} fLabels={fLabels} setFLabels={setFLabels} doneFilter={doneFilter} setDoneFilter={setDoneFilter} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
         </>}
         {/* ⚠ en TODAS las vistas (no solo kanban) y también con "no volver a pedir todos"
             activo: es el único modo de REABRIR el modal (lo promete el 2do pop-up). Cuando
@@ -454,7 +455,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
         )}
         {view === 'proyectos' && <>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ minWidth: 120, maxWidth: 200, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13.5, outline: 'none' }} />
-          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} />
+          <FilterMenu doneFilter={projFilter} setDoneFilter={setProjFilter} estadoLabels={[['all', 'Todos'], ['activas', 'Activos'], ['comenzadas', 'Comenzados'], ['hechas', 'Completados']]} fOrigen={fOrigen} setFOrigen={setFOrigen} sortMode={sortMode} setSortMode={setSortMode} sortDir={sortDir} setSortDir={setSortDir} />
         </>}
         {/* Dos botones (feedback jul-18): el logo de Fathom (punto 6) abre la lista de
             reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
@@ -477,8 +478,8 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {view === 'prioridades' && <Prioridades tasks={enPrio} board={board} objetivo={objetivoPrincipal} onOpen={setOpenId} onOpenProj={setOpenProj} />}
-        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} />}
-        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} />}
+        {view === 'kanban' && <Kanban tasks={visibles} board={board} topProjectId={topProjectId} sortMode={sortMode} sortDir={sortDir} onOpen={setOpenId} onNew={(p) => { setNuevaTareaPrio(p ?? null); setNuevaTarea(true); }} onWarn={setOpenId} />}
+        {view === 'proyectos' && <ProyectosView board={board} topProjectId={topProjectId} onOpen={setOpenProj} onNew={() => setNuevoProj(true)} projFilter={projFilter} q={q} fOrigen={fOrigen} sortMode={sortMode} sortDir={sortDir} />}
         {view === 'graphics' && <GraphicsView board={board} />}
       </div>
 
@@ -793,14 +794,16 @@ function CardTile({ t, board, warn, onOpen, onWarn }: {
 }
 
 // ── vista Kanban (4 columnas por prioridad derivada del score; ancho completo) ──
-function Kanban({ tasks, board, topProjectId, sortMode, onOpen, onNew, onWarn }: {
-  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
+function Kanban({ tasks, board, topProjectId, sortMode, sortDir, onOpen, onNew, onWarn }: {
+  tasks: BoardTask[]; board: Board; topProjectId: string | null; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc'; onOpen: (id: string) => void; onNew: (p?: Prio) => void; onWarn: (id: string) => void;
 }) {
+  // dir = -1 → desc (mayor score / #num más alto = más nuevo, primero); +1 → asc (al revés).
+  const dir = sortDir === 'asc' ? 1 : -1;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, padding: '18px 30px 30px', height: '100%', alignItems: 'flex-start' }} className="mako-board">
       <style>{`@media (max-width:1000px){.mako-board{grid-template-columns:repeat(2,1fr)!important}}@media (max-width:560px){.mako-board{grid-template-columns:1fr!important}}`}</style>
       {PRIOS.map((p) => {
-        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? a.num - b.num : (b.score - a.score || a.num - b.num)));
+        const items = tasks.filter((t) => displayPrio(t, topProjectId) === p).sort((a, b) => (a.progress >= 100 ? 1 : 0) - (b.progress >= 100 ? 1 : 0) || (sortMode === 'creacion' ? dir * (a.num - b.num) : (dir * (a.score - b.score) || b.num - a.num)));
         return (
           <section key={p} style={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minWidth: 0, background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid ' + PCOLOR[p], borderRadius: 14, padding: 10 }}>
             <ColHeader p={p} count={items.length} />
@@ -931,73 +934,118 @@ const ORIGEN_OPS: Array<[string, string]> = [
   ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reunión · Fathom'], ['claude-code', '⌨️ Claude Code'],
   ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
 ];
-function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, sortMode, setSortMode }: {
+type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden';
+function FilterMenu({ labels, fLabels, setFLabels, doneFilter, setDoneFilter, estadoLabels, fOrigen, setFOrigen, sortMode, setSortMode, sortDir, setSortDir }: {
   labels?: Label[]; fLabels?: Set<string>; setFLabels?: (s: Set<string>) => void;
   doneFilter: DoneFilter; setDoneFilter: (f: DoneFilter) => void; estadoLabels?: Array<[DoneFilter, string]>;
   fOrigen?: Set<string>; setFOrigen?: (s: Set<string>) => void;
   sortMode?: 'score' | 'creacion'; setSortMode?: (m: 'score' | 'creacion') => void;
+  sortDir?: 'desc' | 'asc'; setSortDir?: (d: 'desc' | 'asc') => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Drill-down (feedback: la lista apilada obligaba a un scroll gigante). En 'root' se
+  // ven las 4 categorías; al tocar una, su contenido reemplaza el panel EN EL MISMO
+  // lugar, con un "‹ volver". Así nunca hay más de una categoría en pantalla a la vez.
+  const [vista, setVista] = useState<FiltroVista>('root');
+  const cerrar = () => { setOpen(false); setVista('root'); };
   const n = (fLabels?.size ?? 0) + (fOrigen?.size ?? 0) + (doneFilter !== 'all' ? 1 : 0);
   const toggle = (id: string) => { if (!fLabels || !setFLabels) return; const c = new Set(fLabels); if (c.has(id)) c.delete(id); else c.add(id); setFLabels(c); };
   const toggleOrigen = (tipo: string) => { if (!fOrigen || !setFOrigen) return; const c = new Set(fOrigen); if (c.has(tipo)) c.delete(tipo); else c.add(tipo); setFOrigen(c); };
   const ops = estadoLabels ?? ESTADO_OPS;
-  const secLabel: CSSProperties = { fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '2px 4px 6px' };
-  const sepLabel: CSSProperties = { ...secLabel, marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 10 };
   const check = (on: boolean): CSSProperties => ({ width: 14, height: 14, borderRadius: 4, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' });
   const radio = (on: boolean): CSSProperties => ({ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', flex: 'none', boxShadow: on ? 'inset 0 0 0 2px var(--surface)' : 'none' });
   const rowBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '7px 9px', borderRadius: 7, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12.5, color: 'var(--ink)', textAlign: 'left', fontFamily: SANS };
+
+  // Resúmenes que se muestran en la fila de cada categoría (el valor actual, a la derecha).
+  const estadoLabel = ops.find(([v]) => v === doneFilter)?.[1] ?? ops[0][1];
+  const proyResumen = fLabels?.size ? `${fLabels.size} elegido${fLabels.size > 1 ? 's' : ''}` : 'Todos';
+  const origenResumen = !fOrigen?.size ? 'Todos' : (fOrigen.size === 1 ? (ORIGEN_OPS.find(([t]) => fOrigen.has(t))?.[1].replace(/^\S+\s/, '') ?? '1') : `${fOrigen.size} elegidos`);
+  const modeLabel = sortMode === 'creacion' ? 'Por creación' : 'Por prioridad';
+  const ordenResumen = `${modeLabel} ${sortDir === 'asc' ? '↑' : '↓'}`;
+
+  // Las 4 categorías (las que apliquen: en Proyectos no va "Proyecto", etc.).
+  const cats: Array<{ key: FiltroVista; label: string; resumen: string; activo: boolean }> = [
+    { key: 'estado', label: 'Estado', resumen: estadoLabel, activo: doneFilter !== 'all' },
+  ];
+  if (labels && labels.length > 0) cats.push({ key: 'proyecto', label: 'Proyecto', resumen: proyResumen, activo: !!fLabels?.size });
+  if (fOrigen && setFOrigen) cats.push({ key: 'origen', label: 'Origen', resumen: origenResumen, activo: !!fOrigen.size });
+  if (sortMode && setSortMode) cats.push({ key: 'orden', label: 'Ordenar', resumen: ordenResumen, activo: false });
+
+  const catRow: CSSProperties = { ...rowBtn, justifyContent: 'space-between', padding: '10px 9px' };
+  const resumenTxt = (activo: boolean): CSSProperties => ({ fontSize: 12, color: activo ? 'var(--primary)' : 'var(--faint)', fontWeight: activo ? 600 : 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 });
+  const backBtn: CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 6px 10px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', fontWeight: 700, marginBottom: 4 };
+
+  // La dirección se rotula según el modo (más claro que "asc/desc").
+  const dirOps: Array<['desc' | 'asc', string]> = sortMode === 'creacion'
+    ? [['desc', 'Más nuevas primero'], ['asc', 'Más viejas primero']]
+    : [['desc', 'Mayor prioridad primero'], ['asc', 'Menor prioridad primero']];
+
   return (
     <span style={{ position: 'relative' }}>
-      <button onClick={() => setOpen((o) => !o)} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
+      <button onClick={() => { setOpen((o) => !o); setVista('root'); }} style={{ position: 'relative', ...ghostBtn, display: 'inline-flex', alignItems: 'center', gap: 7, background: open ? 'var(--surface-2)' : 'var(--surface)', color: n > 0 ? 'var(--primary)' : 'var(--dim)', borderColor: n > 0 ? 'var(--primary-weak)' : 'var(--border-strong)' }}>
         <FunnelIcon color="var(--primary)" />Filtrar
         {n > 0 && <span onClick={(e) => { e.stopPropagation(); setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }} title="Limpiar" style={{ position: 'absolute', top: -7, right: -7, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--bg)' }}>{n}</span>}
       </button>
       {open && <>
-        <span onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
-        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 234, maxHeight: 460, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
-          {/* CAPA 1: estado */}
-          <div style={secLabel}>Estado</div>
-          {ops.map(([v, label]) => (
-            <button key={v} onClick={() => setDoneFilter(v)} style={{ ...rowBtn, background: doneFilter === v ? 'var(--primary-bg)' : 'transparent', fontWeight: doneFilter === v ? 700 : 500 }}>
-              <span style={radio(doneFilter === v)} />
-              <span>{label}</span>
-            </button>
-          ))}
-          {/* CAPA 2: etiquetas (solo si hay labels) */}
-          {labels && labels.length > 0 && (
+        <span onClick={cerrar} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+        <div style={{ position: 'absolute', top: 40, right: 0, zIndex: 41, width: 244, maxHeight: 460, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, boxShadow: '0 16px 40px rgba(18,21,27,.16)', padding: 8 }}>
+          {vista === 'root' ? (
             <>
-              <div style={sepLabel}>Proyecto</div>
-              {labels.map((l) => (
+              {cats.map((c) => (
+                <button key={c.key} onClick={() => setVista(c.key)} style={catRow}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                  <span style={{ fontWeight: 600 }}>{c.label}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    <span style={resumenTxt(c.activo)}>{c.resumen}</span>
+                    <span style={{ color: 'var(--faint)', fontSize: 16, lineHeight: 1 }}>›</span>
+                  </span>
+                </button>
+              ))}
+              {n > 0 && (
+                <button onClick={() => { setFLabels?.(new Set()); setFOrigen?.(new Set()); setDoneFilter('all'); }}
+                  style={{ ...rowBtn, justifyContent: 'center', marginTop: 4, borderTop: '1px solid var(--border)', paddingTop: 10, color: 'var(--primary)', fontWeight: 600 }}>
+                  Limpiar filtros ({n})
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={() => setVista('root')} style={backBtn}>
+                <span style={{ fontSize: 15, lineHeight: 1 }}>‹</span>
+                {cats.find((c) => c.key === vista)?.label ?? 'Volver'}
+              </button>
+              {vista === 'estado' && ops.map(([v, label]) => (
+                <button key={v} onClick={() => setDoneFilter(v)} style={{ ...rowBtn, background: doneFilter === v ? 'var(--primary-bg)' : 'transparent', fontWeight: doneFilter === v ? 700 : 500 }}>
+                  <span style={radio(doneFilter === v)} /><span>{label}</span>
+                </button>
+              ))}
+              {vista === 'proyecto' && labels && labels.map((l) => (
                 <button key={l.id} onClick={() => toggle(l.id)} style={rowBtn}>
                   <span style={check(!!fLabels?.has(l.id))}>{fLabels?.has(l.id) ? '✓' : ''}</span>
                   <span>{l.emoji} {l.name}</span>
                 </button>
               ))}
-            </>
-          )}
-          {/* CAPA 3: origen (fuente de creación) */}
-          {fOrigen && setFOrigen && (
-            <>
-              <div style={sepLabel}>Origen</div>
-              {ORIGEN_OPS.map(([tipo, label]) => (
+              {vista === 'origen' && ORIGEN_OPS.map(([tipo, label]) => (
                 <button key={tipo} onClick={() => toggleOrigen(tipo)} style={rowBtn}>
-                  <span style={check(fOrigen.has(tipo))}>{fOrigen.has(tipo) ? '✓' : ''}</span>
+                  <span style={check(!!fOrigen?.has(tipo))}>{fOrigen?.has(tipo) ? '✓' : ''}</span>
                   <span>{label}</span>
                 </button>
               ))}
-            </>
-          )}
-          {/* CAPA 4: orden */}
-          {sortMode && setSortMode && (
-            <>
-              <div style={sepLabel}>Ordenar</div>
-              {([['score', 'Por prioridad'], ['creacion', 'Por creación']] as Array<['score' | 'creacion', string]>).map(([v, label]) => (
-                <button key={v} onClick={() => setSortMode(v)} style={{ ...rowBtn, background: sortMode === v ? 'var(--primary-bg)' : 'transparent', fontWeight: sortMode === v ? 700 : 500 }}>
-                  <span style={radio(sortMode === v)} />
-                  <span>{label}</span>
-                </button>
-              ))}
+              {vista === 'orden' && (
+                <>
+                  {([['score', 'Por prioridad'], ['creacion', 'Por creación']] as Array<['score' | 'creacion', string]>).map(([v, label]) => (
+                    <button key={v} onClick={() => setSortMode?.(v)} style={{ ...rowBtn, background: sortMode === v ? 'var(--primary-bg)' : 'transparent', fontWeight: sortMode === v ? 700 : 500 }}>
+                      <span style={radio(sortMode === v)} /><span>{label}</span>
+                    </button>
+                  ))}
+                  <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700, padding: '2px 4px 6px', marginTop: 8, borderTop: '1px solid var(--border)', paddingTop: 10 }}>Dirección</div>
+                  {dirOps.map(([v, label]) => (
+                    <button key={v} onClick={() => setSortDir?.(v)} style={{ ...rowBtn, background: sortDir === v ? 'var(--primary-bg)' : 'transparent', fontWeight: sortDir === v ? 700 : 500 }}>
+                      <span style={radio(sortDir === v)} /><span>{label}</span>
+                    </button>
+                  ))}
+                </>
+              )}
             </>
           )}
         </div>
@@ -1251,15 +1299,17 @@ export function ProyectoCardTile({ l, prog, isTop, verDetalle = false, onOpen }:
 }
 
 // ── vista Proyectos (tab): cards ordenadas por prioridad ────────────────────────
-function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion' }) {
+function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, fOrigen, sortMode, sortDir }: { board: Board; topProjectId: string | null; onOpen: (id: string) => void; onNew: () => void; projFilter: DoneFilter; q: string; fOrigen: Set<string>; sortMode: 'score' | 'creacion'; sortDir: 'desc' | 'asc' }) {
   const { labels, tasks, repo } = board;
   const [verTodos, setVerTodos] = useState(false);
   const TOPE = 6; // feedback jul-18: al arranque, el "+" (cuenta como 1) + 5 proyectos reales; el resto tras "Ver más"
   const REALES = TOPE - 1;
   const needle = q.trim().toLowerCase();
-  // Orden por PRIORIDAD (score, default) o por CREACIÓN (ts más viejo del historial).
+  // Orden por PRIORIDAD (score) o por CREACIÓN (ts más viejo del historial), en la
+  // dirección elegida. dir=-1 → desc (mayor score / más nuevo primero); +1 → asc.
+  const dir = sortDir === 'asc' ? 1 : -1;
   const creTs = (l: Label) => (l.historial?.length ? Math.min(...l.historial.map((h) => h.ts)) : 0);
-  const ordenados = labels.slice().sort((a, b) => (sortMode === 'creacion' ? creTs(a) - creTs(b) : b.score - a.score));
+  const ordenados = labels.slice().sort((a, b) => (sortMode === 'creacion' ? dir * (creTs(a) - creTs(b)) : dir * (a.score - b.score)));
   const origenDe = (l: Label) => fuenteEfectiva({ origen: l.historial[l.historial.length - 1]?.actor ?? 'user', fuente: l.fuente }).tipo;
   const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id) }));
   const shown = withProg
