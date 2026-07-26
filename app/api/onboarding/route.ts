@@ -150,7 +150,9 @@ type Body = {
   contacto?: { nombre?: string; email?: string; telefono?: string };
   brief?: Record<string, unknown>;
   faseRespuestas?: number[];
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'retro' | 'plan';
+  geminiKey?: string;
+  funnelTipos?: string[];
+  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'gemini' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;
@@ -186,6 +188,35 @@ export async function POST(req: NextRequest) {
       case 'verificar': {
         const resultado = await verificarServicio(body.servicio ?? '', body.valores ?? {});
         return NextResponse.json(resultado);
+      }
+
+      // Token de Gemini (paso obligatorio del onboarding): la IA GRATIS que mueve El
+      // Archivero y el resto de la IA del onboarding. Se verifica con un GET liviano
+      // antes de guardarla (una key rota no sirve de nada más adelante).
+      case 'gemini': {
+        const key = typeof body.geminiKey === 'string' ? body.geminiKey.trim() : '';
+        if (!key) return NextResponse.json({ ok: false, error: 'Pegá tu API key de Gemini.' }, { status: 400 });
+        try {
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`, { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+          if (!r.ok) { const j = await r.json().catch(() => ({})); return NextResponse.json({ ok: false, error: `La key no funciona: ${j?.error?.message || `HTTP ${r.status}`}` }, { status: 400 }); }
+        } catch (e) { return NextResponse.json({ ok: false, error: `No pude verificar la key: ${e instanceof Error ? e.message : String(e)}` }, { status: 400 }); }
+        const quien = (await getUsuarioActual())?.email || 'admin-cliente';
+        await guardarCredencial(ws, 'GEMINI_API_KEY', key, 'gemini', quien);
+        return NextResponse.json({ ok: true });
+      }
+
+      // Funnel SIMPLE del onboarding (#5): guardamos los tipos elegidos (multi) y
+      // aplicamos un pipeline por default para que el CRM tenga etapas; el detalle
+      // fino se ajusta después en Onboarding → Funnel.
+      case 'funnel-simple': {
+        const tipos = Array.isArray(body.funnelTipos) ? body.funnelTipos.filter((t): t is string => typeof t === 'string') : [];
+        await setSetting('onboarding.funnel_tipos', JSON.stringify(tipos));
+        const tpl = FUNNEL_TEMPLATES[0];
+        if (tpl) {
+          try { await saveFunnel(tpl.pipeline, []); } catch (e) { console.error('[onboarding] funnel default falló (no fatal):', e); }
+          try { await seedNutricionTemplates(); } catch (e) { console.error('[onboarding] seed nutrición falló (no fatal):', e); }
+        }
+        return NextResponse.json({ ok: true });
       }
 
       // Brief del negocio: el wizard lo manda de a una respuesta por pantalla,

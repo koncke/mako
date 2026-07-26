@@ -42,7 +42,14 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'retro' | 'plan';
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'gemini' | 'retro' | 'plan';
+// Funnel simple del onboarding (#5): 3 opciones, multi-select, poco texto. El detalle
+// de etapas del CRM se ajusta después en Onboarding → Funnel.
+const FUNNEL_OPS = [
+  { id: 'llamadas', label: 'Agendar llamadas' },
+  { id: 'carrito', label: 'Venta por carrito' },
+  { id: 'webinar', label: 'Webinar' },
+];
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
@@ -132,6 +139,8 @@ export function OnboardingWizard() {
   const [tpl, setTpl] = useState('highticket');
   const [cierres, setCierres] = useState('');
   const [cash, setCash] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  const [funnelTipos, setFunnelTipos] = useState<string[]>([]);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
   const [faseResp, setFaseResp] = useState<number[]>([]);
@@ -179,7 +188,7 @@ export function OnboardingWizard() {
     retomado.current = true;
     const cuenta = (paso: Paso): number =>
       paso === 'integraciones' ? data.requeridos.length
-      : paso === 'tabs' ? 3
+      : paso === 'tabs' ? 2
       : paso === 'negocio' ? data.brief.length
       : paso === 'fase' ? data.fasePreguntas.length + 1
       : 1;
@@ -238,8 +247,7 @@ export function OnboardingWizard() {
         });
       }
     } else if (paso === 'tabs') {
-      pantallas.push({ key: 'funnel', paso, pregunta: '¿Cómo vendés?', sub: 'Elegí el que más se parezca. Lo podés ajustar después en Configuraciones.', slides: SLIDES_FUNNEL });
-      pantallas.push({ key: 'metas', paso, pregunta: '¿Cuál es tu meta del mes?', sub: 'Le da norte al tablero. Es opcional: si no la sabés todavía, seguí.', slides: SLIDES_FUNNEL });
+      pantallas.push({ key: 'funnel', paso, pregunta: '¿Cómo vendés?', sub: '¿Cuál describe mejor tu funnel? Podés marcar más de uno.', slides: SLIDES_FUNNEL });
       pantallas.push({ key: 'contacto', paso, pregunta: '¿A dónde te mando los reportes?', sub: 'Al número que pongas te escribo yo cuando pase algo que valga la pena.', slides: SLIDES_MAKO });
     } else if (paso === 'negocio') {
       for (const c of data.brief) {
@@ -252,6 +260,8 @@ export function OnboardingWizard() {
         sub: 'Avatar, oferta, nicho, tu web, tu Instagram… en cualquier formato. Yo lo leo y te armo tu perfil. Lo revisás y corregís.',
         slides: SLIDES_MAKO,
       });
+    } else if (paso === 'gemini') {
+      pantallas.push({ key: 'gemini', paso, pregunta: 'Conectá la IA de MaKo', sub: 'Pegá tu API key de Gemini — es gratis. Con eso MaKo lee tus documentos, arma tu perfil y hace todo el análisis del onboarding.', slides: SLIDES_MAKO });
     } else if (paso === 'fase') {
       // Una pantalla por pregunta (6) + la pantalla del diagnóstico.
       data.fasePreguntas.forEach((q, i) => {
@@ -335,6 +345,7 @@ export function OnboardingWizard() {
   // conectar: está recorriendo el flujo, no dando de alta un cliente real.
   const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
+    : p.key === 'gemini' ? (Boolean(geminiKey.trim()) || Boolean(data.esAdmin)) // obligatorio: sin key no sigue (la agencia sí puede saltar)
     : true;
 
   // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
@@ -376,7 +387,7 @@ export function OnboardingWizard() {
         puedeAvanzar={puedeAvanzar}
         enUltimo={enUltimo}
         confirmLabel={data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ir a mi dashboard →'}
-        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
+        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.key === 'gemini' ? 'Verificar y seguir →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
         pending={pending}
         atrasLabel="Atrás"
         hideAtras={idx === 0}
@@ -385,8 +396,8 @@ export function OnboardingWizard() {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
           // El Archivero persiste por su cuenta (sus propios endpoints); acá solo avanzamos.
           if (p.key === 'archivero') return avanzar();
-          if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel', templateId: tpl }));
-          if (p.key === 'metas') return avanzar(() => post('/api/onboarding', { action: 'config', settings: { objetivo_cierres: cierres.trim(), objetivo_cash_usd: cash.trim() } }));
+          if (p.key === 'gemini') return avanzar(() => post('/api/onboarding', { action: 'gemini', geminiKey: geminiKey.trim() }));
+          if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel-simple', funnelTipos }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
           // Última pregunta del diagnóstico: persistir antes de mostrar el resultado.
           if (esFaseQuiz && p.faseQ === data.fasePreguntas.length - 1) return avanzar(guardarFase);
@@ -453,27 +464,29 @@ export function OnboardingWizard() {
           : <input style={wizardInput} value={answers[campoBrief.key] ?? ''} placeholder={campoBrief.placeholder} autoFocus
               onChange={(e) => setAnswers((a) => ({ ...a, [campoBrief.key]: e.target.value }))} />)}
 
-        {/* ── Funnel: cards seleccionables ── */}
+        {/* ── Funnel: 3 opciones, multi-select, poco texto (#5) ── */}
         {p.key === 'funnel' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {data.funnelTemplates.map((t) => (
-              <button key={t.id} type="button" onClick={() => setTpl(t.id)}
-                style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: 14, borderRadius: 12,
-                  border: `1px solid ${tpl === t.id ? 'var(--primary)' : 'var(--border-strong)'}`,
-                  background: tpl === t.id ? 'var(--primary-bg)' : 'var(--surface)' }}>
-                <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)' }}>{t.name}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', margin: '3px 0 6px' }}>{t.description}</div>
-                <div style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{t.etapas.join(' → ')}</div>
-              </button>
-            ))}
+            {FUNNEL_OPS.map((o) => {
+              const on = funnelTipos.includes(o.id);
+              return (
+                <button key={o.id} type="button" onClick={() => setFunnelTipos((s) => (on ? s.filter((x) => x !== o.id) : [...s, o.id]))}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: '14px 16px', borderRadius: 12, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)' }}>
+                  <span style={{ width: 20, height: 20, borderRadius: 6, flex: 'none', border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{on ? '✓' : ''}</span>
+                  <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)' }}>{o.label}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* ── Metas ── */}
-        {p.key === 'metas' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><Label>Cierres por mes</Label><input style={wizardInput} type="number" value={cierres} onChange={(e) => setCierres(e.target.value)} placeholder="10" /></div>
-            <div><Label>Cash mensual (USD)</Label><input style={wizardInput} type="number" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="50000" /></div>
+        {/* ── Gemini: token de la IA (obligatorio) ── */}
+        {p.key === 'gemini' && (
+          <div style={{ textAlign: 'left' }}>
+            <input style={{ ...wizardInput, textAlign: 'left' }} value={geminiKey} placeholder="AIza…" autoFocus onChange={(e) => setGeminiKey(e.target.value)} />
+            <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 12, lineHeight: 1.6 }}>
+              La sacás gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>aistudio.google.com/apikey</a> → “Create API key”. La verifico al toque.
+            </div>
           </div>
         )}
 

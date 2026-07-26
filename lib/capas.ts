@@ -21,7 +21,7 @@
  * oferta, nicho, web/IG…) y MaKo los ordena en el brief. Es la versión DOER de
  * 'negocio' (que pregunta de a un campo): una capa usa uno u otro, no los dos.
  */
-export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'retro' | 'plan';
+export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'gemini' | 'retro' | 'plan';
 
 export type CapaId = 'pm' | 'completo' | 'superadmin';
 
@@ -98,11 +98,13 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     descripcion: 'Todo el producto: ads, CRM, analistas, chats, Retro y Plan.',
     navKeys: null,
     userNavKeys: null,
-    // El Archivero reemplaza al viejo paso 'negocio': en vez de preguntar de a un
-    // campo, el cliente tira TODOS sus documentos (avatar, oferta, nicho, web/IG)
-    // y MaKo los ordena en el brief de una. Es la fábrica de creativos empezando
-    // por el principio — sin contexto del negocio no hay ángulos que valgan.
-    onboarding: ['integraciones', 'tabs', 'archivero', 'fase', 'retro'],
+    // Orden del onboarding (pedido de Martín):
+    //  1. fase       → el NORTE del negocio (default, sin IA); de ahí cuelga el resto.
+    //  2. gemini     → token de Gemini (IA gratis) que mueve TODO el onboarding con IA.
+    //  3. archivero  → tira los docs, MaKo arma el brief.
+    //  4. integraciones (solo Meta) → primeros insights.
+    //  5. tabs       → cómo vendés (funnel simple). 6. retro → valoración/cierre.
+    onboarding: ['fase', 'gemini', 'archivero', 'integraciones', 'tabs', 'retro'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
