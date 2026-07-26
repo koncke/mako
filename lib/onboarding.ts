@@ -75,7 +75,11 @@ const OAI = 'https://api.openai.com/v1';
 // fijo: si lo cambiás, ajustá también el parseo de abajo.
 export const ONBOARDING_EXTRACT_TEMPLATE = `Sos un extractor de datos. Recibís un TEXTO (un template completado o un documento del negocio del cliente) y una lista de CAMPOS. Devolvé SOLO JSON: {"campos": {"<clave>": "<valor>"}}. Para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente. Si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). Claves válidas (clave: qué pide):\n{{lista}}`;
 
-export async function extractAnswersFromText(texto: string, fields: Array<{ key: string; label: string }>): Promise<Record<string, string>> {
+// maxChars: cuánto texto se le manda al modelo. El brief de una fase entra en
+// 12k, pero El Archivero concatena VARIOS documentos del cliente en una sola
+// pasada — ahí conviene subir el techo (gpt-4o-mini tiene 128k de contexto y es
+// barato). No es la longitud del doc: es lo que llega al prompt.
+export async function extractAnswersFromText(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 12000): Promise<Record<string, string>> {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error('OPENAI_API_KEY no definida');
   if (!texto.trim() || fields.length === 0) return {};
@@ -84,7 +88,7 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
   const r = await fetch(`${OAI}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, { role: 'user', content: texto.slice(0, 12000) }] }),
+    body: JSON.stringify({ model: 'gpt-4o-mini', temperature: 0, response_format: { type: 'json_object' }, messages: [{ role: 'system', content: sys }, { role: 'user', content: texto.slice(0, maxChars) }] }),
     cache: 'no-store',
   });
   const j = await r.json();

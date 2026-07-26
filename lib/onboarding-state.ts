@@ -57,6 +57,7 @@ export type OnboardingState = {
     integraciones: { done: boolean };
     tabs: { done: boolean };
     negocio: { done: boolean };
+    archivero: { done: boolean };
     fase: { done: boolean };
     retro: { done: boolean; retroId?: number | null };
     plan: { done: boolean };
@@ -79,6 +80,7 @@ export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingS
       integraciones: { done: false },
       tabs: { done: false },
       negocio: { done: false },
+      archivero: { done: false },
       fase: { done: false },
       retro: { done: false, retroId: null },
       plan: { done: false },

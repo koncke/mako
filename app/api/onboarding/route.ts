@@ -150,7 +150,7 @@ type Body = {
   contacto?: { nombre?: string; email?: string; telefono?: string };
   brief?: Record<string, unknown>;
   faseRespuestas?: number[];
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'fase' | 'retro' | 'plan';
+  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;

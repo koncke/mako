@@ -15,8 +15,13 @@
 // capa del request es getCapaActual() en lib/workspace.ts.
 // =============================================================================
 
-/** Los pasos posibles del wizard. Cada capa elige cuáles y en qué orden. */
-export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'fase' | 'retro' | 'plan';
+/**
+ * Los pasos posibles del wizard. Cada capa elige cuáles y en qué orden.
+ * 'archivero' = "El Archivero": el cliente tira sus documentos sueltos (avatar,
+ * oferta, nicho, web/IG…) y MaKo los ordena en el brief. Es la versión DOER de
+ * 'negocio' (que pregunta de a un campo): una capa usa uno u otro, no los dos.
+ */
+export type PasoOnboarding = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'retro' | 'plan';
 
 export type CapaId = 'pm' | 'completo' | 'superadmin';
 
@@ -93,14 +98,16 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     descripcion: 'Todo el producto: ads, CRM, analistas, chats, Retro y Plan.',
     navKeys: null,
     userNavKeys: null,
-    onboarding: ['integraciones', 'tabs', 'negocio', 'fase', 'retro'],
-    // Solo el grupo base, igual que 'pm'. NO el esquema entero: son 18 campos
-    // (oferta + avatar + personaje de marca) y el wizard pregunta de a UNA por
-    // pantalla — 18 pantallas para entrar a un producto es exactamente lo que
-    // estamos tratando de matar. El perfil completo se llena después, sin
-    // bloquear, en Configuraciones → Onboarding, que ya tiene el formulario
-    // largo bien resuelto (y hasta lo extrae de un documento con IA).
-    briefGrupos: ['negocio'],
+    // El Archivero reemplaza al viejo paso 'negocio': en vez de preguntar de a un
+    // campo, el cliente tira TODOS sus documentos (avatar, oferta, nicho, web/IG)
+    // y MaKo los ordena en el brief de una. Es la fábrica de creativos empezando
+    // por el principio — sin contexto del negocio no hay ángulos que valgan.
+    onboarding: ['integraciones', 'tabs', 'archivero', 'fase', 'retro'],
+    // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
+    // muestra el brief entero (oferta + avatar + personaje de marca) editable en
+    // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
+    // después alimenta la generación de ángulos y creativos.
+    briefGrupos: null,
     integracionesRequeridas: ['meta', 'whatsapp'],
     categoriasIntegraciones: null,
     seedBoardVsl: true,
