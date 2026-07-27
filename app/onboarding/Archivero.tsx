@@ -174,31 +174,33 @@ export function Archivero({ onEstado, onFacts }: {
     const faltan = grupos.filter((g) => g.campos.length > 0 && g.campos.every((c) => !(est.answers[c.key] ?? '').trim()));
     const nombreDoc = (label: string) => /oferta/i.test(label) ? 'tu OFERTA o tu PRODUCTO' : /avatar/i.test(label) ? 'tu AVATAR (quién es tu cliente y qué le duele)' : /negocio|nicho/i.test(label) ? 'a qué te dedicás' : label.toLowerCase();
     return (
-      <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 0' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
-          <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', lineHeight: 1.2 }}>¿Seguro que no tenés más documentos?</h2>
-        </div>
-
-        {/* Lo que MaKo entendió de lo que subiste (prueba de que lo leyó) */}
+      <div style={{ maxWidth: 580, margin: '0 auto', padding: '20px 0' }}>
+        {/* PRIMERO: lo que MaKo entendió de cada documento (prueba de que lo leyó) */}
         {insights.length > 0 && (
-          <div style={{ ...card, marginTop: 16, textAlign: 'left', padding: '16px 18px' }}>
-            <div style={{ ...eyebrow, marginBottom: 8 }}>Esto vi en lo que subiste</div>
-            {insights.map((f) => (
-              <div key={f.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '7px 0' }}>
-                <span style={{ color: 'var(--good)', fontSize: 14, flex: 'none', marginTop: 1 }}>✓</span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }}>{f.razonamiento}</div>
-                  <div style={{ ...eyebrow, fontSize: 10, marginTop: 3 }}>{f.nombre}</div>
+          <div style={{ ...card, textAlign: 'left', padding: '18px 20px', borderColor: 'var(--accent)' }}>
+            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 12 }}>✦ Esto entendí de lo que subiste</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {insights.map((f) => (
+                <div key={f.id} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+                  <span style={{ color: 'var(--good)', fontSize: 16, flex: 'none', marginTop: 1 }}>✓</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.55 }}>{f.razonamiento}</div>
+                    <div style={{ ...eyebrow, fontSize: 10, marginTop: 4 }}>{f.nombre}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Pedido específico del documento que falta */}
+        {/* DESPUÉS: pedir más documentos (o el que falta, por nombre) */}
+        <div style={{ textAlign: 'center', marginTop: insights.length ? 26 : 0 }}>
+          <div style={{ fontSize: 38, marginBottom: 8 }}>📂</div>
+          <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', lineHeight: 1.2 }}>¿Seguro que no tenés más documentos?</h2>
+        </div>
+
         {faltan.length > 0 ? (
-          <div style={{ ...card, marginTop: 14, textAlign: 'left', background: 'var(--primary-bg)', borderColor: 'var(--primary)', padding: '15px 18px' }}>
+          <div style={{ ...card, marginTop: 12, textAlign: 'left', background: 'var(--primary-bg)', borderColor: 'var(--primary)', padding: '15px 18px' }}>
             <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55 }}>
               Todavía no vi {faltan.map((g, i) => (
                 <span key={g.label}>{i > 0 ? (i === faltan.length - 1 ? ' ni ' : ', ') : ''}<b>{nombreDoc(g.label)}</b></span>
@@ -206,8 +208,8 @@ export function Archivero({ onEstado, onFacts }: {
             </div>
           </div>
         ) : (
-          <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '14px auto 0', maxWidth: 440 }}>
-            Ya tengo tu negocio, tu oferta y tu avatar. Igual, cuantos más documentos me des, mejor te entiendo.
+          <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '12px auto 0', maxWidth: 440 }}>
+            Cuantos más documentos me des —avatar, oferta, nicho, guiones, tu web—, mejor te entiendo.
           </p>
         )}
 

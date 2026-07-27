@@ -120,43 +120,59 @@ function FaseDetalle({ idx, diag }: { idx: number; diag?: Diagnostico }) {
   );
 }
 
-// ── El formulario interactivo (las 6 preguntas → tu fase) ────────────────────
+// ── El formulario interactivo, PASO A PASO (una pregunta por vez) ─────────────
 function DiagnosticoForm() {
-  const [resp, setResp] = useState<number[]>(() => new Array(PREGUNTAS.length).fill(-1));
+  const total = PREGUNTAS.length;
+  const [resp, setResp] = useState<number[]>(() => new Array(total).fill(-1));
   const [canal, setCanal] = useState<CanalId>('llamadas');
+  const [idx, setIdx] = useState(0);
   const [diag, setDiag] = useState<Diagnostico | null>(null);
-  const completo = resp.every((r) => r >= 0);
-  const pick = (qi: number, oi: number) => { setResp((r) => { const c = [...r]; c[qi] = oi; return c; }); setDiag(null); };
+  const reiniciar = () => { setResp(new Array(total).fill(-1)); setIdx(0); setDiag(null); };
+
+  // Resultado: el recuadro de la fase, al final.
+  if (diag) return (
+    <div className="an-result">
+      <div className="an-l an-l-big">Tu fase</div>
+      <FaseDetalle idx={diag.fase} diag={diag} />
+      <div className="an-cta"><button type="button" className="an-btn an-btn-ghost" onClick={reiniciar}>↺ Empezar de nuevo</button></div>
+    </div>
+  );
+
+  const q = PREGUNTAS[idx];
+  const esVolumen = q.id === 'volumen';
+  const opciones = esVolumen ? VOLUMEN_POR_CANAL[canal].opciones : q.opciones;
+  const texto = esVolumen ? VOLUMEN_POR_CANAL[canal].texto : q.texto;
+  const pick = (oi: number) => {
+    const nr = [...resp]; nr[idx] = oi; setResp(nr);
+    if (idx + 1 >= total) setDiag(diagnosticar(nr, canal)); else setIdx(idx + 1);
+  };
+
   return (
-    <div>
-      <div className="an-quiz">
-        {PREGUNTAS.map((q, qi) => {
-          const esVolumen = q.id === 'volumen';
-          const opciones = esVolumen ? VOLUMEN_POR_CANAL[canal].opciones : q.opciones;
-          const texto = esVolumen ? VOLUMEN_POR_CANAL[canal].texto : q.texto;
-          return (
-            <div key={q.id} className="an-q">
-              <div className="an-q-head"><span className="an-q-n">{q.emoji}</span><span className="an-q-t">{texto}</span></div>
-              {esVolumen && (
-                <div className="an-canal">
-                  <span className="an-canal-l">¿Cómo cerrás la venta?</span>
-                  <div className="an-canal-pills">
-                    {CANALES.map((c) => <button key={c.id} type="button" className={`an-pill ${canal === c.id ? 'on' : ''}`} onClick={() => { setCanal(c.id); setDiag(null); }}>{c.label}</button>)}
-                  </div>
-                </div>
-              )}
-              <div className="an-opts">
-                {opciones.map((o, oi) => <button key={oi} type="button" className={`an-opt ${resp[qi] === oi ? 'on' : ''}`} onClick={() => pick(qi, oi)}>{o}</button>)}
-              </div>
-            </div>
-          );
-        })}
+    <div className="an-stepper">
+      <div className="an-step-top">
+        <span className="an-step-count">Pregunta {idx + 1} de {total}</span>
+        <span className="an-progress"><span className="an-progress-fill" style={{ width: `${((idx + 1) / total) * 100}%` }} /></span>
       </div>
-      <div className="an-cta">
-        <button type="button" className="an-btn" disabled={!completo} onClick={() => setDiag(diagnosticar(resp, canal))}>{completo ? 'Ver mi diagnóstico →' : 'Respondé las 6 preguntas'}</button>
-        {diag && <button type="button" className="an-btn an-btn-ghost" onClick={() => { setResp(new Array(PREGUNTAS.length).fill(-1)); setDiag(null); }}>Reiniciar</button>}
+      <div className="an-step-q">
+        <div className="an-q-head"><span className="an-q-n">{q.emoji}</span><span className="an-q-t">{texto}</span></div>
+        {esVolumen && (
+          <div className="an-canal">
+            <span className="an-canal-l">¿Cómo cerrás la venta?</span>
+            <div className="an-canal-pills">{CANALES.map((c) => <button key={c.id} type="button" className={`an-pill ${canal === c.id ? 'on' : ''}`} onClick={() => setCanal(c.id)}>{c.label}</button>)}</div>
+          </div>
+        )}
+        <div className="an-step-opts">
+          {opciones.map((o, oi) => (
+            <button key={oi} type="button" className={`an-opt ${resp[idx] === oi ? 'on' : ''}`} onClick={() => pick(oi)}>{o}</button>
+          ))}
+        </div>
       </div>
-      {diag && <div className="an-result"><div className="an-l an-l-big">Tu diagnóstico</div><FaseDetalle idx={diag.fase} diag={diag} /></div>}
+      <div className="an-step-nav">
+        {idx > 0 ? <button type="button" className="an-btn an-btn-ghost" onClick={() => setIdx(idx - 1)}>← Atrás</button> : <span />}
+        {resp[idx] >= 0 && (idx + 1 < total
+          ? <button type="button" className="an-btn" onClick={() => setIdx(idx + 1)}>Siguiente →</button>
+          : <button type="button" className="an-btn" onClick={() => setDiag(diagnosticar(resp, canal))}>Ver mi fase →</button>)}
+      </div>
     </div>
   );
 }
@@ -417,7 +433,18 @@ const AN_CSS = `
 .cono .an-btn:hover:not(:disabled){ box-shadow:var(--shadow-stamp); transform:translate(-1px,-1px); }
 .cono .an-btn:disabled{ opacity:.4; cursor:not-allowed; }
 .cono .an-btn-ghost{ background:var(--card); color:var(--ink-60); }
-.cono .an-result{ margin-top:26px; }
+.cono .an-result{ margin-top:8px; }
+
+/* Formulario paso a paso */
+.cono .an-stepper{ margin-top:18px; border:1.5px solid var(--ink); border-radius:16px; background:var(--card); box-shadow:var(--shadow-paste); padding:20px 22px 18px; }
+.cono .an-step-top{ display:flex; align-items:center; gap:14px; margin-bottom:20px; }
+.cono .an-step-count{ font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-40); flex:none; }
+.cono .an-progress{ flex:1; height:7px; border-radius:999px; background:var(--ink-15); overflow:hidden; }
+.cono .an-progress-fill{ display:block; height:100%; border-radius:999px; background:var(--lime-ink); transition:width .25s ease; }
+.cono .an-step-q{ min-height:180px; }
+.cono .an-step-opts{ display:flex; flex-direction:column; gap:9px; margin-top:14px; }
+.cono .an-step-opts .an-opt{ padding:14px 16px; font-size:14.5px; }
+.cono .an-step-nav{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:22px; padding-top:16px; border-top:1.5px solid var(--ink-15); }
 
 /* Dimensiones */
 .cono .an-dims{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }

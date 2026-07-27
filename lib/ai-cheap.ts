@@ -82,6 +82,18 @@ export async function sttDisponible(): Promise<boolean> { return (await proveedo
 // generosa que el cliente carga en el onboarding (#4), así que la extracción tiene
 // que poder usarla. Sin esto, un workspace con SOLO key de Gemini extrae vacío.
 export const CASCADA_DOCS: ProvName[] = ['gemini', 'groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
+// Modelo CAPAZ por proveedor para EXTRAER de documentos. El default barato de cada
+// uno (ej. Groq gpt-oss-20b) es demasiado chico: con un doc real de +10k chars
+// genera JSON malformado/truncado y devuelve 0 campos (probado: 20b falla, 70b saca
+// 11/11). La extracción de un brief es "análisis", necesita un modelo grande.
+export const MODELO_DOCS: Partial<Record<ProvName, string>> = {
+  groq: process.env.DOCS_MODEL_GROQ || 'llama-3.3-70b-versatile',
+  gemini: process.env.GEMINI_MODEL || 'gemini-flash-latest',
+  openai: 'gpt-4o-mini',
+  cerebras: 'llama-3.3-70b',
+  openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  mistral: 'mistral-small-latest',
+};
 /** ¿Hay alguna IA para leer documentos (Gemini/Groq/OpenAI/…) en este workspace? */
 export async function docsIADisponible(): Promise<boolean> {
   for (const p of CASCADA_DOCS) { if (await provDe(p)) return true; }
@@ -144,13 +156,16 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
 export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number }): Promise<string> {
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean }): Promise<string> {
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota((opts.provs ?? CASCADA_GRATIS).map(String)).catch(() => (opts.provs ?? CASCADA_GRATIS).map(String));
   for (const prov of orden as ProvName[]) {
     try {
-      const t = await chatCheap({ system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, timeoutMs: opts.timeoutMs });
-      if (t.trim()) return t;
+      const t = await chatCheap({ system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs });
+      // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
+      // Si un modelo devuelve texto no vacío pero inútil (JSON roto), NO cortamos: seguimos
+      // al próximo proveedor. Sin esto, Gemini/20b que responden basura bloquean el rescate.
+      if (t.trim() && (!opts.validar || opts.validar(t))) return t;
     } catch (e) { console.warn(`[ai-cheap] cascade ${prov} falló: ${e instanceof Error ? e.message : String(e)}`); }
   }
   return '';
