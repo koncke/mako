@@ -32,7 +32,8 @@ type Asset = {
 };
 
 const SECCIONES: { id: string; label: string; desc: string }[] = [
-  { id: 'graficos', label: 'Gráficos', desc: 'Cada panel de las landings de funcionalidad, en PNG de alta resolución.' },
+  { id: 'marca', label: 'La marca', desc: 'El logotipo, la insignia y las letras — con sus animaciones de fondo transparente para montar sobre cualquier video.' },
+  { id: 'graficos', label: 'Gráficos', desc: 'Los gráficos hechos a mano para las landings, en PNG de alta resolución.' },
   { id: 'animaciones', label: 'Animaciones', desc: 'Las animaciones que hicimos para los VSL, en MP4.' },
   { id: 'iconos', label: 'Íconos y logos', desc: 'Los íconos de las apps en sus variantes, y los logos originales.' },
   { id: 'videos', label: 'Videos', desc: 'Los mini-VSL de cada funcionalidad. Se ven acá y se descargan.' },
@@ -43,7 +44,7 @@ const peso = (b: number) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `$
 export default function BrandingMaKo({ back }: { back: () => void }) {
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [sec, setSec] = useState('graficos');
+  const [sec, setSec] = useState('marca');
   const [grupo, setGrupo] = useState<string | null>(null);
 
   useEffect(() => {
