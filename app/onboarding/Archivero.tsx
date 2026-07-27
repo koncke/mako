@@ -168,23 +168,57 @@ export function Archivero({ onEstado, onFacts }: {
     );
   }
 
-  // ── ¿MÁS DOCUMENTOS? (antes de completar a mano) ────────────────────────────
+  // ── ¿MÁS DOCUMENTOS? (con insight de lo leído + qué doc falta, por nombre) ───
   if (vista === 'masdocs') {
+    const insights = est.files.filter((f) => (f.razonamiento || '').trim());
+    const faltan = grupos.filter((g) => g.campos.length > 0 && g.campos.every((c) => !(est.answers[c.key] ?? '').trim()));
+    const nombreDoc = (label: string) => /oferta/i.test(label) ? 'tu OFERTA o tu PRODUCTO' : /avatar/i.test(label) ? 'tu AVATAR (quién es tu cliente y qué le duele)' : /negocio|nicho/i.test(label) ? 'a qué te dedicás' : label.toLowerCase();
     return (
-      <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: '40px 0' }}>
-        <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
-        <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.2 }}>¿Seguro que no tenés más documentos?</h2>
-        <p style={{ fontSize: 14.5, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 8px', maxWidth: 420 }}>
-          Ya leí {est.files.length} documento{est.files.length === 1 ? '' : 's'}. Cuantos más me des —avatar, oferta, nicho, guiones, tu web—, mejor te entiendo antes de preguntarte nada.
-        </p>
+      <div style={{ maxWidth: 560, margin: '0 auto', padding: '24px 0' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
+          <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 6px', lineHeight: 1.2 }}>¿Seguro que no tenés más documentos?</h2>
+        </div>
+
+        {/* Lo que MaKo entendió de lo que subiste (prueba de que lo leyó) */}
+        {insights.length > 0 && (
+          <div style={{ ...card, marginTop: 16, textAlign: 'left', padding: '16px 18px' }}>
+            <div style={{ ...eyebrow, marginBottom: 8 }}>Esto vi en lo que subiste</div>
+            {insights.map((f) => (
+              <div key={f.id} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '7px 0' }}>
+                <span style={{ color: 'var(--good)', fontSize: 14, flex: 'none', marginTop: 1 }}>✓</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }}>{f.razonamiento}</div>
+                  <div style={{ ...eyebrow, fontSize: 10, marginTop: 3 }}>{f.nombre}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pedido específico del documento que falta */}
+        {faltan.length > 0 ? (
+          <div style={{ ...card, marginTop: 14, textAlign: 'left', background: 'var(--primary-bg)', borderColor: 'var(--primary)', padding: '15px 18px' }}>
+            <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55 }}>
+              Todavía no vi {faltan.map((g, i) => (
+                <span key={g.label}>{i > 0 ? (i === faltan.length - 1 ? ' ni ' : ', ') : ''}<b>{nombreDoc(g.label)}</b></span>
+              ))}. ¿Tenés un documento de {faltan.length === 1 ? 'eso' : 'esos'}? Subilo y no te lo tengo que preguntar a mano.
+            </div>
+          </div>
+        ) : (
+          <p style={{ textAlign: 'center', fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, margin: '14px auto 0', maxWidth: 440 }}>
+            Ya tengo tu negocio, tu oferta y tu avatar. Igual, cuantos más documentos me des, mejor te entiendo.
+          </p>
+        )}
+
         {cajaWarn && <div style={{ margin: '14px 0' }}>{cajaWarn}</div>}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 26, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnGhost}>Tengo más, subir</button>
           <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>
             {cargandoPreg ? 'Preparando…' : est.gaps.length ? 'No, completá lo que falte →' : 'No, ver mi perfil →'}
           </button>
         </div>
-        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
+        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16, textAlign: 'center' }}>{err}</div>}
       </div>
     );
   }
