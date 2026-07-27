@@ -16,10 +16,11 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CURSOS, type Curso, type Clase, type Recurso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
+import AnalisisNegocio, { CURSO_ANALISIS } from './AnalisisNegocio';
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los módulos escritos a mano
 // viven en su propio archivo y se suman acá.
-const TODOS: Curso[] = [...CURSOS, CURSO_VSL];
+const TODOS: Curso[] = [...CURSOS, CURSO_VSL, CURSO_ANALISIS];
 
 const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
 const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
@@ -440,6 +441,9 @@ export default function Conocimientos() {
 
   let body: ReactNode;
   if (!curso) body = <Selector enter={(slug) => nav({ curso: slug })} />;
+  // "Análisis de Negocio" es una vista INTERACTIVA (form + modales de fases), no
+  // un curso de texto: se renderiza aparte del Hub genérico.
+  else if (curso.slug === 'analisis-negocio') body = <AnalisisNegocio back={() => nav({})} />;
   else if (clase) body = <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ curso: curso.slug, r: s })} back={back} />;
   else if (recurso) body = <RecursoDetail r={recurso} back={back} />;
   else body = <Hub curso={curso} goClase={(n) => nav({ curso: curso.slug, clase: String(n) })} goRecurso={(s) => nav({ curso: curso.slug, r: s })} />;
