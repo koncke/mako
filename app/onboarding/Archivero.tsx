@@ -32,7 +32,7 @@ const conDato = (g: Grupo, ans: Record<string, string>) => g.campos.some((c) => 
 const grupoWord = (label: string) => /oferta/i.test(label) ? 'tu oferta' : /avatar/i.test(label) ? 'tu avatar' : /negocio|nicho/i.test(label) ? 'tu negocio' : label.toLowerCase();
 // De un campo faltante a un "tema de documento" que se lee natural.
 const TERMINO_CAMPO: Record<string, string> = {
-  negocio_que_hace: 'a qué te dedicás',
+  negocio_que_hace: 'a qué te dedicas',
   oferta_nombre: 'tu oferta',
   oferta_ticket: 'tus precios',
   oferta_promesa: 'tu promesa',
@@ -45,6 +45,7 @@ const TERMINO_CAMPO: Record<string, string> = {
   avatar_nicho: 'tu nicho',
 };
 const listar = (arr: string[]) => arr.length <= 1 ? (arr[0] ?? '') : `${arr.slice(0, -1).join(', ')} o ${arr[arr.length - 1]}`;
+const listarY = (arr: string[]) => arr.length <= 1 ? (arr[0] ?? '') : `${arr.slice(0, -1).join(', ')} y ${arr[arr.length - 1]}`;
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
 const input: CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
@@ -68,8 +69,8 @@ const I_SUBIR = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 9l5-5 5 5|M12 4v12
 function Fade({ id, seen, index = 0, children }: { id: string; seen: MutableRefObject<Set<string>>; index?: number; children: ReactNode }) {
   const animar = !seen.current.has(id);
   useEffect(() => { seen.current.add(id); }, [id, seen]);
-  const dur = 0.7;
-  return <div style={animar ? { animation: `arch-reveal ${dur}s ease-out both`, animationDelay: `${(index * (dur - 0.1)).toFixed(2)}s` } : undefined}>{children}</div>;
+  const dur = 1.3; // más lento (pedido de Martín)
+  return <div style={animar ? { animation: `arch-reveal ${dur}s ease-out both`, animationDelay: `${(index * (dur - 0.25)).toFixed(2)}s` } : undefined}>{children}</div>;
 }
 
 // Miniatura del documento (PDF → visor inline; imagen → la imagen; otro → ícono).
@@ -252,19 +253,12 @@ export function Archivero({ onEstado }: {
 
             {hayPerfil && (
               <Fade id="campos-insight" index={insights.length} seen={vistos}>
-                <div style={{ ...card, padding: '16px 18px' }}>
-                  <div style={{ ...eyebrow, marginBottom: 12 }}>Los datos que saqué</div>
-                  {recibidos.map((g) => (
-                    <div key={g.label} style={{ marginTop: 12 }}>
-                      <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 4 }}>{g.label}</div>
-                      {g.campos.filter((c) => (est.answers[c.key] ?? '').trim()).map((c) => (
-                        <div key={c.key} style={{ padding: '7px 0', borderTop: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{c.label}</div>
-                          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, marginTop: 2 }}>{est.answers[c.key]}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
+                <div style={{ ...card, padding: '18px 20px', display: 'flex', gap: 14, alignItems: 'center' }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 999, background: 'var(--good-bg)', color: 'var(--good)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flex: 'none' }}>✓</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Listo, ya conozco tu negocio</div>
+                    <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Los puedes revisar y corregir en tu perfil.</div>
+                  </div>
                 </div>
               </Fade>
             )}
@@ -277,28 +271,44 @@ export function Archivero({ onEstado }: {
       );
     }
 
-    // Slide 2: pedir otro documento — título fijo + qué falta específico. Botón azul protagonista.
+    // Slide 2: pedir otro documento — título fijo + nombres de los docs recibidos +
+    // qué campo falta específico. Español plano. "Volver" siempre al piso del modal.
     const gapTerms = [...new Set(est.gaps.map((k) => TERMINO_CAMPO[k]).filter(Boolean))];
     const secundario = est.gaps.length > 0 ? 'Completar a mano →' : 'Ver mi perfil →';
+    const nombresDocs = est.files.map((f) => f.nombre);
+    const cubren = recibidos.map((g) => grupoWord(g.label));
     return (
-      <div style={{ minHeight: 460, maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', padding: '34px 0 12px' }}>
+      <div style={{ minHeight: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', padding: '34px 0 10px' }}>
         {keyframes}
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 40, marginBottom: 14 }}>📂</div>
-          <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px', lineHeight: 1.3 }}>¿Tenés algún otro documento para sumar?</h2>
-          <p style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto', maxWidth: 450 }}>
-            {recibidos.length > 0 && <>Ya recibí {listar(recibidos.map((g) => grupoWord(g.label)))}. </>}
+          <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px', lineHeight: 1.3 }}>¿Tienes algún otro documento?</h2>
+
+          {nombresDocs.length > 0 && (
+            <div style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 4px', maxWidth: 460 }}>
+              {nombresDocs.length === 1
+                ? <>Ya recibí tu documento <b style={{ color: 'var(--ink)' }}>{nombresDocs[0]}</b>{cubren.length ? <>, que corresponde a {listarY(cubren)}</> : ''}.</>
+                : <>Ya recibí estos documentos{cubren.length ? <>, que corresponden a {listarY(cubren)}</> : ''}:
+                    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, marginTop: 8, textAlign: 'left' }}>
+                      {nombresDocs.map((n, i) => <span key={i} style={{ color: 'var(--ink)', fontWeight: 500 }}>· {n}</span>)}
+                    </span>
+                  </>}
+            </div>
+          )}
+
+          <p style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '10px auto 0', maxWidth: 460 }}>
             {gapTerms.length > 0
-              ? <>Específicamente me está faltando un documento que hable de <b style={{ color: 'var(--ink)' }}>{listar(gapTerms.slice(0, 3))}</b> — o de lo que sea.</>
-              : <>Cuantos más documentos me des, mejor te entiendo.</>}
+              ? <>Me falta un documento que hable de <b style={{ color: 'var(--ink)' }}>{listar(gapTerms.slice(0, 3))}</b> — o cualquier documento de tu negocio.</>
+              : <>Mientras más documentos me des, mejor te entiendo.</>}
           </p>
+
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 30, flexWrap: 'wrap' }}>
             <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={{ ...btnPrimary, padding: '13px 24px', fontSize: 15 }}><Ico d={I_SUBIR} size={16} /> Sí, subir más</button>
             <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : secundario}</button>
           </div>
           {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
         </div>
-        <div style={{ textAlign: 'center', paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+        <div style={{ textAlign: 'center', paddingTop: 16, marginTop: 20, borderTop: '1px solid var(--border)' }}>
           <button type="button" onClick={() => setMasSlide('insight')} style={link}>← Volver a lo que entendí</button>
         </div>
       </div>
@@ -325,7 +335,7 @@ export function Archivero({ onEstado }: {
           </div>
         ) : (
           <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
-            <textarea style={{ ...input, minHeight: 90, resize: 'vertical', lineHeight: 1.5 }} value={otroVal} autoFocus placeholder="Escribilo con tus palabras…" onChange={(e) => setOtroVal(e.target.value)} />
+            <textarea style={{ ...input, minHeight: 90, resize: 'vertical', lineHeight: 1.5 }} value={otroVal} autoFocus placeholder="Escríbelo con tus palabras…" onChange={(e) => setOtroVal(e.target.value)} />
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16 }}>
               <button type="button" onClick={() => { setOtroKey(null); setOtroVal(''); }} style={btnGhost}>Volver a las opciones</button>
               <button type="button" onClick={() => responderGap(p.key, otroVal)} disabled={!otroVal.trim()} style={{ ...btnPrimary, opacity: otroVal.trim() ? 1 : 0.4 }}>Guardar y seguir</button>
@@ -378,7 +388,7 @@ export function Archivero({ onEstado }: {
             <div style={card}>
               {est.panorama.trim()
                 ? <Fade id="pano" seen={vistos}><PanoramaText text={est.panorama} /></Fade>
-                : <div style={{ fontSize: 15, color: 'var(--dim)' }}>Subí tus documentos y acá te armo el panorama completo.</div>}
+                : <div style={{ fontSize: 15, color: 'var(--dim)' }}>Sube tus documentos y aquí te armo el panorama completo.</div>}
             </div>
           </div>
         )}
@@ -386,7 +396,7 @@ export function Archivero({ onEstado }: {
         {/* GRUPO — tocá el texto para editarlo en el lugar (sin botón, sin recuadro) */}
         {grupoActivo && (
           <div>
-            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 10 }}>{grupoActivo.label} · tocá un dato para editarlo</div>
+            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 10 }}>{grupoActivo.label} · toca un dato para editarlo</div>
             <div style={card}>
               {grupoActivo.campos.filter((c) => (est.answers[c.key] ?? '').trim()).map((c, i) => (
                 <div key={c.key} style={{ padding: '13px 0', borderTop: i ? '1px solid var(--border)' : 'none' }}>
@@ -420,7 +430,7 @@ export function Archivero({ onEstado }: {
           ) : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>
         )}
 
-        {!hayPerfil && !hayArchivos && <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Subí tus documentos para armar tu perfil.</div>}
+        {!hayPerfil && !hayArchivos && <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Sube tus documentos para armar tu perfil.</div>}
       </div>
     );
   }
@@ -435,7 +445,7 @@ export function Archivero({ onEstado }: {
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', minHeight: 300, border: `1.5px dashed ${drag ? 'var(--primary)' : 'var(--border-strong)'}`, background: drag ? 'var(--primary-bg)' : 'var(--surface-2)', borderRadius: 20, padding: '44px 28px', textAlign: 'center', transition: 'all .15s' }}>
         <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { addCola(e.target.files); e.target.value = ''; }} />
         <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v12" /></svg>
-        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', marginTop: 16 }}>Soltá acá todo lo de tu negocio</div>
+        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', marginTop: 16 }}>Suelta aquí todo lo de tu negocio</div>
         <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 9, lineHeight: 1.6, maxWidth: 420 }}>Avatar, oferta, nicho, producto, guiones, tu web…<br />PDF, Word, texto o imágenes. Todos los que quieras.</div>
         <div style={{ marginTop: 22 }}><span style={{ ...btnPrimary, display: 'inline-block', padding: '12px 24px', fontSize: 15 }}>Elegir archivos</span></div>
       </label>

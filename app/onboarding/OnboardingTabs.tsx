@@ -21,7 +21,7 @@ type TabKey = 'archivero' | 'funnel' | 'angulos';
 const SLIDES: Slide[] = [
   { t: 'MaKo trabaja con TU negocio', d: 'Lo que sale de tus documentos entra en cada análisis y cada respuesta: deja de darte consejos de manual y te habla de lo tuyo.' },
   { t: 'De tus documentos a tus ángulos', d: 'Tu avatar, tu oferta y tu nicho son la materia prima con la que MaKo arma los ángulos de tus anuncios.' },
-  { t: 'La prueba, no la promesa', d: 'A medida que subís documentos, este panel se llena con lo que MaKo entendió de tu negocio.' },
+  { t: 'La prueba, no la promesa', d: 'A medida que subes documentos, MaKo va entendiendo tu negocio y te lo muestra a la derecha.' },
 ];
 
 // El Archivero dentro del marco partido del wizard (mismo grid .mk-svc-modal).
