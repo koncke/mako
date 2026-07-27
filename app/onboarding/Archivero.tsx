@@ -29,7 +29,22 @@ const fmtSize = (n?: number | null) => (!n ? '' : n > 1024 * 1024 ? `${(n / 1024
 const esImg = (m?: string | null) => !!m && m.startsWith('image/');
 const esPdf = (m?: string | null, n?: string) => (!!m && m === 'application/pdf') || (!!n && n.toLowerCase().endsWith('.pdf'));
 const conDato = (g: Grupo, ans: Record<string, string>) => g.campos.some((c) => (ans[c.key] ?? '').trim());
-const nombreDoc = (label: string) => /oferta/i.test(label) ? 'tu OFERTA o tu PRODUCTO' : /avatar/i.test(label) ? 'tu AVATAR' : /negocio|nicho/i.test(label) ? 'a QUÉ te dedicás' : label.toLowerCase();
+const grupoWord = (label: string) => /oferta/i.test(label) ? 'tu oferta' : /avatar/i.test(label) ? 'tu avatar' : /negocio|nicho/i.test(label) ? 'tu negocio' : label.toLowerCase();
+// De un campo faltante a un "tema de documento" que se lee natural.
+const TERMINO_CAMPO: Record<string, string> = {
+  negocio_que_hace: 'a qué te dedicás',
+  oferta_nombre: 'tu oferta',
+  oferta_ticket: 'tus precios',
+  oferta_promesa: 'tu promesa',
+  oferta_incluye: 'qué incluye tu oferta',
+  oferta_garantia: 'tu garantía',
+  avatar_quien: 'quién es tu cliente',
+  avatar_dolor: 'el dolor de tu cliente',
+  avatar_deseo: 'qué quiere lograr tu cliente',
+  avatar_objecion: 'sus objeciones',
+  avatar_nicho: 'tu nicho',
+};
+const listar = (arr: string[]) => arr.length <= 1 ? (arr[0] ?? '') : `${arr.slice(0, -1).join(', ')} o ${arr[arr.length - 1]}`;
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
 const input: CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 15, outline: 'none' };
@@ -47,13 +62,14 @@ const I_OJO = 'M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z|M12 15a3 3 0 1 0 0-6
 const I_BAJAR = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 10l5 5 5-5|M12 15V3';
 const I_BORRAR = 'M3 6h18|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6';
 const I_SUBIR = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 9l5-5 5 5|M12 4v12';
-const I_LAPIZ = 'M12 20h9|M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z';
 
 // Desvanecido de arriba hacia abajo, UNA sola vez por `id` (no se repite al volver).
-function Fade({ id, seen, children }: { id: string; seen: MutableRefObject<Set<string>>; children: ReactNode }) {
+// `index` ESCALONA: cada bloque espera a que termine el de arriba (delay = index·dur).
+function Fade({ id, seen, index = 0, children }: { id: string; seen: MutableRefObject<Set<string>>; index?: number; children: ReactNode }) {
   const animar = !seen.current.has(id);
   useEffect(() => { seen.current.add(id); }, [id, seen]);
-  return <div style={animar ? { animation: 'arch-reveal .95s ease-out both' } : undefined}>{children}</div>;
+  const dur = 0.7;
+  return <div style={animar ? { animation: `arch-reveal ${dur}s ease-out both`, animationDelay: `${(index * (dur - 0.1)).toFixed(2)}s` } : undefined}>{children}</div>;
 }
 
 // Miniatura del documento (PDF → visor inline; imagen → la imagen; otro → ícono).
@@ -76,6 +92,17 @@ function DocAcciones({ id, confirm, onConfirm, onBorrar }: { id: string; confirm
   );
 }
 
+// Campo EDITABLE en el lugar: se ve igual que el texto (misma tipografía), al hacer
+// click ponés el cursor y editás; al salir (blur) se guarda si cambió. Sin recuadros.
+function CampoEditable({ valor, onSave }: { valor: string; onSave: (v: string) => void }) {
+  return (
+    <div className="arch-edit" contentEditable suppressContentEditableWarning spellCheck={false}
+      onBlur={(e) => { const nv = (e.currentTarget.textContent || '').replace(/\s+/g, ' ').trim(); if (nv !== valor.trim()) onSave(nv); }}
+      style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.55, outline: 'none', cursor: 'text', borderRadius: 7, padding: '4px 8px', margin: '0 -8px', minHeight: 20 }}
+    >{valor}</div>
+  );
+}
+
 export function Archivero({ onEstado }: {
   onEstado?: (answers: Record<string, string>) => void;
   onFacts?: (facts: { k: string; v: string }[]) => void; // ya NO se usa (el insight va en blanco)
@@ -95,9 +122,6 @@ export function Archivero({ onEstado }: {
   const [otroKey, setOtroKey] = useState<string | null>(null);
   const [otroVal, setOtroVal] = useState('');
   const [panoTab, setPanoTab] = useState<string>('resumen');
-  const [editGrupo, setEditGrupo] = useState<string | null>(null); // grupo en modo edición
-  const [editVals, setEditVals] = useState<Record<string, string>>({});
-  const [guardando, setGuardando] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
 
@@ -171,7 +195,7 @@ export function Archivero({ onEstado }: {
   const fuenteTxt = (k: string) => { const f = est.fuente[k]; return !f ? 'a mano' : f.tipo === 'manual' ? 'a mano' : (f.nombre || 'un archivo'); };
   const previewUrl = (id: string) => `/api/onboarding/archivero/download?id=${id}&preview=1`;
 
-  const keyframes = <style>{'@keyframes arch-spin{to{transform:rotate(360deg)}}@keyframes arch-reveal{from{clip-path:inset(0 0 100% 0);opacity:.35}to{clip-path:inset(0 0 0 0);opacity:1}}'}</style>;
+  const keyframes = <style>{'@keyframes arch-spin{to{transform:rotate(360deg)}}@keyframes arch-reveal{from{clip-path:inset(0 0 100% 0);opacity:.35}to{clip-path:inset(0 0 0 0);opacity:1}}.arch-edit:hover{background:var(--surface-2)}.arch-edit:focus{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-strong)}'}</style>;
   const cajaWarn = warnings.length > 0 && (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px' }}>
       {warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 }}>· {w}</div>)}
@@ -196,41 +220,47 @@ export function Archivero({ onEstado }: {
     const recibidos = grupos.filter((g) => g.campos.length > 0 && conDato(g, est.answers));
     const faltan = grupos.filter((g) => g.campos.length > 0 && !conDato(g, est.answers));
 
-    // Slide 1: qué entendí — razonamiento (fade) + preview del doc con acciones, y abajo los campos (fade).
+    // Slide 1: qué entendí — una CAJA por documento (título del tipo + descripción +
+    // miniatura con acciones) y una caja con los datos. Fade escalonado de arriba→abajo.
     if (masSlide === 'insight') {
       return (
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 0' }}>
           {keyframes}
-          <div style={{ ...card, textAlign: 'left', padding: '20px 22px', borderColor: 'var(--accent)' }}>
-            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 16 }}>✦ Esto entendí de tus documentos</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {insights.length > 0 ? insights.map((f) => (
-                <div key={f.id} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                  <Fade id={`ins:${f.id}`} seen={vistos}>
+          <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 14, fontSize: 11 }}>✦ Esto entendí de tus documentos</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {insights.map((f, i) => {
+              const partes = (f.razonamiento || '').split(/\.\s+/);
+              const titulo = partes[0]?.replace(/\.$/, '') || 'Documento';
+              const cuerpo = partes.length > 1 ? partes.slice(1).join('. ') : '';
+              return (
+                <Fade key={f.id} id={`ins:${f.id}`} index={i} seen={vistos}>
+                  <div style={{ ...card, padding: 16, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.6 }}>{f.razonamiento}</div>
-                      <div style={{ ...eyebrow, fontSize: 10, marginTop: 8 }}>{f.nombre}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ''}</div>
+                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{titulo}</div>
+                      {cuerpo && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }}>{cuerpo}</div>}
+                      <div style={{ ...eyebrow, fontSize: 10, marginTop: 10 }}>{f.nombre}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ''}</div>
                     </div>
-                  </Fade>
-                  <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-                    <DocThumb mime={f.mime} nombre={f.nombre} src={previewUrl(f.id)} w={84} h={106} />
-                    <DocAcciones id={f.id} confirm={confirmDel === f.id} onConfirm={() => setConfirmDel(f.id)} onBorrar={() => borrar(f.id)} />
+                    <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+                      <DocThumb mime={f.mime} nombre={f.nombre} src={previewUrl(f.id)} w={78} h={100} />
+                      <DocAcciones id={f.id} confirm={confirmDel === f.id} onConfirm={() => setConfirmDel(f.id)} onBorrar={() => borrar(f.id)} />
+                    </div>
                   </div>
-                </div>
-              )) : <div style={{ fontSize: 14, color: 'var(--dim)' }}>Leí tus documentos.</div>}
-            </div>
+                </Fade>
+              );
+            })}
+            {insights.length === 0 && <div style={{ ...card, fontSize: 14, color: 'var(--dim)' }}>Leí tus documentos.</div>}
 
-            {/* Los campos que extraje (antes iban al panel negro) */}
             {hayPerfil && (
-              <Fade id="campos-insight" seen={vistos}>
-                <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <Fade id="campos-insight" index={insights.length} seen={vistos}>
+                <div style={{ ...card, padding: '16px 18px' }}>
+                  <div style={{ ...eyebrow, marginBottom: 12 }}>Los datos que saqué</div>
                   {recibidos.map((g) => (
-                    <div key={g.label} style={{ marginBottom: 12 }}>
-                      <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 6 }}>{g.label}</div>
+                    <div key={g.label} style={{ marginTop: 12 }}>
+                      <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 4 }}>{g.label}</div>
                       {g.campos.filter((c) => (est.answers[c.key] ?? '').trim()).map((c) => (
-                        <div key={c.key} style={{ display: 'flex', gap: 10, padding: '4px 0', fontSize: 13.5, lineHeight: 1.5 }}>
-                          <span style={{ color: 'var(--faint)', flex: 'none', minWidth: 150 }}>{c.label}</span>
-                          <span style={{ color: 'var(--ink)' }}>{est.answers[c.key]}</span>
+                        <div key={c.key} style={{ padding: '7px 0', borderTop: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: 11.5, color: 'var(--faint)' }}>{c.label}</div>
+                          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.5, marginTop: 2 }}>{est.answers[c.key]}</div>
                         </div>
                       ))}
                     </div>
@@ -240,31 +270,29 @@ export function Archivero({ onEstado }: {
             )}
           </div>
           {cajaWarn && <div style={{ marginTop: 14 }}>{cajaWarn}</div>}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
             <button type="button" onClick={() => setMasSlide('pedir')} style={btnPrimary}>Siguiente →</button>
           </div>
         </div>
       );
     }
 
-    // Slide 2: pedir el doc que falta (personalizado) — botón azul con protagonismo.
+    // Slide 2: pedir otro documento — título fijo + qué falta específico. Botón azul protagonista.
+    const gapTerms = [...new Set(est.gaps.map((k) => TERMINO_CAMPO[k]).filter(Boolean))];
     const secundario = est.gaps.length > 0 ? 'Completar a mano →' : 'Ver mi perfil →';
     return (
-      <div style={{ minHeight: 480, maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', padding: '30px 0 12px' }}>
+      <div style={{ minHeight: 460, maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', padding: '34px 0 12px' }}>
         {keyframes}
         <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>📂</div>
-          <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.3 }}>
-            {recibidos.length > 0 ? <>Ya recibí {recibidos.map((g, i) => <span key={g.label}>{i > 0 ? (i === recibidos.length - 1 ? ' y ' : ', ') : ''}{nombreDoc(g.label).toLowerCase().replace('a qué te dedicás', 'lo de tu negocio')}</span>)}.</> : 'Ya leí tus documentos.'}
-          </h2>
-          {faltan.length > 0 ? (
-            <p style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto', maxWidth: 440 }}>
-              ¿Tenés también el documento de {faltan.map((g, i) => <span key={g.label}>{i > 0 ? ' y ' : ''}<b style={{ color: 'var(--ink)' }}>{nombreDoc(g.label)}</b></span>)}? Subilo y lo sumo al toque.
-            </p>
-          ) : (
-            <p style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto', maxWidth: 440 }}>¿Tenés algún otro documento para sumar? Cuantos más me des, mejor te entiendo.</p>
-          )}
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 40, marginBottom: 14 }}>📂</div>
+          <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px', lineHeight: 1.3 }}>¿Tenés algún otro documento para sumar?</h2>
+          <p style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto', maxWidth: 450 }}>
+            {recibidos.length > 0 && <>Ya recibí {listar(recibidos.map((g) => grupoWord(g.label)))}. </>}
+            {gapTerms.length > 0
+              ? <>Específicamente me está faltando un documento que hable de <b style={{ color: 'var(--ink)' }}>{listar(gapTerms.slice(0, 3))}</b> — o de lo que sea.</>
+              : <>Cuantos más documentos me des, mejor te entiendo.</>}
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 30, flexWrap: 'wrap' }}>
             <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={{ ...btnPrimary, padding: '13px 24px', fontSize: 15 }}><Ico d={I_SUBIR} size={16} /> Sí, subir más</button>
             <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : secundario}</button>
           </div>
@@ -326,80 +354,48 @@ export function Archivero({ onEstado }: {
     ];
     const tabActiva = secciones.some((s) => s.id === panoTab) ? panoTab : 'resumen';
     const grupoActivo = tabActiva.startsWith('g:') ? gruposConDato.find((g) => `g:${g.label}` === tabActiva) : null;
-    const editando = grupoActivo && editGrupo === grupoActivo.label;
-    const valOf = (k: string) => editVals[k] ?? est.answers[k] ?? '';
-    const cambios = grupoActivo ? grupoActivo.campos.map((c) => c.key).filter((k) => editVals[k] != null && (editVals[k] ?? '') !== (est.answers[k] ?? '')) : [];
-
-    const abrirEdicion = (g: Grupo) => { const v: Record<string, string> = {}; for (const c of g.campos) v[c.key] = est.answers[c.key] ?? ''; setEditVals(v); setEditGrupo(g.label); };
-    const cancelarEdicion = () => { setEditVals({}); setEditGrupo(null); };
-    const guardarEdicion = async () => {
-      const patch: Record<string, string> = {};
-      for (const k of cambios) patch[k] = editVals[k] ?? '';
-      if (!Object.keys(patch).length) { cancelarEdicion(); return; }
-      setGuardando(true);
-      try { await guardarManual(patch); cancelarEdicion(); } finally { setGuardando(false); }
-    };
 
     return (
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {keyframes}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <button type="button" onClick={() => { setErr(null); setWarnings([]); cancelarEdicion(); setVista('inicio'); }} style={link}>← Subir más documentos</button>
+          <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={link}>← Subir más documentos</button>
           {gaps > 0 && <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...link, color: 'var(--primary)', fontWeight: 600 }}>{cargandoPreg ? 'Preparando…' : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} →`}</button>}
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {secciones.map((s) => {
             const on = s.id === tabActiva;
-            return <button key={s.id} type="button" onClick={() => { cancelarEdicion(); setPanoTab(s.id); }}
+            return <button key={s.id} type="button" onClick={() => setPanoTab(s.id)}
               style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, letterSpacing: '.03em', padding: '8px 14px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)' }}>{s.label}</button>;
           })}
         </div>
 
-        {/* RESUMEN */}
+        {/* RESUMEN — el título va AFUERA del cuadro */}
         {tabActiva === 'resumen' && (
-          <div style={card}>
-            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 12 }}>✦ Esto entendí de tu negocio</div>
-            {est.panorama.trim()
-              ? <Fade id="pano" seen={vistos}><PanoramaText text={est.panorama} /></Fade>
-              : <div style={{ fontSize: 15, color: 'var(--dim)' }}>Subí tus documentos y acá te armo el panorama completo.</div>}
+          <div>
+            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 10 }}>✦ Esto entendí de tu negocio</div>
+            <div style={card}>
+              {est.panorama.trim()
+                ? <Fade id="pano" seen={vistos}><PanoramaText text={est.panorama} /></Fade>
+                : <div style={{ fontSize: 15, color: 'var(--dim)' }}>Subí tus documentos y acá te armo el panorama completo.</div>}
+            </div>
           </div>
         )}
 
-        {/* GRUPO: preview read-only + botón Editar (o inputs + Guardar) */}
+        {/* GRUPO — tocá el texto para editarlo en el lugar (sin botón, sin recuadro) */}
         {grupoActivo && (
-          <div style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <div style={{ ...eyebrow, color: 'var(--accent)' }}>{grupoActivo.label}</div>
-              {!editando
-                ? <button type="button" onClick={() => abrirEdicion(grupoActivo)} style={{ ...iconBtn, width: 'auto', padding: '6px 12px', gap: 6, fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)' }}><Ico d={I_LAPIZ} size={13} /> Editar</button>
-                : <span style={{ ...eyebrow, color: 'var(--primary)' }}>editando</span>}
-            </div>
-            {grupoActivo.campos.map((c) => {
-              const tiene = (est.answers[c.key] ?? '').trim();
-              if (!editando && !tiene) return null;
-              return (
-                <div key={c.key} style={{ padding: '13px 0', borderTop: '1px solid var(--border)' }}>
-                  <label style={{ fontSize: 13, color: 'var(--faint)', display: 'block', marginBottom: editando ? 7 : 3 }}>{c.label}</label>
-                  {editando ? (
-                    c.type === 'textarea'
-                      ? <textarea style={{ ...input, minHeight: 64, resize: 'vertical', lineHeight: 1.55, fontSize: 15 }} value={valOf(c.key)} placeholder={c.placeholder} onChange={(e) => setEditVals((a) => ({ ...a, [c.key]: e.target.value }))} />
-                      : <input style={{ ...input, fontSize: 15 }} value={valOf(c.key)} placeholder={c.placeholder} onChange={(e) => setEditVals((a) => ({ ...a, [c.key]: e.target.value }))} />
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.55 }}>{est.answers[c.key]}</div>
-                      <div style={{ ...eyebrow, fontSize: 10, marginTop: 4 }}>· {fuenteTxt(c.key)}</div>
-                    </>
-                  )}
+          <div>
+            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 10 }}>{grupoActivo.label} · tocá un dato para editarlo</div>
+            <div style={card}>
+              {grupoActivo.campos.filter((c) => (est.answers[c.key] ?? '').trim()).map((c, i) => (
+                <div key={c.key} style={{ padding: '13px 0', borderTop: i ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ fontSize: 13, color: 'var(--faint)', marginBottom: 5 }}>{c.label}</div>
+                  <CampoEditable key={`${c.key}:${est.answers[c.key] ?? ''}`} valor={est.answers[c.key] ?? ''} onSave={(v) => guardarManual({ [c.key]: v })} />
+                  <div style={{ ...eyebrow, fontSize: 10, marginTop: 6 }}>· {fuenteTxt(c.key)}</div>
                 </div>
-              );
-            })}
-            {editando && (
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 16 }}>
-                <button type="button" onClick={guardarEdicion} disabled={guardando} style={{ ...btnPrimary, opacity: guardando ? 0.6 : 1 }}>{guardando ? 'Guardando…' : 'Guardar'}</button>
-                <button type="button" onClick={cancelarEdicion} style={link}>Cancelar</button>
-              </div>
-            )}
+              ))}
+            </div>
           </div>
         )}
 

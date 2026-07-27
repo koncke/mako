@@ -8,7 +8,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, type ProvName } from './ai-cheap';
 
 export type FieldType = 'text' | 'number' | 'textarea';
 export type Field = { key: string; label: string; type: FieldType; placeholder?: string };
@@ -165,10 +165,14 @@ function limpiarPanorama(t: string): string {
   return (start > 0 ? lines.slice(start).join('\n') : s).trim();
 }
 
+// Para el panorama preferimos modelos NO-thinking (Groq 70b primero): un modelo de
+// razonamiento (gemini-thinking) gasta el presupuesto de tokens "pensando" y devuelve
+// el panorama TRUNCADO a mitad de frase (bug reportado). Gemini queda al final.
+const CASCADA_PANORAMA: ProvName[] = ['groq', 'cerebras', 'openai', 'openrouter', 'mistral', 'gemini'];
 export async function generarPanorama(textos: string[], contexto: string): Promise<string> {
   const material = textos.map((t, i) => `— DOCUMENTO ${i + 1} —\n${t.slice(0, 8000)}`).join('\n\n');
   const user = `${contexto ? `Lo que ya tenías del negocio:\n${contexto}\n\n` : ''}DOCUMENTOS:\n${material}`.slice(0, 60000);
-  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 1400, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => !pareceRazonamiento(t) });
+  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 3000, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_PANORAMA, modelos: MODELO_DOCS, validar: (t) => !pareceRazonamiento(t) });
   return limpiarPanorama(out);
 }
 

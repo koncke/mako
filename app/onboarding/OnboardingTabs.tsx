@@ -30,7 +30,8 @@ function ArchiveroFrame() {
   return (
     <>
       <BrandDefs />
-      <div className="mk-svc-modal" style={{ maxWidth: 980, margin: '0 auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', minHeight: 560 }}>
+      {/* Alto FIJO: el modal no se estira con el contenido; la columna blanca scrollea. */}
+      <div className="mk-svc-modal" style={{ maxWidth: 980, margin: '0 auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, overflow: 'hidden', height: 'min(720px, calc(100vh - 150px))' }}>
         <PanelMarketing servicioKey="landing" nombre="MaKo" slides={SLIDES} facts={facts} eyebrow="✦ Así trabaja MaKo" />
         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, overflowY: 'auto', padding: '30px clamp(20px,4vw,40px)' }}>
           <Archivero onFacts={(f) => setFacts(f)} />
