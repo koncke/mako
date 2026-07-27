@@ -3,12 +3,14 @@
 // =============================================================================
 // El brief del negocio (mako.onboarding.answers) se DERIVA de dos fuentes:
 //   1. Los archivos que subió el cliente (archivero_files.campos, por archivo).
-//   2. Las respuestas manuales (huecos que ningún doc resolvió + ediciones del
-//      super-admin), en app_settings 'mako.archivero.manual'.
-// El efectivo = merge(archivos en orden, manual encima). Manual siempre gana.
-// Por eso borrar un archivo recalcula todo y "se lleva" lo que ese archivo aportó
-// (salvo lo que además esté en manual). Guardamos el efectivo en answers para que
-// el contexto de MaKo (perfilNegocioTexto) lo lea igual que siempre.
+//   2. Las respuestas manuales (huecos que ningún doc resolvió), en app_settings
+//      'mako.archivero.manual'.
+// El efectivo = merge(manual como BASE, archivos encima). **Los DOCS GANAN**: si un
+// documento trae un dato, sobreescribe lo que hubiera a mano — ningún dato a mano
+// es ley (pedido de Martín 2026-07-27). Lo manual solo sobrevive para los campos
+// que NINGÚN archivo cubre. Por eso borrar un archivo recalcula y "se lleva" lo que
+// aportó (queda lo manual si lo había). Guardamos el efectivo en answers para que el
+// contexto de MaKo (perfilNegocioTexto) lo lea igual que siempre.
 // =============================================================================
 
 import 'server-only';
@@ -34,6 +36,15 @@ export async function resolverWsAdmin(): Promise<number | null> {
 
 const BUCKET = 'archivero';
 const MANUAL_KEY = 'mako.archivero.manual';
+const PANORAMA_KEY = 'mako.archivero.panorama';
+
+// ── Panorama libre (lo que la IA entendió, más allá de los campos fijos) ──────
+export async function getPanorama(): Promise<string> {
+  return (await getSetting(PANORAMA_KEY)) ?? '';
+}
+export async function setPanorama(texto: string): Promise<void> {
+  await setSetting(PANORAMA_KEY, texto);
+}
 
 export type ArchiveroFile = {
   id: string; nombre: string; mime: string | null; tamano: number | null;
@@ -119,17 +130,20 @@ export async function urlDescarga(path: string, nombre: string): Promise<string 
   return data?.signedUrl ?? null;
 }
 
-// ── Brief efectivo (merge archivos + manual) ─────────────────────────────────
+// ── Brief efectivo (merge manual base + archivos encima → DOCS GANAN) ─────────
 export function computeEffective(files: ArchiveroFile[], manual: Record<string, string>): { answers: Record<string, string>; fuente: Record<string, FuenteCampo> } {
   const answers: Record<string, string> = {};
   const fuente: Record<string, FuenteCampo> = {};
+  // Manual como BASE: solo llena lo que ningún doc va a cubrir.
+  for (const [k, v] of Object.entries(manual || {})) {
+    if (v != null && String(v).trim()) { answers[k] = String(v); fuente[k] = { tipo: 'manual' }; }
+  }
+  // Archivos ENCIMA: un dato de un documento SOBREESCRIBE lo manual (docs ganan).
+  // Entre archivos, el último cargado pisa al anterior.
   for (const f of files) {
     for (const [k, v] of Object.entries(f.campos || {})) {
       if (v != null && String(v).trim()) { answers[k] = String(v); fuente[k] = { tipo: 'archivo', id: f.id, nombre: f.nombre }; }
     }
-  }
-  for (const [k, v] of Object.entries(manual || {})) {
-    if (v != null && String(v).trim()) { answers[k] = String(v); fuente[k] = { tipo: 'manual' }; }
   }
   return { answers, fuente };
 }
@@ -145,15 +159,17 @@ export type ArchiveroEstado = {
   answers: Record<string, string>;
   fuente: Record<string, FuenteCampo>;
   gaps: string[];
+  /** Panorama libre: lo que la IA entendió del negocio, más allá de los campos fijos. */
+  panorama: string;
   esSuperAdmin: boolean;
 };
 
 /** Estado completo para la UI. `persist` guarda el brief efectivo en answers. */
 export async function buildEstado(persist: boolean): Promise<ArchiveroEstado> {
-  const [files, schema, manual] = await Promise.all([listFiles(), getSchema(), getManual()]);
+  const [files, schema, manual, panorama] = await Promise.all([listFiles(), getSchema(), getManual(), getPanorama()]);
   const { answers, fuente } = computeEffective(files, manual);
   if (persist) await saveAnswers(answers);
   const brief = schema.flatMap((g) => g.fields.map((f) => ({ key: f.key, label: f.label, type: f.type, placeholder: f.placeholder, grupo: g.label }))).filter((c) => esCampoArchivero(c.key));
   const gaps = brief.filter((c) => !(answers[c.key] ?? '').trim()).map((c) => c.key);
-  return { files: files.map(pubFile), brief, answers, fuente, gaps, esSuperAdmin: Boolean(await getSesionAdmin()) };
+  return { files: files.map(pubFile), brief, answers, fuente, gaps, panorama, esSuperAdmin: Boolean(await getSesionAdmin()) };
 }

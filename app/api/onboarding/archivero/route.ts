@@ -15,10 +15,11 @@
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
-import { extraerDeArchivo } from '@/lib/onboarding';
+import { extraerDeArchivo, generarPanorama } from '@/lib/onboarding';
 import { leerDocumentoIA, docsIADisponible } from '@/lib/ai-cheap';
 import {
   flatFields, insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
+  getPanorama, setPanorama, listFiles,
 } from '@/lib/archivero';
 
 export const dynamic = 'force-dynamic';
@@ -97,6 +98,7 @@ export async function POST(req: NextRequest) {
       }
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
       const warnings: string[] = [];
+      const textos: string[] = [];
       let leidos = 0;
       for (const file of files) {
         const { texto, warning } = await leerArchivo(file);
@@ -108,9 +110,16 @@ export async function POST(req: NextRequest) {
         const buf = Buffer.from(await file.arrayBuffer());
         const path = await subirBinario(ws, id, buf, file.type || '');
         await insertFile(ws, { id, nombre: file.name, mime: file.type || '', tamano: file.size, storage_path: path, razonamiento, campos });
+        textos.push(texto);
         leidos++;
       }
       if (leidos === 0) return Response.json({ ok: false, error: 'No pude leer ninguno de los archivos.', warnings, ...(await buildEstado(false)) }, { status: 422 });
+      // Panorama libre: lo que la IA entendió de TODO. Regenera con los docs de esta
+      // tanda + el panorama previo (acumula entre subidas). Best-effort, no bloquea.
+      try {
+        const pano = await generarPanorama(textos, await getPanorama());
+        if (pano) await setPanorama(pano);
+      } catch (e) { console.error('[archivero] panorama falló (no fatal):', msg(e)); }
       return Response.json({ ok: true, warnings, ...(await buildEstado(true)) });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
@@ -129,6 +138,8 @@ export async function DELETE(req: NextRequest) {
       if (!f) return Response.json({ ok: false, error: 'Archivo no encontrado.' }, { status: 404 });
       await borrarBinario(f.storage_path);
       await deleteFileRow(id);
+      // Sin archivos, el panorama queda huérfano: lo limpiamos.
+      if ((await listFiles()).length === 0) await setPanorama('');
       return Response.json({ ok: true, ...(await buildEstado(true)) });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });

@@ -1,18 +1,20 @@
 'use client';
 
 // =============================================================================
-// El Archivero — el repositorio de documentos del negocio (v2, por fases)
+// El Archivero — el repositorio de documentos del negocio (v3, docs-first)
 // =============================================================================
-// Como los forms de MaKo: UNA cosa por pantalla.
-//   · inicio  → un solo dropzone/botón: soltás TODO y se procesa (nada más).
-//   · leyendo → MaKo lee.
-//   · resumen → "Esto entendí" en tarjeta limpia (con procedencia) + tus archivos
-//               (descargar/borrar cascada/agregar). Read-only salvo super-admin.
-//   · huecos  → lo que ningún doc resolvió, DE A 1 por pantalla, salteable.
-// Self-contained (se trae su estado). onEstado avisa el brief efectivo (wizard).
+// Flujo (pedido de Martín 2026-07-27): los DOCUMENTOS primero, la preview al final.
+//   · inicio   → un dropzone: soltás TODOS tus documentos y le das Analizar.
+//   · leyendo  → MaKo lee y arma tu perfil (+ un panorama libre de todo).
+//   · masdocs  → "¿Seguro que no tenés más documentos?" antes de completar a mano.
+//   · huecos   → lo que ningún doc resolvió, como preguntas CERRADAS 1x1 (estilo
+//                Perro): personalizadas, con opciones + "lo escribo yo". NO abiertas.
+//   · panorama → recién acá la preview: el PANORAMA de todo lo que MaKo entendió +
+//                el perfil por campos (con procedencia) + tus archivos.
+// Los docs SIEMPRE ganan sobre lo cargado a mano. Self-contained (trae su estado).
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -21,8 +23,9 @@ const ACCEPT = '.txt,.md,.markdown,.docx,.pdf,image/*';
 type Fuente = { tipo: 'archivo' | 'manual'; id?: string; nombre?: string };
 type FileRow = { id: string; nombre: string; mime: string | null; tamano: number | null; razonamiento: string | null; aporto: number; created_at: string };
 type Campo = { key: string; label: string; type: string; placeholder?: string; grupo: string };
-type Estado = { files: FileRow[]; brief: Campo[]; answers: Record<string, string>; fuente: Record<string, Fuente>; gaps: string[]; esSuperAdmin: boolean };
-type Vista = 'inicio' | 'leyendo' | 'resumen' | 'huecos';
+type Estado = { files: FileRow[]; brief: Campo[]; answers: Record<string, string>; fuente: Record<string, Fuente>; gaps: string[]; panorama: string; esSuperAdmin: boolean };
+type PregCerrada = { key: string; pregunta: string; opciones: string[] };
+type Vista = 'inicio' | 'leyendo' | 'masdocs' | 'huecos' | 'panorama';
 
 const fmtSize = (n?: number | null) => (!n ? '' : n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
@@ -32,6 +35,21 @@ const btnPrimary: CSSProperties = { padding: '11px 22px', borderRadius: 11, bord
 const btnGhost: CSSProperties = { padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 14, fontWeight: 500, cursor: 'pointer' };
 const link: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
+
+// El panorama viene con subtítulos EN MAYÚSCULA + párrafos. Lo formateamos nativo.
+function PanoramaText({ text }: { text: string }) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const out: ReactNode[] = [];
+  let k = 0;
+  const esSub = (l: string) => l.length > 0 && l.length <= 48 && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l) && !/[a-záéíóúñ]/.test(l);
+  for (const raw of lines) {
+    const l = raw.trim().replace(/\*\*/g, '').replace(/^#+\s*/, '').trim(); // limpiar markdown (**bold**, #)
+    if (!l) continue;
+    if (esSub(l)) out.push(<div key={k++} style={{ ...eyebrow, color: 'var(--accent)', marginTop: out.length ? 16 : 0, marginBottom: 6 }}>{l.replace(/[:：]$/, '')}</div>);
+    else out.push(<p key={k++} style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, margin: '0 0 8px' }}>{l.replace(/^[-•·]\s*/, '')}</p>);
+  }
+  return <div>{out}</div>;
+}
 
 export function Archivero({ onEstado, onFacts }: {
   onEstado?: (answers: Record<string, string>) => void;
@@ -48,8 +66,12 @@ export function Archivero({ onEstado, onFacts }: {
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const [editVals, setEditVals] = useState<Record<string, string>>({});
-  const [gapSkip, setGapSkip] = useState<Set<string>>(new Set());
-  const [gapVal, setGapVal] = useState('');
+  // Huecos como preguntas cerradas 1x1.
+  const [preguntas, setPreguntas] = useState<PregCerrada[]>([]);
+  const [gapIdx, setGapIdx] = useState(0);
+  const [cargandoPreg, setCargandoPreg] = useState(false);
+  const [otroKey, setOtroKey] = useState<string | null>(null); // qué pregunta está en modo "lo escribo yo"
+  const [otroVal, setOtroVal] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const aplicar = useCallback((e: Estado) => {
@@ -64,8 +86,7 @@ export function Archivero({ onEstado, onFacts }: {
   }, [aplicar]);
   useEffect(() => { cargar(); }, [cargar]);
 
-  // Sumar a la cola (acumulativo, con preview para imágenes). Todavía NO analiza:
-  // podés soltar todos los documentos que quieras y recién ahí darle a Analizar.
+  // Sumar a la cola (acumulativo, con preview para imágenes). Todavía NO analiza.
   const addCola = (fl: FileList | null) => {
     const arr = fl ? Array.from(fl) : [];
     if (!arr.length) return;
@@ -84,9 +105,22 @@ export function Archivero({ onEstado, onFacts }: {
       const fd = new FormData(); cola.forEach((c) => fd.append('file', c.file));
       const j = await (await fetch('/api/onboarding/archivero', { method: 'POST', body: fd })).json();
       setWarnings(Array.isArray(j.warnings) ? j.warnings : []);
-      if (j.brief) { aplicar(j as Estado); cola.forEach((c) => c.url && URL.revokeObjectURL(c.url)); setCola([]); setVista('resumen'); }
+      if (j.brief) { aplicar(j as Estado); cola.forEach((c) => c.url && URL.revokeObjectURL(c.url)); setCola([]); setVista('masdocs'); }
       else { setErr(j.error || 'No se pudo procesar.'); setVista('inicio'); }
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setVista('inicio'); }
+  };
+
+  // "No tengo más": si faltan datos, la IA arma las preguntas cerradas; si no, al panorama.
+  const seguirDesdeMasDocs = async () => {
+    if (!est || est.gaps.length === 0) { setVista('panorama'); return; }
+    setCargandoPreg(true); setErr(null);
+    try {
+      const j = await (await fetch('/api/onboarding/archivero/preguntas', { method: 'POST' })).json();
+      const pregs: PregCerrada[] = Array.isArray(j.preguntas) ? j.preguntas : [];
+      setPreguntas(pregs); setGapIdx(0); setOtroKey(null); setOtroVal('');
+      setVista(pregs.length ? 'huecos' : 'panorama'); // sin preguntas (o IA falló) → panorama
+    } catch { setVista('panorama'); }
+    finally { setCargandoPreg(false); }
   };
 
   const borrar = async (id: string) => {
@@ -101,16 +135,20 @@ export function Archivero({ onEstado, onFacts }: {
     return j;
   };
 
+  // Responder / saltar una pregunta cerrada y avanzar. Al terminar → panorama.
+  const responderGap = async (key: string, valor: string | null) => {
+    if (valor && valor.trim()) await guardarManual({ [key]: valor.trim() });
+    setOtroKey(null); setOtroVal('');
+    if (gapIdx + 1 >= preguntas.length) setVista('panorama'); else setGapIdx((i) => i + 1);
+  };
+
   if (cargando || !est) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>{err ? <span style={{ color: 'var(--bad)' }}>{err}</span> : 'Cargando el archivero…'}</div>;
 
   const hayArchivos = est.files.length > 0;
   const hayPerfil = Object.keys(est.answers).length > 0;
-  const gapKeys = est.gaps.filter((k) => !gapSkip.has(k));
   const grupos: { label: string; campos: Campo[] }[] = [];
   for (const c of est.brief) { let g = grupos.find((x) => x.label === c.grupo); if (!g) { g = { label: c.grupo, campos: [] }; grupos.push(g); } g.campos.push(c); }
   const fuenteTxt = (k: string) => { const f = est.fuente[k]; return !f ? '' : f.tipo === 'manual' ? 'a mano' : (f.nombre || 'un archivo'); };
-  // Docs enteros que faltan: si un grupo (Oferta/Avatar) está TODO vacío, sugerimos subir ese documento.
-  const docsFaltantes = grupos.filter((g) => /oferta|avatar/i.test(g.label) && g.campos.length > 0 && g.campos.every((c) => !(est.answers[c.key] ?? '').trim())).map((g) => g.label.toLowerCase());
 
   const cajaWarn = warnings.length > 0 && (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px' }}>
@@ -125,37 +163,78 @@ export function Archivero({ onEstado, onFacts }: {
         <style>{'@keyframes arch-spin{to{transform:rotate(360deg)}}'}</style>
         <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'arch-spin .8s linear infinite' }} />
         <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', color: 'var(--ink)', marginTop: 24 }}>MaKo está leyendo tus documentos</div>
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Ordenando tu avatar, tu oferta y tu nicho.<br />Tarda unos segundos.</div>
+        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Ordenando tu avatar, tu oferta y tu nicho,<br />y armando el panorama de tu negocio. Tarda unos segundos.</div>
       </div>
     );
   }
 
-  // ── HUECOS (de a 1 por pantalla) ────────────────────────────────────────────
+  // ── ¿MÁS DOCUMENTOS? (antes de completar a mano) ────────────────────────────
+  if (vista === 'masdocs') {
+    return (
+      <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: '40px 0' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>📂</div>
+        <h2 style={{ fontSize: 26, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.2 }}>¿Seguro que no tenés más documentos?</h2>
+        <p style={{ fontSize: 14.5, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 8px', maxWidth: 420 }}>
+          Ya leí {est.files.length} documento{est.files.length === 1 ? '' : 's'}. Cuantos más me des —avatar, oferta, nicho, guiones, tu web—, mejor te entiendo antes de preguntarte nada.
+        </p>
+        {cajaWarn && <div style={{ margin: '14px 0' }}>{cajaWarn}</div>}
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 26, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnGhost}>Tengo más, subir</button>
+          <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>
+            {cargandoPreg ? 'Preparando…' : est.gaps.length ? 'No, completá lo que falte →' : 'No, ver mi perfil →'}
+          </button>
+        </div>
+        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
+      </div>
+    );
+  }
+
+  // ── HUECOS: preguntas CERRADAS 1x1 (estilo Perro) ───────────────────────────
   if (vista === 'huecos') {
-    const gapActual = est.brief.find((c) => c.key === gapKeys[0]);
-    if (!gapActual) { setVista('resumen'); return null; }
+    const p = preguntas[gapIdx];
+    if (!p) { setVista('panorama'); return null; }
+    const enOtro = otroKey === p.key;
     return (
-      <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
-        <div style={{ ...eyebrow, marginBottom: 18 }}>Faltan {gapKeys.length} · {gapActual.grupo}</div>
-        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.2 }}>{gapActual.label}</h2>
-        <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
-          {gapActual.type === 'textarea'
-            ? <textarea style={{ ...input, minHeight: 96, resize: 'vertical', lineHeight: 1.5 }} value={gapVal} placeholder={gapActual.placeholder} autoFocus onChange={(e) => setGapVal(e.target.value)} />
-            : <input style={input} value={gapVal} placeholder={gapActual.placeholder} autoFocus onChange={(e) => setGapVal(e.target.value)} />}
-        </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22 }}>
-          <button type="button" onClick={() => { setGapVal(''); setGapSkip((s) => new Set(s).add(gapActual.key)); }} style={btnGhost}>Saltar</button>
-          <button type="button" onClick={async () => { const v = gapVal.trim(); if (!v) return; await guardarManual({ [gapActual.key]: v }); setGapVal(''); }} disabled={!gapVal.trim()} style={{ ...btnPrimary, opacity: gapVal.trim() ? 1 : 0.4 }}>Guardar y seguir</button>
-        </div>
-        <div style={{ marginTop: 20 }}><button type="button" onClick={() => { setGapVal(''); setVista('resumen'); }} style={link}>Terminar — completo el resto después</button></div>
+      <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
+        <div style={{ ...eyebrow, marginBottom: 18 }}>Pregunta {gapIdx + 1} de {preguntas.length}</div>
+        <h2 style={{ fontSize: 24, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.28 }}>{p.pregunta}</h2>
+        {!enOtro ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
+            {p.opciones.map((o, i) => (
+              <button key={i} type="button" onClick={() => responderGap(p.key, o)}
+                style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>
+                {o}
+              </button>
+            ))}
+            <button type="button" onClick={() => { setOtroKey(p.key); setOtroVal(''); }}
+              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14, padding: '13px 16px', borderRadius: 12, border: '1px dashed var(--border-strong)', background: 'transparent', color: 'var(--dim)' }}>
+              ✎ Otra — lo escribo yo
+            </button>
+          </div>
+        ) : (
+          <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
+            <textarea style={{ ...input, minHeight: 90, resize: 'vertical', lineHeight: 1.5 }} value={otroVal} autoFocus placeholder="Escribilo con tus palabras…" onChange={(e) => setOtroVal(e.target.value)} />
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 16 }}>
+              <button type="button" onClick={() => { setOtroKey(null); setOtroVal(''); }} style={btnGhost}>Volver a las opciones</button>
+              <button type="button" onClick={() => responderGap(p.key, otroVal)} disabled={!otroVal.trim()} style={{ ...btnPrimary, opacity: otroVal.trim() ? 1 : 0.4 }}>Guardar y seguir</button>
+            </div>
+          </div>
+        )}
+        {!enOtro && (
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
+            <button type="button" onClick={() => responderGap(p.key, null)} style={link}>Saltar</button>
+            <button type="button" onClick={() => setVista('panorama')} style={link}>Terminar — el resto después</button>
+          </div>
+        )}
       </div>
     );
   }
 
-  // ── RESUMEN (esto entendí + archivos) ───────────────────────────────────────
-  if (vista === 'resumen') {
+  // ── PANORAMA: la preview, recién al final ────────────────────────────────────
+  if (vista === 'panorama') {
+    const gapsRestantes = est.gaps.length;
     return (
-      <div style={{ maxWidth: 620, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={link}>← Subir más documentos</button>
           {est.esSuperAdmin && !editando && hayPerfil && <button type="button" onClick={() => { setEditVals({ ...est.answers }); setEditando(true); }} style={link}>Editar</button>}
@@ -163,28 +242,29 @@ export function Archivero({ onEstado, onFacts }: {
 
         {cajaWarn}
 
-        {gapKeys.length > 0 && !editando && (
+        {/* El PANORAMA libre: todo lo que MaKo entendió */}
+        {est.panorama.trim() && !editando && (
+          <div style={{ ...card, borderColor: 'var(--accent)' }}>
+            <div style={{ ...eyebrow, marginBottom: 12 }}>✦ Esto entendí de tu negocio</div>
+            <PanoramaText text={est.panorama} />
+          </div>
+        )}
+
+        {/* Completar lo que falta (preguntas cerradas) */}
+        {gapsRestantes > 0 && !editando && (
           <div style={{ ...card, background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: '16px 18px' }}>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Faltan {gapKeys.length} datos</div>
-              <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45 }}>Lo que ningún documento resolvió. Te los pregunto de a uno.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Faltan {gapsRestantes} dato{gapsRestantes === 1 ? '' : 's'}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45 }}>Lo que ningún documento resolvió. Te lo pregunto de a uno.</div>
             </div>
-            <button type="button" onClick={() => setVista('huecos')} style={{ ...btnPrimary, flex: 'none' }}>Completar</button>
+            <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnPrimary, flex: 'none', opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : 'Completar'}</button>
           </div>
         )}
 
-        {docsFaltantes.length > 0 && !editando && (
-          <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55, padding: '0 2px' }}>
-            De tus documentos todavía no saqué tu {docsFaltantes.map((d, i) => (
-              <span key={d}>{i > 0 ? ' ni tu ' : ''}<b style={{ color: 'var(--ink)' }}>{d}</b></span>
-            ))}. ¿Tenés un documento de {docsFaltantes.length === 1 ? 'eso' : 'esos'}? Subilo arriba.
-          </div>
-        )}
-
-        {/* Esto entendí — tarjeta limpia, agrupada, con procedencia */}
+        {/* El perfil por campos (con procedencia) */}
         {hayPerfil && !editando && (
           <div style={card}>
-            <div style={{ ...eyebrow, marginBottom: 6 }}>Esto entendí de tu negocio</div>
+            <div style={{ ...eyebrow, marginBottom: 6 }}>Tu perfil, por campo</div>
             {grupos.filter((g) => g.campos.some((c) => (est.answers[c.key] ?? '').trim())).map((g) => (
               <div key={g.label} style={{ marginTop: 16 }}>
                 <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 4 }}>{g.label}</div>
@@ -294,7 +374,7 @@ export function Archivero({ onEstado, onFacts }: {
 
       {(hayPerfil || hayArchivos) && cola.length === 0 && (
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <button type="button" onClick={() => setVista('resumen')} style={link}>Ver lo que MaKo ya sabe de tu negocio →</button>
+          <button type="button" onClick={() => setVista('panorama')} style={link}>Ver lo que MaKo ya sabe de tu negocio →</button>
         </div>
       )}
       {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 14, textAlign: 'center' }}>{err}</div>}

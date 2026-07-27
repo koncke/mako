@@ -134,6 +134,46 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
   return { campos, razonamiento, sinIA: false };
 }
 
+// ── Panorama libre: TODO lo que la IA entendió del negocio ────────────────────
+// No encajado en los campos fijos (eso limitaba). Es un resumen en prosa de todo
+// lo que dicen los documentos, para que el dueño vea el panorama y decida qué dejar.
+export const ARCHIVERO_PANORAMA_TEMPLATE = `Sos MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribí un PANORAMA claro y completo de TODO lo que entendés de su negocio: a qué se dedica, su oferta y precios, su avatar (quién es, qué le duele, qué desea, sus objeciones), su nicho/mercado, su tono y voz de marca, y cualquier cosa relevante que un buen estratega anotaría — aunque no entre en un campo. Escribí en "vos", en secciones cortas con un SUBTÍTULO EN MAYÚSCULA cada una. NO inventes: si algo no aparece en los documentos, no lo pongas. Sé concreto y usá las palabras del cliente. Devolvé solo el texto del panorama, sin preámbulo.`;
+
+export async function generarPanorama(textos: string[], contexto: string): Promise<string> {
+  const material = textos.map((t, i) => `— DOCUMENTO ${i + 1} —\n${t.slice(0, 8000)}`).join('\n\n');
+  const user = `${contexto ? `Lo que ya tenías del negocio:\n${contexto}\n\n` : ''}DOCUMENTOS:\n${material}`.slice(0, 60000);
+  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 1200, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_DOCS });
+  return (out || '').trim();
+}
+
+// ── Preguntas CERRADAS 1x1 para los huecos (estilo Perro, personalizadas) ─────
+// Lo que ningún documento resolvió NO se pregunta con un campo abierto: la IA
+// arma una pregunta cerrada, corta y a medida del negocio, con opciones probables
+// + la opción de escribirlo. Más fácil de contestar.
+export const ARCHIVERO_PREGUNTAS_TEMPLATE = `Sos MaKo armando el perfil de un negocio para su fábrica de creativos. Ya sabés esto del negocio:\n{{conocido}}\n\nTe faltan estos datos (clave: qué pide):\n{{faltantes}}\n\nPara CADA dato faltante generá UNA pregunta CERRADA, corta y PERSONALIZADA usando lo que ya sabés (nada genérico), con 3 a 5 opciones probables y CONCRETAS para ESTE negocio (no opciones de manual). Devolvé SOLO JSON: {"preguntas":[{"key":"<clave exacta del faltante>","pregunta":"<texto>","opciones":["...","..."]}]}. Usá EXACTAMENTE las claves de los faltantes.`;
+
+export async function generarPreguntasCerradas(
+  faltantes: Array<{ key: string; label: string }>,
+  conocido: string,
+): Promise<Array<{ key: string; pregunta: string; opciones: string[] }>> {
+  if (faltantes.length === 0) return [];
+  const lista = faltantes.map((f) => `- ${f.key}: ${f.label}`).join('\n');
+  const sys = await renderPrompt('archivero.preguntas.system', ARCHIVERO_PREGUNTAS_TEMPLATE, { conocido: conocido || '(todavía no sé nada)', faltantes: lista });
+  const out = await chatCheapCascade({ system: sys, user: 'Generá las preguntas cerradas.', json: true, maxTokens: 1400, feature: 'El Archivero', motivo: 'Preguntas cerradas para los huecos del perfil', provs: CASCADA_DOCS });
+  const parsed = parseJsonLoose(out);
+  const arr = Array.isArray(parsed.preguntas) ? parsed.preguntas : [];
+  const validas = new Set(faltantes.map((f) => f.key));
+  const res: Array<{ key: string; pregunta: string; opciones: string[] }> = [];
+  for (const p of arr as Array<Record<string, unknown>>) {
+    const key = String(p.key ?? '');
+    if (!validas.has(key)) continue;
+    const pregunta = String(p.pregunta ?? '').trim();
+    const opciones = Array.isArray(p.opciones) ? p.opciones.map((o) => String(o).trim()).filter(Boolean).slice(0, 5) : [];
+    if (pregunta && opciones.length) res.push({ key, pregunta, opciones });
+  }
+  return res;
+}
+
 /** Texto del perfil del negocio para inyectar en el contexto de MaKo. */
 export async function perfilNegocioTexto(): Promise<string> {
   const [schema, answers] = await Promise.all([getSchema(), getAnswers()]);
