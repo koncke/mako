@@ -144,13 +144,32 @@ export async function extraerDeArchivo(texto: string, fields: Array<{ key: strin
 // ── Panorama libre: TODO lo que la IA entendió del negocio ────────────────────
 // No encajado en los campos fijos (eso limitaba). Es un resumen en prosa de todo
 // lo que dicen los documentos, para que el dueño vea el panorama y decida qué dejar.
-export const ARCHIVERO_PANORAMA_TEMPLATE = `Sos MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribí un PANORAMA claro y completo de TODO lo que entendés de su negocio: a qué se dedica, su oferta y precios, su avatar (quién es, qué le duele, qué desea, sus objeciones), su nicho/mercado, su tono y voz de marca, y cualquier cosa relevante que un buen estratega anotaría — aunque no entre en un campo. Escribí en "vos", en secciones cortas con un SUBTÍTULO EN MAYÚSCULA cada una. NO inventes: si algo no aparece en los documentos, no lo pongas. Sé concreto y usá las palabras del cliente. Devolvé solo el texto del panorama, sin preámbulo.`;
+export const ARCHIVERO_PANORAMA_TEMPLATE = `Sos MaKo. A partir de los DOCUMENTOS del negocio de un cliente, escribí un PANORAMA claro y completo de TODO lo que entendés de su negocio: a qué se dedica, su oferta y precios, su avatar (quién es, qué le duele, qué desea, sus objeciones), su nicho/mercado, su tono y voz de marca, y cualquier cosa relevante que un buen estratega anotaría — aunque no entre en un campo. Escribí en español, en "vos", en secciones cortas con un SUBTÍTULO EN MAYÚSCULA cada una. NO inventes: si algo no aparece en los documentos, no lo pongas. Sé concreto y usá las palabras del cliente. IMPORTANTE: NO expliques lo que vas a hacer, NO incluyas notas, análisis ni comentarios sobre la consigna. Empezá DIRECTO con el primer SUBTÍTULO EN MAYÚSCULA y el texto del panorama, nada antes.`;
+
+// Un modelo "de razonamiento" (gemini-thinking, gpt-oss) a veces vuelca su
+// razonamiento (en inglés, comentando la consigna) en vez del panorama. Lo
+// detectamos para RECHAZARLO (la cascada prueba el próximo proveedor limpio).
+function pareceRazonamiento(t: string): boolean {
+  const head = t.slice(0, 500).toLowerCase();
+  return /\b(the instruction|the user|we need to|let me|i should|i need to|start immediately|here'?s the|section \d|as an ai|reasoning:|analysis:|okay,? (so|the|let))\b/.test(head) || /devolv[eé] solo el/i.test(head);
+}
+// Limpia residuos: markdown y cualquier preámbulo antes del primer SUBTÍTULO.
+function limpiarPanorama(t: string): string {
+  const s = (t || '').replace(/```[a-z]*|```/gi, '').trim();
+  const lines = s.split('\n');
+  let start = 0;
+  for (let i = 0; i < Math.min(lines.length, 8); i++) {
+    const l = lines[i].replace(/[*#>]/g, '').trim();
+    if (l.length >= 4 && l.length <= 60 && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l)) { start = i; break; }
+  }
+  return (start > 0 ? lines.slice(start).join('\n') : s).trim();
+}
 
 export async function generarPanorama(textos: string[], contexto: string): Promise<string> {
   const material = textos.map((t, i) => `— DOCUMENTO ${i + 1} —\n${t.slice(0, 8000)}`).join('\n\n');
   const user = `${contexto ? `Lo que ya tenías del negocio:\n${contexto}\n\n` : ''}DOCUMENTOS:\n${material}`.slice(0, 60000);
-  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 1400, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_DOCS, modelos: MODELO_DOCS });
-  return (out || '').trim();
+  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 1400, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => !pareceRazonamiento(t) });
+  return limpiarPanorama(out);
 }
 
 // ── Preguntas CERRADAS 1x1 para los huecos (estilo Perro, personalizadas) ─────
