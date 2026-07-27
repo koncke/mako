@@ -13,6 +13,9 @@ import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
 import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
 import Galeria from './Galeria';
+import CursoLectura from './CursoLectura';
+import { CURSOS } from '@/app/conocimientos/curso';
+import { CURSO_VSL } from '@/app/conocimientos/curso-vsl';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -26,6 +29,17 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
   const { token } = await params;
   const acceso = await resolverToken(token);
   if (!acceso) notFound();
+
+  // ── Un curso compartido: se renderiza de solo lectura, sin el portal ──
+  if (acceso.share.recurso === 'curso') {
+    const slug = acceso.share.recurso_id;
+    const curso = [...CURSOS, CURSO_VSL].find((c) => c.slug === slug);
+    // Los cursos "interactivos" (Análisis, Branding) no son texto: no se
+    // comparten por esta vía todavía.
+    if (!curso) notFound();
+    await registrarVisita(acceso);
+    return <CursoLectura curso={curso} invitado={acceso.invitado?.email ?? null} />;
+  }
 
   const todos = await listarAssetsDeWorkspace(acceso.share.workspace_id);
   const visibles = filtrarPorShare(acceso.share, todos);

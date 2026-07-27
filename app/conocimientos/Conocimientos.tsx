@@ -18,6 +18,7 @@ import { CURSOS, type Curso, type Clase, type Recurso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import AnalisisNegocio, { CURSO_ANALISIS } from './AnalisisNegocio';
 import BrandingMaKo, { CURSO_BRANDING } from './BrandingMaKo';
+import Compartir from './Compartir';
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los módulos escritos a mano
 // viven en su propio archivo y se suman acá.
@@ -154,7 +155,10 @@ function Hub({ curso, goClase, goRecurso }: { curso: Curso; goClase: (n: number)
   return (
     <>
       <section className="al-hero">
-        <span className="al-eyebrow"><span className="d" /> {curso.eyebrow} · {curso.titulo}</span>
+        <div className="al-hero-top">
+          <span className="al-eyebrow"><span className="d" /> {curso.eyebrow} · {curso.titulo}</span>
+          <Compartir recurso="curso" recursoId={curso.slug} etiqueta={curso.titulo} />
+        </div>
         <h1 className="al-h1">Tus recursos</h1>
         <p className="al-sub">{curso.subtitulo}</p>
       </section>
@@ -512,6 +516,8 @@ const CSS = `
 
 /* Hero */
 .cono .al-hero{ padding:44px 0 12px; }
+/* El botón de Compartir vive ARRIBA, en la fila del eyebrow — no perdido en el medio. */
+.cono .al-hero-top{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:10px; }
 .cono .al-eyebrow{ display:inline-flex; align-items:center; gap:9px; font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-60); }
 .cono .al-eyebrow .d{ width:11px; height:11px; border-radius:50%; background:var(--lime); border:1.5px solid var(--ink); flex:none; }
 .cono .al-h1{ font-family:var(--disp); font-weight:800; font-size:clamp(40px,7vw,72px); line-height:.98; letter-spacing:-.03em; color:var(--ink); margin:16px 0 0; }
