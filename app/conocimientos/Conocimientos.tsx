@@ -17,10 +17,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CURSOS, type Curso, type Clase, type Recurso } from './curso';
 import { CURSO_VSL } from './curso-vsl';
 import AnalisisNegocio, { CURSO_ANALISIS } from './AnalisisNegocio';
+import BrandingMaKo, { CURSO_BRANDING } from './BrandingMaKo';
 
 // curso.ts es AUTO-GENERADO desde transcripciones: los módulos escritos a mano
 // viven en su propio archivo y se suman acá.
-const TODOS: Curso[] = [...CURSOS, CURSO_VSL, CURSO_ANALISIS];
+const TODOS: Curso[] = [...CURSOS, CURSO_VSL, CURSO_ANALISIS, CURSO_BRANDING];
 
 const DRIVE_PREVIEW = (id: string) => `https://drive.google.com/file/d/${id}/preview`;
 const DRIVE_VIEW = (id: string) => `https://drive.google.com/file/d/${id}/view`;
@@ -444,6 +445,9 @@ export default function Conocimientos() {
   // "Análisis de Negocio" es una vista INTERACTIVA (form + modales de fases), no
   // un curso de texto: se renderiza aparte del Hub genérico.
   else if (curso.slug === 'analisis-negocio') body = <AnalisisNegocio back={() => nav({})} />;
+  // "Branding MaKo" es una GALERÍA de archivos (no un curso de texto): el
+  // material vive en Storage y se pide por API, así que también va aparte.
+  else if (curso.slug === 'branding-mako') body = <BrandingMaKo back={() => nav({})} />;
   else if (clase) body = <ClaseDetail curso={curso} c={clase} goRecurso={(s) => nav({ curso: curso.slug, r: s })} back={back} />;
   else if (recurso) body = <RecursoDetail r={recurso} back={back} />;
   else body = <Hub curso={curso} goClase={(n) => nav({ curso: curso.slug, clase: String(n) })} goRecurso={(s) => nav({ curso: curso.slug, r: s })} />;
