@@ -26,7 +26,16 @@ import { SESSION_COOKIE, gateConfigurado, verificarToken } from './lib/auth-sess
 // '/vsl-assets' sus videos (.mp4 no lo excluye el matcher de abajo).
 // '/api/email/unsubscribe' es la baja del email: la abren destinatarios externos
 // (sin cookie) y el POST One-Click de Gmail/Apple; valida con su propio token HMAC.
-const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/api/email/unsubscribe', '/login', '/api/auth', '/vsl', '/vsl-assets'];
+// '/compartido' y '/api/compartido' son los links que Martín le pasa a alguien
+// de afuera (material de marca). Son GET-only y validan su propio token contra
+// la fila viva en CADA request: el token no es una sesión y no da acceso a nada
+// más que a lo que ese link comparte.
+const PUBLICOS = ['/api/webhooks', '/api/track', '/api/cron', '/api/email/unsubscribe', '/login', '/api/auth', '/vsl', '/vsl-assets', '/compartido', '/api/compartido'];
+
+// Los públicos que solo deben responder a LECTURA. El early-return de abajo
+// saltea el chequeo CSRF de Origin, así que una ruta pública que acepte POST
+// quedaría expuesta: estas se cortan acá si el método no es de lectura.
+const PUBLICOS_SOLO_LECTURA = ['/compartido', '/api/compartido'];
 
 // Rutas que además del login exigen rol admin. /metodo gestiona las
 // credenciales del workspace (tokens globales) — solo admins.
@@ -38,6 +47,10 @@ export function proxy(req: NextRequest) {
   // Las rutas públicas pasan siempre (tienen su propia auth por firma/secret).
   // Se evalúa primero para que ni el modo fail-closed las toque.
   if (PUBLICOS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+    const soloLectura = PUBLICOS_SOLO_LECTURA.some((p) => pathname === p || pathname.startsWith(p + '/'));
+    if (soloLectura && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      return new NextResponse('Method Not Allowed', { status: 405 });
+    }
     return NextResponse.next();
   }
 

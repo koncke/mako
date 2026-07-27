@@ -1,0 +1,199 @@
+// =============================================================================
+// Compartir por link, estilo Google Drive — mecanismo genérico y reusable
+// =============================================================================
+// Nace para "Branding MaKo" (recurso='branding') pero no sabe nada de branding:
+// mañana se reusa para una Retro o un reporte. Por eso vive acá y no en
+// lib/branding.ts.
+//
+// DOS MODOS, como Drive:
+//   'link'      → cualquiera con el enlace entra.
+//   'invitados' → el link del share NO alcanza; solo sirven los links
+//                 personales que recibió cada invitado por mail.
+//
+// REGLAS DE SEGURIDAD (las 5 que sostienen todo esto):
+//  1. Del token se guarda SOLO el sha256. Un dump de la base no entrega los
+//     links vivos, y por eso el link se muestra una única vez.
+//  2. Cada request revalida contra la FILA VIVA (revocado_at / expira_at). Sin
+//     caché: revocar tiene que cortar el acceso al instante.
+//  3. Fail-closed: cualquier duda devuelve null, y el que llama responde 404.
+//  4. `puedeVer` es el ÚNICO punto de autorización, y lo usan TANTO la página
+//     como el endpoint de archivos. Si solo lo usara la página, cualquiera
+//     pediría por id un archivo fuera del alcance (IDOR).
+//  5. Un share NO es una identidad: no emite cookie ni sesión. Es una fila en
+//     base y una validación en la ruta.
+//
+// ⚠️ `shares` NO está en TENANT_TABLES a propósito (ver mig 0098): la
+// resolución token→workspace es cross-workspace por diseño.
+
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { getSupabaseServer } from './supabase';
+
+export type ShareAlcance = 'todo' | 'seccion' | 'grupo' | 'item';
+export type ShareModo = 'link' | 'invitados';
+
+export type Share = {
+  id: number;
+  workspace_id: number;
+  recurso: string;
+  alcance: ShareAlcance;
+  recurso_id: string | null;
+  modo: ShareModo;
+  etiqueta: string | null;
+  expira_at: string | null;
+  revocado_at: string | null;
+};
+
+export type Invitado = {
+  id: number; share_id: number; email: string; token_prefijo: string;
+  enviado_at: string | null; visitas: number; ultima_visita: string | null; revocado_at: string | null;
+};
+
+/** Resultado de resolver un token: el share + quién es (si vino por invitación). */
+export type Acceso = { share: Share; invitado: Invitado | null };
+
+const hash = (t: string) => createHash('sha256').update(t).digest('hex');
+/** 256 bits de aleatoriedad real. NUNCA derivado/determinista: eso no se puede
+ *  revocar de a uno sin romper todos los links a la vez. */
+export function nuevoToken(): string { return randomBytes(32).toString('base64url'); }
+export const prefijoDe = (t: string) => t.slice(0, 8);
+
+function vigente(row: { revocado_at: string | null; expira_at?: string | null }): boolean {
+  if (row.revocado_at) return false;
+  if (row.expira_at && new Date(row.expira_at).getTime() < Date.now()) return false;
+  return true;
+}
+
+// ── Resolver un token entrante (lo llama la ruta pública) ───────────────────
+/** Devuelve el acceso si el token es válido AHORA, o null. Fail-closed.
+ *  Acepta tanto el token de un share 'link' como el token personal de un invitado. */
+export async function resolverToken(token: string): Promise<Acceso | null> {
+  if (!token || token.length < 20 || token.length > 200) return null;
+  const sb = getSupabaseServer();
+  const h = hash(token);
+
+  // 1. ¿Es el token personal de un invitado?
+  const inv = await sb.from('share_invitados')
+    .select('id,share_id,email,token_prefijo,enviado_at,visitas,ultima_visita,revocado_at,token_hash')
+    .eq('token_hash', h).maybeSingle();
+  if (inv.data) {
+    if (!vigente(inv.data)) return null;
+    const s = await sb.from('shares')
+      .select('id,workspace_id,recurso,alcance,recurso_id,modo,etiqueta,expira_at,revocado_at')
+      .eq('id', inv.data.share_id).maybeSingle();
+    if (!s.data || !vigente(s.data)) return null;
+    return { share: s.data as Share, invitado: inv.data as Invitado };
+  }
+
+  // 2. ¿Es el token del share? Solo vale si el modo es 'link'.
+  const s = await sb.from('shares')
+    .select('id,workspace_id,recurso,alcance,recurso_id,modo,etiqueta,expira_at,revocado_at,token_hash')
+    .eq('token_hash', h).maybeSingle();
+  if (!s.data || !vigente(s.data)) return null;
+  if ((s.data as Share).modo !== 'link') return null;   // es de invitados: el link solo no entra
+  return { share: s.data as Share, invitado: null };
+}
+
+/** Comparación en tiempo constante, por si en algún flujo se compara a mano. */
+export function mismoToken(a: string, b: string): boolean {
+  const x = Buffer.from(hash(a), 'hex'), y = Buffer.from(hash(b), 'hex');
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+// ── EL punto de autorización ────────────────────────────────────────────────
+/** ¿Este share alcanza para ver esta pieza? Lo usan la página Y el endpoint de
+ *  archivos: si solo lo usara la página, se podría pedir cualquier id por URL. */
+export function puedeVer(share: Share, asset: { id: string; seccion: string; grupo: string }): boolean {
+  switch (share.alcance) {
+    case 'todo': return true;
+    case 'seccion': return !!share.recurso_id && asset.seccion === share.recurso_id;
+    case 'grupo': return !!share.recurso_id && asset.grupo === share.recurso_id;
+    case 'item': return !!share.recurso_id && asset.id === share.recurso_id;
+    default: return false;                                  // alcance desconocido = no
+  }
+}
+
+/** Filtra una lista entera con la misma regla. */
+export function filtrarPorShare<T extends { id: string; seccion: string; grupo: string }>(share: Share, assets: T[]): T[] {
+  return assets.filter((a) => puedeVer(share, a));
+}
+
+// ── Administración (solo desde el panel, con guard de super-admin) ───────────
+export async function crearShare(input: {
+  ws: number; recurso: string; alcance: ShareAlcance; recursoId: string | null;
+  modo: ShareModo; etiqueta?: string | null; expiraAt?: string | null; creadoPor?: string | null;
+}): Promise<{ id: number; token: string }> {
+  const token = nuevoToken();
+  const { data, error } = await getSupabaseServer().from('shares').insert({
+    workspace_id: input.ws, recurso: input.recurso, alcance: input.alcance, recurso_id: input.recursoId,
+    modo: input.modo, etiqueta: input.etiqueta ?? null, expira_at: input.expiraAt ?? null,
+    token_hash: hash(token), token_prefijo: prefijoDe(token), creado_por: input.creadoPor ?? null,
+  }).select('id').single();
+  if (error) throw new Error(error.message);
+  return { id: data.id as number, token };            // el token se devuelve UNA sola vez
+}
+
+export async function listarShares(ws: number, recurso: string) {
+  const { data, error } = await getSupabaseServer().from('shares')
+    .select('id,recurso,alcance,recurso_id,modo,etiqueta,token_prefijo,expira_at,revocado_at,visitas,ultima_visita,created_at')
+    .eq('workspace_id', ws).eq('recurso', recurso).order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function revocarShare(ws: number, id: number): Promise<void> {
+  const { error } = await getSupabaseServer().from('shares')
+    .update({ revocado_at: new Date().toISOString() }).eq('workspace_id', ws).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/** Suma la visita. Best-effort: si falla, no rompe el acceso. */
+export async function registrarVisita(acceso: Acceso): Promise<void> {
+  const sb = getSupabaseServer(), ahora = new Date().toISOString();
+  try {
+    if (acceso.invitado) {
+      await sb.from('share_invitados')
+        .update({ visitas: acceso.invitado.visitas + 1, ultima_visita: ahora })
+        .eq('id', acceso.invitado.id);
+    }
+    // Leer-y-sumar: puede perder alguna visita si dos entran en el mismo
+    // instante, y está bien — es un contador para mostrar, no una métrica dura.
+    const { data } = await sb.from('shares').select('visitas').eq('id', acceso.share.id).maybeSingle();
+    await sb.from('shares')
+      .update({ visitas: ((data?.visitas as number) ?? 0) + 1, ultima_visita: ahora })
+      .eq('id', acceso.share.id);
+  } catch { /* ídem */ }
+}
+
+// ── Invitados ───────────────────────────────────────────────────────────────
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const emailValido = (e: string) => EMAIL_RE.test(e.trim());
+
+/** Crea el invitado y devuelve SU token personal (para mandarlo por mail). */
+export async function agregarInvitado(shareId: number, email: string): Promise<{ id: number; token: string }> {
+  const limpio = email.trim().toLowerCase();
+  if (!emailValido(limpio)) throw new Error('email inválido');
+  const token = nuevoToken();
+  const { data, error } = await getSupabaseServer().from('share_invitados').insert({
+    share_id: shareId, email: limpio, token_hash: hash(token), token_prefijo: prefijoDe(token),
+  }).select('id').single();
+  if (error) throw new Error(error.message);
+  return { id: data.id as number, token };
+}
+
+export async function listarInvitados(shareId: number): Promise<Invitado[]> {
+  const { data, error } = await getSupabaseServer().from('share_invitados')
+    .select('id,share_id,email,token_prefijo,enviado_at,visitas,ultima_visita,revocado_at')
+    .eq('share_id', shareId).order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Invitado[];
+}
+
+export async function revocarInvitado(id: number): Promise<void> {
+  const { error } = await getSupabaseServer().from('share_invitados')
+    .update({ revocado_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+export async function marcarEnviado(id: number): Promise<void> {
+  await getSupabaseServer().from('share_invitados').update({ enviado_at: new Date().toISOString() }).eq('id', id).then(() => {}, () => {});
+}

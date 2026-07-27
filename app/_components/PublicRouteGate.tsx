@@ -15,7 +15,10 @@ import type { ReactNode } from 'react';
 /** ¿La ruta es una landing pública de /vsl? (no debe mostrar chrome de la app). */
 export function isPublicLandingPath(pathname: string | null | undefined): boolean {
   const p = pathname ?? '';
-  return p === '/vsl' || p.startsWith('/vsl/');
+  // '/compartido' es material que se le pasa a alguien de afuera: sin sesión no
+  // debe ver el sidebar (con los nombres de las tabs internas) ni disparar los
+  // pollers de la app, que además le devolverían 401 en bucle.
+  return p === '/vsl' || p.startsWith('/vsl/') || p === '/compartido' || p.startsWith('/compartido/');
 }
 
 /** Renderiza a sus hijos SOLO fuera de la landing pública. */

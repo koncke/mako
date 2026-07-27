@@ -59,6 +59,37 @@ export default function BrandingMaKo({ back }: { back: () => void }) {
   const cambiarSec = (s: string) => { setSec(s); setGrupo(null); };
   const info = SECCIONES.find((s) => s.id === sec);
 
+  // ── Compartir: "cualquiera con el enlace" o invitar por email ──
+  const [abierto, setAbierto] = useState(false);
+  const [modo, setModo] = useState<'link' | 'invitados'>('link');
+  const [emails, setEmails] = useState('');
+  const [creando, setCreando] = useState(false);
+  const [resultado, setResultado] = useState<{ enlace: string | null; invitados: { email: string; enviado: boolean; error?: string }[] } | null>(null);
+  const [errCrear, setErrCrear] = useState<string | null>(null);
+
+  // Qué se comparte: lo que está en pantalla ahora mismo.
+  const alcance = grupo ? 'grupo' : 'seccion';
+  const recursoId = grupo || sec;
+  const queSeComparte = grupo ? `el grupo "${grupo}"` : `la sección "${info?.label ?? sec}"`;
+
+  async function crearLink() {
+    setCreando(true); setErrCrear(null); setResultado(null);
+    try {
+      const r = await fetch('/api/branding/compartir', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alcance, recursoId, modo,
+          etiqueta: `Branding MaKo · ${grupo || info?.label || sec}`,
+          emails: modo === 'invitados' ? emails.split(/[\s,;]+/).filter(Boolean) : [],
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) setErrCrear(j.error || 'no se pudo crear');
+      else setResultado({ enlace: j.enlace, invitados: j.invitados || [] });
+    } catch { setErrCrear('no se pudo crear'); }
+    setCreando(false);
+  }
+
   return (
     <div className="al-detail bm-root">
       <button type="button" className="al-back" onClick={back}>← Volver</button>
@@ -83,6 +114,66 @@ export default function BrandingMaKo({ back }: { back: () => void }) {
         })}
       </div>
       {info && <p className="bm-desc">{info.desc}</p>}
+
+      <div className="bm-acciones">
+        <button type="button" className="bm-share" onClick={() => { setAbierto(true); setResultado(null); setErrCrear(null); }}>
+          Compartir {queSeComparte}
+        </button>
+      </div>
+
+      {abierto && (
+        <div className="bm-modal" role="dialog" aria-modal="true">
+          <div className="bm-modal-in">
+            <h3 className="bm-modal-h">Compartir {queSeComparte}</h3>
+
+            <div className="bm-modos">
+              <label className={`bm-modo${modo === 'link' ? ' on' : ''}`}>
+                <input type="radio" name="modo" checked={modo === 'link'} onChange={() => setModo('link')} />
+                <span><b>Cualquiera con el enlace</b><br /><small>Quien tenga el link entra, sin login.</small></span>
+              </label>
+              <label className={`bm-modo${modo === 'invitados' ? ' on' : ''}`}>
+                <input type="radio" name="modo" checked={modo === 'invitados'} onChange={() => setModo('invitados')} />
+                <span><b>Solo las personas que invite</b><br /><small>Cada una recibe su propio enlace por mail.</small></span>
+              </label>
+            </div>
+
+            {modo === 'invitados' && (
+              <textarea className="bm-emails" rows={3} value={emails} onChange={(e) => setEmails(e.target.value)}
+                placeholder="nombre@gmail.com, otro@empresa.com" />
+            )}
+
+            {errCrear && <p className="bm-err">{errCrear}</p>}
+
+            {resultado && (
+              <div className="bm-res">
+                {resultado.enlace && (
+                  <>
+                    <p className="bm-res-t">Listo. Copiá el enlace — <b>se muestra una sola vez</b>:</p>
+                    <input className="bm-link" readOnly value={resultado.enlace} onFocus={(e) => e.currentTarget.select()} />
+                  </>
+                )}
+                {!!resultado.invitados.length && (
+                  <ul className="bm-invs">
+                    {resultado.invitados.map((i) => (
+                      <li key={i.email}>{i.enviado ? '✓ enviado a ' : '✖ no se pudo enviar a '}<b>{i.email}</b>{i.error ? ` — ${i.error}` : ''}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="bm-nota">Los videos se ven por Panda, que es público por su cuenta: revocar este enlace no corta el acceso a esos videos.</p>
+              </div>
+            )}
+
+            <div className="bm-modal-pie">
+              <button type="button" className="bm-cancel" onClick={() => setAbierto(false)}>{resultado ? 'Cerrar' : 'Cancelar'}</button>
+              {!resultado && (
+                <button type="button" className="bm-ok" onClick={crearLink} disabled={creando || (modo === 'invitados' && !emails.trim())}>
+                  {creando ? 'Creando…' : 'Crear enlace'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {grupos.length > 1 && (
         <div className="bm-chips">
@@ -143,6 +234,31 @@ export default function BrandingMaKo({ back }: { back: () => void }) {
         .bm-dl { margin-top: 7px; text-align: center; padding: 7px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
           text-decoration: none; background: var(--al-accent, #C8F169); color: #101010; }
         .bm-vacio { font-size: 14px; opacity: .6; padding: 22px 0; }
+        .bm-acciones { margin: 4px 0 14px; }
+        .bm-share { padding: 8px 16px; border-radius: 9px; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: inherit;
+          border: 1px solid var(--al-accent, #C8F169); background: transparent; color: inherit; }
+        .bm-modal { position: fixed; inset: 0; z-index: 90; background: rgba(8,10,14,.66); display: grid; place-items: center; padding: 20px; }
+        .bm-modal-in { width: min(520px, 100%); background: #14161a; border: 1px solid #2a2d33; border-radius: 15px; padding: 22px; }
+        .bm-modal-h { margin: 0 0 16px; font-size: 18px; font-weight: 700; }
+        .bm-modos { display: flex; flex-direction: column; gap: 9px; }
+        .bm-modo { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 10px; cursor: pointer;
+          border: 1px solid #2a2d33; font-size: 13.5px; line-height: 1.45; }
+        .bm-modo.on { border-color: var(--al-accent, #C8F169); background: rgba(200,241,105,.07); }
+        .bm-modo small { opacity: .6; }
+        .bm-emails { width: 100%; margin-top: 11px; padding: 10px 12px; border-radius: 9px; font-family: inherit; font-size: 13.5px;
+          background: #0e1013; border: 1px solid #2a2d33; color: inherit; resize: vertical; }
+        .bm-err { color: #ff8b8b; font-size: 13px; margin: 11px 0 0; }
+        .bm-res { margin-top: 14px; }
+        .bm-res-t { font-size: 13.5px; margin: 0 0 7px; }
+        .bm-link { width: 100%; padding: 9px 11px; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px;
+          background: #0e1013; border: 1px solid var(--al-accent, #C8F169); color: inherit; }
+        .bm-invs { margin: 11px 0 0; padding-left: 17px; font-size: 13px; line-height: 1.7; }
+        .bm-nota { margin: 12px 0 0; font-size: 12px; opacity: .6; line-height: 1.5; }
+        .bm-modal-pie { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+        .bm-cancel, .bm-ok { padding: 9px 17px; border-radius: 9px; cursor: pointer; font-size: 13.5px; font-weight: 600; font-family: inherit; }
+        .bm-cancel { background: transparent; border: 1px solid #2a2d33; color: inherit; }
+        .bm-ok { background: var(--al-accent, #C8F169); border: 0; color: #101010; }
+        .bm-ok:disabled { opacity: .45; cursor: not-allowed; }
       `}</style>
     </div>
   );
