@@ -10,6 +10,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Archivero } from './Archivero';
+import { AngulosView } from './AngulosView';
 import { AngulosPanel } from '../configuraciones/AngulosPanel';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { BrandDefs } from '../_components/ServicioVisual';
@@ -46,7 +47,16 @@ export function OnboardingTabs({ funnelPanel }: { funnelPanel: ReactNode }) {
   const TABS: Array<{ key: TabKey; label: string; panel: ReactNode }> = [
     { key: 'archivero', label: 'El Archivero', panel: <ArchiveroFrame /> },
     { key: 'funnel', label: 'Funnel', panel: funnelPanel },
-    { key: 'angulos', label: 'Ángulos y avatares', panel: <AngulosPanel /> },
+    { key: 'angulos', label: 'Ángulos y avatares', panel: (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 34 }}>
+        <AngulosView />
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 24 }}>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 4 }}>Vocabulario de ángulos · avanzado</div>
+          <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 16 }}>Los tipos que usa el analista de guiones para clasificar tus anuncios.</div>
+          <AngulosPanel />
+        </div>
+      </div>
+    ) },
   ];
   // Tabs tipo píldora, mismo control segmentado que el board /plan.
   const pill = (on: boolean): CSSProperties => ({ border: 'none', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--dim)', fontWeight: on ? 600 : 500, fontSize: 13.5, padding: '7px 15px', borderRadius: 999, cursor: 'pointer', boxShadow: on ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS });

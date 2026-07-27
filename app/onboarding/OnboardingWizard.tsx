@@ -25,6 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Archivero } from './Archivero';
+import { AngulosView } from './AngulosView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
@@ -42,7 +43,7 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'gemini' | 'retro' | 'plan';
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
 // Funnel simple del onboarding (#5): 3 opciones, multi-select, poco texto. El detalle
 // de etapas del CRM se ajusta después en Onboarding → Funnel.
 const FUNNEL_OPS = [
@@ -259,8 +260,15 @@ export function OnboardingWizard() {
     } else if (paso === 'archivero') {
       pantallas.push({
         key: 'archivero', paso,
-        pregunta: 'Tirá acá todo lo de tu negocio',
-        sub: 'Avatar, oferta, nicho, tu web, tu Instagram… en cualquier formato. Yo lo leo y te armo tu perfil. Lo revisás y corregís.',
+        pregunta: 'Suelta aquí todo lo de tu negocio',
+        sub: 'Avatar, oferta, nicho, tu web, tu Instagram… en cualquier formato. Yo lo leo y te armo tu perfil. Lo revisas y corriges.',
+        slides: SLIDES_MAKO,
+      });
+    } else if (paso === 'angulos') {
+      pantallas.push({
+        key: 'angulos', paso,
+        pregunta: 'Tus ángulos de venta',
+        sub: 'De lo que entendí de tu negocio, encuentro 3 ángulos para tus anuncios. Cada uno será, después, un creativo.',
         slides: SLIDES_MAKO,
       });
     } else if (paso === 'gemini') {
@@ -399,7 +407,7 @@ export function OnboardingWizard() {
         onSiguiente={() => {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
           // El Archivero persiste por su cuenta (sus propios endpoints); acá solo avanzamos.
-          if (p.key === 'archivero') return avanzar();
+          if (p.key === 'archivero' || p.key === 'angulos') return avanzar();
           if (p.key === 'gemini') return avanzar(() => post('/api/onboarding', { action: 'gemini', geminiKey: geminiKey.trim() }));
           if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel-simple', funnelTipos }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
@@ -459,6 +467,9 @@ export function OnboardingWizard() {
 
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
         {p.key === 'archivero' && <Archivero onEstado={setAnswers} />}
+
+        {/* ── Ángulos de venta: MaKo los encuentra desde el brief (self-contained) ── */}
+        {p.key === 'angulos' && <AngulosView />}
 
         {/* ── Brief: una pregunta, un campo ── */}
         {campoBrief && (campoBrief.type === 'textarea'
