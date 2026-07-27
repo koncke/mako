@@ -310,10 +310,9 @@ export function OnboardingWizard() {
   // ── El aside negro: facts si hay, si no el carrusel ────────────────────────
   const factsDePantalla = (): Fact[] | undefined => {
     if (p.servicio && facts[p.servicio]?.length) return facts[p.servicio];
-    // Las pantallas del brief (y El Archivero) muestran lo que ya sabe MaKo del
-    // negocio: es su propio dato. En el Archivero eso ES el WOW — a medida que
-    // extrae de los docs, el aside negro se llena con el perfil.
-    if (p.paso === 'negocio' || p.paso === 'archivero' || p.paso === 'plan') {
+    // Las pantallas del brief muestran lo que ya sabe MaKo del negocio. El Archivero
+    // NO alimenta el panel negro: su insight va en la parte blanca (pedido de Martín).
+    if (p.paso === 'negocio' || p.paso === 'plan') {
       const f = data.brief.filter((c) => (answers[c.key] ?? '').trim()).map((c) => ({ k: c.label, v: answers[c.key] }));
       return f.length ? f.slice(0, 8) : undefined;
     }

@@ -2,21 +2,20 @@
 // archivero — los documentos del negocio, con procedencia
 // =============================================================================
 // El brief del negocio (mako.onboarding.answers) se DERIVA de dos fuentes:
-//   1. Los archivos que subió el cliente (archivero_files.campos, por archivo).
-//   2. Las respuestas manuales (huecos que ningún doc resolvió), en app_settings
-//      'mako.archivero.manual'.
-// El efectivo = merge(manual como BASE, archivos encima). **Los DOCS GANAN**: si un
-// documento trae un dato, sobreescribe lo que hubiera a mano — ningún dato a mano
-// es ley (pedido de Martín 2026-07-27). Lo manual solo sobrevive para los campos
-// que NINGÚN archivo cubre. Por eso borrar un archivo recalcula y "se lleva" lo que
-// aportó (queda lo manual si lo había). Guardamos el efectivo en answers para que el
-// contexto de MaKo (perfilNegocioTexto) lo lea igual que siempre.
+//   1. Los archivos que subió el cliente (archivero_files.campos, por archivo) = BASE.
+//   2. Las ediciones/respuestas EXPLÍCITAS del usuario, en 'mako.archivero.manual'.
+// El efectivo = merge(archivos, ediciones manuales encima). Los DOCS son la base y la
+// llenan casi toda; una edición manual explícita GANA sobre el doc (corrección
+// intencional). NO hay auto-seed: el auto-seed viejo (copiar answers previas a manual)
+// era lo que bloqueaba que un doc actualizara el perfil (bug de Martín). Borrar un
+// archivo recalcula y "se lleva" lo que aportó (queda lo editado a mano). Guardamos el
+// efectivo en answers para que el contexto de MaKo (perfilNegocioTexto) lo lea igual.
 // =============================================================================
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, getRolWsEfectivo, getWorkspaceActual, OWNER_WS } from './workspace';
-import { getSchema, getAnswers, saveAnswers } from './onboarding';
+import { getSchema, saveAnswers } from './onboarding';
 import { getSesionAdmin } from './auth';
 import { getSetting, setSetting } from './settings';
 
@@ -54,15 +53,15 @@ export type ArchiveroFile = {
 
 export type FuenteCampo = { tipo: 'archivo' | 'manual'; id?: string; nombre?: string };
 
-// ── Manual (huecos + ediciones del super-admin) ──────────────────────────────
+// ── Manual (huecos + ediciones EXPLÍCITAS del usuario) ───────────────────────
+// SIN auto-seed: `manual` guarda SOLO lo que el usuario respondió/editó a mano. El
+// auto-seed viejo (copiar las answers previas a manual) era el que BLOQUEABA que un
+// doc actualizara el perfil ("las respuestas a mano no cambian con nada" — reporte de
+// Martín). Ahora los docs son la base y una edición manual explícita gana sobre ellos.
 export async function getManual(): Promise<Record<string, string>> {
   const raw = await getSetting(MANUAL_KEY);
-  if (raw != null) { try { return JSON.parse(raw) as Record<string, string>; } catch { return {}; } }
-  // Primera vez: lo que el dueño ya tenía cargado a mano pasa a ser el manual base,
-  // para no perderlo cuando el efectivo se empiece a derivar de los archivos.
-  const prev = await getAnswers();
-  await setManual(prev);
-  return prev;
+  if (raw == null) return {};
+  try { return JSON.parse(raw) as Record<string, string>; } catch { return {}; }
 }
 export async function setManual(m: Record<string, string>): Promise<void> {
   await setSetting(MANUAL_KEY, JSON.stringify(m));
@@ -129,21 +128,26 @@ export async function urlDescarga(path: string, nombre: string): Promise<string 
   const { data } = await getSupabaseServer().storage.from(BUCKET).createSignedUrl(path, 120, { download: nombre });
   return data?.signedUrl ?? null;
 }
+/** URL firmada INLINE (sin forzar descarga): para ver el PDF/imagen en un visor o miniatura. */
+export async function urlPreview(path: string): Promise<string | null> {
+  const { data } = await getSupabaseServer().storage.from(BUCKET).createSignedUrl(path, 300);
+  return data?.signedUrl ?? null;
+}
 
-// ── Brief efectivo (merge manual base + archivos encima → DOCS GANAN) ─────────
+// ── Brief efectivo (archivos de base + edición manual explícita encima) ──────
 export function computeEffective(files: ArchiveroFile[], manual: Record<string, string>): { answers: Record<string, string>; fuente: Record<string, FuenteCampo> } {
   const answers: Record<string, string> = {};
   const fuente: Record<string, FuenteCampo> = {};
-  // Manual como BASE: solo llena lo que ningún doc va a cubrir.
-  for (const [k, v] of Object.entries(manual || {})) {
-    if (v != null && String(v).trim()) { answers[k] = String(v); fuente[k] = { tipo: 'manual' }; }
-  }
-  // Archivos ENCIMA: un dato de un documento SOBREESCRIBE lo manual (docs ganan).
-  // Entre archivos, el último cargado pisa al anterior.
+  // Archivos = BASE: llenan todo lo que puedan (entre archivos, el último pisa al anterior).
   for (const f of files) {
     for (const [k, v] of Object.entries(f.campos || {})) {
       if (v != null && String(v).trim()) { answers[k] = String(v); fuente[k] = { tipo: 'archivo', id: f.id, nombre: f.nombre }; }
     }
+  }
+  // Manual ENCIMA: una edición/respuesta EXPLÍCITA del usuario gana sobre el doc (es
+  // una corrección intencional). Como ya NO hay auto-seed, esto es solo lo que él tocó.
+  for (const [k, v] of Object.entries(manual || {})) {
+    if (v != null && String(v).trim()) { answers[k] = String(v); fuente[k] = { tipo: 'manual' }; }
   }
   return { answers, fuente };
 }

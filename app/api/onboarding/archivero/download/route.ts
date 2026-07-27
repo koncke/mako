@@ -7,7 +7,7 @@
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
-import { getFile, urlDescarga, resolverWsAdmin } from '@/lib/archivero';
+import { getFile, urlDescarga, urlPreview, resolverWsAdmin } from '@/lib/archivero';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,13 +17,15 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export async function GET(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'No autorizado.' }, { status: 403 });
-  const id = new URL(req.url).searchParams.get('id');
+  const params = new URL(req.url).searchParams;
+  const id = params.get('id');
+  const preview = params.get('preview') === '1'; // inline (visor/miniatura) vs. descarga
   if (!id) return Response.json({ ok: false, error: 'Falta id.' }, { status: 400 });
   return runWithWorkspace(ws, async () => {
     try {
       const f = await getFile(id);
       if (!f) return Response.json({ ok: false, error: 'Archivo no encontrado.' }, { status: 404 });
-      const url = await urlDescarga(f.storage_path, f.nombre);
+      const url = preview ? await urlPreview(f.storage_path) : await urlDescarga(f.storage_path, f.nombre);
       if (!url) return Response.json({ ok: false, error: 'No se pudo generar la descarga.' }, { status: 500 });
       return Response.redirect(url, 302);
     } catch (e) {
