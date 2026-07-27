@@ -30,7 +30,7 @@ import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { GuardianIcon } from '../plan/board/GuardianIcon';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
-import { FASES, faseDef, diagnosticar, repartoTexto, type Diagnostico, type Pregunta } from '@/lib/fase-diagnostico';
+import { FASES, faseDef, diagnosticar, repartoTexto, dimensionDeFase, CANALES, VOLUMEN_POR_CANAL, type CanalId, type Diagnostico, type Estrategia, type Pregunta } from '@/lib/fase-diagnostico';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
@@ -145,6 +145,8 @@ export function OnboardingWizard() {
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
   const [faseResp, setFaseResp] = useState<number[]>([]);
   const [faseDiag, setFaseDiag] = useState<Diagnostico | null>(null);
+  // Canal de venta: adapta la pregunta de volumen (llamadas/carrito/webinar).
+  const [canal, setCanal] = useState<CanalId>('llamadas');
 
   // Facts por servicio: lo que devolvió el ping al probar la credencial.
   const [facts, setFacts] = useState<Record<string, Fact[]>>({});
@@ -174,6 +176,7 @@ export function OnboardingWizard() {
       setConectadas(Object.fromEntries(d.servicios.map((s) => [s.key, s.conectada])));
       setFaseDiag(d.faseDiag ?? null);
       setFaseResp(d.faseDiag?.respuestas ?? new Array(d.fasePreguntas?.length ?? 6).fill(-1));
+      if (d.faseDiag?.canal) { setCanal(d.faseDiag.canal); setFunnelTipos((t) => (t.length ? t : [d.faseDiag!.canal!])); }
     } catch (e) {
       setErrCarga(e instanceof Error ? e.message : String(e));
     }
@@ -263,9 +266,10 @@ export function OnboardingWizard() {
     } else if (paso === 'gemini') {
       pantallas.push({ key: 'gemini', paso, pregunta: 'Conectá la IA de MaKo', sub: 'Pegá tu API key de Gemini — es gratis. Con eso MaKo lee tus documentos, arma tu perfil y hace todo el análisis del onboarding.', slides: SLIDES_MAKO });
     } else if (paso === 'fase') {
-      // Una pantalla por pregunta (6) + la pantalla del diagnóstico.
+      // Una pantalla por pregunta (6) + la pantalla del diagnóstico. La pregunta
+      // de volumen adapta su enunciado al canal de venta elegido.
       data.fasePreguntas.forEach((q, i) => {
-        pantallas.push({ key: `fase:${i}`, paso, faseQ: i, pregunta: q.texto, slides: SLIDES_MAKO });
+        pantallas.push({ key: `fase:${i}`, paso, faseQ: i, pregunta: q.id === 'volumen' ? VOLUMEN_POR_CANAL[canal].texto : q.texto, slides: SLIDES_MAKO });
       });
       pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico de fase', slides: SLIDES_MAKO });
     } else if (paso === 'retro') {
@@ -350,10 +354,11 @@ export function OnboardingWizard() {
 
   // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
   const guardarFase = async () => {
-    const local = diagnosticar(faseResp);
+    const local = diagnosticar(faseResp, canal);
     setFaseDiag(local); // instantáneo, para que el resultado aparezca al toque
-    const j = await post('/api/onboarding', { action: 'fase', faseRespuestas: faseResp });
+    const j = await post('/api/onboarding', { action: 'fase', faseRespuestas: faseResp, canal });
     if (j.ok && j.diagnostico) setFaseDiag(j.diagnostico as Diagnostico);
+    setFunnelTipos((t) => (t.length ? t : [canal])); // el canal pre-marca "cómo vendés"
     return j;
   };
 
@@ -500,14 +505,22 @@ export function OnboardingWizard() {
         )}
 
         {/* ── Diagnóstico de fase: quiz (una pregunta, 5 opciones) ── */}
-        {esFaseQuiz && (
-          <FaseQuiz
-            emoji={data.fasePreguntas[p.faseQ!].emoji}
-            opciones={data.fasePreguntas[p.faseQ!].opciones}
-            value={faseResp[p.faseQ!]}
-            onPick={(i) => setFaseResp((r) => { const c = [...r]; c[p.faseQ!] = i; return c; })}
-          />
-        )}
+        {esFaseQuiz && (() => {
+          const q = data.fasePreguntas[p.faseQ!];
+          const esVolumen = q.id === 'volumen';
+          return (
+            <>
+              {/* La pregunta de volumen se adapta al canal de venta. */}
+              {esVolumen && <CanalSelector canal={canal} onPick={setCanal} />}
+              <FaseQuiz
+                emoji={q.emoji}
+                opciones={esVolumen ? VOLUMEN_POR_CANAL[canal].opciones : q.opciones}
+                value={faseResp[p.faseQ!]}
+                onPick={(i) => setFaseResp((r) => { const c = [...r]; c[p.faseQ!] = i; return c; })}
+              />
+            </>
+          );
+        })()}
         {p.key === 'fase:result' && faseDiag && <FaseResultado diag={faseDiag} />}
 
         {/* ── Retro ── */}
@@ -582,6 +595,27 @@ function PantallaRetro({ ext, onListo }: { ext: Extraction | null; onListo: (r: 
 }
 
 // ── Diagnóstico de fase ──────────────────────────────────────────────────────
+// El canal de venta adapta la pregunta de volumen (llamadas/carrito/webinar).
+function CanalSelector({ canal, onPick }: { canal: CanalId; onPick: (c: CanalId) => void }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 7, textAlign: 'center' }}>¿Cómo cerrás la venta?</div>
+      <div style={{ display: 'flex', gap: 7, justifyContent: 'center' }}>
+        {CANALES.map((c) => {
+          const on = canal === c.id;
+          return (
+            <button key={c.id} type="button" onClick={() => onPick(c.id)}
+              style={{ cursor: 'pointer', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, padding: '7px 14px', borderRadius: 999,
+                border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)' }}>
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Las 5 opciones votan a una fase (índice = fase). Single-select, estilo cards.
 function FaseQuiz({ emoji, opciones, value, onPick }: { emoji: string; opciones: string[]; value: number; onPick: (i: number) => void }) {
   return (
@@ -604,31 +638,103 @@ function FaseQuiz({ emoji, opciones, value, onPick }: { emoji: string; opciones:
 }
 
 // El resultado: qué priorizar (el Norte). El aside negro (FasePanel) muestra la
-// fase; acá va el objetivo, las acciones críticas y el "no hacer ahora".
+// fase; acá van síntomas, acciones clave, la estrategia de pauta, el hito para
+// avanzar, qué no hacer y la dimensión débil.
+const SeccionLabel = ({ children }: { children: ReactNode }) => (
+  <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>{children}</div>
+);
+
+function EstrategiaBarras({ e }: { e: Estrategia }) {
+  const filas: Array<[string, number, string]> = [
+    ['Prospección', e.prospeccion, 'var(--primary)'],
+    ['Retargeting y nutrición', e.nutricion, 'var(--warn)'],
+    ['Escala', e.escala, 'var(--good)'],
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {filas.map(([lbl, val, color]) => (
+        <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--dim)', flex: 'none', width: 130 }}>{lbl}</span>
+          <span style={{ flex: 1, height: 8, borderRadius: 999, background: 'var(--border)', overflow: 'hidden' }}>
+            <span style={{ display: 'block', height: '100%', width: `${val}%`, background: color, borderRadius: 999 }} />
+          </span>
+          <span style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--ink)', flex: 'none', width: 34, textAlign: 'right' }}>{val}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FaseResultado({ diag }: { diag: Diagnostico }) {
   const f = faseDef(diag.fase);
+  const dim = dimensionDeFase(f.id);
   return (
-    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 18 }}>
       {diag.mixto && (
         <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: 4 }}>Diagnóstico mixto ({repartoTexto(diag.reparto)})</div>
           <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>Tus respuestas se reparten entre fases: avanzaste en una dimensión y te quedaste atrás en otra. Trabajá primero el cuello de tu fase más baja antes de saltar adelante.</div>
         </div>
       )}
+
+      {/* El Norte */}
       <div>
-        <div style={{ fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>Tu Norte: enfocá todo en {f.cuelloLabel}</div>
+        <SeccionLabel>Tu Norte: enfocá todo en {f.cuelloLabel}</SeccionLabel>
         <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55 }}>{f.objetivo}</div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {f.acciones.map((a, i) => (
-          <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: i < f.criticas ? 'var(--good-bg)' : 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px' }}>
-            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: i < f.criticas ? 'var(--good)' : 'var(--faint)', flex: 'none', marginTop: 2 }}>{i < f.criticas ? 'CLAVE' : `${i + 1}`}</span>
-            <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{a}</span>
-          </div>
-        ))}
+
+      {/* Síntomas */}
+      <div>
+        <SeccionLabel>Síntomas de esta fase</SeccionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {f.sintomas.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--faint)', flex: 'none', marginTop: 1 }}>·</span>
+              <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{s}</span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Acciones clave */}
+      <div>
+        <SeccionLabel>Acciones clave</SeccionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {f.acciones.map((a, i) => (
+            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: a.critica ? 'var(--good-bg)' : 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px' }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: a.critica ? 'var(--good)' : 'var(--faint)', flex: 'none', marginTop: 2 }}>{a.critica ? 'CLAVE' : `${i + 1}`}</span>
+              <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{a.texto}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Estrategia de pauta */}
+      <div>
+        <SeccionLabel>Estrategia de pauta</SeccionLabel>
+        <EstrategiaBarras e={f.estrategia} />
+        <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginTop: 9 }}>{f.estrategia.nota}</div>
+      </div>
+
+      {/* Hito para avanzar */}
+      <div style={{ background: 'var(--primary-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
+        <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 5 }}>Hito para pasar a la siguiente fase</div>
+        <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{f.hito}</div>
+      </div>
+
+      {/* No hacer */}
       <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px', fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>
         <b style={{ color: 'var(--bad)' }}>No hagas ahora:</b> {f.noHacer}
+      </div>
+
+      {/* Dimensión débil */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
+        <SeccionLabel>Tu dimensión débil</SeccionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 5 }}>
+          <span style={{ fontSize: 18, flex: 'none' }}>{dim.emoji}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>{dim.nombre}</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{dim.descripcion}</div>
       </div>
     </div>
   );
@@ -644,7 +750,8 @@ function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx:
         <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 16 }}>✦ Tu diagnóstico</div>
         <div style={{ fontSize: 54, marginBottom: 6 }}>{f.emoji}</div>
         <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', color: 'var(--sidebar-text)' }}>FASE {f.id}</div>
-        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--on-sidebar)', margin: '2px 0 8px' }}>{f.nombre}</div>
+        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--on-sidebar)', margin: '2px 0 2px' }}>{f.nombre}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)', opacity: 0.85, marginBottom: 8 }}>{f.subtitulo}</div>
         <div style={{ fontSize: 12.5, color: 'var(--sidebar-text)', lineHeight: 1.5 }}>{f.rango}</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 14 }}>
           <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: 'rgba(255,255,255,.08)', color: 'var(--on-sidebar)' }}>Cuello: {f.cuelloLabel}</span>

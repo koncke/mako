@@ -8,7 +8,7 @@
 
 import 'server-only';
 import { getSetting, setSetting } from './settings';
-import { diagnosticar, faseContextoTexto, type Diagnostico } from './fase-diagnostico';
+import { diagnosticar, faseContextoTexto, type CanalId, type Diagnostico } from './fase-diagnostico';
 
 const FASE_KEY = 'negocio.fase.diagnostico';
 
@@ -24,9 +24,10 @@ export async function getDiagnosticoFase(): Promise<Diagnostico | null> {
 }
 
 /** Guarda las respuestas crudas y el diagnóstico derivado (recomputado acá, no
- *  confiado del cliente). Devuelve el diagnóstico. */
-export async function setDiagnosticoFase(respuestas: number[]): Promise<Diagnostico> {
-  const d = diagnosticar(respuestas);
+ *  confiado del cliente). El canal de venta viaja junto al diagnóstico. Devuelve
+ *  el diagnóstico. */
+export async function setDiagnosticoFase(respuestas: number[], canal?: CanalId): Promise<Diagnostico> {
+  const d = diagnosticar(respuestas, canal);
   await setSetting(FASE_KEY, JSON.stringify(d));
   return d;
 }

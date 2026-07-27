@@ -23,7 +23,7 @@ import { FUNNEL_TEMPLATES } from '@/lib/pipeline';
 import { seedNutricionTemplates } from '@/lib/nutricion-templates';
 import { getContactoReportes, setContactoReportes } from '@/lib/perfil';
 import { getAnswers, getSchema, saveAnswers } from '@/lib/onboarding';
-import { PREGUNTAS } from '@/lib/fase-diagnostico';
+import { PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getDiagnosticoFase, setDiagnosticoFase } from '@/lib/fase-store';
 import { getEstadoOnboarding, pasosDeCapaActual, patchEstadoOnboarding, type OnboardingState } from '@/lib/onboarding-state';
 
@@ -150,6 +150,7 @@ type Body = {
   contacto?: { nombre?: string; email?: string; telefono?: string };
   brief?: Record<string, unknown>;
   faseRespuestas?: number[];
+  canal?: string;
   geminiKey?: string;
   funnelTipos?: string[];
   step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'fase' | 'gemini' | 'retro' | 'plan';
@@ -240,7 +241,11 @@ export async function POST(req: NextRequest) {
         if (resp.length !== PREGUNTAS.length) {
           return NextResponse.json({ ok: false, error: 'Faltan respuestas del diagnóstico.' }, { status: 400 });
         }
-        const diagnostico = await setDiagnosticoFase(resp);
+        const canal = CANALES.some((c) => c.id === body.canal) ? (body.canal as CanalId) : undefined;
+        const diagnostico = await setDiagnosticoFase(resp, canal);
+        // Pre-sembrar el canal como funnel: la fase va ANTES del paso "cómo vendés",
+        // así ese paso ya llega marcado con el canal primario (el cliente puede sumar más).
+        if (canal) { try { await setSetting('onboarding.funnel_tipos', JSON.stringify([canal])); } catch { /* no fatal */ } }
         return NextResponse.json({ ok: true, diagnostico });
       }
 
