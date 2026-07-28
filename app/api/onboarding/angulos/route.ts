@@ -12,7 +12,8 @@ import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarAngulos, getAngulosVenta, setAngulosVenta, type AnguloVenta } from '@/lib/angulos-venta';
+import { getAvatares } from '@/lib/avatares';
+import { generarAngulos, getAngulosVenta, setAngulosVenta, normalizarRazon, type AnguloVenta } from '@/lib/angulos-venta';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,8 +23,8 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
 async function estado() {
-  const [angulos, answers] = await Promise.all([getAngulosVenta(), getAnswers()]);
-  return { angulos, tieneBrief: Object.values(answers).some((v) => (v ?? '').trim()) };
+  const [angulos, avatares, answers] = await Promise.all([getAngulosVenta(), getAvatares(), getAnswers()]);
+  return { angulos, avatares, tieneAvatares: avatares.length > 0, tieneBrief: Object.values(answers).some((v) => (v ?? '').trim()) };
 }
 
 export async function GET() {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       if (body.action === 'guardar') {
         const arr = Array.isArray(body.angulos) ? body.angulos : [];
         const limpio: AnguloVenta[] = arr
-          .map((a) => { const o = (a ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), tipo: s(o.tipo) || 'Problema', titulo: s(o.titulo), hook: s(o.hook), descripcion: s(o.descripcion) }; })
+          .map((a) => { const o = (a ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), avatarId: s(o.avatarId), razon: normalizarRazon(s(o.razon)), titulo: s(o.titulo), hook: s(o.hook), descripcion: s(o.descripcion) }; })
           .filter((a) => a.titulo);
         await setAngulosVenta(limpio);
         return Response.json({ ok: true, ...(await estado()) });
