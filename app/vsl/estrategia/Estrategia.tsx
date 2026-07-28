@@ -71,13 +71,28 @@ const CANAL_B: Row[] = [
   { l: 'Llamadas agendadas', v: '8', rate: '3% de los que responden', hi: true },
 ];
 
-// Lead magnet: diagnóstico de UN anuncio (no del funnel completo).
+// Lead magnet: el setter de IA diagnostica UN anuncio dentro del chat.
 const DIAG = [
   'Si el gancho frena el scroll o pasa desapercibido',
   'A qué tipo de cliente le está hablando — y a cuál no',
   'Qué razón de compra está usando',
   'Por qué ese anuncio no le trae agendas',
   'Qué cambiar para la próxima versión',
+];
+
+// La duda abierta: ¿hace falta toda esta maquinaria?
+const DUDA_CON = [
+  'Llega a la llamada sabiendo qué tiene mal',
+  'Baja la fricción para abrir la conversación',
+  'Hay que construir el setter de IA y mantenerlo',
+  'Un Loom por cada lead que responde: ~200 videos en el mes',
+];
+
+const DUDA_SIN = [
+  'Se arranca mañana, sin construir nada',
+  'Menos conversaciones, pero más calificadas: el que escribe ya quiere el software',
+  'Todo el presupuesto va a pauta, no a operativa',
+  'Llega frío a la llamada',
 ];
 
 // Qué se analiza en la llamada.
@@ -361,9 +376,13 @@ export default function Estrategia() {
                 <span className="s-open-tag">Campaña de mensajes</span>
                 <h3>Diagnóstico de anuncios</h3>
               </div>
-              <Mini tone="b" steps={['Manda su anuncio', 'MaKo lo analiza', 'Recibe el diagnóstico']} />
+              <div className="s-open-rule">
+                Diagnosticar <b>un solo anuncio</b> es fácil de vender en frío y se entrega en minutos, dentro
+                del mismo chat. El anuncio es la punta: lo demás se ve en la llamada.
+              </div>
+              <Mini tone="b" steps={['Escribe por el anuncio', 'El setter de IA le hace preguntas', 'Le da el diagnóstico y lo invita a la llamada']} />
               <div className="s-diag">
-                <span className="s-diag-l">Qué le decimos de su anuncio</span>
+                <span className="s-diag-l">Qué le dice el setter sobre su anuncio</span>
                 <ul>
                   {DIAG.map((d) => (
                     <li key={d}><Ic d={I.check} size={14} /><span>{d}</span></li>
@@ -375,10 +394,6 @@ export default function Estrategia() {
                 <Ic d={I.chev} size={16} />
                 <span className="s-bridge-b">Su funnel completo, en la llamada</span>
               </div>
-              <div className="s-open-rule">
-                Diagnosticar <b>un solo anuncio</b> es fácil de vender en frío y se entrega en minutos. Y deja
-                el puente servido: el anuncio es la punta, lo demás se ve en la llamada.
-              </div>
             </div>
 
             <div className="s-open-col s-open-a">
@@ -386,7 +401,11 @@ export default function Estrategia() {
                 <span className="s-open-tag">Prospección</span>
                 <h3>Un Loom VSL por cada lead</h3>
               </div>
-              <Mini tone="a" steps={['Miro su negocio', 'Grabo un video para él', 'Cierro con el link']} />
+              <div className="s-open-rule s-open-rule-a">
+                Acá <b>no va recurso gratis</b>: al que te conoce o al que le escribís a mano se le entra por
+                lo consultivo, con el análisis ya hecho antes de hablarle.
+              </div>
+              <Mini tone="a" steps={['Miro su negocio', 'Grabo un Loom para él', 'Cierro con el link']} />
               <div className="s-diag s-diag-a">
                 <span className="s-diag-l">Qué se mira antes de grabar</span>
                 <ul>
@@ -401,17 +420,46 @@ export default function Estrategia() {
                   <li><Ic d={I.check} size={14} /><span>Qué haría yo en su lugar, concreto</span></li>
                 </ul>
               </div>
-              <div className="s-open-rule s-open-rule-a">
-                Acá <b>no va recurso gratis</b>: al que te conoce o al que le escribís a mano se le entra por
-                lo consultivo, con el análisis ya hecho antes de hablarle.
+            </div>
+          </div>
+
+          {/* La duda: ¿hace falta toda esta maquinaria? */}
+          <div className="s-duda">
+            <h3 className="s-duda-h">¿Realmente conviene hacerlo personalizado?</h3>
+            <p className="s-duda-p">
+              Todo esto es maquinaria: un setter de IA que hay que construir y un Loom grabado para cada
+              lead. La alternativa es correr campañas de mensajes promocionando MaKo directo, sin nada
+              alrededor. La pregunta abierta es cuánto sube realmente la chance de cerrar por agregarlo.
+            </p>
+            <div className="s-duda-cols">
+              <div className="s-duda-col s-duda-con">
+                <span className="s-duda-l">Con la maquinaria</span>
+                <ul>
+                  {DUDA_CON.map((x) => <li key={x}>{x}</li>)}
+                </ul>
               </div>
+              <div className="s-duda-col s-duda-sin">
+                <span className="s-duda-l">Directo, sin maquinaria</span>
+                <ul>
+                  {DUDA_SIN.map((x) => <li key={x}>{x}</li>)}
+                </ul>
+              </div>
+            </div>
+            <div className="s-duda-num">
+              <span className="s-duda-num-l">El número que lo decide</span>
+              <p>
+                Con 12 llamadas efectivas y un ticket promedio de <b>$2,000</b>, cada venta extra vale
+                $2,000. Grabar ~200 Looms son unas <b>40 horas</b> en el mes: la maquinaria solo se paga si
+                mueve más de una venta. No se resuelve discutiéndolo — se parte el presupuesto de la
+                fase 1 y se mide cuál de los dos caminos trae agendas más baratas.
+              </p>
             </div>
           </div>
         </section>
 
         {/* ── Por qué agenda ───────────────────────────────────────────────── */}
         <section className="s-sec">
-          <h2 className="s-h2">Por qué te agenda la llamada</h2>
+          <h2 className="s-h2">Razón egoísta de por qué agendarán la llamada</h2>
           <div className="s-egoist">
             <p className="s-egoist-q">“Salís de la llamada con toda tu estrategia para conseguir clientes con anuncios pagos, armada para tu negocio.”</p>
             <ul className="s-lleva">
@@ -432,6 +480,29 @@ export default function Estrategia() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* No es una consultoría gratis: es una llamada de venta. */}
+          <div className="s-venta">
+            <div className="s-venta-hd">
+              <Ic d={I.bolt} size={17} />
+              <h3>No es una llamada de diagnóstico: es una llamada de venta</h3>
+            </div>
+            <div className="s-venta-rule">
+              <div className="s-venta-que">
+                <span className="s-venta-k">Se dice el QUÉ</span>
+                <p>Qué está mal, qué le falta y qué hay que hacer. Con nombre y apellido, sobre su negocio.</p>
+              </div>
+              <div className="s-venta-como">
+                <span className="s-venta-k">Nunca el CÓMO</span>
+                <p>Cómo se ejecuta cada cosa es exactamente lo que se compra. Si se regala, no queda nada que vender.</p>
+              </div>
+            </div>
+            <p className="s-venta-cierre">
+              El diagnóstico deja al prospecto con una lista clara de todo lo que tiene que arreglar — y con
+              la certeza de que solo no lo va a hacer. Ahí el cierre es natural: <em>“esto es lo que hay que
+              hacer; podés intentarlo por tu cuenta, o lo hacemos juntos”</em>. Y ahí se pitchea la escalera.
+            </p>
           </div>
         </section>
 
@@ -725,10 +796,45 @@ body:has(.mk-str) aside { display: none !important; }
 .s-bridge-a { color: #4E5765; background: #EEF1F5; }
 .s-bridge-b { flex: 1; color: #3A2604; background: linear-gradient(120deg,#FDF0D8,#FFF8EA); }
 
-.s-open-rule { margin-top: 14px; font-size: 13px; line-height: 1.55; color: #7A5406; background: #FFF9EC; border: 1px solid #F3E2B5; border-radius: 10px; padding: 12px 14px; }
+.s-open-rule { margin-bottom: 16px; font-size: 13px; line-height: 1.55; color: #7A5406; background: #FFF9EC; border: 1px solid #F3E2B5; border-radius: 10px; padding: 12px 14px; }
 .s-open-rule b { color: #5C3F04; font-weight: 700; }
 .s-open-rule-a { color: #4E5765; background: #F5F7FA; border-color: #E5E8EE; }
 .s-open-rule-a b { color: #10131A; }
+
+/* La duda abierta: ¿hace falta la maquinaria? */
+.s-duda { margin-top: 16px; background: #fff; border: 1px dashed #C6CCD5; border-radius: 18px; padding: 26px 28px; }
+.s-duda-h { margin: 0 0 8px; font-size: 21px; font-weight: 600; letter-spacing: -.015em; color: #10131A; }
+.s-duda-p { margin: 0 0 20px; max-width: 720px; font-size: 14.5px; line-height: 1.6; color: #565E6B; }
+.s-duda-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.s-duda-col { border-radius: 14px; padding: 18px 20px; }
+.s-duda-con { background: #F5F7FA; }
+.s-duda-sin { background: #F7FAFF; }
+.s-duda-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #8892A0; margin-bottom: 12px; }
+.s-duda-sin .s-duda-l { color: #1D4FD8; }
+.s-duda-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.s-duda-col li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.5; color: #565E6B; }
+.s-duda-col li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #C6CCD5; }
+.s-duda-sin li::before { background: #2F6FED; }
+.s-duda-num { margin-top: 16px; border-left: 3px solid #10131A; padding-left: 18px; }
+.s-duda-num-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #10131A; margin-bottom: 7px; }
+.s-duda-num p { margin: 0; font-size: 14px; line-height: 1.6; color: #565E6B; }
+.s-duda-num b { color: #10131A; font-weight: 600; }
+
+/* La llamada es de venta, no de diagnóstico */
+.s-venta { margin-top: 22px; border: 1px solid #E5E8EE; border-radius: 18px; padding: 24px 26px; background: #10131A; }
+.s-venta-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.s-venta-hd svg { flex: none; color: #F2A516; }
+.s-venta-hd h3 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.015em; color: #fff; }
+.s-venta-rule { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.s-venta-que, .s-venta-como { border-radius: 14px; padding: 16px 18px; background: rgba(255,255,255,.05); }
+.s-venta-que { border-left: 3px solid #16B57F; }
+.s-venta-como { border-left: 3px solid #F2A516; }
+.s-venta-k { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 7px; }
+.s-venta-que .s-venta-k { color: #4FD3A2; }
+.s-venta-como .s-venta-k { color: #F5BE55; }
+.s-venta-rule p { margin: 0; font-size: 13.5px; line-height: 1.55; color: #B7BFCB; }
+.s-venta-cierre { margin: 18px 0 0; font-size: 14.5px; line-height: 1.6; color: #C6CCD5; }
+.s-venta-cierre em { font-style: italic; color: #fff; }
 
 /* Por qué agenda */
 .s-egoist { margin-top: 20px; border: 1px solid #F0C169; border-radius: 18px; padding: 28px 30px; background: linear-gradient(160deg,#FFFBF2,#FFFFFF 60%); }
@@ -820,6 +926,7 @@ body:has(.mk-str) aside { display: none !important; }
 @media (max-width: 900px) {
   .s-tiers, .s-chs, .s-units, .s-anal { grid-template-columns: 1fr 1fr; }
   .s-two, .s-lever-cols, .s-motors, .s-open, .s-lleva { grid-template-columns: 1fr; }
+  .s-duda-cols, .s-venta-rule { grid-template-columns: 1fr; }
   .s-flow { grid-template-columns: 1fr; }
   .s-flow-arrow { transform: rotate(90deg); padding: 2px 0; }
   .s-close { grid-template-columns: 1fr; }
