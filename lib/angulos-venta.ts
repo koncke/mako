@@ -18,13 +18,13 @@
 
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { chatClaude } from './anthropic';
 import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto } from './fase-store';
 import { getSetting, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
 
 export type AnguloVenta = { id: string; avatarId: string; razon: string; titulo: string; hook: string; descripcion: string };
 export type Uso = { tokens: number; costUsd: number } | null;
@@ -133,14 +133,18 @@ export async function generarAngulos(): Promise<GenResult> {
       fase: fase ? `\nFASE DEL NEGOCIO (para el tono/urgencia):\n${fase}\n` : '',
       avatares: avataresTexto(avatares),
     });
-    let uso: Uso = null;
-    const text = await chatClaude(sys, [{ role: 'user', content: user }], {
-      thinking: true, effort: 'high', maxTokens: 12000, feature: 'angulos-venta',
-      onUsage: (u) => { uso = { tokens: u.inputTokens + u.outputTokens, costUsd: u.costUsd }; },
+    // IA GRATIS del cliente (Gemini primero, luego Groq/…), NO Claude (decisión de
+    // Mauricio: "pasa todo a Gemini"). `validar` rescata si un modelo devuelve una
+    // matriz vacía/rota → sigue al próximo proveedor. maxTokens holgado: 9 ángulos.
+    const text = await chatCheapCascade({
+      system: sys, user, json: true, maxTokens: 4000,
+      feature: 'angulos-venta', motivo: 'Matriz 3x3 de ángulos del negocio',
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseAngulos(t, avatares).length > 0,
     });
+    if (!text) return { ok: false, error: 'No hay IA para generar los ángulos. Conecta tu API key de Gemini (gratis) en Integraciones.' };
     const angulos = parseAngulos(text, avatares);
     if (!angulos.length) return { ok: false, error: 'MaKo no devolvió ángulos. Reintenta en un momento.' };
-    return { ok: true, angulos, uso };
+    return { ok: true, angulos, uso: null };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
