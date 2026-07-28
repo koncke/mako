@@ -47,12 +47,17 @@ const SETTINGS_WIZARD = new Set([
 ]);
 
 async function guard(): Promise<{ ws: number } | { error: NextResponse }> {
-  const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
-  if (ws == null || rol !== 'admin') {
-    return { error: NextResponse.json({ ok: false, error: 'Solo el admin del cliente puede hacer el onboarding.' }, { status: 403 }) };
+  const [wsActual, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
+  if (rol !== 'admin') {
+    return { error: NextResponse.json({ ok: false, error: 'Solo el admin puede hacer el onboarding.' }, { status: 403 }) };
   }
-  if (ws === OWNER_WS) {
-    return { error: NextResponse.json({ ok: false, error: 'El workspace principal no tiene onboarding.' }, { status: 400 }) };
+  // El DUEÑO (super-admin sin impersonar) opera sobre OWNER_WS — igual que el resto del
+  // onboarding (resolverWsAdmin en archivero/avatares/…). Antes se rechazaba con 400 y el
+  // wizard no cargaba para él; ahora también puede hacer su propio onboarding (Mauricio
+  // usa MaKo para SU negocio). Los settings del route auto-scopean a OWNER_WS igual.
+  const ws = wsActual ?? ((await getSesionAdmin()) ? OWNER_WS : null);
+  if (ws == null) {
+    return { error: NextResponse.json({ ok: false, error: 'Solo el admin del cliente puede hacer el onboarding.' }, { status: 403 }) };
   }
   return { ws };
 }

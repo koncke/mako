@@ -33,6 +33,7 @@ const SETTINGS_KEYS = [
   'mako.formatos_recom',
   'mako.persona',
   'negocio.fase.diagnostico',
+  'onboarding.state',   // reset → al entrar a /onboarding vuelve a salir el wizard
 ];
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
@@ -67,5 +68,5 @@ await sql.end();
 console.log(`OK — workspace ${WS} (Mauricio) · capa = ${capa}:`);
 console.log(`  · archivos: ${files.count} filas (${filesAntes} antes) + ${borradosStorage} binarios en storage`);
 console.log(`  · settings de negocio: ${setts.count} (${settsAntes} antes)`);
-console.log('Su cuenta e integraciones quedan intactas. Puede rehacer todo desde el hub (tabs vacías).');
-console.log('→ El dueño (OWNER_WS) entra directo al hub. Para ver el WIZARD gateado, impersonar un cliente ("entrar como").');
+console.log('Su cuenta e integraciones quedan intactas.');
+console.log('→ Al entrar a /onboarding le sale el WIZARD secuencial (onboarding.state reseteado); al terminarlo, el hub de tabs.');

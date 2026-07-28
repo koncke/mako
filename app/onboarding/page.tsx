@@ -13,7 +13,6 @@ import { FunnelEditor } from '../funnel/FunnelEditor';
 import { requireRolWs } from '@/lib/tab-access';
 import { getFunnel } from '@/lib/leads';
 import { getEstadoOnboarding, pasosDeCapaActual } from '@/lib/onboarding-state';
-import { getWorkspaceActual, OWNER_WS } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -22,16 +21,14 @@ export default async function OnboardingPage() {
   // gateOnboarding:false — esta ES la página del wizard, no puede redirigirse sola.
   await requireRolWs([], { gateOnboarding: false });
 
-  // Gating: un CLIENTE sin onboarding completo ve el MODAL secuencial (wizard) — sin
-  // ninguna tab — y recién al terminar se desbloquea el hub. El DUEÑO (OWNER_WS) queda
-  // EXENTO: /api/onboarding rechaza el ws principal, así que el wizard no cargaría para
-  // él (lo dejaría en pantalla de error). El dueño entra directo al hub; para PROBAR el
-  // flujo del cliente, la agencia impersona un cliente ("entrar como"). Una capa sin
-  // pasos (super-admin) tampoco tiene wizard → hub.
-  const ws = await getWorkspaceActual();
+  // Gating (pedido de Mauricio): mientras el onboarding NO esté 'done' se ve el MODAL
+  // secuencial (wizard) — NINGUNA tab — y al terminar se desbloquea el hub. Aplica
+  // TAMBIÉN al dueño (Mauricio usa MaKo para su propio negocio): /api/onboarding ahora
+  // resuelve el dueño → OWNER_WS, así que el wizard carga bien, y esAdmin=true le da los
+  // atajos (saltar sin conectar) para no quedar trabado. Una capa sin pasos → hub.
   const estado = await getEstadoOnboarding();
   const pasos = await pasosDeCapaActual();
-  const done = ws == null || ws === OWNER_WS || pasos.length === 0 || estado.status === 'done';
+  const done = pasos.length === 0 || estado.status === 'done';
   if (!done) return <OnboardingWizard />;
 
   // Dueño / cliente ya onboardeado → el hub para cargar/editar el negocio.
