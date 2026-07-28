@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       if (body.action === 'guardar') {
         const arr = Array.isArray(body.avatares) ? body.avatares : [];
         const limpio: Avatar[] = arr
-          .map((a) => { const o = (a ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), nombre: s(o.nombre), descripcion: s(o.descripcion), dolor: s(o.dolor), deseo: s(o.deseo) }; })
+          .map((a) => { const o = (a ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), nombre: s(o.nombre), segmento: s(o.segmento), senalesMeta: s(o.senalesMeta), situacion: s(o.situacion), dolor: s(o.dolor) }; })
           .filter((a) => a.nombre);
         await setAvatares(limpio);
         return Response.json({ ok: true, ...(await estado()) });

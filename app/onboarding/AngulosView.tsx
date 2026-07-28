@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-type Avatar = { id: string; nombre: string; descripcion: string; dolor: string; deseo: string };
+type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: string; situacion: string; dolor: string };
 type Angulo = { id: string; avatarId: string; razon: string; titulo: string; hook: string; descripcion: string };
 type Estado = { angulos: Angulo[]; avatares: Avatar[]; tieneAvatares: boolean; tieneBrief: boolean };
 

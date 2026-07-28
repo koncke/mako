@@ -1,14 +1,14 @@
 'use client';
 
 // =============================================================================
-// El Archivero — repositorio de documentos del negocio (v5)
+// El Archivero — repositorio de documentos del negocio (v7: solo Archivos)
 // =============================================================================
 // Flujo: inicio (soltás docs, con preview) → leyendo → masdocs [slide 1: qué
-// entendí, con desvanecido arriba→abajo (una vez) + fields + preview del doc con
-// acciones | slide 2: te pido el doc que FALTA por nombre] → huecos (cerradas 1x1,
-// con Atrás) → panorama (por secciones; cada caja es PREVIEW read-only con botón
-// Editar/Guardar; archivos con miniatura + acciones debajo). Docs de base, edición
-// manual explícita gana. El insight va en la parte BLANCA (no en el panel negro).
+// entendí, con desvanecido arriba→abajo (una vez) | slide 2: te pido el doc que
+// FALTA] → huecos (cerradas 1x1) → archivos (la lista, con "subir más"). El Resumen,
+// la Oferta y los Avatares ya NO viven acá: son tabs propias del hub (P4). Al entrar,
+// si ya hay documentos abre DIRECTO en la lista, no en el dropzone (P1). Los docs son
+// la base; una edición manual explícita gana. El insight va en la parte BLANCA.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode } from 'react';
@@ -22,7 +22,7 @@ type FileRow = { id: string; nombre: string; mime: string | null; tamano: number
 type Campo = { key: string; label: string; type: string; placeholder?: string; grupo: string };
 type Estado = { files: FileRow[]; brief: Campo[]; answers: Record<string, string>; fuente: Record<string, Fuente>; gaps: string[]; panorama: string; esSuperAdmin: boolean };
 type PregCerrada = { key: string; pregunta: string; opciones: string[] };
-type Vista = 'inicio' | 'leyendo' | 'masdocs' | 'huecos' | 'panorama';
+type Vista = 'inicio' | 'leyendo' | 'masdocs' | 'huecos' | 'archivos';
 type Grupo = { label: string; campos: Campo[] };
 
 const fmtSize = (n?: number | null) => (!n ? '' : n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -93,17 +93,6 @@ function DocAcciones({ id, confirm, onConfirm, onBorrar }: { id: string; confirm
   );
 }
 
-// Campo EDITABLE en el lugar: se ve igual que el texto (misma tipografía), al hacer
-// click ponés el cursor y editás; al salir (blur) se guarda si cambió. Sin recuadros.
-function CampoEditable({ valor, onSave }: { valor: string; onSave: (v: string) => void }) {
-  return (
-    <div className="arch-edit" contentEditable suppressContentEditableWarning spellCheck={false}
-      onBlur={(e) => { const nv = (e.currentTarget.textContent || '').replace(/\s+/g, ' ').trim(); if (nv !== valor.trim()) onSave(nv); }}
-      style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.55, outline: 'none', cursor: 'text', borderRadius: 7, padding: '4px 8px', margin: '0 -8px', minHeight: 20 }}
-    >{valor}</div>
-  );
-}
-
 export function Archivero({ onEstado }: {
   onEstado?: (answers: Record<string, string>) => void;
   onFacts?: (facts: { k: string; v: string }[]) => void; // ya NO se usa (el insight va en blanco)
@@ -122,15 +111,21 @@ export function Archivero({ onEstado }: {
   const [cargandoPreg, setCargandoPreg] = useState(false);
   const [otroKey, setOtroKey] = useState<string | null>(null);
   const [otroVal, setOtroVal] = useState('');
-  const [panoTab, setPanoTab] = useState<string>('resumen');
   const inputRef = useRef<HTMLInputElement>(null);
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
+  const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
 
   const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); }, [onEstado]);
 
   const cargar = useCallback(async () => {
-    try { const j = await (await fetch('/api/onboarding/archivero')).json(); if (j.ok) aplicar(j as Estado); else setErr(j.error || 'No se pudo cargar.'); }
-    catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargando(false); }
+    try {
+      const j = await (await fetch('/api/onboarding/archivero')).json();
+      if (j.ok || j.brief) {
+        aplicar(j as Estado);
+        // Al entrar, si ya hay documentos, abrimos DIRECTO en la lista (no en el dropzone).
+        if (primera.current && Array.isArray(j.files) && j.files.length > 0) setVista('archivos');
+      } else setErr(j.error || 'No se pudo cargar.');
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { primera.current = false; setCargando(false); }
   }, [aplicar]);
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -158,14 +153,14 @@ export function Archivero({ onEstado }: {
   };
 
   const seguirDesdeMasDocs = async () => {
-    if (!est || est.gaps.length === 0) { setPanoTab('resumen'); setVista('panorama'); return; }
+    if (!est || est.gaps.length === 0) { setVista('archivos'); return; }
     setCargandoPreg(true); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/archivero/preguntas', { method: 'POST' })).json();
       const pregs: PregCerrada[] = Array.isArray(j.preguntas) ? j.preguntas : [];
       setPreguntas(pregs); setGapIdx(0); setOtroKey(null); setOtroVal('');
-      setVista(pregs.length ? 'huecos' : 'panorama');
-    } catch { setVista('panorama'); }
+      setVista(pregs.length ? 'huecos' : 'archivos');
+    } catch { setVista('archivos'); }
     finally { setCargandoPreg(false); }
   };
 
@@ -184,7 +179,7 @@ export function Archivero({ onEstado }: {
   const responderGap = async (key: string, valor: string | null) => {
     if (valor && valor.trim()) await guardarManual({ [key]: valor.trim() });
     setOtroKey(null); setOtroVal('');
-    if (gapIdx + 1 >= preguntas.length) { setPanoTab('resumen'); setVista('panorama'); } else setGapIdx((i) => i + 1);
+    if (gapIdx + 1 >= preguntas.length) setVista('archivos'); else setGapIdx((i) => i + 1);
   };
 
   if (cargando || !est) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>{err ? <span style={{ color: 'var(--bad)' }}>{err}</span> : 'Cargando el archivero…'}</div>;
@@ -193,13 +188,31 @@ export function Archivero({ onEstado }: {
   const hayPerfil = Object.keys(est.answers).length > 0;
   const grupos: Grupo[] = [];
   for (const c of est.brief) { let g = grupos.find((x) => x.label === c.grupo); if (!g) { g = { label: c.grupo, campos: [] }; grupos.push(g); } g.campos.push(c); }
-  const fuenteTxt = (k: string) => { const f = est.fuente[k]; return !f ? 'a mano' : f.tipo === 'manual' ? 'a mano' : (f.nombre || 'un archivo'); };
   const previewUrl = (id: string) => `/api/onboarding/archivero/download?id=${id}&preview=1`;
 
   const keyframes = <style>{'@keyframes arch-spin{to{transform:rotate(360deg)}}@keyframes arch-reveal{from{clip-path:inset(0 0 100% 0);opacity:.35}to{clip-path:inset(0 0 0 0);opacity:1}}.arch-edit:hover{background:var(--surface-2)}.arch-edit:focus{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-strong)}'}</style>;
   const cajaWarn = warnings.length > 0 && (
     <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px' }}>
       {warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 }}>· {w}</div>)}
+    </div>
+  );
+
+  // Lista de archivos reutilizable (miniatura + acciones + razonamiento).
+  const listaArchivos = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {est.files.map((f) => (
+        <div key={f.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 9, alignItems: 'center' }}>
+            <DocThumb mime={f.mime} nombre={f.nombre} src={previewUrl(f.id)} />
+            <DocAcciones id={f.id} confirm={confirmDel === f.id} onConfirm={() => setConfirmDel(f.id)} onBorrar={() => borrar(f.id)} />
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</div>
+            {f.razonamiento && <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55 }}>{f.razonamiento}</div>}
+            <div style={{ ...eyebrow, marginTop: 8, fontSize: 10 }}>{fmtSize(f.tamano)}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ' · sin datos'}</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -219,10 +232,8 @@ export function Archivero({ onEstado }: {
   if (vista === 'masdocs') {
     const insights = est.files.filter((f) => (f.razonamiento || '').trim());
     const recibidos = grupos.filter((g) => g.campos.length > 0 && conDato(g, est.answers));
-    const faltan = grupos.filter((g) => g.campos.length > 0 && !conDato(g, est.answers));
 
-    // Slide 1: qué entendí — una CAJA por documento (título del tipo + descripción +
-    // miniatura con acciones) y una caja con los datos. Fade escalonado de arriba→abajo.
+    // Slide 1: qué entendí — una CAJA por documento + una caja con los datos.
     if (masSlide === 'insight') {
       return (
         <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 0' }}>
@@ -257,7 +268,7 @@ export function Archivero({ onEstado }: {
                   <div style={{ width: 42, height: 42, borderRadius: 999, background: 'var(--good-bg)', color: 'var(--good)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flex: 'none' }}>✓</div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Listo, ya conozco tu negocio</div>
-                    <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Los puedes revisar y corregir en tu perfil.</div>
+                    <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Los revisas en las tabs de tu perfil.</div>
                   </div>
                 </div>
               </Fade>
@@ -271,10 +282,9 @@ export function Archivero({ onEstado }: {
       );
     }
 
-    // Slide 2: pedir otro documento — título fijo + nombres de los docs recibidos +
-    // qué campo falta específico. Español plano. "Volver" siempre al piso del modal.
+    // Slide 2: pedir otro documento — título fijo + nombres de docs + qué falta.
     const gapTerms = [...new Set(est.gaps.map((k) => TERMINO_CAMPO[k]).filter(Boolean))];
-    const secundario = est.gaps.length > 0 ? 'Completar a mano →' : 'Ver mi perfil →';
+    const secundario = est.gaps.length > 0 ? 'Completar a mano →' : 'Ver mis documentos →';
     const nombresDocs = est.files.map((f) => f.nombre);
     const cubren = recibidos.map((g) => grupoWord(g.label));
     return (
@@ -318,7 +328,7 @@ export function Archivero({ onEstado }: {
   // ── HUECOS: preguntas CERRADAS 1x1 (con Atrás) ──────────────────────────────
   if (vista === 'huecos') {
     const p = preguntas[gapIdx];
-    if (!p) { setVista('panorama'); return null; }
+    if (!p) { setVista('archivos'); return null; }
     const enOtro = otroKey === p.key;
     return (
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
@@ -346,91 +356,33 @@ export function Archivero({ onEstado }: {
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
             {gapIdx > 0 && <button type="button" onClick={() => { setOtroKey(null); setGapIdx((i) => Math.max(0, i - 1)); }} style={link}>← Atrás</button>}
             <button type="button" onClick={() => responderGap(p.key, null)} style={link}>Saltar</button>
-            <button type="button" onClick={() => { setPanoTab('resumen'); setVista('panorama'); }} style={link}>Terminar</button>
+            <button type="button" onClick={() => setVista('archivos')} style={link}>Terminar</button>
           </div>
         )}
       </div>
     );
   }
 
-  // ── PANORAMA: por secciones (Resumen · grupos read-only con Editar · Archivos) ─
-  if (vista === 'panorama') {
+  // ── ARCHIVOS: la lista, con "subir más" ─────────────────────────────────────
+  if (vista === 'archivos') {
     const gaps = est.gaps.length;
-    const gruposConDato = grupos.filter((g) => g.campos.length > 0);
-    const secciones: Array<{ id: string; label: string }> = [
-      { id: 'resumen', label: 'Resumen' },
-      ...gruposConDato.map((g) => ({ id: `g:${g.label}`, label: g.label })),
-      { id: 'archivos', label: `Archivos${hayArchivos ? ` · ${est.files.length}` : ''}` },
-    ];
-    const tabActiva = secciones.some((s) => s.id === panoTab) ? panoTab : 'resumen';
-    const grupoActivo = tabActiva.startsWith('g:') ? gruposConDato.find((g) => `g:${g.label}` === tabActiva) : null;
-
     return (
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {keyframes}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={link}>← Subir más documentos</button>
-          {gaps > 0 && <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...link, color: 'var(--primary)', fontWeight: 600 }}>{cargandoPreg ? 'Preparando…' : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} →`}</button>}
-        </div>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {secciones.map((s) => {
-            const on = s.id === tabActiva;
-            return <button key={s.id} type="button" onClick={() => setPanoTab(s.id)}
-              style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 600, letterSpacing: '.03em', padding: '8px 14px', borderRadius: 999, cursor: 'pointer', border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)' }}>{s.label}</button>;
-          })}
-        </div>
-
-        {/* RESUMEN — el título va AFUERA del cuadro */}
-        {tabActiva === 'resumen' && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 10 }}>✦ Esto entendí de tu negocio</div>
-            <div style={card}>
-              {est.panorama.trim()
-                ? <Fade id="pano" seen={vistos}><PanoramaText text={est.panorama} /></Fade>
-                : <div style={{ fontSize: 15, color: 'var(--dim)' }}>Sube tus documentos y aquí te armo el panorama completo.</div>}
-            </div>
+            <div style={{ ...eyebrow, marginBottom: 3 }}>Tus documentos{hayArchivos ? ` · ${est.files.length}` : ''}</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)' }}>Todo lo que subiste. MaKo lo lee y arma tu perfil.</div>
           </div>
+          <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
+        </div>
+        {gaps > 0 && (
+          <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, alignSelf: 'flex-start', color: 'var(--primary)', fontWeight: 600, borderColor: 'var(--primary)' }}>
+            {cargandoPreg ? 'Preparando…' : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} que faltan →`}
+          </button>
         )}
-
-        {/* GRUPO — tocá el texto para editarlo en el lugar (sin botón, sin recuadro) */}
-        {grupoActivo && (
-          <div>
-            <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 10 }}>{grupoActivo.label} · toca un dato para editarlo</div>
-            <div style={card}>
-              {grupoActivo.campos.filter((c) => (est.answers[c.key] ?? '').trim()).map((c, i) => (
-                <div key={c.key} style={{ padding: '13px 0', borderTop: i ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ fontSize: 13, color: 'var(--faint)', marginBottom: 5 }}>{c.label}</div>
-                  <CampoEditable key={`${c.key}:${est.answers[c.key] ?? ''}`} valor={est.answers[c.key] ?? ''} onSave={(v) => guardarManual({ [c.key]: v })} />
-                  <div style={{ ...eyebrow, fontSize: 10, marginTop: 6 }}>· {fuenteTxt(c.key)}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ARCHIVOS: miniatura + acciones DEBAJO de la miniatura */}
-        {tabActiva === 'archivos' && (
-          hayArchivos ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {est.files.map((f) => (
-                <div key={f.id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                  <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 9, alignItems: 'center' }}>
-                    <DocThumb mime={f.mime} nombre={f.nombre} src={previewUrl(f.id)} />
-                    <DocAcciones id={f.id} confirm={confirmDel === f.id} onConfirm={() => setConfirmDel(f.id)} onBorrar={() => borrar(f.id)} />
-                  </div>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.nombre}</div>
-                    {f.razonamiento && <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 5, lineHeight: 1.55 }}>{f.razonamiento}</div>}
-                    <div style={{ ...eyebrow, marginTop: 8, fontSize: 10 }}>{fmtSize(f.tamano)}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ' · sin datos'}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>
-        )}
-
-        {!hayPerfil && !hayArchivos && <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Sube tus documentos para armar tu perfil.</div>}
+        {hayArchivos ? listaArchivos : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>}
+        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, textAlign: 'center' }}>{err}</div>}
       </div>
     );
   }
@@ -473,26 +425,11 @@ export function Archivero({ onEstado }: {
 
       {(hayPerfil || hayArchivos) && cola.length === 0 && (
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <button type="button" onClick={() => { setPanoTab('resumen'); setVista('panorama'); }} style={link}>Ver lo que MaKo ya sabe de tu negocio →</button>
+          <button type="button" onClick={() => setVista('archivos')} style={link}>Ver mis documentos →</button>
         </div>
       )}
       {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 14, textAlign: 'center' }}>{err}</div>}
       {cajaWarn && <div style={{ marginTop: 12 }}>{cajaWarn}</div>}
     </div>
   );
-}
-
-// El panorama viene con subtítulos EN MAYÚSCULA + párrafos (limpiamos markdown).
-function PanoramaText({ text }: { text: string }) {
-  const lines = text.replace(/\r/g, '').split('\n');
-  const out: ReactNode[] = [];
-  let k = 0;
-  const esSub = (l: string) => l.length > 0 && l.length <= 48 && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l) && !/[a-záéíóúñ]/.test(l);
-  for (const raw of lines) {
-    const l = raw.trim().replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
-    if (!l) continue;
-    if (esSub(l)) out.push(<div key={k++} style={{ ...eyebrow, color: 'var(--accent)', marginTop: out.length ? 18 : 0, marginBottom: 7 }}>{l.replace(/[:：]$/, '')}</div>);
-    else out.push(<p key={k++} style={{ fontSize: 15, color: 'var(--ink)', lineHeight: 1.65, margin: '0 0 9px' }}>{l.replace(/^[-•·]\s*/, '')}</p>);
-  }
-  return <div>{out}</div>;
 }
