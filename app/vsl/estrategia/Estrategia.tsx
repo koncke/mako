@@ -80,18 +80,18 @@ const DIAG = [
   'Qué cambiar para la próxima versión',
 ];
 
-// La duda abierta: ¿hace falta el gancho? (el setter de IA va igual)
+// La duda abierta: ¿cuánto suma personalizar?
 const DUDA_CON = [
   'Baja la fricción para que escriban: piden un recurso, no información de un servicio',
   'Llega a la llamada sabiendo qué tiene mal',
-  'Hay que grabar un Loom por cada lead que responde: ~200 videos en el mes',
-  'El setter tiene que saber diagnosticar, no solo calificar',
+  'Un Loom grabado por cada lead que responde: ~200 videos en el mes',
+  'Nada se reutiliza: cada diagnóstico y cada video se hacen de cero',
 ];
 
 const DUDA_SIN = [
-  'El anuncio promociona MaKo y el setter califica y agenda, nada más',
-  'Se arranca mañana, sin producir nada',
+  'El mismo mensaje para todos, y se arranca mañana',
   'Menos conversaciones, pero más calificadas: el que escribe ya quiere el software',
+  'Todo el presupuesto va a pauta, no a operativa',
   'Llega frío a la llamada',
 ];
 
@@ -418,20 +418,20 @@ export default function Estrategia() {
           <div className="s-duda">
             <h3 className="s-duda-h">¿Realmente conviene hacerlo personalizado?</h3>
             <p className="s-duda-p">
-              El <b>setter de IA no está en discusión</b>: hace falta igual para llevar la conversación a la
-              llamada. Lo que se discute es el gancho — el diagnóstico gratis en la campaña y el Loom
-              grabado para cada lead en la prospección. La alternativa es promocionar MaKo directo y que
-              el setter califique y agende, sin nada alrededor.
+              Los dos caminos de arriba son <b>a medida</b>: un diagnóstico distinto para cada anuncio y un
+              video grabado para cada lead. Es lo que más operativa suma, y ninguna de las dos cosas se
+              reutiliza. La alternativa es promocionar MaKo con el mismo mensaje para todos. La pregunta
+              abierta es <b>cuánto sube realmente la chance de cerrar</b> por hacerlo personalizado.
             </p>
             <div className="s-duda-cols">
               <div className="s-duda-col s-duda-con">
-                <span className="s-duda-l">Con gancho</span>
+                <span className="s-duda-l">Con personalización</span>
                 <ul>
                   {DUDA_CON.map((x) => <li key={x}>{x}</li>)}
                 </ul>
               </div>
               <div className="s-duda-col s-duda-sin">
-                <span className="s-duda-l">Directo, sin gancho</span>
+                <span className="s-duda-l">Sin personalización</span>
                 <ul>
                   {DUDA_SIN.map((x) => <li key={x}>{x}</li>)}
                 </ul>
