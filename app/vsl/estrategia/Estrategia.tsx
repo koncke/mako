@@ -3,15 +3,16 @@
 // =============================================================================
 // NO es una landing de venta: es la síntesis de la estrategia comercial de MaKo
 // para presentarle a un mentor/consultor y pedirle opinión.
-// Prioridad: minimalista + gráfico, en lenguaje llano (sin jerga interna).
+// Prioridad: minimalista + gráfico, en lenguaje llano (sin jerga interna) y con
+// nombres de sección explícitos.
 //
-// Revisión 28-jul-2026 (3):
-//   · Se sacan las etiquetas de estatus (Decidido / Recomendado).
-//   · "Los dos motores" y "Proyección financiera" quedan separados.
-//   · La proyección se calcula HACIA ATRÁS desde un objetivo de $10,000, con
-//     tasas propias por canal (responden, agendan, asisten, cierran).
-//   · Nuevo apartado: con qué se abre cada canal (lead magnet con A/B en la
-//     campaña; video personalizado en la prospección).
+// Revisión 28-jul-2026 (4). Orden del documento = orden del razonamiento:
+//   producto → oferta → cómo consigo gente → con qué la engancho →
+//   por qué agenda → qué pasa en la llamada → cuánto da → qué viene después.
+//
+// La proyección se calcula HACIA ATRÁS desde $10,000, y el embudo por canal
+// vive en la estrategia de adquisición (no en la proyección): la campaña paga
+// aporta más llamadas que la prospección, y el cierre en llamada es alto.
 //
 // Autocontenido (mismo truco que _detalle/FeatureDetail): una capa
 // position:fixed a pantalla completa que tapa y oculta el sidebar del layout
@@ -53,6 +54,23 @@ const TIERS = [
   },
 ] as const;
 
+// Embudo por canal. Los dos terminan en "llamadas agendadas".
+type Row = { l: string; v: string; rate?: string; hi?: boolean };
+
+const CANAL_A: Row[] = [
+  { l: 'Inversión', v: '$0' },
+  { l: 'Conversaciones abiertas', v: '1,000' },
+  { l: 'Responden', v: '350', rate: '35%' },
+  { l: 'Llamadas agendadas', v: '7', rate: '2% de los que responden', hi: true },
+];
+
+const CANAL_B: Row[] = [
+  { l: 'Inversión', v: '$1,000' },
+  { l: 'Conversaciones iniciadas', v: '400', rate: '$2.50 cada una' },
+  { l: 'Responden', v: '220', rate: '55%' },
+  { l: 'Llamadas agendadas', v: '9', rate: '4% de los que responden', hi: true },
+];
+
 // Lo que se lleva el prospecto de la llamada, en criollo.
 const LLEVA = [
   'A quién le tenés que vender — los tipos de cliente que hoy estás mezclando en un solo anuncio',
@@ -62,48 +80,26 @@ const LLEVA = [
   'Con cuánto arrancar, qué publicar primero y cómo saber cuál está funcionando',
 ];
 
-// Proyección: se calcula hacia atrás desde el objetivo.
-type Row = { l: string; v: string; rate?: string; hi?: boolean };
-
-const CANAL_A: Row[] = [
-  { l: 'Inversión', v: '$0' },
-  { l: 'Mensajes enviados', v: '550', rate: '25 por día · 22 días' },
-  { l: 'Conversaciones', v: '248', rate: '45% responde' },
-  { l: 'Llamadas agendadas', v: '20', rate: '8% agenda' },
-  { l: 'Llamadas efectivas', v: '15', rate: '75% asiste' },
-  { l: 'Ventas', v: '4', rate: '30% cierra', hi: true },
-];
-
-const CANAL_B: Row[] = [
-  { l: 'Inversión', v: '$1,000' },
-  { l: 'Conversaciones iniciadas', v: '333', rate: '$3 por conversación' },
-  { l: 'Conversaciones activas', v: '200', rate: '60% responde' },
-  { l: 'Llamadas agendadas', v: '10', rate: '5% agenda' },
-  { l: 'Llamadas efectivas', v: '7', rate: '70% asiste' },
-  { l: 'Ventas', v: '2', rate: '25% cierra', hi: true },
+// Proyección financiera: de las llamadas al dinero.
+const CIERRE = [
+  { l: 'Llamadas agendadas', v: '16', rate: '7 de prospección + 9 de campaña' },
+  { l: 'Llamadas efectivas', v: '13', rate: '80% asiste' },
+  { l: 'Ventas', v: '5', rate: '40% cierra', hi: true },
 ];
 
 const MIX = [
-  { q: '1', name: 'MaKo 1 a 1', price: '$4,000', total: '$4,000', tone: 'uno' },
-  { q: '4', name: 'MaKo Grupal', price: '$1,500', total: '$6,000', tone: 'grupal' },
-  { q: '1', name: 'MaKo Solo', price: '$497', total: '$497', tone: 'solo' },
+  { q: '1', name: 'MaKo 1 a 1', price: '$4,000 c/u', total: '$4,000', tone: 'uno' },
+  { q: '4', name: 'MaKo Grupal', price: '$1,500 c/u', total: '$6,000', tone: 'grupal' },
 ];
 
 const UNIT = [
-  { l: 'Ticket promedio', v: '$1,750' },
-  { l: 'Costo por llamada agendada (campaña)', v: '$100' },
-  { l: 'Costo por cliente (campaña)', v: '$500' },
-  { l: 'Retorno de la campaña', v: '3.5×' },
+  { l: 'Ticket promedio', v: '$2,000' },
+  { l: 'Costo por llamada agendada (campaña)', v: '$111' },
+  { l: 'Costo por cliente (campaña)', v: '$333' },
+  { l: 'Retorno de la campaña', v: '4.5×' },
 ];
 
-// Lead magnets a probar en la campaña de mensajes.
-const MAGNETS = [
-  { t: 'El diagnóstico de tu funnel', w: 'Lo genera MaKo con lo que el lead cuenta de su negocio. Es el que mejor se conecta con lo que se vende después.' },
-  { t: 'Acceso a la comunidad y los cursos', w: 'Ya existe. Formato “mucho qué, poco cómo”: le muestra todo lo que tendría que estar haciendo y no está haciendo.' },
-  { t: 'La biblioteca de material traducido', w: 'Los libros y recursos de referencia del mercado, traducidos. Costo cero de producción y percepción de valor alta.' },
-];
-
-// Canales que quedan para después de los dos motores actuales.
+// Canales que quedan para después de los dos actuales.
 const FUTURO = [
   {
     id: 'C',
@@ -131,7 +127,7 @@ const FUTURO = [
     name: 'Webinar',
     cost: 'Requiere caja',
     costTone: 'paid',
-    what: 'Webinar de 3 días sobre VSL Funnel con CTA a llamada 1 a 1. Queda para cuando haya ads corriendo: ahí se automatiza, se repite todos los meses y no depende de llenar la sala a pulmón. El contenido se aprovecha antes como video corto pre-llamada.',
+    what: 'Webinar de 3 días sobre VSL Funnel con CTA a llamada 1 a 1. Queda para cuando haya ads corriendo: ahí se automatiza, se repite todos los meses y no depende de llenar la sala a pulmón.',
   },
   {
     id: 'G',
@@ -141,53 +137,6 @@ const FUTURO = [
     what: 'Un infoproductor con cientos de dueños que ya corren ads: un solo sí abre acceso a todos, ya calificados. Caso concreto: Jan.',
   },
 ] as const;
-
-// Inventario de funcionalidades que faltan, por prioridad.
-type Feat = { t: string; w: string };
-type Group = { p: string; label: string; tone: 'p1' | 'p2' | 'p3'; items: Feat[] };
-
-const FEATURES: Group[] = [
-  {
-    p: 'Prioridad 1',
-    label: 'Sin esto no se puede vender ni correr la campaña',
-    tone: 'p1',
-    items: [
-      { t: 'Fábrica de creativos en video e imagen', w: 'La última funcionalidad grande que falta. Es lo que se muestra en la llamada y lo que produce los propios anuncios de la campaña.' },
-      { t: 'Nutrición completa + Setter que califica solo', w: 'Hoy la nutrición está a medias. Tiene que pasar a ser un setter que califique leads automáticamente por WhatsApp; después Gmail e Instagram.' },
-      { t: 'MaKo adaptado a campañas de mensajes', w: 'Todo el producto asume hoy un VSL Funnel. La campaña de mensajes tiene otro recorrido, otros estados y otras métricas.' },
-      { t: 'Carga masiva de leads al CRM', w: 'Subir las listas de prospección en frío en bloque, sin cargarlas de a una.' },
-      { t: 'Origen y atribución de cada lead', w: 'Distinguir si vino de campaña de mensajes, de VSL o de carga manual — y hasta de qué anuncio. Sin esto no se puede declarar un ganador.' },
-      { t: 'Definir el trial', w: 'La app entrega el 80% de su valor en los primeros segundos. Hay que decidir qué se limita: bloquea el lead magnet, la demo y el entregable de la llamada.' },
-    ],
-  },
-  {
-    p: 'Prioridad 2',
-    label: 'Para operar el volumen y decidir con datos',
-    tone: 'p2',
-    items: [
-      { t: 'Setting Analyst', w: 'Evaluar cómo está respondiendo el bot y ver las métricas de mensajes, que son las que gobiernan la campaña.' },
-      { t: 'Métricas de campaña de mensajes', w: 'Costo por conversación, por respuesta, por lead calificado, por agenda y por venta. Son otras que las del funnel de VSL.' },
-      { t: 'Cola diaria del setter', w: 'A quién le escribo hoy, en qué paso está cada uno y a quién le toca el seguimiento. Sin la cola, el volumen no se sostiene.' },
-      { t: 'Análisis de la competencia', w: 'Scraping de landings, Instagram y biblioteca de anuncios para personalizar el mensaje de prospección y alimentar la demo.' },
-      { t: 'Guion del video personalizado', w: 'MaKo arma el análisis del negocio del prospecto a partir de su perfil y sus anuncios, listo para grabar.' },
-      { t: 'Checklist con deadline', w: 'MaKo muestra muy bien el dato del mercado, pero no le dice al cliente qué tiene que hacer él y para cuándo.' },
-      { t: 'Pruebas A/B', w: 'De mensajes, de campañas, de creativos y de lead magnets. Todo lo que se larga tiene que poder compararse.' },
-    ],
-  },
-  {
-    p: 'Prioridad 3',
-    label: 'Para escalar la base de clientes',
-    tone: 'p3',
-    items: [
-      { t: 'Más de un funnel por cuenta', w: 'Hoy un cliente se cataloga como “VSL Funnel”. Si además corre campaña de mensajes, el CRM tiene que separar los leads de cada uno.' },
-      { t: 'Productos y lead magnets configurables', w: 'Saber qué oferta se vendió cuando hay varias, y tratar a los lead magnets como producto gratuito con su propia medición.' },
-      { t: 'Checkout y alta automática', w: 'Que pagar cree el workspace y mande los accesos solo. Hoy el alta de cliente es a mano y no aguanta un mes con varias ventas.' },
-      { t: 'Entregable de la llamada', w: 'Poder darle al prospecto su estrategia en PDF o link, sin entregarle la app completa.' },
-      { t: 'Cursos, PDFs y comunidad', w: 'Es lo que promete la escalera en los tres niveles y todavía no existe.' },
-      { t: 'Módulo de Customer Success', w: 'Onboarding, tableros, bitácora, fases configurables, testimonios y comunidad. Vive en su propio roadmap.' },
-    ],
-  },
-];
 
 // ── Iconos mínimos ───────────────────────────────────────────────────────────
 
@@ -204,6 +153,9 @@ const I = {
   bolt: ['M13 3v7h6l-8 11v-7h-6z'],
   check: ['M5 12l4 4l10 -10'],
   chev: ['M9 6l6 6l-6 6'],
+  chat: ['M8 9h8', 'M8 13h6', 'M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3z'],
+  megaphone: ['M18 8a3 3 0 0 1 0 6', 'M10 8v11a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-5', 'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8'],
+  video: ['M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z', 'M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z'],
 };
 
 // Escalerita de métricas de un canal.
@@ -249,17 +201,9 @@ export default function Estrategia() {
           <h1 className="s-h1">Cómo vamos a vender <span className="s-gold">MaKo</span></h1>
           <p className="s-lead">
             El software para vender high ticket con <strong>VSL Funnel</strong>. Una escalera de tres
-            ofertas para que <strong>cualquier lead compre algo</strong>, empujada por dos motores de
-            adquisición: <strong>prospección</strong> a costo cero y <strong>campaña de mensajes</strong> a WhatsApp.
+            ofertas para que <strong>cualquier lead compre algo</strong>, empujada por dos canales:
+            <strong> prospección</strong> a costo cero y <strong>campaña de mensajes</strong> a WhatsApp.
           </p>
-          <div className="s-rev">
-            <span className="s-rev-l">Qué cambió en esta revisión</span>
-            <p>
-              El motor anterior era un webinar pago en agosto. <b>Pasa a canales a futuro</b>: rinde cuando
-              hay ads corriendo y se puede repetir todos los meses, no a pulmón. En su lugar entran
-              prospección manual y campaña de mensajes, que cuestan una fracción y dan señal antes.
-            </p>
-          </div>
         </section>
 
         {/* ── Producto + ICP ───────────────────────────────────────────────── */}
@@ -310,79 +254,47 @@ export default function Estrategia() {
           </div>
         </section>
 
-        {/* ── Cómo se corre la escalera en la llamada ──────────────────────── */}
+        {/* ── Estrategia de adquisición ────────────────────────────────────── */}
         <section className="s-sec">
-          <h2 className="s-h2">Cómo se corre la escalera en la llamada</h2>
-          <p className="s-sec-sub">Siempre se pitchea primero el 1 a 1. El descenso no es descuento: es <em>“tengo algo para tu situación”</em>.</p>
-          <div className="s-ladder">
-            <div className="s-rung s-rung-1">
-              <div className="s-rung-hd"><span className="s-rung-n">1</span> Pitch principal — <span className="s-num">$4,000</span></div>
-              <p>“Necesitás que alguien se meta de verdad en tu funnel y tome, con datos, las decisiones correctas. Eso es el 1 a 1: MaKo completo y yo trabajando tu VSL Funnel con vos.”</p>
-            </div>
-            <div className="s-rung-if">Si “me encanta, pero no tengo esa plata ahora” ↓</div>
-            <div className="s-rung s-rung-2">
-              <div className="s-rung-hd"><span className="s-rung-n">2</span> Grupal — <span className="s-num">$1,500</span></div>
-              <p>“Para eso tengo otra opción. Te llevás MaKo completo igual, más un grupo donde te acompaño en tus decisiones. $1,500 por cuatro meses.”</p>
-            </div>
-            <div className="s-rung-if">Si tampoco ↓</div>
-            <div className="s-rung s-rung-3">
-              <div className="s-rung-hd"><span className="s-rung-n">3</span> Solo — <span className="s-num">$497</span></div>
-              <p>“Sin problema. Te llevás MaKo completo con los cursos y tutoriales para que lo corras vos. Cuando el funnel te dé, subís.”</p>
-            </div>
-          </div>
-          <div className="s-rule">
-            <Ic d={I.bolt} size={16} />
-            <span><b>Regla:</b> al que califica y tiene plata, se le sostiene el 1 a 1 (no bajar por comodidad). El descenso es solo para el que de verdad no puede.</span>
-          </div>
-        </section>
+          <h2 className="s-h2">Estrategia de adquisición</h2>
 
-        {/* ── Por qué agenda ───────────────────────────────────────────────── */}
-        <section className="s-sec s-band">
-          <h2 className="s-h2">Por qué te agenda la llamada</h2>
-          <div className="s-egoist">
-            <p className="s-egoist-q">“Salís de la llamada con toda tu estrategia para conseguir clientes con anuncios pagos, armada para tu negocio.”</p>
-            <ul className="s-lleva">
-              {LLEVA.map((x) => (
-                <li key={x}><Ic d={I.check} size={15} /><span>{x}</span></li>
-              ))}
-            </ul>
-            <p className="s-egoist-w">
-              No se pitchea el software. Al que ya corre anuncios, un creativo suelto no lo impresiona:
-              <em> “esa imagen la podría haber hecho yo”</em>. Lo que no tiene es claridad de <b>a quién le está
-              vendiendo y por qué le compran</b>. Eso es lo que se le entrega, y se arma en vivo durante la
-              llamada, compartiendo pantalla.
-            </p>
-          </div>
-        </section>
-
-        {/* ── Los dos motores ──────────────────────────────────────────────── */}
-        <section className="s-sec">
-          <h2 className="s-h2">Los dos motores</h2>
-          <div className="s-wmodel">
-            <span className="s-wmodel-step">Prospección + <b>campaña de mensajes</b></span>
-            <Ic d={I.chev} size={14} />
-            <span className="s-wmodel-step">Conversación por <b>WhatsApp</b></span>
-            <Ic d={I.chev} size={14} />
-            <span className="s-wmodel-step">Video corto <b>pre-llamada</b></span>
-            <Ic d={I.chev} size={14} />
-            <span className="s-wmodel-step">Llamada <b>1 a 1</b> · 2 ofertas</span>
+          {/* El recorrido, en tres pasos */}
+          <div className="s-flow">
+            <div className="s-flow-i">
+              <div className="s-flow-ic"><Ic d={I.megaphone} size={26} /></div>
+              <span className="s-flow-n">01</span>
+              <h3>Prospección + campaña de mensajes</h3>
+            </div>
+            <div className="s-flow-arrow"><Ic d={I.chev} size={26} /></div>
+            <div className="s-flow-i">
+              <div className="s-flow-ic"><Ic d={I.chat} size={26} /></div>
+              <span className="s-flow-n">02</span>
+              <h3>Conversación por WhatsApp</h3>
+            </div>
+            <div className="s-flow-arrow"><Ic d={I.chev} size={26} /></div>
+            <div className="s-flow-i s-flow-end">
+              <div className="s-flow-ic"><Ic d={I.video} size={26} /></div>
+              <span className="s-flow-n">03</span>
+              <h3>Llamada 1 a 1</h3>
+            </div>
           </div>
 
+          {/* Los dos canales, con su embudo */}
           <div className="s-motors">
             <div className="s-motor s-motor-a">
               <div className="s-motor-hd">
                 <span className="s-motor-id">A</span>
                 <div>
                   <h3 className="s-motor-name">Prospección</h3>
-                  <span className="s-motor-sub">Círculo rojo y tibio, a mano</span>
+                  <span className="s-motor-sub">Círculo rojo + leads 100% fríos</span>
                 </div>
                 <span className="s-motor-cost s-motor-cost-zero">Costo cero</span>
               </div>
               <div className="s-motor-facts">
-                <div><b>25</b> mensajes por día</div>
-                <div><b>Sin</b> lead magnet</div>
-                <div>Se abre con un <b>video personalizado</b></div>
+                <div><b>1,000</b> conversaciones abiertas en agosto</div>
+                <div>La prospección es personalizada: <b>un Loom VSL por cada lead</b></div>
               </div>
+              <Ladder rows={CANAL_A} />
             </div>
 
             <div className="s-motor s-motor-b">
@@ -396,55 +308,64 @@ export default function Estrategia() {
               </div>
               <div className="s-spend">
                 <div className="s-sp s-sp-1">
-                  <div className="s-sp-hd"><span className="s-sp-n">Fase 1</span><span className="s-sp-t">Encontrar el ganador</span></div>
+                  <div className="s-sp-hd"><span className="s-sp-n">Fase 1</span><span className="s-sp-t">Testear Ad ganador</span></div>
                   <div className="s-sp-v s-num">$300</div>
-                  <div className="s-sp-m">72 horas · $100 por día · todos los anuncios juntos</div>
                 </div>
                 <div className="s-sp s-sp-2">
                   <div className="s-sp-hd"><span className="s-sp-n">Fase 2</span><span className="s-sp-t">Escalar</span></div>
                   <div className="s-sp-v s-num">$700</div>
-                  <div className="s-sp-m">El resto del mes · solo el ganador</div>
                 </div>
               </div>
+              <Ladder rows={CANAL_B} />
             </div>
+          </div>
+
+          <div className="s-assume">
+            La campaña paga aporta <b>más llamadas que la prospección</b>, aunque sea el canal más chico en
+            volumen de contactos: el que escribe por un anuncio ya levantó la mano. Ninguna de estas tasas
+            está medida todavía — se corrigen con las primeras 100 conversaciones y las primeras 72 horas
+            de campaña.
           </div>
         </section>
 
-        {/* ── Con qué se abre cada canal ───────────────────────────────────── */}
+        {/* ── Lead magnet y nutrición ──────────────────────────────────────── */}
         <section className="s-sec s-band">
-          <h2 className="s-h2">Con qué se abre cada conversación</h2>
+          <h2 className="s-h2">El lead magnet y la nutrición personalizada</h2>
           <div className="s-open">
             <div className="s-open-col s-open-b">
               <div className="s-open-hd">
                 <span className="s-open-tag">Campaña de mensajes</span>
-                <h3>Lead magnet, con prueba A/B</h3>
+                <h3>Diagnóstico de anuncios</h3>
               </div>
               <p>
-                El anuncio no vende el servicio: vende el recurso gratis. El que escribe no está pidiendo
-                información de un programa, está pidiendo algo que quiere — y eso baja muchísimo la
-                fricción. Se largan varios a la vez y gana el que consiga conversaciones más baratas.
+                El anuncio no vende el programa: vende el diagnóstico gratis. El que escribe no está
+                pidiendo información de un servicio, está pidiendo algo que quiere — y eso baja muchísimo
+                la fricción para arrancar la conversación.
               </p>
-              <div className="s-magnets">
-                {MAGNETS.map((m, i) => (
-                  <div key={m.t} className="s-magnet">
-                    <span className="s-magnet-n s-num">{String.fromCharCode(65 + i)}</span>
-                    <div>
-                      <b>{m.t}</b>
-                      <span>{m.w}</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="s-lm">
+                <span className="s-lm-l">Qué recibe</span>
+                <ul>
+                  <li>A quién le está hablando hoy con sus anuncios, y a quién más le podría hablar</li>
+                  <li>Por qué un desconocido todavía no le compra</li>
+                  <li>Qué tendría que probar primero para encontrar su anuncio ganador</li>
+                </ul>
+                <span className="s-lm-l">Cómo se arma</span>
+                <ul>
+                  <li>Responde unas pocas preguntas por WhatsApp sobre su negocio y su oferta</li>
+                  <li>MaKo lo procesa y devuelve el diagnóstico</li>
+                </ul>
               </div>
               <div className="s-open-rule">
-                <b>Regla:</b> no se entrega apenas lo piden. El recurso es la excusa para conversar y para
-                nutrir; lo ideal es que agenden antes de recibirlo.
+                <b>Es la versión reducida de lo que se lleva de la llamada.</b> Le muestra el problema con
+                nombre y apellido, pero no se lo resuelve: para eso hay que agendar. Y no se entrega apenas
+                lo piden — primero se conversa.
               </div>
             </div>
 
             <div className="s-open-col s-open-a">
               <div className="s-open-hd">
                 <span className="s-open-tag">Prospección</span>
-                <h3>Video personalizado, sin lead magnet</h3>
+                <h3>Un Loom VSL por cada lead</h3>
               </div>
               <p>
                 Acá no va recurso gratis: al que te conoce o al que le escribís a mano se le entra por lo
@@ -470,29 +391,60 @@ export default function Estrategia() {
           </div>
         </section>
 
+        {/* ── Por qué agenda ───────────────────────────────────────────────── */}
+        <section className="s-sec">
+          <h2 className="s-h2">Por qué te agenda la llamada</h2>
+          <div className="s-egoist">
+            <p className="s-egoist-q">“Salís de la llamada con toda tu estrategia para conseguir clientes con anuncios pagos, armada para tu negocio.”</p>
+            <ul className="s-lleva">
+              {LLEVA.map((x) => (
+                <li key={x}><Ic d={I.check} size={15} /><span>{x}</span></li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* ── Cómo se corre la escalera en la llamada ──────────────────────── */}
+        <section className="s-sec s-band">
+          <h2 className="s-h2">Cómo se corre la escalera en la llamada</h2>
+          <p className="s-sec-sub">Siempre se pitchea primero el 1 a 1. El descenso no es descuento: es <em>“tengo algo para tu situación”</em>.</p>
+          <div className="s-ladder">
+            <div className="s-rung s-rung-1">
+              <div className="s-rung-hd"><span className="s-rung-n">1</span> Pitch principal — <span className="s-num">$4,000</span></div>
+              <p>“Necesitás que alguien se meta de verdad en tu funnel y tome, con datos, las decisiones correctas. Eso es el 1 a 1: MaKo completo y yo trabajando tu VSL Funnel con vos.”</p>
+            </div>
+            <div className="s-rung-if">Si “me encanta, pero no tengo esa plata ahora” ↓</div>
+            <div className="s-rung s-rung-2">
+              <div className="s-rung-hd"><span className="s-rung-n">2</span> Grupal — <span className="s-num">$1,500</span></div>
+              <p>“Para eso tengo otra opción. Te llevás MaKo completo igual, más un grupo donde te acompaño en tus decisiones. $1,500 por cuatro meses.”</p>
+            </div>
+            <div className="s-rung-if">Si tampoco ↓</div>
+            <div className="s-rung s-rung-3">
+              <div className="s-rung-hd"><span className="s-rung-n">3</span> Solo — <span className="s-num">$497</span></div>
+              <p>“Sin problema. Te llevás MaKo completo con los cursos y tutoriales para que lo corras vos. Cuando el funnel te dé, subís.”</p>
+            </div>
+          </div>
+          <div className="s-rule">
+            <Ic d={I.bolt} size={16} />
+            <span><b>Regla:</b> al que califica y tiene plata, se le sostiene el 1 a 1 (no bajar por comodidad). El descenso es solo para el que de verdad no puede.</span>
+          </div>
+        </section>
+
         {/* ── Proyección financiera ────────────────────────────────────────── */}
         <section className="s-sec">
           <h2 className="s-h2">Proyección financiera</h2>
-          <p className="s-sec-sub">El objetivo es <b>$10,000</b>. Los números se calculan hacia atrás desde ahí: cuánto hay que vender, cuántas llamadas hacen falta y cuántos contactos hay que mover en cada canal.</p>
+          <p className="s-sec-sub">El objetivo es <b>$10,000</b> en el mes. Las 16 llamadas agendadas vienen de los dos canales de adquisición.</p>
 
-          <div className="s-goal">
-            <div className="s-goal-i">
-              <span className="s-goal-l">Facturado</span>
-              <span className="s-goal-v s-num">$10,497</span>
-            </div>
-            <span className="s-goal-op">−</span>
-            <div className="s-goal-i">
-              <span className="s-goal-l">Inversión en ads</span>
-              <span className="s-goal-v s-num">$1,000</span>
-            </div>
-            <span className="s-goal-op">=</span>
-            <div className="s-goal-i s-goal-net">
-              <span className="s-goal-l">Neto</span>
-              <span className="s-goal-v s-num">$9,497</span>
-            </div>
+          <div className="s-close">
+            {CIERRE.map((c) => (
+              <div key={c.l} className={`s-close-i ${c.hi ? 's-close-hi' : ''}`}>
+                <span className="s-close-l">{c.l}</span>
+                <span className="s-close-v s-num">{c.v}</span>
+                <span className="s-close-r">{c.rate}</span>
+              </div>
+            ))}
           </div>
 
-          {/* Qué hay que vender */}
           <div className="s-sub-h">Qué hay que vender</div>
           <div className="s-mix">
             {MIX.map((m) => (
@@ -504,34 +456,30 @@ export default function Estrategia() {
               </div>
             ))}
             <div className="s-mix-row s-mix-total">
-              <span className="s-mix-q s-num">6</span>
+              <span className="s-mix-q s-num">5</span>
               <span className="s-mix-n">ventas en el mes</span>
-              <span className="s-mix-p">ticket promedio $1,750</span>
-              <span className="s-mix-t s-num">$10,497</span>
+              <span className="s-mix-p">ticket promedio $2,000</span>
+              <span className="s-mix-t s-num">$10,000</span>
             </div>
           </div>
 
-          {/* De dónde salen las llamadas */}
-          <div className="s-sub-h">De dónde salen las llamadas</div>
-          <div className="s-metrics">
-            <div className="s-mcol s-mcol-a">
-              <div className="s-mcol-hd"><span className="s-mcol-id">A</span> Prospección</div>
-              <Ladder rows={CANAL_A} />
+          <div className="s-goal">
+            <div className="s-goal-i">
+              <span className="s-goal-l">Facturado</span>
+              <span className="s-goal-v s-num">$10,000</span>
             </div>
-            <div className="s-mcol s-mcol-b">
-              <div className="s-mcol-hd"><span className="s-mcol-id">B</span> Campaña de mensajes</div>
-              <Ladder rows={CANAL_B} />
+            <span className="s-goal-op">−</span>
+            <div className="s-goal-i">
+              <span className="s-goal-l">Inversión en ads</span>
+              <span className="s-goal-v s-num">$1,000</span>
+            </div>
+            <span className="s-goal-op">=</span>
+            <div className="s-goal-i s-goal-net">
+              <span className="s-goal-l">Neto</span>
+              <span className="s-goal-v s-num">$9,000</span>
             </div>
           </div>
 
-          <div className="s-tot">
-            <div><span>Llamadas agendadas</span><b className="s-num">30</b></div>
-            <div><span>Llamadas efectivas</span><b className="s-num">22</b></div>
-            <div><span>Ventas</span><b className="s-num">6</b></div>
-            <div><span>Cierre global</span><b className="s-num">27%</b></div>
-          </div>
-
-          {/* Unidad económica */}
           <div className="s-sub-h">Números por unidad</div>
           <div className="s-units">
             {UNIT.map((u) => (
@@ -543,16 +491,16 @@ export default function Estrategia() {
           </div>
 
           <div className="s-assume">
-            Ninguna de estas tasas está medida todavía: son el objetivo con el que se arranca. Se corrigen
-            con los primeros 100 mensajes y con las primeras 72 horas de campaña. Las dos variables que más
-            mueven el resultado son el <b>costo por conversación</b> y la <b>tasa de cierre en la llamada</b>.
+            El número más sensible de todo el modelo es la <b>tasa de cierre del 40%</b>. Se sostiene porque
+            a la llamada se llega nutrido y se entrega la estrategia completa en vivo. Si el cierre baja al
+            25%, hacen falta 25 llamadas agendadas en vez de 16 para llegar al mismo objetivo.
           </div>
         </section>
 
         {/* ── Canales a futuro ─────────────────────────────────────────────── */}
-        <section className="s-sec s-band">
+        <section className="s-sec s-band s-sec-last">
           <h2 className="s-h2">Canales de adquisición a futuro</h2>
-          <p className="s-sec-sub">Todos son válidos y ninguno está descartado. Entran después de que los dos motores actuales estén dando señal.</p>
+          <p className="s-sec-sub">Todos son válidos y ninguno está descartado. Entran después de que los dos canales actuales estén dando señal.</p>
           <div className="s-chs">
             {FUTURO.map((c) => (
               <div key={c.id} className={`s-ch ${c.id === 'G' ? 's-ch-lever' : ''}`}>
@@ -589,30 +537,6 @@ export default function Estrategia() {
                 </ul>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* ── Funcionalidades que faltan ───────────────────────────────────── */}
-        <section className="s-sec s-sec-last">
-          <h2 className="s-h2">Funcionalidades que faltan en MaKo</h2>
-          <p className="s-sec-sub">Inventario completo, ordenado por lo que desbloquea la venta y la campaña.</p>
-          <div className="s-feats">
-            {FEATURES.map((g) => (
-              <div key={g.p} className={`s-fg s-fg-${g.tone}`}>
-                <div className="s-fg-hd">
-                  <span className="s-fg-p">{g.p}</span>
-                  <span className="s-fg-l">{g.label}</span>
-                </div>
-                <div className="s-fg-items">
-                  {g.items.map((f) => (
-                    <div key={f.t} className="s-feat">
-                      <b>{f.t}</b>
-                      <span>{f.w}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
           </div>
         </section>
       </main>
@@ -665,10 +589,6 @@ body:has(.mk-str) aside { display: none !important; }
 .s-h1 { margin: 0 0 18px; font-size: 52px; line-height: 1.04; letter-spacing: -.03em; font-weight: 600; color: #10131A; text-wrap: balance; }
 .s-lead { margin: 0; max-width: 660px; font-size: 19px; line-height: 1.6; color: #5B6472; }
 .s-lead strong { font-weight: 600; color: #10131A; }
-.s-rev { margin-top: 26px; max-width: 720px; background: #fff; border: 1px solid #E5E8EE; border-left: 3px solid #E0870A; border-radius: 12px; padding: 16px 20px; }
-.s-rev-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #C77E08; margin-bottom: 7px; }
-.s-rev p { margin: 0; font-size: 14.5px; line-height: 1.6; color: #565E6B; }
-.s-rev b { color: #10131A; font-weight: 600; }
 
 /* Secciones */
 .s-sec { padding: 46px 0; border-bottom: 1px solid #EEF0F4; }
@@ -721,6 +641,96 @@ body:has(.mk-str) aside { display: none !important; }
 .s-tier-quien b { color: #10131A; font-weight: 600; }
 .s-tier-note { margin-top: 12px; font-size: 12px; line-height: 1.45; color: #9A6207; background: #FEF6E4; border-radius: 8px; padding: 8px 11px; }
 
+/* Recorrido en 3 pasos */
+.s-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: stretch; margin-top: 24px; }
+.s-flow-i { position: relative; background: #fff; border: 1px solid #E5E8EE; border-radius: 18px; padding: 26px 24px 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.s-flow-end { border-color: #F0C169; background: linear-gradient(165deg,#FFFBF2,#FFFFFF 60%); }
+.s-flow-ic { width: 48px; height: 48px; border-radius: 14px; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; }
+.s-flow-end .s-flow-ic { background: #FDF0D8; color: #C77E08; }
+.s-flow-n { position: absolute; top: 20px; right: 22px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; font-weight: 600; color: #C6CCD5; }
+.s-flow-i h3 { margin: 0; font-size: 19px; line-height: 1.3; font-weight: 600; letter-spacing: -.015em; color: #10131A; text-wrap: balance; }
+.s-flow-arrow { display: flex; align-items: center; justify-content: center; color: #C0C7D2; }
+
+/* Los dos canales */
+.s-motors { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; align-items: stretch; }
+.s-motor { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 22px 24px; display: flex; flex-direction: column; }
+.s-motor-a { border-color: #CBEBDC; }
+.s-motor-b { border-color: #C7D9FA; }
+.s-motor-hd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.s-motor-hd > div { flex: 1; min-width: 0; }
+.s-motor-id { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; font-size: 15px; font-weight: 700; color: #fff; background: #0E9F6E; }
+.s-motor-b .s-motor-id { background: #2F6FED; }
+.s-motor-name { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: #10131A; }
+.s-motor-sub { font-size: 12.5px; color: #8892A0; }
+.s-motor-cost { flex: none; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 7px; }
+.s-motor-cost-zero { color: #067A54; background: #DEF4EA; }
+.s-motor-cost-paid { color: #1D4FD8; background: #E7EFFE; }
+.s-motor-facts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.s-motor-facts > div { font-size: 14px; line-height: 1.45; color: #565E6B; background: #F5FAF7; border-radius: 10px; padding: 12px 14px; }
+.s-motor-facts b { color: #10131A; font-weight: 600; }
+
+/* Plan de gasto (dentro del canal B) */
+.s-spend { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.s-sp { border: 1px solid #E9EBF0; border-radius: 14px; padding: 15px 17px; }
+.s-sp-1 { border-color: #C7D9FA; background: #F7FAFF; }
+.s-sp-2 { border-color: #CBEBDC; background: #F5FCF9; }
+.s-sp-hd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 8px; }
+.s-sp-n { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #fff; background: #2F6FED; padding: 3px 8px; border-radius: 6px; }
+.s-sp-2 .s-sp-n { background: #0E9F6E; }
+.s-sp-t { font-size: 13.5px; font-weight: 600; color: #10131A; }
+.s-sp-v { font-size: 26px; font-weight: 600; letter-spacing: -.03em; color: #10131A; line-height: 1.1; }
+
+/* Embudo por canal */
+.s-mrows { display: flex; flex-direction: column; margin-top: auto; }
+.s-mrow { display: flex; align-items: baseline; gap: 10px; padding: 11px 0; border-top: 1px solid #F0F2F6; }
+.s-mrow:first-child { border-top: none; padding-top: 0; }
+.s-mrow-l { flex: 1; min-width: 0; font-size: 14px; color: #565E6B; }
+.s-mrow-r { font-size: 11.5px; color: #9AA3B0; white-space: nowrap; }
+.s-mrow-v { flex: none; width: 70px; text-align: right; font-size: 17px; font-weight: 600; color: #10131A; }
+.s-mrow-hi { margin-top: 6px; padding: 14px 15px; border-top: none; border-radius: 12px; background: #F1F8F5; }
+.s-mrow-hi .s-mrow-l { font-weight: 600; color: #10131A; }
+.s-mrow-hi .s-mrow-v { color: #067A54; font-size: 22px; }
+.s-motor-b .s-mrow-hi { background: #F0F5FE; }
+.s-motor-b .s-mrow-hi .s-mrow-v { color: #1D4FD8; }
+
+.s-assume { margin-top: 20px; font-size: 13.5px; line-height: 1.6; color: #7C8593; background: #F5F7FA; border-radius: 12px; padding: 14px 17px; }
+.s-assume b { color: #10131A; font-weight: 600; }
+.s-band .s-assume { background: #fff; }
+
+/* Lead magnet y nutrición */
+.s-open { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: start; }
+.s-open-col { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 24px 26px; }
+.s-open-b { border-color: #C7D9FA; }
+.s-open-a { border-color: #CBEBDC; }
+.s-open-hd { margin-bottom: 12px; }
+.s-open-tag { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: 6px; margin-bottom: 9px; color: #1D4FD8; background: #E7EFFE; }
+.s-open-a .s-open-tag { color: #067A54; background: #DEF4EA; }
+.s-open-hd h3 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: #10131A; }
+.s-open-col > p { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #565E6B; }
+.s-lm, .s-vid { border-radius: 12px; padding: 16px 18px; }
+.s-lm { background: #F7FAFF; }
+.s-vid { background: #F5FAF7; }
+.s-lm-l, .s-vid-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.s-lm-l { color: #1D4FD8; }
+.s-vid-l { color: #067A54; }
+.s-lm ul, .s-vid ul { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.s-lm ul:last-child, .s-vid ul:last-of-type { margin-bottom: 0; }
+.s-vid ul:last-of-type { margin-bottom: 14px; }
+.s-lm li, .s-vid li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.5; color: #565E6B; }
+.s-lm li::before, .s-vid li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; }
+.s-lm li::before { background: #2F6FED; }
+.s-vid li::before { background: #0E9F6E; }
+.s-vid-cta { font-size: 13.5px; font-weight: 600; color: #10131A; padding-top: 12px; border-top: 1px dashed #CBEBDC; }
+.s-open-rule { margin-top: 14px; font-size: 13px; line-height: 1.55; color: #7A5406; background: #FFF9EC; border: 1px solid #F3E2B5; border-radius: 10px; padding: 12px 14px; }
+.s-open-rule b { color: #5C3F04; font-weight: 700; }
+
+/* Por qué agenda */
+.s-egoist { margin-top: 20px; border: 1px solid #F0C169; border-radius: 18px; padding: 28px 30px; background: linear-gradient(160deg,#FFFBF2,#FFFFFF 60%); }
+.s-egoist-q { margin: 0 0 20px; font-size: 23px; line-height: 1.4; font-weight: 600; letter-spacing: -.015em; color: #10131A; text-wrap: balance; }
+.s-lleva { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 26px; }
+.s-lleva li { display: flex; gap: 9px; font-size: 14.5px; line-height: 1.5; color: #454C58; }
+.s-lleva svg { flex: none; margin-top: 3px; color: #0E9F6E; }
+
 /* Escalera en la llamada */
 .s-ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
 .s-rung { border-radius: 14px; padding: 16px 20px; border: 1px solid #E5E8EE; background: #fff; }
@@ -738,85 +748,15 @@ body:has(.mk-str) aside { display: none !important; }
 .s-rule svg { flex: none; margin-top: 1px; color: #D4930C; }
 .s-rule b { color: #5C3F04; font-weight: 700; }
 
-/* Por qué agenda */
-.s-egoist { margin-top: 20px; border: 1px solid #F0C169; border-radius: 18px; padding: 26px 28px; background: linear-gradient(160deg,#FFFBF2,#FFFFFF 60%); }
-.s-egoist-q { margin: 0 0 18px; font-size: 22px; line-height: 1.4; font-weight: 600; letter-spacing: -.015em; color: #10131A; text-wrap: balance; }
-.s-lleva { list-style: none; margin: 0 0 18px; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
-.s-lleva li { display: flex; gap: 9px; font-size: 14.5px; line-height: 1.5; color: #454C58; }
-.s-lleva svg { flex: none; margin-top: 3px; color: #0E9F6E; }
-.s-egoist-w { margin: 0; padding-top: 18px; border-top: 1px solid #F3E6CB; font-size: 14.5px; line-height: 1.6; color: #565E6B; }
-.s-egoist-w b { color: #10131A; font-weight: 600; }
-.s-egoist-w em { font-style: italic; color: #7A5406; }
-
-/* Modelo del funnel */
-.s-wmodel { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 20px; color: #C0C7D2; }
-.s-wmodel-step { font-size: 13.5px; color: #454C58; background: #fff; border: 1px solid #E5E8EE; border-radius: 9px; padding: 9px 14px; }
-.s-wmodel-step b { color: #10131A; font-weight: 600; }
-
-/* Los dos motores */
-.s-motors { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; align-items: stretch; }
-.s-motor { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 22px 24px; display: flex; flex-direction: column; }
-.s-motor-a { border-color: #CBEBDC; }
-.s-motor-b { border-color: #C7D9FA; }
-.s-motor-hd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
-.s-motor-hd > div { flex: 1; min-width: 0; }
-.s-motor-id { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; font-size: 15px; font-weight: 700; color: #fff; background: #0E9F6E; }
-.s-motor-b .s-motor-id { background: #2F6FED; }
-.s-motor-name { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: #10131A; }
-.s-motor-sub { font-size: 12.5px; color: #8892A0; }
-.s-motor-cost { flex: none; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 7px; }
-.s-motor-cost-zero { color: #067A54; background: #DEF4EA; }
-.s-motor-cost-paid { color: #1D4FD8; background: #E7EFFE; }
-.s-motor-facts { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
-.s-motor-facts > div { font-size: 14px; line-height: 1.45; color: #565E6B; background: #F5FAF7; border-radius: 10px; padding: 12px 14px; }
-.s-motor-facts b { color: #10131A; font-weight: 600; }
-
-/* Plan de gasto (dentro del motor B) */
-.s-spend { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: auto; }
-.s-sp { border: 1px solid #E9EBF0; border-radius: 14px; padding: 16px 18px; }
-.s-sp-1 { border-color: #C7D9FA; background: #F7FAFF; }
-.s-sp-2 { border-color: #CBEBDC; background: #F5FCF9; }
-.s-sp-hd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 10px; }
-.s-sp-n { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #fff; background: #2F6FED; padding: 3px 8px; border-radius: 6px; }
-.s-sp-2 .s-sp-n { background: #0E9F6E; }
-.s-sp-t { font-size: 14px; font-weight: 600; color: #10131A; }
-.s-sp-v { font-size: 28px; font-weight: 600; letter-spacing: -.03em; color: #10131A; line-height: 1.1; }
-.s-sp-m { font-size: 12px; line-height: 1.45; color: #8892A0; margin-top: 4px; }
-
-/* Con qué se abre cada canal */
-.s-open { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: start; }
-.s-open-col { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 24px 26px; }
-.s-open-b { border-color: #C7D9FA; }
-.s-open-a { border-color: #CBEBDC; }
-.s-open-hd { margin-bottom: 12px; }
-.s-open-tag { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: 6px; margin-bottom: 9px; color: #1D4FD8; background: #E7EFFE; }
-.s-open-a .s-open-tag { color: #067A54; background: #DEF4EA; }
-.s-open-hd h3 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: #10131A; }
-.s-open-col > p { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #565E6B; }
-.s-magnets { display: flex; flex-direction: column; gap: 10px; }
-.s-magnet { display: flex; gap: 12px; background: #F7FAFF; border-radius: 12px; padding: 13px 15px; }
-.s-magnet-n { flex: none; width: 24px; height: 24px; border-radius: 7px; background: #2F6FED; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-.s-magnet b { display: block; font-size: 14.5px; font-weight: 600; color: #10131A; margin-bottom: 3px; }
-.s-magnet span { font-size: 12.5px; line-height: 1.5; color: #6B7482; }
-.s-open-rule { margin-top: 14px; font-size: 13px; line-height: 1.55; color: #7A5406; background: #FFF9EC; border: 1px solid #F3E2B5; border-radius: 10px; padding: 12px 14px; }
-.s-open-rule b { color: #5C3F04; font-weight: 700; }
-.s-vid { background: #F5FAF7; border-radius: 12px; padding: 16px 18px; }
-.s-vid-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #067A54; margin-bottom: 8px; }
-.s-vid ul { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.s-vid ul:last-of-type { margin-bottom: 14px; }
-.s-vid li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.5; color: #565E6B; }
-.s-vid li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #0E9F6E; }
-.s-vid-cta { font-size: 13.5px; font-weight: 600; color: #10131A; padding-top: 12px; border-top: 1px dashed #CBEBDC; }
-
-/* Proyección: objetivo */
-.s-goal { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
-.s-goal-i { flex: 1; min-width: 150px; background: #fff; border: 1px solid #E9EBF0; border-radius: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 4px; }
-.s-goal-net { border-color: #CBEBDC; background: linear-gradient(160deg,#EAF8F1,#FFFFFF 70%); }
-.s-goal-l { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9AA3B0; }
-.s-goal-net .s-goal-l { color: #067A54; }
-.s-goal-v { font-size: 32px; font-weight: 600; letter-spacing: -.03em; color: #10131A; line-height: 1.1; }
-.s-goal-net .s-goal-v { color: #067A54; }
-.s-goal-op { display: flex; align-items: center; font-size: 22px; font-weight: 600; color: #C0C7D2; }
+/* Proyección: de las llamadas a las ventas */
+.s-close { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; }
+.s-close-i { background: #fff; border: 1px solid #E9EBF0; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 4px; }
+.s-close-hi { border-color: #CBEBDC; background: linear-gradient(160deg,#EAF8F1,#FFFFFF 70%); }
+.s-close-l { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #8892A0; }
+.s-close-hi .s-close-l { color: #067A54; }
+.s-close-v { font-size: 34px; font-weight: 600; letter-spacing: -.03em; color: #10131A; line-height: 1.1; }
+.s-close-hi .s-close-v { color: #067A54; }
+.s-close-r { font-size: 12.5px; color: #7C8593; }
 
 /* Proyección: mix */
 .s-mix { display: flex; flex-direction: column; gap: 8px; }
@@ -831,38 +771,20 @@ body:has(.mk-str) aside { display: none !important; }
 .s-mix-total .s-mix-q, .s-mix-total .s-mix-n, .s-mix-total .s-mix-t { color: #fff; }
 .s-mix-total .s-mix-p { color: #9AA3B0; }
 
-/* Proyección: métricas por canal */
-.s-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.s-mcol { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 20px 22px; }
-.s-mcol-a { border-color: #CBEBDC; }
-.s-mcol-b { border-color: #C7D9FA; }
-.s-mcol-hd { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; color: #10131A; margin-bottom: 14px; }
-.s-mcol-id { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; font-size: 13px; font-weight: 700; color: #fff; background: #0E9F6E; }
-.s-mcol-b .s-mcol-id { background: #2F6FED; }
-.s-mrows { display: flex; flex-direction: column; }
-.s-mrow { display: flex; align-items: baseline; gap: 10px; padding: 11px 0; border-top: 1px solid #F0F2F6; }
-.s-mrow:first-child { border-top: none; padding-top: 0; }
-.s-mrow-l { flex: 1; min-width: 0; font-size: 14px; color: #565E6B; }
-.s-mrow-r { font-size: 11.5px; color: #9AA3B0; white-space: nowrap; }
-.s-mrow-v { flex: none; width: 68px; text-align: right; font-size: 17px; font-weight: 600; color: #10131A; }
-.s-mrow-hi { margin-top: 4px; padding: 13px 14px; border-top: none; border-radius: 12px; background: #F1F8F5; }
-.s-mrow-hi .s-mrow-l { font-weight: 600; color: #10131A; }
-.s-mrow-hi .s-mrow-v { color: #067A54; font-size: 20px; }
-.s-mcol-b .s-mrow-hi { background: #F0F5FE; }
-.s-mcol-b .s-mrow-hi .s-mrow-v { color: #1D4FD8; }
-
-.s-tot { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
-.s-tot > div { background: #fff; border: 1px solid #E9EBF0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
-.s-tot span { font-size: 12px; color: #8892A0; }
-.s-tot b { font-size: 22px; font-weight: 600; letter-spacing: -.02em; color: #10131A; }
+/* Proyección: objetivo */
+.s-goal { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; margin-top: 16px; }
+.s-goal-i { flex: 1; min-width: 150px; background: #fff; border: 1px solid #E9EBF0; border-radius: 16px; padding: 18px 22px; display: flex; flex-direction: column; gap: 4px; }
+.s-goal-net { border-color: #CBEBDC; background: linear-gradient(160deg,#EAF8F1,#FFFFFF 70%); }
+.s-goal-l { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9AA3B0; }
+.s-goal-net .s-goal-l { color: #067A54; }
+.s-goal-v { font-size: 32px; font-weight: 600; letter-spacing: -.03em; color: #10131A; line-height: 1.1; }
+.s-goal-net .s-goal-v { color: #067A54; }
+.s-goal-op { display: flex; align-items: center; font-size: 22px; font-weight: 600; color: #C0C7D2; }
 
 .s-units { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .s-unit { background: #fff; border: 1px solid #E9EBF0; border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; }
 .s-unit-v { font-size: 24px; font-weight: 600; letter-spacing: -.02em; color: #2F6FED; }
 .s-unit-l { font-size: 12.5px; line-height: 1.4; color: #7C8593; }
-
-.s-assume { margin-top: 20px; font-size: 13.5px; line-height: 1.6; color: #7C8593; background: #F5F7FA; border-radius: 12px; padding: 14px 17px; }
-.s-assume b { color: #10131A; font-weight: 600; }
 
 /* Canales */
 .s-chs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 4px; }
@@ -890,20 +812,6 @@ body:has(.mk-str) aside { display: none !important; }
 .s-lever-cols li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #E0870A; }
 .s-lever-cols b { color: #10131A; font-weight: 600; }
 
-/* Funcionalidades que faltan */
-.s-feats { display: flex; flex-direction: column; gap: 16px; }
-.s-fg { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 22px 24px; }
-.s-fg-p1 { border-color: #F0C169; background: linear-gradient(150deg,#FFFBF2,#FFFFFF 40%); }
-.s-fg-p2 { border-color: #C7D9FA; }
-.s-fg-hd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #EEF0F4; }
-.s-fg-p { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #fff; background: #8892A0; padding: 4px 10px; border-radius: 6px; }
-.s-fg-p1 .s-fg-p { background: linear-gradient(135deg,#F2A516,#E0870A); color: #3A2604; }
-.s-fg-p2 .s-fg-p { background: #2F6FED; }
-.s-fg-l { font-size: 14px; font-weight: 600; color: #565E6B; }
-.s-fg-items { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 26px; }
-.s-feat b { display: block; font-size: 15px; font-weight: 600; color: #10131A; margin-bottom: 4px; line-height: 1.35; }
-.s-feat span { font-size: 13px; line-height: 1.55; color: #6B7482; }
-
 /* Footer */
 .s-foot { border-top: 1px solid #ECEEF2; background: #F5F7FA; }
 .s-foot-in { max-width: 1060px; margin: 0 auto; padding: 30px 28px 40px; }
@@ -914,8 +822,11 @@ body:has(.mk-str) aside { display: none !important; }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .s-tiers, .s-chs, .s-tot, .s-units { grid-template-columns: 1fr 1fr; }
-  .s-two, .s-lever-cols, .s-motors, .s-fg-items, .s-open, .s-metrics, .s-lleva { grid-template-columns: 1fr; }
+  .s-tiers, .s-chs, .s-units { grid-template-columns: 1fr 1fr; }
+  .s-two, .s-lever-cols, .s-motors, .s-open, .s-lleva { grid-template-columns: 1fr; }
+  .s-flow { grid-template-columns: 1fr; }
+  .s-flow-arrow { transform: rotate(90deg); padding: 2px 0; }
+  .s-close { grid-template-columns: 1fr; }
   .s-ch-lever { grid-column: auto; }
   .s-h1 { font-size: 40px; }
   .s-egoist-q { font-size: 20px; }
@@ -926,9 +837,14 @@ body:has(.mk-str) aside { display: none !important; }
   .s-lead { font-size: 17px; }
   .s-h2 { font-size: 23px; }
   .s-logo-doc { display: none; }
-  .s-spend, .s-tot, .s-units { grid-template-columns: 1fr; }
+  .s-spend, .s-units, .s-tiers, .s-chs { grid-template-columns: 1fr; }
   .s-mix-row { flex-wrap: wrap; }
   .s-mix-p { width: 100%; }
   .s-goal-op { display: none; }
+  /* La tasa ("2% de los que responden") no entra en la misma línea: baja abajo. */
+  .s-mrow { flex-wrap: wrap; }
+  .s-mrow-l { flex: 1 1 auto; }
+  .s-mrow-v { width: auto; }
+  .s-mrow-r { order: 3; flex: 1 1 100%; white-space: normal; }
 }
 `;
