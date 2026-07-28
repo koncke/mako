@@ -22,7 +22,7 @@ import {
   getPanorama, setPanorama, listFiles,
 } from '@/lib/archivero';
 import { getAvatares, setAvatares, generarAvatares } from '@/lib/avatares';
-import { getAngulosVenta, setAngulosVenta, generarAngulos } from '@/lib/angulos-venta';
+import { getRazones, setRazones, generarRazones } from '@/lib/razones';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -132,9 +132,9 @@ export async function POST(req: NextRequest) {
           const av = await generarAvatares();
           if (av.ok) await setAvatares(av.avatares);
         }
-        if ((await getAvatares()).length > 0 && (await getAngulosVenta()).length === 0) {
-          const rz = await generarAngulos();
-          if (rz.ok) await setAngulosVenta(rz.angulos);
+        if ((await getAvatares()).length > 0 && (await getRazones()).length === 0) {
+          const rz = await generarRazones();
+          if (rz.ok) await setRazones(rz.razones);
         }
       } catch (e) { console.error('[archivero] auto-cascada (no fatal):', msg(e)); }
       return Response.json({ ok: true, warnings, ...(await buildEstado(false)) });

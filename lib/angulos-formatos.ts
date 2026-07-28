@@ -6,9 +6,9 @@
 // nosotros, no es configurable por el cliente); la IA AGARRA de esta biblioteca y
 // decide cuál es el mejor para cada caso del negocio (según sus razones + su gancho).
 //
-// Distinto de las RAZONES (por qué compra: dolor/deseo/explicación, ver angulos-venta)
-// y del GANCHO (el elemento tangible, ver gancho). El pipeline: avatar → razón →
-// gancho → FORMATO (esto) → creativo.
+// Distinto de las RAZONES (las motivaciones de compra, ver razones) y del ENTREGABLE
+// (el elemento tangible, ver entregable). El pipeline: avatar → razón → entregable →
+// FORMATO (esto) → creativo.
 // =============================================================================
 
 import 'server-only';
@@ -16,9 +16,9 @@ import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getSetting, setSetting } from './settings';
-import { getAngulosVenta } from './angulos-venta';
+import { getRazones } from './razones';
 import { getAvatares } from './avatares';
-import { getGanchos, ganchosTexto } from './gancho';
+import { getEntregables, entregablesTexto } from './entregable';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
 
 export type Medio = 'imagen' | 'video';
@@ -119,20 +119,20 @@ export type GenResult = { ok: true; recomendaciones: Recomendacion[]; uso: Uso }
 
 export async function recomendarFormatos(): Promise<GenResult> {
   try {
-    const [brief, razones, avatares, ganchos] = await Promise.all([perfilNegocioTexto(), getAngulosVenta(), getAvatares(), getGanchos()]);
+    const [brief, razones, avatares, entregables] = await Promise.all([perfilNegocioTexto(), getRazones(), getAvatares(), getEntregables()]);
     if (razones.length < 1) {
-      return { ok: false, error: 'Primero arma tus Razones (la matriz): de ahí salen los formatos.' };
+      return { ok: false, error: 'Primero arma tu Matriz de razones: de ahí salen los formatos.' };
     }
     const avNombre = new Map(avatares.map((a) => [a.id, a.nombre]));
     const razonesTexto = razones
-      .map((r) => `- [${avNombre.get(r.avatarId) || 'Avatar'} · ${r.razon}] ${r.titulo}: ${r.hook}`)
+      .map((r) => `- [${avNombre.get(r.avatarId) || 'Avatar'} · ${r.nombre}] ${r.copy || r.descripcion}`)
       .join('\n');
     const biblioteca = BIBLIOTECA_ANGULOS.map((f) => `- ${f.id} (${f.medio}) — ${f.nombre}: ${f.descripcion}`).join('\n');
     const sys = await renderPrompt('formatos.system', FORMATOS_SYSTEM_TEMPLATE, {});
     const user = await renderPrompt('formatos.user', FORMATOS_USER_TEMPLATE, {
       biblioteca,
       brief,
-      gancho: ganchos.length ? `\nGANCHO TANGIBLE:\n${ganchosTexto(ganchos)}\n` : '',
+      gancho: entregables.length ? `\nENTREGABLE TANGIBLE:\n${entregablesTexto(entregables)}\n` : '',
       razones: razonesTexto,
     });
     const text = await chatCheapCascade({

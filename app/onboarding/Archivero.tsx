@@ -12,6 +12,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MutableRefObject, type ReactNode } from 'react';
+import { ResumenView } from './ResumenView';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -111,6 +112,7 @@ export function Archivero({ onEstado }: {
   const [cargandoPreg, setCargandoPreg] = useState(false);
   const [otroKey, setOtroKey] = useState<string | null>(null);
   const [otroVal, setOtroVal] = useState('');
+  const [archTab, setArchTab] = useState<'archivos' | 'resumen'>('archivos'); // sub-toggle del tab (P6: Resumen adentro)
   const inputRef = useRef<HTMLInputElement>(null);
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
   const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
@@ -363,25 +365,32 @@ export function Archivero({ onEstado }: {
     );
   }
 
-  // ── ARCHIVOS: la lista, con "subir más" ─────────────────────────────────────
+  // ── ARCHIVOS + RESUMEN: la lista y el panorama (sub-toggle) ─────────────────
   if (vista === 'archivos') {
     const gaps = est.gaps.length;
+    const subPill = (on: boolean): CSSProperties => ({ border: 'none', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--dim)', fontWeight: on ? 600 : 500, fontSize: 12.5, padding: '6px 13px', borderRadius: 999, cursor: 'pointer', boxShadow: on ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS });
     return (
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {keyframes}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <div style={{ ...eyebrow, marginBottom: 3 }}>Tus documentos{hayArchivos ? ` · ${est.files.length}` : ''}</div>
-            <div style={{ fontSize: 13, color: 'var(--dim)' }}>Todo lo que subiste. MaKo lo lee y arma tu perfil.</div>
+          <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
+            <button type="button" onClick={() => setArchTab('archivos')} style={subPill(archTab === 'archivos')}>Archivos{hayArchivos ? ` · ${est.files.length}` : ''}</button>
+            <button type="button" onClick={() => setArchTab('resumen')} style={subPill(archTab === 'resumen')}>Resumen</button>
           </div>
           <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
         </div>
-        {gaps > 0 && (
-          <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, alignSelf: 'flex-start', color: 'var(--primary)', fontWeight: 600, borderColor: 'var(--primary)' }}>
-            {cargandoPreg ? 'Preparando…' : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} que faltan →`}
-          </button>
+        {archTab === 'resumen' ? (
+          <ResumenView />
+        ) : (
+          <>
+            {gaps > 0 && (
+              <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, alignSelf: 'flex-start', color: 'var(--primary)', fontWeight: 600, borderColor: 'var(--primary)' }}>
+                {cargandoPreg ? 'Preparando…' : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} que faltan →`}
+              </button>
+            )}
+            {hayArchivos ? listaArchivos : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>}
+          </>
         )}
-        {hayArchivos ? listaArchivos : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>}
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, textAlign: 'center' }}>{err}</div>}
       </div>
     );

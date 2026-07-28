@@ -8,7 +8,7 @@
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
-import { getAngulosVenta } from '@/lib/angulos-venta';
+import { getRazones } from '@/lib/razones';
 import { BIBLIOTECA_ANGULOS, getRecomendaciones, setRecomendaciones, recomendarFormatos } from '@/lib/angulos-formatos';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export const maxDuration = 120;
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 async function estado() {
-  const [recomendaciones, razones] = await Promise.all([getRecomendaciones(), getAngulosVenta()]);
+  const [recomendaciones, razones] = await Promise.all([getRecomendaciones(), getRazones()]);
   return { biblioteca: BIBLIOTECA_ANGULOS, recomendaciones, tieneRazones: razones.length > 0 };
 }
 

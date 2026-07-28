@@ -3,8 +3,9 @@
 // =============================================================================
 // Uso: node scripts/wipe-negocio-mauricio.mjs
 // Borra SOLO lo del onboarding/negocio de Mauricio (workspace 1) para que pueda
-// volver a cargar todo desde cero: documentos del Archivero (filas + binarios),
-// brief extraído, panorama, avatares, ángulos y el diagnóstico de fase.
+// volver a hacer todo desde cero: documentos del Archivero (filas + binarios), fotos
+// de la persona, brief extraído, panorama, avatares, razones, entregable, formatos,
+// diagnóstico de fase, y RESETEA el estado del onboarding (para que salga el wizard).
 // NO toca: su cuenta/usuario, sus integraciones/credenciales, ni nada de otros ws.
 
 import { config } from 'dotenv';
@@ -24,35 +25,47 @@ const SETTINGS_KEYS = [
   'mako.archivero.panorama',
   'mako.onboarding.answers',
   'mako.avatares',
-  'mako.angulos_venta',
+  'mako.avatares.contexto',
+  'mako.razones',
+  'mako.angulos_venta', // legacy (por si quedó data vieja)
+  'mako.entregable',
+  'mako.gancho',        // legacy
+  'mako.formatos_recom',
+  'mako.persona',
   'negocio.fase.diagnostico',
 ];
 
 const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
 
-// Antes: contar para el log.
+// Info: la capa del workspace (el wizard SOLO aparece si la capa tiene pasos).
+let capa = '(desconocida)';
+try { const r = await sql`SELECT capa FROM workspaces WHERE id = ${WS}`; capa = r[0]?.capa ?? '(sin fila)'; } catch { /* tabla puede variar */ }
+
 const [{ count: filesAntes }] = await sql`SELECT count(*)::int FROM archivero_files WHERE workspace_id = ${WS}`;
 const [{ count: settsAntes }] = await sql`SELECT count(*)::int FROM app_settings WHERE workspace_id = ${WS} AND key = ANY(${SETTINGS_KEYS})`;
 
-// 1) Binarios del Archivero en storage (path = "1/<fileId>"). Supabase NO deja
-//    borrar storage.objects por SQL directo → hay que usar la Storage API.
+// 1) Binarios en storage: archivos del Archivero (`1/<id>`) + fotos de persona (`1/persona/<id>`).
+//    Supabase NO deja borrar storage.objects por SQL → Storage API (list + remove).
 let borradosStorage = 0;
 try {
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
-  const { data: list } = await sb.storage.from('archivero').list(String(WS), { limit: 1000 });
-  const paths = (list || []).filter((o) => o.name).map((o) => `${WS}/${o.name}`);
-  if (paths.length) { const { data } = await sb.storage.from('archivero').remove(paths); borradosStorage = (data || []).length; }
+  for (const prefijo of [String(WS), `${WS}/persona`]) {
+    const { data: list } = await sb.storage.from('archivero').list(prefijo, { limit: 1000 });
+    const paths = (list || []).filter((o) => o.name && o.id).map((o) => `${prefijo}/${o.name}`);
+    if (paths.length) { const { data } = await sb.storage.from('archivero').remove(paths); borradosStorage += (data || []).length; }
+  }
 } catch (e) { console.warn('No pude borrar binarios de storage (sigo): ' + (e?.message || e)); }
 
 // 2) Filas de archivos.
 const files = await sql`DELETE FROM archivero_files WHERE workspace_id = ${WS}`;
 
-// 3) Settings de negocio (brief, panorama, avatares, ángulos, fase, manual).
+// 3) Settings de negocio + estado del onboarding.
 const setts = await sql`DELETE FROM app_settings WHERE workspace_id = ${WS} AND key = ANY(${SETTINGS_KEYS})`;
 
 await sql.end();
 
-console.log(`OK — workspace ${WS} (Mauricio):`);
+console.log(`OK — workspace ${WS} (Mauricio) · capa = ${capa}:`);
 console.log(`  · archivos: ${files.count} filas (${filesAntes} antes) + ${borradosStorage} binarios en storage`);
-console.log(`  · settings de negocio: ${setts.count} (${settsAntes} antes) → ${SETTINGS_KEYS.join(', ')}`);
-console.log('Su cuenta e integraciones quedan intactas. Puede re-correr el onboarding desde el hub.');
+console.log(`  · settings de negocio: ${setts.count} (${settsAntes} antes)`);
+console.log('Su cuenta e integraciones quedan intactas. Puede rehacer todo desde el hub (tabs vacías).');
+console.log('→ El dueño (OWNER_WS) entra directo al hub. Para ver el WIZARD gateado, impersonar un cliente ("entrar como").');

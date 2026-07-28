@@ -26,6 +26,14 @@ async function estado() {
   return { avatares, tieneBrief: Object.values(answers).some((v) => (v ?? '').trim()) };
 }
 
+// Al regenerar/afinar, la IA mintea ids nuevos → las razones (linkeadas por avatarId)
+// quedarían huérfanas y la Matriz vacía. Preservamos el id del avatar de la MISMA
+// posición para que el link se mantenga (la razón sigue colgando de "su" avatar).
+async function preservarIds(nuevos: Avatar[]): Promise<Avatar[]> {
+  const viejos = await getAvatares();
+  return nuevos.map((a, i) => (viejos[i] ? { ...a, id: viejos[i].id } : a));
+}
+
 export async function GET() {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
@@ -61,7 +69,7 @@ export async function POST(req: NextRequest) {
         await setContextoAvatares(nuevo);
         const r = await generarAvatares();
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-        await setAvatares(r.avatares);
+        await setAvatares(await preservarIds(r.avatares));
         return Response.json({ ok: true, ...(await estado()), uso: r.uso });
       }
       if (body.action === 'guardar') {
@@ -75,7 +83,7 @@ export async function POST(req: NextRequest) {
       // default: generar
       const r = await generarAvatares();
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-      await setAvatares(r.avatares);
+      await setAvatares(await preservarIds(r.avatares));
       return Response.json({ ok: true, ...(await estado()), uso: r.uso });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
