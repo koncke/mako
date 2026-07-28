@@ -21,6 +21,8 @@ import {
   flatFields, insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
   getPanorama, setPanorama, listFiles,
 } from '@/lib/archivero';
+import { getAvatares, setAvatares, generarAvatares } from '@/lib/avatares';
+import { getAngulosVenta, setAngulosVenta, generarAngulos } from '@/lib/angulos-venta';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -120,7 +122,22 @@ export async function POST(req: NextRequest) {
         const pano = await generarPanorama(textos, await getPanorama());
         if (pano) await setPanorama(pano);
       } catch (e) { console.error('[archivero] panorama falló (no fatal):', msg(e)); }
-      return Response.json({ ok: true, warnings, ...(await buildEstado(true)) });
+      // Persistir el brief efectivo ANTES de la cascada (la generación lee perfilNegocioTexto).
+      await buildEstado(true);
+      // AUTO-CASCADA (decisión de Mauricio): subir docs dispara avatares → razones,
+      // pero SOLO si están vacíos (no pisa lo ya generado/editado; para actualizar hay
+      // botón "Regenerar" en cada tab). Secuencial: razones necesitan avatares. Best-effort.
+      try {
+        if ((await getAvatares()).length === 0) {
+          const av = await generarAvatares();
+          if (av.ok) await setAvatares(av.avatares);
+        }
+        if ((await getAvatares()).length > 0 && (await getAngulosVenta()).length === 0) {
+          const rz = await generarAngulos();
+          if (rz.ok) await setAngulosVenta(rz.angulos);
+        }
+      } catch (e) { console.error('[archivero] auto-cascada (no fatal):', msg(e)); }
+      return Response.json({ ok: true, warnings, ...(await buildEstado(false)) });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });
     }

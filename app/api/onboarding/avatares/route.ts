@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarAvatares, getAvatares, setAvatares, type Avatar } from '@/lib/avatares';
+import { generarAvatares, getAvatares, setAvatares, generarPreguntasAvatares, getContextoAvatares, setContextoAvatares, type Avatar } from '@/lib/avatares';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,11 +38,32 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; avatares?: unknown };
+  let body: { action?: string; avatares?: unknown; respuestas?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
     try {
+      // Preguntas cerradas para afinar (comparativas). Solo las genera; no toca nada.
+      if (body.action === 'preguntas') {
+        const r = await generarPreguntasAvatares();
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, preguntas: r.preguntas });
+      }
+      // Afinar: guarda las respuestas como contexto y REGENERA los avatares con eso.
+      if (body.action === 'afinar') {
+        const arr = Array.isArray(body.respuestas) ? body.respuestas : [];
+        const lineas = arr
+          .map((x) => { const o = (x ?? {}) as Record<string, unknown>; const p = s(o.pregunta); const rsp = s(o.respuesta); return p && rsp ? `- ${p} → ${rsp}` : ''; })
+          .filter(Boolean);
+        // Acumula sobre el contexto previo (no pisa lo ya precisado).
+        const previo = (await getContextoAvatares()).trim();
+        const nuevo = [previo, ...lineas].filter(Boolean).join('\n');
+        await setContextoAvatares(nuevo);
+        const r = await generarAvatares();
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        await setAvatares(r.avatares);
+        return Response.json({ ok: true, ...(await estado()), uso: r.uso });
+      }
       if (body.action === 'guardar') {
         const arr = Array.isArray(body.avatares) ? body.avatares : [];
         const limpio: Avatar[] = arr

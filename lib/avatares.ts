@@ -70,6 +70,17 @@ export async function setAvatares(list: Avatar[]): Promise<void> {
   await setSetting(SETTING_KEY, JSON.stringify(list));
 }
 
+// ── Contexto de afinado (respuestas a las preguntas cerradas de segmentación) ─
+// Texto que el cliente construye respondiendo las preguntas comparativas de MaKo;
+// se inyecta en la generación para sacar segmentos más precisos.
+const CONTEXTO_KEY = 'mako.avatares.contexto';
+export async function getContextoAvatares(): Promise<string> {
+  return (await getSetting(CONTEXTO_KEY)) ?? '';
+}
+export async function setContextoAvatares(texto: string): Promise<void> {
+  await setSetting(CONTEXTO_KEY, texto);
+}
+
 // ── Texto de los avatares (para inyectar en el prompt de ángulos) ─────────────
 // Numerado 1..N: los ángulos referencian al avatar por su número (más robusto que
 // por nombre). Va el segmento + situación + dolor, que es lo que da la razón.
@@ -103,7 +114,7 @@ Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto afuera) 
 
 export const AVATARES_USER_TEMPLATE = `CONTEXTO DEL NEGOCIO (datos reales del Archivero):
 {{brief}}
-{{panorama}}{{fase}}
+{{panorama}}{{fase}}{{contexto}}
 Encontrá 3 avatares (segmentos) distintos y segmentables. Devolvé solo el JSON.`;
 
 // ── Parseo ────────────────────────────────────────────────────────────────────
@@ -118,7 +129,7 @@ export type GenResult = { ok: true; avatares: Avatar[]; uso: Uso } | { ok: false
 
 export async function generarAvatares(): Promise<GenResult> {
   try {
-    const [brief, fase, panorama] = await Promise.all([perfilNegocioTexto(), faseNegocioTexto(), getPanorama()]);
+    const [brief, fase, panorama, contexto] = await Promise.all([perfilNegocioTexto(), faseNegocioTexto(), getPanorama(), getContextoAvatares()]);
     if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
       return { ok: false, error: 'Primero carga tu negocio en El Archivero: de ahí salen los avatares.' };
     }
@@ -127,6 +138,7 @@ export async function generarAvatares(): Promise<GenResult> {
       brief,
       panorama: panorama.trim() ? `\nPANORAMA (lo que MaKo entendió del negocio):\n${panorama.slice(0, 6000)}\n` : '',
       fase: fase ? `\nFASE DEL NEGOCIO (para el tono/urgencia):\n${fase}\n` : '',
+      contexto: contexto.trim() ? `\nLO QUE EL CLIENTE PRECISÓ sobre a quién le vende (respetá esto por sobre inferencias):\n${contexto}\n` : '',
     });
     // IA GRATIS del cliente (Gemini primero, luego Groq/…), NO Claude: esto es
     // "encontrar segmentos", no copywriting fino. `validar` rescata si un modelo
@@ -140,6 +152,59 @@ export async function generarAvatares(): Promise<GenResult> {
     const avatares = parseAvatares(text);
     if (!avatares.length) return { ok: false, error: 'MaKo no devolvió avatares. Reintenta en un momento.' };
     return { ok: true, avatares, uso: null };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── Preguntas para AFINAR los avatares (cerradas, comparativas) ───────────────
+// MaKo hace preguntas cerradas —muchas comparativas ("¿quién te compra más rápido:
+// A vs B?")— para descubrir/priorizar los segmentos con info que el brief no tiene.
+// Las respuestas se guardan como contexto y sacan avatares más precisos.
+export type PreguntaAvatar = { pregunta: string; opciones: string[] };
+
+export const AVATARES_PREGUNTAS_TEMPLATE = `Sos MaKo, afinando los AVATARES (segmentos de cliente) de un negocio para sus anuncios de Meta. Ya conocés esto del negocio:
+{{brief}}
+{{panorama}}
+Generá entre 3 y 5 preguntas CERRADAS, cortas y CONCRETAS para descubrir y PRIORIZAR a qué segmentos apuntar. Muchas deben ser COMPARATIVAS entre dos perfiles plausibles de ESTE negocio (ej: "¿Quién crees que te compra más rápido: un CEO de empresa de tecnología o un CEO de una cadena de supermercados?"). Otras pueden ser de atributo (tamaño de empresa, industria, rol de quien decide, zona). Cada pregunta con 2 a 4 opciones concretas y a medida del negocio (nada de manual), más adelante el cliente elige.
+
+IDIOMA: español NEUTRO/MEXICANO, de "tú", SIN voseo argentino.
+Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
+{"preguntas":[{"pregunta":"","opciones":["",""]}]}`;
+
+// Parseo + filtrado de las preguntas usables (pregunta + ≥2 opciones). Se usa tanto
+// en el `validar` de la cascada como en el resultado, para que NO diverjan: si un
+// modelo devuelve {"preguntas":[]} o preguntas sin opciones, `validar` da 0 → la
+// cascada sigue al próximo proveedor gratis (mismo criterio que tieneAvatares).
+export function parsePreguntasAvatares(text: string): PreguntaAvatar[] {
+  const arr = (() => { const p = parseJsonObject(text).preguntas; return Array.isArray(p) ? p : []; })();
+  const out: PreguntaAvatar[] = [];
+  for (const p of arr as Array<Record<string, unknown>>) {
+    const pregunta = str(p.pregunta);
+    const opciones = Array.isArray(p.opciones) ? p.opciones.map((o) => str(o)).filter(Boolean).slice(0, 4) : [];
+    if (pregunta && opciones.length >= 2) out.push({ pregunta, opciones });
+  }
+  return out;
+}
+
+export async function generarPreguntasAvatares(): Promise<{ ok: true; preguntas: PreguntaAvatar[] } | { ok: false; error: string }> {
+  try {
+    const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
+    if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
+      return { ok: false, error: 'Primero carga tu negocio en El Archivero.' };
+    }
+    const sys = await renderPrompt('avatares.preguntas', AVATARES_PREGUNTAS_TEMPLATE, {
+      brief,
+      panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 5000)}\n` : '',
+    });
+    const text = await chatCheapCascade({
+      system: sys, user: 'Generá las preguntas cerradas para afinar los avatares.', json: true, maxTokens: 1600,
+      feature: 'avatares', motivo: 'Preguntas para afinar los avatares',
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsePreguntasAvatares(t).length > 0,
+    });
+    const preguntas = parsePreguntasAvatares(text);
+    if (!preguntas.length) return { ok: false, error: 'MaKo no armó preguntas. Reintenta en un momento.' };
+    return { ok: true, preguntas: preguntas.slice(0, 5) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

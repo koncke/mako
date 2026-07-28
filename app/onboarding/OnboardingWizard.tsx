@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Archivero } from './Archivero';
 import { AvataresView } from './AvataresView';
-import { AngulosView } from './AngulosView';
+import { RazonesView } from './RazonesView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
@@ -276,8 +276,8 @@ export function OnboardingWizard() {
     } else if (paso === 'angulos') {
       pantallas.push({
         key: 'angulos', paso,
-        pregunta: 'Tu matriz de ángulos',
-        sub: 'Para cada avatar encuentro 3 razones de compra: un dolor, un deseo y una explicación. Cada ángulo será, después, un creativo.',
+        pregunta: 'Tus razones de compra',
+        sub: 'Para cada avatar encuentro 3 razones: un dolor, un deseo y una explicación. Es la matriz de la que después salen los creativos.',
         slides: SLIDES_MAKO,
       });
     } else if (paso === 'gemini') {
@@ -480,8 +480,8 @@ export function OnboardingWizard() {
         {/* ── Avatares: MaKo propone 3 subnichos desde el brief (self-contained) ── */}
         {p.key === 'avatares' && <AvataresView />}
 
-        {/* ── Ángulos de venta: la matriz avatares × razones (self-contained) ── */}
-        {p.key === 'angulos' && <AngulosView />}
+        {/* ── Razones de compra: la matriz avatares × razones (self-contained) ── */}
+        {p.key === 'angulos' && <RazonesView />}
 
         {/* ── Brief: una pregunta, un campo ── */}
         {campoBrief && (campoBrief.type === 'textarea'
