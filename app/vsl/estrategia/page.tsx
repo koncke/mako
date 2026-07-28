@@ -8,7 +8,7 @@ import Estrategia from './Estrategia';
 export const metadata: Metadata = {
   title: 'MaKo — Oferta y estrategia de marketing · Interno',
   description:
-    'Documento interno: la escalera de oferta de MaKo, la estrategia de prospección y campañas de mensajes, el plan de gasto y las decisiones abiertas.',
+    'Documento interno: la escalera de oferta de MaKo, los dos motores de adquisición (prospección y campaña de mensajes), los canales a futuro y las funcionalidades que faltan.',
   robots: { index: false, follow: false },
 };
 
