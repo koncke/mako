@@ -3,16 +3,16 @@
 // =============================================================================
 // NO es una landing de venta: es la síntesis de la estrategia comercial de MaKo
 // para presentarle a un mentor/consultor y pedirle opinión.
-// Prioridad: minimalista + gráfico, en lenguaje llano (sin jerga interna) y con
-// nombres de sección explícitos.
+// Prioridad: minimalista + gráfico, en lenguaje llano y con nombres de sección
+// explícitos. Menos prosa, más diagrama.
 //
-// Revisión 28-jul-2026 (4). Orden del documento = orden del razonamiento:
+// Revisión 28-jul-2026 (5). Orden = orden del razonamiento:
 //   producto → oferta → cómo consigo gente → con qué la engancho →
-//   por qué agenda → qué pasa en la llamada → cuánto da → qué viene después.
+//   por qué agenda → cuánto da → qué viene después.
 //
-// La proyección se calcula HACIA ATRÁS desde $10,000, y el embudo por canal
-// vive en la estrategia de adquisición (no en la proyección): la campaña paga
-// aporta más llamadas que la prospección, y el cierre en llamada es alto.
+// Tasas de respuesta MUY distintas por canal, a propósito: en prospección abro
+// yo la conversación (20% responde); en campaña escribieron ellos primero
+// (70% responde).
 //
 // Autocontenido (mismo truco que _detalle/FeatureDetail): una capa
 // position:fixed a pantalla completa que tapa y oculta el sidebar del layout
@@ -60,18 +60,37 @@ type Row = { l: string; v: string; rate?: string; hi?: boolean };
 const CANAL_A: Row[] = [
   { l: 'Inversión', v: '$0' },
   { l: 'Conversaciones abiertas', v: '1,000' },
-  { l: 'Responden', v: '350', rate: '35%' },
-  { l: 'Llamadas agendadas', v: '7', rate: '2% de los que responden', hi: true },
+  { l: 'Responden', v: '200', rate: '20% — la abro yo' },
+  { l: 'Llamadas agendadas', v: '7', rate: '3.5% de los que responden', hi: true },
 ];
 
 const CANAL_B: Row[] = [
   { l: 'Inversión', v: '$1,000' },
   { l: 'Conversaciones iniciadas', v: '400', rate: '$2.50 cada una' },
-  { l: 'Responden', v: '220', rate: '55%' },
-  { l: 'Llamadas agendadas', v: '9', rate: '4% de los que responden', hi: true },
+  { l: 'Responden', v: '280', rate: '70% — escribieron ellos' },
+  { l: 'Llamadas agendadas', v: '8', rate: '3% de los que responden', hi: true },
 ];
 
-// Lo que se lleva el prospecto de la llamada, en criollo.
+// Lead magnet: diagnóstico de UN anuncio (no del funnel completo).
+const DIAG = [
+  'Si el gancho frena el scroll o pasa desapercibido',
+  'A qué tipo de cliente le está hablando — y a cuál no',
+  'Qué razón de compra está usando',
+  'Por qué ese anuncio no le trae agendas',
+  'Qué cambiar para la próxima versión',
+];
+
+// Qué se analiza en la llamada.
+const ANALISIS = [
+  { t: 'Anuncios y creativos', w: 'Qué está corriendo hoy, con qué ángulos, y por qué no le trae agendas.' },
+  { t: 'Landing', w: 'Si promete lo mismo que el anuncio, y en qué parte se le cae la gente.' },
+  { t: 'VSL', w: 'Si retiene, en qué minuto se caen y qué le falta al guion para que pidan la llamada.' },
+  { t: 'Mensajes de venta', w: 'Qué se le dice al lead entre que deja el dato y la llamada, y cómo se hace el seguimiento.' },
+  { t: 'Oferta y precios', w: 'Qué vende, a cuánto, y por qué en la mayoría de los casos el precio no es el problema.' },
+  { t: 'Los números del funnel', w: 'Cuánto le cuesta hoy un lead, una agenda y un cliente. Dónde está el cuello real.' },
+];
+
+// Lo que se lleva el prospecto de la llamada.
 const LLEVA = [
   'A quién le tenés que vender — los tipos de cliente que hoy estás mezclando en un solo anuncio',
   'Por qué te va a comprar cada uno — las razones reales, no las que suponés',
@@ -82,8 +101,8 @@ const LLEVA = [
 
 // Proyección financiera: de las llamadas al dinero.
 const CIERRE = [
-  { l: 'Llamadas agendadas', v: '16', rate: '7 de prospección + 9 de campaña' },
-  { l: 'Llamadas efectivas', v: '13', rate: '80% asiste' },
+  { l: 'Llamadas agendadas', v: '15', rate: '7 de prospección + 8 de campaña' },
+  { l: 'Llamadas efectivas', v: '12', rate: '80% asiste' },
   { l: 'Ventas', v: '5', rate: '40% cierra', hi: true },
 ];
 
@@ -94,9 +113,9 @@ const MIX = [
 
 const UNIT = [
   { l: 'Ticket promedio', v: '$2,000' },
-  { l: 'Costo por llamada agendada (campaña)', v: '$111' },
-  { l: 'Costo por cliente (campaña)', v: '$333' },
-  { l: 'Retorno de la campaña', v: '4.5×' },
+  { l: 'Costo por llamada agendada (campaña)', v: '$125' },
+  { l: 'Costo por cliente (campaña)', v: '$500' },
+  { l: 'Retorno de la campaña', v: '3×' },
 ];
 
 // Canales que quedan para después de los dos actuales.
@@ -167,6 +186,20 @@ function Ladder({ rows }: { rows: Row[] }) {
           <span className="s-mrow-l">{r.l}</span>
           {r.rate && <span className="s-mrow-r">{r.rate}</span>}
           <span className="s-mrow-v s-num">{r.v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Mini recorrido de 3 pasos (dentro de una tarjeta).
+function Mini({ steps, tone }: { steps: string[]; tone: 'a' | 'b' }) {
+  return (
+    <div className={`s-mini s-mini-${tone}`}>
+      {steps.map((s, i) => (
+        <div key={s} className="s-mini-i">
+          <span className="s-mini-n s-num">{i + 1}</span>
+          <span>{s}</span>
         </div>
       ))}
     </div>
@@ -258,7 +291,6 @@ export default function Estrategia() {
         <section className="s-sec">
           <h2 className="s-h2">Estrategia de adquisición</h2>
 
-          {/* El recorrido, en tres pasos */}
           <div className="s-flow">
             <div className="s-flow-i">
               <div className="s-flow-ic"><Ic d={I.megaphone} size={26} /></div>
@@ -279,7 +311,6 @@ export default function Estrategia() {
             </div>
           </div>
 
-          {/* Los dos canales, con su embudo */}
           <div className="s-motors">
             <div className="s-motor s-motor-a">
               <div className="s-motor-hd">
@@ -308,7 +339,7 @@ export default function Estrategia() {
               </div>
               <div className="s-spend">
                 <div className="s-sp s-sp-1">
-                  <div className="s-sp-hd"><span className="s-sp-n">Fase 1</span><span className="s-sp-t">Testear Ad ganador</span></div>
+                  <div className="s-sp-hd"><span className="s-sp-n">Fase 1</span><span className="s-sp-t">Ad ganador</span></div>
                   <div className="s-sp-v s-num">$300</div>
                 </div>
                 <div className="s-sp s-sp-2">
@@ -318,13 +349,6 @@ export default function Estrategia() {
               </div>
               <Ladder rows={CANAL_B} />
             </div>
-          </div>
-
-          <div className="s-assume">
-            La campaña paga aporta <b>más llamadas que la prospección</b>, aunque sea el canal más chico en
-            volumen de contactos: el que escribe por un anuncio ya levantó la mano. Ninguna de estas tasas
-            está medida todavía — se corrigen con las primeras 100 conversaciones y las primeras 72 horas
-            de campaña.
           </div>
         </section>
 
@@ -337,28 +361,23 @@ export default function Estrategia() {
                 <span className="s-open-tag">Campaña de mensajes</span>
                 <h3>Diagnóstico de anuncios</h3>
               </div>
-              <p>
-                El anuncio no vende el programa: vende el diagnóstico gratis. El que escribe no está
-                pidiendo información de un servicio, está pidiendo algo que quiere — y eso baja muchísimo
-                la fricción para arrancar la conversación.
-              </p>
-              <div className="s-lm">
-                <span className="s-lm-l">Qué recibe</span>
+              <Mini tone="b" steps={['Manda su anuncio', 'MaKo lo analiza', 'Recibe el diagnóstico']} />
+              <div className="s-diag">
+                <span className="s-diag-l">Qué le decimos de su anuncio</span>
                 <ul>
-                  <li>A quién le está hablando hoy con sus anuncios, y a quién más le podría hablar</li>
-                  <li>Por qué un desconocido todavía no le compra</li>
-                  <li>Qué tendría que probar primero para encontrar su anuncio ganador</li>
-                </ul>
-                <span className="s-lm-l">Cómo se arma</span>
-                <ul>
-                  <li>Responde unas pocas preguntas por WhatsApp sobre su negocio y su oferta</li>
-                  <li>MaKo lo procesa y devuelve el diagnóstico</li>
+                  {DIAG.map((d) => (
+                    <li key={d}><Ic d={I.check} size={14} /><span>{d}</span></li>
+                  ))}
                 </ul>
               </div>
+              <div className="s-bridge">
+                <span className="s-bridge-a">Su anuncio</span>
+                <Ic d={I.chev} size={16} />
+                <span className="s-bridge-b">Su funnel completo, en la llamada</span>
+              </div>
               <div className="s-open-rule">
-                <b>Es la versión reducida de lo que se lleva de la llamada.</b> Le muestra el problema con
-                nombre y apellido, pero no se lo resuelve: para eso hay que agendar. Y no se entrega apenas
-                lo piden — primero se conversa.
+                Diagnosticar <b>un solo anuncio</b> es fácil de vender en frío y se entrega en minutos. Y deja
+                el puente servido: el anuncio es la punta, lo demás se ve en la llamada.
               </div>
             </div>
 
@@ -367,25 +386,24 @@ export default function Estrategia() {
                 <span className="s-open-tag">Prospección</span>
                 <h3>Un Loom VSL por cada lead</h3>
               </div>
-              <p>
-                Acá no va recurso gratis: al que te conoce o al que le escribís a mano se le entra por lo
-                consultivo. La nutrición es un video corto grabado para esa persona, con el análisis de su
-                negocio hecho antes de hablarle.
-              </p>
-              <div className="s-vid">
-                <span className="s-vid-l">Qué se mira antes de grabar</span>
+              <Mini tone="a" steps={['Miro su negocio', 'Grabo un video para él', 'Cierro con el link']} />
+              <div className="s-diag s-diag-a">
+                <span className="s-diag-l">Qué se mira antes de grabar</span>
                 <ul>
-                  <li>Su Instagram y su marca personal</li>
-                  <li>Su biblioteca de anuncios: qué está corriendo y hace cuánto</li>
-                  <li>Su landing, su oferta y a quién le está hablando hoy</li>
+                  <li><Ic d={I.check} size={14} /><span>Su Instagram y su marca personal</span></li>
+                  <li><Ic d={I.check} size={14} /><span>Su biblioteca de anuncios: qué corre y hace cuánto</span></li>
+                  <li><Ic d={I.check} size={14} /><span>Su landing, su oferta y a quién le habla hoy</span></li>
                 </ul>
-                <span className="s-vid-l">Qué se le dice</span>
+                <span className="s-diag-l">Qué se le dice</span>
                 <ul>
-                  <li>Qué se ve desde afuera y a quién le está vendiendo hoy</li>
-                  <li>A qué otros tipos de cliente les podría vender y no lo está haciendo</li>
-                  <li>Qué haría yo en su lugar, concreto</li>
+                  <li><Ic d={I.check} size={14} /><span>A quién le está vendiendo, visto desde afuera</span></li>
+                  <li><Ic d={I.check} size={14} /><span>A qué otros clientes les podría vender y no lo hace</span></li>
+                  <li><Ic d={I.check} size={14} /><span>Qué haría yo en su lugar, concreto</span></li>
                 </ul>
-                <div className="s-vid-cta">Cierre: link para agendar.</div>
+              </div>
+              <div className="s-open-rule s-open-rule-a">
+                Acá <b>no va recurso gratis</b>: al que te conoce o al que le escribís a mano se le entra por
+                lo consultivo, con el análisis ya hecho antes de hablarle.
               </div>
             </div>
           </div>
@@ -402,38 +420,25 @@ export default function Estrategia() {
               ))}
             </ul>
           </div>
-        </section>
 
-        {/* ── Cómo se corre la escalera en la llamada ──────────────────────── */}
-        <section className="s-sec s-band">
-          <h2 className="s-h2">Cómo se corre la escalera en la llamada</h2>
-          <p className="s-sec-sub">Siempre se pitchea primero el 1 a 1. El descenso no es descuento: es <em>“tengo algo para tu situación”</em>.</p>
-          <div className="s-ladder">
-            <div className="s-rung s-rung-1">
-              <div className="s-rung-hd"><span className="s-rung-n">1</span> Pitch principal — <span className="s-num">$4,000</span></div>
-              <p>“Necesitás que alguien se meta de verdad en tu funnel y tome, con datos, las decisiones correctas. Eso es el 1 a 1: MaKo completo y yo trabajando tu VSL Funnel con vos.”</p>
-            </div>
-            <div className="s-rung-if">Si “me encanta, pero no tengo esa plata ahora” ↓</div>
-            <div className="s-rung s-rung-2">
-              <div className="s-rung-hd"><span className="s-rung-n">2</span> Grupal — <span className="s-num">$1,500</span></div>
-              <p>“Para eso tengo otra opción. Te llevás MaKo completo igual, más un grupo donde te acompaño en tus decisiones. $1,500 por cuatro meses.”</p>
-            </div>
-            <div className="s-rung-if">Si tampoco ↓</div>
-            <div className="s-rung s-rung-3">
-              <div className="s-rung-hd"><span className="s-rung-n">3</span> Solo — <span className="s-num">$497</span></div>
-              <p>“Sin problema. Te llevás MaKo completo con los cursos y tutoriales para que lo corras vos. Cuando el funnel te dé, subís.”</p>
-            </div>
-          </div>
-          <div className="s-rule">
-            <Ic d={I.bolt} size={16} />
-            <span><b>Regla:</b> al que califica y tiene plata, se le sostiene el 1 a 1 (no bajar por comodidad). El descenso es solo para el que de verdad no puede.</span>
+          <div className="s-sub-h">Qué se analiza, punto por punto</div>
+          <div className="s-anal">
+            {ANALISIS.map((a, i) => (
+              <div key={a.t} className="s-anal-i">
+                <span className="s-anal-n s-num">{String(i + 1).padStart(2, '0')}</span>
+                <div>
+                  <b>{a.t}</b>
+                  <span>{a.w}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
         {/* ── Proyección financiera ────────────────────────────────────────── */}
-        <section className="s-sec">
+        <section className="s-sec s-band">
           <h2 className="s-h2">Proyección financiera</h2>
-          <p className="s-sec-sub">El objetivo es <b>$10,000</b> en el mes. Las 16 llamadas agendadas vienen de los dos canales de adquisición.</p>
+          <p className="s-sec-sub">El objetivo es <b>$10,000</b> en el mes. Las 15 llamadas agendadas vienen de los dos canales de adquisición.</p>
 
           <div className="s-close">
             {CIERRE.map((c) => (
@@ -489,16 +494,10 @@ export default function Estrategia() {
               </div>
             ))}
           </div>
-
-          <div className="s-assume">
-            El número más sensible de todo el modelo es la <b>tasa de cierre del 40%</b>. Se sostiene porque
-            a la llamada se llega nutrido y se entrega la estrategia completa en vivo. Si el cierre baja al
-            25%, hacen falta 25 llamadas agendadas en vez de 16 para llegar al mismo objetivo.
-          </div>
         </section>
 
         {/* ── Canales a futuro ─────────────────────────────────────────────── */}
-        <section className="s-sec s-band s-sec-last">
+        <section className="s-sec s-sec-last">
           <h2 className="s-h2">Canales de adquisición a futuro</h2>
           <p className="s-sec-sub">Todos son válidos y ninguno está descartado. Entran después de que los dos canales actuales estén dando señal.</p>
           <div className="s-chs">
@@ -597,7 +596,6 @@ body:has(.mk-str) aside { display: none !important; }
 .s-h2 { margin: 0 0 8px; font-size: 27px; line-height: 1.15; letter-spacing: -.02em; font-weight: 600; color: #10131A; }
 .s-sub-h { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #2F6FED; margin: 32px 0 12px; }
 .s-sec-sub { margin: 2px 0 22px; font-size: 16px; line-height: 1.55; color: #5B6472; max-width: 760px; }
-.s-sec-sub em { font-style: italic; color: #3A4150; }
 .s-sec-sub b { color: #10131A; font-weight: 600; }
 
 /* Cuadro "¿Qué es MaKo?" = link a la landing */
@@ -693,36 +691,44 @@ body:has(.mk-str) aside { display: none !important; }
 .s-motor-b .s-mrow-hi { background: #F0F5FE; }
 .s-motor-b .s-mrow-hi .s-mrow-v { color: #1D4FD8; }
 
-.s-assume { margin-top: 20px; font-size: 13.5px; line-height: 1.6; color: #7C8593; background: #F5F7FA; border-radius: 12px; padding: 14px 17px; }
-.s-assume b { color: #10131A; font-weight: 600; }
-.s-band .s-assume { background: #fff; }
-
 /* Lead magnet y nutrición */
 .s-open { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; align-items: start; }
 .s-open-col { background: #fff; border: 1px solid #E9EBF0; border-radius: 18px; padding: 24px 26px; }
 .s-open-b { border-color: #C7D9FA; }
 .s-open-a { border-color: #CBEBDC; }
-.s-open-hd { margin-bottom: 12px; }
+.s-open-hd { margin-bottom: 16px; }
 .s-open-tag { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: 6px; margin-bottom: 9px; color: #1D4FD8; background: #E7EFFE; }
 .s-open-a .s-open-tag { color: #067A54; background: #DEF4EA; }
-.s-open-hd h3 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.01em; color: #10131A; }
-.s-open-col > p { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: #565E6B; }
-.s-lm, .s-vid { border-radius: 12px; padding: 16px 18px; }
-.s-lm { background: #F7FAFF; }
-.s-vid { background: #F5FAF7; }
-.s-lm-l, .s-vid-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
-.s-lm-l { color: #1D4FD8; }
-.s-vid-l { color: #067A54; }
-.s-lm ul, .s-vid ul { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
-.s-lm ul:last-child, .s-vid ul:last-of-type { margin-bottom: 0; }
-.s-vid ul:last-of-type { margin-bottom: 14px; }
-.s-lm li, .s-vid li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.5; color: #565E6B; }
-.s-lm li::before, .s-vid li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; }
-.s-lm li::before { background: #2F6FED; }
-.s-vid li::before { background: #0E9F6E; }
-.s-vid-cta { font-size: 13.5px; font-weight: 600; color: #10131A; padding-top: 12px; border-top: 1px dashed #CBEBDC; }
+.s-open-hd h3 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.015em; color: #10131A; }
+
+/* Mini recorrido de 3 pasos */
+.s-mini { display: flex; gap: 8px; margin-bottom: 16px; }
+.s-mini-i { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; background: #F7FAFF; border-radius: 12px; padding: 13px 14px; font-size: 13px; line-height: 1.35; font-weight: 500; color: #454C58; }
+.s-mini-a .s-mini-i { background: #F5FAF7; }
+.s-mini-n { width: 20px; height: 20px; border-radius: 6px; background: #2F6FED; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.s-mini-a .s-mini-n { background: #0E9F6E; }
+
+/* Listas de diagnóstico */
+.s-diag { border-radius: 12px; padding: 16px 18px; background: #F7FAFF; }
+.s-diag-a { background: #F5FAF7; }
+.s-diag-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #1D4FD8; margin-bottom: 10px; }
+.s-diag-a .s-diag-l { color: #067A54; }
+.s-diag ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.s-diag ul + .s-diag-l { margin-top: 16px; }
+.s-diag li { display: flex; gap: 9px; font-size: 13.5px; line-height: 1.45; color: #565E6B; }
+.s-diag svg { flex: none; margin-top: 2px; color: #2F6FED; }
+.s-diag-a svg { color: #0E9F6E; }
+
+/* Puente anuncio → funnel */
+.s-bridge { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: #C0C7D2; }
+.s-bridge-a, .s-bridge-b { font-size: 13.5px; font-weight: 600; padding: 10px 14px; border-radius: 10px; }
+.s-bridge-a { color: #4E5765; background: #EEF1F5; }
+.s-bridge-b { flex: 1; color: #3A2604; background: linear-gradient(120deg,#FDF0D8,#FFF8EA); }
+
 .s-open-rule { margin-top: 14px; font-size: 13px; line-height: 1.55; color: #7A5406; background: #FFF9EC; border: 1px solid #F3E2B5; border-radius: 10px; padding: 12px 14px; }
 .s-open-rule b { color: #5C3F04; font-weight: 700; }
+.s-open-rule-a { color: #4E5765; background: #F5F7FA; border-color: #E5E8EE; }
+.s-open-rule-a b { color: #10131A; }
 
 /* Por qué agenda */
 .s-egoist { margin-top: 20px; border: 1px solid #F0C169; border-radius: 18px; padding: 28px 30px; background: linear-gradient(160deg,#FFFBF2,#FFFFFF 60%); }
@@ -731,22 +737,12 @@ body:has(.mk-str) aside { display: none !important; }
 .s-lleva li { display: flex; gap: 9px; font-size: 14.5px; line-height: 1.5; color: #454C58; }
 .s-lleva svg { flex: none; margin-top: 3px; color: #0E9F6E; }
 
-/* Escalera en la llamada */
-.s-ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
-.s-rung { border-radius: 14px; padding: 16px 20px; border: 1px solid #E5E8EE; background: #fff; }
-.s-rung-1 { border-color: #F0C169; background: linear-gradient(172deg,#FFFBF2,#FFFFFF 70%); }
-.s-rung-2 { border-color: #C7D9FA; }
-.s-rung-hd { font-size: 15px; font-weight: 600; color: #10131A; margin-bottom: 6px; }
-.s-rung-hd .s-num { color: #10131A; }
-.s-rung-n { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; background: #10131A; color: #fff; font-size: 12px; font-weight: 700; margin-right: 8px; }
-.s-rung-1 .s-rung-n { background: #E0870A; color: #3A2604; }
-.s-rung p { margin: 0; font-size: 14px; line-height: 1.55; font-style: italic; color: #565E6B; }
-.s-rung-if { font-size: 13px; font-weight: 600; color: #9AA3B0; padding: 9px 0 9px 20px; }
-
-/* Regla */
-.s-rule { display: flex; align-items: flex-start; gap: 11px; margin-top: 20px; background: #FFF9EC; border: 1px solid #F3E2B5; border-radius: 12px; padding: 14px 17px; font-size: 14.5px; line-height: 1.5; color: #7A5406; }
-.s-rule svg { flex: none; margin-top: 1px; color: #D4930C; }
-.s-rule b { color: #5C3F04; font-weight: 700; }
+/* Qué se analiza en la llamada */
+.s-anal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.s-anal-i { display: flex; gap: 12px; background: #fff; border: 1px solid #E9EBF0; border-radius: 14px; padding: 18px 20px; }
+.s-anal-n { flex: none; font-size: 14px; font-weight: 600; color: #C6CCD5; }
+.s-anal-i b { display: block; font-size: 15px; font-weight: 600; color: #10131A; margin-bottom: 5px; }
+.s-anal-i span:last-child { font-size: 13px; line-height: 1.55; color: #6B7482; }
 
 /* Proyección: de las llamadas a las ventas */
 .s-close { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 4px; }
@@ -822,7 +818,7 @@ body:has(.mk-str) aside { display: none !important; }
 
 /* Responsive */
 @media (max-width: 900px) {
-  .s-tiers, .s-chs, .s-units { grid-template-columns: 1fr 1fr; }
+  .s-tiers, .s-chs, .s-units, .s-anal { grid-template-columns: 1fr 1fr; }
   .s-two, .s-lever-cols, .s-motors, .s-open, .s-lleva { grid-template-columns: 1fr; }
   .s-flow { grid-template-columns: 1fr; }
   .s-flow-arrow { transform: rotate(90deg); padding: 2px 0; }
@@ -837,11 +833,15 @@ body:has(.mk-str) aside { display: none !important; }
   .s-lead { font-size: 17px; }
   .s-h2 { font-size: 23px; }
   .s-logo-doc { display: none; }
-  .s-spend, .s-units, .s-tiers, .s-chs { grid-template-columns: 1fr; }
+  .s-spend, .s-units, .s-tiers, .s-chs, .s-anal { grid-template-columns: 1fr; }
+  .s-mini { flex-direction: column; }
+  .s-mini-i { flex-direction: row; align-items: center; gap: 10px; }
   .s-mix-row { flex-wrap: wrap; }
   .s-mix-p { width: 100%; }
   .s-goal-op { display: none; }
-  /* La tasa ("2% de los que responden") no entra en la misma línea: baja abajo. */
+  .s-bridge { flex-direction: column; align-items: stretch; }
+  .s-bridge svg { transform: rotate(90deg); align-self: center; }
+  /* La tasa ("3.5% de los que responden") no entra en la misma línea: baja abajo. */
   .s-mrow { flex-wrap: wrap; }
   .s-mrow-l { flex: 1 1 auto; }
   .s-mrow-v { width: auto; }
