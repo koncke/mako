@@ -80,18 +80,18 @@ const DIAG = [
   'Qué cambiar para la próxima versión',
 ];
 
-// La duda abierta: ¿hace falta toda esta maquinaria?
+// La duda abierta: ¿hace falta el gancho? (el setter de IA va igual)
 const DUDA_CON = [
+  'Baja la fricción para que escriban: piden un recurso, no información de un servicio',
   'Llega a la llamada sabiendo qué tiene mal',
-  'Baja la fricción para abrir la conversación',
-  'Hay que construir el setter de IA y mantenerlo',
-  'Un Loom por cada lead que responde: ~200 videos en el mes',
+  'Hay que grabar un Loom por cada lead que responde: ~200 videos en el mes',
+  'El setter tiene que saber diagnosticar, no solo calificar',
 ];
 
 const DUDA_SIN = [
-  'Se arranca mañana, sin construir nada',
+  'El anuncio promociona MaKo y el setter califica y agenda, nada más',
+  'Se arranca mañana, sin producir nada',
   'Menos conversaciones, pero más calificadas: el que escribe ya quiere el software',
-  'Todo el presupuesto va a pauta, no a operativa',
   'Llega frío a la llamada',
 ];
 
@@ -103,15 +103,6 @@ const ANALISIS = [
   { t: 'Mensajes de venta', w: 'Qué se le dice al lead entre que deja el dato y la llamada, y cómo se hace el seguimiento.' },
   { t: 'Oferta y precios', w: 'Qué vende, a cuánto, y por qué en la mayoría de los casos el precio no es el problema.' },
   { t: 'Los números del funnel', w: 'Cuánto le cuesta hoy un lead, una agenda y un cliente. Dónde está el cuello real.' },
-];
-
-// Lo que se lleva el prospecto de la llamada.
-const LLEVA = [
-  'A quién le tenés que vender — los tipos de cliente que hoy estás mezclando en un solo anuncio',
-  'Por qué te va a comprar cada uno — las razones reales, no las que suponés',
-  'Los guiones de tus anuncios, escritos',
-  'Tus creativos, listos para publicar',
-  'Con cuánto arrancar, qué publicar primero y cómo saber cuál está funcionando',
 ];
 
 // Proyección financiera: de las llamadas al dinero.
@@ -427,32 +418,24 @@ export default function Estrategia() {
           <div className="s-duda">
             <h3 className="s-duda-h">¿Realmente conviene hacerlo personalizado?</h3>
             <p className="s-duda-p">
-              Todo esto es maquinaria: un setter de IA que hay que construir y un Loom grabado para cada
-              lead. La alternativa es correr campañas de mensajes promocionando MaKo directo, sin nada
-              alrededor. La pregunta abierta es cuánto sube realmente la chance de cerrar por agregarlo.
+              El <b>setter de IA no está en discusión</b>: hace falta igual para llevar la conversación a la
+              llamada. Lo que se discute es el gancho — el diagnóstico gratis en la campaña y el Loom
+              grabado para cada lead en la prospección. La alternativa es promocionar MaKo directo y que
+              el setter califique y agende, sin nada alrededor.
             </p>
             <div className="s-duda-cols">
               <div className="s-duda-col s-duda-con">
-                <span className="s-duda-l">Con la maquinaria</span>
+                <span className="s-duda-l">Con gancho</span>
                 <ul>
                   {DUDA_CON.map((x) => <li key={x}>{x}</li>)}
                 </ul>
               </div>
               <div className="s-duda-col s-duda-sin">
-                <span className="s-duda-l">Directo, sin maquinaria</span>
+                <span className="s-duda-l">Directo, sin gancho</span>
                 <ul>
                   {DUDA_SIN.map((x) => <li key={x}>{x}</li>)}
                 </ul>
               </div>
-            </div>
-            <div className="s-duda-num">
-              <span className="s-duda-num-l">El número que lo decide</span>
-              <p>
-                Con 12 llamadas efectivas y un ticket promedio de <b>$2,000</b>, cada venta extra vale
-                $2,000. Grabar ~200 Looms son unas <b>40 horas</b> en el mes: la maquinaria solo se paga si
-                mueve más de una venta. No se resuelve discutiéndolo — se parte el presupuesto de la
-                fase 1 y se mide cuál de los dos caminos trae agendas más baratas.
-              </p>
             </div>
           </div>
         </section>
@@ -462,24 +445,17 @@ export default function Estrategia() {
           <h2 className="s-h2">Razón egoísta de por qué agendarán la llamada</h2>
           <div className="s-egoist">
             <p className="s-egoist-q">“Salís de la llamada con toda tu estrategia para conseguir clientes con anuncios pagos, armada para tu negocio.”</p>
-            <ul className="s-lleva">
-              {LLEVA.map((x) => (
-                <li key={x}><Ic d={I.check} size={15} /><span>{x}</span></li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="s-sub-h">Qué se analiza, punto por punto</div>
-          <div className="s-anal">
-            {ANALISIS.map((a, i) => (
-              <div key={a.t} className="s-anal-i">
-                <span className="s-anal-n s-num">{String(i + 1).padStart(2, '0')}</span>
-                <div>
-                  <b>{a.t}</b>
-                  <span>{a.w}</span>
+            <div className="s-anal">
+              {ANALISIS.map((a, i) => (
+                <div key={a.t} className="s-anal-i">
+                  <span className="s-anal-n s-num">{String(i + 1).padStart(2, '0')}</span>
+                  <div>
+                    <b>{a.t}</b>
+                    <span>{a.w}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* No es una consultoría gratis: es una llamada de venta. */}
@@ -815,10 +791,7 @@ body:has(.mk-str) aside { display: none !important; }
 .s-duda-col li { position: relative; padding-left: 16px; font-size: 13.5px; line-height: 1.5; color: #565E6B; }
 .s-duda-col li::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #C6CCD5; }
 .s-duda-sin li::before { background: #2F6FED; }
-.s-duda-num { margin-top: 16px; border-left: 3px solid #10131A; padding-left: 18px; }
-.s-duda-num-l { display: block; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #10131A; margin-bottom: 7px; }
-.s-duda-num p { margin: 0; font-size: 14px; line-height: 1.6; color: #565E6B; }
-.s-duda-num b { color: #10131A; font-weight: 600; }
+.s-duda-p b { color: #10131A; font-weight: 600; }
 
 /* La llamada es de venta, no de diagnóstico */
 .s-venta { margin-top: 22px; border: 1px solid #E5E8EE; border-radius: 18px; padding: 24px 26px; background: #10131A; }
@@ -838,14 +811,13 @@ body:has(.mk-str) aside { display: none !important; }
 
 /* Por qué agenda */
 .s-egoist { margin-top: 20px; border: 1px solid #F0C169; border-radius: 18px; padding: 28px 30px; background: linear-gradient(160deg,#FFFBF2,#FFFFFF 60%); }
-.s-egoist-q { margin: 0 0 20px; font-size: 23px; line-height: 1.4; font-weight: 600; letter-spacing: -.015em; color: #10131A; text-wrap: balance; }
-.s-lleva { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px 26px; }
-.s-lleva li { display: flex; gap: 9px; font-size: 14.5px; line-height: 1.5; color: #454C58; }
-.s-lleva svg { flex: none; margin-top: 3px; color: #0E9F6E; }
+.s-egoist-q { margin: 0 0 22px; font-size: 23px; line-height: 1.4; font-weight: 600; letter-spacing: -.015em; color: #10131A; text-wrap: balance; }
 
 /* Qué se analiza en la llamada */
 .s-anal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.s-egoist .s-anal { grid-template-columns: 1fr 1fr; }
 .s-anal-i { display: flex; gap: 12px; background: #fff; border: 1px solid #E9EBF0; border-radius: 14px; padding: 18px 20px; }
+.s-egoist .s-anal-i { border-color: #F3E6CB; }
 .s-anal-n { flex: none; font-size: 14px; font-weight: 600; color: #C6CCD5; }
 .s-anal-i b { display: block; font-size: 15px; font-weight: 600; color: #10131A; margin-bottom: 5px; }
 .s-anal-i span:last-child { font-size: 13px; line-height: 1.55; color: #6B7482; }
@@ -925,8 +897,8 @@ body:has(.mk-str) aside { display: none !important; }
 /* Responsive */
 @media (max-width: 900px) {
   .s-tiers, .s-chs, .s-units, .s-anal { grid-template-columns: 1fr 1fr; }
-  .s-two, .s-lever-cols, .s-motors, .s-open, .s-lleva { grid-template-columns: 1fr; }
-  .s-duda-cols, .s-venta-rule { grid-template-columns: 1fr; }
+  .s-two, .s-lever-cols, .s-motors, .s-open { grid-template-columns: 1fr; }
+  .s-duda-cols, .s-venta-rule, .s-egoist .s-anal { grid-template-columns: 1fr; }
   .s-flow { grid-template-columns: 1fr; }
   .s-flow-arrow { transform: rotate(90deg); padding: 2px 0; }
   .s-close { grid-template-columns: 1fr; }
