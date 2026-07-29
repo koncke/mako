@@ -58,7 +58,9 @@ export type OnboardingState = {
     tabs: { done: boolean };
     negocio: { done: boolean };
     archivero: { done: boolean };
+    entregable: { done: boolean };
     avatares: { done: boolean };
+    persona: { done: boolean };
     angulos: { done: boolean };
     gemini: { done: boolean };
     fase: { done: boolean };
@@ -84,7 +86,9 @@ export function estadoInicial(status: OnboardingStatus = 'pending'): OnboardingS
       tabs: { done: false },
       negocio: { done: false },
       archivero: { done: false },
+      entregable: { done: false },
       avatares: { done: false },
+      persona: { done: false },
       angulos: { done: false },
       gemini: { done: false },
       fase: { done: false },

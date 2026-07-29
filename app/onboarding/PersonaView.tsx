@@ -64,8 +64,7 @@ export function PersonaView() {
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
       {css}
-      <div style={{ ...eyebrow, marginBottom: 4 }}>Tu persona · la cara de marca</div>
-      <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 18, maxWidth: 560 }}>Sube fotos de la persona que aparece en tus anuncios y describí su apariencia y estilo. La IA lo usa para generar las imágenes de tus creativos con esa persona.</div>
+      <div style={{ ...eyebrow, marginBottom: 18 }}>Tu persona · la cara de marca</div>
 
       {/* Fotos */}
       <div style={{ ...eyebrow, marginBottom: 10 }}>Fotos{fotos.length ? ` · ${fotos.length}` : ''}</div>

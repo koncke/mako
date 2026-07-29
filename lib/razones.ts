@@ -29,7 +29,9 @@ import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
 //  · copy        = el hook/copy del anuncio para esa motivación.
 //  · guion       = el guion de video (a pedido; '' hasta generarlo).
 //  · imagenUrl   = placeholder de la imagen generada (vacío hasta que existan).
-export type RazonCelda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guion: string; imagenUrl: string };
+//  · anguloImagen/anguloVideo = el FORMATO elegido (id de la biblioteca de ángulos)
+//    para la imagen y el video de este anuncio ('' hasta que la IA lo elija).
+export type RazonCelda = { id: string; avatarId: string; nombre: string; descripcion: string; copy: string; guion: string; imagenUrl: string; anguloImagen: string; anguloVideo: string };
 export type Uso = { tokens: number; costUsd: number } | null;
 
 const SETTING_KEY = 'mako.razones';
@@ -45,6 +47,8 @@ function normalizarRazon(v: unknown): RazonCelda {
     copy: str(o.copy),
     guion: str(o.guion),
     imagenUrl: str(o.imagenUrl),
+    anguloImagen: str(o.anguloImagen),
+    anguloVideo: str(o.anguloVideo),
   };
 }
 
@@ -101,7 +105,7 @@ export function parseRazones(text: string, avatares: Avatar[]): RazonCelda[] {
       const o = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
       const nombre = str(o.nombre);
       if (!nombre) continue;
-      out.push({ id: randomUUID(), avatarId: av.id, nombre, descripcion: str(o.descripcion), copy: str(o.copy), guion: '', imagenUrl: '' });
+      out.push({ id: randomUUID(), avatarId: av.id, nombre, descripcion: str(o.descripcion), copy: str(o.copy), guion: '', imagenUrl: '', anguloImagen: '', anguloVideo: '' });
     }
   }
   return out;
@@ -140,9 +144,30 @@ export async function generarRazones(): Promise<GenResult> {
 }
 
 // ── Guion de una celda (a pedido) ────────────────────────────────────────────
-export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio en VIDEO (15-40s) para Meta. Te paso el avatar, su motivación de compra, el copy/hook y el entregable tangible del negocio. Escribí un guion corto y accionable, con: GANCHO (primeros 3s, el hook), DESARROLLO (el problema/deseo y cómo el entregable lo resuelve), y CIERRE con llamada a la acción. Marcá las partes. Concreto, del dolor/deseo real, sin relleno. IDIOMA: español NEUTRO/MEXICANO, de "tú", sin voseo argentino. Devolvé SOLO el texto del guion (sin JSON, sin markdown de encabezados).`;
+// Guion de anuncio TOFU (tráfico frío) para Meta, con la metodología de guiones de
+// Mauricio: estructura GANCHO → cuerpo → CTA. El GANCHO cumple 3 trabajos (llama la
+// atención con un dolor/deseo, CUALIFICA para quién es, y genera confianza/curiosidad);
+// el cuerpo educa o cuenta una historia según el formato; el CTA rebate objeciones y
+// manda a un webinar/taller gratuito y a agendar. Si viene un FORMATO de video elegido,
+// el guion lo sigue (hook-problema, testimonio, mini-vsl, etc.).
+export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta de TRÁFICO FRÍO (TOFU, gente que no te conoce). Te paso el avatar, su motivación de compra, el copy/hook, el entregable tangible del negocio y (si está) el FORMATO de video elegido. Escribí un guion listo para grabar de 30 a 90 segundos.
 
-export async function generarGuion(celdaId: string): Promise<{ ok: true; guion: string } | { ok: false; error: string }> {
+ESTRUCTURA (adaptala al formato si te lo doy):
+1) GANCHO (primeros 3-5s) — tiene que hacer 3 cosas a la vez: (a) LLAMAR LA ATENCIÓN mostrando un dolor o un deseo real del avatar; (b) CUALIFICAR: dejar claro para QUIÉN es el anuncio (nombra al avatar/su situación) para filtrar y atraer solo al cliente potencial; (c) generar confianza/curiosidad (una promesa concreta de lo que van a ver).
+2) CUERPO — desarrollá según el formato:
+   · Historia: contá un antes/después creíble (el problema por el que pasa el avatar → el descubrimiento/mecanismo que lo resolvió) para que se identifique y le dé curiosidad.
+   · Valor/educación: 2-3 pasos o ideas accionables (mini-tutorial) que muestren el mecanismo.
+   · Propuesta directa: presentá la oferta/mecanismo de forma clara y "sexy", sin vueltas.
+   Usá el ENTREGABLE tangible como prueba de que el mecanismo existe y funciona.
+3) CTA — antes del cierre, REBATÍ 1-2 objeciones o creencias limitantes ("no es porque X ni Y, es porque…"); después, una llamada a la acción clara: registrarse a un taller/webinar gratuito (y luego agendar una asesoría). Nada de "estrategia mágica": invitá a ver el paso a paso.
+
+REGLAS:
+- Concreto, del dolor/deseo REAL del avatar. Sin relleno ni promesas vacías. NO inventes cifras ni garantías que no estén en el contexto.
+- Marcá las partes con etiquetas (GANCHO / CUERPO / CTA). Podés incluir indicaciones cortas de acción entre paréntesis si suman.
+- IDIOMA: español NEUTRO/MEXICANO, de "tú", sin voseo argentino.
+Devolvé SOLO el texto del guion (sin JSON).`;
+
+export async function generarGuion(celdaId: string, formatoVideoTexto?: string): Promise<{ ok: true; guion: string } | { ok: false; error: string }> {
   try {
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
@@ -150,14 +175,13 @@ export async function generarGuion(celdaId: string): Promise<{ ok: true; guion: 
     const [avatares, entregables] = await Promise.all([getAvatares(), getEntregables()]);
     const av = avatares.find((a) => a.id === celda.avatarId);
     const sys = await renderPrompt('razones.guion', GUION_SYSTEM_TEMPLATE, {});
-    const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Dolor: ${av.dolor}` : '(sin avatar)'}
+    const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Situación: ${av.situacion}. Dolor: ${av.dolor}` : '(sin avatar)'}
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy}
-${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}` : ''}
-
+${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n` : ''}${formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${formatoVideoTexto}\n` : ''}
 Escribí el guion del video.`;
     const guion = await chatCheapCascade({
-      system: sys, user, maxTokens: 1200,
+      system: sys, user, maxTokens: 1500,
       feature: 'razones', motivo: 'Guion de video de una celda de la matriz',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
     });

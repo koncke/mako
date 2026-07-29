@@ -54,7 +54,6 @@ export function RazonesView() {
         {css}
         <div style={{ width: 46, height: 46, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'raz-spin .8s linear infinite' }} />
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginTop: 22 }}>MaKo está encontrando las razones</div>
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Por cada avatar, las distintas motivaciones por las que te compra.</div>
       </div>
     );
   }
@@ -65,7 +64,6 @@ export function RazonesView() {
         {css}
         <div style={{ fontSize: 40, marginBottom: 12 }}>💡</div>
         <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.25 }}>Tus razones de compra</h2>
-        <p style={{ fontSize: 14.5, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 8px', maxWidth: 440 }}>Las razones salen de tus <b>avatares</b>: por cada uno, sus distintas motivaciones para comprar.</p>
         <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero define tus avatares en el paso <b>Avatares</b>.</div>
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
       </div>
@@ -77,8 +75,7 @@ export function RazonesView() {
       <div style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
         {css}
         <div style={{ fontSize: 40, marginBottom: 12 }}>💡</div>
-        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.25 }}>Tus razones de compra</h2>
-        <p style={{ fontSize: 14.5, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 24px', maxWidth: 460 }}>Por cada uno de tus <b>{avatares.length} avatares</b>, MaKo encuentra <b>3 motivaciones</b> distintas para comprar (como el curso de inglés: mejor salario, un viaje, un ascenso).</p>
+        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 24px', lineHeight: 1.25 }}>Tus razones de compra</h2>
         <button type="button" onClick={generar} style={btnPrimary}>✦ Encontrar mis razones</button>
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
       </div>

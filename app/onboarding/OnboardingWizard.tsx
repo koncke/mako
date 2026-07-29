@@ -26,6 +26,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Archivero } from './Archivero';
 import { AvataresView } from './AvataresView';
+import { EntregableView } from './EntregableView';
+import { PersonaView } from './PersonaView';
 import { MatrizView } from './MatrizView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
 import { BrandDefs } from '../_components/ServicioVisual';
@@ -45,7 +47,7 @@ const SANS = "'Geist', sans-serif";
 type Servicio = { key: string; nombre: string; requerido: boolean; conectada: boolean };
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
-type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'avatares' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
 // Funnel simple del onboarding (#5): 3 opciones, multi-select, poco texto. El detalle
 // de etapas del CRM se ajusta después en Onboarding → Funnel.
 const FUNNEL_OPS = [
@@ -143,8 +145,7 @@ export function OnboardingWizard() {
   const [tpl, setTpl] = useState('highticket');
   const [cierres, setCierres] = useState('');
   const [cash, setCash] = useState('');
-  const [geminiKey, setGeminiKey] = useState('');
-  const [cambiarGemini, setCambiarGemini] = useState(false); // reemplazar un token ya cargado
+  const [geminiConectada, setGeminiConectada] = useState(false); // lo reporta ServicioConfigForm
   const [funnelTipos, setFunnelTipos] = useState<string[]>([]);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
@@ -178,6 +179,7 @@ export function OnboardingWizard() {
         telefono: d.contacto.telefono,
       });
       setExt(d.estado.extraction);
+      setGeminiConectada(Boolean(d.geminiConfig?.configurado));
       setConectadas(Object.fromEntries(d.servicios.map((s) => [s.key, s.conectada])));
       setFaseDiag(d.faseDiag ?? null);
       setFaseResp(d.faseDiag?.respuestas ?? new Array(d.fasePreguntas?.length ?? 6).fill(-1));
@@ -248,42 +250,28 @@ export function OnboardingWizard() {
         pantallas.push({
           key: `int:${key}`, paso, servicio: key, nombre: s.nombre,
           pregunta: `Conectá ${s.nombre}`,
-          sub: key === 'meta'
-            ? 'Apenas la conectes empiezo a leer tu histórico — lo vas a ver acá al lado.'
-            : undefined,
           slides: SLIDES[key] ?? SLIDES_MAKO,
         });
       }
     } else if (paso === 'tabs') {
-      pantallas.push({ key: 'funnel', paso, pregunta: '¿Cómo vendés?', sub: '¿Cuál describe mejor tu funnel? Podés marcar más de uno.', slides: SLIDES_FUNNEL });
-      pantallas.push({ key: 'contacto', paso, pregunta: '¿A dónde te mando los reportes?', sub: 'Al número que pongas te escribo yo cuando pase algo que valga la pena.', slides: SLIDES_MAKO });
+      pantallas.push({ key: 'funnel', paso, pregunta: '¿Cómo vendés?', slides: SLIDES_FUNNEL });
+      pantallas.push({ key: 'contacto', paso, pregunta: '¿A dónde te mando los reportes?', slides: SLIDES_MAKO });
     } else if (paso === 'negocio') {
       for (const c of data.brief) {
         pantallas.push({ key: `brief:${c.key}`, paso, pregunta: c.label, slides: SLIDES_MAKO });
       }
     } else if (paso === 'archivero') {
-      pantallas.push({
-        key: 'archivero', paso,
-        pregunta: 'Suelta aquí todo lo de tu negocio',
-        sub: 'Avatar, oferta, nicho, tu web, tu Instagram… en cualquier formato. Yo lo leo y te armo tu perfil. Lo revisas y corriges.',
-        slides: SLIDES_MAKO,
-      });
+      pantallas.push({ key: 'archivero', paso, pregunta: 'El Archivero', slides: SLIDES_MAKO });
+    } else if (paso === 'entregable') {
+      pantallas.push({ key: 'entregable', paso, pregunta: 'Tu entregable tangible', slides: SLIDES_MAKO });
     } else if (paso === 'avatares') {
-      pantallas.push({
-        key: 'avatares', paso,
-        pregunta: 'Tus avatares',
-        sub: 'Antes de los ángulos, definimos a quién le hablas. Propongo 3 avatares de tu negocio; los revisas y ajustas.',
-        slides: SLIDES_MAKO,
-      });
+      pantallas.push({ key: 'avatares', paso, pregunta: 'Tus avatares', slides: SLIDES_MAKO });
+    } else if (paso === 'persona') {
+      pantallas.push({ key: 'persona', paso, pregunta: 'La cara de tu marca', slides: SLIDES_MAKO });
     } else if (paso === 'angulos') {
-      pantallas.push({
-        key: 'angulos', paso,
-        pregunta: 'Tu matriz de anuncios',
-        sub: 'Cruzo tus avatares con sus razones de compra: cada celda es un anuncio. Toca una para ver el copy y el guion.',
-        slides: SLIDES_MAKO,
-      });
+      pantallas.push({ key: 'angulos', paso, pregunta: 'Tu matriz de anuncios', slides: SLIDES_MAKO });
     } else if (paso === 'gemini') {
-      pantallas.push({ key: 'gemini', paso, pregunta: 'Conecta la IA de MaKo', sub: 'Pega tu API key de Gemini — es gratis. Con eso MaKo lee tus documentos, arma tu perfil y hace todo el análisis del onboarding.', slides: SLIDES_MAKO });
+      pantallas.push({ key: 'gemini', paso, pregunta: 'Conecta la IA de MaKo', slides: SLIDES_MAKO });
     } else if (paso === 'fase') {
       // Una pantalla por pregunta (6) + la pantalla del diagnóstico. La pregunta
       // de volumen adapta su enunciado al canal de venta elegido.
@@ -292,9 +280,9 @@ export function OnboardingWizard() {
       });
       pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico', slides: SLIDES_MAKO });
     } else if (paso === 'retro') {
-      pantallas.push({ key: 'retro', paso, pregunta: 'Tu primera Retro', sub: 'Cruzo todo lo que extraje y te digo dónde se te va la plata.', slides: SLIDES['meta'] ?? SLIDES_MAKO, servicio: 'meta' });
+      pantallas.push({ key: 'retro', paso, pregunta: 'Tu primera Retro', slides: SLIDES['meta'] ?? SLIDES_MAKO, servicio: 'meta' });
     } else if (paso === 'plan') {
-      pantallas.push({ key: 'plan', paso, pregunta: 'Tu plan lo cuida el Perro Guardián', sub: 'Vos cargás lo que hay que hacer y él decide qué mueve la aguja.', slides: SLIDES_MAKO });
+      pantallas.push({ key: 'plan', paso, pregunta: 'Tu plan lo cuida el Perro Guardián', slides: SLIDES_MAKO });
     }
   }
 
@@ -367,8 +355,7 @@ export function OnboardingWizard() {
   // conectar: está recorriendo el flujo, no dando de alta un cliente real.
   const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
-    : p.key === 'gemini' ? (Boolean(geminiKey.trim()) || Boolean(data.esAdmin) || (Boolean(data.geminiConfig?.configurado) && !cambiarGemini)) // ya cargado → no re-pedir
-
+    : p.key === 'gemini' ? (geminiConectada || Boolean(data.esAdmin)) // la conexión la maneja el form
     : true;
 
   // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
@@ -411,20 +398,16 @@ export function OnboardingWizard() {
         puedeAvanzar={puedeAvanzar}
         enUltimo={enUltimo}
         confirmLabel={data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ir a mi dashboard →'}
-        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.key === 'gemini' ? 'Verificar y seguir →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
+        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
         pending={pending}
         atrasLabel="Atrás"
         hideAtras={idx === 0}
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
         onSiguiente={() => {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
-          // El Archivero persiste por su cuenta (sus propios endpoints); acá solo avanzamos.
-          if (p.key === 'archivero' || p.key === 'avatares' || p.key === 'angulos') return avanzar();
-          if (p.key === 'gemini') {
-            // Ya cargado y sin key nueva → seguir sin re-postear (no pisar el token).
-            if (data.geminiConfig?.configurado && !cambiarGemini && !geminiKey.trim()) return avanzar();
-            return avanzar(() => post('/api/onboarding', { action: 'gemini', geminiKey: geminiKey.trim() }));
-          }
+          // Pasos self-contained (Archivero, Entregable, Avatares, Persona, Matriz, Gemini):
+          // persisten por su cuenta con sus propios endpoints; acá solo avanzamos.
+          if (['archivero', 'entregable', 'avatares', 'persona', 'angulos', 'gemini'].includes(p.key)) return avanzar();
           if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel-simple', funnelTipos }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
           // Última pregunta del diagnóstico: persistir antes de mostrar el resultado.
@@ -484,8 +467,14 @@ export function OnboardingWizard() {
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
         {p.key === 'archivero' && <Archivero onEstado={setAnswers} />}
 
+        {/* ── Entregable tangible de la oferta (self-contained) ── */}
+        {p.key === 'entregable' && <EntregableView />}
+
         {/* ── Avatares: MaKo propone 3 subnichos desde el brief (self-contained) ── */}
         {p.key === 'avatares' && <AvataresView />}
+
+        {/* ── Persona: la cara de marca (fotos + descripción), self-contained ── */}
+        {p.key === 'persona' && <PersonaView />}
 
         {/* ── La matriz de anuncios (avatar × razón), self-contained ── */}
         {p.key === 'angulos' && <MatrizView />}
@@ -514,26 +503,10 @@ export function OnboardingWizard() {
           </div>
         )}
 
-        {/* ── Gemini: token de la IA (obligatorio) ── */}
+        {/* ── Gemini: la MISMA credencial de /integraciones (ojito · probar · eliminar) ── */}
         {p.key === 'gemini' && (
           <div style={{ textAlign: 'left' }}>
-            {data.geminiConfig?.configurado && !cambiarGemini ? (
-              // Ya cargado: se muestra enmascarado con el ojito (como en Integraciones).
-              <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></svg>
-                <span style={{ fontFamily: MONO, fontSize: 14, color: 'var(--ink)', flex: 1, letterSpacing: '.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.geminiConfig.mask || 'AIza••••••••'}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)', flex: 'none' }}>✓ Conectada</span>
-                <button type="button" onClick={() => { setCambiarGemini(true); setGeminiKey(''); }} style={{ border: 'none', background: 'none', color: 'var(--dim)', fontSize: 12.5, textDecoration: 'underline', cursor: 'pointer', flex: 'none' }}>Cambiar</button>
-              </div>
-            ) : (
-              <>
-                <input style={{ ...wizardInput, textAlign: 'left' }} value={geminiKey} placeholder="AIza…" autoFocus onChange={(e) => setGeminiKey(e.target.value)} />
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 12, lineHeight: 1.6 }}>
-                  La sacas gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>aistudio.google.com/apikey</a> → “Create API key”. La verifico al toque.
-                  {data.geminiConfig?.configurado && <> · <button type="button" onClick={() => { setCambiarGemini(false); setGeminiKey(''); }} style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 12.5 }}>Cancelar</button></>}
-                </div>
-              </>
-            )}
+            <ServicioConfigForm servicioKey="gemini" onEstado={setGeminiConectada} />
           </div>
         )}
 

@@ -78,7 +78,6 @@ export function EntregableView() {
         {css}
         <div style={{ width: 46, height: 46, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'ent-spin .8s linear infinite' }} />
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginTop: 22 }}>MaKo está buscando tu entregable</div>
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>El elemento tangible que hace tu oferta imposible de ignorar.</div>
       </div>
     );
   }
@@ -88,10 +87,7 @@ export function EntregableView() {
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
         {css}
         <div style={{ fontSize: 40, marginBottom: 12 }}>🧲</div>
-        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 12px', lineHeight: 1.25 }}>Tu entregable</h2>
-        <p style={{ fontSize: 14.5, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 24px', maxWidth: 470 }}>
-          El elemento <b>tangible</b> de tu oferta —un dashboard, una planilla, una metodología con nombre— que se entiende al instante y genera <b>FOMO</b> en tus anuncios.
-        </p>
+        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 24px', lineHeight: 1.25 }}>Tu entregable</h2>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           {est?.tieneBrief && <button type="button" onClick={generar} style={btnPrimary}>✦ Que MaKo lo detecte</button>}
           <button type="button" onClick={agregarMio} style={btnGhost}>+ Cargar el mío</button>
@@ -106,10 +102,7 @@ export function EntregableView() {
     <div>
       {css}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ ...eyebrow, marginBottom: 4 }}>Tu entregable · el elemento tangible</div>
-          <div style={{ fontSize: 13, color: 'var(--dim)', maxWidth: 520 }}>Lo concreto que hace tu oferta imposible de ignorar y dispara FOMO en los ads. Toca cualquier texto para ajustarlo.</div>
-        </div>
+        <div style={{ ...eyebrow }}>Tu entregable · el elemento tangible</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" onClick={agregarMio} style={btnGhost}>+ Agregar el mío</button>
           {est?.tieneBrief && <button type="button" onClick={generar} style={btnGhost}>↺ Regenerar</button>}

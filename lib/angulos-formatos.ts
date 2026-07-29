@@ -16,37 +16,16 @@ import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getSetting, setSetting } from './settings';
-import { getRazones } from './razones';
+import { getRazones, setRazones } from './razones';
 import { getAvatares } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
 import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
+import { BIBLIOTECA_ANGULOS, formatoPorId, type Medio, type FormatoAngulo } from './angulos-data';
 
-export type Medio = 'imagen' | 'video';
-export type FormatoAngulo = { id: string; nombre: string; medio: Medio; descripcion: string; ejemplo: string };
-
-// ── LA BIBLIOTECA (fija; la IA elige de acá) ─────────────────────────────────
-export const BIBLIOTECA_ANGULOS: FormatoAngulo[] = [
-  // ── Imagen ──
-  { id: 'comparacion', medio: 'imagen', nombre: 'Comparación', descripcion: 'Dos columnas: esto vs aquello (con vos vs sin vos, tu método vs el común).', ejemplo: 'Izq: "Equipo sin tablero" caótico · Der: "Equipo con el Dashboard" ordenado.' },
-  { id: 'testimonio-capturas', medio: 'imagen', nombre: 'Testimonio con capturas', descripcion: 'Capturas reales de mensajes (WhatsApp/DM) de un cliente contento.', ejemplo: 'Screenshot de un cliente: "esto me cambió el negocio", con contexto arriba.' },
-  { id: 'antes-despues', medio: 'imagen', nombre: 'Antes y después', descripcion: 'El estado inicial vs el resultado, lado a lado o en una tira.', ejemplo: 'Antes: números en rojo · Después: mismos números en verde.' },
-  { id: 'screenshot-resultado', medio: 'imagen', nombre: 'Captura de un resultado', descripcion: 'La foto de un resultado real y concreto (un dashboard, un número, un reporte).', ejemplo: 'Screenshot del dashboard mostrando el objetivo cumplido.' },
-  { id: 'checklist', medio: 'imagen', nombre: 'Lista / checklist', descripcion: 'Una lista corta de puntos que el espectador quiere cumplir (o teme no cumplir).', ejemplo: '"5 señales de que tu equipo no está alineado" con checks.' },
-  { id: 'stat-impactante', medio: 'imagen', nombre: 'Dato que frena el scroll', descripcion: 'Un número o estadística fuerte y visual que interrumpe.', ejemplo: '"El 70% de los equipos no sabe su objetivo de la semana."' },
-  { id: 'carrusel-pasos', medio: 'imagen', nombre: 'Carrusel de pasos', descripcion: 'Varias placas mostrando el cómo funciona / el paso a paso del mecanismo.', ejemplo: 'Placa 1: el problema → 2: el gancho → 3: el resultado.' },
-  // ── Video ──
-  { id: 'hook-problema', medio: 'video', nombre: 'Hook de problema', descripcion: 'Arranca hablando directo al dolor, a cámara, sin intro.', ejemplo: '"Si tu equipo no cumple sus metas, no es falta de ganas…"' },
-  { id: 'testimonio-hablado', medio: 'video', nombre: 'Testimonio hablado', descripcion: 'El cliente cuenta su antes/después a cámara, natural.', ejemplo: 'Cliente: "en 60 días pasamos de X a Y".' },
-  { id: 'demo-walkthrough', medio: 'video', nombre: 'Demo / recorrido', descripcion: 'Se muestra el producto o el entregable funcionando (screen o en vivo).', ejemplo: 'Recorrido del dashboard: acá ves quién cumple y quién no.' },
-  { id: 'explicacion-mecanismo', medio: 'video', nombre: 'Explicación del mecanismo', descripcion: 'Explica POR QUÉ funciona tu método (el "no es tu culpa, es que…").', ejemplo: 'Pizarra/talking-head explicando el porqué del sistema.' },
-  { id: 'dia-en-la-vida', medio: 'video', nombre: 'Un día en la vida', descripcion: 'Muestra el día del cliente con vs sin la solución.', ejemplo: 'Lunes sin el sistema (caos) vs con el sistema (control).' },
-  { id: 'reaccion-caso', medio: 'video', nombre: 'Reacción a un caso', descripcion: 'Reaccionás/comentás sobre una captura o un caso real de un cliente.', ejemplo: 'Mostrás el chat de un cliente y explicás qué pasó.' },
-  { id: 'mini-vsl', medio: 'video', nombre: 'Mini-VSL', descripcion: 'Carta de venta corta en video: problema → mecanismo → oferta → CTA.', ejemplo: '60-90s que cierran con una invitación clara.' },
-];
-
-export function formatoPorId(id: string): FormatoAngulo | undefined {
-  return BIBLIOTECA_ANGULOS.find((f) => f.id === id);
-}
+// La biblioteca (data pura) vive en ./angulos-data para poder usarla también en la
+// UI (client). Acá la re-exportamos + la lógica de IA que elige de ella.
+export { BIBLIOTECA_ANGULOS, formatoPorId };
+export type { Medio, FormatoAngulo };
 
 // Una recomendación de MaKo: elige un formato de la biblioteca para un "caso" del
 // negocio (una razón/avatar) y dice por qué.
@@ -144,6 +123,52 @@ export async function recomendarFormatos(): Promise<GenResult> {
     const recomendaciones = parseRecomendaciones(text);
     if (!recomendaciones.length) return { ok: false, error: 'MaKo no devolvió recomendaciones. Reintenta en un momento.' };
     return { ok: true, recomendaciones, uso: null };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ── IA: elegir el mejor FORMATO por CELDA y MEDIO (imagen o video) ────────────
+// A diferencia de recomendarFormatos (que elige un mix a nivel negocio), esto elige
+// UN formato para UNA celda de la matriz (un anuncio concreto) y lo persiste en
+// celda.anguloImagen / celda.anguloVideo. Es lo que alimenta la tab Imagen/Video del
+// pop-up y el ángulo que sigue el guion. Envelope {ok}; nunca lanza.
+export type AnguloResult = { ok: true; formatoId: string; formato: FormatoAngulo } | { ok: false; error: string };
+
+export async function elegirAngulo(celdaId: string, medio: Medio): Promise<AnguloResult> {
+  try {
+    const razones = await getRazones();
+    const celda = razones.find((r) => r.id === celdaId);
+    if (!celda) return { ok: false, error: 'Celda no encontrada.' };
+    const opciones = BIBLIOTECA_ANGULOS.filter((f) => f.medio === medio);
+    const ids = new Set(opciones.map((f) => f.id));
+    const [avatares, entregables] = await Promise.all([getAvatares(), getEntregables()]);
+    const av = avatares.find((a) => a.id === celda.avatarId);
+
+    const biblioteca = opciones.map((f) => `- ${f.id} — ${f.nombre}: ${f.descripcion}`).join('\n');
+    const sys = `Sos MaKo, eligiendo el MEJOR FORMATO de ${medio === 'imagen' ? 'IMAGEN' : 'VIDEO'} para UN anuncio concreto (metodología de Jan). Tenés una biblioteca FIJA de formatos de ${medio}; elegí EXACTAMENTE UNO, el que mejor ejecuta ESTE anuncio para ESTE avatar y ESTA motivación de compra, aprovechando el entregable tangible si aplica. NO inventes formatos.
+Devolvé EXCLUSIVAMENTE un JSON: {"formatoId":"<uno de los ids>","porque":"<1 frase>"}`;
+    const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Dolor: ${av.dolor}` : '(sin avatar)'}
+MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
+COPY/HOOK: ${celda.copy || '(sin copy)'}
+${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n` : ''}
+FORMATOS DE ${medio.toUpperCase()} (elegí SOLO uno de estos ids):
+${biblioteca}
+
+Devolvé solo el JSON.`;
+    const leerId = (t: string): string => { try { return str(parseJsonObject(t).formatoId); } catch { return ''; } };
+    const text = await chatCheapCascade({
+      system: sys, user, json: true, maxTokens: 300,
+      feature: 'angulos-formatos', motivo: `Elegir formato de ${medio} para una celda`,
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => ids.has(leerId(t)),
+    });
+    const formatoId = leerId(text);
+    if (!ids.has(formatoId)) return { ok: false, error: `MaKo no eligió un formato de ${medio} válido. Reintenta.` };
+    // Releer DESPUÉS de la llamada lenta para no pisar ediciones concurrentes.
+    const actuales = await getRazones();
+    const campo = medio === 'imagen' ? 'anguloImagen' : 'anguloVideo';
+    await setRazones(actuales.map((r) => (r.id === celdaId ? { ...r, [campo]: formatoId } : r)));
+    return { ok: true, formatoId, formato: formatoPorId(formatoId)! };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

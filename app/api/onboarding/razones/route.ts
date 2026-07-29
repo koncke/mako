@@ -13,6 +13,7 @@ import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
 import { getAvatares } from '@/lib/avatares';
 import { generarRazones, getRazones, setRazones, generarGuion, type RazonCelda } from '@/lib/razones';
+import { elegirAngulo, formatoPorId, type Medio } from '@/lib/angulos-formatos';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -38,20 +39,33 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; razones?: unknown; id?: unknown };
+  let body: { action?: string; razones?: unknown; id?: unknown; medio?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
     try {
       if (body.action === 'guion') {
-        const r = await generarGuion(s(body.id));
+        const id = s(body.id);
+        // El guion sigue el ÁNGULO de video de la celda. Si no hay uno elegido, que la
+        // IA elija el mejor antes de escribir (best-effort: si falla, guion genérico).
+        let anguloVideo = (await getRazones()).find((r) => r.id === id)?.anguloVideo || '';
+        if (!anguloVideo) { const a = await elegirAngulo(id, 'video'); if (a.ok) anguloVideo = a.formatoId; }
+        const fmt = anguloVideo ? formatoPorId(anguloVideo) : undefined;
+        const formatoTexto = fmt ? `${fmt.nombre} — ${fmt.descripcion} (ej: ${fmt.ejemplo})` : undefined;
+        const r = await generarGuion(id, formatoTexto);
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, ...(await estado()) });
+      }
+      if (body.action === 'angulo') {
+        const medio: Medio = body.medio === 'video' ? 'video' : 'imagen';
+        const a = await elegirAngulo(s(body.id), medio);
+        if (!a.ok) return Response.json({ ok: false, error: a.error }, { status: 422 });
         return Response.json({ ok: true, ...(await estado()) });
       }
       if (body.action === 'guardar') {
         const arr = Array.isArray(body.razones) ? body.razones : [];
         const limpio: RazonCelda[] = arr
-          .map((a) => { const o = (a ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), avatarId: s(o.avatarId), nombre: s(o.nombre), descripcion: s(o.descripcion), copy: s(o.copy), guion: s(o.guion), imagenUrl: s(o.imagenUrl) }; })
+          .map((a) => { const o = (a ?? {}) as Record<string, unknown>; return { id: s(o.id) || randomUUID(), avatarId: s(o.avatarId), nombre: s(o.nombre), descripcion: s(o.descripcion), copy: s(o.copy), guion: s(o.guion), imagenUrl: s(o.imagenUrl), anguloImagen: s(o.anguloImagen), anguloVideo: s(o.anguloVideo) }; })
           // No borrar la celda por vaciar solo el nombre: se conserva si tiene algún contenido.
           .filter((a) => a.nombre || a.descripcion || a.copy || a.guion);
         await setRazones(limpio);

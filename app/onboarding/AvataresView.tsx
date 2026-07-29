@@ -92,7 +92,6 @@ export function AvataresView() {
         {css}
         <div style={{ width: 46, height: 46, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'ava-spin .8s linear infinite' }} />
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--ink)', marginTop: 22 }}>MaKo está definiendo tus segmentos</div>
-        <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 8, lineHeight: 1.6 }}>Tres tipos de cliente distintos que podrías targetear en Meta por separado.</div>
       </div>
     );
   }
@@ -147,7 +146,7 @@ export function AvataresView() {
       </div>
 
       {subTab === 'contexto' ? (
-        <CamposNegocio titulo="Tu cliente ideal" subtitulo="Lo que MaKo entendió de tu cliente. Corrígelo y regenera los avatares para afinarlos." prefijos={['avatar_']} onSaved={cargar} />
+        <CamposNegocio titulo="Tu cliente ideal" prefijos={['avatar_']} onSaved={cargar} />
       ) : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 14 }}>
