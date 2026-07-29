@@ -11,7 +11,7 @@
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getWorkspaceActual } from '@/lib/workspace';
-import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
+import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
@@ -92,13 +92,13 @@ export async function POST(req: NextRequest) {
       // CACHE por reunión (feedback jul-19): NO re-cobrar tokens si ya extrajimos esta
       // reunión (la transcripción no cambia). Guardamos el resultado y lo devolvemos con
       // `cached:true`. `body.reanalizar===true` fuerza volver a correr Claude si hace falta.
-      const cacheKey = `mako.fathom.cache.${recordingId}`;
+      const cacheKey = cacheKeyReunion(recordingId);
       if (body.reanalizar !== true) {
         const raw = await getSetting(cacheKey).catch(() => null);
         if (raw) {
           try {
-            const prev = JSON.parse(raw) as { tareas?: unknown };
-            if (Array.isArray(prev.tareas)) return Response.json({ ok: true, tareas: prev.tareas, cached: true });
+            const prev = JSON.parse(raw) as { tareas?: unknown; participantes?: unknown };
+            if (Array.isArray(prev.tareas)) return Response.json({ ok: true, tareas: prev.tareas, participantes: prev.participantes ?? [], cached: true });
           } catch { /* cache corrupto → re-extrae */ }
         }
       }
@@ -106,7 +106,9 @@ export async function POST(req: NextRequest) {
       const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: uso });
       // Guardar en cache — AWAIT (con `void` el serverless termina antes de escribir y
       // NO quedaba nada cacheado → volvía a cobrar). Re-abrir la misma reunión ya no gasta.
-      await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, ts: Date.now() })).catch(() => {});
+      // Los PARTICIPANTES van al cache a propósito: son la lista blanca contra la que
+      // /api/plan-reunion valida a quién se le puede mandar algo de esta reunión.
+      await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
       // Aviso: MaKo sacó compromisos de la reunión → ofrece cargarlos al tablero.
       if (out.tareas.length > 0) {
         const ws = await getWorkspaceActual();

@@ -34,6 +34,10 @@
       "schedule": "30 14 * * *"
     },
     {
+      "path": "/api/cron/fathom-plan",
+      "schedule": "40 14-23,0-2 * * *"
+    },
+    {
       "path": "/api/cron/ads-analyst-sync",
       "schedule": "0 16 * * *"
     },

@@ -310,6 +310,19 @@ export async function crearGrupoSuelto(
   return { ok: true, jid };
 }
 
+/**
+ * Manda un texto a UNA PERSONA (su número), con la voz de MaKo. Se usa para pasarle a
+ * un colaborador las tareas que asumió en una reunión: le llega de MaKo, no del número
+ * de ventas del negocio.
+ */
+export async function enviarAPersonaMaKo(telefono: string, texto: string): Promise<EnvioGrupo> {
+  const num = soloDigitos(telefono);
+  if (!num) return { ok: false, error: 'teléfono inválido' };
+  if (!texto.trim()) return { ok: false, error: 'texto vacío' };
+  const r = await enviarTextoVozMaKo(num, texto);
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
+}
+
 /** Manda un texto a un JID de grupo cualquiera. delayMs opcional (demo = chico). */
 export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
   if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };

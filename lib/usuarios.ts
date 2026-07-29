@@ -44,6 +44,19 @@ export async function buscarUsuarioPorEmail(email: string): Promise<Usuario | nu
   return (data as Usuario | null) ?? null;
 }
 
+/**
+ * Teléfono del perfil de un usuario (el jsonb `perfil`, mig 0056). Se usa para
+ * mandarle por WhatsApp las tareas que asumió en una reunión. '' si no lo cargó.
+ */
+export async function telefonoDeUsuario(email: string): Promise<string> {
+  const { data, error } = await getSupabaseServer()
+    .from('usuarios').select('perfil').eq('email', email.trim().toLowerCase()).maybeSingle();
+  if (error) return '';
+  const perfil = (data as { perfil?: Record<string, unknown> } | null)?.perfil ?? {};
+  const tel = perfil.telefono;
+  return typeof tel === 'string' ? tel.trim() : '';
+}
+
 export async function crearUsuario(u: {
   email: string; nombre?: string; rol?: Rol; estado?: EstadoUsuario; invitado_por?: string | null; workspace_id?: number | null; rol_ws?: RolWorkspace | null;
 }): Promise<Usuario> {

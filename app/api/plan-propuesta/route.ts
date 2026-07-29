@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, descartarPropuesta, profundizarPropuesta, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, descartarPropuesta, profundizarPropuesta, listPropuestasPendientes, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,6 +24,19 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown>;
   try { body = (await req.json()) as Record<string, unknown>; } catch { return NextResponse.json({ ok: false, error: 'JSON inválido' }, { status: 400 }); }
   const action = String(body.action ?? '');
+
+  // Los borradores PENDIENTES del workspace del request. Lo pide el board al entrar
+  // para saltarle el modal de confirmación (tareas que MaKo sacó de tu reunión, o que
+  // te mandó otra persona). No lleva id: es un listado.
+  if (action === 'pendientes') {
+    try {
+      const propuestas = await listPropuestasPendientes();
+      return NextResponse.json({ ok: true, propuestas });
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
+  }
+
   const id = String(body.id ?? '');
   if (!id) return NextResponse.json({ ok: false, error: 'id requerido' }, { status: 400 });
 

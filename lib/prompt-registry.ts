@@ -47,7 +47,7 @@ import {
   WA_ADVISOR_TEMPLATE_USER_TEMPLATE,
 } from './whatsapp-advisor';
 import { META_RULES_TEXT, VALIDATOR_RUBRIC } from './meta-rules';
-import { ONBOARDING_EXTRACT_TEMPLATE } from './onboarding';
+import { ONBOARDING_EXTRACT_TEMPLATE, ARCHIVERO_EXTRACT_TEMPLATE } from './onboarding';
 import { STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from './transcribe';
 import {
   CAMPAIGN_SUGGEST_SYSTEM_TEMPLATE,
@@ -487,6 +487,13 @@ export const REGISTRY: Group[] = [
         context: 'Lee un documento del cliente y completa los campos del onboarding (oferta, avatar, marca), devolviendo JSON. Regla clave: si un dato no aparece, lo omite (NO inventa). Conservá el formato JSON {"campos":{…}}, el slot {{lista}} y la regla de "no inventar".',
       },
       {
+        key: 'archivero.extract.system', source: 'override',
+        label: 'Extractor de campos de El Archivero', kind: 'system', dynamic: true,
+        variables: [v('lista', 'los campos pedidos (clave: qué pide)')], scope: 'static-only', sensitive: true,
+        default: ARCHIVERO_EXTRACT_TEMPLATE,
+        context: 'Lee UN documento del cliente (de a uno, para atribuir qué campo salió de qué archivo) y completa los campos del negocio, devolviendo JSON con un "razonamiento" de UNA frase sobre qué aportó ese documento. Regla clave: si un dato no aparece, lo omite (NO inventa). Conservá el formato JSON {"campos":{…},"razonamiento":"…"}, el slot {{lista}} y la regla de "no inventar".',
+      },
+      {
         key: 'contracts.extract_payment_plan.user', source: 'override',
         label: 'Extractor del contrato (pagos + Deal Details)', kind: 'user', dynamic: false, variables: [], scope: 'full', sensitive: true,
         default: CONTRACT_EXTRACT_DEFAULT,
@@ -718,9 +725,9 @@ export const REGISTRY: Group[] = [
       {
         key: 'plan-fathom.extraer.user', source: 'override',
         label: 'Reunión + proyectos (user)', kind: 'user', dynamic: true,
-        variables: [v('yo', 'quién mira el tablero (nombre + email)'), v('glosario', 'términos/nombres propios del negocio'), v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
+        variables: [v('yo', 'quién mira el tablero (nombre + email)'), v('participantes', 'invitados de la reunión con nombre y email'), v('glosario', 'términos/nombres propios del negocio'), v('proyectos', 'lista de proyectos con id'), v('reunion', 'resumen + transcripción')], scope: 'full', sensitive: false,
         default: PLAN_FATHOM_USER_TEMPLATE,
-        context: 'Le pasa quién mira el tablero (para el dueño de cada tarea), el glosario (para entender la jerga y corregir la transcripción), los proyectos y la reunión. No borres los slots {{yo}}/{{glosario}}/{{proyectos}}/{{reunion}}.',
+        context: 'Le pasa quién mira el tablero (para el dueño de cada tarea), los participantes (para atribuirle a cada uno sus tareas por email), el glosario (para entender la jerga y corregir la transcripción), los proyectos y la reunión. No borres los slots {{yo}}/{{participantes}}/{{glosario}}/{{proyectos}}/{{reunion}}.',
       },
     ],
   },

@@ -196,6 +196,12 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
     ejemplo: `📝 De la reunión con BG Trucking saqué *3 compromisos tuyos*:\n1. Enviar propuesta antes del viernes\n2. Mandar caso de éxito de logística\n3. Agendar R2\n\n¿Los cargo como tareas en tu tablero? — MaKo`,
   },
   {
+    id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
+    prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Cron fathom-plan: cae una grabación nueva de una reunión de EQUIPO, MaKo la lee y deja el borrador pendiente en el plan.',
+    ejemplo: `📝 Tuviste una reunión con *Martín* (Sync semanal). Saqué *6 tareas* tuyas y 3 de los demás, y te las dejé en tu plan para que las confirmes:\nhttps://tu-app/plan\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`,
+  },
+  {
     id: 'reunion-no-show', titulo: 'No-show → sugerir seguimiento', categoria: 'accion',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: true, yaImplementado: 'no',
     disparador: 'junta_at pasada sin grabación Fathom ni asistencia marcada.',

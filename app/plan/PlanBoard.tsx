@@ -760,7 +760,7 @@ export function PlanBoard({ user, tareas, proyectos, vacio }: { user: BoardUser;
   const board = useBoard(tareas, proyectos, user, repo);
   // DB vacía → el board todavía no se migró de localStorage: mostramos el botón migrar.
   if (vacio) return <MigrarPlan />;
-  return <BoardShell board={board} autoloadScope="agencia" />;
+  return <BoardShell board={board} scope="agencia" />;
 }
 
 // Migración one-shot (cero consola): lee el board de ESTE navegador (SEED + tus ediciones

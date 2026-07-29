@@ -5,8 +5,8 @@
 // ida-y-vuelta frágil por chat. El dueño O EL CLIENTE abre /plan/revisar/<id>,
 // responde de a 1 pregunta (WizardShell) y confirma → se crean las tareas.
 // WORKSPACE-AWARE (impacta a TODOS, no solo al dueño): el borrador vive en el ws
-// de quien lo crea/mira. Al aplicar: dueño (OWNER_WS) → plan_tareas + Perro;
-// cliente → su board (lib/todo). Nunca forzamos OWNER_WS.
+// de quien lo crea/mira. Al aplicar: super-admin → plan_tareas + Perro; cualquier
+// otro → su board (lib/todo). Nunca forzamos OWNER_WS.
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace, getWorkspaceActual, getWorkspace, OWNER_WS } from '@/lib/workspace';
@@ -25,11 +25,26 @@ const str = (v: unknown, d = ''): string => (typeof v === 'string' ? v : d);
 const asArr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 const PRIOS: Prio[] = ['alta', 'media', 'baja', 'futuro'];
 
-export type PropuestaTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio };
+export type PropuestaTarea = {
+  titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio;
+  // Reparto por persona (reuniones): quién asumió la tarea y si es de OTRO. Viajan
+  // dentro del borrador para que el modal de confirmación muestre las mismas tabs
+  // (Mías + una por colaborador) que la extracción manual.
+  dueno?: string; duenoEmail?: string; esDeOtro?: boolean;
+};
 export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
 export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
-export type Propuesta = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string; tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; createdAt: string };
+export type Propuesta = {
+  id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string;
+  tareas: PropuestaTarea[]; preguntas: PropuestaPregunta[]; eliminar: PropuestaEliminar[]; createdAt: string;
+  /** quién se las mandó ('' = las sacó MaKo sola de una reunión tuya). */
+  enviadoPor?: string;
+  /** de dónde salieron: título + link de la reunión. */
+  fuenteTitulo?: string; fuenteUrl?: string;
+  /** clave del hecho que la generó (fathom:<recordingId>) — candado anti-duplicado. */
+  ref?: string;
+};
 
 function limpiarTarea(t: unknown): PropuestaTarea | null {
   if (!t || typeof t !== 'object') return null;
@@ -42,6 +57,9 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     deadline: typeof o.deadline === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.deadline) ? o.deadline : undefined,
     detalle: o.detalle ? str(o.detalle).slice(0, 600) : undefined,
     prioridad: PRIOS.includes(o.prioridad as Prio) ? (o.prioridad as Prio) : undefined,
+    dueno: o.dueno ? str(o.dueno).trim().slice(0, 80) : undefined,
+    duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
+    esDeOtro: o.esDeOtro === true ? true : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -64,20 +82,70 @@ function limpiarPregunta(p: unknown): PropuestaPregunta | null {
   return { pregunta, opciones, tipo };
 }
 
-/** Crea el borrador en el workspace actual. Devuelve el id (para el link /plan/revisar/<id>). */
-export async function crearPropuesta(draft: { tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; resumen?: string; origen?: string }): Promise<string> {
-  return enWs(async () => {
+export type CrearPropuestaDraft = {
+  tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; resumen?: string; origen?: string;
+  /** nombre de quien se las manda a esta persona ('' = MaKo sola). */
+  enviadoPor?: string;
+  /** reunión/archivo del que salieron. */
+  fuenteTitulo?: string; fuenteUrl?: string;
+  /** clave anti-duplicado (fathom:<recordingId>). Si ya existe una con esta ref en el ws, no crea otra. */
+  ref?: string;
+  /** workspace destino. Por defecto el del request; se pasa explícito para MANDARLE tareas a otra persona. */
+  ws?: number;
+};
+
+/** Crea el borrador (por defecto en el workspace actual). Devuelve el id (link /plan/revisar/<id>). */
+export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string> {
+  const destino = draft.ws ?? (await wsActual());
+  return runWithWorkspace(destino, async () => {
     const db = await getTenantDb();
     const tareas = asArr<unknown>(draft.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 8);
     const eliminar = asArr<unknown>(draft.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e).slice(0, 30);
+    const ref = draft.ref?.trim().slice(0, 120) || null;
+    // Candado del cron: si esta reunión ya dejó su borrador acá, devolvemos el que hay.
+    if (ref) {
+      const { data } = await db.from('plan_propuestas').select('id').eq('ref', ref).maybeSingle();
+      if (data) return str((data as Row).id);
+    }
     const id = genId('prop');
     const { error } = await db.from('plan_propuestas').insert({
       id, estado: 'pendiente', origen: draft.origen ?? 'whatsapp', resumen: (draft.resumen ?? '').slice(0, 300),
       tareas, notas: preguntas, eliminar, // `notas` guarda {pregunta,opciones}; `eliminar` = {id,titulo,motivo}
+      ref, enviado_por: draft.enviadoPor?.slice(0, 120) ?? null,
+      fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
     });
     if (error) throw new Error(`crearPropuesta: ${error.message}`);
     return id;
+  });
+}
+
+function rowToPropuesta(r: Row): Propuesta {
+  return {
+    id: str(r.id), estado: (str(r.estado, 'pendiente') as Propuesta['estado']),
+    resumen: str(r.resumen), origen: r.origen ? str(r.origen) : undefined,
+    tareas: asArr<unknown>(r.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t),
+    preguntas: asArr<unknown>(r.notas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p),
+    eliminar: asArr<unknown>(r.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e),
+    createdAt: str(r.created_at),
+    enviadoPor: r.enviado_por ? str(r.enviado_por) : undefined,
+    fuenteTitulo: r.fuente_titulo ? str(r.fuente_titulo) : undefined,
+    fuenteUrl: r.fuente_url ? str(r.fuente_url) : undefined,
+    ref: r.ref ? str(r.ref) : undefined,
+  };
+}
+
+/**
+ * ¿Ya hay un borrador para este hecho en este workspace? El cron lo consulta ANTES de
+ * gastar tokens leyendo la reunión: sin este candado, cada corrida horaria volvería a
+ * analizar la misma grabación.
+ */
+export async function existePropuestaRef(ref: string, ws?: number): Promise<boolean> {
+  const destino = ws ?? (await wsActual());
+  return runWithWorkspace(destino, async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('id').eq('ref', ref).maybeSingle();
+    return !!data;
   });
 }
 
@@ -85,16 +153,25 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
   return enWs(async () => {
     const db = await getTenantDb();
     const { data } = await db.from('plan_propuestas').select('*').eq('id', id).maybeSingle();
-    if (!data) return null;
-    const r = data as Row;
-    return {
-      id: str(r.id), estado: (str(r.estado, 'pendiente') as Propuesta['estado']),
-      resumen: str(r.resumen), origen: r.origen ? str(r.origen) : undefined,
-      tareas: asArr<unknown>(r.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t),
-      preguntas: asArr<unknown>(r.notas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p),
-      eliminar: asArr<unknown>(r.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e),
-      createdAt: str(r.created_at),
-    };
+    return data ? rowToPropuesta(data as Row) : null;
+  });
+}
+
+/**
+ * Borradores PENDIENTES del workspace del request, de la más nueva a la más vieja.
+ * Es lo que el board consulta al entrar para saltarle el modal "confirmá estas tareas"
+ * (las que MaKo sacó sola de tu reunión, o las que te mandó otra persona).
+ *
+ * Deja afuera los que traen PREGUNTAS: esos son los borradores de WhatsApp, y su
+ * gracia es el wizard de /plan/revisar que las va haciendo de a una. Meterlos en el
+ * modal del board sería aplicarlos salteándose el contexto que el Perro necesita.
+ */
+export async function listPropuestasPendientes(limite = 5): Promise<Propuesta[]> {
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('*')
+      .eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(limite);
+    return (asArr<Row>(data)).map(rowToPropuesta).filter((p) => p.tareas.length > 0 && p.preguntas.length === 0);
   });
 }
 
@@ -138,17 +215,25 @@ export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTar
     const estado = str((data as Row).estado, 'pendiente');
     if (estado !== 'pendiente') return { ok: false, ids: [], borradas: 0, error: `La propuesta ya fue ${estado}.` };
     const prop = await getPropuesta(id);
-    const base = (tareasEditadas ?? prop?.tareas ?? []).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+    // Sin edición explícita entran TODAS menos las de OTRA persona: el plan de uno no se
+    // llena con los compromisos ajenos que salieron de la misma reunión (esas viajan a
+    // SU tablero por su propio camino).
+    const base = (tareasEditadas ?? (prop?.tareas ?? []).filter((t) => !t.esDeOtro)).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
     // Solo se borran los ids que el dueño/cliente CONFIRMÓ (subset de los que MaKo propuso).
     const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));
     const aBorrar = (eliminarIds ?? [...propuestos]).map(String).filter((x) => propuestos.has(x));
     if (!base.length && !aBorrar.length) return { ok: false, ids: [], borradas: 0, error: 'No hay nada para crear ni borrar.' };
 
     let ids: string[] = [];
-    // ¿Este workspace usa el board RICO (plan_tareas + Perro)? El del SUPER-ADMIN (su
-    // capa) —donde vive el roadmap— y, por compatibilidad, el dueño. Un cliente usa su
-    // board simple (lib/todo). Antes era solo OWNER_WS, cuando el admin caía ahí.
-    const usaPlanBoard = ws === OWNER_WS || (await getWorkspace(ws))?.capa === 'superadmin';
+    // ¿Este workspace usa el board RICO (plan_tareas + Perro)? SOLO el del SUPER-ADMIN
+    // (capa 'superadmin'), que es donde vive el roadmap. Todos los demás usan su board
+    // (lib/todo), que es el que su /plan realmente pinta.
+    //
+    // OJO — acá había un bug: la condición incluía `ws === OWNER_WS`, de cuando el
+    // workspace 1 era la agencia. Hoy el ws 1 es un CLIENTE (Mauricio) y su tablero lee
+    // experimento_tareas: las tareas que confirmaba se escribían en plan_tareas, una
+    // tabla que su pantalla no mira. Se aplicaban "bien" y no aparecían en ningún lado.
+    const usaPlanBoard = (await getWorkspace(ws))?.capa === 'superadmin';
     if (usaPlanBoard) {
       // Board rico en plan_tareas + Perro (prioriza + checklists + proyectos).
       if (base.length) {

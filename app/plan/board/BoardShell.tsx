@@ -23,6 +23,7 @@ import { AsignarProyectoModal } from './AsignarProyecto';
 import { ProyectoDebateModal } from './ProyectoDebateModal';
 import { MakoProyectoModal } from './MakoProyecto';
 import { ReunionExtractModal } from './ReunionExtractModal';
+import { TareasRecibidasModal, type PropuestaPendiente } from './TareasRecibidasModal';
 import { DatosModal, DatosConfirm, type FaltanteItem } from './DatosModal';
 import { TareasCreadasModal } from './TareasCreadasModal';
 import { GraphicsView } from './Graphics';
@@ -36,7 +37,12 @@ import { type BoardTask, type Label, type Prio, type Check, type Actor, type Fue
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
 
-export function BoardShell({ board, autoloadScope }: { board: Board; autoloadScope?: string }) {
+export function BoardShell({ board, scope }: {
+  board: Board;
+  /** scope de las preferencias locales (por workspace): no se mezclan entre impersonaciones. */
+  scope?: string;
+}) {
+  
   // G1/G2 guardián: score→columna, restricción al proyecto top, debate.
   const { tasks, labels, repo } = board;
   const [view, setView] = useState<'prioridades' | 'kanban' | 'proyectos' | 'graphics'>('prioridades');
@@ -82,6 +88,10 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   const welcomeDetectRef = useRef(false);
   const welcomeAutoRef = useRef(false);
   const guardianNuevasRef = useRef(false); // el Perro re-puntúa las tareas nuevas UNA vez al entrar
+  // Borradores PENDIENTES (plan_propuestas): las tareas que MaKo sacó sola de tu última
+  // reunión de equipo, o las que te mandó otra persona. Se muestran de a una.
+  const [pendientes, setPendientes] = useState<PropuestaPendiente[]>([]);
+  const pendientesRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
   // El aviso de gasto de IA lo muestra el toast GLOBAL <IaUsageToast> (app/layout.tsx),
@@ -97,9 +107,9 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
   // ── "Datos sin marcar" (feedback jul-19): deadline (opcional) + checklist (la ARMA
   // MaKo), en UN modal batch. Reemplaza al gauntlet card-by-card que auto-popeaba de a
   // una y pedía los pasos a mano. Persistimos qué se ignoró y el "no volver a pedir". ──
-  // Las keys se scopean por workspace (autoloadScope): impersonando distintos clientes,
+  // Las keys se scopean por workspace (scope): impersonando distintos clientes,
   // las preferencias NO se mezclan en el mismo navegador.
-  const dlKey = (base: string) => `${base}${autoloadScope ? '_' + autoloadScope : ''}`;
+  const dlKey = (base: string) => `${base}${scope ? '_' + scope : ''}`;
   useEffect(() => {
     try {
       const dl = localStorage.getItem(dlKey('mako_plan_dl_dismiss'));
@@ -110,7 +120,7 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     } catch { /* localStorage no disponible */ }
     setDlLoaded(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoloadScope]);
+  }, [scope]);
   // Bienvenida "MaKo cargó tareas": detectamos UNA vez las tareas con FUENTE recientes que
   // este device no vio. NO se auto-abren acá: el auto-open (más abajo) ESPERA a que el
   // DatosModal + su confirm terminen (Datos PRIMERO, pedido de Martín). El botón ✨ del
@@ -209,6 +219,21 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
     setWelcomeVisible(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayWelcome, hayImportante, datosOff, datosOpen, datosConfirm, openId, openProj, peekProjId]);
+
+  // Traer los borradores pendientes UNA vez por montaje. No los creó nadie en el board:
+  // los dejó el cron de reuniones (MaKo leyó tu reunión) o los mandó otra persona.
+  useEffect(() => {
+    if (pendientesRef.current) return;
+    pendientesRef.current = true;
+    void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pendientes' }) })
+      .then((r) => r.json())
+      .then((j) => { if (j?.ok && Array.isArray(j.propuestas)) setPendientes(j.propuestas as PropuestaPendiente[]); })
+      .catch(() => { /* silencioso: es un extra al entrar */ });
+  }, []);
+  // Se muestra de a UNA y solo con la pantalla libre: Datos y la bienvenida van primero
+  // (mismo criterio que el resto de los pop-ups del board).
+  const propPendiente = (pendientes[0] && !openId && !openProj && !peekProjId && !datosOpen && !datosConfirm && !welcomeVisible && !extraerReunion)
+    ? pendientes[0] : null;
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -506,7 +531,19 @@ export function BoardShell({ board, autoloadScope }: { board: Board; autoloadSco
       {makoProj && <MakoProyectoModal proj={{ name: makoProj.name, emoji: makoProj.emoji, detalle: makoProj.detalle }} onApply={(nombre, emoji, det) => board.patchLabelLog(makoProj.id, { name: nombre, emoji, detalle: det }, 'MaKo mejoró el proyecto', 'ia')} onClose={() => setMakoProjId(null)} />}
       {debateProj && <ProyectoDebateModal proj={debateProj} otros={labels.filter((l) => l.id !== debateProj.id).map((l) => ({ id: l.id, name: l.name, emoji: l.emoji, color: l.color, score: l.score }))} onUsage={(u) => showUsage(u, 'prioridad de proyecto')} onApply={(score, razon) => { const snap = debateProj; board.patchLabelLog(debateProj.id, { score, scoreRazon: razon || debateProj.scoreRazon }, `El Perro Guardián ajustó la prioridad → ${score}/10`, 'ia'); board.showUndo('Prioridad del proyecto actualizada', () => board.patchLabel(snap.id, snap)); }} onClose={() => setDebateProjId(null)} />}
       {nuevoProj && <CrearProyectoModal otros={labels.map((l) => ({ name: l.name, emoji: l.emoji, score: l.score, color: l.color }))} onCrear={crearProyecto} onClose={() => setNuevoProj(false)} />}
-      {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo} autoloadScope={autoloadScope}
+      {/* Lo que MaKo dejó esperando: tareas de una reunión tuya que leyó sola, o que te
+          mandó otra persona. Nunca se crearon: se confirman acá. Van DESPUÉS de Datos
+          y de la bienvenida para no apilar modales. */}
+      {propPendiente && (
+        <TareasRecibidasModal
+          key={propPendiente.id}
+          prop={propPendiente}
+          labels={labels}
+          onListo={() => window.location.reload()}
+          onClose={() => setPendientes((ps) => ps.slice(1))}
+        />
+      )}
+      {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo}
         existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
         onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}
