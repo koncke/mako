@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarEntregables, getEntregables, setEntregables, type Entregable } from '@/lib/entregable';
+import { generarEntregables, generarPreguntasEntregable, getEntregables, setEntregables, type Entregable } from '@/lib/entregable';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -36,7 +36,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; entregables?: unknown };
+  let body: { action?: string; entregables?: unknown; respuestas?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
@@ -50,7 +50,16 @@ export async function POST(req: NextRequest) {
         await setEntregables(limpio);
         return Response.json({ ok: true, ...(await estado()) });
       }
-      const r = await generarEntregables();
+      if (body.action === 'preguntas') {
+        const r = await generarPreguntasEntregable();
+        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+        return Response.json({ ok: true, preguntas: r.preguntas });
+      }
+      // 'generar' (default), con respuestas opcionales del dueño para afinar.
+      const respuestas = Array.isArray(body.respuestas)
+        ? body.respuestas.map((x) => { const o = (x ?? {}) as Record<string, unknown>; return { pregunta: s(o.pregunta), respuesta: s(o.respuesta) }; }).filter((x) => x.pregunta && x.respuesta)
+        : undefined;
+      const r = await generarEntregables(respuestas);
       if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
       await setEntregables(r.entregables);
       return Response.json({ ok: true, ...(await estado()), uso: r.uso });

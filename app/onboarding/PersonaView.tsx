@@ -18,10 +18,15 @@ type Estado = { descripcion: string; fotos: Foto[] };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 const btnPrimary: CSSProperties = { padding: '11px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
 
+const MIN_FOTOS = 5;
+const btnPrimaryStyle: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
+const btnGhostStyle: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
+
 export function PersonaView() {
   const [est, setEst] = useState<Estado | null>(null);
   const [cargando, setCargando] = useState(true);
   const [subiendo, setSubiendo] = useState(false);
+  const [describiendo, setDescribiendo] = useState(false);
   const [drag, setDrag] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -50,9 +55,13 @@ export function PersonaView() {
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
   };
 
-  const guardarDescripcion = async (texto: string) => {
-    setEst((e) => (e ? { ...e, descripcion: texto } : e));
-    await fetch('/api/onboarding/persona', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ descripcion: texto }) });
+  // MaKo mira las fotos y arma la descripción física detallada (para la IA generativa).
+  const describir = async () => {
+    setDescribiendo(true); setErr(null);
+    try {
+      const j = await (await fetch('/api/onboarding/persona', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'describir' }) })).json();
+      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo generar la descripción.');
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setDescribiendo(false); }
   };
 
   const css = <style>{'@keyframes per-spin{to{transform:rotate(360deg)}}'}</style>;
@@ -60,14 +69,16 @@ export function PersonaView() {
   if (cargando) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>Cargando tu persona…</div>;
 
   const fotos = est?.fotos ?? [];
+  const faltan = Math.max(0, MIN_FOTOS - fotos.length);
+  const descripcion = est?.descripcion ?? '';
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
       {css}
-      <div style={{ ...eyebrow, marginBottom: 18 }}>Tu persona · la cara de marca</div>
+      <div style={{ ...eyebrow, marginBottom: 14 }}>Tu persona · la cara de marca</div>
 
       {/* Fotos */}
-      <div style={{ ...eyebrow, marginBottom: 10 }}>Fotos{fotos.length ? ` · ${fotos.length}` : ''}</div>
+      <div style={{ ...eyebrow, marginBottom: 10 }}>Fotos · {fotos.length}/{MIN_FOTOS}{faltan > 0 ? ' mínimo' : ''}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 10 }}>
         {fotos.map((f) => (
           <div key={f.id} style={{ position: 'relative', width: 104 }}>
@@ -87,16 +98,30 @@ export function PersonaView() {
             : <><span style={{ fontSize: 22, color: 'var(--faint)' }}>+</span><span style={{ fontSize: 11, color: 'var(--dim)' }}>Subir fotos</span></>}
         </label>
       </div>
+      {faltan > 0 && <div style={{ fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5, marginBottom: 6 }}>Subí al menos <b>{MIN_FOTOS} fotos</b> de la persona (te faltan {faltan}) — mientras más ángulos, mejor la describe MaKo.</div>}
 
-      {/* Descripción */}
-      <div style={{ ...eyebrow, margin: '20px 0 8px' }}>Descripción de la persona</div>
-      <textarea
-        defaultValue={est?.descripcion ?? ''}
-        onBlur={(e) => { const v = e.target.value.trim(); if (v !== (est?.descripcion ?? '').trim()) guardarDescripcion(v); }}
-        placeholder="Ej: Hombre, ~40 años, barba corta, camisa casual, tono cercano y directo. Suele grabar en su oficina con buena luz…"
-        style={{ width: '100%', minHeight: 120, padding: '13px 15px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, lineHeight: 1.6, outline: 'none', resize: 'vertical' }}
-      />
-      <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 8, lineHeight: 1.5 }}>Cuanto más precisa la descripción (edad, rasgos, ropa, estilo, escenario), mejor sale la imagen generada.</div>
+      {/* Descripción — la hace MaKo mirando las fotos (read-only) */}
+      <div style={{ ...eyebrow, margin: '22px 0 8px' }}>Descripción de la persona · la hace MaKo</div>
+      {describiendo ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '16px 18px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)' }}>
+          <div style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'per-spin .8s linear infinite', flex: 'none' }} />
+          <span style={{ fontSize: 13.5, color: 'var(--dim)' }}>MaKo está mirando tus fotos y armando la descripción…</span>
+        </div>
+      ) : descripcion ? (
+        <div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>{descripcion}</div>
+          <button type="button" onClick={describir} disabled={fotos.length === 0} style={{ ...btnGhostStyle, marginTop: 10, opacity: fotos.length === 0 ? 0.5 : 1 }}>↺ Regenerar descripción</button>
+        </div>
+      ) : (
+        <button type="button" onClick={describir} disabled={fotos.length < MIN_FOTOS} style={{ ...btnPrimaryStyle, opacity: fotos.length < MIN_FOTOS ? 0.5 : 1, cursor: fotos.length < MIN_FOTOS ? 'default' : 'pointer' }}>✦ Que MaKo la describa</button>
+      )}
+
+      {/* Contexto: para qué sirve (siempre abajo) */}
+      <div style={{ marginTop: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <div style={{ ...eyebrow, marginBottom: 7 }}>¿Para qué es esto?</div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6 }}>La cara de marca es la persona que aparece en tus anuncios. MaKo mira sus fotos y arma una <b>descripción física detallada</b> (rostro, pelo, estilo, vibra). Esa ficha es lo que después usa la IA para <b>generar tus creativos con esa misma persona</b>, coherente en todos los anuncios.</div>
+      </div>
+
       {warnings.length > 0 && (
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 13px', marginTop: 12 }}>
           {warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: 'var(--warn)', lineHeight: 1.5 }}>· {w}</div>)}

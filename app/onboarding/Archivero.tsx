@@ -80,9 +80,11 @@ function Fade({ id, seen, index = 0, children }: { id: string; seen: MutableRefO
 function DocThumb({ mime, nombre, src, w = 78, h = 100 }: { mime?: string | null; nombre?: string; src: string; w?: number; h?: number }) {
   const box: CSSProperties = { width: w, height: h, borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)', flex: 'none', position: 'relative' };
   if (esLink(mime)) return (
-    <div style={{ ...box, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6, textAlign: 'center' }}>
-      <svg width={Math.round(w * 0.34)} height={Math.round(w * 0.34)} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5" /><path d="M2.5 12h19M12 2.5c2.6 2.6 4 6 4 9.5s-1.4 6.9-4 9.5c-2.6-2.6-4-6-4-9.5s1.4-6.9 4-9.5z" /></svg>
-      <span style={{ fontFamily: MONO, fontSize: 8.5, color: 'var(--dim)', lineHeight: 1.2, wordBreak: 'break-all' }}>{hostDe(nombre || src)}</span>
+    <div style={{ ...box, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 8, textAlign: 'center' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: Math.round(w * 0.44), height: Math.round(w * 0.44), borderRadius: 999, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--accent)', flex: 'none' }}>
+        <svg width={Math.round(w * 0.24)} height={Math.round(w * 0.24)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5" /><path d="M2.5 12h19M12 2.5c2.6 2.6 4 6 4 9.5s-1.4 6.9-4 9.5c-2.6-2.6-4-6-4-9.5s1.4-6.9 4-9.5z" /></svg>
+      </span>
+      <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', wordBreak: 'break-word' }}>{hostDe(nombre || src)}</span>
     </div>
   );
   if (esImg(mime)) return <div style={box}><img src={src} alt={nombre || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>;
@@ -113,7 +115,6 @@ export function Archivero({ onEstado, onListo, registro }: {
 }) {
   const [est, setEst] = useState<Estado | null>(null);
   const [vista, setVista] = useState<Vista>('inicio');
-  const [masSlide, setMasSlide] = useState<'insight' | 'pedir'>('insight');
   const [cargando, setCargando] = useState(true);
   const [drag, setDrag] = useState(false);
   const [cola, setCola] = useState<{ file: File; url: string }[]>([]);
@@ -228,7 +229,7 @@ export function Archivero({ onEstado, onListo, registro }: {
         if (j.ok !== false && j.brief) ultimo = j;
       }
       setWarnings(warns);
-      if (ultimo) { aplicar(ultimo); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setLinks([]); setMasSlide('insight'); setVista('masdocs'); }
+      if (ultimo) { aplicar(ultimo); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setLinks([]); setVista('masdocs'); }
       else { setErr(`No se pudo procesar ${total === 1 ? 'lo que subiste' : 'nada de lo que subiste'}.`); setVista('inicio'); }
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setVista('inicio'); }
   };
@@ -275,11 +276,13 @@ export function Archivero({ onEstado, onListo, registro }: {
     if (!registro) return;
     registro.current = {
       siguiente: () => {
-        // En pleno flujo (leyendo/masdocs/huecos): no avanzar ni reabrir nada, quedate.
-        if (vista === 'leyendo' || vista === 'masdocs' || vista === 'huecos') return true;
-        // Hay archivos/links en la cola sin analizar: no avanzar (se perderían) — avisamos.
+        // Analizando o respondiendo preguntas: quedate (huecos tiene sus propios controles).
+        if (vista === 'leyendo' || vista === 'huecos') return true;
+        // Desde "esto entendí": el footer lleva a las preguntas (o a los archivos si no faltan).
+        if (vista === 'masdocs') { void seguirDesdeMasDocs(); return true; }
+        // Cosas en la cola sin analizar: no avanzar (se perderían) — avisamos.
         if (cola.length > 0 || links.length > 0) { setErr('Tenés cosas sin analizar. Tocá "Analizar" (o quitalas) antes de seguir.'); return true; }
-        // Con huecos sin revisar: abrimos las preguntas en el acto (consumido).
+        // Con huecos sin revisar (desde la vista de archivos): abrimos las preguntas.
         if (est && est.gaps.length > 0 && !huecosRevisados) { void seguirDesdeMasDocs(); return true; }
         return false;
       },
@@ -332,99 +335,50 @@ export function Archivero({ onEstado, onListo, registro }: {
     );
   }
 
-  // ── MASDOCS ─────────────────────────────────────────────────────────────────
+  // ── MASDOCS: "esto entendí" — el resumen por documento. Un solo botón de avanzar:
+  //    el del footer del wizard (siguiente() lleva a las preguntas o a los archivos).
   if (vista === 'masdocs') {
     const insights = est.files.filter((f) => (f.razonamiento || '').trim());
     const recibidos = grupos.filter((g) => g.campos.length > 0 && conDato(g, est.answers));
-
-    // Slide 1: qué entendí — una CAJA por documento + una caja con los datos.
-    if (masSlide === 'insight') {
-      return (
-        <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 0' }}>
-          {keyframes}
-          <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 14, fontSize: 11 }}>✦ Esto entendí de tus documentos</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {insights.map((f, i) => {
-              const partes = (f.razonamiento || '').split(/\.\s+/);
-              const titulo = partes[0]?.replace(/\.$/, '') || 'Documento';
-              const cuerpo = partes.length > 1 ? partes.slice(1).join('. ') : '';
-              return (
-                <Fade key={f.id} id={`ins:${f.id}`} index={i} seen={vistos}>
-                  <div style={{ ...card, padding: 16, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{titulo}</div>
-                      {cuerpo && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }}>{cuerpo}</div>}
-                      <div style={{ ...eyebrow, fontSize: 10, marginTop: 10 }}>{f.nombre}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ''}</div>
-                    </div>
-                    <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-                      <DocThumb mime={f.mime} nombre={f.nombre} src={previewUrl(f.id)} w={78} h={100} />
-                      <DocAcciones id={f.id} confirm={confirmDel === f.id} onConfirm={() => setConfirmDel(f.id)} onBorrar={() => borrar(f.id)} />
-                    </div>
+    return (
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 0' }}>
+        {keyframes}
+        <div style={{ ...eyebrow, color: 'var(--accent)', marginBottom: 14, fontSize: 11 }}>✦ Esto entendí de tus documentos</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {insights.map((f, i) => {
+            const partes = (f.razonamiento || '').split(/\.\s+/);
+            const titulo = partes[0]?.replace(/\.$/, '') || 'Documento';
+            const cuerpo = partes.length > 1 ? partes.slice(1).join('. ') : '';
+            return (
+              <Fade key={f.id} id={`ins:${f.id}`} index={i} seen={vistos}>
+                <div style={{ ...card, padding: 16, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{titulo}</div>
+                    {cuerpo && <div style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.6, marginTop: 6 }}>{cuerpo}</div>}
+                    <div style={{ ...eyebrow, fontSize: 10, marginTop: 10 }}>{f.nombre}{f.aporto > 0 ? ` · ${f.aporto} dato${f.aporto === 1 ? '' : 's'}` : ''}</div>
                   </div>
-                </Fade>
-              );
-            })}
-            {insights.length === 0 && <div style={{ ...card, fontSize: 14, color: 'var(--dim)' }}>Leí tus documentos.</div>}
-
-            {hayPerfil && (
-              <Fade id="campos-insight" index={insights.length} seen={vistos}>
-                <div style={{ ...card, padding: '18px 20px', display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <div style={{ width: 42, height: 42, borderRadius: 999, background: 'var(--good-bg)', color: 'var(--good)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flex: 'none' }}>✓</div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Listo, ya conozco tu negocio</div>
-                    <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Los revisas en las tabs de tu perfil.</div>
+                  <div style={{ flex: 'none', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+                    <DocThumb mime={f.mime} nombre={f.nombre} src={previewUrl(f.id)} w={78} h={100} />
+                    <DocAcciones id={f.id} confirm={confirmDel === f.id} onConfirm={() => setConfirmDel(f.id)} onBorrar={() => borrar(f.id)} />
                   </div>
                 </div>
               </Fade>
-            )}
-          </div>
-          {cajaWarn && <div style={{ marginTop: 14 }}>{cajaWarn}</div>}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
-            <button type="button" onClick={() => setMasSlide('pedir')} style={btnPrimary}>Siguiente →</button>
-          </div>
-        </div>
-      );
-    }
-
-    // Slide 2: pedir otro documento — título fijo + nombres de docs + qué falta.
-    const gapTerms = [...new Set(est.gaps.map((k) => TERMINO_CAMPO[k]).filter(Boolean))];
-    const secundario = est.gaps.length > 0 ? 'Completar a mano →' : 'Ver mis documentos →';
-    const nombresDocs = est.files.map((f) => f.nombre);
-    const cubren = recibidos.map((g) => grupoWord(g.label));
-    return (
-      <div style={{ minHeight: '100%', maxWidth: 560, margin: '0 auto', display: 'flex', flexDirection: 'column', padding: '34px 0 10px' }}>
-        {keyframes}
-        <div style={{ flex: 1, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 14 }}>📂</div>
-          <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 14px', lineHeight: 1.3 }}>¿Tienes algún otro documento?</h2>
-
-          {nombresDocs.length > 0 && (
-            <div style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '0 auto 4px', maxWidth: 460 }}>
-              {nombresDocs.length === 1
-                ? <>Ya recibí tu documento <b style={{ color: 'var(--ink)' }}>{nombresDocs[0]}</b>{cubren.length ? <>, que corresponde a {listarY(cubren)}</> : ''}.</>
-                : <>Ya recibí estos documentos{cubren.length ? <>, que corresponden a {listarY(cubren)}</> : ''}:
-                    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 4, marginTop: 8, textAlign: 'left' }}>
-                      {nombresDocs.map((n, i) => <span key={i} style={{ color: 'var(--ink)', fontWeight: 500 }}>· {n}</span>)}
-                    </span>
-                  </>}
-            </div>
+            );
+          })}
+          {insights.length === 0 && <div style={{ ...card, fontSize: 14, color: 'var(--dim)' }}>Leí tus documentos.</div>}
+          {hayPerfil && (
+            <Fade id="campos-insight" index={insights.length} seen={vistos}>
+              <div style={{ ...card, padding: '18px 20px', display: 'flex', gap: 14, alignItems: 'center' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 999, background: 'var(--good-bg)', color: 'var(--good)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flex: 'none' }}>✓</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Listo, ya conozco tu negocio</div>
+                  <div style={{ fontSize: 13.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>Extraje {Object.keys(est.answers).length} datos clave{recibidos.length ? <> de {listarY(recibidos.map((g) => grupoWord(g.label)))}</> : ''}. Tocá <b>Siguiente</b> para revisarlos o completar lo que falte.</div>
+                </div>
+              </div>
+            </Fade>
           )}
-
-          <p style={{ fontSize: 15, color: 'var(--dim)', lineHeight: 1.6, margin: '10px auto 0', maxWidth: 460 }}>
-            {gapTerms.length > 0
-              ? <>Me falta un documento que hable de <b style={{ color: 'var(--ink)' }}>{listar(gapTerms.slice(0, 3))}</b> — o cualquier documento de tu negocio.</>
-              : <>Mientras más documentos me des, mejor te entiendo.</>}
-          </p>
-
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 30, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={{ ...btnPrimary, padding: '13px 24px', fontSize: 15 }}><Ico d={I_SUBIR} size={16} /> Sí, subir más</button>
-            <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : secundario}</button>
-          </div>
-          {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
         </div>
-        <div style={{ textAlign: 'center', paddingTop: 16, marginTop: 20, borderTop: '1px solid var(--border)' }}>
-          <button type="button" onClick={() => setMasSlide('insight')} style={link}>← Volver a lo que entendí</button>
-        </div>
+        {cajaWarn && <div style={{ marginTop: 14 }}>{cajaWarn}</div>}
       </div>
     );
   }
@@ -517,7 +471,7 @@ export function Archivero({ onEstado, onListo, registro }: {
         // Con algo en la cola, el dropzone gigante desaparece → un botón compacto (P3).
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ ...eyebrow }}>Vas a subir · {nCola}</div>
-          <button type="button" onClick={() => inputRef.current?.click()} style={btnGhost}><Ico d={I_SUBIR} size={15} /> Subir más archivos</button>
+          <button type="button" onClick={() => inputRef.current?.click()} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
         </div>
       ) : (
         <div role="button" tabIndex={0}

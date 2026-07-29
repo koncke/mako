@@ -29,13 +29,19 @@ function Edit({ valor, ph, onSave, style }: { valor: string; ph?: string; onSave
   );
 }
 
-const nuevoId = () => `ent_${Math.abs(Date.now() ^ Math.floor(performance.now() * 1000))}`;
+type PreguntaEnt = { pregunta: string; opciones: string[] };
+const linkBtn: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 
 export function EntregableView() {
   const [est, setEst] = useState<Estado | null>(null);
   const [cargando, setCargando] = useState(true);
   const [gen, setGen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Preguntas personalizadas antes de detectar (por si ya tiene uno específico).
+  const [preguntas, setPreguntas] = useState<PreguntaEnt[] | null>(null);
+  const [pregIdx, setPregIdx] = useState(0);
+  const [respuestas, setRespuestas] = useState<Array<{ pregunta: string; respuesta: string }>>([]);
+  const [cargandoPreg, setCargandoPreg] = useState(false);
 
   const cargar = useCallback(async () => {
     try { const j = await (await fetch('/api/onboarding/entregable')).json(); if (j.ok) setEst(j as Estado); else setErr(j.error); }
@@ -43,12 +49,31 @@ export function EntregableView() {
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
 
-  const generar = async () => {
-    setGen(true); setErr(null);
+  // Arrancar: MaKo SIEMPRE pregunta primero (personalizado al negocio) y luego detecta.
+  const empezar = async () => {
+    setCargandoPreg(true); setErr(null);
     try {
-      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar' }) })).json();
+      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'preguntas' }) })).json();
+      if (j.ok && Array.isArray(j.preguntas) && j.preguntas.length) { setPreguntas(j.preguntas as PreguntaEnt[]); setPregIdx(0); setRespuestas([]); }
+      else generar([]); // sin preguntas usables → detectar directo
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargandoPreg(false); }
+  };
+
+  const generar = async (rs: Array<{ pregunta: string; respuesta: string }>) => {
+    setPreguntas(null); setGen(true); setErr(null);
+    try {
+      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar', respuestas: rs }) })).json();
       if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo detectar el entregable.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGen(false); }
+  };
+
+  const responderPreg = (respuesta: string | null) => {
+    if (!preguntas) return;
+    const q = preguntas[pregIdx];
+    const rs = respuesta ? [...respuestas, { pregunta: q.pregunta, respuesta }] : respuestas;
+    setRespuestas(rs);
+    if (pregIdx + 1 >= preguntas.length) generar(rs);
+    else setPregIdx((i) => i + 1);
   };
 
   const guardar = async (entregables: Entregable[]) => {
@@ -59,10 +84,6 @@ export function EntregableView() {
   const editar = (id: string, campo: keyof Entregable, v: string) => {
     if (!est) return;
     guardar(est.entregables.map((g) => (g.id === id ? { ...g, [campo]: v } : g)));
-  };
-  const agregarMio = () => {
-    if (!est) return;
-    guardar([...est.entregables, { id: nuevoId(), nombre: 'Mi entregable', tipo: 'Otro', queEs: '', fomo: '' }]);
   };
   const borrar = (id: string) => { if (est) guardar(est.entregables.filter((g) => g.id !== id)); };
 
@@ -82,17 +103,40 @@ export function EntregableView() {
     );
   }
 
+  // Preguntas 1×1 (personalizadas) antes de detectar.
+  if (preguntas) {
+    const q = preguntas[pregIdx];
+    return (
+      <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
+        {css}
+        <div style={{ ...eyebrow, marginBottom: 18 }}>Para afinar tu entregable · pregunta {pregIdx + 1} de {preguntas.length}</div>
+        <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.3 }}>{q.pregunta}</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
+          {q.opciones.map((o, i) => (
+            <button key={i} type="button" onClick={() => responderPreg(o)}
+              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>{o}</button>
+          ))}
+        </div>
+        <div style={{ marginTop: 22 }}><button type="button" onClick={() => responderPreg(null)} style={linkBtn}>Saltar esta</button></div>
+        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
+      </div>
+    );
+  }
+
   if (!entregables.length) {
     return (
-      <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '48px 0' }}>
+      <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '40px 0' }}>
         {css}
         <div style={{ fontSize: 40, marginBottom: 12 }}>🧲</div>
-        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 24px', lineHeight: 1.25 }}>Tu entregable</h2>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {est?.tieneBrief && <button type="button" onClick={generar} style={btnPrimary}>✦ Que MaKo lo detecte</button>}
-          <button type="button" onClick={agregarMio} style={btnGhost}>+ Cargar el mío</button>
+        <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 20px', lineHeight: 1.25 }}>Tu entregable</h2>
+        {est?.tieneBrief
+          ? <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : '✦ Que MaKo lo detecte'}</button>
+          : <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero carga tu negocio en <b>El Archivero</b>.</div>}
+        {/* Contexto: para qué es, siempre debajo del botón */}
+        <div style={{ marginTop: 22, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+          <div style={{ ...eyebrow, marginBottom: 7 }}>¿Qué es el entregable?</div>
+          <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6 }}>Es el elemento <b>tangible</b> de tu oferta —un dashboard, una planilla, una metodología con nombre— que se entiende al instante y genera <b>FOMO</b> en tus anuncios. MaKo te hace un par de preguntas y lo detecta desde tu negocio; después lo revisas.</div>
         </div>
-        {!est?.tieneBrief && <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.6, marginTop: 14 }}>Para que MaKo lo detecte, carga tu negocio en El Archivero. O cárgalo tú directo arriba.</div>}
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
       </div>
     );
@@ -103,10 +147,7 @@ export function EntregableView() {
       {css}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ ...eyebrow }}>Tu entregable · el elemento tangible</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" onClick={agregarMio} style={btnGhost}>+ Agregar el mío</button>
-          {est?.tieneBrief && <button type="button" onClick={generar} style={btnGhost}>↺ Regenerar</button>}
-        </div>
+        {est?.tieneBrief && <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : '↺ Regenerar'}</button>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>

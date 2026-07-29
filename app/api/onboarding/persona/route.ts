@@ -9,7 +9,7 @@
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
-import { personaEstado, addPersonaFoto, deletePersonaFoto, setPersonaDescripcion } from '@/lib/persona';
+import { personaEstado, addPersonaFoto, deletePersonaFoto, setPersonaDescripcion, generarDescripcionPersona } from '@/lib/persona';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -34,9 +34,14 @@ export async function POST(req: NextRequest) {
 
   return runWithWorkspace(ws, async () => {
     try {
-      // JSON → guardar la descripción.
+      // JSON → 'describir' (MaKo analiza las fotos) o guardar la descripción a mano.
       if (ct.includes('application/json')) {
-        const body = (await req.json()) as { descripcion?: string };
+        const body = (await req.json()) as { descripcion?: string; action?: string };
+        if (body.action === 'describir') {
+          const r = await generarDescripcionPersona();
+          if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
+          return Response.json({ ok: true, ...(await personaEstado()) });
+        }
         await setPersonaDescripcion(typeof body.descripcion === 'string' ? body.descripcion : '');
         return Response.json({ ok: true, ...(await personaEstado()) });
       }
