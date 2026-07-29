@@ -12,10 +12,10 @@
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { sendEmail, getEmailFrom } from '@/lib/resend';
+import { sendEmail, getEmailFrom, remitenteEsSandbox, resendConfigurado } from '@/lib/resend';
 import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
-  revocarInvitado, marcarEnviado, getShare, parseDestinatarios,
+  revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado,
   type ShareAlcance, type ShareModo, type Destinatario,
 } from '@/lib/shares';
 
@@ -50,7 +50,26 @@ export async function GET(req: NextRequest) {
         ? (await listarInvitados(s.id as number)).map((i) => ({ ...i, gravatar: gravatarDe(i.email) }))
         : [],
     })));
-    return NextResponse.json({ ok: true, shares: conInvitados });
+    // Preflight del correo: que la UI AVISE antes de invitar, en vez de dejar
+    // que la persona escriba tres mails y recién ahí ver el error de Resend.
+    const [hayKey, sandbox] = await Promise.all([resendConfigurado(), remitenteEsSandbox()]);
+    return NextResponse.json({ ok: true, shares: conInvitados, correo: { listo: hayKey && !sandbox, remitente: await getEmailFrom().catch(() => '') } });
+  } catch (e) {
+    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 });
+  }
+}
+
+// PATCH ?invitado=<id> → le emite un token NUEVO y devuelve su link.
+// Es "copiame el link de esta persona": el viejo no se puede leer (solo hay
+// hash), así que se rota. La UI avisa que el anterior deja de servir.
+export async function PATCH(req: NextRequest) {
+  if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  try {
+    const invitadoId = Number(req.nextUrl.searchParams.get('invitado') || 0);
+    if (!invitadoId) return NextResponse.json({ ok: false, error: 'falta invitado' }, { status: 400 });
+    const token = await regenerarTokenInvitado(WS, invitadoId);
+    if (!token) return NextResponse.json({ ok: false, error: 'no encontrado' }, { status: 404 });
+    return NextResponse.json({ ok: true, enlace: `${base(req)}/compartido/${token}` });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'error' }, { status: 500 });
   }
@@ -61,6 +80,18 @@ export async function GET(req: NextRequest) {
 // sea) devolvemos el link personal igual. Antes se generaba, se perdía en el
 // aire y el invitado quedaba en la lista sin forma de llegarle nunca.
 type ResultadoInvitado = { email: string; nombre: string | null; enviado: boolean; error?: string; enlace?: string };
+
+// Resend contesta en inglés y explicando SU producto ("verify a domain at
+// resend.com/domains"). Adentro de la app eso no le dice a nadie qué hacer con
+// la invitación que acaba de crear.
+function errorLegible(crudo: string): string {
+  if (/only send testing emails|Invalid `?to`? field|testing email address/i.test(crudo))
+    return 'el correo todavía no está verificado — el mail solo sale a tu propia casilla';
+  if (/RESEND_API_KEY no configurada|email no configurado/i.test(crudo))
+    return 'el correo no está conectado';
+  if (/restricted/i.test(crudo)) return 'la API key de Resend no tiene permiso para enviar';
+  return crudo;
+}
 
 async function invitar(shareId: number, dests: Destinatario[], raiz: string, etiqueta: string | null): Promise<ResultadoInvitado[]> {
   const from = await getEmailFrom().catch(() => '');
@@ -81,9 +112,9 @@ async function invitar(shareId: number, dests: Destinatario[], raiz: string, eti
           </div>`,
         }).catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : 'error' }));
         enviado = !!(r as { ok?: boolean }).ok;
-        if (!enviado) err = (r as { error?: string }).error || 'no se pudo enviar';
+        if (!enviado) err = errorLegible((r as { error?: string }).error || 'no se pudo enviar');
         else await marcarEnviado(inv.id);
-      } else err = 'email no configurado';
+      } else err = 'el correo no está conectado';
       // El link solo se expone cuando hace falta pasarlo a mano: si el mail
       // salió, ya lo tiene la persona y no hay razón de mostrarlo acá.
       out.push({ email, nombre, enviado, error: err, ...(enviado ? {} : { enlace: url }) });

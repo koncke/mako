@@ -228,6 +228,25 @@ export async function listarInvitados(shareId: number): Promise<Invitado[]> {
   return (data ?? []) as Invitado[];
 }
 
+/** Le da a un invitado un token NUEVO y devuelve el link, o null si no es de
+ *  este workspace. Es la única forma de recuperar el acceso de alguien: del
+ *  token viejo solo hay un sha256, así que "mostrámelo de nuevo" no existe —
+ *  se emite otro. Efecto buscado: el link anterior deja de servir en el acto.
+ *  Sirve para dos cosas: pasar el link a mano cuando el mail no sale, y rotarlo
+ *  si se filtró. */
+export async function regenerarTokenInvitado(ws: number, id: number): Promise<string | null> {
+  const sb = getSupabaseServer();
+  const { data } = await sb.from('share_invitados').select('id,share_id,revocado_at').eq('id', id).maybeSingle();
+  if (!data || data.revocado_at) return null;                 // revocado no se resucita por acá
+  const share = await getShare(ws, data.share_id as number);
+  if (!share || !vigente(share)) return null;
+  const token = nuevoToken();
+  const { error } = await sb.from('share_invitados')
+    .update({ token_hash: hash(token), token_prefijo: prefijoDe(token) }).eq('id', id);
+  if (error) throw new Error(error.message);
+  return token;
+}
+
 /** Revoca un invitado, verificando ANTES que su share sea de este workspace.
  *  Sin el join contra `shares` alcanzaría con adivinar un id para cortarle el
  *  acceso a alguien de otro inquilino. */

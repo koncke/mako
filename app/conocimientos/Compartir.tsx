@@ -87,12 +87,16 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
   const [sumaTexto, setSumaTexto] = useState('');
   const [sumando, setSumando] = useState(false);
   const [sumaResultado, setSumaResultado] = useState<{ shareId: number; invitados: ResultadoInv[] } | null>(null);
+  // Estado del correo del workspace y link recién emitido para una persona.
+  const [correo, setCorreo] = useState<{ listo: boolean; remitente: string } | null>(null);
+  const [linkPersona, setLinkPersona] = useState<{ id: number; enlace: string } | null>(null);
 
   const cargar = useCallback(async () => {
     try {
       const r = await fetch(`/api/compartir?recurso=${encodeURIComponent(recurso)}&recursoId=${encodeURIComponent(recursoId)}`);
       const j = await r.json();
       setLista(j.ok ? j.shares : []);
+      if (j.ok && j.correo) setCorreo(j.correo);
     } catch { setLista([]); }
   }, [recurso, recursoId]);
 
@@ -124,6 +128,26 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
       else { setSumaResultado({ shareId, invitados: j.invitados || [] }); setSumaTexto(''); setSumandoA(null); cargar(); }
     } catch { setError('no se pudo invitar'); }
     setSumando(false);
+  }
+
+  // "Copiame el link de esta persona". Del token viejo solo hay hash: no se
+  // puede releer, se emite otro. Por eso avisamos cuando había uno vivo.
+  async function linkDe(inv: Invitado) {
+    // Si ya lo emitimos en esta sesión, se re-copia el MISMO. Sin esto, dos
+    // clicks seguidos rotaban el token y mataban el link que acabás de pasar.
+    if (linkPersona?.id === inv.id) { copiar(linkPersona.enlace, `p:${inv.id}`); return; }
+    // Rotar solo duele si ya hay alguien usando el link anterior.
+    const enUso = !!inv.enviado_at || inv.visitas > 0;
+    if (enUso && !confirm(`${nombreDe(inv)} ya tiene un enlace en uso.\n\nSi generás uno nuevo, el anterior deja de funcionar. ¿Seguir?`)) return;
+    setError(null);
+    try {
+      const r = await fetch(`/api/compartir?invitado=${inv.id}`, { method: 'PATCH' });
+      const j = await r.json();
+      if (!j.ok) { setError(j.error || 'no se pudo generar el link'); return; }
+      setLinkPersona({ id: inv.id, enlace: j.enlace });
+      copiar(j.enlace, `p:${inv.id}`);
+      cargar();
+    } catch { setError('no se pudo generar el link'); }
   }
 
   async function revocar(id: number, invitadoId?: number) {
@@ -173,6 +197,12 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
 
             {modo === 'invitados' && (
               <>
+                {correo && !correo.listo && (
+                  <p className="cmp-aviso">
+                    <b>El correo todavía no está verificado.</b> Los invitados quedan creados y con acceso,
+                    pero el mail no les llega: copiales el link con el botón de cada uno y pasáselo vos.
+                  </p>
+                )}
                 <textarea className="cmp-mails" rows={2} value={emails} onChange={(e) => setEmails(e.target.value)}
                   placeholder={'Martín Tejado <martin@gmail.com>, otro@empresa.com'} />
                 <p className="cmp-tip">Poné el nombre adelante para reconocerlo en la lista. Uno por línea o separados por coma.</p>
@@ -233,20 +263,34 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
                         <>
                           {gente.map((i) => (
                             <div key={i.id} className="cmp-persona">
-                              <Avatar inv={i} />
-                              <div className="cmp-persona-in">
-                                <span className="cmp-persona-n">{nombreDe(i)}</span>
-                                <span className="cmp-persona-e">{i.email}</span>
-                                <span className={`cmp-persona-s${i.enviado_at ? '' : ' warn'}`}>
-                                  {!i.enviado_at
-                                    ? 'el mail no salió — pasale el link a mano'
-                                    : i.visitas > 0
-                                      ? `entró ${i.visitas} ${i.visitas === 1 ? 'vez' : 'veces'}${i.ultima_visita ? ` · ${fechaCorta(i.ultima_visita)}` : ''}`
-                                      : 'invitado, todavía no entró'}
-                                </span>
+                              <div className="cmp-persona-fila">
+                                <Avatar inv={i} />
+                                <div className="cmp-persona-in">
+                                  <span className="cmp-persona-n">{nombreDe(i)}</span>
+                                  <span className="cmp-persona-e">{i.email}</span>
+                                  <span className={`cmp-persona-s${i.enviado_at ? '' : ' warn'}`}>
+                                    {!i.enviado_at
+                                      ? 'el mail no le llegó — pasale el link a mano'
+                                      : i.visitas > 0
+                                        ? `entró ${i.visitas} ${i.visitas === 1 ? 'vez' : 'veces'}${i.ultima_visita ? ` · ${fechaCorta(i.ultima_visita)}` : ''}`
+                                        : 'invitado, todavía no entró'}
+                                  </span>
+                                </div>
+                                <button type="button" className="cmp-link-btn" onClick={() => linkDe(i)}
+                                  title={`Generar y copiar el enlace personal de ${i.email}`}>
+                                  {copiado === `p:${i.id}` ? '✓ copiado' : 'Copiar link'}
+                                </button>
+                                <button type="button" className="cmp-rev chico" onClick={() => revocar(s.id, i.id)}
+                                  title={`Quitarle el acceso a ${i.email}`}>Quitar</button>
                               </div>
-                              <button type="button" className="cmp-rev chico" onClick={() => revocar(s.id, i.id)}
-                                title={`Quitarle el acceso a ${i.email}`}>Quitar</button>
+                              {linkPersona?.id === i.id && (
+                                <div className="cmp-linkrow mini">
+                                  <input className="cmp-link" readOnly value={linkPersona.enlace} onFocus={(e) => e.currentTarget.select()} />
+                                  <button type="button" className="cmp-copy" onClick={() => copiar(linkPersona.enlace, `p:${i.id}`)}>
+                                    {copiado === `p:${i.id}` ? '✓' : 'Copiar'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ))}
 
@@ -329,7 +373,8 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
         .cmp-item-t { font-size: 13px; font-weight: 600; }
         .cmp-pref { font-family: ui-monospace, monospace; font-size: 11px; opacity: .5; font-weight: 400; }
         .cmp-item-m { font-size: 11.5px; opacity: .55; }
-        .cmp-persona { display: flex; align-items: center; gap: 10px; padding: 7px 0 7px 6px; }
+        .cmp-persona { padding: 7px 0 7px 6px; }
+        .cmp-persona-fila { display: flex; align-items: center; gap: 8px; }
         .cmp-persona-in { display: flex; flex-direction: column; min-width: 0; flex: 1; }
         .cmp-persona-n { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cmp-persona-e { font-size: 12px; opacity: .62; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -338,6 +383,11 @@ export default function Compartir({ recurso, recursoId, etiqueta }: { recurso: s
         .cmp-rev { padding: 6px 12px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: inherit;
           background: transparent; border: 1.5px solid rgba(179,38,30,.45); color: #b3261e; flex: none; }
         .cmp-rev.chico { padding: 4px 10px; font-size: 11.5px; border-color: rgba(179,38,30,.3); }
+        .cmp-link-btn { padding: 4px 10px; border-radius: 7px; cursor: pointer; font-size: 11.5px; font-weight: 600; font-family: inherit;
+          background: transparent; border: 1.5px solid rgba(24,26,22,.25); color: var(--ink, #1a1a1a); flex: none; white-space: nowrap; }
+        .cmp-link-btn:hover { border-color: var(--ink, #1a1a1a); background: rgba(200,241,105,.28); }
+        .cmp-aviso { margin: 2px 0 8px; padding: 10px 12px; border-radius: 9px; font-size: 12.5px; line-height: 1.5;
+          background: rgba(201,138,12,.1); border: 1.5px solid rgba(201,138,12,.4); color: #6b4a06; }
         .cmp-sumar { margin: 2px 0 4px 6px; padding: 5px 0; background: none; border: 0; cursor: pointer; font-family: inherit;
           font-size: 12.5px; font-weight: 600; color: var(--ink, #1a1a1a); opacity: .62; text-decoration: underline; }
         .cmp-sumar:hover { opacity: 1; }
