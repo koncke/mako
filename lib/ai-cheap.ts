@@ -8,6 +8,9 @@
 //      NO entrena con tus datos (activá ZDR en la consola de Groq para PII).
 //   2) OPENAI_API_KEY → OpenAI (gpt-4o-mini + whisper-1). Ya configurado en el repo,
 //      así que esto FUNCIONA HOY; al agregar GROQ_API_KEY se abarata solo.
+// Para ESCUCHAR audio el orden es otro (CASCADA_STT): Gemini → Groq → OpenAI. Gemini
+// va primero porque es la key gratis que carga cada cliente y escucha el audio nativo;
+// OpenAI queda último por ser el único que cobra.
 // Modelos e IDs por env (rotan seguido, no hardcodear). Claude sigue para el
 // razonamiento fino y el copywriting con voz de marca (lib/anthropic.ts).
 
@@ -33,9 +36,9 @@ async function provDe(nombre: ProvName): Promise<Prov | null> {
   if (nombre === 'gemini') {
     const key = await credWs('GEMINI_API_KEY');
     if (!key) return null;
-    // Endpoint OpenAI-compatible de Gemini (chat + function-calling). SIN STT: su
-    // transcripción es multimodal nativa, no /audio/transcriptions → el STT se
-    // queda en Groq/OpenAI (ver proveedorStt). 1M de contexto, function-calling.
+    // Endpoint OpenAI-compatible de Gemini (chat + function-calling). Para AUDIO no
+    // sirve —no tiene /audio/transcriptions— pero Gemini igual escucha: lo hace por su
+    // API nativa (ver sttGemini), y por eso encabeza la cascada de STT. 1M de contexto.
     // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
     // pineados que se van retirando). Pisable con GEMINI_MODEL.
     return { nombre: 'gemini', base: 'https://generativelanguage.googleapis.com/v1beta/openai', key, chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
@@ -69,13 +72,18 @@ async function proveedor(pref?: ProvName): Promise<Prov | null> {
   return (await provDe('groq')) ?? (await provDe('openai'));
 }
 
-/** Proveedor para STT (Whisper): solo Groq/OpenAI (Gemini no expone ese endpoint). */
-async function proveedorStt(): Promise<Prov | null> {
-  return (await provDe('groq')) ?? (await provDe('openai'));
-}
+// Orden de la transcripción (STT). Gemini primero: es la key gratis y generosa que
+// cada cliente carga en el onboarding, y escucha el audio NATIVO (no por Whisper).
+// Groq después (Whisper turbo, rápido y gratis) y OpenAI al final, que es el único
+// que cobra. Ver transcribirAudio: la cascada cae por ERROR, no solo por falta de key.
+export const CASCADA_STT: ProvName[] = ['gemini', 'groq', 'openai'];
 
 export async function cheapDisponible(): Promise<boolean> { return (await proveedor()) !== null; }
-export async function sttDisponible(): Promise<boolean> { return (await proveedorStt()) !== null; }
+/** ¿Hay alguna IA que pueda escuchar un audio en este workspace? */
+export async function sttDisponible(): Promise<boolean> {
+  for (const p of CASCADA_STT) { if (await provDe(p)) return true; }
+  return false;
+}
 
 // Cascada para LEER DOCUMENTOS del negocio (El Archivero, onboarding-extract). A
 // diferencia de CASCADA_GRATIS, INCLUYE Gemini y lo pone primero: es la IA gratis y
@@ -372,22 +380,20 @@ const EXT_POR_MIME = (mime: string): string =>
     : mime.includes('wav') ? 'wav'
     : mime.includes('webm') ? 'webm' : 'ogg';
 
-/**
- * Transcribe audio (base64) a texto. Para notas de voz de WhatsApp (ogg/opus).
- * Fuerza español por default (evita auto-detección errónea en clips cortos).
- * Endpoint OpenAI-compatible /audio/transcriptions (Groq Whisper u OpenAI Whisper).
- */
-export async function transcribirAudio(base64: string, mime: string, opts?: { language?: string; prompt?: string; feature?: string; motivo?: string }): Promise<string> {
-  const p = await proveedorStt();
-  if (!p) throw new Error('Sin proveedor de STT (falta GROQ_API_KEY u OPENAI_API_KEY).');
-  const buf = Buffer.from(base64, 'base64');
-  if (!buf.length) return '';
+export type SttOpts = { language?: string; prompt?: string; feature?: string; motivo?: string };
+
+// Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
+// tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
+const MAX_INLINE_GEMINI = 14 * 1024 * 1024;
+
+/** Whisper por endpoint OpenAI-compatible (Groq / OpenAI). Cobra por segundos de audio. */
+async function sttWhisper(p: Prov, buf: Buffer, mime: string, opts: SttOpts): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([new Uint8Array(buf)], { type: mime || 'audio/ogg' }), `nota.${EXT_POR_MIME(mime || '')}`);
   form.append('model', p.sttModel);
-  form.append('language', opts?.language || 'es');
+  form.append('language', opts.language || 'es');
   form.append('response_format', 'verbose_json'); // trae `duration` → costo real
-  if (opts?.prompt) form.append('prompt', opts.prompt);
+  if (opts.prompt) form.append('prompt', opts.prompt);
   const res = await fetch(`${p.base}/audio/transcriptions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${p.key}` },
@@ -396,8 +402,92 @@ export async function transcribirAudio(base64: string, mime: string, opts?: { la
     signal: AbortSignal.timeout(60000),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(`transcribirAudio(${p.nombre}): ${data?.error?.message || `HTTP ${res.status}`}`);
-  // Registrar el gasto de STT (por segundos de audio).
-  void recordSttUsage(opts?.feature || 'stt-nota-voz', p.sttModel, Number(data.duration ?? 0), opts?.motivo, p.nombre);
+  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
+  void recordSttUsage(opts.feature || 'stt-nota-voz', p.sttModel, Number(data.duration ?? 0), opts.motivo, p.nombre);
   return (data.text ?? '').trim();
+}
+
+/**
+ * Gemini ESCUCHA el audio (multimodal nativo): no hay /audio/transcriptions, va por
+ * generateContent con el audio inline. Por eso no entra por la ruta Whisper de arriba
+ * y necesita su propia llamada. Gratis en su free tier.
+ */
+async function sttGemini(p: Prov, base64: string, buf: Buffer, mime: string, opts: SttOpts): Promise<string> {
+  if (buf.length > MAX_INLINE_GEMINI) throw new Error('audio demasiado grande para mandarlo inline');
+  const model = process.env.GEMINI_STT_MODEL || process.env.GEMINI_MODEL || 'gemini-flash-latest';
+  // p.base es el shim OpenAI-compatible (…/v1beta/openai); la API nativa cuelga del
+  // mismo host sin ese sufijo.
+  const base = p.base.replace(/\/openai\/?$/, '');
+  const idioma = (opts.language || 'es') === 'es' ? 'español' : (opts.language || 'es');
+  const instruccion = [
+    `Transcribí este audio en ${idioma}.`,
+    'Devolvé SOLO la transcripción literal de lo que se dice: sin comillas, sin timestamps, sin nombres de hablante, sin comentarios tuyos y sin describir el audio.',
+    opts.prompt ? `Contexto (nombres propios y jerga que pueden aparecer): ${opts.prompt}` : '',
+    'Si no se entiende nada o no hay voz, devolvé exactamente: (vacío)',
+  ].filter(Boolean).join(' ');
+  const res = await fetch(`${base}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST',
+    headers: { 'x-goog-api-key': p.key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: instruccion }, { inline_data: { mime_type: (mime || 'audio/ogg').split(';')[0].trim(), data: base64 } }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 2048 },
+    }),
+    cache: 'no-store',
+    signal: AbortSignal.timeout(60000),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) throw new Error(`HTTP ${res.status}: ${data?.error?.message || 'sin detalle'}`);
+  const partes = (data.candidates?.[0]?.content?.parts ?? []) as Array<{ text?: string }>;
+  const texto = partes.map((x) => x.text ?? '').join('').trim();
+  const u = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
+  void recordUsage(opts.feature || 'stt-nota-voz', model,
+    { prompt_tokens: u?.promptTokenCount ?? 0, completion_tokens: u?.candidatesTokenCount ?? 0, total_tokens: u?.totalTokenCount ?? 0 },
+    opts.motivo, 'gemini');
+  return texto === '(vacío)' ? '' : texto;
+}
+
+/** Fallos que valen un reintento del MISMO proveedor antes de pasar al siguiente. */
+const esTransitorio = (msg: string): boolean => /HTTP (429|5\d\d)|timeout|aborted|fetch failed|ECONN/i.test(msg);
+
+/**
+ * Transcribe audio (base64) a texto. Para notas de voz de WhatsApp (ogg/opus).
+ * Fuerza español por default (evita auto-detección errónea en clips cortos).
+ *
+ * CASCADA REAL (Gemini → Groq → OpenAI): antes elegía UN proveedor por tener la key
+ * cargada, y si ese fallaba —cuota agotada, 429— la nota de voz se perdía en silencio
+ * aunque hubiera otro disponible. Ahora se prueba uno por uno, con un reintento si el
+ * error parece pasajero, y solo lanza si NINGUNO pudo escuchar el audio.
+ */
+export async function transcribirAudio(base64: string, mime: string, opts?: SttOpts): Promise<string> {
+  const o = opts ?? {};
+  const buf = Buffer.from(base64, 'base64');
+  if (!buf.length) return '';
+  // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
+  const orden = await ordenarPorCuota(CASCADA_STT.map(String)).catch(() => CASCADA_STT.map(String));
+
+  const errores: string[] = [];
+  let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada
+  for (const nombre of orden as ProvName[]) {
+    const p = await provDe(nombre);
+    if (!p) continue;
+    if (nombre !== 'gemini' && !p.sttModel) continue; // proveedor de chat sin Whisper
+    for (let intento = 0; intento <= 1; intento++) {
+      try {
+        const texto = nombre === 'gemini'
+          ? await sttGemini(p, base64, buf, mime, o)
+          : await sttWhisper(p, buf, mime, o);
+        alguienEscuchó = true;
+        if (texto) return texto;
+        break; // respondió vacío: no insistas con el mismo, probá el próximo
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        errores.push(`${nombre}: ${msg}`);
+        console.error(`[stt] ${nombre} falló: ${msg}`);
+        if (intento === 0 && esTransitorio(msg)) continue; // un reintento y listo
+        break;
+      }
+    }
+  }
+  if (alguienEscuchó) return ''; // el audio no traía voz entendible
+  throw new Error(errores.length ? `transcribirAudio — ninguna IA pudo: ${errores.join(' | ')}` : 'Sin proveedor de STT (falta GEMINI_API_KEY, GROQ_API_KEY u OPENAI_API_KEY).');
 }

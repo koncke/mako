@@ -321,9 +321,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
         if (m) { b64 = m.base64; audio.mime = m.mimetype || audio.mime; }
       }
       if (!b64) { console.error('[mako-doer-in] audio sin base64'); return { engaged: false, skip: 'audio sin base64' }; }
+      // Si NINGUNA de las IA pudo escucharlo (Gemini→Groq→OpenAI, todas caídas o sin
+      // cuota), MaKo lo dice. Antes se descartaba en silencio: mandabas el audio y no
+      // pasaba nada, indistinguible de que te estuviera ignorando.
       try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo' })).trim(); }
-      catch (e) { console.error('[mako-doer-in] STT:', e instanceof Error ? e.message : String(e)); return { engaged: false, skip: 'audio no transcribible' }; }
-      if (!texto) return { engaged: false, skip: 'audio vacío' };
+      catch (e) {
+        console.error('[mako-doer-in] STT:', e instanceof Error ? e.message : String(e));
+        const aviso = 'Me llegó tu audio pero no lo pude escuchar (se me cayó la transcripción). ¿Me lo escribís o me mandás otra nota de voz?';
+        const env = await enviarAGrupoJid(jid, aviso);
+        if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+        return { engaged: true, reply: aviso };
+      }
+      if (!texto) {
+        const aviso = 'Escuché tu audio pero no le entendí nada — ¿lo repetís un poco más cerca del micrófono, o me lo escribís?';
+        const env = await enviarAGrupoJid(jid, aviso);
+        if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+        return { engaged: true, reply: aviso };
+      }
     }
 
     // Adjunto (imagen/PDF): Claude lo lee nativo. Armamos bloques de contenido.

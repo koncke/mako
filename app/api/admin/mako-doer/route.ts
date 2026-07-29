@@ -13,7 +13,7 @@ import { permitirGruposEnInstancia, registrarWebhookInstancia } from '@/lib/evol
 import { instanciaVoz } from '@/lib/mako-grupo';
 import { gruposDoer, setGruposDoer, setModoDoer, manejarEntranteDoer } from '@/lib/mako-doer-in';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
-import { transcribirAudio, cheapDisponible } from '@/lib/ai-cheap';
+import { transcribirAudio, sttDisponible } from '@/lib/ai-cheap';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +52,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, vigentes: await pendientesVigentes(OWNER_WS, body.jid) });
     }
     case 'probar-audio': {
-      // Prueba SOLO la transcripción (STT): base64 de un audio → texto.
-      if (!(await cheapDisponible())) return NextResponse.json({ ok: false, error: 'Falta GROQ_API_KEY u OPENAI_API_KEY' }, { status: 400 });
+      // Prueba SOLO la transcripción (STT): base64 de un audio → texto. El gate es
+      // sttDisponible (Gemini→Groq→OpenAI), NO cheapDisponible: un workspace con SOLO
+      // Gemini escucha audio perfecto y sin embargo caía acá con "falta GROQ/OPENAI".
+      if (!(await sttDisponible())) return NextResponse.json({ ok: false, error: 'Falta GEMINI_API_KEY, GROQ_API_KEY u OPENAI_API_KEY' }, { status: 400 });
       if (!body.audioBase64) return NextResponse.json({ ok: false, error: 'falta audioBase64' }, { status: 400 });
       try {
         const texto = await transcribirAudio(body.audioBase64, body.mime || 'audio/ogg', { language: 'es' });
