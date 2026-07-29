@@ -29,6 +29,8 @@ type Grupo = { label: string; campos: Campo[] };
 const fmtSize = (n?: number | null) => (!n ? '' : n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 const esImg = (m?: string | null) => !!m && m.startsWith('image/');
 const esPdf = (m?: string | null, n?: string) => (!!m && m === 'application/pdf') || (!!n && n.toLowerCase().endsWith('.pdf'));
+const esLink = (m?: string | null) => m === 'text/html'; // una web pegada (no un archivo)
+const hostDe = (u?: string) => { try { return new URL(u || '').hostname.replace(/^www\./, ''); } catch { return (u || '').replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0]; } };
 const conDato = (g: Grupo, ans: Record<string, string>) => g.campos.some((c) => (ans[c.key] ?? '').trim());
 const grupoWord = (label: string) => /oferta/i.test(label) ? 'tu oferta' : /avatar/i.test(label) ? 'tu avatar' : /negocio|nicho/i.test(label) ? 'tu negocio' : label.toLowerCase();
 // De un campo faltante a un "tema de documento" que se lee natural.
@@ -77,6 +79,12 @@ function Fade({ id, seen, index = 0, children }: { id: string; seen: MutableRefO
 // Miniatura del documento (PDF → visor inline; imagen → la imagen; otro → ícono).
 function DocThumb({ mime, nombre, src, w = 78, h = 100 }: { mime?: string | null; nombre?: string; src: string; w?: number; h?: number }) {
   const box: CSSProperties = { width: w, height: h, borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--surface-2)', flex: 'none', position: 'relative' };
+  if (esLink(mime)) return (
+    <div style={{ ...box, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6, textAlign: 'center' }}>
+      <svg width={Math.round(w * 0.34)} height={Math.round(w * 0.34)} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9.5" /><path d="M2.5 12h19M12 2.5c2.6 2.6 4 6 4 9.5s-1.4 6.9-4 9.5c-2.6-2.6-4-6-4-9.5s1.4-6.9 4-9.5z" /></svg>
+      <span style={{ fontFamily: MONO, fontSize: 8.5, color: 'var(--dim)', lineHeight: 1.2, wordBreak: 'break-all' }}>{hostDe(nombre || src)}</span>
+    </div>
+  );
   if (esImg(mime)) return <div style={box}><img src={src} alt={nombre || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></div>;
   if (esPdf(mime, nombre)) return <div style={box}><iframe src={src} title={nombre || 'pdf'} style={{ width: '135%', height: '135%', border: 'none', transform: 'scale(.74)', transformOrigin: 'top left', pointerEvents: 'none' }} scrolling="no" /></div>;
   return <div style={{ ...box, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: 'var(--dim)' }}>{(nombre?.split('.').pop() || 'DOC').toUpperCase().slice(0, 4)}</span></div>;
@@ -106,6 +114,9 @@ export function Archivero({ onEstado, onListo }: {
   const [cargando, setCargando] = useState(true);
   const [drag, setDrag] = useState(false);
   const [cola, setCola] = useState<{ file: File; url: string }[]>([]);
+  const [links, setLinks] = useState<string[]>([]); // webs pegadas (URLs) a analizar
+  const [linkUrl, setLinkUrl] = useState('');
+  const [huecosRevisados, setHuecosRevisados] = useState(false); // ya pasó por las preguntas
   const [err, setErr] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
@@ -119,7 +130,13 @@ export function Archivero({ onEstado, onListo }: {
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
   const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
 
-  const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); onListo?.(e.files.length > 0); }, [onEstado, onListo]);
+  const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); }, [onEstado]);
+
+  // El paso está "listo" para avanzar solo con ≥1 documento analizado Y, o sin huecos,
+  // o el usuario ya pasó por las preguntas. Así no se avanza dejando datos sin ver (P4).
+  useEffect(() => {
+    onListo?.(!!est && est.files.length > 0 && (est.gaps.length === 0 || huecosRevisados));
+  }, [est, huecosRevisados, onListo]);
 
   const cargar = useCallback(async () => {
     try {
@@ -144,8 +161,26 @@ export function Archivero({ onEstado, onListo }: {
   };
   const quitarCola = (k: string) => setCola((prev) => { const c = prev.find((x) => x.file.name + x.file.size === k); if (c?.url) URL.revokeObjectURL(c.url); return prev.filter((x) => x.file.name + x.file.size !== k); });
 
+  // ── Links (webs pegadas) ────────────────────────────────────────────────────
+  const dominio = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+  const normalizarUrl = (u: string): string | null => {
+    let s = u.trim();
+    if (!s) return null;
+    if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+    try { const url = new URL(s); if (!/^https?:$/.test(url.protocol) || !url.hostname.includes('.')) return null; return url.toString(); } catch { return null; }
+  };
+  const addLink = () => {
+    const u = normalizarUrl(linkUrl);
+    if (!u) { setErr('Ese link no parece válido. Revísalo (ej: tunegocio.com).'); return; }
+    setErr(null);
+    setLinks((prev) => (prev.includes(u) ? prev : [...prev, u]));
+    setLinkUrl('');
+  };
+  const quitarLink = (u: string) => setLinks((prev) => prev.filter((x) => x !== u));
+
   const analizar = async () => {
-    if (!cola.length) return;
+    if (!cola.length && !links.length) return;
+    const total = cola.length + links.length;
     setVista('leyendo'); setErr(null); setWarnings([]);
     try {
       // Subida DIRECTA a Supabase (sin pasar por el serverless → sin el límite de ~4.5 MB
@@ -156,7 +191,7 @@ export function Archivero({ onEstado, onListo }: {
       const warns: string[] = [];
       for (let i = 0; i < cola.length; i++) {
         const c = cola[i];
-        const finalizar = i === cola.length - 1;
+        const finalizar = links.length === 0 && i === cola.length - 1;
         // 1) URL firmada.
         const su = await (await fetch('/api/onboarding/archivero/upload-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: c.file.name, mime: c.file.type }) })).json();
         if (!su.ok) throw new Error(su.error || 'No se pudo preparar la subida.');
@@ -170,19 +205,29 @@ export function Archivero({ onEstado, onListo }: {
         if (Array.isArray(j.warnings)) warns.push(...j.warnings);
         if (j.ok !== false && j.brief) ultimo = j; // si ESTE archivo no se pudo leer, ya está en warnings; seguimos
       }
+      // Webs pegadas: el server baja la página, saca el texto y extrae (mismo flujo).
+      for (let i = 0; i < links.length; i++) {
+        const finalizar = i === links.length - 1;
+        const res = await fetch('/api/onboarding/archivero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'procesar-link', url: links[i], finalizar }) });
+        const j = await res.json().catch(() => null) as (Estado & { ok?: boolean; warnings?: string[]; error?: string; brief?: unknown }) | null;
+        if (!j) { warns.push(`No pude leer la web "${dominio(links[i])}".`); continue; }
+        if (Array.isArray(j.warnings)) warns.push(...j.warnings);
+        if (j.ok !== false && j.brief) ultimo = j;
+      }
       setWarnings(warns);
-      if (ultimo) { aplicar(ultimo); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setMasSlide('insight'); setVista('masdocs'); }
-      else { setErr('No se pudo procesar ningún documento.'); setVista('inicio'); }
+      if (ultimo) { aplicar(ultimo); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setLinks([]); setMasSlide('insight'); setVista('masdocs'); }
+      else { setErr(`No se pudo procesar ${total === 1 ? 'lo que subiste' : 'nada de lo que subiste'}.`); setVista('inicio'); }
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setVista('inicio'); }
   };
 
   const seguirDesdeMasDocs = async () => {
-    if (!est || est.gaps.length === 0) { setVista('archivos'); return; }
+    if (!est || est.gaps.length === 0) { setHuecosRevisados(true); setVista('archivos'); return; }
     setCargandoPreg(true); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/archivero/preguntas', { method: 'POST' })).json();
       const pregs: PregCerrada[] = Array.isArray(j.preguntas) ? j.preguntas : [];
       setPreguntas(pregs); setGapIdx(0); setOtroKey(null); setOtroVal('');
+      if (!pregs.length) setHuecosRevisados(true); // no hay preguntas usables → nada que revisar
       setVista(pregs.length ? 'huecos' : 'archivos');
     } catch { setVista('archivos'); }
     finally { setCargandoPreg(false); }
@@ -203,7 +248,7 @@ export function Archivero({ onEstado, onListo }: {
   const responderGap = async (key: string, valor: string | null) => {
     if (valor && valor.trim()) await guardarManual({ [key]: valor.trim() });
     setOtroKey(null); setOtroVal('');
-    if (gapIdx + 1 >= preguntas.length) setVista('archivos'); else setGapIdx((i) => i + 1);
+    if (gapIdx + 1 >= preguntas.length) { setHuecosRevisados(true); setVista('archivos'); } else setGapIdx((i) => i + 1);
   };
 
   if (cargando || !est) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>{err ? <span style={{ color: 'var(--bad)' }}>{err}</span> : 'Cargando el archivero…'}</div>;
@@ -380,7 +425,7 @@ export function Archivero({ onEstado, onListo }: {
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
             {gapIdx > 0 && <button type="button" onClick={() => { setOtroKey(null); setGapIdx((i) => Math.max(0, i - 1)); }} style={link}>← Atrás</button>}
             <button type="button" onClick={() => responderGap(p.key, null)} style={link}>Saltar</button>
-            <button type="button" onClick={() => setVista('archivos')} style={link}>Terminar</button>
+            <button type="button" onClick={() => { setHuecosRevisados(true); setVista('archivos'); }} style={link}>Terminar</button>
           </div>
         )}
       </div>
@@ -418,24 +463,43 @@ export function Archivero({ onEstado, onListo }: {
     );
   }
 
-  // ── INICIO (dropzone + cola con PREVIEW + Analizar) ─────────────────────────
+  // ── INICIO (dropzone o compacto + link + cola con PREVIEW + Analizar) ────────
+  const algoEnCola = cola.length > 0 || links.length > 0;
+  const nCola = cola.length + links.length;
+  const labelAnalizar = cola.length && links.length ? `${nCola} cosas` : links.length ? `${links.length} ${links.length === 1 ? 'web' : 'webs'}` : `${cola.length} documento${cola.length === 1 ? '' : 's'}`;
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
       {keyframes}
-      <label
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); addCola(e.dataTransfer.files); }}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', minHeight: 300, border: `1.5px dashed ${drag ? 'var(--primary)' : 'var(--border-strong)'}`, background: drag ? 'var(--primary-bg)' : 'var(--surface-2)', borderRadius: 20, padding: '44px 28px', textAlign: 'center', transition: 'all .15s' }}>
-        <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { addCola(e.target.files); e.target.value = ''; }} />
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v12" /></svg>
-        <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', marginTop: 16 }}>Suelta aquí todo lo de tu negocio</div>
-        <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 9, lineHeight: 1.6, maxWidth: 420 }}>Avatar, oferta, nicho, producto, guiones, tu web…<br />PDF, Word, texto o imágenes. Todos los que quieras.</div>
-        <div style={{ marginTop: 22 }}><span style={{ ...btnPrimary, display: 'inline-block', padding: '12px 24px', fontSize: 15 }}>Elegir archivos</span></div>
-      </label>
+      <input ref={inputRef} type="file" multiple accept={ACCEPT} style={{ display: 'none' }} onChange={(e) => { addCola(e.target.files); e.target.value = ''; }} />
 
-      {cola.length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <div style={{ ...eyebrow, marginBottom: 10 }}>Vas a subir · {cola.length}</div>
+      {algoEnCola ? (
+        // Con algo en la cola, el dropzone gigante desaparece → un botón compacto (P3).
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ ...eyebrow }}>Vas a subir · {nCola}</div>
+          <button type="button" onClick={() => inputRef.current?.click()} style={btnGhost}><Ico d={I_SUBIR} size={15} /> Subir más archivos</button>
+        </div>
+      ) : (
+        <div role="button" tabIndex={0}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); addCola(e.dataTransfer.files); }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', minHeight: 300, border: `1.5px dashed ${drag ? 'var(--primary)' : 'var(--border-strong)'}`, background: drag ? 'var(--primary-bg)' : 'var(--surface-2)', borderRadius: 20, padding: '44px 28px', textAlign: 'center', transition: 'all .15s' }}>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5-5 5 5" /><path d="M12 5v12" /></svg>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', marginTop: 16 }}>Suelta aquí todo lo de tu negocio</div>
+          <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 9, lineHeight: 1.6, maxWidth: 420 }}>Avatar, oferta, nicho, producto, guiones, tu web…<br />PDF, Word, texto o imágenes. Todos los que quieras.</div>
+          <div style={{ marginTop: 22 }}><span style={{ ...btnPrimary, display: 'inline-block', padding: '12px 24px', fontSize: 15 }}>Elegir archivos</span></div>
+        </div>
+      )}
+
+      {/* Pegar el link de una web (tu web, landing, Instagram): también se analiza (P2) */}
+      <div style={{ display: 'flex', gap: 8, marginTop: algoEnCola ? 12 : 14 }}>
+        <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLink(); } }}
+          placeholder="O pega el link de tu web, landing o Instagram…" style={{ ...input, flex: 1 }} />
+        <button type="button" onClick={addLink} disabled={!linkUrl.trim()} style={{ ...btnGhost, flex: 'none', opacity: linkUrl.trim() ? 1 : 0.5 }}>Agregar</button>
+      </div>
+
+      {algoEnCola && (
+        <div style={{ marginTop: 18 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
             {cola.map((c) => {
               const k = c.file.name + c.file.size;
@@ -449,14 +513,23 @@ export function Archivero({ onEstado, onListo }: {
                 </div>
               );
             })}
+            {links.map((u) => (
+              <div key={u} style={{ width: 88 }}>
+                <div style={{ position: 'relative' }}>
+                  <DocThumb mime="text/html" nombre={u} src={u} w={88} h={110} />
+                  <button type="button" aria-label="Quitar" onClick={() => quitarLink(u)} style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 999, border: 'none', background: 'rgba(18,21,27,.72)', color: '#fff', fontSize: 11, lineHeight: '20px', cursor: 'pointer', padding: 0, zIndex: 2 }}>✕</button>
+                </div>
+                <div style={{ fontSize: 10.5, color: 'var(--faint)', marginTop: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hostDe(u)}</div>
+              </div>
+            ))}
           </div>
-          <button type="button" onClick={analizar} style={{ ...btnPrimary, width: '100%', marginTop: 18, padding: '14px', fontSize: 15.5, justifyContent: 'center' }}>✦ Analizar {cola.length} documento{cola.length === 1 ? '' : 's'}</button>
+          <button type="button" onClick={analizar} style={{ ...btnPrimary, width: '100%', marginTop: 18, padding: '14px', fontSize: 15.5, justifyContent: 'center' }}>✦ Analizar {labelAnalizar}</button>
         </div>
       )}
 
-      {/* ¿Qué debes cargar? — contextualiza QUÉ subir. Solo mientras no haya ningún
-          documento analizado; apenas cargás uno, desaparece (pedido de Martín). */}
-      {!hayArchivos && (
+      {/* ¿Qué debes cargar? — contextualiza QUÉ subir. Solo mientras no haya nada en
+          cola ni analizado; apenas agregás un doc o un link, desaparece (P3). */}
+      {!algoEnCola && !hayArchivos && (
         <div style={{ marginTop: 22, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
           <div style={{ ...eyebrow, marginBottom: 8 }}>¿Qué debes cargar?</div>
           <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 13 }}>
@@ -480,7 +553,7 @@ export function Archivero({ onEstado, onListo }: {
         </div>
       )}
 
-      {(hayPerfil || hayArchivos) && cola.length === 0 && (
+      {(hayPerfil || hayArchivos) && !algoEnCola && (
         <div style={{ textAlign: 'center', marginTop: 20 }}>
           <button type="button" onClick={() => setVista('archivos')} style={link}>Ver mis documentos →</button>
         </div>

@@ -529,9 +529,9 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts }: {
               )}
               {c.ilegible && <div style={{ fontSize: 12, color: 'var(--warn)', marginTop: 6, lineHeight: 1.45 }}>Guardada pero ilegible (rotó la clave de cifrado) — volvé a pegarla.</div>}
 
-              {/* Ayuda de ESTA key. Reemplaza a la nota suelta que había debajo:
-                  cada credencial se consigue en un lado distinto. */}
-              {ayudaAbierta[c.env] && <PasosAyuda ayuda={c.ayuda ?? servicio.tutorial} />}
+              {/* Ayuda de ESTA key. Solo mientras NO esté guardada: al guardar la
+                  credencial (cerrada), el tutorial se cierra solo (no queda colgado). */}
+              {!cerrada && ayudaAbierta[c.env] && <PasosAyuda ayuda={c.ayuda ?? servicio.tutorial} />}
             </div>
           );
         })}
