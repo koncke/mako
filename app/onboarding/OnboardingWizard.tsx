@@ -33,7 +33,7 @@ import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { GuardianIcon } from '../plan/board/GuardianIcon';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
 import { FASES, faseDef, diagnosticar, VOLUMEN_POR_CANAL, type CanalId, type Diagnostico, type Pregunta } from '@/lib/fase-diagnostico';
-import { CanalSelector, FaseQuiz, FaseResultado } from './FaseUI';
+import { CanalSelector, FaseQuiz, FaseResultado, FaseIcono } from './FaseUI';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
@@ -288,7 +288,7 @@ export function OnboardingWizard() {
       data.fasePreguntas.forEach((q, i) => {
         pantallas.push({ key: `fase:${i}`, paso, faseQ: i, pregunta: q.id === 'volumen' ? VOLUMEN_POR_CANAL[canal].texto : q.texto, slides: SLIDES_MAKO });
       });
-      pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico de fase', slides: SLIDES_MAKO });
+      pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico', slides: SLIDES_MAKO });
     } else if (paso === 'retro') {
       pantallas.push({ key: 'retro', paso, pregunta: 'Tu primera Retro', sub: 'Cruzo todo lo que extraje y te digo dónde se te va la plata.', slides: SLIDES['meta'] ?? SLIDES_MAKO, servicio: 'meta' });
     } else if (paso === 'plan') {
@@ -627,7 +627,7 @@ function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx:
     return (
       <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 26, minWidth: 0, textAlign: 'center' }}>
         <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 16 }}>✦ Tu diagnóstico</div>
-        <div style={{ fontSize: 54, marginBottom: 6 }}>{f.emoji}</div>
+        <div style={{ color: f.color, marginBottom: 8, display: 'flex', justifyContent: 'center' }}><FaseIcono id={f.id} size={46} /></div>
         <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', color: 'var(--sidebar-text)' }}>FASE {f.id}</div>
         <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--on-sidebar)', margin: '2px 0 2px' }}>{f.nombre}</div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)', opacity: 0.85, marginBottom: 8 }}>{f.subtitulo}</div>
@@ -641,14 +641,14 @@ function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx:
   }
   return (
     <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: 26, minWidth: 0 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>✦ Diagnóstico de fase</div>
+      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>✦ Tu diagnóstico</div>
       <div style={{ fontSize: 13, color: 'var(--sidebar-text)', lineHeight: 1.55, marginBottom: 18 }}>
-        Seis preguntas rápidas sobre tu situación real. Al final sé en qué fase estás y qué tenés que priorizar — todos los negocios comparten los mismos problemas según su etapa.
+        Seis preguntas rápidas sobre tu situación real. Al final sé en qué fase estás y qué tienes que priorizar — todos los negocios comparten los mismos problemas según su etapa.
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {FASES.map((f, i) => (
           <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: i === Math.min(qIdx, 4) ? 1 : 0.45 }}>
-            <span style={{ fontSize: 18, flex: 'none' }}>{f.emoji}</span>
+            <span style={{ flex: 'none', color: f.color, display: 'inline-flex' }}><FaseIcono id={f.id} size={18} /></span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)' }}>Fase {f.id} · {f.nombre}</div>
               <div style={{ fontSize: 11, color: 'var(--sidebar-text)' }}>Cuello: {f.cuelloLabel}</div>

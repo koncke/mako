@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, faseDef, type CanalId, type Diagnostico } from '@/lib/fase-diagnostico';
-import { FaseQuiz, CanalSelector, FaseResultado } from './FaseUI';
+import { FaseQuiz, CanalSelector, FaseResultado, FaseIcono } from './FaseUI';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -65,7 +65,7 @@ export function DiagnosticoView() {
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
-            <span style={{ fontSize: 30, flex: 'none' }}>{fd.emoji}</span>
+            <span style={{ color: fd.color, flex: 'none', display: 'inline-flex' }}><FaseIcono id={fd.id} size={30} /></span>
             <div style={{ minWidth: 0 }}>
               <div style={{ ...eyebrow, color: 'var(--accent)' }}>✦ Tu fase · Fase {fd.id}</div>
               <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }}>{fd.nombre} <span style={{ fontWeight: 500, color: 'var(--dim)', fontSize: 14 }}>· {fd.subtitulo}</span></div>

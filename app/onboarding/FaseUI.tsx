@@ -61,9 +61,22 @@ export const SeccionLabel = ({ children }: { children: ReactNode }) => (
   <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 8 }}>{children}</div>
 );
 
+// Ícono SVG por fase (1-5), en vez de emoji. Mismo set que /conocimientos.
+export function FaseIcono({ id, size = 22 }: { id: number; size?: number }) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none' as const, stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  switch (id) {
+    case 1: return <svg {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3" /></svg>;
+    case 2: return <svg {...p}><path d="M4 5h16l-6 7v7l-4-2v-5z" /></svg>;
+    case 3: return <svg {...p}><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.4 5.6l-1.9 1.9M7.5 16.5l-1.9 1.9M18.4 18.4l-1.9-1.9M7.5 7.5L5.6 5.6" /></svg>;
+    case 4: return <svg {...p}><path d="M3 17l6-6 4 4 8-8" /><path d="M15 7h6v6" /></svg>;
+    case 5: return <svg {...p}><path d="M3 21h4v-4h4v-4h4v-4h5" /></svg>;
+    default: return null;
+  }
+}
+
 function EstrategiaBarras({ e }: { e: Estrategia }) {
   const filas: Array<[string, number, string]> = [
-    ['Prospección', e.prospeccion, 'var(--primary)'],
+    ['Tráfico frío', e.prospeccion, 'var(--primary)'],
     ['Retargeting y nutrición', e.nutricion, 'var(--warn)'],
     ['Escala', e.escala, 'var(--good)'],
   ];
@@ -96,33 +109,39 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
         </div>
       )}
 
-      {/* El Norte */}
-      <div>
-        <SeccionLabel>Tu Norte: enfoca todo en {f.cuelloLabel}</SeccionLabel>
-        <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.55 }}>{f.objetivo}</div>
+      {/* El Norte — el foco de todo, destacado con el color de la fase */}
+      <div style={{ background: 'var(--primary-bg)', border: `1px solid ${f.color}55`, borderLeft: `4px solid ${f.color}`, borderRadius: 14, padding: '16px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
+          <span style={{ color: f.color, display: 'inline-flex', flex: 'none' }}><FaseIcono id={f.id} size={22} /></span>
+          <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.09em', textTransform: 'uppercase', color: f.color, fontWeight: 700 }}>Tu Norte · enfoca todo en {f.cuelloLabel}</div>
+        </div>
+        <div style={{ fontSize: 15.5, color: 'var(--ink)', lineHeight: 1.5, fontWeight: 500 }}>{f.objetivo}</div>
       </div>
 
-      {/* Síntomas */}
-      <div>
-        <SeccionLabel>Síntomas de esta fase</SeccionLabel>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Síntomas — los puntos negativos, con ✕ en rojo */}
+      <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <SeccionLabel><span style={{ color: 'var(--bad)' }}>Síntomas de esta fase</span></SeccionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           {f.sintomas.map((s, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <span style={{ color: 'var(--faint)', flex: 'none', marginTop: 1 }}>·</span>
-              <span style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{s}</span>
+            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--bad)', flex: 'none', marginTop: 1, fontWeight: 800, fontSize: 12 }}>✕</span>
+              <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{s}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Acciones clave */}
+      {/* Acciones clave — cada una con su título */}
       <div>
         <SeccionLabel>Acciones clave</SeccionLabel>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {f.acciones.map((a, i) => (
-            <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', background: a.critica ? 'var(--good-bg)' : 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '10px 12px' }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: a.critica ? 'var(--good)' : 'var(--faint)', flex: 'none', marginTop: 2 }}>{a.critica ? 'CLAVE' : `${i + 1}`}</span>
-              <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{a.texto}</span>
+            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: a.critica ? 'var(--good-bg)' : 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
+              <span style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: a.critica ? 'var(--good)' : 'var(--faint)', flex: 'none', marginTop: 3, letterSpacing: '.04em' }}>{a.critica ? 'CLAVE' : `0${i + 1}`}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 3 }}>{a.titulo}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>{a.texto}</div>
+              </div>
             </div>
           ))}
         </div>

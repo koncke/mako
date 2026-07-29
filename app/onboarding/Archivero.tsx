@@ -146,11 +146,31 @@ export function Archivero({ onEstado }: {
     if (!cola.length) return;
     setVista('leyendo'); setErr(null); setWarnings([]);
     try {
-      const fd = new FormData(); cola.forEach((c) => fd.append('file', c.file));
-      const j = await (await fetch('/api/onboarding/archivero', { method: 'POST', body: fd })).json();
-      setWarnings(Array.isArray(j.warnings) ? j.warnings : []);
-      if (j.brief) { aplicar(j as Estado); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setMasSlide('insight'); setVista('masdocs'); }
-      else { setErr(j.error || 'No se pudo procesar.'); setVista('inicio'); }
+      // Subimos de a UN archivo por request: Vercel rechaza (413 "Request Entity Too
+      // Large") los POST de más de ~4.5 MB, y varios PDFs juntos lo superan. Cada archivo
+      // solo entra bien. La cascada (avatares→razones) corre solo en el último (finalizar).
+      let ultimo: Estado | null = null;
+      const warns: string[] = [];
+      for (let i = 0; i < cola.length; i++) {
+        const c = cola[i];
+        const fd = new FormData();
+        fd.append('file', c.file);
+        fd.append('finalizar', i === cola.length - 1 ? '1' : '0');
+        const res = await fetch('/api/onboarding/archivero', { method: 'POST', body: fd });
+        const txt = await res.text();
+        let j: (Estado & { ok?: boolean; warnings?: string[]; error?: string }) | null = null;
+        try { j = JSON.parse(txt); } catch {
+          // Respuesta NO-JSON (ej. 413 de Vercel): mensaje claro, no "Unexpected token".
+          throw new Error(res.status === 413
+            ? `"${c.file.name}" pesa demasiado para subir (máx ~4 MB por archivo). Comprímelo o súbelo aparte.`
+            : `No se pudo procesar "${c.file.name}" (error ${res.status}).`);
+        }
+        if (Array.isArray(j?.warnings)) warns.push(...j.warnings);
+        if (j && (j as { brief?: unknown }).brief) ultimo = j; else if (j && j.ok === false) throw new Error(j.error || 'No se pudo procesar.');
+      }
+      setWarnings(warns);
+      if (ultimo) { aplicar(ultimo); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setMasSlide('insight'); setVista('masdocs'); }
+      else { setErr('No se pudo procesar ningún documento.'); setVista('inicio'); }
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setVista('inicio'); }
   };
 
