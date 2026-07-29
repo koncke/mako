@@ -26,6 +26,8 @@ import { getSetting, setSetting } from './settings';
 import { emitirDelCatalogo } from './avisos';
 import { listarUsuarios } from './usuarios';
 import { getWorkspace } from './workspace';
+import { tzDeWorkspace } from './timezone';
+import { fechaHoraEnTz } from './date-utils';
 import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
 
@@ -39,6 +41,38 @@ const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.ve
  * gratis de Gemini y cayó a Claude, US$0,26 para devolver cero tareas).
  */
 const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
+
+/** Una reunión ya procesada en esta corrida (para redactar el aviso al final). */
+type ReunionHecha = { titulo: string; fecha: string | null; conQuien: string; mias: number; otras: number };
+
+/**
+ * El mensaje al grupo. Dos formas: una reunión (frase suelta) o varias (viñetas con
+ * fecha y hora). Tope de 4 viñetas para que no sea un ladrillo en el teléfono.
+ *
+ * REGLA: el número grande es el de TAREAS PROPIAS, porque es exactamente el que va a
+ * ver en el botón "Agregar N al plan". Las de los demás se mencionan aparte y no se
+ * suman: si no, el mensaje promete más de lo que la pantalla muestra.
+ */
+function textoAviso(hechas: ReunionHecha[], tz: string): string {
+  const link = `${APP_URL}/plan`;
+  const totalMias = hechas.reduce((s, h) => s + h.mias, 0);
+  const totalOtras = hechas.reduce((s, h) => s + h.otras, 0);
+  const tuyas = `*${totalMias} ${totalMias === 1 ? 'tarea tuya' : 'tareas tuyas'}*`;
+  const deOtros = totalOtras > 0 ? ` (y ${totalOtras} de los demás, para repartir)` : '';
+
+  if (hechas.length === 1) {
+    const h = hechas[0];
+    const cuando = fechaHoraEnTz(h.fecha, tz);
+    return `📝 Leí tu reunión${h.conQuien ? ` con *${h.conQuien}*` : ''}${h.titulo ? ` — *${h.titulo}*` : ''}${cuando ? `\n🗓️ ${cuando}` : ''}\n\nSaqué ${tuyas}${deOtros} y te las dejé en el plan para que las confirmes:\n${link}\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`;
+  }
+
+  const filas = hechas.slice(0, 4).map((h) => {
+    const cuando = fechaHoraEnTz(h.fecha, tz);
+    return `• *${h.titulo || 'Reunión'}*${cuando ? ` — ${cuando}` : ''}\n   ${h.mias} ${h.mias === 1 ? 'tarea tuya' : 'tuyas'}${h.otras ? ` · ${h.otras} de otros` : ''}`;
+  });
+  const resto = hechas.length > 4 ? `\n…y ${hechas.length - 4} ${hechas.length - 4 === 1 ? 'reunión más' : 'reuniones más'}.` : '';
+  return `📝 Leí tus *${hechas.length} reuniones* nuevas:\n\n${filas.join('\n')}${resto}\n\nEn total ${tuyas}${deOtros}, todas esperándote en la misma pantalla:\n${link}\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`;
+}
 
 export type ResultadoReunionesAuto = {
   miradas: number; deEquipo: number; nuevas: number; conTareas: number; tareas: number; errores: number;
@@ -90,8 +124,16 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   const max = opts.max ?? 3;
   const out: ResultadoReunionesAuto = { miradas: 0, deEquipo: 0, nuevas: 0, conTareas: 0, tareas: 0, errores: 0, avisados: 0, sinAviso: 0 };
 
+  // La ventana va por `created_after` (CUÁNDO APARECIÓ la grabación en Fathom), no por
+  // la fecha de la reunión: el disparador es "cayó una grabación nueva", y una charla
+  // de ayer que se sube hoy también es nueva para el plan.
+  //
+  // Y hay un motivo duro: `recorded_after` la API LO IGNORA (probado — devuelve las
+  // mismas 10 reuniones con y sin el parámetro). Con eso la "ventana de 26h" nunca
+  // existió: el cron levantaba reuniones de hace tres semanas y las anunciaba como
+  // nuevas. `created_after` sí filtra de verdad.
   const desde = new Date(Date.now() - horas * 3600_000).toISOString();
-  const { reuniones } = await listReunionesRecientes({ limit: 20, recordedAfter: desde });
+  const { reuniones } = await listReunionesRecientes({ limit: 20, createdAfter: desde });
   out.miradas = reuniones.length;
 
   const deEquipo = reuniones.filter((r) => r.tipo === 'equipo');
@@ -103,6 +145,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
     glosarioTexto().catch(() => ''),
   ]);
 
+  const hechas: ReunionHecha[] = [];
   let procesadas = 0;
   for (const r of deEquipo) {
     if (procesadas >= max) break;
@@ -148,27 +191,28 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
 
       await crearPropuesta({
         ws, ref, tareas: propuestas, origen: 'fathom',
-        fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined,
+        fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         resumen: `MaKo leyó tu reunión${r.titulo ? ` «${r.titulo}»` : ''}${conQuien ? ` con ${conQuien}` : ''} y sacó ${propuestas.length} ${propuestas.length === 1 ? 'compromiso' : 'compromisos'}.`,
       });
       out.conTareas += 1;
       out.tareas += propuestas.length;
-
-      // El aviso al grupo del workspace: que se entere ahora, no cuando abra la app.
-      // Si NO sale (línea de WhatsApp desconectada, sin grupo), queda registrado: el
-      // borrador igual está esperando en el plan, pero el cron tiene que poder decir
-      // "hice todo y el mensaje no salió" en vez de parecer que no corrió.
-      const detalleOtros = propuestas.length - mias;
-      const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', {
-        ws,
-        texto: `📝 Tuviste una reunión${conQuien ? ` con *${conQuien}*` : ''}${r.titulo ? ` (${r.titulo})` : ''}. Saqué *${mias} ${mias === 1 ? 'tarea' : 'tareas'}* tuyas${detalleOtros > 0 ? ` y ${detalleOtros} de los demás` : ''} y te las dejé en tu plan para que las confirmes:\n${APP_URL}/plan\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`,
-      });
-      if (aviso.wa) out.avisados += 1;
-      else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }
+      hechas.push({ titulo: r.titulo, fecha: r.fecha, conQuien, mias, otras: propuestas.length - mias });
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+  // UN SOLO aviso por corrida, al final. Antes salía uno por reunión: con tres
+  // reuniones nuevas eran tres WhatsApps con el MISMO link, y al entrar se veía un
+  // borrador solo — los números no cerraban ("me dijo 11 y veo 4"). Ahora el mensaje
+  // resume todas, con la fecha y hora de cada una, y el total es exactamente el que
+  // va a ver en la pantalla: SOLO las tareas propias.
+  if (hechas.length) {
+    const tz = await tzDeWorkspace(ws).catch(() => 'America/Tijuana');
+    const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', { ws, texto: textoAviso(hechas, tz) });
+    if (aviso.wa) out.avisados += 1;
+    else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }
   }
   return out;
 }

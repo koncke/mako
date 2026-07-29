@@ -42,6 +42,8 @@ export type Propuesta = {
   enviadoPor?: string;
   /** de dónde salieron: título + link de la reunión. */
   fuenteTitulo?: string; fuenteUrl?: string;
+  /** CUÁNDO fue la reunión (ISO). Distinto de createdAt, que es cuándo la leyó MaKo. */
+  fuenteFecha?: string;
   /** clave del hecho que la generó (fathom:<recordingId>) — candado anti-duplicado. */
   ref?: string;
 };
@@ -86,8 +88,8 @@ export type CrearPropuestaDraft = {
   tareas: PropuestaTarea[]; preguntas?: unknown[]; eliminar?: unknown[]; resumen?: string; origen?: string;
   /** nombre de quien se las manda a esta persona ('' = MaKo sola). */
   enviadoPor?: string;
-  /** reunión/archivo del que salieron. */
-  fuenteTitulo?: string; fuenteUrl?: string;
+  /** reunión/archivo del que salieron, y cuándo ocurrió. */
+  fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string;
   /** clave anti-duplicado (fathom:<recordingId>). Si ya existe una con esta ref en el ws, no crea otra. */
   ref?: string;
   /** workspace destino. Por defecto el del request; se pasa explícito para MANDARLE tareas a otra persona. */
@@ -114,6 +116,7 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
       tareas, notas: preguntas, eliminar, // `notas` guarda {pregunta,opciones}; `eliminar` = {id,titulo,motivo}
       ref, enviado_por: draft.enviadoPor?.slice(0, 120) ?? null,
       fuente_titulo: draft.fuenteTitulo?.slice(0, 200) ?? null, fuente_url: draft.fuenteUrl?.slice(0, 500) ?? null,
+      fuente_fecha: draft.fuenteFecha ?? null,
     });
     if (error) throw new Error(`crearPropuesta: ${error.message}`);
     return id;
@@ -131,6 +134,7 @@ function rowToPropuesta(r: Row): Propuesta {
     enviadoPor: r.enviado_por ? str(r.enviado_por) : undefined,
     fuenteTitulo: r.fuente_titulo ? str(r.fuente_titulo) : undefined,
     fuenteUrl: r.fuente_url ? str(r.fuente_url) : undefined,
+    fuenteFecha: r.fuente_fecha ? String(r.fuente_fecha) : undefined,
     ref: r.ref ? str(r.ref) : undefined,
   };
 }
@@ -204,75 +208,111 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   return asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 40);
 }
 
+export type LoteAplicar = { id: string; tareas?: PropuestaTarea[]; eliminarIds?: string[]; contexto?: string };
+export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; error?: string };
+
 /** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;
  *  cliente → su board (lib/todo). `tareasEditadas` = lo que quedó en la revisión. */
-export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[], contexto?: string): Promise<{ ok: boolean; ids: string[]; borradas: number; error?: string } | null> {
+export async function aplicarPropuesta(id: string, tareasEditadas?: PropuestaTarea[], eliminarIds?: string[], contexto?: string): Promise<ResultadoAplicar | null> {
+  const r = await aplicarPropuestas([{ id, tareas: tareasEditadas, eliminarIds, contexto }]);
+  return r.noExiste ? null : { ok: r.ok, ids: r.ids, borradas: r.borradas, error: r.error };
+}
+
+/**
+ * Aplica VARIOS borradores de una sola vez. Es lo que usa el modal del plan cuando
+ * MaKo dejó esperando más de una reunión: se confirman juntas y el PERRO CORRE UNA
+ * SOLA VEZ sobre todas las tareas nuevas. Correrlo por borrador tenía dos problemas:
+ * cada pasada tarda ~30s (con 3 reuniones se comía el maxDuration de la ruta) y cada
+ * una puntuaba su lote a ciegas del resto, cuando lo que hace bueno al Perro es
+ * comparar TODO lo nuevo contra el mismo plan.
+ */
+export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<ResultadoAplicar & { noExiste?: boolean }> {
   return enWs(async () => {
     const ws = await wsActual();
     const db = await getTenantDb();
-    const { data } = await db.from('plan_propuestas').select('estado, origen').eq('id', id).maybeSingle();
-    if (!data) return null;
-    const estado = str((data as Row).estado, 'pendiente');
-    if (estado !== 'pendiente') return { ok: false, ids: [], borradas: 0, error: `La propuesta ya fue ${estado}.` };
-    const prop = await getPropuesta(id);
-    // Sin edición explícita entran TODAS menos las de OTRA persona: el plan de uno no se
-    // llena con los compromisos ajenos que salieron de la misma reunión (esas viajan a
-    // SU tablero por su propio camino).
-    const base = (tareasEditadas ?? (prop?.tareas ?? []).filter((t) => !t.esDeOtro)).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
-    // Solo se borran los ids que el dueño/cliente CONFIRMÓ (subset de los que MaKo propuso).
-    const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));
-    const aBorrar = (eliminarIds ?? [...propuestos]).map(String).filter((x) => propuestos.has(x));
-    if (!base.length && !aBorrar.length) return { ok: false, ids: [], borradas: 0, error: 'No hay nada para crear ni borrar.' };
-
-    let ids: string[] = [];
-    // ¿Este workspace usa el board RICO (plan_tareas + Perro)? SOLO el del SUPER-ADMIN
-    // (capa 'superadmin'), que es donde vive el roadmap. Todos los demás usan su board
-    // (lib/todo), que es el que su /plan realmente pinta.
-    //
-    // OJO — acá había un bug: la condición incluía `ws === OWNER_WS`, de cuando el
-    // workspace 1 era la agencia. Hoy el ws 1 es un CLIENTE (Mauricio) y su tablero lee
-    // experimento_tareas: las tareas que confirmaba se escribían en plan_tareas, una
-    // tabla que su pantalla no mira. Se aplicaban "bien" y no aparecían en ningún lado.
+    // El board rico (plan_tareas + Perro) es SOLO del super-admin; el resto usa el suyo
+    // (lib/todo), que es el que su /plan realmente pinta. OJO: acá hubo un bug — la
+    // condición incluía `ws === OWNER_WS`, de cuando el ws 1 era la agencia. Hoy el ws 1
+    // es un CLIENTE y su tablero lee experimento_tareas: lo que confirmaba se escribía en
+    // una tabla que su pantalla no mira.
     const usaPlanBoard = (await getWorkspace(ws))?.capa === 'superadmin';
-    if (usaPlanBoard) {
-      // Board rico en plan_tareas + Perro (prioriza + checklists + proyectos).
-      if (base.length) {
-        const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
-        const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle })), { tipo: fuenteTipo } as Fuente);
-        ids = r.ids;
-        // El contexto = las respuestas del wizard → el Perro las tiene en cuenta al priorizar.
-        await priorizarNuevasOwner(r.ids, r.proyectoIds, contexto ?? '').catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
-      }
-      for (const eid of aBorrar) await borrarPlanTarea(eid).catch((e) => console.error('[plan-propuesta] borrar owner:', e instanceof Error ? e.message : String(e)));
-    } else {
-      // CLIENTE: su board va por lib/todo (crea la categoría si falta). Ya estamos en su ws.
-      if (base.length) {
-        const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
-        const byName = new Map(cats.map((c) => [c.nombre.trim().toLowerCase(), c.id]));
-        for (const t of base) {
-          try {
-            let catId: number | undefined;
-            if (t.proyecto) {
-              const nombre = t.proyecto.slice(0, 40).trim();
-              const k = nombre.toLowerCase();
-              catId = byName.get(k);
-              if (catId == null) { const c = await crearCategoria(nombre, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
-            }
-            const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako' });
-            ids.push(String(tarea.id));
-          } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
+
+    const idsCreadas: string[] = [];
+    const proyectosNuevos: string[] = [];
+    const contextos: string[] = [];
+    const aplicados: string[] = [];
+    let borradas = 0;
+    let ultimoError = '';
+    let algunoExistia = false;
+
+    for (const lote of lotes) {
+      const { data } = await db.from('plan_propuestas').select('estado, origen').eq('id', lote.id).maybeSingle();
+      if (!data) continue;
+      algunoExistia = true;
+      const estado = str((data as Row).estado, 'pendiente');
+      if (estado !== 'pendiente') { ultimoError = `La propuesta ya fue ${estado}.`; continue; }
+      const prop = await getPropuesta(lote.id);
+      // Sin edición explícita entran TODAS menos las de OTRA persona: el plan de uno no se
+      // llena con los compromisos ajenos que salieron de la misma reunión (esas viajan a
+      // SU tablero por su propio camino).
+      const base = (lote.tareas ?? (prop?.tareas ?? []).filter((t) => !t.esDeOtro)).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      // Solo se borran los ids que el dueño/cliente CONFIRMÓ (subset de los que MaKo propuso).
+      const propuestos = new Set((prop?.eliminar ?? []).map((e) => e.id));
+      const aBorrar = (lote.eliminarIds ?? [...propuestos]).map(String).filter((x) => propuestos.has(x));
+      if (!base.length && !aBorrar.length) { ultimoError = 'No hay nada para crear ni borrar.'; continue; }
+
+      if (usaPlanBoard) {
+        if (base.length) {
+          const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle })), { tipo: fuenteTipo } as Fuente);
+          idsCreadas.push(...r.ids);
+          proyectosNuevos.push(...r.proyectoIds);
         }
-        if (!ids.length) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
-        // MISMO trato que el board del dueño: el Perro puntúa lo nuevo contra el plan del
-        // cliente, le arma la checklist y deja rastro. Antes el cliente era el único
-        // origen sin Perro: sus tareas entraban con la prioridad que adivinó MaKo.
-        await priorizarNuevasCliente(ids.map(Number).filter(Number.isFinite), contexto ?? '')
+        for (const eid of aBorrar) { await borrarPlanTarea(eid).catch((e) => console.error('[plan-propuesta] borrar owner:', e instanceof Error ? e.message : String(e))); borradas += 1; }
+      } else {
+        // CLIENTE: su board va por lib/todo (crea la categoría si falta). Ya estamos en su ws.
+        if (base.length) {
+          const cats = await listCategorias().catch(() => [] as Array<{ id: number; nombre: string }>);
+          const byName = new Map(cats.map((c) => [c.nombre.trim().toLowerCase(), c.id]));
+          for (const t of base) {
+            try {
+              let catId: number | undefined;
+              if (t.proyecto) {
+                const nombre = t.proyecto.slice(0, 40).trim();
+                const k = nombre.toLowerCase();
+                catId = byName.get(k);
+                if (catId == null) { const c = await crearCategoria(nombre, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
+              }
+              const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako' });
+              idsCreadas.push(String(tarea.id));
+            } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
+          }
+        }
+        for (const eid of aBorrar) { const n = Number(eid); if (Number.isFinite(n)) { await borrarTarea(n).catch((e) => console.error('[plan-propuesta] borrar cliente:', e instanceof Error ? e.message : String(e))); borradas += 1; } }
+      }
+      if (lote.contexto?.trim()) contextos.push(lote.contexto.trim());
+      aplicados.push(lote.id);
+    }
+
+    if (!algunoExistia) return { ok: false, ids: [], borradas: 0, noExiste: true };
+    if (!aplicados.length) return { ok: false, ids: [], borradas: 0, error: ultimoError || 'No se pudo aplicar.' };
+    if (!idsCreadas.length && !borradas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
+
+    // UNA sola pasada del Perro sobre TODO lo nuevo, con el contexto de todas las
+    // reuniones junto (así compara entre sí lo que entró de golpe).
+    if (idsCreadas.length) {
+      const contexto = contextos.join(' ');
+      if (usaPlanBoard) {
+        await priorizarNuevasOwner(idsCreadas, proyectosNuevos, contexto).catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
+      } else {
+        await priorizarNuevasCliente(idsCreadas.map(Number).filter(Number.isFinite), contexto)
           .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return 0; });
       }
-      for (const eid of aBorrar) { const n = Number(eid); if (Number.isFinite(n)) await borrarTarea(n).catch((e) => console.error('[plan-propuesta] borrar cliente:', e instanceof Error ? e.message : String(e))); }
     }
-    await db.from('plan_propuestas').update({ estado: 'aplicada', applied_at: new Date().toISOString() }).eq('id', id);
-    return { ok: true, ids, borradas: aBorrar.length };
+
+    const now = new Date().toISOString();
+    for (const id of aplicados) await db.from('plan_propuestas').update({ estado: 'aplicada', applied_at: now }).eq('id', id);
+    return { ok: true, ids: idsCreadas, borradas };
   });
 }
 

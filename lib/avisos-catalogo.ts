@@ -198,8 +198,8 @@ export const CATALOGO_AVISOS: AvisoCatalogo[] = [
   {
     id: 'reunion-tareas-al-plan', titulo: 'Reunión de equipo nueva → tareas esperando confirmación', categoria: 'accion',
     prioridad: 'media', semaforo: 'na', requiereRespuesta: false, yaImplementado: 'si',
-    disparador: 'Cron fathom-plan: cae una grabación nueva de una reunión de EQUIPO, MaKo la lee y deja el borrador pendiente en el plan.',
-    ejemplo: `📝 Tuviste una reunión con *Martín* (Sync semanal). Saqué *6 tareas* tuyas y 3 de los demás, y te las dejé en tu plan para que las confirmes:\nhttps://tu-app/plan\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`,
+    disparador: 'Cron fathom-plan: caen grabaciones nuevas de reuniones de EQUIPO, MaKo las lee y deja los borradores pendientes en el plan. UN aviso por corrida, no uno por reunión.',
+    ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 jul · 15:30\n   4 tareas tuyas · 3 de otros\n• *Mau <> Martín* — mié 28 jul · 18:00\n   3 tareas tuyas · 4 de otros\n• *Revisión de ads* — jue 29 jul · 10:15\n   4 tareas tuyas · 3 de otros\n\nEn total *11 tareas tuyas* (y 10 de los demás, para repartir), todas esperándote en la misma pantalla:\nhttps://tu-app/plan\n\nEntrás una vez, revisás todo junto y con un toque quedan cargadas. — MaKo`,
   },
   {
     id: 'reunion-no-show', titulo: 'No-show → sugerir seguimiento', categoria: 'accion',

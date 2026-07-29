@@ -106,8 +106,8 @@ export type ProyectoRef = { id: string; emoji: string; nombre: string };
 // Además clasifica cada reunión (punto 10): trae UNA vez el mapa de leads por email
 // (closing.ts, tenant-scoped) y el set de emails del equipo (usuarios del workspace),
 // y cruza los invitados de cada reunión. Determinístico, sin IA, aislado por cliente.
-export async function listReunionesRecientes(opts: { limit?: number; cursor?: string | null; recordedAfter?: string } = {}): Promise<PaginaReuniones> {
-  const page = await listMeetingsPage({ limit: opts.limit ?? 15, cursor: opts.cursor ?? undefined, recordedAfter: opts.recordedAfter });
+export async function listReunionesRecientes(opts: { limit?: number; cursor?: string | null; recordedAfter?: string; createdAfter?: string } = {}): Promise<PaginaReuniones> {
+  const page = await listMeetingsPage({ limit: opts.limit ?? 15, cursor: opts.cursor ?? undefined, recordedAfter: opts.recordedAfter, createdAfter: opts.createdAfter });
   const items = page.items ?? [];
 
   // Los dos mapas para clasificar. Best-effort: si el CRM o los usuarios fallan,
@@ -132,6 +132,12 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
         : null,
     }))
     .filter((r) => Number.isFinite(r.recordingId))
+    // OJO: `recorded_after` la API de Fathom LO IGNORA (probado: devuelve exactamente
+    // las mismas reuniones con y sin el parámetro). Por eso el filtro "desde" del
+    // selector no filtraba nada. Lo aplicamos acá sobre la fecha real de la grabación.
+    // El que la API sí respeta es `created_after` (cuándo apareció la grabación), que
+    // es otra pregunta y la usa el cron.
+    .filter((r) => !opts.recordedAfter || (r.fecha ?? '') >= opts.recordedAfter)
     .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 
   return { reuniones, nextCursor: page.next_cursor ?? null };

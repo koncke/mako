@@ -536,11 +536,11 @@ export function BoardShell({ board, scope }: {
           y de la bienvenida para no apilar modales. */}
       {propPendiente && (
         <TareasRecibidasModal
-          key={propPendiente.id}
-          prop={propPendiente}
+          key={pendientes.map((p) => p.id).join('|')}
+          props={pendientes}
           labels={labels}
           onListo={() => window.location.reload()}
-          onClose={() => setPendientes((ps) => ps.slice(1))}
+          onClose={() => setPendientes([])}
         />
       )}
       {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo}

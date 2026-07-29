@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, descartarPropuesta, profundizarPropuesta, listPropuestasPendientes, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, listPropuestasPendientes, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -32,6 +32,29 @@ export async function POST(req: NextRequest) {
     try {
       const propuestas = await listPropuestasPendientes();
       return NextResponse.json({ ok: true, propuestas });
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
+  }
+
+  // Confirmar VARIOS borradores de una (el modal del plan, cuando MaKo dejó más de una
+  // reunión esperando). El Perro corre una sola vez sobre todo el lote.
+  if (action === 'aplicar-lote') {
+    try {
+      const lotes = (Array.isArray(body.lotes) ? body.lotes : [])
+        .map((l) => {
+          const o = (l ?? {}) as Record<string, unknown>;
+          return {
+            id: String(o.id ?? ''),
+            tareas: Array.isArray(o.tareas) ? (o.tareas as PropuestaTarea[]) : undefined,
+            contexto: typeof o.contexto === 'string' ? o.contexto : undefined,
+          };
+        })
+        .filter((l) => l.id);
+      if (!lotes.length) return NextResponse.json({ ok: false, error: 'lotes requerido' }, { status: 400 });
+      const r = await aplicarPropuestas(lotes);
+      if (r.noExiste) return NextResponse.json({ ok: false, error: 'No existe la propuesta.' }, { status: 404 });
+      return NextResponse.json(r);
     } catch (err) {
       return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
     }

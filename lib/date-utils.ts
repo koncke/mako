@@ -40,6 +40,30 @@ export function horaCronEnTz(utcHour: number, utcMin: number, tz: string, date: 
  * Convención del proyecto: TODA fecha de calendario visible va en dd/mm/aaaa.
  * Devuelve '—' si la entrada es nula/ inválida.
  */
+/**
+ * Momento legible en una zona: "mié 28 jul · 15:30". Para decirle a alguien CUÁNDO
+ * pasó algo (una reunión, un envío) por WhatsApp o en pantalla.
+ *
+ * El `timeZone` es obligatorio a propósito: sin él, el server (UTC en Vercel) le
+ * escribe al dueño una hora que no es la que él vivió. Resolvé la zona con
+ * tzDeWorkspace(ws) antes de llamar.
+ */
+export function fechaHoraEnTz(iso: string | null | undefined, tz: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return '';
+  try {
+    const p = new Intl.DateTimeFormat('es-AR', {
+      timeZone: tz, weekday: 'short', day: '2-digit', month: 'short',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(d);
+    const get = (t: string) => p.find((x) => x.type === t)?.value ?? '';
+    const dia = get('weekday').replace('.', '');
+    const mes = get('month').replace('.', '');
+    return `${dia} ${get('day')} ${mes} · ${get('hour')}:${get('minute')}`;
+  } catch { return ''; } // zona inválida → mejor sin fecha que con una hora mentirosa
+}
+
 export function fmtDDMMYYYY(iso: string | null | undefined): string {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');

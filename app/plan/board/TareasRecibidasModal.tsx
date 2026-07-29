@@ -5,14 +5,18 @@
 // =============================================================================
 // Dos cosas caen acá, y las dos SIN crear nada por atrás:
 //
-//   · MaKo detectó sola una reunión nueva del equipo en Fathom, sacó los compromisos
+//   · MaKo detectó sola reuniones nuevas del equipo en Fathom, sacó los compromisos
 //     y los dejó esperando (cron fathom-plan). Entrás al plan y te los muestra.
 //   · Otra persona te mandó las tareas que asumiste en la reunión que tuvieron
 //     ("Martín te envió estas tareas…").
 //
+// TODAS JUNTAS, no de a una: si MaKo leyó tres reuniones, el WhatsApp avisa una vez
+// y acá se ven las tres en la misma pantalla (agrupadas por reunión, con su fecha).
+// Antes se mostraba solo la primera y los números no cerraban con el mensaje.
+//
 // Confirmás lo que va (y sacás lo que no) y recién ahí se crean, con el Perro
-// puntuándolas server-side igual que cualquier otra tarea. Si no querés ninguna,
-// "Ahora no" descarta el borrador.
+// puntuándolas server-side —una sola pasada sobre todo el lote— igual que cualquier
+// otra tarea. "Ahora no" cierra sin descartar: siguen esperándote.
 
 import { useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
@@ -26,7 +30,7 @@ const MONO = "'Geist Mono', monospace";
 type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean };
 export type PropuestaPendiente = {
   id: string; resumen: string; origen?: string; tareas: PropTarea[]; createdAt: string;
-  enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; ref?: string;
+  enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
 };
 
 async function api(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
@@ -34,35 +38,36 @@ async function api(body: Record<string, unknown>): Promise<Record<string, unknow
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
 
-const fechaLinda = (iso?: string) => {
-  if (!iso) return '';
-  try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'long' }); } catch { return ''; }
-};
 /** El recordingId que dejó el cron en `ref` (fathom:12345) — habilita mandarle a otros. */
 const recordingDeRef = (ref?: string): number | undefined => {
   const n = Number((ref ?? '').startsWith('fathom:') ? ref!.slice(7) : NaN);
   return Number.isFinite(n) ? n : undefined;
 };
 
-export function TareasRecibidasModal({ prop, labels, onListo, onClose }: {
-  prop: PropuestaPendiente;
+/** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
+type FilaConProp = FilaTarea & { propId: string };
+
+export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
+  props: PropuestaPendiente[];
   labels: Label[];
   /** se aplicó: el board recarga para mostrar las tareas nuevas ya puntuadas. */
   onListo: () => void;
+  /** cerrar sin confirmar (siguen pendientes) o después de descartarlas. */
   onClose: () => void;
 }) {
-  // El borrador guarda el proyecto por NOMBRE (viaja entre tableros distintos): acá lo
-  // reenganchamos con el proyecto real de ESTE board para poder cambiarlo en el momento.
-  // Init perezoso (el padre monta este modal con key={prop.id}: un borrador nuevo = un
-  // componente nuevo, así que no hace falta re-sincronizar por efecto).
-  const [filas, setFilas] = useState<FilaTarea[]>(() => {
+  // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
+  // un componente nuevo y no hace falta re-sincronizar por efecto).
+  const [filas, setFilas] = useState<FilaConProp[]>(() => {
     const idPorNombre = new Map(labels.map((l) => [l.name.trim().toLowerCase(), l.id]));
-    return prop.tareas.map((t) => ({
+    return props.flatMap((p) => p.tareas.map((t) => ({
+      propId: p.id,
       titulo: t.titulo, detalle: t.detalle ?? '', prioridad: (t.prioridad ?? 'media') as Prio,
       proyectoId: t.proyecto ? idPorNombre.get(t.proyecto.trim().toLowerCase()) ?? null : null,
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro,
       incluir: !t.esDeOtro,
-    }));
+      // La fecha de la REUNIÓN, no la de cuando corrió el cron.
+      reunion: { recordingId: recordingDeRef(p.ref), titulo: p.fuenteTitulo ?? '', fecha: p.fuenteFecha ?? p.createdAt, url: p.fuenteUrl ?? null },
+    })));
   });
 
   const [guardando, setGuardando] = useState<'' | 'aplicar' | 'descartar'>('');
@@ -70,13 +75,19 @@ export function TareasRecibidasModal({ prop, labels, onListo, onClose }: {
   const nombreProyecto = (id: string | null) => labels.find((l) => l.id === id)?.name;
   const nIncluidas = filas.filter((f) => f.incluir && !f.esDeOtro).length;
   const hayMias = filas.some((f) => !f.esDeOtro);
+  const nOtras = filas.filter((f) => f.esDeOtro).length;
 
   const aplicar = async () => {
     setGuardando('aplicar'); setErr('');
-    const tareas = filas.filter((f) => f.incluir && !f.esDeOtro).map((f) => ({
-      titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId),
-    }));
-    const j = await api({ action: 'aplicar', id: prop.id, tareas, contexto: contextoDe(prop) });
+    // Un lote por borrador: cada reunión conserva su contexto para el Perro, pero el
+    // Perro corre UNA sola vez sobre todo (lo arma el server).
+    const lotes = props.map((p) => ({
+      id: p.id,
+      contexto: contextoDe(p),
+      tareas: filas.filter((f) => f.propId === p.id && f.incluir && !f.esDeOtro)
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) })),
+    })).filter((l) => l.tareas.length > 0);
+    const j = await api({ action: 'aplicar-lote', lotes });
     setGuardando('');
     if (j.ok) onListo();
     else setErr(String(j.error ?? 'No pude cargarlas.'));
@@ -84,14 +95,17 @@ export function TareasRecibidasModal({ prop, labels, onListo, onClose }: {
 
   const descartar = async () => {
     setGuardando('descartar');
-    await api({ action: 'descartar', id: prop.id });
+    for (const p of props) await api({ action: 'descartar', id: p.id });
     setGuardando('');
     onClose();
   };
 
-  const de = prop.enviadoPor?.trim();
-  const titulo = de ? `${de} te envió estas tareas` : 'MaKo leyó tu reunión';
-  const sub = prop.resumen || `${prop.tareas.length} tareas de la reunión${prop.fuenteTitulo ? ` «${prop.fuenteTitulo}»` : ''}.`;
+  const de = props.find((p) => p.enviadoPor?.trim())?.enviadoPor?.trim();
+  const varias = props.length > 1;
+  const titulo = de ? `${de} te envió estas tareas` : varias ? `MaKo leyó tus ${props.length} reuniones` : 'MaKo leyó tu reunión';
+  const sub = varias
+    ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
+    : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
@@ -108,13 +122,14 @@ export function TareasRecibidasModal({ prop, labels, onListo, onClose }: {
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
-            {prop.origen === 'fathom' && <span style={{ flex: 'none' }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>}
+            {props.some((p) => p.origen === 'fathom') && <span style={{ flex: 'none' }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{sub}</div>
-              <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 3 }}>
-                {fechaLinda(prop.createdAt)}
-                {prop.fuenteUrl && <> · <a href={prop.fuenteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>ver la grabación</a></>}
-              </div>
+              {!varias && props[0]?.fuenteUrl && (
+                <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 3 }}>
+                  <a href={props[0].fuenteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>ver la grabación</a>
+                </div>
+              )}
             </div>
           </div>
 
@@ -124,15 +139,17 @@ export function TareasRecibidasModal({ prop, labels, onListo, onClose }: {
             filas={filas}
             labels={labels}
             onFila={(i, patch) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)))}
-            reunion={{ recordingId: recordingDeRef(prop.ref), titulo: prop.fuenteTitulo ?? '', fecha: prop.createdAt, url: prop.fuenteUrl ?? null }}
+            reunion={{ titulo: props[0]?.fuenteTitulo ?? '', fecha: props[0]?.fuenteFecha ?? props[0]?.createdAt, url: props[0]?.fuenteUrl ?? null, recordingId: recordingDeRef(props[0]?.ref) }}
             cabecera="Destildá lo que no vaya. El perro les pone la prioridad final."
           />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>
+          {/* Descartar es explícito y borra TODO lo que está en pantalla; cerrar con la
+              ✕ las deja esperando para la próxima. */}
           <button type="button" onClick={() => void descartar()} disabled={!!guardando}
             style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
-            {guardando === 'descartar' ? 'Descartando…' : 'Ahora no'}
+            {guardando === 'descartar' ? 'Descartando…' : varias ? 'Descartar todo' : 'Descartar'}
           </button>
           {hayMias && (
             <button type="button" onClick={() => void aplicar()} disabled={nIncluidas === 0 || !!guardando}

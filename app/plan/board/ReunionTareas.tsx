@@ -27,8 +27,12 @@ export type CandidataTarea = {
   titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null;
   dueño?: string; dueñoEmail?: string; esDeOtro?: boolean;
 };
-export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string } };
 export type ReunionRefUI = { recordingId?: number; titulo: string; fecha?: string | null; url?: string | null };
+// `reunion` viaja EN LA FILA: cuando MaKo dejó varias reuniones esperando, la misma
+// pantalla mezcla tareas de todas y cada una tiene que saber de cuál salió (para
+// agruparlas, fecharlas y, si son de otra persona, mandárselas con el candado de ESA
+// grabación). Si falta, se usa la reunión única que pasa el modal de extracción.
+export type FilaTarea = CandidataTarea & { incluir: boolean; enriquece?: { id: string; razon: string }; reunion?: ReunionRefUI };
 
 type Destinatario = {
   email: string; nombre: string; registrado: boolean;
@@ -38,7 +42,29 @@ type Destinatario = {
 export const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'media' ? '#C8870C' : p === 'baja' ? '#1E9E57' : '#98A0AC');
 
 const KEY_SIN_DUEÑO = '__otros__';
-const claveDe = (f: FilaTarea): string => (f.dueñoEmail || '').trim().toLowerCase() || (f.dueño || '').trim().toLowerCase() || KEY_SIN_DUEÑO;
+const personaDe = (f: FilaTarea): string => (f.dueñoEmail || '').trim().toLowerCase() || (f.dueño || '').trim().toLowerCase() || KEY_SIN_DUEÑO;
+// La tab es de PERSONA × REUNIÓN, no solo de persona: los botones "Enviar" y "Cargar
+// en el plan de X" validan contra los participantes de UNA grabación, así que mezclar
+// dos reuniones en la misma tab mandaría tareas bajo la reunión equivocada.
+const claveDe = (f: FilaTarea, rid?: number): string => `${rid ?? f.reunion?.recordingId ?? 0}|${personaDe(f)}`;
+
+/** Versión corta para la tab: "28 jul 22:58". Con dos reuniones el MISMO día, poner
+ *  solo la fecha deja dos tabs con el mismo nombre — la hora es lo que las distingue. */
+function cuandoCorto(iso?: string | null): string {
+  const largo = cuandoFue(iso);
+  return largo ? largo.replace(/^\S+\s/, '').replace(' · ', ' ') : '';
+}
+
+/** "mié 28 jul · 15:30" en la zona del que mira (su navegador, que es la correcta acá). */
+function cuandoFue(iso?: string | null): string {
+  if (!iso) return '';
+  try {
+    const p = new Intl.DateTimeFormat('es-AR', { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(iso));
+    const g = (t: string) => p.find((x) => x.type === t)?.value ?? '';
+    if (!g('day')) return '';
+    return `${g('weekday').replace('.', '')} ${g('day')} ${g('month').replace('.', '')} · ${g('hour')}:${g('minute')}`;
+  } catch { return ''; }
+}
 
 async function apiReunion(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
   return fetch('/api/plan-reunion', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -63,41 +89,67 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
 export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
   filas: FilaTarea[];
   labels: Label[];
+  /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
   reunion: ReunionRefUI;
   onFila: (i: number, patch: Partial<FilaTarea>) => void;
   /** texto que va arriba de la lista de MIS tareas. */
   cabecera?: string;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
-  const conIdx = useMemo(() => filas.map((f, i) => ({ f, i })), [filas]);
+  const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
   const mias = useMemo(() => conIdx.filter((x) => !x.f.esDeOtro), [conIdx]);
+  // MIS tareas agrupadas por reunión (con varias esperando, saber de cuál salió cada
+  // una es la mitad del sentido de la pantalla).
+  const miasPorReunion = useMemo(() => {
+    const m = new Map<string, { r: ReunionRefUI; items: typeof mias }>();
+    for (const x of mias) {
+      const k = String(x.r.recordingId ?? x.r.titulo ?? '');
+      const prev = m.get(k);
+      if (prev) prev.items.push(x); else m.set(k, { r: x.r, items: [x] });
+    }
+    return [...m.values()];
+  }, [mias]);
   const grupos = useMemo(() => {
-    const m = new Map<string, { clave: string; nombre: string; email: string; items: Array<{ f: FilaTarea; i: number }> }>();
+    const m = new Map<string, { clave: string; nombre: string; email: string; r: ReunionRefUI; items: Array<{ f: FilaTarea; i: number }> }>();
     for (const x of conIdx) {
       if (!x.f.esDeOtro) continue;
-      const clave = claveDe(x.f);
+      const clave = claveDe(x.f, x.r.recordingId);
       const prev = m.get(clave);
       if (prev) prev.items.push(x);
-      else m.set(clave, { clave, nombre: (x.f.dueño || '').trim() || (x.f.dueñoEmail || '').trim() || 'Otra persona', email: (x.f.dueñoEmail || '').trim().toLowerCase(), items: [x] });
+      else m.set(clave, { clave, nombre: (x.f.dueño || '').trim() || (x.f.dueñoEmail || '').trim() || 'Otra persona', email: (x.f.dueñoEmail || '').trim().toLowerCase(), r: x.r, items: [x] });
     }
     return [...m.values()];
   }, [conIdx]);
 
-  const [tab, setTab] = useState<string>('mias');
-  const activo = tab === 'mias' ? null : grupos.find((g) => g.clave === tab) ?? null;
-  // Si desaparece el grupo activo (se re-extrajo), volvemos a "Mías".
-  useEffect(() => { if (tab !== 'mias' && !grupos.some((g) => g.clave === tab)) setTab('mias'); }, [grupos, tab]);
+  // La tab elegida se DERIVA, no se sincroniza por efecto: si el grupo activo
+  // desaparece (se re-extrajo la reunión), cae sola a "Mías" sin un render de más.
+  // ¿La pantalla mezcla más de una reunión? Define si hace falta fechar cada bloque.
+  const variasReuniones = useMemo(
+    () => new Set(conIdx.map((x) => String(x.r.recordingId ?? x.r.titulo ?? ''))).size > 1,
+    [conIdx],
+  );
+
+  const [tabSel, setTab] = useState<string>('mias');
+  const activo = tabSel === 'mias' ? null : grupos.find((g) => g.clave === tabSel) ?? null;
+  const tab = tabSel === 'mias' || activo ? tabSel : 'mias';
 
   // Quién es cada uno en la app (para saber si podemos mandarle o cargarle el plan).
-  const [dests, setDests] = useState<Record<string, Destinatario> | null>(null);
+  // Indexado por REUNIÓN: los participantes se validan por grabación, así que cada una
+  // trae su propio mapa. Se piden solo cuando hay tareas de otros.
+  const ridsConOtros = useMemo(() => [...new Set(grupos.map((g) => g.r.recordingId).filter((x): x is number => !!x))].join(','), [grupos]);
+  const [dests, setDests] = useState<Record<number, Record<string, Destinatario>>>({});
+  const [destsListos, setDestsListos] = useState(false);
   useEffect(() => {
-    if (!reunion.recordingId || grupos.length === 0 || dests) return;
-    void apiReunion({ action: 'destinatarios', recordingId: reunion.recordingId }).then((j) => {
+    if (!ridsConOtros) return;
+    const rids = ridsConOtros.split(',').map(Number);
+    let vivo = true;
+    void Promise.all(rids.map(async (rid) => {
+      const j = await apiReunion({ action: 'destinatarios', recordingId: rid });
       const arr = (j.ok && Array.isArray(j.destinatarios) ? j.destinatarios : []) as Destinatario[];
-      setDests(Object.fromEntries(arr.map((d) => [d.email, d])));
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reunion.recordingId, grupos.length]);
+      return [rid, Object.fromEntries(arr.map((d) => [d.email, d]))] as const;
+    })).then((pares) => { if (vivo) { setDests(Object.fromEntries(pares)); setDestsListos(true); } });
+    return () => { vivo = false; };
+  }, [ridsConOtros]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -106,7 +158,11 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
           <TabBtn activo={tab === 'mias'} onClick={() => setTab('mias')} label={`Mías`} n={mias.length} />
           {grupos.map((g) => (
-            <TabBtn key={g.clave} activo={tab === g.clave} onClick={() => setTab(g.clave)} label={g.nombre.split(' ')[0] || 'Otros'} n={g.items.length} />
+            // Con varias reuniones la misma persona aparece una vez por reunión: se
+            // aclara con la fecha para poder distinguirlas de un vistazo.
+            <TabBtn key={g.clave} activo={tab === g.clave} onClick={() => setTab(g.clave)}
+              label={(g.nombre.split(' ')[0] || 'Otros') + (variasReuniones && cuandoCorto(g.r.fecha) ? ` · ${cuandoCorto(g.r.fecha)}` : '')}
+              n={g.items.length} />
           ))}
         </div>
       )}
@@ -116,21 +172,33 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
           {cabecera && <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cabecera}</div>}
           {mias.length === 0
             ? <div style={{ padding: '26px 12px', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, lineHeight: 1.5 }}>
-                De esta reunión no salió ninguna tarea tuya: todas quedaron del lado de las otras personas.
+                De {miasPorReunion.length > 1 ? 'estas reuniones' : 'esta reunión'} no salió ninguna tarea tuya: todas quedaron del lado de las otras personas.
               </div>
-            : mias.map(({ f, i }) => (
-                <FilaCandidata key={i} f={f} labels={labels} onFila={(p) => onFila(i, p)} />
+            : miasPorReunion.map((g, gi) => (
+                <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Encabezado por reunión: solo si hay más de una en la pantalla. */}
+                  {variasReuniones && (
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: gi ? 6 : 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.r.titulo || 'Reunión'}</span>
+                      {cuandoFue(g.r.fecha) && <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{cuandoFue(g.r.fecha)}</span>}
+                      <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>· {g.items.length}</span>
+                    </div>
+                  )}
+                  {g.items.map(({ f, i }) => (
+                    <FilaCandidata key={i} f={f} labels={labels} onFila={(p) => onFila(i, p)} />
+                  ))}
+                </div>
               ))}
         </>
       ) : activo ? (
         <PanelPersona
           key={activo.clave}
           nombre={activo.nombre}
-          dest={activo.email ? dests?.[activo.email] : undefined}
-          cargandoDest={!!activo.email && dests === null && !!reunion.recordingId}
+          dest={activo.email ? dests[activo.r.recordingId ?? 0]?.[activo.email] : undefined}
+          cargandoDest={!!activo.email && !destsListos && !!activo.r.recordingId}
           filas={activo.items.map((x) => x.f)}
           labels={labels}
-          reunion={reunion}
+          reunion={activo.r}
         />
       ) : null}
     </div>
@@ -231,7 +299,10 @@ function PanelPersona({ nombre, dest, cargandoDest, filas, labels, reunion }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5 }}>
-        Esto quedó del lado de <b style={{ color: 'var(--ink)' }}>{nombre}</b>{dest?.email ? ` (${dest.email})` : ''}. No entra a tu plan: mandáselo.
+        Esto quedó del lado de <b style={{ color: 'var(--ink)' }}>{nombre}</b>{dest?.email ? ` (${dest.email})` : ''}
+        {reunion.titulo ? <> en <b style={{ color: 'var(--ink)' }}>{reunion.titulo}</b></> : null}
+        {cuandoFue(reunion.fecha) ? <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}> ({cuandoFue(reunion.fecha)})</span> : null}
+        . No entra a tu plan: mandáselo.
       </div>
 
       {filas.map((f, i) => (
