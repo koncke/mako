@@ -36,8 +36,10 @@ export type CuelloId = 'oferta' | 'conversion' | 'sistema' | 'delegacion' | 'foc
  *  en que hay que hacerlas (oferta → activo → invertir → creativos → medir → venta). */
 export type Accion = { titulo: string; texto: string; critica: boolean };
 
-/** El funnel recomendado para esta fase (más simple abajo, más complejo arriba). */
-export type FunnelSugerido = { nombre: string; complejidad: 'Simple' | 'Media' | 'Compleja'; comoFunciona: string };
+/** El funnel recomendado para esta fase (más simple abajo, más complejo arriba).
+ *  `pasos` = las etapas del funnel, para dibujarlas conectadas con flechas.
+ *  `retarget` = true si el funnel incluye reimpactar al que no compró. */
+export type FunnelSugerido = { nombre: string; complejidad: 'Simple' | 'Media' | 'Compleja'; comoFunciona: string; pasos: string[]; retarget: boolean };
 
 /** El mix de dónde va el presupuesto+esfuerzo en esta fase (suma 100), más una guía
  *  concreta de CUÁNTO invertir, cómo repartirlo y cuánto testear. */
@@ -88,14 +90,14 @@ export const FASES: FaseDef[] = [
       'Miras lo que te cuesta un cliente potencial y no sabes si está bien o mal, porque no tienes con qué compararlo.',
       "Tu página de venta está 'casi lista' hace semanas y todavía no la pusiste a correr con dinero real.",
     ],
-    funnelSugerido: { nombre: 'Mensajes directos', complejidad: 'Simple', comoFunciona: 'Un anuncio que abre una conversación por WhatsApp o DM: charlas ahí mismo y cierras, o agendas una llamada. No necesitas video de venta ni página todavía — es lo más rápido de montar para validar tu oferta con dinero real.' },
+    funnelSugerido: { nombre: 'Mensajes directos', complejidad: 'Simple', pasos: ['Anuncio', 'WhatsApp', 'Charla', 'Venta'], retarget: false, comoFunciona: 'Un anuncio que abre una conversación por WhatsApp o DM: charlas ahí mismo y cierras. No necesitas video de venta ni página todavía — es lo más rápido de montar para validar tu oferta con dinero real.' },
     acciones: [
-      { titulo: 'Define UNA oferta clara', texto: 'Escribe una sola oferta: a quién le vendes, qué problema le resuelves, qué resultado le prometes y a qué precio. Tan clara que un desconocido la entienda en 30 segundos. Si cambia según el cliente que tienes enfrente, todavía no es una oferta.', critica: true },
-      { titulo: 'Prepara dónde cae el que te escribe', texto: 'Deja listo el lugar donde llega el que hace clic: un WhatsApp con un saludo ya escrito, o una página simple de una sola pantalla que explique tu oferta. Todavía no hace falta grabar un video de venta ni armar una web completa.', critica: false },
-      { titulo: 'Crea 3 a 5 anuncios, un ángulo cada uno', texto: 'Arma 3 a 5 anuncios de la misma oferta, cada uno atacando un ángulo distinto (el dolor, el deseo, el error que todos cometen). Buscas qué MENSAJE engancha al desconocido, no qué color ni qué música.', critica: true },
-      { titulo: 'Prende Meta con poco', texto: 'Empieza a invertir en Meta con $10 a $20 por día. Con eso alcanza para saber si tu oferta y tus anuncios funcionan, sin arriesgar de más.', critica: false },
-      { titulo: 'Mira solo 2 números', texto: 'Una vez que corre, mira únicamente dos cosas: cuánto te cuesta cada cliente potencial y si ya te compró un desconocido. Todo lo demás es ruido por ahora.', critica: false },
-      { titulo: 'Ten lista tu conversación de venta', texto: 'Escribe qué vas a decir cuando por fin te escriba o agende un desconocido: cómo abres, qué preguntas y cómo presentas el precio. Que la venta no dependa de cómo te levantaste ese día.', critica: false },
+      { titulo: 'Define UNA oferta clara', texto: 'A quién, qué problema, qué resultado y a qué precio. Tan clara que un desconocido la entienda en 30 segundos.', critica: true },
+      { titulo: 'Prepara dónde cae el que te escribe', texto: 'Un WhatsApp con un saludo listo, o una página de una sola pantalla. Nada de video de venta ni web completa todavía.', critica: false },
+      { titulo: 'Crea 3 a 5 anuncios, un ángulo cada uno', texto: 'La misma oferta, cada anuncio con un ángulo distinto (dolor, deseo, el error que todos cometen).', critica: false },
+      { titulo: 'Prende Meta con poco', texto: '$10 a $20 por día. Alcanza para saber si funciona sin arriesgar de más.', critica: false },
+      { titulo: 'Mira solo 2 números', texto: 'Cuánto te cuesta un cliente potencial y si ya te compró un desconocido. Lo demás es ruido.', critica: false },
+      { titulo: 'Ten lista tu conversación de venta', texto: 'Qué dices cuando por fin te escriban: cómo abres, qué preguntas y cómo das el precio.', critica: false },
     ],
     estrategia: { prospeccion: 100, nutricion: 0, escala: 0,
       nota: 'Todo a tráfico frío. Todavía no hay audiencia a la que reimpactar (nadie te vio aún), así que no hay retargeting posible; y no se escala lo que no sabes si funciona.',
@@ -109,7 +111,7 @@ export const FASES: FaseDef[] = [
     ],
     hito: 'Un anuncio que te trae clientes potenciales a un costo rentable de forma repetible, y tus primeras ventas a desconocidos con la misma oferta.',
     hitoCriterios: [
-      '¿Tienes un anuncio que trae clientes potenciales baratos varias semanas seguidas (no un golpe de suerte)?',
+      '¿Tienes un anuncio que te trae clientes potenciales de forma repetible, varias semanas seguidas (no un golpe de suerte)?',
       '¿Te compró al menos un desconocido total (ni referido ni conocido)?',
       '¿Todas esas ventas fueron con la MISMA oferta?',
     ],
@@ -127,13 +129,13 @@ export const FASES: FaseDef[] = [
       'El anuncio trae clics, pero no sabes si se rompe en el video, en la página o en la llamada.',
       'Cada semana da otro número: una semana cierras tres, la otra cero, y no sabes por qué.',
     ],
-    funnelSugerido: { nombre: 'VSL Funnel', complejidad: 'Media', comoFunciona: 'Anuncio → una página con un video de venta (VSL) → agenda o compra. El video filtra y precalienta al cliente potencial antes de que hables con él, así llegas a la llamada con gente más lista para comprar.' },
+    funnelSugerido: { nombre: 'VSL Funnel', complejidad: 'Media', pasos: ['Anuncio', 'Video (VSL)', 'Agenda', 'Venta'], retarget: false, comoFunciona: 'Anuncio → una página con un video de venta (VSL) → agenda o compra. El video filtra y precalienta al cliente potencial antes de que hables con él.' },
     acciones: [
-      { titulo: 'Encuentra dónde se te caen', texto: 'Mira tu funnel por partes: cuántos ven el video entero, cuántos agendan, cuántos se presentan, cuántos cierran. Arregla primero el punto más flojo, uno a la vez. Encontrar dónde se rompe es EL trabajo de esta fase.', critica: true },
-      { titulo: 'Frena las ausencias a las llamadas', texto: 'El que agenda y no aparece es tu fuga más cara. Manda recordatorios automáticos (el día antes y una hora antes) y un mensaje de seguimiento al que no llegó o quedó en "lo pienso".', critica: true },
-      { titulo: 'Estandariza tu venta', texto: 'Anota las objeciones que más se repiten y prepara una respuesta para cada una, para que tu tasa de cierre no dependa de cómo te levantaste ese día.', critica: false },
-      { titulo: 'Recupera al que ya te vio', texto: 'Prende mensajes de seguimiento y anuncios de remarketing para el que te vio y no agendó o no compró, en vez de gastar todo en gente nueva. Ahí está la venta que se te caía.', critica: false },
-      { titulo: 'Ten reemplazos de tu ganador', texto: 'Mientras tu mejor anuncio convierte, prepara 2 a 3 variantes para reemplazarlo el día que empiece a cansar.', critica: false },
+      { titulo: 'Encuentra dónde se te caen', texto: 'Mira tu funnel por partes (ven el video, agendan, se presentan, cierran) y arregla primero el punto más flojo.', critica: true },
+      { titulo: 'Frena las ausencias a las llamadas', texto: 'El que agenda y no aparece es tu fuga más cara. Recordatorios automáticos (día antes y 1 hora antes) + seguimiento al que no llegó.', critica: true },
+      { titulo: 'Estandariza tu venta', texto: 'Anota las objeciones que más se repiten y ten una respuesta lista para cada una.', critica: false },
+      { titulo: 'Recupera al que ya te vio', texto: 'Seguimiento y anuncios de remarketing al que te vio y no compró, en vez de gastar todo en gente nueva.', critica: false },
+      { titulo: 'Ten reemplazos de tu ganador', texto: 'Mientras tu mejor anuncio convierte, prepara 2 a 3 variantes para el día que se canse.', critica: false },
     ],
     estrategia: { prospeccion: 70, nutricion: 25, escala: 5,
       nota: 'Sigues con tráfico frío fuerte (70) para no depender de un solo ganador, pero ya aparece el retargeting (25): calentar al que te vio y no cerró es donde recuperas la venta que se te caía. La escala (5) recién asoma.',
@@ -164,13 +166,13 @@ export const FASES: FaseDef[] = [
       'El lead que no cerró se enfría y nadie lo vuelve a tocar; las ausencias a las llamadas se pierden a mano.',
       'El funnel ya convierte parejo, pero lo sostienes tú a pulso: si no estás encima, se cae.',
     ],
-    funnelSugerido: { nombre: 'VSL Funnel + retargeting', complejidad: 'Media', comoFunciona: 'El mismo VSL Funnel, pero con anuncios de remarketing que reimpactan al que te vio y no compró, y con seguimiento automático. Empieza a correr sin que empujes cada día.' },
+    funnelSugerido: { nombre: 'VSL Funnel + retargeting', complejidad: 'Media', pasos: ['Anuncio', 'Video (VSL)', 'Agenda', 'Venta'], retarget: true, comoFunciona: 'El mismo VSL Funnel, pero con anuncios de remarketing que reimpactan al que te vio y no compró, y con seguimiento automático.' },
     acciones: [
-      { titulo: 'Produce anuncios en tanda', texto: 'Ten SIEMPRE el próximo ganador listo: produce anuncios de a varios por mes y reemplaza al que gana ANTES de que se canse, no cuando el costo ya se disparó.', critica: true },
-      { titulo: 'Automatiza el seguimiento', texto: 'Deja los recordatorios, el rescate del que no llegó a la llamada y una secuencia para el que dijo "lo pienso" corriendo solos, sin que muevas un dedo.', critica: true },
-      { titulo: 'Saca la venta de tu cabeza', texto: 'Deja tu forma de vender escrita —cómo abrir, las objeciones y sus respuestas— para que cualquiera que atienda cierre parecido a ti.', critica: false },
-      { titulo: 'Reutiliza al que ya te vio', texto: 'Anuncios de remarketing que vuelven a entrar al funnel al que vio medio video o agendó y no llegó. Ya lo pagaste una vez; no lo pagues de nuevo como si fuera nuevo.', critica: false },
-      { titulo: 'Detecta el desgaste con números', texto: 'Mira el costo y las veces que se repite cada anuncio para saber cuándo meter el reemplazo, en vez de esperar a que te pegue en la facturación.', critica: false },
+      { titulo: 'Produce anuncios en tanda', texto: 'Ten siempre el próximo ganador listo: varios anuncios por mes, y reemplaza al que gana antes de que se canse.', critica: true },
+      { titulo: 'Automatiza el seguimiento', texto: 'Recordatorios, rescate del que no llegó y una secuencia para el que dijo "lo pienso", corriendo solos.', critica: true },
+      { titulo: 'Saca la venta de tu cabeza', texto: 'Deja tu forma de vender escrita para que cualquiera que atienda cierre parecido a ti.', critica: false },
+      { titulo: 'Reutiliza al que ya te vio', texto: 'Remarketing al que vio medio video o agendó y no llegó. Ya lo pagaste una vez.', critica: false },
+      { titulo: 'Detecta el desgaste con números', texto: 'Mira el costo de cada anuncio para meter el reemplazo antes de que te pegue en la facturación.', critica: false },
     ],
     estrategia: { prospeccion: 45, nutricion: 40, escala: 15,
       nota: 'Ya no cazas un solo ganador: buena parte va a anuncios nuevos para tener reemplazos listos, otra parte igual de fuerte a recuperar al que ya te vio, y una porción a subir presupuesto en lo que rinde.',
@@ -201,13 +203,13 @@ export const FASES: FaseDef[] = [
       'Contrataste gente, pero terminas corrigiéndoles todo: el estándar sigue en tu cabeza, no escrito.',
       'Sigues metiendo mano en cada cierre y tocando la pauta todos los días; eres el techo de tu propia operación.',
     ],
-    funnelSugerido: { nombre: 'VSL Funnel a escala + equipo', complejidad: 'Compleja', comoFunciona: 'Varias campañas de tráfico frío y de remarketing corriendo en paralelo, con vendedores que cierran por ti y alguien a cargo de la pauta. El mismo funnel, pero a mucho más volumen.' },
+    funnelSugerido: { nombre: 'VSL Funnel a escala + equipo', complejidad: 'Compleja', pasos: ['Campañas', 'Video (VSL)', 'Agenda', 'Equipo', 'Venta'], retarget: true, comoFunciona: 'Varias campañas de tráfico frío y de remarketing en paralelo, con vendedores que cierran por ti y alguien a cargo de la pauta. El mismo funnel, a mucho más volumen.' },
     acciones: [
-      { titulo: 'Sube la inversión por partes', texto: 'No subas todo de golpe: sube presupuesto en los ganadores probados y abre campañas nuevas en paralelo. Vigila el costo por venta día a día y corta antes de que se rompa, no después.', critica: true },
-      { titulo: 'Sácate del cierre', texto: 'Arma tu equipo de vendedores sobre tu forma de vender ya escrita, y revisa las llamadas grabadas para que mejoren sin ti encima.', critica: true },
-      { titulo: 'Delega la pauta diaria', texto: 'Pasa el manejo de Meta a alguien de confianza. Tú revisas los números y decides dónde escalar; no tocas botones todos los días.', critica: false },
-      { titulo: 'Aguanta el volumen sin perder ventas', texto: 'Con más clientes potenciales entrando, una misma tasa de ausencias te cuesta el doble. Asegúrate de que los recordatorios y el seguimiento aguanten el caudal nuevo.', critica: false },
-      { titulo: 'Ten más reemplazos listos', texto: 'Al subir presupuesto los anuncios se cansan más rápido: ten siempre 2 a 3 reemplazos preparados.', critica: false },
+      { titulo: 'Sube la inversión por partes', texto: 'Nada de subir todo de golpe: más presupuesto en los ganadores probados + campañas nuevas en paralelo. Vigila el costo por venta día a día.', critica: true },
+      { titulo: 'Sácate del cierre', texto: 'Arma tu equipo de vendedores sobre tu forma de vender ya escrita, y revisa las llamadas grabadas.', critica: true },
+      { titulo: 'Delega la pauta diaria', texto: 'Pasa el manejo de Meta a alguien de confianza. Tú revisas los números, no tocas botones cada día.', critica: false },
+      { titulo: 'Aguanta el volumen sin perder ventas', texto: 'Con más gente entrando, una misma tasa de ausencias cuesta el doble. Que los recordatorios aguanten el caudal.', critica: false },
+      { titulo: 'Ten más reemplazos listos', texto: 'Al subir presupuesto los anuncios se cansan más rápido: ten siempre 2 a 3 reemplazos.', critica: false },
     ],
     estrategia: { prospeccion: 40, nutricion: 20, escala: 40,
       nota: 'La escala pesa tanto como el tráfico frío: subes fuerte en lo probado mientras sigues alimentando la máquina con anuncios nuevos. El remarketing baja de peso porque el volumen ya lo sostienen los otros dos frentes.',
@@ -238,13 +240,13 @@ export const FASES: FaseDef[] = [
       'Subes presupuesto en ángulos que facturan pero no dejan margen, y no lo ves hasta fin de mes.',
       'Te sobra volumen y te falta foco: el problema ya no es traer más, es decidir qué mover.',
     ],
-    funnelSugerido: { nombre: 'Escalera de valor (varios funnels)', complejidad: 'Compleja', comoFunciona: 'Un funnel por cada peldaño —entrada, medio y alto precio—, cada uno con su oferta y sus anuncios. Es lo más complejo: solo cuando ya dominas los funnels anteriores. Aquí ganas subiendo el valor de cada cliente, no solo trayendo más.' },
+    funnelSugerido: { nombre: 'Escalera de valor', complejidad: 'Compleja', pasos: ['Entrada', 'Recompra', 'Ticket alto'], retarget: true, comoFunciona: 'Un funnel por cada peldaño —entrada, medio y alto precio—, cada uno con su oferta y sus anuncios. Lo más complejo: solo cuando ya dominas los anteriores. Aquí ganas subiendo el valor de cada cliente.' },
     acciones: [
-      { titulo: 'Ordena tus productos por lo que DEJAN', texto: 'No los ordenes por lo que facturan, sino por lo que te queda de verdad después de pauta y comisiones. Achica o corta el que factura pero no deja dinero.', critica: true },
-      { titulo: 'Véndele más al que ya te compró', texto: 'Activa ofertas hacia arriba y recompras a tu base de clientes (un producto de mayor precio, una renovación). Subir el valor de un cliente sale mucho más barato que traer uno nuevo, y es donde ganas en esta fase.', critica: true },
-      { titulo: 'Anuncios para cada peldaño', texto: 'Ten anuncios ganadores no solo para la oferta de entrada, también para las de mayor precio y las recompras.', critica: false },
-      { titulo: 'Frena las bajas', texto: 'Cuida al cliente después de la venta —un buen arranque, chequeos, seguimiento— para que no se vaya. Retener al que ya compró vale más que traer uno nuevo.', critica: false },
-      { titulo: 'Escala solo lo rentable', texto: 'Sube presupuesto únicamente en los productos y ángulos con mejor costo y mejor valor de cliente; el resto se sostiene o se apaga. Foco, no expansión a ciegas.', critica: false },
+      { titulo: 'Ordena tus productos por lo que DEJAN', texto: 'No por lo que facturan, sino por lo que te queda después de pauta y comisiones. Achica o corta el que no deja dinero.', critica: true },
+      { titulo: 'Véndele más al que ya te compró', texto: 'Ofertas hacia arriba y recompras a tu base (mayor precio, renovación). Sale más barato que traer uno nuevo.', critica: true },
+      { titulo: 'Anuncios para cada peldaño', texto: 'Anuncios ganadores no solo para la entrada, también para las ofertas de mayor precio y las recompras.', critica: false },
+      { titulo: 'Frena las bajas', texto: 'Cuida al cliente después de la venta (buen arranque, chequeos) para que no se vaya.', critica: false },
+      { titulo: 'Escala solo lo rentable', texto: 'Sube presupuesto solo en lo de mejor costo y mejor valor de cliente; el resto se sostiene o se apaga.', critica: false },
     ],
     estrategia: { prospeccion: 30, nutricion: 30, escala: 40,
       nota: 'El dinero se va a escalar lo que ya sabes que deja margen y a recomprarle a tu base con la escalera. El tráfico frío lo sostienes para no depender de una sola oferta, pero ya no es donde ganas: aquí ganas en margen y en recompra.',

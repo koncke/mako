@@ -9,7 +9,7 @@
 // estrategia, hito, dimensión débil). La fuente de verdad del contenido es
 // lib/fase-diagnostico.ts.
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { faseDef, repartoTexto, CANALES, type CanalId, type Diagnostico, type Estrategia } from '@/lib/fase-diagnostico';
 
 const MONO = "'Geist Mono', monospace";
@@ -117,14 +117,17 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
   // La fase siguiente (para el hito gráfico). index = id (porque index = id-1).
   const sig = f.id < 5 ? faseDef(f.id) : null;
   const compColor = f.funnelSugerido.complejidad === 'Simple' ? 'var(--good)' : f.funnelSugerido.complejidad === 'Media' ? 'var(--warn)' : 'var(--bad)';
+  // Checklist tachable: la PRIMERA tarea arranca hecha; el usuario tacha el resto.
+  const [hechas, setHechas] = useState<Set<number>>(() => new Set([0]));
+  const toggle = (i: number) => setHechas((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; });
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Fase diagnosticada: ícono + nombre + subtítulo (debajo del título "Tu diagnóstico") */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ color: f.color, flex: 'none', width: 46, height: 46, borderRadius: 13, border: `1.5px solid ${f.color}`, background: `${f.color}18`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><FaseIcono id={f.id} size={27} /></span>
-        <div style={{ minWidth: 0 }}>
+      {/* Fase diagnosticada: ícono + nombre + subtítulo, CENTRADO bajo "Tu diagnóstico" */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, textAlign: 'center' }}>
+        <span style={{ color: f.color, flex: 'none', width: 50, height: 50, borderRadius: 14, border: `1.5px solid ${f.color}`, background: `${f.color}18`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><FaseIcono id={f.id} size={29} /></span>
+        <div>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--faint)' }}>FASE {f.id}</div>
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.15 }}>{f.nombre}</div>
+          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }}>{f.nombre}</div>
           <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{f.subtitulo}</div>
         </div>
       </div>
@@ -158,33 +161,45 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
         </div>
       </div>
 
-      {/* Funnel sugerido — el más simple que le sirve a esta fase */}
+      {/* Funnel sugerido — gráfico: los pasos conectados con flechas */}
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
         <SeccionLabel>Funnel sugerido</SeccionLabel>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginBottom: 12 }}>
           <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>{f.funnelSugerido.nombre}</span>
           <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: compColor, background: 'var(--surface-2)', border: `1px solid ${compColor}`, borderRadius: 999, padding: '2px 9px' }}>{f.funnelSugerido.complejidad}</span>
         </div>
-        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>{f.funnelSugerido.comoFunciona}</div>
-      </div>
-
-      {/* ✓ Qué hacer ahora — la CHECKLIST, con casilla; las críticas resaltadas */}
-      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
-        <SeccionLabel><span style={{ color: 'var(--good)' }}>✓ Qué hacer ahora</span></SeccionLabel>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {f.acciones.map((a, i) => (
-            <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start', background: a.critica ? 'var(--good-bg)' : 'var(--surface-2)', border: `1px solid ${a.critica ? 'var(--good)' : 'var(--border)'}`, borderRadius: 11, padding: '11px 13px' }}>
-              {/* Casilla de checklist */}
-              <span aria-hidden style={{ flex: 'none', width: 18, height: 18, borderRadius: 5, border: `1.5px solid ${a.critica ? 'var(--good)' : 'var(--border-strong)'}`, background: a.critica ? 'var(--good)' : 'transparent', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, marginTop: 1 }}>{a.critica ? '✓' : ''}</span>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.3 }}>{a.titulo}</span>
-                  {a.critica && <span style={{ fontFamily: MONO, fontSize: 8.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--good)', background: 'var(--surface)', border: '1px solid var(--good)', borderRadius: 999, padding: '1px 6px' }}>PRIMERO</span>}
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 3 }}>{a.texto}</div>
-              </div>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          {f.funnelSugerido.pasos.map((paso, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {i > 0 && <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke={f.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}><path d="M1 6h12M9 2l4 4-4 4" /></svg>}
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', background: `${f.color}14`, border: `1px solid ${f.color}55`, borderRadius: 9, padding: '6px 11px', whiteSpace: 'nowrap' }}>{paso}</span>
             </div>
           ))}
+        </div>
+        {f.funnelSugerido.retarget && (
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 11, fontSize: 11.5, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px dashed var(--border-strong)', borderRadius: 999, padding: '4px 11px' }}>
+            <span style={{ color: f.color, fontWeight: 700, fontSize: 13 }}>↺</span> + Retargeting: reimpactas al que no compró
+          </div>
+        )}
+      </div>
+
+      {/* ✓ Qué hacer ahora — checklist tachable: clic para marcar una tarea hecha */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <SeccionLabel><span style={{ color: 'var(--good)' }}>✓ Qué hacer ahora</span></SeccionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {f.acciones.map((a, i) => {
+            const done = hechas.has(i);
+            return (
+              <button key={i} type="button" onClick={() => toggle(i)}
+                style={{ width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: SANS, display: 'flex', gap: 11, alignItems: 'flex-start', background: done ? 'var(--surface-2)' : 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
+                <span aria-hidden style={{ flex: 'none', width: 19, height: 19, borderRadius: 6, border: `1.5px solid ${done ? 'var(--good)' : 'var(--border-strong)'}`, background: done ? 'var(--good)' : 'transparent', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12.5, fontWeight: 800, marginTop: 1 }}>{done ? '✓' : ''}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: done ? 'var(--faint)' : 'var(--ink)', lineHeight: 1.3, textDecoration: done ? 'line-through' : 'none' }}>{a.titulo}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.45, marginTop: 2, textDecoration: done ? 'line-through' : 'none', opacity: done ? 0.65 : 1 }}>{a.texto}</div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -201,11 +216,12 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
         </div>
       </div>
 
-      {/* Estrategia de pauta — cuánto invertir, cómo repartirlo y el mix */}
+      {/* Estrategia de pauta — primero el mix en %, debajo cuánto y cómo repartirlo */}
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
         <SeccionLabel>Estrategia de pauta</SeccionLabel>
-        {/* Cuánto invertir + cómo repartirlo (lo más accionable, arriba) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 13 }}>
+        <EstrategiaBarras e={f.estrategia} />
+        <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginTop: 11 }}>{f.estrategia.nota}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 13, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
             <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--good)', flex: 'none', marginTop: 2, width: 62 }}>Cuánto</span>
             <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{f.estrategia.inversion}</span>
@@ -215,9 +231,6 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
             <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{f.estrategia.comoRepartir}</span>
           </div>
         </div>
-        {/* El mix en barras */}
-        <EstrategiaBarras e={f.estrategia} />
-        <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginTop: 11 }}>{f.estrategia.nota}</div>
       </div>
 
       {/* Hito para avanzar — gráfico (fase → fase) + resumen corto + criterios sí/no */}
