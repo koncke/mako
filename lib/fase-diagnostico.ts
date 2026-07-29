@@ -32,12 +32,16 @@
 export type CuelloId = 'oferta' | 'conversion' | 'sistema' | 'delegacion' | 'foco';
 
 /** Una jugada de la fase. `titulo` = el título corto del punto; las críticas van
- *  marcadas (críticas primero, en orden). */
+ *  marcadas (críticas primero, en orden). El ORDEN del array importa: es el orden
+ *  en que hay que hacerlas (oferta → activo → invertir → creativos → medir → venta). */
 export type Accion = { titulo: string; texto: string; critica: boolean };
 
-/** El mix de dónde va el presupuesto+esfuerzo en esta fase (suma 100). Reemplaza
- *  el "viral/autoridad/ventas" de Andrea por el de un negocio de VSL + pauta. */
-export type Estrategia = { prospeccion: number; nutricion: number; escala: number; nota: string };
+/** El funnel recomendado para esta fase (más simple abajo, más complejo arriba). */
+export type FunnelSugerido = { nombre: string; complejidad: 'Simple' | 'Media' | 'Compleja'; comoFunciona: string };
+
+/** El mix de dónde va el presupuesto+esfuerzo en esta fase (suma 100), más una guía
+ *  concreta de CUÁNTO invertir, cómo repartirlo y cuánto testear. */
+export type Estrategia = { prospeccion: number; nutricion: number; escala: number; nota: string; inversion: string; comoRepartir: string };
 
 export type FaseDef = {
   /** 1..5 — el número que se MUESTRA (el índice del array es id-1). */
@@ -55,137 +59,207 @@ export type FaseDef = {
   objetivo: string;
   /** Cómo se siente estar acá (para que el cliente se reconozca). */
   sintomas: string[];
-  /** Las jugadas de esta fase, en orden. Las `critica:true` van primero. */
+  /** El funnel recomendado para esta fase (según su nivel de complejidad). */
+  funnelSugerido: FunnelSugerido;
+  /** Las jugadas de esta fase, EN ORDEN de ejecución. Las `critica:true` van primero. */
   acciones: Accion[];
   /** Cómo repartir el presupuesto+esfuerzo en esta fase. */
   estrategia: Estrategia;
-  /** Qué NO hacer todavía (el error caro de saltarse la fase). */
-  noHacer: string;
-  /** El HITO medible para pasar a la fase siguiente. */
+  /** Qué NO hacer todavía (el error caro de saltarse la fase), como lista. */
+  noHacer: string[];
+  /** El HITO para pasar de fase, en una frase directa. */
   hito: string;
+  /** Criterios sí/no que el usuario se responde: si todos son SÍ, pasa de fase. */
+  hitoCriterios: string[];
   color: string;
 };
 
 // Las 5 fases, adaptadas a un negocio que vende con VSL Funnel + pauta.
 export const FASES: FaseDef[] = [
   {
-    id: 1, nombre: 'Nacimiento', subtitulo: 'El primer creativo ganador', emoji: '🐣',
+    id: 1, nombre: 'Nacimiento', subtitulo: 'El primer anuncio ganador', emoji: '🐣',
     cuello: 'oferta', cuelloLabel: 'Oferta y Mensaje',
     rango: '$0 – $3k/mes · $0 – $20/día en ads',
-    objetivo: 'Encontrar UN creativo frío que traiga leads a un costo que cierra, y UNA oferta que un desconocido te compra sin que lo persigas.',
+    objetivo: 'Encontrar UN anuncio frío que traiga clientes potenciales a un costo que cierra, y UNA oferta que un desconocido te compra sin que lo persigas.',
     sintomas: [
       'Vendes solo cuando le escribes tú a un conocido, un referido o alguien que ya te seguía; a un desconocido total todavía no le vendiste nada.',
-      'Lanzas un creativo, no pasa nada, lo apagas a los dos días y pruebas otro, sin saber por qué el anterior no funcionó.',
-      'Cambias la oferta en cada llamada según quién tienes enfrente: no hay UNA oferta, hay un favor distinto cada vez.',
-      'Miras el costo por lead y no sabes si está bien o mal, porque no tienes con qué compararlo.',
-      "El VSL o la landing están 'casi listos' hace semanas y todavía no los pusiste a correr con dinero real.",
+      'Lanzas un anuncio, no pasa nada, lo apagas a los dos días y pruebas otro, sin saber por qué el anterior no funcionó.',
+      'Cambias la oferta en cada charla según quién tienes enfrente: no hay UNA oferta, hay un favor distinto cada vez.',
+      'Miras lo que te cuesta un cliente potencial y no sabes si está bien o mal, porque no tienes con qué compararlo.',
+      "Tu página de venta está 'casi lista' hace semanas y todavía no la pusiste a correr con dinero real.",
     ],
+    funnelSugerido: { nombre: 'Mensajes directos', complejidad: 'Simple', comoFunciona: 'Un anuncio que abre una conversación por WhatsApp o DM: charlas ahí mismo y cierras, o agendas una llamada. No necesitas video de venta ni página todavía — es lo más rápido de montar para validar tu oferta con dinero real.' },
     acciones: [
-      { titulo: '3-5 creativos, un ángulo cada uno', texto: 'Saca 3-5 creativos con la fábrica de creativos, cada uno con un ÁNGULO distinto (el dolor, el deseo, el enemigo común), misma oferta y mismo público. Buscas qué MENSAJE engancha al desconocido, no qué color ni qué música.', critica: true },
-      { titulo: 'UNA sola oferta, clarísima', texto: 'Escribe UNA sola oferta con MaKo —a quién, qué problema, qué resultado y a qué precio— tan clara que un desconocido la entienda en 30 segundos. Si cambia según el cliente que tienes enfrente, todavía no es oferta.', critica: true },
-      { titulo: 'Mide solo 2 métricas', texto: 'Prende el tablero para mirar las dos únicas métricas de esta fase: costo por lead y si cerró un desconocido. Todo lo demás es ruido por ahora.', critica: false },
-      { titulo: 'Cero plantones', texto: 'Con 0-5 llamadas al mes no te puedes dar el lujo de un plantón: prende los recordatorios de reunión y el follow-up post-llamada. En esta fase, un solo no-show te tira el mes entero.', critica: false },
-      { titulo: 'Guion de venta cargado', texto: 'Carga el guion de setter/closer de MaKo. Cuando por fin agenda un desconocido, la llamada no puede depender de cómo te levantaste ese día.', critica: false },
+      { titulo: 'Define UNA oferta clara', texto: 'Escribe una sola oferta: a quién le vendes, qué problema le resuelves, qué resultado le prometes y a qué precio. Tan clara que un desconocido la entienda en 30 segundos. Si cambia según el cliente que tienes enfrente, todavía no es una oferta.', critica: true },
+      { titulo: 'Prepara dónde cae el que te escribe', texto: 'Deja listo el lugar donde llega el que hace clic: un WhatsApp con un saludo ya escrito, o una página simple de una sola pantalla que explique tu oferta. Todavía no hace falta grabar un video de venta ni armar una web completa.', critica: false },
+      { titulo: 'Crea 3 a 5 anuncios, un ángulo cada uno', texto: 'Arma 3 a 5 anuncios de la misma oferta, cada uno atacando un ángulo distinto (el dolor, el deseo, el error que todos cometen). Buscas qué MENSAJE engancha al desconocido, no qué color ni qué música.', critica: true },
+      { titulo: 'Prende Meta con poco', texto: 'Empieza a invertir en Meta con $10 a $20 por día. Con eso alcanza para saber si tu oferta y tus anuncios funcionan, sin arriesgar de más.', critica: false },
+      { titulo: 'Mira solo 2 números', texto: 'Una vez que corre, mira únicamente dos cosas: cuánto te cuesta cada cliente potencial y si ya te compró un desconocido. Todo lo demás es ruido por ahora.', critica: false },
+      { titulo: 'Ten lista tu conversación de venta', texto: 'Escribe qué vas a decir cuando por fin te escriba o agende un desconocido: cómo abres, qué preguntas y cómo presentas el precio. Que la venta no dependa de cómo te levantaste ese día.', critica: false },
     ],
-    estrategia: { prospeccion: 100, nutricion: 0, escala: 0, nota: 'TODO a tráfico frío. Todavía no hay audiencia a la que reimpactar (nadie te vio aún), así que no hay retargeting posible, y no se escala lo que no sabes si funciona: cada peso va a encontrar el creativo y la oferta que un desconocido te compra.' },
-    noHacer: 'No sumes equipo, no armes la escalera de valor, no subas el presupuesto ni te llenes de 15 creativos por mes. Escalar o delegar una oferta que ningún desconocido validó todavía es quemar dinero rápido. Primero UN creativo ganador y UNA venta a alguien que no te conocía.',
-    hito: 'UN creativo que trae leads a un costo rentable de forma repetible (no un golpe de suerte de una semana) + las primeras ventas reales a desconocidos, todas con la MISMA oferta. Ahí ya sabes qué tienes para escalar: recién ahí pasas a Fase 2.',
+    estrategia: { prospeccion: 100, nutricion: 0, escala: 0,
+      nota: 'Todo a tráfico frío. Todavía no hay audiencia a la que reimpactar (nadie te vio aún), así que no hay retargeting posible; y no se escala lo que no sabes si funciona.',
+      inversion: '$300 a $600 el primer mes (unos $10 a $20 por día). Dale a cada anuncio 3 a 4 días y ~$50 antes de decidir si sirve o lo apagas.',
+      comoRepartir: 'Reparte parejo entre tus 3 a 5 anuncios para ver cuál engancha. Cuando UNO gane, vuelca casi todo el presupuesto a ese anuncio y súbelo de a poco.' },
+    noHacer: [
+      'No sumes equipo ni delegues: todavía no hay un proceso que delegar.',
+      'No armes una escalera de varios productos ni un webinar: es demasiado para esta etapa.',
+      'No subas el presupuesto ni lances 15 anuncios por mes: escalar algo que ningún desconocido validó es quemar dinero.',
+      'No hagas retargeting: nadie te vio todavía, no hay a quién reimpactar.',
+    ],
+    hito: 'Un anuncio que te trae clientes potenciales a un costo rentable de forma repetible, y tus primeras ventas a desconocidos con la misma oferta.',
+    hitoCriterios: [
+      '¿Tienes un anuncio que trae clientes potenciales baratos varias semanas seguidas (no un golpe de suerte)?',
+      '¿Te compró al menos un desconocido total (ni referido ni conocido)?',
+      '¿Todas esas ventas fueron con la MISMA oferta?',
+    ],
     color: '#7C5CFB',
   },
   {
     id: 2, nombre: 'Crecimiento', subtitulo: 'El funnel que convierte', emoji: '🌱',
     cuello: 'conversion', cuelloLabel: 'Conversión',
     rango: '$3k – $10k/mes · $20 – $100/día en ads',
-    objetivo: 'Que cada tramo del funnel —del VSL al cierre— convierta parejo, y encontrar el eslabón que te está tirando el dinero a la basura.',
+    objetivo: 'Que cada tramo de tu funnel convierta parejo, y encontrar el punto que te está tirando el dinero a la basura.',
     sintomas: [
-      'Entran leads pero se caen: agendas una R1 y la mitad no aparece.',
-      'Sabes cuánto te sale un lead, pero no cuánto te sale una venta cerrada — y el CPA real te asusta.',
+      'Entran clientes potenciales pero se caen: agendas una llamada y la mitad no aparece.',
+      'Sabes cuánto te sale un cliente potencial, pero no cuánto te sale una venta cerrada — y ese número te asusta.',
       'Persigues tú cada lead por WhatsApp; si no escribes a mano, no compra nadie.',
-      'El creativo trae clics, pero no sabes si se rompe en el VSL, en la landing o en la llamada.',
+      'El anuncio trae clics, pero no sabes si se rompe en el video, en la página o en la llamada.',
       'Cada semana da otro número: una semana cierras tres, la otra cero, y no sabes por qué.',
     ],
+    funnelSugerido: { nombre: 'VSL Funnel', complejidad: 'Media', comoFunciona: 'Anuncio → una página con un video de venta (VSL) → agenda o compra. El video filtra y precalienta al cliente potencial antes de que hables con él, así llegas a la llamada con gente más lista para comprar.' },
     acciones: [
-      { titulo: 'Mide el funnel tramo por tramo', texto: 'Mide el funnel tramo por tramo en el tablero —retención del VSL, CTR de la landing, show de la R1, tasa de cierre— y ataca primero el eslabón más flojo, uno a la vez, no todo junto. Encontrar dónde se rompe es EL trabajo de esta fase.', critica: true },
-      { titulo: 'Corta el no-show', texto: "Corta el no-show, que es el asesino #1: deja corriendo los recordatorios de reunión (día antes + 1h antes) y el follow-up de MaKo para el que no apareció o quedó en 'lo pienso'. Aquí lo automatizas para que no dependa de tu memoria.", critica: true },
-      { titulo: 'Estandariza el cierre', texto: 'Estandariza el cierre con los guiones de setter/closer: anota las objeciones que se repiten y ajusta el libreto sobre eso, para que la tasa no dependa de qué día se levantó el que atiende.', critica: false },
-      { titulo: 'Nutrición y remarketing', texto: 'Prende la nutrición y el remarketing sobre el que ya te vio y no agendó o no compró —secuencia de mensajes + creativos de retargeting— en vez de gastar todo en tráfico frío nuevo. Ahí está la venta que se te caía.', critica: false },
-      { titulo: 'Ten reemplazos del ganador', texto: 'No dejes morir al ganador: pídele a la fábrica de creativos 2-3 variantes ahora, mientras convierte, para tener con qué reemplazarlo el día que empiece a fatigar.', critica: false },
+      { titulo: 'Encuentra dónde se te caen', texto: 'Mira tu funnel por partes: cuántos ven el video entero, cuántos agendan, cuántos se presentan, cuántos cierran. Arregla primero el punto más flojo, uno a la vez. Encontrar dónde se rompe es EL trabajo de esta fase.', critica: true },
+      { titulo: 'Frena las ausencias a las llamadas', texto: 'El que agenda y no aparece es tu fuga más cara. Manda recordatorios automáticos (el día antes y una hora antes) y un mensaje de seguimiento al que no llegó o quedó en "lo pienso".', critica: true },
+      { titulo: 'Estandariza tu venta', texto: 'Anota las objeciones que más se repiten y prepara una respuesta para cada una, para que tu tasa de cierre no dependa de cómo te levantaste ese día.', critica: false },
+      { titulo: 'Recupera al que ya te vio', texto: 'Prende mensajes de seguimiento y anuncios de remarketing para el que te vio y no agendó o no compró, en vez de gastar todo en gente nueva. Ahí está la venta que se te caía.', critica: false },
+      { titulo: 'Ten reemplazos de tu ganador', texto: 'Mientras tu mejor anuncio convierte, prepara 2 a 3 variantes para reemplazarlo el día que empiece a cansar.', critica: false },
     ],
-    estrategia: { prospeccion: 70, nutricion: 25, escala: 5, nota: 'Sigues con tráfico frío fuerte (70) para no colgar todo de un solo ganador, pero ya aparece el retargeting (25): calentar al que te vio y no cerró es donde recuperas la venta que se te caía. La escala (5) recién asoma —subes de a poco, solo lo que ya probó que convierte.' },
-    noHacer: "No subas el presupuesto para 'traer más leads' cuando el problema es que los que ya entran no cierran. Escalas el agujero y quemas dinero más rápido. Primero arregla la cadena, después le das gas.",
-    hito: 'Tasa de cierre estable y CPA sano sostenidos 4+ semanas seguidas, con el funnel convirtiendo parejo y sin que tú persigas cada lead a mano.',
+    estrategia: { prospeccion: 70, nutricion: 25, escala: 5,
+      nota: 'Sigues con tráfico frío fuerte (70) para no depender de un solo ganador, pero ya aparece el retargeting (25): calentar al que te vio y no cerró es donde recuperas la venta que se te caía. La escala (5) recién asoma.',
+      inversion: '$600 a $3.000 al mes (unos $20 a $100 por día). Subes solo cuando un anuncio ya probó que convierte.',
+      comoRepartir: 'La mayor parte a tráfico frío, una parte a reimpactar al que ya te vio, y un poco a subir presupuesto en lo que rinde.' },
+    noHacer: [
+      "No subas el presupuesto para 'traer más leads' cuando el problema es que los que entran no cierran: escalas el agujero.",
+      'No cuelgues todo de un solo anuncio ganador.',
+      'No armes todavía un equipo grande ni una escalera de varios productos.',
+    ],
+    hito: 'Tasa de cierre estable y costo por venta sano sostenidos 4+ semanas, con el funnel convirtiendo parejo y sin que persigas cada lead a mano.',
+    hitoCriterios: [
+      '¿Tu tasa de cierre se mantiene pareja 4 semanas seguidas?',
+      '¿Sabes cuánto te cuesta una VENTA (no solo un lead) y te deja ganancia?',
+      '¿El que agenda se presenta, sin que le escribas tú a mano?',
+    ],
     color: '#1E9E57',
   },
   {
     id: 3, nombre: 'Monetización', subtitulo: 'La máquina que corre sola', emoji: '💰',
     cuello: 'sistema', cuelloLabel: 'Sistema',
     rango: '$10k – $30k/mes · $100 – $300/día en ads',
-    objetivo: 'Que la fábrica de creativos, la nutrición y el follow-up corran solos en evergreen: la máquina depende del sistema, no de que tú empujes todos los días.',
+    objetivo: 'Que los anuncios nuevos, el seguimiento y los recordatorios corran solos: la máquina depende del sistema, no de que tú empujes todos los días.',
     sintomas: [
-      'Vives colgado de UN creativo ganador y ruegas para que no se fatigue, porque sostiene casi toda tu pauta.',
-      'Sacas creativos nuevos a los tirones, cuando el ganador ya empezó a caer y el CPA subió, no antes.',
+      'Vives colgado de UN anuncio ganador y ruegas para que no se canse, porque sostiene casi toda tu pauta.',
+      'Sacas anuncios nuevos a los tirones, cuando el ganador ya empezó a caer y el costo subió, no antes.',
       'Si te tomas una semana, la máquina se frena: cada venta todavía depende de que tú empujes.',
-      'El lead que no cerró en la R1 se enfría y nadie lo vuelve a tocar; los no-shows se pierden a mano.',
+      'El lead que no cerró se enfría y nadie lo vuelve a tocar; las ausencias a las llamadas se pierden a mano.',
       'El funnel ya convierte parejo, pero lo sostienes tú a pulso: si no estás encima, se cae.',
     ],
+    funnelSugerido: { nombre: 'VSL Funnel + retargeting', complejidad: 'Media', comoFunciona: 'El mismo VSL Funnel, pero con anuncios de remarketing que reimpactan al que te vio y no compró, y con seguimiento automático. Empieza a correr sin que empujes cada día.' },
     acciones: [
-      { titulo: 'Fábrica en modo evergreen', texto: 'Prende la fábrica de creativos en modo evergreen: produce en tandas 10-25 creativos/mes para tener SIEMPRE el próximo ganador en banca. La regla es rotar por calendario, reemplazando al ganador ANTES de que se fatigue, no correr a producir cuando el CPA ya se disparó.', critica: true },
-      { titulo: 'Nutrición en piloto automático', texto: "Deja la nutrición multicanal y el follow-up en piloto automático de punta a punta: recordatorios, rescate de no-show y una secuencia larga para el lead que dijo 'lo pienso' y no volvió. En Fase 2 apagaste el no-show; aquí el objetivo es que ningún lead frío quede sin tocar sin que tú muevas un dedo.", critica: true },
-      { titulo: 'Saca el cierre de tu cabeza', texto: 'Saca el cierre de tu cabeza: mete los guiones de setter y closer DENTRO de MaKo con las objeciones ya resueltas, para que cualquiera que atienda siga el mismo libreto y la tasa no se mueva según quién estuvo ese día.', critica: false },
-      { titulo: 'Recicla tu público', texto: 'Recicla al público que ya es tuyo con remarketing sostenido (VSL a medias, landing sin agendar, no-show viejo): creativos que lo vuelven a entrar al funnel semanas después. Ya lo pagaste una vez; no lo pagues de nuevo como frío.', critica: false },
-      { titulo: 'Lee la fatiga con datos', texto: 'Lee fatiga por creativo en el tablero (CPA y frecuencia de CADA uno) y deja que ese número te avise cuándo meter el reemplazo de la banca. Rotas con dato, no a ojo ni cuando ya te pegó en la facturación.', critica: false },
+      { titulo: 'Produce anuncios en tanda', texto: 'Ten SIEMPRE el próximo ganador listo: produce anuncios de a varios por mes y reemplaza al que gana ANTES de que se canse, no cuando el costo ya se disparó.', critica: true },
+      { titulo: 'Automatiza el seguimiento', texto: 'Deja los recordatorios, el rescate del que no llegó a la llamada y una secuencia para el que dijo "lo pienso" corriendo solos, sin que muevas un dedo.', critica: true },
+      { titulo: 'Saca la venta de tu cabeza', texto: 'Deja tu forma de vender escrita —cómo abrir, las objeciones y sus respuestas— para que cualquiera que atienda cierre parecido a ti.', critica: false },
+      { titulo: 'Reutiliza al que ya te vio', texto: 'Anuncios de remarketing que vuelven a entrar al funnel al que vio medio video o agendó y no llegó. Ya lo pagaste una vez; no lo pagues de nuevo como si fuera nuevo.', critica: false },
+      { titulo: 'Detecta el desgaste con números', texto: 'Mira el costo y las veces que se repite cada anuncio para saber cuándo meter el reemplazo, en vez de esperar a que te pegue en la facturación.', critica: false },
     ],
-    estrategia: { prospeccion: 40, nutricion: 40, escala: 20, nota: 'Ya no cazas un solo ganador: 40 va a creativos fríos nuevos para llenar la banca de reemplazos, 40 a calentar y recuperar al que ya te vio (nutrición + no-show + remarketing) y 20 a subir presupuesto en lo que rinde. La escala todavía va atrás; en Fase 4 pasa al frente.' },
-    noHacer: 'No dejes que toda la máquina se apoye en UN creativo ganador y en que tú empujes cada venta. Si el sistema se cae cuando te tomas una semana, no es sistema: es un cuello con forma tuya. Y en Fase 4, cuando subas la inversión, ese cuello se rompe justo cuando más gastas.',
-    hito: 'Los creativos nuevos reemplazan al ganador ANTES de que se fatigue, la nutrición y los recordatorios/follow-up corren automáticos, y vendes sin empujar cada lead. Sostenido 4+ semanas y contigo afuera del día a día.',
+    estrategia: { prospeccion: 45, nutricion: 40, escala: 15,
+      nota: 'Ya no cazas un solo ganador: buena parte va a anuncios nuevos para tener reemplazos listos, otra parte igual de fuerte a recuperar al que ya te vio, y una porción a subir presupuesto en lo que rinde.',
+      inversion: '$3.000 a $9.000 al mes (unos $100 a $300 por día). Recién ahora empiezas a escalar, y solo lo probado.',
+      comoRepartir: 'Casi mitad y mitad entre traer gente nueva y recuperar a la que ya te vio; y una parte fija a subir presupuesto solo en lo que rinde.' },
+    noHacer: [
+      'No dejes que toda la máquina se apoye en UN anuncio ganador.',
+      'No dependas de empujar tú cada venta: si se cae cuando te tomas una semana, no es un sistema.',
+      'No escales el presupuesto todavía: primero lograr que corra solo.',
+    ],
+    hito: 'Los anuncios nuevos reemplazan al ganador antes de que se canse, el seguimiento corre solo, y vendes sin empujar cada lead — sostenido 4+ semanas y contigo fuera del día a día.',
+    hitoCriterios: [
+      '¿Tienes siempre un anuncio nuevo listo antes de que el actual se canse?',
+      '¿El seguimiento y los recordatorios corren sin que los toques?',
+      '¿La máquina sigue vendiendo si te tomas una semana?',
+    ],
     color: '#C8870C',
   },
   {
     id: 4, nombre: 'Escalamiento', subtitulo: 'Escala rentable con equipo', emoji: '🚀',
     cuello: 'delegacion', cuelloLabel: 'Delegación',
     rango: '$30k – $80k/mes · $300 – $1.000/día en ads',
-    objetivo: 'Subir la inversión en Meta manteniendo el CPA, con un equipo que corre la operación y contigo fuera del cierre y de la pauta diaria.',
+    objetivo: 'Subir la inversión en Meta manteniendo el costo por venta, con un equipo que corre la operación y contigo fuera del cierre y de la pauta diaria.',
     sintomas: [
-      'Ya no das abasto: entran más leads de los que tu agenda y tus closers pueden atender bien.',
-      'Cada vez que subes el presupuesto el CPA se dispara y tienes que volver a bajarlo al día siguiente.',
+      'Ya no das abasto: entran más clientes potenciales de los que tu agenda y tus vendedores pueden atender bien.',
+      'Cada vez que subes el presupuesto el costo por venta se dispara y tienes que volver a bajarlo al día siguiente.',
       'La máquina ya corre sola, pero corre a UN tamaño: no sabes cómo darle más gas sin romperla.',
-      'Contrataste closer, editor o media buyer, pero terminas corrigiéndoles todo: el estándar sigue en tu cabeza, no escrito.',
+      'Contrataste gente, pero terminas corrigiéndoles todo: el estándar sigue en tu cabeza, no escrito.',
       'Sigues metiendo mano en cada cierre y tocando la pauta todos los días; eres el techo de tu propia operación.',
     ],
+    funnelSugerido: { nombre: 'VSL Funnel a escala + equipo', complejidad: 'Compleja', comoFunciona: 'Varias campañas de tráfico frío y de remarketing corriendo en paralelo, con vendedores que cierran por ti y alguien a cargo de la pauta. El mismo funnel, pero a mucho más volumen.' },
     acciones: [
-      { titulo: 'Escala por estructura', texto: 'Escala por estructura, no de golpe: sube presupuesto en los ganadores probados y abre campañas de tráfico frío nuevas en paralelo. Vigila CPA y ROAS por campaña día a día en el tablero y corta antes de que se rompa, no después. Este manejo de la escala es lo nuevo de esta fase.', critica: true },
-      { titulo: 'Sácate del cierre', texto: 'Sácate del cierre de una vez: arma el equipo de closers y setters sobre los guiones que ya estandarizaste, y suma el Closing Analyst sobre las llamadas grabadas para que el estándar viva en el sistema y mejore sin ti encima.', critica: true },
-      { titulo: 'Delega la pauta diaria', texto: 'Delega la pauta diaria: pasa la operación de Meta a un media buyer con el tablero de MaKo como fuente de verdad. Tú revisas números y decides dónde escalar; no tocas botones todos los días.', critica: false },
-      { titulo: 'Blinda el show', texto: 'Blinda el show contra el volumen: con más leads entrando, un mismo % de no-show te cuesta el doble de dinero. Confirma que los recordatorios y el follow-up aguanten el nuevo caudal sin que se escape ningún lead caro.', critica: false },
-      { titulo: 'Banca de creativos más grande', texto: 'Pon la banca de creativos a la altura de la escala: cuando subes presupuesto, el ganador se fatiga más rápido, así que necesitas 2-3 reemplazos listos SIEMPRE, no los que alcanzaban en Fase 3.', critica: false },
+      { titulo: 'Sube la inversión por partes', texto: 'No subas todo de golpe: sube presupuesto en los ganadores probados y abre campañas nuevas en paralelo. Vigila el costo por venta día a día y corta antes de que se rompa, no después.', critica: true },
+      { titulo: 'Sácate del cierre', texto: 'Arma tu equipo de vendedores sobre tu forma de vender ya escrita, y revisa las llamadas grabadas para que mejoren sin ti encima.', critica: true },
+      { titulo: 'Delega la pauta diaria', texto: 'Pasa el manejo de Meta a alguien de confianza. Tú revisas los números y decides dónde escalar; no tocas botones todos los días.', critica: false },
+      { titulo: 'Aguanta el volumen sin perder ventas', texto: 'Con más clientes potenciales entrando, una misma tasa de ausencias te cuesta el doble. Asegúrate de que los recordatorios y el seguimiento aguanten el caudal nuevo.', critica: false },
+      { titulo: 'Ten más reemplazos listos', texto: 'Al subir presupuesto los anuncios se cansan más rápido: ten siempre 2 a 3 reemplazos preparados.', critica: false },
     ],
-    estrategia: { prospeccion: 40, nutricion: 20, escala: 40, nota: 'La escala pesa tanto como el tráfico frío: subes fuerte en los ganadores probados mientras sigues alimentando la máquina con creativos fríos nuevos. El retargeting baja de peso, no porque importe menos, sino porque el volumen ya lo sostienen los otros dos frentes.' },
-    noHacer: 'No escales de golpe subiendo el presupuesto un día solo porque un creativo viene bien. Sin reemplazos listos en la banca y sin equipo con estándar escrito, el ganador se fatiga, el CPA se rompe y vuelves a facturar como en Fase 3 pero quemando el doble de dinero.',
-    hito: 'Inversión escalada (rango $300-1.000/día) con CPA estable 4+ semanas seguidas, media operación delegada (pauta y cierre corriendo sin ti) y tú definitivamente fuera del cierre y de la pauta diaria.',
+    estrategia: { prospeccion: 40, nutricion: 20, escala: 40,
+      nota: 'La escala pesa tanto como el tráfico frío: subes fuerte en lo probado mientras sigues alimentando la máquina con anuncios nuevos. El remarketing baja de peso porque el volumen ya lo sostienen los otros dos frentes.',
+      inversion: '$9.000 a $30.000 al mes (unos $300 a $1.000 por día). La clave ya no es cuánto, sino subir sin que el costo por venta se rompa.',
+      comoRepartir: 'Mitad a escalar lo probado, y el resto repartido entre traer gente nueva y recuperar a la que ya te vio.' },
+    noHacer: [
+      'No subas todo el presupuesto de golpe porque un anuncio viene bien.',
+      'No escales sin reemplazos listos ni equipo con tu forma de vender escrita: se cansa el ganador y quemas el doble.',
+      'No sigas cerrando tú cada venta ni tocando la pauta todos los días.',
+    ],
+    hito: 'Inversión escalada con costo por venta estable 4+ semanas, la mitad de la operación delegada (pauta y cierre corriendo sin ti) y tú fuera del cierre y de la pauta diaria.',
+    hitoCriterios: [
+      '¿Subiste la inversión sin que el costo por venta se dispare?',
+      '¿Cierran las ventas tus vendedores, no tú?',
+      '¿Alguien más maneja la pauta de Meta todos los días?',
+    ],
     color: '#2F6FED',
   },
   {
     id: 5, nombre: 'Priorización', subtitulo: 'La escalera de valor', emoji: '👑',
     cuello: 'foco', cuelloLabel: 'Foco',
     rango: '$80k+/mes · $1.000+/día en ads',
-    objetivo: 'Dejar de correr atrás del volumen: que cada peldaño de tu escalera venda con creativos ya probados, y que el margen, el LTV y la retención crezcan más rápido que la facturación. Escalas solo lo rentable.',
+    objetivo: 'Dejar de correr atrás del volumen: que cada peldaño de tu escalera venda con anuncios ya probados, y que el margen y la recompra crezcan más rápido que la facturación. Escalas solo lo rentable.',
     sintomas: [
       'Facturas más que nunca, pero el margen casi no se mueve: le metes más dinero a Meta y arriba queda parecido.',
-      'Tienes 4 o 5 ofertas o productos y no sabes bien cuál te deja el mejor margen ni cuál te trae los mejores clientes.',
-      'Casi toda tu facturación viene de la venta fría de adelante (la R1/R2); vendes poco hacia arriba y casi no le recompras al que ya te compró.',
+      'Tienes 4 o 5 ofertas y no sabes bien cuál te deja el mejor margen ni cuál te trae los mejores clientes.',
+      'Casi toda tu facturación viene de la venta fría de adelante; vendes poco hacia arriba y casi no le recompras al que ya te compró.',
       'Subes presupuesto en ángulos que facturan pero no dejan margen, y no lo ves hasta fin de mes.',
-      'Te sobra volumen —leads, llamadas, creativos— y te falta foco: el problema ya no es traer más, es decidir qué mover.',
+      'Te sobra volumen y te falta foco: el problema ya no es traer más, es decidir qué mover.',
     ],
+    funnelSugerido: { nombre: 'Escalera de valor (varios funnels)', complejidad: 'Compleja', comoFunciona: 'Un funnel por cada peldaño —entrada, medio y alto precio—, cada uno con su oferta y sus anuncios. Es lo más complejo: solo cuando ya dominas los funnels anteriores. Aquí ganas subiendo el valor de cada cliente, no solo trayendo más.' },
     acciones: [
-      { titulo: 'Rankea por margen y LTV', texto: 'Rankea tu escalera de valor por MARGEN y LTV, no por facturación. Usa el tablero (Cobranza y Revenue real) para ver cuánto deja de verdad cada peldaño después de pauta, comisiones de closer y fees, y corta o achica el que factura pero no deja dinero arriba.', critica: true },
-      { titulo: 'Vende hacia arriba y recompra', texto: 'Vende hacia arriba y recompra: activa la escalera con nutrición y remarketing sobre los que YA te compraron —upsell, programa de mayor ticket, renovación—. Subir el LTV de tu base sale mucho más barato que traer un lead frío nuevo, y es donde ganas en esta fase.', critica: true },
-      { titulo: 'Creativos para cada peldaño', texto: 'Pon la fábrica de creativos a alimentar CADA peldaño, no solo la oferta de entrada: creativos ganadores probados también para el remarketing hacia arriba y las ofertas de ticket más alto.', critica: false },
-      { titulo: 'Ataca el churn', texto: 'Ataca el churn con follow-up post-venta: onboarding del cliente nuevo, chequeos y guiones para frenar cancelaciones. La baja del que ya compró es tu no-show de esta fase; retenerlo vale más que un lead nuevo.', critica: false },
-      { titulo: 'Escala solo lo rentable', texto: 'Escala solo lo rentable y deja que el Perro Guardián lo defienda: sube presupuesto únicamente en los ángulos y ofertas con mejor CPA y mejor LTV; el resto se sostiene o se apaga. Foco, no expansión a ciegas.', critica: false },
+      { titulo: 'Ordena tus productos por lo que DEJAN', texto: 'No los ordenes por lo que facturan, sino por lo que te queda de verdad después de pauta y comisiones. Achica o corta el que factura pero no deja dinero.', critica: true },
+      { titulo: 'Véndele más al que ya te compró', texto: 'Activa ofertas hacia arriba y recompras a tu base de clientes (un producto de mayor precio, una renovación). Subir el valor de un cliente sale mucho más barato que traer uno nuevo, y es donde ganas en esta fase.', critica: true },
+      { titulo: 'Anuncios para cada peldaño', texto: 'Ten anuncios ganadores no solo para la oferta de entrada, también para las de mayor precio y las recompras.', critica: false },
+      { titulo: 'Frena las bajas', texto: 'Cuida al cliente después de la venta —un buen arranque, chequeos, seguimiento— para que no se vaya. Retener al que ya compró vale más que traer uno nuevo.', critica: false },
+      { titulo: 'Escala solo lo rentable', texto: 'Sube presupuesto únicamente en los productos y ángulos con mejor costo y mejor valor de cliente; el resto se sostiene o se apaga. Foco, no expansión a ciegas.', critica: false },
     ],
-    estrategia: { prospeccion: 30, nutricion: 30, escala: 40, nota: 'El dinero se va a escalar lo que ya sabes que deja margen (40) y a calentar y recomprarle a tu base con la escalera (30). El tráfico frío (30) lo sostienes para no depender de una sola oferta, pero ya no es donde ganas: aquí ganas en margen y en LTV.' },
-    noHacer: 'Seguir escalando volumen a lo bruto: meterle más presupuesto a todo por igual persiguiendo facturación mientras el margen se achica y el churn se come lo que entra. Y peor todavía: sumar productos u ofertas nuevas sin validarlas con creativos ganadores, diluyendo el foco justo cuando lo que necesitas es simplificar.',
-    hito: 'Escalera de valor validada con creativos ganadores probados en cada peldaño, y LTV y retención altos y estables. El negocio crece en margen y previsibilidad, no en volumen: puedes bajar el tráfico frío sin que la facturación caiga.',
+    estrategia: { prospeccion: 30, nutricion: 30, escala: 40,
+      nota: 'El dinero se va a escalar lo que ya sabes que deja margen y a recomprarle a tu base con la escalera. El tráfico frío lo sostienes para no depender de una sola oferta, pero ya no es donde ganas: aquí ganas en margen y en recompra.',
+      inversion: '$30.000+ al mes (más de $1.000 por día). El número ya no es el problema: el problema es a QUÉ le metes cada peso.',
+      comoRepartir: 'Buena parte a escalar lo que ya deja margen, otra parte a recomprarle a tu base, y el tráfico frío solo para no depender de una sola oferta.' },
+    noHacer: [
+      'No sigas metiendo presupuesto a todo por igual persiguiendo facturación mientras el margen se achica.',
+      'No sumes productos u ofertas nuevas sin validarlas con anuncios ganadores: diluyes el foco justo cuando necesitas simplificar.',
+    ],
+    hito: 'Tu escalera de valor validada en cada peldaño y clientes que vuelven a comprar: el negocio crece en margen, no solo en volumen.',
+    hitoCriterios: [
+      '¿Cada peldaño de tu escalera vende con anuncios ya probados?',
+      '¿Tus clientes te vuelven a comprar (recompra o producto de mayor precio)?',
+      '¿Tu margen crece más rápido que tu facturación?',
+    ],
     color: '#D6489B',
   },
 ];
@@ -277,19 +351,24 @@ export function dimensionDeFase(faseId: number): Dimension {
 // llamada high-ticket no se mide igual que un carrito low-ticket ni que los
 // registrados de un webinar. La pregunta de volumen se adapta al canal elegido,
 // pero el VOTO (el índice de opción) mapea a la misma fase en los tres.
-export type CanalId = 'llamadas' | 'carrito' | 'webinar';
+export type CanalId = 'llamadas' | 'conversaciones' | 'carrito' | 'webinar';
 
-export const CANALES: Array<{ id: CanalId; label: string }> = [
-  { id: 'llamadas', label: 'Llamada de venta' },
-  { id: 'carrito', label: 'Carrito' },
-  { id: 'webinar', label: 'Webinar' },
+export const CANALES: Array<{ id: CanalId; label: string; desc: string }> = [
+  { id: 'llamadas', label: 'Llamada de venta', desc: 'Agendas una llamada y cierras la venta ahí.' },
+  { id: 'conversaciones', label: 'Conversaciones por chat', desc: 'Vendes charlando por WhatsApp o DM, sin llamada.' },
+  { id: 'carrito', label: 'Carrito / checkout', desc: 'Compran directo en tu página, sin que hables con ellos.' },
+  { id: 'webinar', label: 'Webinar', desc: 'Se registran a un webinar y ahí presentas y vendes.' },
 ];
 
 /** Texto + 5 opciones (una por fase) para la pregunta de volumen, por canal. */
 export const VOLUMEN_POR_CANAL: Record<CanalId, { texto: string; opciones: string[] }> = {
   llamadas: {
-    texto: '¿Cuántas llamadas de venta agendás por mes?',
+    texto: '¿Cuántas llamadas de venta agendas por mes?',
     opciones: ['0 – 5 (casi ninguna)', '5 – 25', '25 – 75', '75 – 250', 'Más de 250'],
+  },
+  conversaciones: {
+    texto: '¿Cuántas conversaciones de venta abres por mes?',
+    opciones: ['0 – 20', '20 – 100', '100 – 400', '400 – 1.500', 'Más de 1.500'],
   },
   carrito: {
     texto: '¿Cuántas ventas por carrito haces por mes?',
@@ -417,7 +496,9 @@ export function faseContextoTexto(d: Diagnostico | null): string {
     `Prioridades (críticas): ${criticas.join(' · ')}.`,
     `Estrategia de pauta: ${f.estrategia.prospeccion}% tráfico frío · ${f.estrategia.nutricion}% nutrición/retargeting · ${f.estrategia.escala}% escala.`,
     `Hito para avanzar de fase: ${f.hito}`,
-    `NO conviene todavía: ${f.noHacer}`,
+    `Funnel sugerido: ${f.funnelSugerido.nombre} (${f.funnelSugerido.complejidad}) — ${f.funnelSugerido.comoFunciona}`,
+    `Inversión sugerida: ${f.estrategia.inversion}`,
+    `NO conviene todavía: ${f.noHacer.join(' · ')}`,
   ].filter(Boolean);
   if (d.mixto) lineas.push(`Diagnóstico mixto (${repartoTexto(d.reparto)}): trabajar primero el cuello de la fase más baja.`);
   return lineas.join('\n');

@@ -110,14 +110,25 @@ function FaseChip({ id, nombre, color, atenuado }: { id: number; nombre: string;
   );
 }
 
-// El resultado: qué priorizar (el Norte) + síntomas, checklist de qué hacer / qué no,
-// estrategia de pauta y el hito gráfico para avanzar de fase.
+// El resultado: la fase diagnosticada + Norte, síntomas, funnel sugerido, checklist
+// de qué hacer / qué no, estrategia de pauta y el hito gráfico con sus criterios.
 export function FaseResultado({ diag }: { diag: Diagnostico }) {
   const f = faseDef(diag.fase);
   // La fase siguiente (para el hito gráfico). index = id (porque index = id-1).
   const sig = f.id < 5 ? faseDef(f.id) : null;
+  const compColor = f.funnelSugerido.complejidad === 'Simple' ? 'var(--good)' : f.funnelSugerido.complejidad === 'Media' ? 'var(--warn)' : 'var(--bad)';
   return (
     <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Fase diagnosticada: ícono + nombre + subtítulo (debajo del título "Tu diagnóstico") */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ color: f.color, flex: 'none', width: 46, height: 46, borderRadius: 13, border: `1.5px solid ${f.color}`, background: `${f.color}18`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><FaseIcono id={f.id} size={27} /></span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', color: 'var(--faint)' }}>FASE {f.id}</div>
+          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.15 }}>{f.nombre}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>{f.subtitulo}</div>
+        </div>
+      </div>
+
       {diag.mixto && (
         <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--border)', borderRadius: 11, padding: '11px 13px' }}>
           <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--warn)', marginBottom: 4 }}>Diagnóstico mixto ({repartoTexto(diag.reparto)})</div>
@@ -147,6 +158,16 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
         </div>
       </div>
 
+      {/* Funnel sugerido — el más simple que le sirve a esta fase */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+        <SeccionLabel>Funnel sugerido</SeccionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap', marginBottom: 6 }}>
+          <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--ink)' }}>{f.funnelSugerido.nombre}</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: compColor, background: 'var(--surface-2)', border: `1px solid ${compColor}`, borderRadius: 999, padding: '2px 9px' }}>{f.funnelSugerido.complejidad}</span>
+        </div>
+        <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>{f.funnelSugerido.comoFunciona}</div>
+      </div>
+
       {/* ✓ Qué hacer ahora — la CHECKLIST, con casilla; las críticas resaltadas */}
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
         <SeccionLabel><span style={{ color: 'var(--good)' }}>✓ Qué hacer ahora</span></SeccionLabel>
@@ -167,42 +188,70 @@ export function FaseResultado({ diag }: { diag: Diagnostico }) {
         </div>
       </div>
 
-      {/* ✕ No hagas ahora — el don't, justo debajo del checklist */}
+      {/* ✕ No hagas ahora — el don't, justo debajo del checklist, en bullets */}
       <div style={{ background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '13px 15px' }}>
         <SeccionLabel><span style={{ color: 'var(--bad)' }}>✕ No hagas ahora</span></SeccionLabel>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <span aria-hidden style={{ flex: 'none', width: 18, height: 18, borderRadius: 5, border: '1.5px solid var(--bad)', color: 'var(--bad)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, marginTop: 1 }}>✕</span>
-          <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{f.noHacer}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {f.noHacer.map((n, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              <span aria-hidden style={{ color: 'var(--bad)', flex: 'none', marginTop: 1, fontWeight: 800, fontSize: 12 }}>✕</span>
+              <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{n}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Estrategia de pauta — en su propia tarjeta */}
+      {/* Estrategia de pauta — cuánto invertir, cómo repartirlo y el mix */}
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
-        <SeccionLabel>Estrategia de pauta · a dónde va cada peso</SeccionLabel>
+        <SeccionLabel>Estrategia de pauta</SeccionLabel>
+        {/* Cuánto invertir + cómo repartirlo (lo más accionable, arriba) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: 13 }}>
+          <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--good)', flex: 'none', marginTop: 2, width: 62 }}>Cuánto</span>
+            <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{f.estrategia.inversion}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+            <span style={{ fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--primary)', flex: 'none', marginTop: 2, width: 62 }}>Repartir</span>
+            <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{f.estrategia.comoRepartir}</span>
+          </div>
+        </div>
+        {/* El mix en barras */}
         <EstrategiaBarras e={f.estrategia} />
         <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginTop: 11 }}>{f.estrategia.nota}</div>
       </div>
 
-      {/* Hito para avanzar — gráfico: fase actual → fase siguiente + números */}
+      {/* Hito para avanzar — gráfico (fase → fase) + resumen corto + criterios sí/no */}
       <div style={{ background: 'var(--primary-bg)', border: `1px solid ${f.color}44`, borderRadius: 14, padding: '15px 16px' }}>
         <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 12, textAlign: 'center' }}>Hito para pasar a la siguiente fase</div>
         {sig ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 13 }}>
-              <FaseChip id={f.id} nombre={f.nombre} color={f.color} atenuado />
-              <svg width="30" height="16" viewBox="0 0 30 16" fill="none" stroke={f.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}><path d="M2 8h24M20 3l6 5-6 5" /></svg>
-              <FaseChip id={sig.id} nombre={sig.nombre} color={sig.color} />
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{f.hito}</div>
-            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', border: `1px solid ${sig.color}55`, borderRadius: 999, padding: '5px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 12 }}>
+            <FaseChip id={f.id} nombre={f.nombre} color={f.color} atenuado />
+            <svg width="30" height="16" viewBox="0 0 30 16" fill="none" stroke={f.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}><path d="M2 8h24M20 3l6 5-6 5" /></svg>
+            <FaseChip id={sig.id} nombre={sig.nombre} color={sig.color} />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><FaseChip id={f.id} nombre={f.nombre} color={f.color} /></div>
+        )}
+        {/* Resumen corto y directo */}
+        <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, textAlign: 'center', fontWeight: 500 }}>{f.hito}</div>
+        {/* Criterios sí/no que el usuario se responde */}
+        <div style={{ marginTop: 13, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11, padding: '12px 13px' }}>
+          <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.5, marginBottom: 9 }}>{sig ? <>Si respondes <b style={{ color: 'var(--ink)' }}>SÍ</b> a todo, ya estás listo para la <b style={{ color: 'var(--ink)' }}>Fase {sig.id}</b>:</> : <>Ya estás en la fase más alta. Sostén esto:</>}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {f.hitoCriterios.map((c, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span aria-hidden style={{ flex: 'none', width: 17, height: 17, borderRadius: '50%', border: `1.5px solid ${f.color}`, marginTop: 1 }} />
+                <span style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.45 }}>{c}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {sig && (
+          <div style={{ marginTop: 11, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'var(--surface)', border: `1px solid ${sig.color}55`, borderRadius: 999, padding: '5px 12px' }}>
               <span style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--faint)' }}>Meta Fase {sig.id}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>{sig.rango}</span>
             </div>
-          </>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-            <FaseChip id={f.id} nombre={f.nombre} color={f.color} />
-            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5, textAlign: 'center' }}>Ya estás en la fase más alta. El hito ahora es sostener y profundizar: {f.hito}</div>
           </div>
         )}
       </div>

@@ -34,8 +34,8 @@ import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
 import { GuardianIcon } from '../plan/board/GuardianIcon';
 import { SLIDES, type Slide } from '@/lib/servicio-slides';
-import { FASES, faseDef, diagnosticar, VOLUMEN_POR_CANAL, type CanalId, type Diagnostico, type Pregunta } from '@/lib/fase-diagnostico';
-import { CanalSelector, FaseQuiz, FaseResultado, FaseIcono } from './FaseUI';
+import { FASES, faseDef, diagnosticar, VOLUMEN_POR_CANAL, CANALES, type CanalId, type Diagnostico, type Pregunta } from '@/lib/fase-diagnostico';
+import { FaseQuiz, FaseResultado, FaseIcono } from './FaseUI';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
@@ -274,9 +274,11 @@ export function OnboardingWizard() {
     } else if (paso === 'gemini') {
       pantallas.push({ key: 'gemini', paso, pregunta: 'Conecta la IA de MaKo', slides: SLIDES_MAKO });
     } else if (paso === 'fase') {
-      // Una pantalla por pregunta (6) + la pantalla del diagnóstico. La pregunta
-      // de volumen adapta su enunciado al canal de venta elegido.
+      // Una pantalla por pregunta + la del diagnóstico. Antes de la de VOLUMEN va una
+      // pregunta propia de canal ("¿con cuál identificás tu funnel?"): define la métrica
+      // de volumen y adapta su enunciado (llamadas/conversaciones/carrito/webinar).
       data.fasePreguntas.forEach((q, i) => {
+        if (q.id === 'volumen') pantallas.push({ key: 'fase:canal', paso, pregunta: '¿Con cuál de estos identificas tu funnel?', slides: SLIDES_MAKO });
         pantallas.push({ key: `fase:${i}`, paso, faseQ: i, pregunta: q.id === 'volumen' ? VOLUMEN_POR_CANAL[canal].texto : q.texto, slides: SLIDES_MAKO });
       });
       pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico', slides: SLIDES_MAKO });
@@ -395,8 +397,8 @@ export function OnboardingWizard() {
         fullscreen
         bloqueante
         titulo={data.capa.nombre}
-        total={pantallas.length}
-        idx={idx}
+        total={data.pasos.length}
+        idx={Math.max(0, data.pasos.indexOf(p.paso))}
         pregunta={p.pregunta}
         sub={p.sub}
         error={error}
@@ -541,21 +543,36 @@ export function OnboardingWizard() {
           </div>
         )}
 
+        {/* ── Canal / funnel: su propia pregunta; define y adapta la de volumen ── */}
+        {p.key === 'fase:canal' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {CANALES.map((c) => {
+              const on = canal === c.id;
+              return (
+                <button key={c.id} type="button" onClick={() => setCanal(c.id)}
+                  style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: '13px 15px', borderRadius: 12, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', display: 'flex', alignItems: 'flex-start', gap: 11 }}>
+                  <span style={{ flex: 'none', width: 16, height: 16, borderRadius: '50%', marginTop: 2, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', boxShadow: on ? 'inset 0 0 0 2.5px var(--surface)' : 'none' }} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>{c.label}</span>
+                    <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2, lineHeight: 1.4 }}>{c.desc}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* ── Diagnóstico de fase: quiz (una pregunta, 5 opciones) ── */}
         {esFaseQuiz && (() => {
           const q = data.fasePreguntas[p.faseQ!];
           const esVolumen = q.id === 'volumen';
           return (
-            <>
-              {/* La pregunta de volumen se adapta al canal de venta. */}
-              {esVolumen && <CanalSelector canal={canal} onPick={setCanal} />}
-              <FaseQuiz
-                emoji={q.emoji}
-                opciones={esVolumen ? VOLUMEN_POR_CANAL[canal].opciones : q.opciones}
-                value={faseResp[p.faseQ!]}
-                onPick={(i) => setFaseResp((r) => { const c = [...r]; c[p.faseQ!] = i; return c; })}
-              />
-            </>
+            <FaseQuiz
+              emoji={q.emoji}
+              opciones={esVolumen ? VOLUMEN_POR_CANAL[canal].opciones : q.opciones}
+              value={faseResp[p.faseQ!]}
+              onPick={(i) => setFaseResp((r) => { const c = [...r]; c[p.faseQ!] = i; return c; })}
+            />
           );
         })()}
         {p.key === 'fase:result' && faseDiag && <FaseResultado diag={faseDiag} />}
@@ -645,12 +662,7 @@ function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx:
         <div style={{ color: f.color, marginBottom: 8, display: 'flex', justifyContent: 'center' }}><FaseIcono id={f.id} size={46} /></div>
         <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.1em', color: 'var(--sidebar-text)' }}>FASE {f.id}</div>
         <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--on-sidebar)', margin: '2px 0 2px' }}>{f.nombre}</div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)', opacity: 0.85, marginBottom: 8 }}>{f.subtitulo}</div>
-        <div style={{ fontSize: 12.5, color: 'var(--sidebar-text)', lineHeight: 1.5 }}>{f.rango}</div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 14 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: 'rgba(255,255,255,.08)', color: 'var(--on-sidebar)' }}>Cuello: {f.cuelloLabel}</span>
-          <span style={{ fontSize: 11.5, fontWeight: 600, padding: '4px 11px', borderRadius: 999, background: 'rgba(255,255,255,.08)', color: 'var(--sidebar-text)' }}>Consistencia {diag.consistencia}%</span>
-        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)', opacity: 0.85 }}>{f.subtitulo}</div>
       </div>
     );
   }
