@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Dropdown } from '../../components/Dropdown';
+import { SvcIcon } from '../../_components/ServicioVisual';
 import { ScoreIcon } from './guardian-form';
 import { type Label, type Prio, PLABEL } from './types';
 
@@ -182,6 +183,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
                       <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{g.r.titulo || 'Reunión'}</span>
                       {cuandoFue(g.r.fecha) && <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>{cuandoFue(g.r.fecha)}</span>}
                       <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>· {g.items.length}</span>
+                      <LinkGrabacion url={g.r.url} />
                     </div>
                   )}
                   {g.items.map(({ f, i }) => (
@@ -202,6 +204,17 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
         />
       ) : null}
     </div>
+  );
+}
+
+/** Link a la grabación de ESA reunión (el de cada bloque, no uno global). */
+function LinkGrabacion({ url }: { url?: string | null }) {
+  if (!url) return null;
+  return (
+    <a href={url} target="_blank" rel="noreferrer"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+      <SvcIcon k="fathom" size={11} box={16} radius={4} /> ver la grabación
+    </a>
   );
 }
 
@@ -302,7 +315,7 @@ function PanelPersona({ nombre, dest, cargandoDest, filas, labels, reunion }: {
         Esto quedó del lado de <b style={{ color: 'var(--ink)' }}>{nombre}</b>{dest?.email ? ` (${dest.email})` : ''}
         {reunion.titulo ? <> en <b style={{ color: 'var(--ink)' }}>{reunion.titulo}</b></> : null}
         {cuandoFue(reunion.fecha) ? <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}> ({cuandoFue(reunion.fecha)})</span> : null}
-        . No entra a tu plan: mandáselo.
+        . No entra a tu plan: mandáselo. <LinkGrabacion url={reunion.url} />
       </div>
 
       {filas.map((f, i) => (

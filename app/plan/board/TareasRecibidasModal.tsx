@@ -65,8 +65,11 @@ export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
       proyectoId: t.proyecto ? idPorNombre.get(t.proyecto.trim().toLowerCase()) ?? null : null,
       dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro,
       incluir: !t.esDeOtro,
-      // La fecha de la REUNIÓN, no la de cuando corrió el cron.
-      reunion: { recordingId: recordingDeRef(p.ref), titulo: p.fuenteTitulo ?? '', fecha: p.fuenteFecha ?? p.createdAt, url: p.fuenteUrl ?? null },
+      // La fecha de la REUNIÓN. Si el borrador no la trae (lo dejó una versión vieja
+      // del cron), va SIN fecha: caer a createdAt mostraba la hora a la que corrió el
+      // cron como si fuera la hora de la reunión — "tuviste una reunión hoy" cuando la
+      // reunión había sido tres semanas antes.
+      reunion: { recordingId: recordingDeRef(p.ref), titulo: p.fuenteTitulo ?? '', fecha: p.fuenteFecha ?? null, url: p.fuenteUrl ?? null },
     })));
   });
 
@@ -125,6 +128,8 @@ export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
             {props.some((p) => p.origen === 'fathom') && <span style={{ flex: 'none' }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{sub}</div>
+              {/* Con varias, el link a cada grabación va en el encabezado de SU bloque
+                  (acá arriba sería el de una sola, elegida al azar). */}
               {!varias && props[0]?.fuenteUrl && (
                 <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 3 }}>
                   <a href={props[0].fuenteUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>ver la grabación</a>
