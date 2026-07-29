@@ -102,11 +102,14 @@ function DocAcciones({ id, confirm, onConfirm, onBorrar }: { id: string; confirm
   );
 }
 
-export function Archivero({ onEstado, onListo }: {
+export function Archivero({ onEstado, onListo, registro }: {
   onEstado?: (answers: Record<string, string>) => void;
   onFacts?: (facts: { k: string; v: string }[]) => void; // ya NO se usa (el insight va en blanco)
   /** Reporta si el paso está listo para avanzar (≥1 documento analizado). */
   onListo?: (listo: boolean) => void;
+  /** El wizard delega su "Siguiente" acá: si faltan datos, `siguiente()` abre las
+   *  preguntas (in-place) y devuelve true (consumido); si no, devuelve false y avanza. */
+  registro?: MutableRefObject<{ siguiente: () => boolean } | null>;
 }) {
   const [est, setEst] = useState<Estado | null>(null);
   const [vista, setVista] = useState<Vista>('inicio');
@@ -132,11 +135,12 @@ export function Archivero({ onEstado, onListo }: {
 
   const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); }, [onEstado]);
 
-  // El paso está "listo" para avanzar solo con ≥1 documento analizado Y, o sin huecos,
-  // o el usuario ya pasó por las preguntas. Así no se avanza dejando datos sin ver (P4).
+  // Con ≥1 documento analizado ya aparece "Siguiente". Si al tocarlo faltan datos, el
+  // propio botón lleva DIRECTO a las preguntas (ver `registro.siguiente`), no a la
+  // siguiente sección — así completar lo que falta deja de estar escondido en una tab.
   useEffect(() => {
-    onListo?.(!!est && est.files.length > 0 && (est.gaps.length === 0 || huecosRevisados));
-  }, [est, huecosRevisados, onListo]);
+    onListo?.(!!est && est.files.length > 0);
+  }, [est, onListo]);
 
   const cargar = useCallback(async () => {
     try {
@@ -177,6 +181,12 @@ export function Archivero({ onEstado, onListo }: {
     setLinkUrl('');
   };
   const quitarLink = (u: string) => setLinks((prev) => prev.filter((x) => x !== u));
+  // Desde la vista de archivos: agrega el link y salta a la cola (para revisarlo + analizar).
+  const agregarLinkYSubir = () => {
+    const u = normalizarUrl(linkUrl);
+    if (!u) { setErr('Ese link no parece válido. Revísalo (ej: tunegocio.com).'); return; }
+    setErr(null); setLinks((prev) => (prev.includes(u) ? prev : [...prev, u])); setLinkUrl(''); setVista('inicio');
+  };
 
   const analizar = async () => {
     if (!cola.length && !links.length) return;
@@ -250,6 +260,22 @@ export function Archivero({ onEstado, onListo }: {
     setOtroKey(null); setOtroVal('');
     if (gapIdx + 1 >= preguntas.length) { setHuecosRevisados(true); setVista('archivos'); } else setGapIdx((i) => i + 1);
   };
+
+  // El wizard llama esto al tocar "Siguiente": si quedan huecos y no se revisaron,
+  // abrimos las preguntas en el acto (consumido); si no, devolvemos false para avanzar.
+  // Sin array de deps → se re-registra en cada render con el estado fresco.
+  useEffect(() => {
+    if (!registro) return;
+    registro.current = {
+      siguiente: () => {
+        // En pleno flujo (leyendo/masdocs/huecos): no avanzar ni reabrir nada, quedate.
+        if (vista === 'leyendo' || vista === 'masdocs' || vista === 'huecos') return true;
+        // Con huecos sin revisar: abrimos las preguntas en el acto (consumido).
+        if (est && est.gaps.length > 0 && !huecosRevisados) { void seguirDesdeMasDocs(); return true; }
+        return false;
+      },
+    };
+  });
 
   if (cargando || !est) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>{err ? <span style={{ color: 'var(--bad)' }}>{err}</span> : 'Cargando el archivero…'}</div>;
 
@@ -445,6 +471,12 @@ export function Archivero({ onEstado, onListo }: {
             <button type="button" onClick={() => setArchTab('archivos')} style={subPill(archTab === 'archivos')}>Archivos{hayArchivos ? ` · ${est.files.length}` : ''}</button>
           </div>
           <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
+        </div>
+        {/* Pegar una web (tu web/landing/IG) también desde acá, no solo en el dropzone (P2). */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarLinkYSubir(); } }}
+            placeholder="O pega el link de tu web, landing o Instagram…" style={{ ...input, flex: 1 }} />
+          <button type="button" onClick={agregarLinkYSubir} disabled={!linkUrl.trim()} style={{ ...btnGhost, flex: 'none', opacity: linkUrl.trim() ? 1 : 0.5 }}>Agregar</button>
         </div>
         {archTab === 'resumen' ? (
           <ResumenView />

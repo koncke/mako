@@ -163,6 +163,9 @@ export function OnboardingWizard() {
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const tickeando = useRef(false);
   const retomado = useRef(false);
+  // El Archivero registra acá su handler de "Siguiente": si faltan datos, abre las
+  // preguntas en vez de avanzar (así completar lo pendiente no queda escondido).
+  const archiveroRef = useRef<{ siguiente: () => boolean } | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -413,9 +416,12 @@ export function OnboardingWizard() {
         onAtras={() => setIdx((i) => Math.max(0, i - 1))}
         onSiguiente={() => {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
-          // Pasos self-contained (Archivero, Entregable, Avatares, Persona, Matriz, Gemini):
+          // Archivero: si le faltan datos, su "Siguiente" abre las preguntas (consumido)
+          // en vez de avanzar a la próxima sección; si no, avanzamos normal.
+          if (p.key === 'archivero') { if (archiveroRef.current?.siguiente()) return; return avanzar(); }
+          // Pasos self-contained (Entregable, Avatares, Persona, Matriz, Gemini):
           // persisten por su cuenta con sus propios endpoints; acá solo avanzamos.
-          if (['archivero', 'entregable', 'avatares', 'persona', 'angulos', 'gemini'].includes(p.key)) return avanzar();
+          if (['entregable', 'avatares', 'persona', 'angulos', 'gemini'].includes(p.key)) return avanzar();
           if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel-simple', funnelTipos }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
           // Última pregunta del diagnóstico: persistir antes de mostrar el resultado.
@@ -473,7 +479,7 @@ export function OnboardingWizard() {
         )}
 
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
-        {p.key === 'archivero' && <Archivero onEstado={setAnswers} onListo={setArchiveroListo} />}
+        {p.key === 'archivero' && <Archivero onEstado={setAnswers} onListo={setArchiveroListo} registro={archiveroRef} />}
 
         {/* ── Entregable tangible de la oferta (self-contained) ── */}
         {p.key === 'entregable' && <EntregableView />}
