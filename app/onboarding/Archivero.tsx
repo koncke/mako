@@ -146,27 +146,27 @@ export function Archivero({ onEstado }: {
     if (!cola.length) return;
     setVista('leyendo'); setErr(null); setWarnings([]);
     try {
-      // Subimos de a UN archivo por request: Vercel rechaza (413 "Request Entity Too
-      // Large") los POST de más de ~4.5 MB, y varios PDFs juntos lo superan. Cada archivo
-      // solo entra bien. La cascada (avatares→razones) corre solo en el último (finalizar).
-      let ultimo: Estado | null = null;
+      // Subida DIRECTA a Supabase (sin pasar por el serverless → sin el límite de ~4.5 MB
+      // de Vercel, que daba 413 aun con un solo PDF grande). Por cada archivo: pedimos una
+      // URL firmada, subimos el binario derecho a storage, y el server solo lo procesa
+      // (baja + extrae). La cascada avatares→razones corre en el último (finalizar).
+      let ultimo: (Estado & { ok?: boolean }) | null = null;
       const warns: string[] = [];
       for (let i = 0; i < cola.length; i++) {
         const c = cola[i];
-        const fd = new FormData();
-        fd.append('file', c.file);
-        fd.append('finalizar', i === cola.length - 1 ? '1' : '0');
-        const res = await fetch('/api/onboarding/archivero', { method: 'POST', body: fd });
-        const txt = await res.text();
-        let j: (Estado & { ok?: boolean; warnings?: string[]; error?: string }) | null = null;
-        try { j = JSON.parse(txt); } catch {
-          // Respuesta NO-JSON (ej. 413 de Vercel): mensaje claro, no "Unexpected token".
-          throw new Error(res.status === 413
-            ? `"${c.file.name}" pesa demasiado para subir (máx ~4 MB por archivo). Comprímelo o súbelo aparte.`
-            : `No se pudo procesar "${c.file.name}" (error ${res.status}).`);
-        }
-        if (Array.isArray(j?.warnings)) warns.push(...j.warnings);
-        if (j && (j as { brief?: unknown }).brief) ultimo = j; else if (j && j.ok === false) throw new Error(j.error || 'No se pudo procesar.');
+        const finalizar = i === cola.length - 1;
+        // 1) URL firmada.
+        const su = await (await fetch('/api/onboarding/archivero/upload-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre: c.file.name, mime: c.file.type }) })).json();
+        if (!su.ok) throw new Error(su.error || 'No se pudo preparar la subida.');
+        // 2) Subir el binario directo a storage.
+        const up = await fetch(su.signedUrl, { method: 'PUT', headers: { 'content-type': c.file.type || 'application/octet-stream', 'x-upsert': 'true' }, body: c.file });
+        if (!up.ok) throw new Error(`No se pudo subir "${c.file.name}" (${up.status}).`);
+        // 3) Procesar (solo metadata; el server baja y extrae).
+        const res = await fetch('/api/onboarding/archivero', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'procesar', fileId: su.fileId, path: su.path, nombre: c.file.name, mime: c.file.type, tamano: c.file.size, finalizar }) });
+        const j = await res.json().catch(() => null) as (Estado & { ok?: boolean; warnings?: string[]; error?: string; brief?: unknown }) | null;
+        if (!j) throw new Error(`No se pudo procesar "${c.file.name}" (error ${res.status}).`);
+        if (Array.isArray(j.warnings)) warns.push(...j.warnings);
+        if (j.ok !== false && j.brief) ultimo = j; // si ESTE archivo no se pudo leer, ya está en warnings; seguimos
       }
       setWarnings(warns);
       if (ultimo) { aplicar(ultimo); cola.forEach((c) => URL.revokeObjectURL(c.url)); setCola([]); setMasSlide('insight'); setVista('masdocs'); }

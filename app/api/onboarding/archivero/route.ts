@@ -23,6 +23,7 @@ import {
 } from '@/lib/archivero';
 import { getAvatares, setAvatares, generarAvatares } from '@/lib/avatares';
 import { getRazones, setRazones, generarRazones } from '@/lib/razones';
+import { getSupabaseServer } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -74,6 +75,59 @@ async function leerArchivo(file: File): Promise<{ texto: string; warning?: strin
   return { texto: '', warning: `"${file.name}": formato no soportado (subí .txt, .md, .docx, .pdf o una imagen).` };
 }
 
+// Procesa UN archivo ya subido a storage (direct-upload). Corre dentro de
+// runWithWorkspace(ws). Chequea que el path pertenezca al ws (anti-IDOR).
+async function procesarDirecto(ws: number, body: { fileId?: string; path?: string; nombre?: string; mime?: string; tamano?: number; finalizar?: boolean }): Promise<Response> {
+  try {
+    if (!(await docsIADisponible())) {
+      return Response.json({ ok: false, error: 'Necesito una IA para leer tus documentos. Cargá tu API key de Gemini (es gratis) en Integraciones y volvé a analizar.' }, { status: 400 });
+    }
+    const fileId = String(body.fileId || '');
+    const path = String(body.path || '');
+    const nombre = String(body.nombre || 'documento');
+    const mime = String(body.mime || '');
+    const tamano = Number(body.tamano) || 0;
+    const finalizar = body.finalizar !== false;
+    if (!fileId || !path.startsWith(`${ws}/`)) return Response.json({ ok: false, error: 'Datos de archivo inválidos.' }, { status: 400 });
+
+    const { data: blob, error: dErr } = await getSupabaseServer().storage.from('archivero').download(path);
+    if (dErr || !blob) return Response.json({ ok: false, error: 'No encontré el archivo subido. Reintentá.' }, { status: 404 });
+    const buf = Buffer.from(await blob.arrayBuffer());
+    const file = new File([new Uint8Array(buf)], nombre, { type: mime });
+
+    const warnings: string[] = [];
+    const { texto, warning } = await leerArchivo(file);
+    let textoOk = '';
+    let leido = false;
+    if (warning) warnings.push(warning);
+    else if (!texto.trim()) warnings.push(`No pude sacar texto de "${nombre}".`);
+    else {
+      const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
+      const { campos, razonamiento, sinIA } = await extraerDeArchivo(texto, fields, 24000);
+      if (sinIA) warnings.push(`No pude analizar "${nombre}" con la IA — reintentá en un momento.`);
+      else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento, campos }); textoOk = texto; leido = true; }
+    }
+    if (!leido) await getSupabaseServer().storage.from('archivero').remove([path]).catch(() => {}); // binario huérfano
+    else {
+      try { const pano = await generarPanorama([textoOk], await getPanorama()); if (pano) await setPanorama(pano); }
+      catch (e) { console.error('[archivero] panorama (no fatal):', msg(e)); }
+    }
+    await buildEstado(true);
+    // La cascada corre en el ÚLTIMO archivo (finalizar) aunque ESE falle: el brief puede
+    // venir de los otros documentos ya subidos. Solo si avatares/razones están vacíos.
+    if (finalizar) {
+      try {
+        if ((await getAvatares()).length === 0) { const av = await generarAvatares(); if (av.ok) await setAvatares(av.avatares); }
+        if ((await getAvatares()).length > 0 && (await getRazones()).length === 0) { const rz = await generarRazones(); if (rz.ok) await setRazones(rz.razones); }
+      } catch (e) { console.error('[archivero] cascada (no fatal):', msg(e)); }
+    }
+    if (!leido) return Response.json({ ok: false, error: warnings[0] || 'No pude leer el archivo.', warnings, ...(await buildEstado(false)) }, { status: 422 });
+    return Response.json({ ok: true, warnings, ...(await buildEstado(false)) });
+  } catch (e) {
+    return Response.json({ ok: false, error: msg(e) }, { status: 500 });
+  }
+}
+
 export async function GET() {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace puede ver el archivero.' }, { status: 403 });
@@ -86,6 +140,16 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace puede subir archivos.' }, { status: 403 });
+  // DIRECT-UPLOAD: si viene JSON, el binario ya está en storage (subido con la URL
+  // firmada de /archivero/upload-url) y solo procesamos la metadata → sin el límite de
+  // ~4.5 MB de Vercel. Un archivo grande ya no da 413. El multipart de abajo queda como
+  // fallback para archivos chicos.
+  if ((req.headers.get('content-type') || '').includes('application/json')) {
+    let body: { action?: string; fileId?: string; path?: string; nombre?: string; mime?: string; tamano?: number; finalizar?: boolean };
+    try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+    if (body.action !== 'procesar') return Response.json({ ok: false, error: 'acción inválida' }, { status: 400 });
+    return runWithWorkspace(ws, () => procesarDirecto(ws, body));
+  }
   let form: FormData;
   try { form = await req.formData(); } catch { return Response.json({ ok: false, error: 'Subida inválida' }, { status: 400 }); }
   const files = form.getAll('file').filter((f): f is File => f instanceof File && f.size > 0);
