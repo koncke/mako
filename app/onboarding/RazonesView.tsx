@@ -21,15 +21,6 @@ const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, bord
 const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 
-function Edit({ valor, onSave, style }: { valor: string; onSave: (v: string) => void; style?: CSSProperties }) {
-  return (
-    <div className="raz-edit" contentEditable suppressContentEditableWarning spellCheck={false}
-      onBlur={(e) => { const nv = (e.currentTarget.textContent || '').replace(/\s+/g, ' ').trim(); if (nv !== (valor ?? '').trim()) onSave(nv); }}
-      style={{ outline: 'none', cursor: 'text', borderRadius: 6, padding: '2px 6px', margin: '0 -6px', ...style }}
-    >{valor}</div>
-  );
-}
-
 export function RazonesView() {
   const [est, setEst] = useState<Estado | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -50,17 +41,7 @@ export function RazonesView() {
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGen(false); }
   };
 
-  const guardar = async (razones: Razon[]) => {
-    setEst((e) => (e ? { ...e, razones } : e));
-    const j = await (await fetch('/api/onboarding/razones', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'guardar', razones }) })).json();
-    if (j.ok) setEst(j as Estado);
-  };
-  const editar = (id: string, campo: keyof Razon, v: string) => {
-    if (!est) return;
-    guardar(est.razones.map((r) => (r.id === id ? { ...r, [campo]: v } : r)));
-  };
-
-  const css = <style>{'@keyframes raz-spin{to{transform:rotate(360deg)}}.raz-edit:hover{background:var(--surface-2)}.raz-edit:focus{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border-strong)}'}</style>;
+  const css = <style>{'@keyframes raz-spin{to{transform:rotate(360deg)}}'}</style>;
 
   if (cargando) return <div style={{ ...eyebrow, padding: '18px 0', textAlign: 'center' }}>Cargando tus razones…</div>;
 
@@ -108,10 +89,7 @@ export function RazonesView() {
     <div>
       {css}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ ...eyebrow, marginBottom: 4 }}>Tus razones · las motivaciones de compra</div>
-          <div style={{ fontSize: 13, color: 'var(--dim)', maxWidth: 520 }}>Por cada avatar, las distintas motivaciones por las que te compra. El copy y el guion de cada una viven en la <b>Matriz</b>.</div>
-        </div>
+        <div style={{ ...eyebrow }}>Tus razones · las motivaciones de compra</div>
         <button type="button" onClick={generar} style={btnGhost}>↺ Regenerar</button>
       </div>
 
@@ -121,19 +99,20 @@ export function RazonesView() {
           if (!rs.length) return null;
           return (
             <div key={av.id}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginBottom: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-                <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', flex: 'none' }}>Avatar</span>
-                <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>{av.nombre}</span>
-                <span style={{ fontSize: 12.5, color: 'var(--dim)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>— {av.segmento}</span>
+              {/* Cabecera del avatar: apilada (el nombre ya no se parte palabra por palabra). */}
+              <div style={{ marginBottom: 12, paddingBottom: 9, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ ...eyebrow, marginBottom: 3 }}>Avatar</div>
+                <div style={{ fontFamily: SANS, fontSize: 16.5, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.25 }}>{av.nombre}</div>
+                <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{av.segmento}</div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
                 {rs.map((r, i) => (
                   <div key={r.id} style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', padding: 16, display: 'flex', flexDirection: 'column', gap: 7 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                       <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: 'var(--faint)', flex: 'none' }}>R{i + 1}</span>
-                      <Edit valor={r.nombre} onSave={(v) => editar(r.id, 'nombre', v)} style={{ fontFamily: SANS, fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }} />
+                      <span style={{ fontFamily: SANS, fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--ink)', lineHeight: 1.2 }}>{r.nombre}</span>
                     </div>
-                    <Edit valor={r.descripcion} onSave={(v) => editar(r.id, 'descripcion', v)} style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }} />
+                    <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.55 }}>{r.descripcion}</div>
                   </div>
                 ))}
               </div>

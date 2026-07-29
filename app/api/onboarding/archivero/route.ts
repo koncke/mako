@@ -21,8 +21,6 @@ import {
   flatFields, insertFile, subirBinario, getFile, deleteFileRow, borrarBinario, buildEstado, resolverWsAdmin,
   getPanorama, setPanorama, listFiles,
 } from '@/lib/archivero';
-import { getAvatares, setAvatares, generarAvatares } from '@/lib/avatares';
-import { getRazones, setRazones, generarRazones } from '@/lib/razones';
 import { getSupabaseServer } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
@@ -87,7 +85,6 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
     const nombre = String(body.nombre || 'documento');
     const mime = String(body.mime || '');
     const tamano = Number(body.tamano) || 0;
-    const finalizar = body.finalizar !== false;
     if (!fileId || !path.startsWith(`${ws}/`)) return Response.json({ ok: false, error: 'Datos de archivo inválidos.' }, { status: 400 });
 
     const { data: blob, error: dErr } = await getSupabaseServer().storage.from('archivero').download(path);
@@ -112,15 +109,10 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
       try { const pano = await generarPanorama([textoOk], await getPanorama()); if (pano) await setPanorama(pano); }
       catch (e) { console.error('[archivero] panorama (no fatal):', msg(e)); }
     }
+    // NOTA: ya NO auto-generamos avatares/razones al subir docs. Mauricio pidió que
+    // MaKo SIEMPRE pregunte (segmentación) antes de armar los avatares → la generación
+    // se hace en el paso "Avatares" (con preguntas), no en silencio acá.
     await buildEstado(true);
-    // La cascada corre en el ÚLTIMO archivo (finalizar) aunque ESE falle: el brief puede
-    // venir de los otros documentos ya subidos. Solo si avatares/razones están vacíos.
-    if (finalizar) {
-      try {
-        if ((await getAvatares()).length === 0) { const av = await generarAvatares(); if (av.ok) await setAvatares(av.avatares); }
-        if ((await getAvatares()).length > 0 && (await getRazones()).length === 0) { const rz = await generarRazones(); if (rz.ok) await setRazones(rz.razones); }
-      } catch (e) { console.error('[archivero] cascada (no fatal):', msg(e)); }
-    }
     if (!leido) return Response.json({ ok: false, error: warnings[0] || 'No pude leer el archivo.', warnings, ...(await buildEstado(false)) }, { status: 422 });
     return Response.json({ ok: true, warnings, ...(await buildEstado(false)) });
   } catch (e) {
@@ -154,10 +146,6 @@ export async function POST(req: NextRequest) {
   try { form = await req.formData(); } catch { return Response.json({ ok: false, error: 'Subida inválida' }, { status: 400 }); }
   const files = form.getAll('file').filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) return Response.json({ ok: false, error: 'No subiste ningún archivo.' }, { status: 400 });
-  // El cliente sube de a un archivo por request (límite de body de Vercel). La cascada
-  // (avatares→razones) corre solo cuando llega el ÚLTIMO ('finalizar'). Default '1' para
-  // compatibilidad (una subida suelta). El panorama sí acumula en cada archivo.
-  const finalizar = String(form.get('finalizar') ?? '1') === '1';
 
   return runWithWorkspace(ws, async () => {
     try {
@@ -190,23 +178,8 @@ export async function POST(req: NextRequest) {
         const pano = await generarPanorama(textos, await getPanorama());
         if (pano) await setPanorama(pano);
       } catch (e) { console.error('[archivero] panorama falló (no fatal):', msg(e)); }
-      // Persistir el brief efectivo ANTES de la cascada (la generación lee perfilNegocioTexto).
+      // avatares/razones NO se generan acá: se hacen en el paso Avatares (con preguntas).
       await buildEstado(true);
-      // AUTO-CASCADA (decisión de Mauricio): al terminar de subir (finalizar) dispara
-      // avatares → razones, SOLO si están vacíos (no pisa lo generado/editado; para
-      // actualizar hay "Regenerar" en cada tab). Secuencial: razones necesitan avatares.
-      if (finalizar) {
-        try {
-          if ((await getAvatares()).length === 0) {
-            const av = await generarAvatares();
-            if (av.ok) await setAvatares(av.avatares);
-          }
-          if ((await getAvatares()).length > 0 && (await getRazones()).length === 0) {
-            const rz = await generarRazones();
-            if (rz.ok) await setRazones(rz.razones);
-          }
-        } catch (e) { console.error('[archivero] auto-cascada (no fatal):', msg(e)); }
-      }
       return Response.json({ ok: true, warnings, ...(await buildEstado(false)) });
     } catch (e) {
       return Response.json({ ok: false, error: msg(e) }, { status: 500 });

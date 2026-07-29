@@ -112,7 +112,7 @@ export function Archivero({ onEstado }: {
   const [cargandoPreg, setCargandoPreg] = useState(false);
   const [otroKey, setOtroKey] = useState<string | null>(null);
   const [otroVal, setOtroVal] = useState('');
-  const [archTab, setArchTab] = useState<'archivos' | 'resumen'>('archivos'); // sub-toggle del tab (P6: Resumen adentro)
+  const [archTab, setArchTab] = useState<'resumen' | 'archivos'>('resumen'); // sub-toggle: Resumen primero (P6)
   const inputRef = useRef<HTMLInputElement>(null);
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
   const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
@@ -394,8 +394,8 @@ export function Archivero({ onEstado }: {
         {keyframes}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
-            <button type="button" onClick={() => setArchTab('archivos')} style={subPill(archTab === 'archivos')}>Archivos{hayArchivos ? ` · ${est.files.length}` : ''}</button>
             <button type="button" onClick={() => setArchTab('resumen')} style={subPill(archTab === 'resumen')}>Resumen</button>
+            <button type="button" onClick={() => setArchTab('archivos')} style={subPill(archTab === 'archivos')}>Archivos{hayArchivos ? ` · ${est.files.length}` : ''}</button>
           </div>
           <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
         </div>
