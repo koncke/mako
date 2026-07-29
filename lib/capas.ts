@@ -101,12 +101,13 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Orden del onboarding (pedido de Martín):
     //  1. fase       → el NORTE del negocio (default, sin IA); de ahí cuelga el resto.
     //  2. gemini     → token de Gemini (IA gratis) que mueve TODO el onboarding con IA.
-    //  3. archivero  → tira los docs, MaKo arma el brief.
-    //  4. avatares   → MaKo propone 3 avatares (subnichos; el "¿a quién?" de Jan).
-    //  5. angulos    → la matriz 3×3: avatares × razones (dolor/deseo/explicación).
-    //  6. integraciones (solo Meta) → primeros insights.
-    //  7. tabs       → cómo vendés (funnel simple). 8. retro → valoración/cierre.
-    onboarding: ['fase', 'gemini', 'archivero', 'avatares', 'angulos', 'integraciones', 'tabs', 'retro'],
+    //  3. archivero  → tira los docs, MaKo arma el brief (y en cascada avatares+razones).
+    //  4. avatares   → los 3 segmentos (el "¿a quién?").
+    //  5. angulos    → la MATRIZ (avatar × razón), la salida de la fábrica.
+    //  6. tabs       → cómo vendés (funnel simple).
+    //  7. integraciones (solo Meta) → AL FINAL (pedido de Mauricio: conectar Meta es lo
+    //     último; antes se ve toda la matriz). 8. retro → valoración/cierre (usa Meta).
+    onboarding: ['fase', 'gemini', 'archivero', 'avatares', 'angulos', 'tabs', 'integraciones', 'retro'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que

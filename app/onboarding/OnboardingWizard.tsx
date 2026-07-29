@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Archivero } from './Archivero';
 import { AvataresView } from './AvataresView';
-import { RazonesView } from './RazonesView';
+import { MatrizView } from './MatrizView';
 import { WizardShell, wizardInput } from '../_components/WizardShell';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { PanelMarketing, type Fact } from '../_components/PanelMarketing';
@@ -66,6 +66,7 @@ type WizardData = {
   pasos: Paso[];
   capa: { id: string; nombre: string };
   esAdmin?: boolean;
+  geminiConfig?: { configurado: boolean; mask: string };
   brief: BriefCampo[];
   briefAnswers: Record<string, string>;
   fasePreguntas: Pregunta[];
@@ -143,6 +144,7 @@ export function OnboardingWizard() {
   const [cierres, setCierres] = useState('');
   const [cash, setCash] = useState('');
   const [geminiKey, setGeminiKey] = useState('');
+  const [cambiarGemini, setCambiarGemini] = useState(false); // reemplazar un token ya cargado
   const [funnelTipos, setFunnelTipos] = useState<string[]>([]);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
@@ -276,12 +278,12 @@ export function OnboardingWizard() {
     } else if (paso === 'angulos') {
       pantallas.push({
         key: 'angulos', paso,
-        pregunta: 'Tus razones de compra',
-        sub: 'Para cada avatar encuentro 3 razones: un dolor, un deseo y una explicación. Es la matriz de la que después salen los creativos.',
+        pregunta: 'Tu matriz de anuncios',
+        sub: 'Cruzo tus avatares con sus razones de compra: cada celda es un anuncio. Toca una para ver el copy y el guion.',
         slides: SLIDES_MAKO,
       });
     } else if (paso === 'gemini') {
-      pantallas.push({ key: 'gemini', paso, pregunta: 'Conectá la IA de MaKo', sub: 'Pegá tu API key de Gemini — es gratis. Con eso MaKo lee tus documentos, arma tu perfil y hace todo el análisis del onboarding.', slides: SLIDES_MAKO });
+      pantallas.push({ key: 'gemini', paso, pregunta: 'Conecta la IA de MaKo', sub: 'Pega tu API key de Gemini — es gratis. Con eso MaKo lee tus documentos, arma tu perfil y hace todo el análisis del onboarding.', slides: SLIDES_MAKO });
     } else if (paso === 'fase') {
       // Una pantalla por pregunta (6) + la pantalla del diagnóstico. La pregunta
       // de volumen adapta su enunciado al canal de venta elegido.
@@ -365,7 +367,8 @@ export function OnboardingWizard() {
   // conectar: está recorriendo el flujo, no dando de alta un cliente real.
   const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
-    : p.key === 'gemini' ? (Boolean(geminiKey.trim()) || Boolean(data.esAdmin)) // obligatorio: sin key no sigue (la agencia sí puede saltar)
+    : p.key === 'gemini' ? (Boolean(geminiKey.trim()) || Boolean(data.esAdmin) || (Boolean(data.geminiConfig?.configurado) && !cambiarGemini)) // ya cargado → no re-pedir
+
     : true;
 
   // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
@@ -417,7 +420,11 @@ export function OnboardingWizard() {
           if (campoBrief) return avanzar(() => post('/api/onboarding', { action: 'brief', brief: { [campoBrief.key]: answers[campoBrief.key] ?? '' } }));
           // El Archivero persiste por su cuenta (sus propios endpoints); acá solo avanzamos.
           if (p.key === 'archivero' || p.key === 'avatares' || p.key === 'angulos') return avanzar();
-          if (p.key === 'gemini') return avanzar(() => post('/api/onboarding', { action: 'gemini', geminiKey: geminiKey.trim() }));
+          if (p.key === 'gemini') {
+            // Ya cargado y sin key nueva → seguir sin re-postear (no pisar el token).
+            if (data.geminiConfig?.configurado && !cambiarGemini && !geminiKey.trim()) return avanzar();
+            return avanzar(() => post('/api/onboarding', { action: 'gemini', geminiKey: geminiKey.trim() }));
+          }
           if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel-simple', funnelTipos }));
           if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
           // Última pregunta del diagnóstico: persistir antes de mostrar el resultado.
@@ -480,8 +487,8 @@ export function OnboardingWizard() {
         {/* ── Avatares: MaKo propone 3 subnichos desde el brief (self-contained) ── */}
         {p.key === 'avatares' && <AvataresView />}
 
-        {/* ── Razones de compra: la matriz avatares × razones (self-contained) ── */}
-        {p.key === 'angulos' && <RazonesView />}
+        {/* ── La matriz de anuncios (avatar × razón), self-contained ── */}
+        {p.key === 'angulos' && <MatrizView />}
 
         {/* ── Brief: una pregunta, un campo ── */}
         {campoBrief && (campoBrief.type === 'textarea'
@@ -510,10 +517,23 @@ export function OnboardingWizard() {
         {/* ── Gemini: token de la IA (obligatorio) ── */}
         {p.key === 'gemini' && (
           <div style={{ textAlign: 'left' }}>
-            <input style={{ ...wizardInput, textAlign: 'left' }} value={geminiKey} placeholder="AIza…" autoFocus onChange={(e) => setGeminiKey(e.target.value)} />
-            <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 12, lineHeight: 1.6 }}>
-              La sacás gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>aistudio.google.com/apikey</a> → “Create API key”. La verifico al toque.
-            </div>
+            {data.geminiConfig?.configurado && !cambiarGemini ? (
+              // Ya cargado: se muestra enmascarado con el ojito (como en Integraciones).
+              <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 15px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flex: 'none' }}><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" /><circle cx="12" cy="12" r="3" /></svg>
+                <span style={{ fontFamily: MONO, fontSize: 14, color: 'var(--ink)', flex: 1, letterSpacing: '.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.geminiConfig.mask || 'AIza••••••••'}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)', flex: 'none' }}>✓ Conectada</span>
+                <button type="button" onClick={() => { setCambiarGemini(true); setGeminiKey(''); }} style={{ border: 'none', background: 'none', color: 'var(--dim)', fontSize: 12.5, textDecoration: 'underline', cursor: 'pointer', flex: 'none' }}>Cambiar</button>
+              </div>
+            ) : (
+              <>
+                <input style={{ ...wizardInput, textAlign: 'left' }} value={geminiKey} placeholder="AIza…" autoFocus onChange={(e) => setGeminiKey(e.target.value)} />
+                <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 12, lineHeight: 1.6 }}>
+                  La sacas gratis en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>aistudio.google.com/apikey</a> → “Create API key”. La verifico al toque.
+                  {data.geminiConfig?.configurado && <> · <button type="button" onClick={() => { setCambiarGemini(false); setGeminiKey(''); }} style={{ border: 'none', background: 'none', color: 'var(--primary)', fontWeight: 600, cursor: 'pointer', padding: 0, fontSize: 12.5 }}>Cancelar</button></>}
+                </div>
+              </>
+            )}
           </div>
         )}
 

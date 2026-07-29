@@ -115,6 +115,9 @@ export async function GET() {
       // prueba)? El wizard le muestra atajos: saltar sin conectar, usar las
       // llaves de Mauricio para simular, y salir de la vista.
       esAdmin: Boolean(await getSesionAdmin()),
+      // Estado del token de Gemini (para NO re-pedirlo si ya lo cargó: se muestra
+      // enmascarado con el ojito, igual que en Integraciones).
+      geminiConfig: await estadoCampo('GEMINI_API_KEY'),
       // El brief se pregunta de a UNA por pantalla, así que viaja aplanado y ya
       // filtrado por la capa: el wizard no tiene que saber de grupos.
       brief: brief.flatMap((g) => g.fields.map((f) => ({
