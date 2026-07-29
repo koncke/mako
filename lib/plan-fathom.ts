@@ -301,7 +301,14 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     motivo: opts.usoMotivo || 'Extraer tareas', onUsage: (u) => { usage = u; },
   });
   let obj: Record<string, unknown>;
-  try { obj = parseJsonObject(raw); } catch { return { tareas: [], dudas: [], usage, participantes }; }
+  // Un JSON que no parsea devuelve lo mismo que una reunión sin compromisos: cero
+  // tareas. Sin este log, una respuesta cortada (o un modelo que se fue por las ramas)
+  // se lee como "la reunión no dejó nada" y nadie se entera de que falló.
+  try { obj = parseJsonObject(raw); }
+  catch (e) {
+    console.error(`[plan-fathom] la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
+    return { tareas: [], dudas: [], usage, participantes };
+  }
   return { tareas: coerceCandidatas(obj, proyectos, yo, participantes), dudas: coerceDudas(obj), usage, participantes };
 }
 

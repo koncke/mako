@@ -22,7 +22,7 @@ import 'server-only';
 import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
 import { crearPropuesta, existePropuestaRef, type PropuestaTarea } from './plan-propuesta';
 import { glosarioTexto } from './glosario';
-import { setSetting } from './settings';
+import { getSetting, setSetting } from './settings';
 import { emitirDelCatalogo } from './avisos';
 import { listarUsuarios } from './usuarios';
 import { getWorkspace } from './workspace';
@@ -30,6 +30,15 @@ import { listPlanBoard } from './plan-board';
 import { listCategorias } from './todo';
 
 const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.vercel.app').replace(/\/$/, '');
+
+/**
+ * Marca que YA miramos esta grabación, sin importar si dejó tareas o no.
+ * El candado no puede ser solo "existe el borrador": una reunión que no dejó ningún
+ * compromiso no genera borrador, así que sin esta marca el cron la volvía a leer
+ * ENTERA cada hora durante toda la ventana (medido: una corrida se comió la cuota
+ * gratis de Gemini y cayó a Claude, US$0,26 para devolver cero tareas).
+ */
+const KEY_VISTA = (recordingId: number): string => `mako.reunion.auto.${recordingId}`;
 
 export type ResultadoReunionesAuto = {
   miradas: number; deEquipo: number; nuevas: number; conTareas: number; tareas: number; errores: number;
@@ -98,7 +107,11 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   for (const r of deEquipo) {
     if (procesadas >= max) break;
     const ref = `fathom:${r.recordingId}`;
-    if (await existePropuestaRef(ref, ws).catch(() => true)) continue; // ya la vio (o no pudimos chequear: mejor no duplicar)
+    // Ya la vio: o dejó borrador, o la leímos y no había nada que anotar. En los dos
+    // casos no se vuelve a gastar el análisis. (Ante un error de lectura, saltear:
+    // mejor perderse una reunión que duplicarla o quemar tokens en loop.)
+    if (await existePropuestaRef(ref, ws).catch(() => true)) continue;
+    if (await getSetting(KEY_VISTA(r.recordingId)).catch(() => 'error')) continue;
     out.nuevas += 1;
     procesadas += 1;
     try {
@@ -106,10 +119,16 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       const { tareas } = await extraerTareasDeReunion(r.recordingId, proyectos, yo, {
         glosario, participantes: r.participantes, usoMotivo: 'Reunión nueva → tareas al plan (automático)',
       });
+      // Quede o no algo, la reunión ya fue leída: que el próximo cron no la relea.
+      await setSetting(KEY_VISTA(r.recordingId), new Date().toISOString()).catch(() => {});
       // El cache es también la lista blanca de a quién se le puede mandar algo de esta
       // reunión (/api/plan-reunion), y evita que re-abrirla en la app vuelva a cobrar.
-      await setSetting(cacheKeyReunion(r.recordingId), JSON.stringify({ tareas, participantes: r.participantes, ts: Date.now() })).catch(() => {});
-      if (!tareas.length) continue;
+      // SOLO si hubo tareas: cachear un resultado vacío le serviría ese vacío al botón
+      // manual ("MaKo no encontró nada") escondiendo que fue una corrida fallida.
+      if (tareas.length) {
+        await setSetting(cacheKeyReunion(r.recordingId), JSON.stringify({ tareas, participantes: r.participantes, ts: Date.now() })).catch(() => {});
+      }
+      if (!tareas.length) { console.warn(`[reunion-auto] ws=${ws} recording=${r.recordingId} «${r.titulo}»: la IA no devolvió tareas`); continue; }
 
       const nombreProy = new Map(proyectos.map((p) => [p.id, p.nombre]));
       const propuestas: PropuestaTarea[] = tareas.map((t) => ({

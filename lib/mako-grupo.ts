@@ -332,16 +332,28 @@ export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: numb
 
 export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string };
 
+/** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). */
+function detalleEv(body: unknown): string {
+  if (typeof body === 'string') return body.slice(0, 200);
+  const b = (body ?? {}) as { response?: { message?: unknown }; message?: unknown; error?: unknown };
+  const m = b.response?.message ?? b.message ?? b.error ?? body;
+  const txt = Array.isArray(m) ? m.join(' · ') : typeof m === 'string' ? m : JSON.stringify(m);
+  return (txt || 'sin detalle').slice(0, 200);
+}
+
 /** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
 export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<EnvioGrupo> {
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
   const jid = await getGrupoJidMaKo(ws);
   if (!jid) return { ok: false, error: 'el workspace no tiene grupo de MaKo todavía' };
   const delay = Math.round(Math.min(1500 + texto.length * 45, 9000) * (0.8 + Math.random() * 0.4));
-  const r = await ev(`/message/sendText/${await instanciaVoz()}`, {
+  const instancia = await instanciaVoz();
+  const r = await ev(`/message/sendText/${instancia}`, {
     method: 'POST', body: JSON.stringify({ number: jid, text: texto, delay }),
   });
-  if (!r.ok) return { ok: false, error: `Evolution ${r.status}` };
+  // El motivo, no solo el número: un 400 acá casi siempre es "la sesión de esa
+  // instancia está caída" y con "Evolution 400" a secas eso no se deduce.
+  if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}` };
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   return { ok: true, id };
 }
