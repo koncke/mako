@@ -161,7 +161,7 @@ type Body = {
   canal?: string;
   geminiKey?: string;
   funnelTipos?: string[];
-  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'avatares' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
+  step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
   skip?: boolean;

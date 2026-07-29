@@ -167,7 +167,7 @@ REGLAS:
 - IDIOMA: español NEUTRO/MEXICANO, de "tú", sin voseo argentino.
 Devolvé SOLO el texto del guion (sin JSON).`;
 
-export async function generarGuion(celdaId: string, formatoVideoTexto?: string): Promise<{ ok: true; guion: string } | { ok: false; error: string }> {
+export async function generarGuion(celdaId: string, formatoVideoTexto?: string, timeoutMs?: number): Promise<{ ok: true; guion: string } | { ok: false; error: string }> {
   try {
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
@@ -181,7 +181,7 @@ COPY/HOOK: ${celda.copy}
 ${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n` : ''}${formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${formatoVideoTexto}\n` : ''}
 Escribí el guion del video.`;
     const guion = await chatCheapCascade({
-      system: sys, user, maxTokens: 1500,
+      system: sys, user, maxTokens: 1500, timeoutMs,
       feature: 'razones', motivo: 'Guion de video de una celda de la matriz',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
     });

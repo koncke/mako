@@ -48,11 +48,14 @@ export async function POST(req: NextRequest) {
         const id = s(body.id);
         // El guion sigue el ÁNGULO de video de la celda. Si no hay uno elegido, que la
         // IA elija el mejor antes de escribir (best-effort: si falla, guion genérico).
+        // Timeouts acotados por proveedor: son DOS cascadas en serie (elegir + generar),
+        // así que el peor caso tiene que quedar holgado bajo maxDuration=120. El ángulo
+        // se persiste apenas se elige, así que un reintento tras un corte no lo recalcula.
         let anguloVideo = (await getRazones()).find((r) => r.id === id)?.anguloVideo || '';
-        if (!anguloVideo) { const a = await elegirAngulo(id, 'video'); if (a.ok) anguloVideo = a.formatoId; }
+        if (!anguloVideo) { const a = await elegirAngulo(id, 'video', 15000); if (a.ok) anguloVideo = a.formatoId; }
         const fmt = anguloVideo ? formatoPorId(anguloVideo) : undefined;
         const formatoTexto = fmt ? `${fmt.nombre} — ${fmt.descripcion} (ej: ${fmt.ejemplo})` : undefined;
-        const r = await generarGuion(id, formatoTexto);
+        const r = await generarGuion(id, formatoTexto, 25000);
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
         return Response.json({ ok: true, ...(await estado()) });
       }

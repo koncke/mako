@@ -135,7 +135,7 @@ export async function recomendarFormatos(): Promise<GenResult> {
 // pop-up y el ángulo que sigue el guion. Envelope {ok}; nunca lanza.
 export type AnguloResult = { ok: true; formatoId: string; formato: FormatoAngulo } | { ok: false; error: string };
 
-export async function elegirAngulo(celdaId: string, medio: Medio): Promise<AnguloResult> {
+export async function elegirAngulo(celdaId: string, medio: Medio, timeoutMs?: number): Promise<AnguloResult> {
   try {
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
@@ -158,7 +158,7 @@ ${biblioteca}
 Devolvé solo el JSON.`;
     const leerId = (t: string): string => { try { return str(parseJsonObject(t).formatoId); } catch { return ''; } };
     const text = await chatCheapCascade({
-      system: sys, user, json: true, maxTokens: 300,
+      system: sys, user, json: true, maxTokens: 300, timeoutMs,
       feature: 'angulos-formatos', motivo: `Elegir formato de ${medio} para una celda`,
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => ids.has(leerId(t)),
     });
