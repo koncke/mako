@@ -35,6 +35,7 @@ import {
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, type TipoReunion } from './reunion-clasificar';
+import { resolverDueño } from './tarea-dueno';
 
 export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 
@@ -144,7 +145,7 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
 }
 
 // ── Prompt (editable vía prompt-registry) ─────────────────────────────────────
-export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA:
+export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (sin markdown) con esta forma EXACTA (el array lleva TANTAS tareas como haya — los tres de abajo son solo para mostrarte la forma y el nivel de granularidad):
 {
   "tareas": [
     {
@@ -155,7 +156,9 @@ export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON v�
       "dueño": "<nombre de la persona que asumió esta tarea en la reunión, o '' si no quedó claro>",
       "dueñoEmail": "<el email EXACTO de esa persona, copiado de la lista de PARTICIPANTES; '' si no podés atribuirla a ninguno>",
       "esMio": <true si la tarea es de QUIEN MIRA EL TABLERO (te digo su nombre abajo); false si es de otra persona>
-    }
+    },
+    { "titulo": "Cambiar la foto de perfil de Instagram", "detalle": "…", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true },
+    { "titulo": "Reescribir la bio de Instagram apuntando al nicho", "detalle": "…", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true }
   ],
   "dudas": [
     { "termino": "<nombre propio o término que se dijo, NO está en el glosario y no sabés con certeza qué es>", "porque": "<qué te traba, ej. 'no sé si es una persona, un proyecto o una herramienta'>" }
@@ -168,14 +171,22 @@ export const PLAN_FATHOM_SYSTEM_TEMPLATE = `Sos MaKo. Te paso el resumen y la tr
 QUÉ SÍ es una tarea (capturá TODAS las reales, no seas tacaño):
 - Cualquier PRÓXIMO PASO o compromiso que salga de la reunión, aunque esté dicho informalmente: "rehacer el creativo", "llamar al proveedor", "armar la landing de X", pero TAMBIÉN "estaría bueno probar Y", "yo me encargo de Z", "falta cerrar W", "quedamos en revisar V". Todo eso son tareas.
 - Si alguien dice que va a hacer algo, o que HAY que hacer algo concreto, es una tarea — aunque no le pongan fecha ni suene a orden formal.
+- CONSULTORÍAS / ASESORÍAS (importantísimo): cuando alguien ASESORA al otro, sus RECOMENDACIONES son tareas del asesorado, aunque nadie diga "me comprometo". "Sacá el plan grupal", "el video tiene que abrir con el dolor", "cambiá el precio a 3 cuotas", "armate el canal de YouTube de micronicho" → todas tareas. En una consultoría el 90% del valor está acá: si solo anotás los "yo te mando tal cosa", te comés casi todo.
+- Una DECISIÓN tomada que exige ejecutar también es tarea ("dejamos de vender el grupal" → hay que sacarlo de la landing y del pitch).
 - Una reunión de trabajo casi SIEMPRE deja varios próximos pasos. Si te sale la lista vacía, releé: seguro te comiste alguno.
 
+NO AGRUPES, ENUMERÁ. Una tarea = UNA acción ejecutable. Si en la charla se dijeron tres pasos concretos de lo mismo (armar el perfil, cambiar la bio, subir las historias destacadas), son TRES tareas, no una que diga "optimizar el perfil". Nunca junten varias acciones en un título paraguas para que la lista quede corta: una lista de 30 tareas específicas es MUCHO mejor que una de 8 genéricas. No hay tope: si la reunión dejó 40 cosas, devolvé 40.
+
 QUÉ NO es una tarea (IGNORALO):
-- Comentarios, opiniones o data pura sin ninguna acción atrás.
+- Data pura o un comentario sin ninguna acción atrás ("el CPL está en 7 dólares" a secas). OJO: una RECOMENDACIÓN no es "una opinión" — es una tarea. Si alguien dice qué habría que hacer, va.
 - Cosas ya hechas o descartadas en la misma reunión.
 - Deseos totalmente vagos SIN nada concreto ("hay que vender más" a secas). Pero "hay que rehacer el copy de la campaña" SÍ es tarea.
 
-DUEÑO (importante): a CADA tarea ponele el "dueño" — la persona que la asumió en la reunión — y marcá "esMio": true SOLO si esa persona es QUIEN MIRA EL TABLERO (te paso su nombre en el user). Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: marcalas, que después se reparten.
+ESCALA (para que calibres): una reunión de trabajo deja del orden de UNA tarea cada 3 minutos. Una charla de 30 min deja ~10; una de dos horas deja 30, 40 o más. Si de una reunión larga te salen menos de 15, es que te quedaste corto: volvé a recorrerla por bloques y sacá lo que falta.
+
+DUEÑO (importante): el dueño es QUIEN TIENE QUE HACERLA, no quien la propuso. Si un consultor le recomienda algo al otro, el dueño es EL OTRO (el que va a ejecutar), no el consultor. Ponele el "dueño" a CADA tarea y marcá "esMio": true SOLO si esa persona es QUIEN MIRA EL TABLERO (te paso su nombre y su email en el user).
+
+OJO CON EL NOMBRE: el nombre con el que la transcripción etiqueta a alguien puede no ser idéntico al que te paso (apellido distinto, apodo, nombre de la cuenta de la grabación). Si el EMAIL coincide, o es evidentemente la misma persona, es la misma persona → "esMio": true. Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: marcalas, que después se reparten.
 
 DUEÑO EMAIL (clave para repartirlas): te paso la lista de PARTICIPANTES con nombre y email. Cuando el dueño de una tarea es uno de ellos, copiá su email TAL CUAL en "dueñoEmail" — con eso la app le manda sus tareas por WhatsApp/mail o se las carga en su propio plan. Si no podés atribuirla con seguridad a un participante de la lista, dejá "dueñoEmail": "" (NUNCA inventes un email ni lo deduzcas del nombre).
 
@@ -213,42 +224,23 @@ Sacá los action items concretos, atribuí cada uno a su dueño, y devolvé el J
 const PRIOS: PlanPrioridad[] = ['alta', 'media', 'baja', 'futuro'];
 const prioridadOk = (p: unknown): PlanPrioridad => (PRIOS.includes(p as PlanPrioridad) ? (p as PlanPrioridad) : 'media');
 
-// Normaliza el nombre de una persona para comparar dueños (minúsculas, sin acentos).
-const normNombre = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-
 function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[], yo: Yo, participantes: Participante[] = []): TareaCandidata[] {
   const ids = new Set(proyectos.map((p) => p.id));
-  const yoNombre = normNombre(yo.nombre);
-  const yoEmail = yo.email.trim().toLowerCase();
-  // Emails REALES de la reunión: el "dueñoEmail" que devuelve el modelo solo vale si
-  // está acá (si no, es un email inventado y le mandaríamos las tareas a cualquiera).
-  const porEmail = new Map(participantes.map((p) => [p.email, p]));
-  const porNombre = new Map(participantes.filter((p) => p.nombre).map((p) => [normNombre(p.nombre), p.email]));
   const arr = Array.isArray(obj.tareas) ? obj.tareas : [];
   return arr
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
     .map((o) => {
       const pid = typeof o.proyectoId === 'string' && ids.has(o.proyectoId) ? o.proyectoId : null;
-      const dueño = String(o.dueño ?? '').trim().slice(0, 80);
-      // esDeOtro = el modelo dijo esMio:false. Doble red de seguridad: si el dueño
-      // matchea claramente al que mira el tablero (nombre/email), es MÍA aunque el
-      // modelo se haya confundido — y viceversa, nunca marcar mío algo con dueño ajeno.
-      const dn = normNombre(dueño);
-      const pareceMio = !!dn && (dn === yoNombre || (!!yoNombre && (dn.includes(yoNombre) || yoNombre.includes(dn))) || dueño.toLowerCase() === yoEmail);
-      const esDeOtro = o.esMio === true ? false : o.esMio === false ? !pareceMio ? true : false : (!!dn && !pareceMio);
-      // Email del dueño: el que dio el modelo si es un participante real; si no,
-      // se rescata cruzando el NOMBRE contra la lista de invitados.
-      const propuesto = String(o.dueñoEmail ?? '').trim().toLowerCase();
-      const dueñoEmail = porEmail.has(propuesto) ? propuesto : (dn ? porNombre.get(dn) ?? '' : '');
+      // Quién es el dueño y si es MÍA: regla propia y testeada (lib/tarea-dueno).
+      const d = resolverDueño(o, yo, participantes);
       return {
         titulo: String(o.titulo ?? '').trim().slice(0, 160),
         detalle: String(o.detalle ?? '').trim().slice(0, 600),
         prioridad: prioridadOk(o.prioridad),
         proyectoId: pid,
-        dueño: dueño || (dueñoEmail ? porEmail.get(dueñoEmail)?.nombre ?? '' : ''),
-        // El email de quien mira el tablero jamás cuenta como "de otro".
-        dueñoEmail: dueñoEmail === yoEmail ? '' : dueñoEmail,
-        esDeOtro,
+        dueño: d.dueño,
+        dueñoEmail: d.dueñoEmail,
+        esDeOtro: d.esDeOtro,
       };
     })
     .filter((t) => t.titulo);
@@ -272,13 +264,102 @@ function coerceDudas(obj: Record<string, unknown>): DudaTermino[] {
   return out;
 }
 
-export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; participantes?: Participante[] };
+export type ExtractOut = { tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo; participantes?: Participante[]; partes?: number };
 export type ExtractOpts = { glosario?: string; usoMotivo?: string; participantes?: Participante[] };
+
+// ── Troceado del transcript ──────────────────────────────────────────────────
+// UNA sola llamada no puede con una reunión larga, y el síntoma es engañoso: no
+// falla, RESUME. Caso medido (consultoría de 122 min, 145k chars): devolvió 8 tareas
+// —correctas pero agrupadas— cuando había más de 30, y gastó 3.795 de 4.500 tokens de
+// salida. O sea: se quedó sin lugar para escribir y agrupó para que le entrara.
+//
+// Los números salieron de medir ESA reunión con tres lectores independientes: 95
+// tareas reales. A ~130 tokens por tarea son 12.400 tokens de salida — no entran en
+// una pasada ni subiendo el tope, y encima el modelo gasta ~2.900 pensando.
+//
+// La solución es trocear y sumar: cada parte tiene su propio presupuesto de salida.
+// 25k chars ≈ 7k tokens de entrada, unos 20 min de charla: un tramo donde enumerar
+// 20 tareas es natural y ningún modelo necesita comprimir para que le entren.
+const CHUNK_CHARS = 25000;
+// Solape entre partes: una tarea que se dice justo en el corte tiene que aparecer
+// entera en alguna. El dedup posterior se encarga de la repetición.
+const CHUNK_SOLAPE = 2000;
+
+/** Corta el texto en partes de ~CHUNK_CHARS respetando saltos de línea. */
+function trocear(texto: string): string[] {
+  if (texto.length <= CHUNK_CHARS * 1.25) return [texto];
+  const partes: string[] = [];
+  let i = 0;
+  while (i < texto.length) {
+    let fin = Math.min(texto.length, i + CHUNK_CHARS);
+    if (fin < texto.length) {
+      // Cortar en el último salto de línea del tramo (no en medio de una frase).
+      const corte = texto.lastIndexOf('\n', fin);
+      if (corte > i + CHUNK_CHARS * 0.6) fin = corte;
+    }
+    partes.push(texto.slice(i, fin));
+    if (fin >= texto.length) break;
+    i = Math.max(fin - CHUNK_SOLAPE, i + 1);
+  }
+  return partes;
+}
+
+/** Título normalizado (sin acentos, sin puntuación) — base del dedup. */
+const normTitulo = (s: string): string =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+// Palabras que no distinguen una tarea de otra (si dos títulos comparten solo estas,
+// no son la misma tarea).
+const VACIAS = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y', 'o', 'en', 'para', 'por', 'con', 'un', 'una', 'al', 'a', 'que', 'su', 'sus', 'lo', 'sobre', 'como']);
+const palabrasClave = (titulo: string): Set<string> =>
+  new Set(normTitulo(titulo).split(' ').filter((w) => w.length > 2 && !VACIAS.has(w)));
+
+/**
+ * ¿Son la misma tarea dicha de dos formas? Pasa siempre por el SOLAPE entre partes:
+ * "Estudiar el framework Epiphany Bridge de Russell Branson" y "Estudiar el framework
+ * de historia de origen (Epiphany Bridge) de Russell Branson" son una sola.
+ *
+ * Jaccard sobre palabras con contenido (sin IA: es un juicio de parecido léxico, y una
+ * pasada de IA de "consolidá lo parecido" es justo el mecanismo que producía 8 tareas
+ * en vez de 95). Umbral alto: preferimos que se cuele un duplicado —que el usuario
+ * destilda en un segundo— antes que perder una tarea real.
+ */
+function mismaTarea(a: string, b: string): boolean {
+  const A = palabrasClave(a), B = palabrasClave(b);
+  if (!A.size || !B.size) return false;
+  let comunes = 0;
+  for (const w of A) if (B.has(w)) comunes += 1;
+  const jaccard = comunes / (A.size + B.size - comunes);
+  if (jaccard >= 0.7) return true;
+  // Uno contenido en el otro y con al menos 3 palabras propias en común: mismo pedido
+  // dicho más corto ("Rediseñar la landing" vs "Rediseñar la landing page del VSL").
+  const chico = A.size <= B.size ? A : B, grande = A.size <= B.size ? B : A;
+  if (chico.size >= 3 && comunes === chico.size) return true;
+  void grande;
+  return false;
+}
+
+/** Suma el gasto de varias pasadas en un solo UsageInfo (para el panel de costo). */
+function sumarUsage(us: Array<UsageInfo | undefined>): UsageInfo | undefined {
+  const vivos = us.filter((u): u is UsageInfo => !!u);
+  if (!vivos.length) return undefined;
+  return {
+    inputTokens: vivos.reduce((s, u) => s + u.inputTokens, 0),
+    outputTokens: vivos.reduce((s, u) => s + u.outputTokens, 0),
+    cacheCreation: vivos.reduce((s, u) => s + u.cacheCreation, 0),
+    cacheRead: vivos.reduce((s, u) => s + u.cacheRead, 0),
+    costUsd: vivos.reduce((s, u) => s + u.costUsd, 0),
+    model: vivos[0].model,
+  };
+}
 
 /**
  * NÚCLEO de extracción: de un TEXTO ya provisto a tareas candidatas. Lo comparten
  * la extracción de Fathom (baja el transcript) y la subida de archivos (punto 5):
  * un md/transcript sube, se lee con file.text() y entra por acá mismo.
+ *
+ * Si el texto es largo se procesa POR PARTES en paralelo y se fusionan los resultados
+ * (ver trocear): así una reunión de dos horas no se resume en ocho tarjetas.
  */
 export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
   if (!texto.trim()) return { tareas: [], dudas: [] };
@@ -293,29 +374,64 @@ export async function extraerTareasDeTexto(texto: string, proyectos: ProyectoRef
     : '(no tengo la lista de invitados — dejá "dueñoEmail" siempre en "")';
 
   const sys = await brandSystem(await renderPrompt('plan-fathom.extraer.system', PLAN_FATHOM_SYSTEM_TEMPLATE, { jsonShape: PLAN_FATHOM_JSON_SHAPE }));
-  const user = await renderPrompt('plan-fathom.extraer.user', PLAN_FATHOM_USER_TEMPLATE, {
-    yo: `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`,
-    participantes: listaParticipantes,
-    glosario: opts.glosario?.trim() || '(sin glosario cargado todavía)',
-    proyectos: listaProyectos,
-    reunion: contenidoNoConfiable(texto, 'reunion'),
-  });
+  const partes = trocear(texto);
+  const glosario = opts.glosario?.trim() || '(sin glosario cargado todavía)';
+  const yoTxt = `${yo.nombre || 'el usuario'}${yo.email ? ` (${yo.email})` : ''}`;
 
-  let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
-    effort: 'high', maxTokens: 4500, feature: 'plan-fathom',
-    motivo: opts.usoMotivo || 'Extraer tareas', onUsage: (u) => { usage = u; },
-  });
-  let obj: Record<string, unknown>;
-  // Un JSON que no parsea devuelve lo mismo que una reunión sin compromisos: cero
-  // tareas. Sin este log, una respuesta cortada (o un modelo que se fue por las ramas)
-  // se lee como "la reunión no dejó nada" y nadie se entera de que falló.
-  try { obj = parseJsonObject(raw); }
-  catch (e) {
-    console.error(`[plan-fathom] la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
-    return { tareas: [], dudas: [], usage, participantes };
+  const unaParte = async (parte: string, i: number): Promise<{ tareas: TareaCandidata[]; dudas: DudaTermino[]; usage?: UsageInfo }> => {
+    const cabecera = partes.length > 1
+      ? `⚠️ Esto es la PARTE ${i + 1} de ${partes.length} de una reunión larga. Sacá los action items de ESTA parte (no te preocupes si algo se repite con otra parte: después fusionamos). NO resumas ni agrupes por ser un fragmento.\n\n`
+      : '';
+    const user = await renderPrompt('plan-fathom.extraer.user', PLAN_FATHOM_USER_TEMPLATE, {
+      yo: yoTxt,
+      participantes: listaParticipantes,
+      glosario,
+      proyectos: listaProyectos,
+      reunion: cabecera + contenidoNoConfiable(parte, 'reunion'),
+    });
+    let usage: UsageInfo | undefined;
+    const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
+      // 9k de salida POR PARTE. Con 4.500 para la reunión entera el modelo se quedaba
+      // sin lugar y AGRUPABA para que le entraran: medido, gastó 2.900 pensando y le
+      // quedaron ~1.500 para escribir = techo de 11-13 tareas pase lo que pase. Acá,
+      // descontando el pensamiento, quedan ~45 tareas de margen por parte.
+      effort: 'high', maxTokens: 9000, feature: 'plan-fathom',
+      motivo: partes.length > 1 ? `${opts.usoMotivo || 'Extraer tareas'} (parte ${i + 1}/${partes.length})` : (opts.usoMotivo || 'Extraer tareas'),
+      onUsage: (u) => { usage = u; },
+    });
+    let obj: Record<string, unknown>;
+    // Un JSON que no parsea devuelve lo mismo que una reunión sin compromisos: cero
+    // tareas. Sin este log, una respuesta cortada (o un modelo que se fue por las ramas)
+    // se lee como "la reunión no dejó nada" y nadie se entera de que falló.
+    try { obj = parseJsonObject(raw); }
+    catch (e) {
+      console.error(`[plan-fathom] parte ${i + 1}/${partes.length}: la IA no devolvió JSON válido (${raw.length} chars): ${e instanceof Error ? e.message : String(e)} · arranca con: ${raw.slice(0, 120)}`);
+      return { tareas: [], dudas: [], usage };
+    }
+    return { tareas: coerceCandidatas(obj, proyectos, yo, participantes), dudas: coerceDudas(obj), usage };
+  };
+
+  // En paralelo: son llamadas independientes y así una reunión de 2h no tarda 2 minutos.
+  const salidas = await Promise.all(partes.map((p, i) => unaParte(p, i).catch((e) => {
+    console.error(`[plan-fathom] parte ${i + 1}/${partes.length} falló: ${e instanceof Error ? e.message : String(e)}`);
+    return { tareas: [] as TareaCandidata[], dudas: [] as DudaTermino[], usage: undefined };
+  })));
+
+  // Fusión: el solape entre partes repite tareas (a veces con otras palabras). Ante
+  // duplicado gana la que trae más detalle; el orden de la charla se conserva.
+  const fusionadas: TareaCandidata[] = [];
+  for (const s of salidas) {
+    for (const t of s.tareas) {
+      if (!normTitulo(t.titulo)) continue;
+      const i = fusionadas.findIndex((f) => mismaTarea(f.titulo, t.titulo));
+      if (i < 0) { fusionadas.push(t); continue; }
+      if ((t.detalle?.length ?? 0) > (fusionadas[i].detalle?.length ?? 0)) fusionadas[i] = t;
+    }
   }
-  return { tareas: coerceCandidatas(obj, proyectos, yo, participantes), dudas: coerceDudas(obj), usage, participantes };
+  const dudas = coerceDudas({ dudas: salidas.flatMap((s) => s.dudas) });
+  const total = salidas.reduce((s, x) => s + x.tareas.length, 0);
+  if (partes.length > 1) console.log(`[plan-fathom] ${partes.length} partes · ${total} tareas brutas → ${fusionadas.length} después de fusionar`);
+  return { tareas: fusionadas, dudas, usage: sumarUsage(salidas.map((s) => s.usage)), participantes, partes: partes.length };
 }
 
 export async function extraerTareasDeReunion(recordingId: number, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
@@ -329,9 +445,12 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   const resumen = summary?.markdown_formatted?.trim() ?? '';
   // ANTES 14000 chars: en una reunión de 105' (~100k chars) eso cortaba el 86% — solo
   // llegaba el arranque (chit-chat) y los action items REALES quedaban afuera → "no
-  // encontró nada". Probado con la reunión de Mau: 14k → 5 tareas del intro; completo →
-  // 16 reales. 120k cubre ~2h; se manda 1 vez por reunión (se cachea). Feedback jul-19.
-  const texto = transcriptToText(transcript, 120000);
+  // encontró nada". Después 120k, que ya cubría ~2h… pero una consultoría de 122 min
+  // dio 145k y volvió a perderse el 18% FINAL, que es justo donde se cierran los
+  // próximos pasos. Ahora el largo no lo resuelve el recorte sino el troceado
+  // (extraerTareasDeTexto): el tope queda como red de seguridad para no bajar un
+  // transcript absurdo, en ~6 horas de charla.
+  const texto = transcriptToText(transcript, 400000);
   if (!resumen && !texto) return { tareas: [], dudas: [] };
 
   // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al

@@ -303,7 +303,10 @@ export async function cruzarCandidatas(
   const sys = await brandSystem(await renderPrompt('guardian.cruce.system', CRUCE_SYSTEM_TEMPLATE, { jsonShape: CRUCE_JSON_SHAPE }));
   const user = await renderPrompt('guardian.cruce.user', CRUCE_USER_TEMPLATE, { candidatas: contenidoNoConfiable(cands, 'candidatas'), plan: contenidoNoConfiable(plan, 'plan') });
   let usage: UsageInfo | undefined;
-  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 1500, feature: 'mako-guardian', motivo: usoMotivo || 'Cruzar candidatas con el plan', onUsage: (u) => { usage = u; } });
+  // 4000 y no 1500: ahora una reunión larga puede traer 40 candidatas, y con el tope
+  // viejo la respuesta se cortaba → el catch devolvía {cruces: []} y el gate
+  // anti-duplicados quedaba CIEGO en silencio (dejando entrar tareas repetidas).
+  const raw = await chatClaude(sys, [{ role: 'user', content: user }], { effort: 'high', maxTokens: 4000, feature: 'mako-guardian', motivo: usoMotivo || 'Cruzar candidatas con el plan', onUsage: (u) => { usage = u; } });
   let obj: Record<string, unknown>;
   try { obj = parseJsonObject(raw); } catch { return { cruces: [], usage }; }
   const idsOk = new Set(existentes.map((e) => e.id));

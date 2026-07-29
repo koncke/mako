@@ -102,6 +102,12 @@ export async function chatClaude(
   // Si hubo fallback desde la IA barata, el motivo lo dice → el historial no miente.
   const usage = await recordUsage(opts.feature ?? 'otros', String(payload.model), body.usage, (opts.motivo ?? '') + fallbackNota);
   opts.onUsage?.(usage);
+  // Corte por tope de salida: el JSON llega mocho, el parse falla y el caller ve cero
+  // resultados sin saber por qué. Pasó de verdad (una extracción con out=4500 exacto
+  // devolvió 0 tareas y nadie se enteró).
+  if (body.stop_reason && body.stop_reason !== 'end_turn' && body.stop_reason !== 'tool_use') {
+    console.warn(`[anthropic] ${payload.model} terminó por "${body.stop_reason}" (${opts.feature ?? ''}) — respuesta posiblemente cortada; maxTokens era ${payload.max_tokens}`);
+  }
   // Quedarse solo con el texto (descartar los bloques de "thinking").
   const text = (body.content ?? [])
     .filter((c: { type?: string }) => c.type === 'text')

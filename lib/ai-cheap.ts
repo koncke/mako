@@ -155,6 +155,11 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
   void recordUsage(opts.feature || 'ia-barata', model, data.usage, opts.motivo, p.nombre);
+  // Si la respuesta se CORTÓ por llegar al tope, decilo. Era el punto ciego que hacía
+  // indistinguible "la reunión no dejaba más tareas" de "se quedó sin lugar para
+  // escribirlas": el JSON llega mocho, el parse falla y quedan cero tareas sin motivo.
+  const fin = data.choices?.[0]?.finish_reason;
+  if (fin && fin !== 'stop') console.warn(`[ia-barata] ${p.nombre}/${model} terminó por "${fin}" (${opts.feature ?? ''}) — la respuesta puede venir cortada; subí maxTokens (era ${opts.maxTokens ?? 512})`);
   return (data.choices?.[0]?.message?.content ?? '').trim();
 }
 

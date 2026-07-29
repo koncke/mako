@@ -19,7 +19,10 @@ import { esFechaValida } from '@/lib/date-utils';
 import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+// 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
+// varias llamadas en paralelo y el timeout interno de la IA escala con maxTokens. Con
+// 120 la función de Vercel moría antes de que la IA pudiera siquiera rendirse.
+export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const MAX_ARCHIVO = 2 * 1024 * 1024; // 2 MB de md/txt/transcript alcanza y sobra
@@ -47,7 +50,10 @@ export async function POST(req: NextRequest) {
       if (file.size > MAX_ARCHIVO) return Response.json({ ok: false, error: 'El archivo supera 2 MB.' }, { status: 400 });
       const nombre = file.name.toLowerCase();
       if (!/\.(md|txt|vtt|srt)$/.test(nombre)) return Response.json({ ok: false, error: 'Subí un .md, .txt, .vtt o .srt.' }, { status: 400 });
-      const texto = (await file.text()).slice(0, 60000);
+      // 250k chars ≈ 6 horas de transcript. Antes 60k: un .md de una reunión de 2 horas
+      // (145k) se cortaba en el minuto 52 y se perdía la mitad de la charla EN SILENCIO.
+      // El largo ya no lo resuelve el recorte sino el troceado (extraerTareasDeTexto).
+      const texto = (await file.text()).slice(0, 250000);
       const proyectos = proyectosDe(JSON.parse(String(form.get('proyectos') ?? '[]')));
       const glosario = await glosarioTexto().catch(() => '');
       const out = await extraerTareasDeTexto(texto, proyectos, yo, { glosario, usoMotivo: `Extraer tareas del archivo ${file.name}` });
