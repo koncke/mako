@@ -158,32 +158,27 @@ function AvisoSeguridad({ abierto, onToggle }: { abierto: boolean; onToggle: () 
       {abierto && (
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>Los secretos se cifran antes de tocar la base.</span> AES-256-GCM, con un nonce distinto
-          en cada escritura y un tag de autenticación: se guarda el criptograma, no el token. Si alguien tocara esa
-          fila, el descifrado falla en vez de devolver algo alterado.
+          <span style={b}>Se guardan siempre cifradas.</span> Viajan por conexión segura y se cifran con AES-256-GCM
+          —cifrado de grado bancario, con una clave única por escritura— antes de tocar la base. Ahí queda el texto
+          cifrado, nunca tu token: si alguien manipulara esa fila, el sistema lo detecta y la rechaza.
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>Los identificadores, no.</span> El ID de tu página, tu cuenta de Chatwoot o tus event
-          types de Calendly quedan legibles a propósito: son con lo que reconocemos de quién es cada webhook que
-          entra. No abren nada por sí solos.
+          <span style={b}>La llave que las abre no está en la base.</span> La clave para descifrarlas vive en el
+          servidor, separada de la base de datos. Una copia de la base, por sí sola, no sirve para leer nada.
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>La llave que descifra no vive en la base.</span> Está en el entorno del servidor, así que
-          una copia de la base, sola, no alcanza para leer tus secretos.
+          <span style={b}>Se descifran solo en el servidor.</span> Esta pantalla nunca recibe el valor completo:
+          solo los últimos 4 caracteres. Para verla entera hay que pedirla con el ojito —es una acción aparte,
+          registrada— y se vuelve a ocultar sola a los pocos segundos.
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>Se descifran solo en el servidor.</span> Esta pantalla recibe únicamente los últimos 4
-          caracteres. El valor completo no viaja al abrir: hay que pedirlo con el ojito, es una llamada aparte y
-          se vuelve a tapar a los 30 segundos.
+          <span style={b}>Solo tú las ves.</span> Revelar una credencial está habilitado únicamente para el
+          administrador de este espacio; un closer, un setter o alguien de otro espacio reciben un acceso denegado,
+          y el soporte de MaKo tampoco puede verlas. Cada vez que se consulta una llave, queda registrado.
         </li>
         <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>Solo vos las ves.</span> El ojito se lo habilitamos únicamente al admin de este espacio:
-          un closer, un setter o alguien de otro espacio reciben un 403, y el soporte de MaKo tampoco puede
-          destaparlas desde el panel. Cada vez que se mira una llave queda registrado.
-        </li>
-        <li style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.55 }}>
-          <span style={b}>Son tuyas.</span> Cada espacio de trabajo tiene su propia fila, y las borrás cuando
-          quieras desde acá.
+          <span style={b}>Son tuyas y solo tuyas.</span> Cada espacio de trabajo tiene su propia fila cifrada,
+          aislada del resto, y puedes borrarlas cuando quieras desde acá.
         </li>
       </ul>
       )}

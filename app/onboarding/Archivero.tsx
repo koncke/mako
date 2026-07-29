@@ -94,9 +94,11 @@ function DocAcciones({ id, confirm, onConfirm, onBorrar }: { id: string; confirm
   );
 }
 
-export function Archivero({ onEstado }: {
+export function Archivero({ onEstado, onListo }: {
   onEstado?: (answers: Record<string, string>) => void;
   onFacts?: (facts: { k: string; v: string }[]) => void; // ya NO se usa (el insight va en blanco)
+  /** Reporta si el paso está listo para avanzar (≥1 documento analizado). */
+  onListo?: (listo: boolean) => void;
 }) {
   const [est, setEst] = useState<Estado | null>(null);
   const [vista, setVista] = useState<Vista>('inicio');
@@ -117,7 +119,7 @@ export function Archivero({ onEstado }: {
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
   const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
 
-  const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); }, [onEstado]);
+  const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); onListo?.(e.files.length > 0); }, [onEstado, onListo]);
 
   const cargar = useCallback(async () => {
     try {
@@ -449,6 +451,32 @@ export function Archivero({ onEstado }: {
             })}
           </div>
           <button type="button" onClick={analizar} style={{ ...btnPrimary, width: '100%', marginTop: 18, padding: '14px', fontSize: 15.5, justifyContent: 'center' }}>✦ Analizar {cola.length} documento{cola.length === 1 ? '' : 's'}</button>
+        </div>
+      )}
+
+      {/* ¿Qué debes cargar? — contextualiza QUÉ subir. Solo mientras no haya ningún
+          documento analizado; apenas cargás uno, desaparece (pedido de Martín). */}
+      {!hayArchivos && (
+        <div style={{ marginTop: 22, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 14, padding: '16px 18px' }}>
+          <div style={{ ...eyebrow, marginBottom: 8 }}>¿Qué debes cargar?</div>
+          <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 13 }}>
+            En todo este tiempo emprendiendo seguro ya escribiste un montón sobre tu negocio: tu oferta, a quién le vendes, tus guiones, tu web. Tira acá <b>todo eso</b> — MaKo lo lee y te arma tu perfil, después lo revisas y corriges. Cuanto más le des, mejor te conoce.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 9 }}>
+            {([
+              ['📄', 'Tu oferta y tus precios'],
+              ['🎯', 'Tu avatar / cliente ideal'],
+              ['🎬', 'Guiones de VSL o de ads'],
+              ['🌐', 'Tu web, landing o Instagram'],
+              ['⚙️', 'Tu método o proceso'],
+              ['⭐', 'Casos, testimonios, resultados'],
+            ] as const).map(([e, t]) => (
+              <div key={t} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12.5, color: 'var(--ink)' }}>
+                <span style={{ flex: 'none' }}>{e}</span><span>{t}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 13 }}>PDF, Word, texto o imágenes. Todos los que quieras.</div>
         </div>
       )}
 

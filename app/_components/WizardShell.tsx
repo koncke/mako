@@ -28,7 +28,7 @@ export function WizardShell({
   titulo, total, idx, pregunta, sub, children, error,
   puedeAvanzar, enUltimo, confirmLabel, pending = false,
   atrasLabel, onAtras, onSiguiente, onConfirmar, onClose, bloqueante = false, hideAtras = false,
-  fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar,
+  fullscreen = false, escenario, siguienteLabel = 'Siguiente →', extraFooter, adminBar, hideSiguiente = false,
 }: {
   titulo: string;            // línea mono arriba (ej. "Nutrición manual · Juan")
   total: number; idx: number;
@@ -49,6 +49,8 @@ export function WizardShell({
   escenario?: ReactNode;
   /** Texto del botón de avance (default "Siguiente →"). */
   siguienteLabel?: string;
+  /** true → oculta el botón Siguiente por completo (ej. Archivero sin documentos aún). */
+  hideSiguiente?: boolean;
   /** Slot a la izquierda del footer (ej. "Completar después"). */
   extraFooter?: ReactNode;
   /** Barra fija arriba del overlay fullscreen (ej. "Salir de la vista" del admin). */
@@ -89,6 +91,8 @@ export function WizardShell({
         : <button onClick={onAtras} style={{ padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>← {atrasLabel}</button>}
       {enUltimo ? (
         <button onClick={onConfirmar} disabled={pending || !puedeAvanzar} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: puedeAvanzar ? 'var(--primary)' : 'var(--border)', color: puedeAvanzar ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: puedeAvanzar && !pending ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : confirmLabel}</button>
+      ) : hideSiguiente ? (
+        <span />
       ) : (
         <button onClick={onSiguiente} disabled={!puedeAvanzar || pending} style={{ padding: '12px 26px', borderRadius: 11, border: 'none', background: puedeAvanzar ? 'var(--primary)' : 'var(--border)', color: puedeAvanzar ? '#fff' : 'var(--faint)', fontSize: 14.5, fontWeight: 700, cursor: puedeAvanzar ? 'pointer' : 'default', fontFamily: SANS, opacity: pending ? 0.6 : 1 }}>{pending ? 'Guardando…' : siguienteLabel}</button>
       )}

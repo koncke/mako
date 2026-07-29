@@ -146,6 +146,7 @@ export function OnboardingWizard() {
   const [cierres, setCierres] = useState('');
   const [cash, setCash] = useState('');
   const [geminiConectada, setGeminiConectada] = useState(false); // lo reporta ServicioConfigForm
+  const [archiveroListo, setArchiveroListo] = useState(false); // ≥1 doc analizado (lo reporta Archivero)
   const [funnelTipos, setFunnelTipos] = useState<string[]>([]);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
@@ -356,7 +357,11 @@ export function OnboardingWizard() {
   const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
     : p.key === 'gemini' ? (geminiConectada || Boolean(data.esAdmin)) // la conexión la maneja el form
+    : p.key === 'archivero' ? (archiveroListo || Boolean(data.esAdmin)) // ≥1 doc analizado
     : true;
+  // Archivero sin documentos: el botón Siguiente ni aparece (no tiene sentido avanzar
+  // sin cargar nada). El super-admin queda exento para poder recorrer el flujo.
+  const hideSiguiente = p.key === 'archivero' && !archiveroListo && !data.esAdmin;
 
   // Guardar el diagnóstico (recomputado en el server) al terminar las 6 preguntas.
   const guardarFase = async () => {
@@ -399,6 +404,7 @@ export function OnboardingWizard() {
         enUltimo={enUltimo}
         confirmLabel={data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ir a mi dashboard →'}
         siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
+        hideSiguiente={hideSiguiente}
         pending={pending}
         atrasLabel="Atrás"
         hideAtras={idx === 0}
@@ -465,7 +471,7 @@ export function OnboardingWizard() {
         )}
 
         {/* ── El Archivero: tirá tus docs, MaKo arma el perfil (self-contained) ── */}
-        {p.key === 'archivero' && <Archivero onEstado={setAnswers} />}
+        {p.key === 'archivero' && <Archivero onEstado={setAnswers} onListo={setArchiveroListo} />}
 
         {/* ── Entregable tangible de la oferta (self-contained) ── */}
         {p.key === 'entregable' && <EntregableView />}
@@ -507,6 +513,22 @@ export function OnboardingWizard() {
         {p.key === 'gemini' && (
           <div style={{ textAlign: 'left' }}>
             <ServicioConfigForm servicioKey="gemini" onEstado={setGeminiConectada} />
+            {geminiConectada ? (
+              // Confirmación clara de que quedó cargada y funciona.
+              <div style={{ marginTop: 14, display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 12, padding: '12px 14px' }}>
+                <span style={{ color: 'var(--good)', fontSize: 16, flex: 'none', marginTop: 1 }}>✓</span>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Tu IA quedó conectada y funcionando</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 2 }}>MaKo ya puede leer tus documentos, armar tu perfil y hacer todo el análisis del onboarding.</div>
+                </div>
+              </div>
+            ) : (
+              // ¿Por qué la necesito? — contextualiza (es gratis). Desaparece al conectar.
+              <div style={{ marginTop: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
+                <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 7 }}>¿Por qué debes colocar tu API de Gemini?</div>
+                <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>Es la IA de Google —<b style={{ color: 'var(--ink)' }}>gratis</b>— que mueve todo tu onboarding: lee los documentos que subes, arma tu perfil, propone tus avatares y escribe tus anuncios. La sacas en <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>aistudio.google.com/apikey</a> en un minuto; sin ella, MaKo no puede analizar nada de tu negocio.</div>
+              </div>
+            )}
           </div>
         )}
 

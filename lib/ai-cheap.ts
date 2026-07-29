@@ -160,13 +160,31 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota((opts.provs ?? CASCADA_GRATIS).map(String)).catch(() => (opts.provs ?? CASCADA_GRATIS).map(String));
   for (const prov of orden as ProvName[]) {
-    try {
-      const t = await chatCheap({ system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs });
-      // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
-      // Si un modelo devuelve texto no vacío pero inútil (JSON roto), NO cortamos: seguimos
-      // al próximo proveedor. Sin esto, Gemini/20b que responden basura bloquean el rescate.
-      if (t.trim() && (!opts.validar || opts.validar(t))) return t;
-    } catch (e) { console.warn(`[ai-cheap] cascade ${prov} falló: ${e instanceof Error ? e.message : String(e)}`); }
+    const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${prov}`, provider: prov, model: opts.modelos?.[prov], timeoutMs: opts.timeoutMs };
+    // Un reintento del MISMO proveedor si el fallo parece transitorio (429/5xx/timeout):
+    // clave para un workspace con UN solo proveedor (ej. Gemini), donde no hay a quién caer.
+    for (let intento = 0; intento <= 1; intento++) {
+      try {
+        let t = await chatCheap({ ...base, json: opts.json });
+        // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
+        // response_format json_object (el modelo native anda; el /chat/completions no).
+        // Reintentamos el MISMO proveedor SIN el flag: `validar`/parseJsonLoose de los
+        // callers tolera fences/markdown igual, así que no perdemos nada.
+        if (!t.trim() && opts.json) t = await chatCheap({ ...base, json: false });
+        // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
+        // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
+        if (t.trim() && (!opts.validar || opts.validar(t))) return t;
+        break; // respondió (o vacío en ambos modos) pero no sirve → próximo proveedor
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        console.warn(`[ai-cheap] cascade ${prov} falló${intento ? ' (reintento)' : ''}: ${m}`);
+        if (intento === 0 && /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET/i.test(m)) {
+          await new Promise((r) => setTimeout(r, 1500));
+          continue; // reintentar el mismo proveedor una vez
+        }
+        break; // fallo no transitorio → próximo proveedor
+      }
+    }
   }
   return '';
 }
