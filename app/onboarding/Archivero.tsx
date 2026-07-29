@@ -132,6 +132,7 @@ export function Archivero({ onEstado, onListo, registro }: {
   const inputRef = useRef<HTMLInputElement>(null);
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
   const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
+  const colaRef = useRef(cola); colaRef.current = cola; // para revocar los object URLs al desmontar
 
   const aplicar = useCallback((e: Estado) => { setEst(e); onEstado?.(e.answers); }, [onEstado]);
 
@@ -153,6 +154,8 @@ export function Archivero({ onEstado, onListo, registro }: {
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { primera.current = false; setCargando(false); }
   }, [aplicar]);
   useEffect(() => { cargar(); }, [cargar]);
+  // Al desmontar, revocar los object URLs de la cola que hayan quedado sin analizar.
+  useEffect(() => () => { colaRef.current.forEach((c) => URL.revokeObjectURL(c.url)); }, []);
 
   const addCola = (fl: FileList | null) => {
     const arr = fl ? Array.from(fl) : [];
@@ -239,7 +242,11 @@ export function Archivero({ onEstado, onListo, registro }: {
       setPreguntas(pregs); setGapIdx(0); setOtroKey(null); setOtroVal('');
       if (!pregs.length) setHuecosRevisados(true); // no hay preguntas usables → nada que revisar
       setVista(pregs.length ? 'huecos' : 'archivos');
-    } catch { setVista('archivos'); }
+    } catch {
+      // Fail-open: si el endpoint de preguntas se cae (504/red), NO trabar el paso —
+      // marcamos revisado para que el Siguiente pueda avanzar igual.
+      setHuecosRevisados(true); setErr('No pude preparar las preguntas ahora; podés seguir y completarlas después.'); setVista('archivos');
+    }
     finally { setCargandoPreg(false); }
   };
 
@@ -270,6 +277,8 @@ export function Archivero({ onEstado, onListo, registro }: {
       siguiente: () => {
         // En pleno flujo (leyendo/masdocs/huecos): no avanzar ni reabrir nada, quedate.
         if (vista === 'leyendo' || vista === 'masdocs' || vista === 'huecos') return true;
+        // Hay archivos/links en la cola sin analizar: no avanzar (se perderían) — avisamos.
+        if (cola.length > 0 || links.length > 0) { setErr('Tenés cosas sin analizar. Tocá "Analizar" (o quitalas) antes de seguir.'); return true; }
         // Con huecos sin revisar: abrimos las preguntas en el acto (consumido).
         if (est && est.gaps.length > 0 && !huecosRevisados) { void seguirDesdeMasDocs(); return true; }
         return false;
