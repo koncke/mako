@@ -33,6 +33,9 @@ const APP_URL = (process.env.APP_BASE_URL || 'https://dashboard-marketing-six.ve
 
 export type ResultadoReunionesAuto = {
   miradas: number; deEquipo: number; nuevas: number; conTareas: number; tareas: number; errores: number;
+  /** avisos que SÍ salieron por WhatsApp, y el motivo del último que no. El borrador
+   *  igual queda esperando en el plan: el aviso es el empujón, no el canal de la tarea. */
+  avisados: number; sinAviso: number; avisoError?: string;
 };
 
 /**
@@ -76,7 +79,7 @@ async function resolverYo(r: ReunionMeta, ws: number): Promise<Yo> {
 export async function procesarReunionesNuevas(ws: number, opts: { horas?: number; max?: number } = {}): Promise<ResultadoReunionesAuto> {
   const horas = opts.horas ?? 26;
   const max = opts.max ?? 3;
-  const out: ResultadoReunionesAuto = { miradas: 0, deEquipo: 0, nuevas: 0, conTareas: 0, tareas: 0, errores: 0 };
+  const out: ResultadoReunionesAuto = { miradas: 0, deEquipo: 0, nuevas: 0, conTareas: 0, tareas: 0, errores: 0, avisados: 0, sinAviso: 0 };
 
   const desde = new Date(Date.now() - horas * 3600_000).toISOString();
   const { reuniones } = await listReunionesRecientes({ limit: 20, recordedAfter: desde });
@@ -133,11 +136,16 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       out.tareas += propuestas.length;
 
       // El aviso al grupo del workspace: que se entere ahora, no cuando abra la app.
+      // Si NO sale (línea de WhatsApp desconectada, sin grupo), queda registrado: el
+      // borrador igual está esperando en el plan, pero el cron tiene que poder decir
+      // "hice todo y el mensaje no salió" en vez de parecer que no corrió.
       const detalleOtros = propuestas.length - mias;
-      await emitirDelCatalogo('reunion-tareas-al-plan', {
+      const aviso = await emitirDelCatalogo('reunion-tareas-al-plan', {
         ws,
         texto: `📝 Tuviste una reunión${conQuien ? ` con *${conQuien}*` : ''}${r.titulo ? ` (${r.titulo})` : ''}. Saqué *${mias} ${mias === 1 ? 'tarea' : 'tareas'}* tuyas${detalleOtros > 0 ? ` y ${detalleOtros} de los demás` : ''} y te las dejé en tu plan para que las confirmes:\n${APP_URL}/plan\n\nEntrás, revisás y con un toque quedan cargadas. — MaKo`,
       });
+      if (aviso.wa) out.avisados += 1;
+      else { out.sinAviso += 1; out.avisoError = aviso.waError ?? 'no se pudo mandar el WhatsApp'; }
     } catch (e) {
       out.errores += 1;
       console.error(`[reunion-auto] ws=${ws} recording=${r.recordingId}: ${e instanceof Error ? e.message : String(e)}`);

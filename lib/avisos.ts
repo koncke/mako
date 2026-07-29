@@ -39,7 +39,10 @@ export type EmitirAvisoInput = {
   alDueno?: boolean;
 };
 
-export type EmitirAvisoResult = { ok: boolean; feedId: number | null; wa: boolean; deduped: boolean };
+// `wa:false` con `waError` = el aviso NO llegó a WhatsApp (línea desconectada, grupo
+// sin JID, Evolution caído). Antes solo existía el booleano y nadie lo miraba: la voz
+// de MaKo podía estar muerta días sin que nada lo dijera. Los callers (crons) lo logean.
+export type EmitirAvisoResult = { ok: boolean; feedId: number | null; wa: boolean; deduped: boolean; waError?: string };
 
 const keyLast = (tipo: string) => `mako.aviso.last.${tipo}`;
 
@@ -80,8 +83,9 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // Así los eventos de un cliente (aunque corran en OWNER_WS) NO caen en el grupo
     // de SuperAdmin — el cliente los recibe en SU grupo (creado en Config>Notif).
     const env = a.alDueno === true ? await enviarAlGrupoSuperAdmin(a.texto) : await enviarAlGrupoMaKo(ws, a.texto);
+    if (!env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
     if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
-    return { ok: true, feedId, wa: env.ok, deduped: false };
+    return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {
     console.error(`[avisos] emitirAviso(${a.tipo}) falló:`, e);
     return { ok: false, feedId: null, wa: false, deduped: false };
