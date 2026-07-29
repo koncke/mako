@@ -13,7 +13,7 @@ import { personaEstado, addPersonaFoto, deletePersonaFoto, setPersonaDescripcion
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+export const maxDuration = 180; // la descripción por visión (2 fotos × 2 proveedores × 30s)
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const MAX_BYTES = 15 * 1024 * 1024;

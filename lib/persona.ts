@@ -97,14 +97,16 @@ export async function generarDescripcionPersona(): Promise<{ ok: true; descripci
   try {
     const p = await getPersona();
     if (p.fotos.length === 0) return { ok: false, error: 'Subí al menos una foto primero.' };
-    // Probamos hasta 4 fotos hasta que una dé una descripción usable (la mejor toma).
-    for (const f of p.fotos.slice(0, 4)) {
+    // Probamos hasta 2 fotos hasta que una dé una descripción usable. Timeout ACOTADO
+    // por proveedor: la cascada de visión son 2 (gemini→openai), así que 2 fotos × 2
+    // proveedores × 30s = 120s tope, holgado bajo el maxDuration=180 del route.
+    for (const f of p.fotos.slice(0, 2)) {
       try {
         const { data } = await getSupabaseServer().storage.from(BUCKET).download(f.path);
         if (!data) continue;
         const buf = Buffer.from(await data.arrayBuffer());
         const dataUrl = `data:${f.mime || 'image/jpeg'};base64,${buf.toString('base64')}`;
-        const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: f.nombre, prompt: PERSONA_DESC_PROMPT, feature: 'persona', motivo: 'Describir la cara de marca' });
+        const { text } = await leerDocumentoIA({ dataUrl, isPdf: false, nombreArchivo: f.nombre, prompt: PERSONA_DESC_PROMPT, feature: 'persona', motivo: 'Describir la cara de marca', timeoutMs: 30000 });
         if (text.trim().length > 60) {
           const descripcion = text.trim();
           await setPersona({ ...(await getPersona()), descripcion });
