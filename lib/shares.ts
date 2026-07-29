@@ -44,7 +44,7 @@ export type Share = {
 };
 
 export type Invitado = {
-  id: number; share_id: number; email: string; token_prefijo: string;
+  id: number; share_id: number; email: string; nombre: string | null; token_prefijo: string;
   enviado_at: string | null; visitas: number; ultima_visita: string | null; revocado_at: string | null;
 };
 
@@ -73,7 +73,7 @@ export async function resolverToken(token: string): Promise<Acceso | null> {
 
   // 1. ¿Es el token personal de un invitado?
   const inv = await sb.from('share_invitados')
-    .select('id,share_id,email,token_prefijo,enviado_at,visitas,ultima_visita,revocado_at,token_hash')
+    .select('id,share_id,email,nombre,token_prefijo,enviado_at,visitas,ultima_visita,revocado_at,token_hash')
     .eq('token_hash', h).maybeSingle();
   if (inv.data) {
     if (!vigente(inv.data)) return null;
@@ -132,6 +132,15 @@ export async function crearShare(input: {
   return { id: data.id as number, token };            // el token se devuelve UNA sola vez
 }
 
+/** Un share PROPIO del workspace, o null. Lo usa todo lo que recibe un id por
+ *  request: sin este chequeo se podrían tocar invitados de otro inquilino (IDOR). */
+export async function getShare(ws: number, id: number): Promise<Share | null> {
+  const { data } = await getSupabaseServer().from('shares')
+    .select('id,workspace_id,recurso,alcance,recurso_id,modo,etiqueta,expira_at,revocado_at')
+    .eq('workspace_id', ws).eq('id', id).maybeSingle();
+  return (data as Share) ?? null;
+}
+
 export async function listarShares(ws: number, recurso: string) {
   const { data, error } = await getSupabaseServer().from('shares')
     .select('id,recurso,alcance,recurso_id,modo,etiqueta,token_prefijo,expira_at,revocado_at,visitas,ultima_visita,created_at')
@@ -168,30 +177,69 @@ export async function registrarVisita(acceso: Acceso): Promise<void> {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 export const emailValido = (e: string) => EMAIL_RE.test(e.trim());
 
+export type Destinatario = { nombre: string | null; email: string };
+
+/** Parsea un renglón escrito a mano: `Martín Tejado <martin@gmail.com>` o
+ *  `martin@gmail.com` a secas. Devuelve null si el email no es válido — quien
+ *  llama decide si eso es un error o simplemente se saltea. */
+export function parseDestinatario(raw: string): Destinatario | null {
+  const t = String(raw ?? '').trim();
+  if (!t) return null;
+  const m = t.match(/^(.*?)\s*<\s*([^<>\s]+)\s*>$/);
+  const email = (m ? m[2] : t).trim().toLowerCase();
+  if (!emailValido(email)) return null;
+  const nombre = m ? m[1].trim().replace(/^["']|["']$/g, '') : '';
+  return { nombre: nombre || null, email };
+}
+
+/** Parte una lista escrita a mano en destinatarios. Corta por coma, punto y coma
+ *  o salto de línea — NUNCA por espacio: `Martín Tejado <m@x.com>` es UN renglón. */
+export function parseDestinatarios(raw: string): { ok: Destinatario[]; malos: string[] } {
+  const ok: Destinatario[] = [], malos: string[] = [];
+  for (const parte of String(raw ?? '').split(/[,;\n]+/)) {
+    const t = parte.trim();
+    if (!t) continue;
+    const d = parseDestinatario(t);
+    if (d) ok.push(d); else malos.push(t);
+  }
+  return { ok, malos };
+}
+
 /** Crea el invitado y devuelve SU token personal (para mandarlo por mail). */
-export async function agregarInvitado(shareId: number, email: string): Promise<{ id: number; token: string }> {
+export async function agregarInvitado(shareId: number, email: string, nombre?: string | null): Promise<{ id: number; token: string }> {
   const limpio = email.trim().toLowerCase();
   if (!emailValido(limpio)) throw new Error('email inválido');
   const token = nuevoToken();
   const { data, error } = await getSupabaseServer().from('share_invitados').insert({
-    share_id: shareId, email: limpio, token_hash: hash(token), token_prefijo: prefijoDe(token),
+    share_id: shareId, email: limpio, nombre: nombre?.trim() || null,
+    token_hash: hash(token), token_prefijo: prefijoDe(token),
   }).select('id').single();
-  if (error) throw new Error(error.message);
+  // El índice único (share_id, lower(email)) hace que reinvitar sea un error de
+  // base y no un duplicado silencioso. Lo traducimos a algo legible.
+  if (error) throw new Error(/duplicate key|unique/i.test(error.message) ? 'ya está invitado a este enlace' : error.message);
   return { id: data.id as number, token };
 }
 
 export async function listarInvitados(shareId: number): Promise<Invitado[]> {
   const { data, error } = await getSupabaseServer().from('share_invitados')
-    .select('id,share_id,email,token_prefijo,enviado_at,visitas,ultima_visita,revocado_at')
+    .select('id,share_id,email,nombre,token_prefijo,enviado_at,visitas,ultima_visita,revocado_at')
     .eq('share_id', shareId).order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as Invitado[];
 }
 
-export async function revocarInvitado(id: number): Promise<void> {
-  const { error } = await getSupabaseServer().from('share_invitados')
+/** Revoca un invitado, verificando ANTES que su share sea de este workspace.
+ *  Sin el join contra `shares` alcanzaría con adivinar un id para cortarle el
+ *  acceso a alguien de otro inquilino. */
+export async function revocarInvitado(ws: number, id: number): Promise<boolean> {
+  const sb = getSupabaseServer();
+  const { data } = await sb.from('share_invitados').select('id,share_id').eq('id', id).maybeSingle();
+  if (!data) return false;
+  if (!(await getShare(ws, data.share_id as number))) return false;
+  const { error } = await sb.from('share_invitados')
     .update({ revocado_at: new Date().toISOString() }).eq('id', id);
   if (error) throw new Error(error.message);
+  return true;
 }
 
 export async function marcarEnviado(id: number): Promise<void> {
