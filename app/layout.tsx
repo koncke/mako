@@ -45,10 +45,15 @@ export default function RootLayout({
         <NotificationsProvider>
           <div style={rootStyle}>
             {/* Sidebar usa useSearchParams (propaga el filtro de fecha); Suspense
-                evita el error de prerender en cualquier ruta estática. */}
-            <Suspense fallback={null}>
-              <Sidebar />
-            </Suspense>
+                evita el error de prerender en cualquier ruta estática.
+                Va DENTRO del gate: a alguien de afuera con un link compartido no
+                se le muestran los nombres de las tabs internas. /vsl lo escondía
+                por CSS desde la landing; ahora no hace falta el hack. */}
+            <HideOnPublicLanding>
+              <Suspense fallback={null}>
+                <Sidebar />
+              </Suspense>
+            </HideOnPublicLanding>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               {/* Chrome interno oculto en la landing pública /vsl (ver PublicRouteGate). */}
               <HideOnPublicLanding>

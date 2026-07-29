@@ -13,7 +13,7 @@ import { notFound } from 'next/navigation';
 import { listarAssetsDeWorkspace } from '@/lib/branding';
 import { resolverToken, filtrarPorShare, registrarVisita } from '@/lib/shares';
 import Galeria from './Galeria';
-import CursoLectura from './CursoLectura';
+import CursoCompartido from './CursoCompartido';
 import { CURSOS } from '@/app/conocimientos/curso';
 import { CURSO_VSL } from '@/app/conocimientos/curso-vsl';
 
@@ -30,7 +30,9 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
   const acceso = await resolverToken(token);
   if (!acceso) notFound();
 
-  // ── Un curso compartido: se renderiza de solo lectura, sin el portal ──
+  // ── Un curso compartido: el MISMO portal de /conocimientos ──
+  // Mismo componente que ve el admin (videos, recursos, prompts, transcripción),
+  // sin el chrome de la app ni el botón de Compartir.
   if (acceso.share.recurso === 'curso') {
     const slug = acceso.share.recurso_id;
     const curso = [...CURSOS, CURSO_VSL].find((c) => c.slug === slug);
@@ -38,7 +40,7 @@ export default async function CompartidoPage({ params }: { params: Promise<{ tok
     // comparten por esta vía todavía.
     if (!curso) notFound();
     await registrarVisita(acceso);
-    return <CursoLectura curso={curso} invitado={acceso.invitado?.email ?? null} />;
+    return <CursoCompartido curso={curso} invitado={acceso.invitado?.email ?? null} />;
   }
 
   const todos = await listarAssetsDeWorkspace(acceso.share.workspace_id);
