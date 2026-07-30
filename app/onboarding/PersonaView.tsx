@@ -8,6 +8,7 @@
 // para generar las imágenes de los creativos con esa persona. Corre en el workspace.
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -22,51 +23,17 @@ const MIN_FOTOS = 5;
 const btnPrimaryStyle: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
 const btnGhostStyle: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
 
-// La descripción viene SECCIONADA (mismo patrón que el panorama del Archivero: un
-// encabezado en MAYÚSCULA por línea + su frase abajo) — la partimos en tarjetas
-// chicas en vez de mostrar un párrafo largo (pedido de Martín: "que se vea simple,
-// visual, que se entienda rápido").
-type SeccionPersona = { titulo: string; texto: string };
-const esSubPersona = (l: string) => l.length > 0 && l.length <= 30 && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l) && !/[a-záéíóúñ]/.test(l);
-function parsearDescripcion(text: string): SeccionPersona[] {
-  const lines = text.replace(/\r/g, '').split('\n');
-  const out: SeccionPersona[] = [];
-  let actual: SeccionPersona | null = null;
-  for (const raw of lines) {
-    const l = raw.trim().replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
-    if (!l) continue;
-    if (esSubPersona(l)) { actual = { titulo: l.replace(/[:：]$/, ''), texto: '' }; out.push(actual); }
-    else if (actual) actual.texto = actual.texto ? `${actual.texto} ${l}` : l;
-  }
-  return out;
-}
 const ICONO_SECCION: Record<string, string> = {
   IDENTIDAD: '🧑', ROSTRO: '😐', OJOS: '👁️', CABELLO: '💇', COMPLEXIÓN: '📏',
   'MARCAS DISTINTIVAS': '✨', VESTIMENTA: '👔', ACTITUD: '🎭',
 };
 
-// Tarjeta desplegable — MISMO patrón que las secciones del Resumen del Archivero
-// (pedido explícito de Martín: "que sean como el RESUMEN que hicimos antes").
-function SeccionPersonaCard({ s, abiertoDefault }: { s: SeccionPersona; abiertoDefault: boolean }) {
-  const [abierto, setAbierto] = useState(abiertoDefault);
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-      <button type="button" onClick={() => setAbierto((a) => !a)}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}>
-        {/* --accent-soft es amarillo fuerte: se funde con los emojis. Fondo neutro. */}
-        <span aria-hidden style={{ flex: 'none', width: 30, height: 30, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{ICONO_SECCION[s.titulo] ?? '📌'}</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{s.titulo}</span>
-        <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 11, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
-      </button>
-      {abierto && (
-        <div style={{ padding: '0 16px 14px 58px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.55 }}>{s.texto}</div>
-      )}
-    </div>
-  );
-}
-
+// La descripción viene SECCIONADA (mismo patrón que el panorama del Archivero: un
+// encabezado en MAYÚSCULA por línea + su frase abajo) — misma tarjeta desplegable
+// que el Resumen (pedido explícito de Martín: "que sean como el RESUMEN que
+// hicimos antes"), con su propio mapa fijo de íconos por sección.
 function DescripcionSecciones({ texto }: { texto: string }) {
-  const secciones = parsearDescripcion(texto);
+  const secciones = parsearSecciones(texto, undefined, 30);
   // Si el modelo no siguió el formato (texto viejo, o algo se coló), mostramos el
   // texto crudo en vez de perderlo silenciosamente.
   if (secciones.length < 3) {
@@ -74,7 +41,7 @@ function DescripcionSecciones({ texto }: { texto: string }) {
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {secciones.map((s, i) => <SeccionPersonaCard key={s.titulo + i} s={s} abiertoDefault={i < 1} />)}
+      {secciones.map((s, i) => <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 1} icono={ICONO_SECCION[s.titulo] ?? '📌'} size="sm" />)}
     </div>
   );
 }

@@ -261,6 +261,65 @@ export async function setNumeroDuenoYSync(
   return { ok: true, accion: 'sin_cambios', jid };
 }
 
+// ── Verificación del teléfono de reportes (código por WhatsApp) ──────────────
+// El onboarding no deja pasar a conectar Meta sin que el dueño confirme que ESE
+// número recibe de verdad los mensajes de MaKo: se le manda un código de 6
+// dígitos al grupo recién creado/sincronizado y tiene que cargarlo de vuelta.
+const KEY_VERIFICACION = 'mako.contacto.verificacion';
+const MINUTOS_EXPIRA_CODIGO = 15;
+type EstadoVerificacion = { telefono: string; codigo: string; expira: number; verificado: boolean };
+
+async function getVerificacion(ws: number): Promise<EstadoVerificacion | null> {
+  const raw = await runWithWorkspace(ws, () => getSetting(KEY_VERIFICACION));
+  if (!raw) return null;
+  try { return JSON.parse(raw) as EstadoVerificacion; } catch { return null; }
+}
+async function guardarVerificacion(ws: number, v: EstadoVerificacion): Promise<void> {
+  await runWithWorkspace(ws, () => setSetting(KEY_VERIFICACION, JSON.stringify(v)));
+}
+
+/** Estado actual (para hidratar el wizard: si ya está verificado no hay que re-pedir). */
+export async function getEstadoVerificacionContacto(ws: number): Promise<{ telefono: string; verificado: boolean }> {
+  const v = await getVerificacion(ws);
+  return v ? { telefono: v.telefono, verificado: v.verificado } : { telefono: '', verificado: false };
+}
+
+/**
+ * Sincroniza el grupo de MaKo con este número (crea/agrega, vía setNumeroDuenoYSync)
+ * y le manda un código de 6 dígitos para verificarlo. Si el número YA está
+ * verificado (revisita de la pantalla con el mismo teléfono), no reenvía nada.
+ */
+export async function enviarCodigoVerificacion(
+  ws: number, telefono: string, nombreCliente: string,
+): Promise<{ ok: true; yaVerificado: boolean } | { ok: false; error: string }> {
+  const num = soloDigitos(telefono);
+  if (!num) return { ok: false, error: 'Ingresá un número válido.' };
+
+  const actual = await getVerificacion(ws);
+  if (actual?.verificado && soloDigitos(actual.telefono) === num) return { ok: true, yaVerificado: true };
+
+  const sync = await setNumeroDuenoYSync(ws, telefono, nombreCliente);
+  if (!sync.ok) return { ok: false, error: `No se pudo preparar tu grupo de WhatsApp: ${sync.error}` };
+
+  const codigo = String(Math.floor(100000 + Math.random() * 900000));
+  await guardarVerificacion(ws, { telefono: num, codigo, expira: Date.now() + MINUTOS_EXPIRA_CODIGO * 60_000, verificado: false });
+
+  const mensaje = `Tu código de verificación de MaKo es *${codigo}*. Vence en ${MINUTOS_EXPIRA_CODIGO} minutos — cargalo en el onboarding para confirmar este número.`;
+  const envio = await enviarAlGrupoMaKo(ws, mensaje);
+  if (!envio.ok) return { ok: false, error: `No se pudo enviar el código por WhatsApp: ${envio.error}` };
+  return { ok: true, yaVerificado: false };
+}
+
+/** Compara el código cargado contra el vigente; marca verificado si coincide y no venció. */
+export async function verificarCodigoContacto(ws: number, codigo: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const v = await getVerificacion(ws);
+  if (!v) return { ok: false, error: 'Todavía no pediste un código — cargá tu número primero.' };
+  if (Date.now() > v.expira) return { ok: false, error: 'El código venció. Pedí uno nuevo.' };
+  if (codigo.trim() !== v.codigo) return { ok: false, error: 'El código no coincide.' };
+  await guardarVerificacion(ws, { ...v, verificado: true });
+  return { ok: true };
+}
+
 // ── Grupo del SuperAdmin (global, estrella AZUL) ──────────────────────────────
 export async function getGrupoSuperAdminJid(): Promise<string | null> {
   return runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN));

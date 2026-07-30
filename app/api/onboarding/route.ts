@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getWorkspace, getRolWsEfectivo, OWNER_WS } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
-import { setNumeroDuenoYSync } from '@/lib/mako-grupo';
+import { enviarCodigoVerificacion, verificarCodigoContacto, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
 import { SERVICIOS_METODO, servicioMetodo, ENVS_METODO } from '@/lib/metodo-catalogo';
 import { credWs, estadoCampo, guardarCredencial, IdentificadorOcupadoError, integracionConectada } from '@/lib/credenciales';
 import { verificarServicio } from '@/lib/metodo-verificar';
@@ -85,10 +85,11 @@ export async function GET() {
   try {
     const sesion = await getUsuarioActual();
     const capa = capaDef(await getCapaActual());
-    const [estado, servicios, contacto, schema, briefAnswers, metaPageId, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
+    const [estado, servicios, contacto, verifContacto, schema, briefAnswers, metaPageId, ytVsl, ytThanks, ytPrep, pandaIds, objCierres, objCash] = await Promise.all([
       getEstadoOnboarding(),
       serviciosParaWizard(capa.integracionesRequeridas),
       getContactoReportes(),
+      getEstadoVerificacionContacto(g.ws),
       getSchema(),
       getAnswers(),
       getSetting('meta_page_id'),
@@ -137,7 +138,10 @@ export async function GET() {
         objetivo_cierres: objCierres ?? '',
         objetivo_cash_usd: objCash ?? '',
       },
-      contacto,
+      // verificado: solo true si el teléfono GUARDADO es el mismo que ya se
+      // verificó por WhatsApp — si el cliente cambió el número después de
+      // verificar, tiene que volver a verificar el nuevo.
+      contacto: { ...contacto, verificado: verifContacto.verificado && verifContacto.telefono === contacto.telefono.replace(/\D/g, '') },
       usuario: { nombre: sesion?.nombre ?? '', email: sesion?.email ?? '' },
       funnelTemplates: FUNNEL_TEMPLATES.map((t) => ({
         id: t.id, name: t.name, description: t.description,
@@ -160,7 +164,7 @@ type Body = {
   faseRespuestas?: number[];
   canal?: string;
   geminiKey?: string;
-  funnelTipos?: string[];
+  codigo?: string;
   step?: 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
   done?: boolean;
   retroId?: number | null;
@@ -214,20 +218,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Funnel SIMPLE del onboarding (#5): guardamos los tipos elegidos (multi) y
-      // aplicamos un pipeline por default para que el CRM tenga etapas; el detalle
-      // fino se ajusta después en Onboarding → Funnel.
-      case 'funnel-simple': {
-        const tipos = Array.isArray(body.funnelTipos) ? body.funnelTipos.filter((t): t is string => typeof t === 'string') : [];
-        await setSetting('onboarding.funnel_tipos', JSON.stringify(tipos));
-        const tpl = FUNNEL_TEMPLATES[0];
-        if (tpl) {
-          try { await saveFunnel(tpl.pipeline, []); } catch (e) { console.error('[onboarding] funnel default falló (no fatal):', e); }
-          try { await seedNutricionTemplates(); } catch (e) { console.error('[onboarding] seed nutrición falló (no fatal):', e); }
-        }
-        return NextResponse.json({ ok: true });
-      }
-
       // Brief del negocio: el wizard lo manda de a una respuesta por pantalla,
       // así que esto MERGEA sobre lo guardado en vez de pisar el objeto entero
       // (si pisara, volver Atrás y avanzar borraría lo ya contestado).
@@ -251,9 +241,17 @@ export async function POST(req: NextRequest) {
         }
         const canal = CANALES.some((c) => c.id === body.canal) ? (body.canal as CanalId) : undefined;
         const diagnostico = await setDiagnosticoFase(resp, canal);
-        // Pre-sembrar el canal como funnel: la fase va ANTES del paso "cómo vendés",
-        // así ese paso ya llega marcado con el canal primario (el cliente puede sumar más).
-        if (canal) { try { await setSetting('onboarding.funnel_tipos', JSON.stringify([canal])); } catch { /* no fatal */ } }
+        // El canal ES el funnel (ya no hay un paso "¿cómo vendés?" aparte que lo
+        // pida de nuevo): lo guardamos como funnel_tipos y aplicamos el pipeline
+        // default + sembramos nutrición, mismo efecto que tenía el viejo paso.
+        if (canal) {
+          try { await setSetting('onboarding.funnel_tipos', JSON.stringify([canal])); } catch { /* no fatal */ }
+          const tpl = FUNNEL_TEMPLATES[0];
+          if (tpl) {
+            try { await saveFunnel(tpl.pipeline, []); } catch (e) { console.error('[onboarding] funnel default falló (no fatal):', e); }
+            try { await seedNutricionTemplates(); } catch (e) { console.error('[onboarding] seed nutrición falló (no fatal):', e); }
+          }
+        }
         return NextResponse.json({ ok: true, diagnostico });
       }
 
@@ -280,25 +278,32 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
-      // Contacto de reportes (los crons de reportes necesitan destinatario). Este
-      // teléfono ES el "número del dueño": al cargarlo, MaKo deja listo el grupo
-      // "MaKo <> {cliente}" con ese número + bienvenida (best-effort, no bloquea).
-      case 'contacto': {
+      // Contacto de reportes, PASO 1: guarda nombre/email, y el teléfono queda
+      // sujeto a verificación — no lo tomamos como bueno hasta que el cliente
+      // cargue el código que MaKo le manda por WhatsApp (el grupo "MaKo <>
+      // {cliente}" se crea/sincroniza acá mismo, junto con el envío del código).
+      case 'contacto-enviar-codigo': {
         const c = body.contacto ?? {};
         const telefono = (c.telefono ?? '').trim();
+        if (!telefono) return NextResponse.json({ ok: false, error: 'Ingresá tu número de WhatsApp.' }, { status: 400 });
         await setContactoReportes({
           nombre: (c.nombre ?? '').trim() || undefined,
           email: (c.email ?? '').trim() || undefined,
-          telefono: telefono || undefined,
+          telefono,
         });
-        if (telefono) {
-          try {
-            const wsRow = await getWorkspace(ws);
-            await setNumeroDuenoYSync(ws, telefono, wsRow?.nombre ?? 'tu negocio');
-          } catch (e) {
-            console.error('[onboarding] no se pudo sincronizar el grupo de MaKo (no fatal):', e);
-          }
-        }
+        const wsRow = await getWorkspace(ws);
+        const r = await enviarCodigoVerificacion(ws, telefono, wsRow?.nombre ?? 'tu negocio');
+        if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 422 });
+        return NextResponse.json({ ok: true, yaVerificado: r.yaVerificado });
+      }
+
+      // Contacto de reportes, PASO 2: confirma el código de 6 dígitos que llegó al
+      // grupo de WhatsApp. Recién acá el teléfono queda dado por bueno.
+      case 'contacto-verificar-codigo': {
+        const codigo = (body.codigo ?? '').trim();
+        if (!codigo) return NextResponse.json({ ok: false, error: 'Ingresá el código.' }, { status: 400 });
+        const r = await verificarCodigoContacto(ws, codigo);
+        if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: 422 });
         return NextResponse.json({ ok: true });
       }
 

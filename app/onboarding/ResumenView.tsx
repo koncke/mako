@@ -13,37 +13,12 @@
 // bloque de texto largo (pedido de Martín).
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { SeccionCard, parsearSecciones } from '../components/SeccionCard';
 
 const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
 
 type Estado = { panorama: string; files: Array<{ id: string }>; answers: Record<string, string> };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
-
-type Seccion = { titulo: string; parrafos: string[] };
-
-const esSub = (l: string) => l.length > 0 && l.length <= 48 && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l) && !/[a-záéíóúñ]/.test(l);
-
-// Parte el panorama en secciones por subtítulo. El texto ANTES del primer
-// subtítulo (si hay) cae en una sección "Panorama general".
-function parsear(text: string): Seccion[] {
-  const lines = text.replace(/\r/g, '').split('\n');
-  const secciones: Seccion[] = [];
-  let actual: Seccion | null = null;
-  for (const raw of lines) {
-    const l = raw.trim().replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
-    if (!l) continue;
-    if (esSub(l)) {
-      actual = { titulo: l.replace(/[:：]$/, ''), parrafos: [] };
-      secciones.push(actual);
-    } else {
-      const limpio = l.replace(/^[-•·]\s*/, '');
-      if (!actual) { actual = { titulo: 'Panorama general', parrafos: [] }; secciones.push(actual); }
-      actual.parrafos.push(limpio);
-    }
-  }
-  return secciones;
-}
 
 // Ícono heurístico por tema — solo cosmético, cae a 📌 si no matchea nada.
 const ICONO_POR_TEMA: Array<[RegExp, string]> = [
@@ -57,28 +32,6 @@ const ICONO_POR_TEMA: Array<[RegExp, string]> = [
   [/panorama general/i, '🗺️'],
 ];
 const iconoDe = (titulo: string) => ICONO_POR_TEMA.find(([re]) => re.test(titulo))?.[1] ?? '📌';
-
-function SeccionCard({ s, abiertoDefault }: { s: Seccion; abiertoDefault: boolean }) {
-  const [abierto, setAbierto] = useState(abiertoDefault);
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-      <button type="button" onClick={() => setAbierto((a) => !a)}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '15px 18px', background: 'none', border: 0, cursor: 'pointer', textAlign: 'left', fontFamily: SANS }}>
-        {/* --accent-soft es amarillo fuerte: se funde con los emojis (mismo tono). Fondo neutro. */}
-        <span aria-hidden style={{ flex: 'none', width: 32, height: 32, borderRadius: 9, background: 'var(--surface-2)', border: '1px solid var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>{iconoDe(s.titulo)}</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>{s.titulo}</span>
-        <span aria-hidden style={{ flex: 'none', color: 'var(--faint)', fontSize: 12, transform: abierto ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>▾</span>
-      </button>
-      {abierto && (
-        <div style={{ padding: '2px 18px 18px 62px' }}>
-          {s.parrafos.map((p, i) => (
-            <p key={i} style={{ fontSize: 14.5, color: 'var(--dim)', lineHeight: 1.65, margin: i === 0 ? 0 : '9px 0 0' }}>{p}</p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function ResumenView() {
   const [est, setEst] = useState<Estado | null>(null);
@@ -124,7 +77,7 @@ export function ResumenView() {
     );
   }
 
-  const secciones = parsear(panorama);
+  const secciones = parsearSecciones(panorama, 'Panorama general');
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto' }}>
@@ -133,7 +86,7 @@ export function ResumenView() {
         {nDatos > 0 && <div style={{ ...eyebrow, fontSize: 10 }}>{nDatos} dato{nDatos === 1 ? '' : 's'} extraídos</div>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {secciones.map((s, i) => <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 1} />)}
+        {secciones.map((s, i) => <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 1} icono={iconoDe(s.titulo)} size="md" />)}
       </div>
     </div>
   );

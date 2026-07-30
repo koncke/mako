@@ -17,7 +17,8 @@ import { randomUUID } from 'node:crypto';
 import { renderPrompt } from './prompt-render';
 import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
-import { faseNegocioTexto } from './fase-store';
+import { faseNegocioTexto, getDiagnosticoFase } from './fase-store';
+import { CANALES, type CanalId } from './fase-diagnostico';
 import { getSetting, setSetting } from './settings';
 import { getAvatares, avataresTexto, type Avatar } from './avatares';
 import { getEntregables, entregablesTexto } from './entregable';
@@ -150,38 +151,85 @@ export async function generarRazones(): Promise<GenResult> {
 // el cuerpo educa o cuenta una historia según el formato; el CTA rebate objeciones y
 // manda a un webinar/taller gratuito y a agendar. Si viene un FORMATO de video elegido,
 // el guion lo sigue (hook-problema, testimonio, mini-vsl, etc.).
-export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta de TRÁFICO FRÍO (TOFU, gente que no te conoce). Te paso el avatar, su motivación de compra, el copy/hook, el entregable tangible del negocio y (si está) el FORMATO de video elegido. Escribí un guion listo para grabar de 30 a 90 segundos.
+// Reescrito 2026-07-30 tras revisión real: el guion viejo mezclaba entregable +
+// dolor + acciones de cámara en un solo guion imposible de entender ("ni el dueño
+// lo entendió fácil"), y el CTA invitaba a un taller gratuito que NO EXISTE en el
+// negocio — la IA lo inventó. Investigación (frameworks Hook-Story-Offer/PAS,
+// principio "un anuncio, un mensaje" de Ogilvy/Todd Brown, taxonomía de CTA por
+// funnel, hook-system.md de skills.sh) resumida en la nota de racional del PR.
+export const GUION_SYSTEM_TEMPLATE = `Sos MaKo, escribiendo el GUION de un anuncio de VIDEO para Meta de TRAFICO FRIO (TOFU, gente que no te conoce y nunca escucho hablar del negocio). Te paso el avatar, su motivacion de compra (dolor o deseo), el copy/hook, el entregable tangible del negocio, el FUNNEL real por el que este negocio vende ({{funnel}}) y, si esta, el FORMATO de video elegido. Escribi un guion listo para grabar de 30 a 90 segundos, HABLADO, para que una persona lo lea a camara o narre sobre pantalla.
 
-ESTRUCTURA (adaptala al formato si te lo doy):
-1) GANCHO (primeros 3-5s) — tiene que hacer 3 cosas a la vez: (a) LLAMAR LA ATENCIÓN mostrando un dolor o un deseo real del avatar; (b) CUALIFICAR: dejar claro para QUIÉN es el anuncio (nombra al avatar/su situación) para filtrar y atraer solo al cliente potencial; (c) generar confianza/curiosidad (una promesa concreta de lo que van a ver).
-2) CUERPO — desarrollá según el formato:
-   · Historia: contá un antes/después creíble (el problema por el que pasa el avatar → el descubrimiento/mecanismo que lo resolvió) para que se identifique y le dé curiosidad.
-   · Valor/educación: 2-3 pasos o ideas accionables (mini-tutorial) que muestren el mecanismo.
-   · Propuesta directa: presentá la oferta/mecanismo de forma clara y "sexy", sin vueltas.
-   Usá el ENTREGABLE tangible como prueba de que el mecanismo existe y funciona.
-3) CTA — antes del cierre, REBATÍ 1-2 objeciones o creencias limitantes ("no es porque X ni Y, es porque…"); después, una llamada a la acción clara: registrarse a un taller/webinar gratuito (y luego agendar una asesoría). Nada de "estrategia mágica": invitá a ver el paso a paso.
+ANTES DE ESCRIBIR: ELEGI UN SOLO MENSAJE
+Un anuncio ganador cuelga de UNA sola idea, no de una lista de cosas impresionantes. Antes de escribir una sola linea, decidi:
 
-REGLAS:
-- Concreto, del dolor/deseo REAL del avatar. Sin relleno ni promesas vacías. NO inventes cifras ni garantías que no estén en el contexto.
-- Marcá las partes con etiquetas (GANCHO / CUERPO / CTA). Podés incluir indicaciones cortas de acción entre paréntesis si suman.
-- IDIOMA: español NEUTRO/MEXICANO, de "tú", sin voseo argentino.
-Devolvé SOLO el texto del guion (sin JSON).`;
+- El EJE del guion es UNA sola cosa: o el DOLOR/DESEO del avatar (su situacion, lo que siente, lo que le esta costando) o el ENTREGABLE (la cosa concreta que le vas a mostrar/dar). Elegi uno. El otro puede aparecer de forma breve y subordinada, nunca como coprotagonista.
+- Si el dolor y el entregable pelean por el centro del guion, el espectador no retiene ninguno de los dos. Menos es mas: es mejor un guion que vende UNA idea con fuerza que uno que intenta cubrir todo el negocio.
+- Regla de tijera: cada linea que escribas, pregunta "¿esto sirve al UNICO mensaje que elegi, o es solo un dato que suena bien?". Si es lo segundo, se corta. No metas mecanismos, procesos internos, features secundarias, ni una segunda promesa "por las dudas".
+- Test final antes de entregar: si alguien solo escucha la primera y la ultima frase del guion, ¿ya entiende de que se trata y que tiene que hacer? Si no, sobra contenido en el medio.
+
+ESTRUCTURA — GANCHO / HISTORIA / CTA
+Usa esta estructura siempre, adaptando el contenido (no el orden ni las etiquetas) al formato si te lo doy.
+
+GANCHO (primeros 3-5 segundos, 1-2 frases)
+Una sola frase que haga que la persona correcta se detenga a escuchar. Nombra su situacion o su dolor/deseo en el lenguaje con el que ESA persona lo pensaria de si misma (no en el lenguaje del negocio). No expliques nada todavia, no vendas nada todavia: solo hace que quiera saber que sigue.
+
+HISTORIA (cuerpo del guion, la mayor parte del tiempo)
+Desarrolla el UNICO mensaje que elegiste, en una linea narrativa simple: como es la vida/el problema ANTES, que fue lo que cambio (una sola razon, contada como algo que cualquiera entenderia al toque, no como una explicacion tecnica), y como se ve el DESPUES. Si usas el entregable, mencionalo como prueba de que esto es real y existe — una frase, no un catalogo de sus partes. No armes un tutorial de 3 pasos ni una lista de features: es UNA historia, contada como se la contarias a un amigo tomando un cafe.
+
+CTA (ultimos 5-10 segundos, 1-2 frases, no mas)
+Una sola instruccion, clara, corta, dicha en voz alta. Ver reglas de CTA abajo — el CTA tiene que corresponder EXACTAMENTE al funnel real del negocio.
+
+REGLAS DE CTA SEGUN EL FUNNEL (usa la que coincide con {{funnel}}; nunca mezcles ni inventes otra)
+- Si el funnel es "agenda una llamada de venta": invita a reservar un horario/llamada concreta. Ej: "Dale clic al boton de abajo y agenda tu llamada gratis." Nunca digas "contactanos" (es ambiguo) ni menciones un webinar.
+- Si el funnel es "vende por conversacion de WhatsApp/DM sin llamada": invita a escribir/mandar mensaje, no a agendar ni a comprar. Ej: "Escribinos por WhatsApp y te ayudamos a resolverlo." Nunca digas "agenda tu llamada" ni "compralo ahora".
+- Si el funnel es "vende directo por carrito/checkout sin hablar con nadie": invita a comprar/completar la compra ya. Ej: "Dale clic en comprar, el link esta abajo." Nunca impliques que primero va a hablar con alguien.
+- Si el funnel es "invita a un webinar": invita a registrarse a la sesion, PERO solo si el contexto que te dieron confirma que ese webinar existe y tiene fecha real. Ej: "Registrate gratis, el link esta abajo."
+- Si el funnel no esta claro o dice "no especificado", NUNCA inventes uno (nada de talleres, webinars ni recursos que no te confirmaron). Usa el CTA mas generico y verdadero posible: invitar a escribir por WhatsApp o a pedir mas informacion, nombrando solo lo que sabes que existe.
+- El CTA nombra UNA sola accion con UN solo verbo. Nunca ofrezcas dos caminos ("agenda una llamada o escribinos por WhatsApp").
+
+REGLAS
+- SOLO DIALOGO HABLADO. El guion es unicamente lo que la persona DICE en voz alta. No escribas direcciones de camara, acciones en pantalla, ni nada entre parentesis describiendo lo que se ve, se muestra o se hace. Nada de "(Accion: ...)", "(zoom a...)", "(pantalla muestra...)". Si te dan un FORMATO de video, dejalo influir el tono de lo que se dice, nunca agregues una descripcion visual.
+- CERO JERGA INTERNA. Nunca digas en voz alta el nombre propio de un sistema, protocolo, matriz, dashboard o metodologia interna tal cual esta en el contexto (ej.: nada de "Protocolo de Hand-off", "Matriz de Auditoria", "Dashboard Semaforizado de Salud de Clientes" dicho como nombre tecnico). Traduci cualquier concepto interno a una descripcion simple, de la calle, que una persona sin ningun contexto del negocio entienda al primer escuchazo — como si se lo explicaras a un amigo que jamas oyo hablar de esto, no como si le presentaras un sistema interno a un empleado.
+- CERO CONTEXTO PREVIO ASUMIDO. Escribi asumiendo que quien escucha nunca vio el negocio, no conoce su metodologia, y no le importa como se llaman las cosas por dentro. Tiene que sonar a anuncio normal que cualquiera entiende, no a briefing interno ni a demo de producto para el equipo.
+- Concreto, anclado en el dolor/deseo REAL del avatar que te pasaron. Sin relleno, sin promesas vacias, sin cifras ni garantias que no esten en el contexto que te dieron.
+- No repitas ni resumas el contexto que te pasaron: escribilo como guion natural, no como reporte.
+- Marca las tres partes EXACTAMENTE con estas etiquetas, en mayusculas, cada una sola en su propia linea, sin texto extra en esa linea: GANCHO / HISTORIA / CTA. No cambies el nombre, el orden ni el formato de las etiquetas: la app las usa para separar el guion en tarjetas.
+- IDIOMA: espanol NEUTRO/MEXICANO, de tu, sin voseo argentino.
+
+Devolve SOLO el texto del guion (sin JSON, sin explicaciones antes o despues).`;
+
+/** El funnel real del negocio, en el mismo lenguaje que espera el prompt del guion
+ *  (evita que la IA invente un CTA de un funnel que no existe — ej. un webinar
+ *  cuando el negocio en realidad vende por WhatsApp). Sale del canal que el
+ *  cliente ya eligió en el diagnóstico de fase; "no especificado" si no lo eligió
+ *  todavía, para que el prompt caiga en su regla de CTA genérico sin inventar. */
+async function funnelTextoParaGuion(): Promise<string> {
+  const FUNNEL_TXT: Record<CanalId, string> = {
+    llamadas: 'agenda una llamada de venta',
+    conversaciones: 'vende por conversación de WhatsApp/DM sin llamada',
+    carrito: 'vende directo por carrito/checkout sin hablar con nadie',
+    webinar: 'invita a un webinar',
+  };
+  const diag = await getDiagnosticoFase();
+  return diag?.canal ? FUNNEL_TXT[diag.canal] : 'no especificado';
+}
 
 export async function generarGuion(celdaId: string, formatoVideoTexto?: string, timeoutMs?: number): Promise<{ ok: true; guion: string } | { ok: false; error: string }> {
   try {
     const razones = await getRazones();
     const celda = razones.find((r) => r.id === celdaId);
     if (!celda) return { ok: false, error: 'Celda no encontrada.' };
-    const [avatares, entregables] = await Promise.all([getAvatares(), getEntregables()]);
+    const [avatares, entregables, funnel] = await Promise.all([getAvatares(), getEntregables(), funnelTextoParaGuion()]);
     const av = avatares.find((a) => a.id === celda.avatarId);
-    const sys = await renderPrompt('razones.guion', GUION_SYSTEM_TEMPLATE, {});
+    const sys = await renderPrompt('razones.guion', GUION_SYSTEM_TEMPLATE, { funnel });
     const user = `AVATAR: ${av ? `${av.nombre} — ${av.segmento}. Situación: ${av.situacion}. Dolor: ${av.dolor}` : '(sin avatar)'}
 MOTIVACIÓN DE COMPRA: ${celda.nombre} — ${celda.descripcion}
 COPY/HOOK: ${celda.copy}
+FUNNEL REAL DEL NEGOCIO: ${funnel}
 ${entregables.length ? `ENTREGABLE TANGIBLE: ${entregablesTexto(entregables)}\n` : ''}${formatoVideoTexto ? `FORMATO DE VIDEO A SEGUIR: ${formatoVideoTexto}\n` : ''}
 Escribí el guion del video.`;
     const guion = await chatCheapCascade({
-      system: sys, user, maxTokens: 1500, timeoutMs,
+      system: sys, user, maxTokens: 2200, timeoutMs,
       feature: 'razones', motivo: 'Guion de video de una celda de la matriz',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => t.trim().length > 40,
     });

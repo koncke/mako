@@ -39,6 +39,8 @@ import { FaseQuiz, FaseResultado, FaseIcono } from './FaseUI';
 import ServicioConfigForm from '../integraciones/ServicioConfigForm';
 import { RetroReport } from '../experimentos/RetroReport';
 import type { RetroReporte, RetroPlanItem, RetroStreamEvent } from '@/lib/retro-reporte';
+import { Dropdown } from '../components/Dropdown';
+import { PAISES, PAIS_DEFAULT, flagEmoji } from '@/lib/paises';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -48,13 +50,6 @@ type Servicio = { key: string; nombre: string; requerido: boolean; conectada: bo
 type JobState = { status: 'pending' | 'running' | 'done' | 'error' | 'skipped'; detail?: string | null; error?: string | null };
 type Extraction = { status: 'idle' | 'running' | 'done' | 'error'; jobs: Record<string, JobState> };
 type Paso = 'integraciones' | 'tabs' | 'negocio' | 'archivero' | 'entregable' | 'avatares' | 'persona' | 'angulos' | 'fase' | 'gemini' | 'retro' | 'plan';
-// Funnel simple del onboarding (#5): 3 opciones, multi-select, poco texto. El detalle
-// de etapas del CRM se ajusta después en Onboarding → Funnel.
-const FUNNEL_OPS = [
-  { id: 'llamadas', label: 'Agendar llamadas' },
-  { id: 'carrito', label: 'Venta por carrito' },
-  { id: 'webinar', label: 'Webinar' },
-];
 type BriefCampo = { key: string; label: string; type: 'text' | 'number' | 'textarea'; placeholder?: string; grupo: string };
 type Estado = {
   status: 'pending' | 'in_progress' | 'skipped' | 'done';
@@ -74,7 +69,7 @@ type WizardData = {
   fasePreguntas: Pregunta[];
   faseDiag: Diagnostico | null;
   settings: Record<string, string>;
-  contacto: { nombre: string; email: string; telefono: string };
+  contacto: { nombre: string; email: string; telefono: string; verificado: boolean };
   usuario: { nombre: string; email: string };
   funnelTemplates: Array<{ id: string; name: string; description: string; etapas: string[] }>;
 };
@@ -100,12 +95,16 @@ const SLIDES_MAKO: Slide[] = [
   { t: 'Una Retro que mira todo', d: 'Cruza ads, leads, llamadas y plata en un solo informe, y cuando aceptás una idea te la crea de verdad en tu plan.' },
 ];
 
-const SLIDES_FUNNEL: Slide[] = [
-  // lib/pipeline.ts FUNNEL_TEMPLATES + funnel_config por workspace
-  { t: 'Tu proceso, no el nuestro', d: 'Elegís cómo vendés y el CRM, las métricas y los tableros se acomodan a tus etapas — no al revés.' },
-  // lib/stage-requirements.ts — cada etapa exige sus datos
-  { t: 'Cada etapa pide lo suyo', d: 'Movés un lead y el asistente te pide justo lo que falta para esa etapa: el closer, la grabación, el motivo o las cuotas.' },
-];
+// Separa un teléfono guardado (lada+número concatenados, sin separador) en sus
+// dos partes para hidratar el selector de país + el input del resto. Heurística:
+// la lada más LARGA que matchea primero (evita que "+1" gane sobre "+1809").
+function splitTelefono(telefono: string): { lada: string; resto: string } {
+  const t = (telefono || '').trim();
+  if (!t) return { lada: PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial, resto: '' };
+  const candidatos = [...PAISES].sort((a, b) => b.dial.length - a.dial.length);
+  const match = candidatos.find((p) => t.startsWith(p.dial));
+  return match ? { lada: match.dial, resto: t.slice(match.dial.length) } : { lada: PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial, resto: t.replace(/^\+/, '') };
+}
 
 async function post(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   try {
@@ -153,8 +152,17 @@ export function OnboardingWizard() {
   const [avataresListo, setAvataresListo] = useState(false);
   const [personaListo, setPersonaListo] = useState(false);
   const [angulosListo, setAngulosListo] = useState(false);
-  const [funnelTipos, setFunnelTipos] = useState<string[]>([]);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
+  // Verificación del teléfono de reportes: 'form' → cargando el número; 'codigo' →
+  // MaKo ya mandó el código por WhatsApp, esperando que lo cargue; 'listo' → ya
+  // verificado (de esta visita o de una anterior). lada/numeroLocal son la UI del
+  // teléfono (selector de país + resto del número); contacto.telefono es SIEMPRE
+  // la concatenación de ambos (se sincroniza con un effect más abajo).
+  const [contactoEtapa, setContactoEtapa] = useState<'form' | 'codigo' | 'listo'>('form');
+  const [lada, setLada] = useState(PAISES.find((p) => p.iso2 === PAIS_DEFAULT)!.dial);
+  const [numeroLocal, setNumeroLocal] = useState('');
+  const [codigoInput, setCodigoInput] = useState('');
+  const [reenviando, setReenviando] = useState(false);
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
   const [faseResp, setFaseResp] = useState<number[]>([]);
   const [faseDiag, setFaseDiag] = useState<Diagnostico | null>(null);
@@ -188,12 +196,16 @@ export function OnboardingWizard() {
         email: d.contacto.email || d.usuario.email,
         telefono: d.contacto.telefono,
       });
+      const { lada: ladaGuardada, resto } = splitTelefono(d.contacto.telefono);
+      setLada(ladaGuardada);
+      setNumeroLocal(resto);
+      setContactoEtapa(d.contacto.verificado ? 'listo' : 'form');
       setExt(d.estado.extraction);
       setGeminiConectada(Boolean(d.geminiConfig?.configurado));
       setConectadas(Object.fromEntries(d.servicios.map((s) => [s.key, s.conectada])));
       setFaseDiag(d.faseDiag ?? null);
       setFaseResp(d.faseDiag?.respuestas ?? new Array(d.fasePreguntas?.length ?? 6).fill(-1));
-      if (d.faseDiag?.canal) { setCanal(d.faseDiag.canal); setFunnelTipos((t) => (t.length ? t : [d.faseDiag!.canal!])); }
+      if (d.faseDiag?.canal) setCanal(d.faseDiag.canal);
     } catch (e) {
       setErrCarga(e instanceof Error ? e.message : String(e));
     }
@@ -208,7 +220,7 @@ export function OnboardingWizard() {
     retomado.current = true;
     const cuenta = (paso: Paso): number =>
       paso === 'integraciones' ? data.requeridos.length
-      : paso === 'tabs' ? 2
+      : paso === 'tabs' ? 1
       : paso === 'negocio' ? data.brief.length
       : paso === 'fase' ? data.fasePreguntas.length + 1
       : 1;
@@ -264,7 +276,6 @@ export function OnboardingWizard() {
         });
       }
     } else if (paso === 'tabs') {
-      pantallas.push({ key: 'funnel', paso, pregunta: '¿Cómo vendés?', slides: SLIDES_FUNNEL });
       pantallas.push({ key: 'contacto', paso, pregunta: '¿A dónde te mando los reportes?', slides: SLIDES_MAKO });
     } else if (paso === 'negocio') {
       for (const c of data.brief) {
@@ -385,6 +396,9 @@ export function OnboardingWizard() {
     : p.key === 'avatares' ? avataresListo
     : p.key === 'persona' ? personaListo
     : p.key === 'angulos' ? angulosListo
+    // Teléfono de reportes: tampoco pasa sin verificar (pedido explícito) — ni
+    // el super-admin, para poder probar el flujo real de punta a punta.
+    : p.key === 'contacto' ? (contactoEtapa === 'listo' ? true : contactoEtapa === 'form' ? numeroLocal.trim().length >= 6 : codigoInput.trim().length === 6)
     : true;
   // Archivero sin documentos: el botón Siguiente ni aparece (no tiene sentido avanzar
   // sin cargar nada). El super-admin queda exento para poder recorrer el flujo.
@@ -396,7 +410,35 @@ export function OnboardingWizard() {
     setFaseDiag(local); // instantáneo, para que el resultado aparezca al toque
     const j = await post('/api/onboarding', { action: 'fase', faseRespuestas: faseResp, canal });
     if (j.ok && j.diagnostico) setFaseDiag(j.diagnostico as Diagnostico);
-    setFunnelTipos((t) => (t.length ? t : [canal])); // el canal pre-marca "cómo vendés"
+    return j;
+  };
+
+  // Verificación del teléfono de reportes: pide un código nuevo por WhatsApp (NO
+  // avanza el wizard — cambia de sub-etapa dentro de la misma pantalla).
+  const enviarCodigoContacto = async () => {
+    setPending(true); setError(null);
+    try {
+      const telefono = `${lada}${numeroLocal.replace(/\D/g, '')}`;
+      const j = await post('/api/onboarding', { action: 'contacto-enviar-codigo', contacto: { ...contacto, telefono } });
+      if (!j.ok) { setError(String(j.error ?? 'No se pudo enviar el código.')); return; }
+      setContacto((c) => ({ ...c, telefono }));
+      setContactoEtapa(j.yaVerificado ? 'listo' : 'codigo');
+      if (!j.yaVerificado) setCodigoInput('');
+    } finally { setPending(false); }
+  };
+  const reenviarCodigo = async () => {
+    setReenviando(true); setError(null);
+    try {
+      const telefono = `${lada}${numeroLocal.replace(/\D/g, '')}`;
+      const j = await post('/api/onboarding', { action: 'contacto-enviar-codigo', contacto: { ...contacto, telefono } });
+      if (!j.ok) setError(String(j.error ?? 'No se pudo reenviar el código.'));
+    } finally { setReenviando(false); }
+  };
+  const verificarCodigo = async () => {
+    const j = await post('/api/onboarding', { action: 'contacto-verificar-codigo', codigo: codigoInput });
+    // Sin esto, volver "← Atrás" a esta pantalla después de verificar mostraba
+    // de nuevo el input de código (estado local nunca se enteraba del éxito).
+    if (j.ok) setContactoEtapa('listo');
     return j;
   };
 
@@ -430,7 +472,13 @@ export function OnboardingWizard() {
         puedeAvanzar={puedeAvanzar}
         enUltimo={enUltimo}
         confirmLabel={data.pasos.includes('plan') ? 'Crear mi primer proyecto →' : 'Ir a mi dashboard →'}
-        siguienteLabel={p.key === 'retro' ? 'Seguir sin Retro →' : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →' : 'Siguiente →'}
+        siguienteLabel={
+          p.key === 'retro' ? 'Seguir sin Retro →'
+          : p.faseQ === data.fasePreguntas.length - 1 ? 'Ver mi diagnóstico →'
+          : p.key === 'contacto' && contactoEtapa === 'form' ? 'Enviar código →'
+          : p.key === 'contacto' && contactoEtapa === 'codigo' ? 'Verificar →'
+          : 'Siguiente →'
+        }
         hideSiguiente={hideSiguiente}
         pending={pending}
         atrasLabel="Atrás"
@@ -444,8 +492,13 @@ export function OnboardingWizard() {
           // Pasos self-contained (Entregable, Avatares, Persona, Matriz, Gemini):
           // persisten por su cuenta con sus propios endpoints; acá solo avanzamos.
           if (['entregable', 'avatares', 'persona', 'angulos', 'gemini'].includes(p.key)) return avanzar();
-          if (p.key === 'funnel') return avanzar(() => post('/api/onboarding', { action: 'funnel-simple', funnelTipos }));
-          if (p.key === 'contacto') return avanzar(() => post('/api/onboarding', { action: 'contacto', contacto }));
+          // Contacto: 'form' manda el código (NO avanza, cambia de sub-etapa);
+          // 'codigo' lo verifica y RECIÉN AHÍ avanza; 'listo' es un avance normal.
+          if (p.key === 'contacto') {
+            if (contactoEtapa === 'form') { void enviarCodigoContacto(); return; }
+            if (contactoEtapa === 'codigo') return avanzar(verificarCodigo);
+            return avanzar();
+          }
           // Última pregunta del diagnóstico: persistir antes de mostrar el resultado.
           if (esFaseQuiz && p.faseQ === data.fasePreguntas.length - 1) return avanzar(guardarFase);
           return avanzar();
@@ -523,22 +576,6 @@ export function OnboardingWizard() {
           : <input style={wizardInput} value={answers[campoBrief.key] ?? ''} placeholder={campoBrief.placeholder} autoFocus
               onChange={(e) => setAnswers((a) => ({ ...a, [campoBrief.key]: e.target.value }))} />)}
 
-        {/* ── Funnel: 3 opciones, multi-select, poco texto (#5) ── */}
-        {p.key === 'funnel' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {FUNNEL_OPS.map((o) => {
-              const on = funnelTipos.includes(o.id);
-              return (
-                <button key={o.id} type="button" onClick={() => setFunnelTipos((s) => (on ? s.filter((x) => x !== o.id) : [...s, o.id]))}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', cursor: 'pointer', fontFamily: SANS, padding: '14px 16px', borderRadius: 12, border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)' }}>
-                  <span style={{ width: 20, height: 20, borderRadius: 6, flex: 'none', border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`, background: on ? 'var(--primary)' : 'transparent', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>{on ? '✓' : ''}</span>
-                  <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)' }}>{o.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
         {/* ── Gemini: la MISMA credencial de /integraciones (ojito · probar · eliminar) ── */}
         {p.key === 'gemini' && (
           <div style={{ textAlign: 'left' }}>
@@ -562,12 +599,49 @@ export function OnboardingWizard() {
           </div>
         )}
 
-        {/* ── Contacto ── */}
+        {/* ── Contacto: teléfono con lada + verificación por código de WhatsApp ── */}
         {p.key === 'contacto' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div><Label>Nombre</Label><input style={wizardInput} value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} /></div>
-            <div><Label>Email</Label><input style={wizardInput} type="email" value={contacto.email} onChange={(e) => setContacto((c) => ({ ...c, email: e.target.value }))} /></div>
-            <div><Label>WhatsApp</Label><input style={wizardInput} value={contacto.telefono} onChange={(e) => setContacto((c) => ({ ...c, telefono: e.target.value }))} placeholder="+52 1 686…" /></div>
+            {contactoEtapa === 'form' && (
+              <>
+                <div><Label>Nombre</Label><input style={wizardInput} value={contacto.nombre} onChange={(e) => setContacto((c) => ({ ...c, nombre: e.target.value }))} /></div>
+                <div><Label>Email</Label><input style={wizardInput} type="email" value={contacto.email} onChange={(e) => setContacto((c) => ({ ...c, email: e.target.value }))} /></div>
+                <div>
+                  <Label>WhatsApp</Label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Dropdown value={lada} onChange={setLada} width={122} ariaLabel="Código de país"
+                      options={PAISES.map((pais) => ({ value: pais.dial, label: `${flagEmoji(pais.iso2)} ${pais.dial}`, sub: pais.nombre }))} />
+                    <input style={{ ...wizardInput, flex: 1 }} value={numeroLocal} placeholder="686 123 4567" inputMode="tel"
+                      onChange={(e) => setNumeroLocal(e.target.value.replace(/[^\d\s-]/g, ''))} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 6, lineHeight: 1.5 }}>Te mandamos un código por WhatsApp para confirmarlo — MaKo te va a escribir ahí.</div>
+                </div>
+              </>
+            )}
+            {contactoEtapa === 'codigo' && (
+              <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                <div style={{ fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 16 }}>
+                  Te escribimos por WhatsApp a <b style={{ color: 'var(--ink)' }}>{lada} {numeroLocal}</b> con un código de 6 dígitos. Cargalo acá para confirmar tu número.
+                </div>
+                <input style={{ ...wizardInput, textAlign: 'center', fontSize: 24, letterSpacing: '0.35em', fontWeight: 700, padding: '14px 12px 14px 24px' }}
+                  value={codigoInput} onChange={(e) => setCodigoInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000" inputMode="numeric" maxLength={6} autoFocus />
+                <div style={{ marginTop: 16, display: 'flex', gap: 18, justifyContent: 'center' }}>
+                  <button type="button" onClick={reenviarCodigo} disabled={reenviando} style={linkBtn}>{reenviando ? 'Reenviando…' : 'Reenviar código'}</button>
+                  <button type="button" onClick={() => { setContactoEtapa('form'); setCodigoInput(''); }} style={linkBtn}>Cambiar número</button>
+                </div>
+              </div>
+            )}
+            {contactoEtapa === 'listo' && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 12, padding: '13px 15px' }}>
+                <span style={{ color: 'var(--good)', fontSize: 16, flex: 'none', marginTop: 1 }}>✓</span>
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>Número verificado</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5, marginTop: 2 }}>{lada} {numeroLocal} — MaKo ya te tiene en su grupo de WhatsApp.</div>
+                  <button type="button" onClick={() => setContactoEtapa('form')} style={{ ...linkBtn, marginTop: 8 }}>Cambiar número</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -767,6 +841,7 @@ function CierreGuardian() {
 }
 
 const btnPrimary: CSSProperties = { padding: '11px 20px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' };
+const linkBtn: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 
 const Label = ({ children }: { children: ReactNode }) => (
   <label style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 5, display: 'block', textAlign: 'left' }}>{children}</label>

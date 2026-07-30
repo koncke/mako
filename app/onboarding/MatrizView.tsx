@@ -11,6 +11,12 @@
 
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatoPorId, type Medio } from '@/lib/angulos-data';
+import { SeccionCard, parsearSecciones, type Seccion } from '../components/SeccionCard';
+
+const ICONO_GUION: Record<string, string> = { GANCHO: '🎣', HISTORIA: '📖', CTA: '👉' };
+// Reconstruye el guion completo tras editar UNA sección (las tarjetas son
+// independientes; el campo guardado sigue siendo un solo string con etiquetas).
+const reconstruirGuion = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -209,8 +215,10 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                   return <button key={t.k} type="button" onClick={() => setTabModal(t.k)} style={{ border: 'none', borderBottom: `2px solid ${on ? 'var(--primary)' : 'transparent'}`, background: 'none', color: on ? 'var(--ink)' : 'var(--dim)', fontFamily: SANS, fontWeight: on ? 600 : 500, fontSize: 13, padding: '9px 10px', cursor: 'pointer', flex: 'none' }}>{t.label}</button>;
                 })}
               </div>
-              {/* Cuerpo */}
-              <div style={{ overflowY: 'auto', padding: '18px 22px 22px' }}>
+              {/* Cuerpo — flex:1/minHeight:0 explícito (antes dependía del cálculo implícito
+                  de flexbox): así el header y las tabs quedan SIEMPRE arriba, fijos, y solo
+                  este bloque scrollea, sin importar cuán largo salga el guion. */}
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '18px 22px 22px' }}>
                 {tabModal === 'contexto' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <Bloque label="Copy / hook del anuncio">
@@ -243,17 +251,34 @@ export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } =
                     )}
                   </div>
                 )}
-                {tabModal === 'guion' && (
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-                      <div style={eyebrow}>Guion de video</div>
-                      <button type="button" onClick={() => generarGuion(celda.id)} disabled={genGuion} style={{ ...btnGhost, opacity: genGuion ? 0.6 : 1 }}>{genGuion ? 'Escribiendo…' : celda.guion ? '↺ Regenerar' : '✦ Generar guion'}</button>
+                {tabModal === 'guion' && (() => {
+                  const secciones = celda.guion ? parsearSecciones(celda.guion, undefined, 20) : [];
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                        <div style={eyebrow}>Guion de video · solo lo que se dice</div>
+                        <button type="button" onClick={() => generarGuion(celda.id)} disabled={genGuion} style={{ ...btnGhost, opacity: genGuion ? 0.6 : 1 }}>{genGuion ? 'Escribiendo…' : celda.guion ? '↺ Regenerar' : '✦ Generar guion'}</button>
+                      </div>
+                      {secciones.length ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {secciones.map((s, i) => (
+                            <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 1} icono={ICONO_GUION[s.titulo] ?? '🎬'} size="md">
+                              <Edit valor={s.texto} multiline
+                                onSave={(v) => editar(celda.id, 'guion', reconstruirGuion(secciones.map((sec, j) => (j === i ? { ...sec, texto: v } : sec))))}
+                                style={{ fontSize: 14.5, color: 'var(--ink)', lineHeight: 1.6 }} />
+                            </SeccionCard>
+                          ))}
+                        </div>
+                      ) : celda.guion ? (
+                        // El guion no vino con las etiquetas esperadas (texto viejo, u otro
+                        // formato) — no lo perdemos, se ve entero y editable igual.
+                        <Edit valor={celda.guion} multiline onSave={(v) => editar(celda.id, 'guion', v)} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', margin: 0 }} />
+                      ) : (
+                        <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '28px 0' }}>Todavía no hay guion. Genera uno a partir de esta razón y el entregable.</div>
+                      )}
                     </div>
-                    {celda.guion
-                      ? <Edit valor={celda.guion} multiline onSave={(v) => editar(celda.id, 'guion', v)} style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.6, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', margin: 0 }} />
-                      : <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6, textAlign: 'center', padding: '28px 0' }}>Todavía no hay guion. Genera uno a partir de esta razón y el entregable.</div>}
-                  </div>
-                )}
+                  );
+                })()}
                 {tabModal === 'imagen' && (
                   <AnguloTab medio="imagen" formatoId={celda.anguloImagen} cargando={genAngulo === 'imagen'}
                     onElegir={() => elegirAngulo(celda.id, 'imagen')}
