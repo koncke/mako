@@ -58,10 +58,19 @@ export const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'med
 /** Alguien a quien se le puede pasar una tarea (de la reunión, o cargado a mano). */
 export type PersonaRef = { nombre: string; email: string };
 
-const btnChico: CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8,
+/** Opción clickeable del selector de dueño (esas SÍ son cajitas: son opciones). */
+const chip: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999,
   border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)',
   fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: 'pointer', lineHeight: 1.6,
+};
+
+// Acciones de fila: TEXTO, no botones con caja. En una lista de 80 tareas, 160 cajitas
+// son ruido; el subrayado al pasar el mouse alcanza para que se lean como accionables.
+const btnChico: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0,
+  border: 'none', background: 'transparent', color: 'var(--faint)',
+  fontFamily: MONO, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', lineHeight: 1.6,
 };
 
 /**
@@ -86,12 +95,12 @@ function ElegirDueño({ personas, actual, esMiaHoy, onElegir, onCancelar }: {
     <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>¿De quién es esta tarea?</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {!esMiaHoy && <button type="button" onClick={() => onElegir(null)} style={{ ...btnChico, borderColor: 'var(--primary)', color: 'var(--primary)' }}>Es mía</button>}
+        {!esMiaHoy && <button type="button" onClick={() => onElegir(null)} style={{ ...chip, borderColor: 'var(--primary)', color: 'var(--primary)' }}>Es mía</button>}
         {otros.map((p) => (
-          <button key={p.email || p.nombre} type="button" onClick={() => onElegir(p)} style={btnChico}>{p.nombre || p.email}</button>
+          <button key={p.email || p.nombre} type="button" onClick={() => onElegir(p)} style={chip} title={p.email || undefined}>{p.nombre || p.email}</button>
         ))}
-        <button type="button" onClick={() => setNueva((v) => !v)} style={{ ...btnChico, borderStyle: 'dashed' }}>+ otra persona</button>
-        <button type="button" onClick={onCancelar} style={{ ...btnChico, border: 'none', background: 'transparent' }}>cancelar</button>
+        <button type="button" onClick={() => setNueva((v) => !v)} style={{ ...chip, borderStyle: 'dashed' }}>+ otra persona</button>
+        <button type="button" onClick={onCancelar} style={{ ...chip, border: 'none', background: 'transparent' }}>cancelar</button>
       </div>
       {nueva && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -101,7 +110,7 @@ function ElegirDueño({ personas, actual, esMiaHoy, onElegir, onCancelar }: {
             style={{ flex: '2 1 170px', minWidth: 150, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }} />
           <button type="button" disabled={!nombre.trim() && !email.trim()}
             onClick={() => onElegir({ nombre: nombre.trim() || email.trim().split('@')[0], email: email.trim().toLowerCase() })}
-            style={{ ...btnChico, borderColor: 'var(--primary)', color: 'var(--primary)', opacity: (!nombre.trim() && !email.trim()) ? 0.5 : 1 }}>Asignar</button>
+            style={{ ...chip, borderColor: 'var(--primary)', color: 'var(--primary)', opacity: (!nombre.trim() && !email.trim()) ? 0.5 : 1 }}>Asignar</button>
         </div>
       )}
     </div>
@@ -230,18 +239,22 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
     return () => { vivo = false; };
   }, [ridsConOtros]);
 
-  // A quién se le puede pasar una tarea de ESTA reunión: los participantes que la app
-  // ya resolvió + los dueños que la IA detectó (aunque no tengan email).
-  const personasDe = (rid?: number): PersonaRef[] => {
+  // A quién se le puede pasar una tarea: TODA la gente que aparece en la pantalla, sin
+  // importar de qué reunión salió. Una tarea que se habló con Mauricio puede ser de
+  // Francisco igual; limitar la lista a los invitados de ESA grabación obligaba a
+  // cargar a mano a alguien que ya estaba ahí abajo, en la otra tab.
+  const personasTodas = useMemo((): PersonaRef[] => {
     const m = new Map<string, PersonaRef>();
-    for (const d of Object.values(dests[rid ?? 0] ?? {})) m.set(d.email, { nombre: d.nombre, email: d.email });
+    for (const porReunion of Object.values(dests)) {
+      for (const d of Object.values(porReunion)) m.set(d.email, { nombre: d.nombre, email: d.email });
+    }
     for (const x of conIdx) {
-      if (!x.f.esDeOtro || (x.r.recordingId ?? 0) !== (rid ?? 0)) continue;
+      if (!x.f.esDeOtro) continue;
       const k = (x.f.dueñoEmail || x.f.dueño || '').toLowerCase();
       if (k && !m.has(k)) m.set(k, { nombre: x.f.dueño || x.f.dueñoEmail || '', email: x.f.dueñoEmail || '' });
     }
     return [...m.values()].filter((p) => p.nombre || p.email);
-  };
+  }, [dests, conIdx]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -278,7 +291,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
                     </div>
                   )}
                   {g.items.map(({ f, i }) => (
-                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasDe(g.r.recordingId)} />
+                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasTodas} />
                   ))}
                 </div>
               ))}
@@ -293,7 +306,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
           labels={labels}
           reunion={activo.r}
           onFila={onFila}
-          personas={personasDe(activo.r.recordingId)}
+          personas={personasTodas}
         />
       ) : null}
     </div>
@@ -344,8 +357,8 @@ function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p:
           {f.titulo}
           {reloj && (link
             ? <a href={link} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
-                style={{ marginLeft: 7, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--surface)', fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>▶ {reloj}</a>
-            : <span style={{ marginLeft: 7, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>▶ {reloj}</span>)}
+                style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {reloj}</a>
+            : <span style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {reloj}</span>)}
         </div>
         {editando
           ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4}
@@ -460,7 +473,7 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
               {f.titulo}
               {relojDe(f.minuto) && (
                 <a href={urlEnMinuto(reunion.url, f.minuto) ?? '#'} target="_blank" rel="noreferrer" title="Escuchar este momento"
-                  style={{ marginLeft: 7, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--surface)', fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>▶ {relojDe(f.minuto)}</a>
+                  style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(f.minuto)}</a>
               )}
             </div>
             {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
