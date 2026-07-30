@@ -169,7 +169,11 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
 // Orden por default: GRATIS primero (Groq, Cerebras, OpenRouter, Mistral) y OpenAI (barato)
 // al final. Claude NUNCA entra acá. Cada uno se usa solo si tiene su key cargada (si no, se salta).
 export const CASCADA_GRATIS: ProvName[] = ['groq', 'cerebras', 'openrouter', 'mistral', 'openai'];
-export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean }): Promise<string> {
+// erroresOut es opcional y ADITIVO (no cambia qué devuelve la función): si el caller
+// pasa un array, cada proveedor que falla empuja su motivo ahí — así quien llama puede
+// distinguir "sin key" de "con key pero la cascada falló" (cuota, rate-limit, timeout)
+// sin tener que cambiar cómo usa el string que ya devuelve chatCheapCascade.
+export async function chatCheapCascade(opts: { system: string; user: string; json?: boolean; maxTokens?: number; feature?: string; motivo?: string; provs?: ProvName[]; timeoutMs?: number; modelos?: Partial<Record<ProvName, string>>; validar?: (t: string) => boolean; erroresOut?: string[] }): Promise<string> {
   // PROACTIVO: probamos primero los que todavía tienen cuota hoy (los cerca del tope van al final).
   const orden = await ordenarPorCuota((opts.provs ?? CASCADA_GRATIS).map(String)).catch(() => (opts.provs ?? CASCADA_GRATIS).map(String));
   for (const prov of orden as ProvName[]) {
@@ -191,6 +195,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       } catch (e) {
         const m = e instanceof Error ? e.message : String(e);
         console.warn(`[ai-cheap] cascade ${prov} falló${intento ? ' (reintento)' : ''}: ${m}`);
+        opts.erroresOut?.push(`${prov}: ${m}`);
         if (intento === 0 && /\b(429|5\d\d)\b|timeout|abort|ETIMEDOUT|fetch failed|ECONNRESET/i.test(m)) {
           await new Promise((r) => setTimeout(r, 1500));
           continue; // reintentar el mismo proveedor una vez
@@ -200,6 +205,25 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     }
   }
   return '';
+}
+
+/** Interpreta los errores crudos que dejó chatCheapCascade en `erroresOut` en un
+ *  motivo legible — el caso más confuso es "hay key conectada pero igual no
+ *  respondió": sin esto, el usuario ve el mismo mensaje genérico que si nunca
+ *  hubiera conectado nada. null si no hay ninguna pista clara (falla genérica). */
+export function motivoDeErroresCascada(errores: string[]): string | null {
+  if (!errores.length) return null;
+  const todo = errores.join(' | ').toLowerCase();
+  if (/resource_exhausted|insufficient_quota|quota|\b429\b|rate limit|rate_limit/.test(todo)) {
+    return 'Se quedó sin cuota / límite de uso alcanzado por ahora.';
+  }
+  if (/\b401\b|\b403\b|invalid.*key|api key not valid|unauthorized/.test(todo)) {
+    return 'La API key parece inválida o vencida.';
+  }
+  if (/timeout|abort|etimedout/i.test(todo)) {
+    return 'No respondió a tiempo — puede ser una falla momentánea de conexión.';
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

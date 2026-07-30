@@ -8,7 +8,7 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { renderPrompt } from './prompt-render';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, type ProvName } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, motivoDeErroresCascada, type ProvName } from './ai-cheap';
 
 export type FieldType = 'text' | 'number' | 'textarea';
 export type Field = { key: string; label: string; type: FieldType; placeholder?: string };
@@ -120,16 +120,22 @@ export async function extractAnswersFromText(texto: string, fields: Array<{ key:
 // campos que encontró + una frase corta de qué aportó ese documento.
 export const ARCHIVERO_EXTRACT_TEMPLATE = `Sos un extractor de datos del negocio. Recibís el texto de UN documento del cliente y una lista de CAMPOS. Devolvé SOLO JSON con ESTA forma exacta, y el "razonamiento" SIEMPRE presente: {"razonamiento": "<2-3 frases>", "campos": {"<clave>": "<valor>"}}. El "razonamiento" (OBLIGATORIO, nunca vacío) son 2-3 frases que EMPIEZAN nombrando qué tipo de documento es (Avatar, Oferta, Nicho, Producto, o mixto) y DESCRIBEN con detalle qué entendiste del negocio a partir de él, para que el cliente vea que lo leíste bien. Escribí el razonamiento en español NEUTRO (de "tú", sin voseo argentino). (ej: "Documento de Avatar y Oferta. Define al cliente ideal —un profesional estancado— y su dolor de depender de sí mismo, y describe la oferta 'Negocio que Escala' con su promesa de escalar sin perder el control."). Luego, en "campos", para cada campo poné el valor que corresponda según el texto, conciso y en las palabras del cliente; si un campo no aparece o no se puede inferir con confianza, omitilo (NO lo inventes). Si el documento no aporta ningún campo útil, "campos" vacío pero el "razonamiento" igual explica qué es el documento. Claves válidas de "campos" (clave: qué pide):\n{{lista}}`;
 
-export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean }> {
+export async function extraerDeArchivo(texto: string, fields: Array<{ key: string; label: string }>, maxChars = 24000): Promise<{ campos: Record<string, string>; razonamiento: string; sinIA: boolean; motivoSinIA?: string }> {
   if (!texto.trim() || fields.length === 0) return { campos: {}, razonamiento: '', sinIA: false };
   const lista = fields.map((f) => `- ${f.key}: ${f.label}`).join('\n');
   const sys = await renderPrompt('archivero.extract.system', ARCHIVERO_EXTRACT_TEMPLATE, { lista });
   // modelos: el default barato (Groq gpt-oss-20b) genera JSON roto en docs reales →
   // usamos modelos capaces (70b/flash) y `validar` para que, si uno falla, rescate el
   // siguiente. Sin esto, un doc de +10k chars volvía "sin datos útiles" (bug reportado).
-  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto });
-  // out vacío = ninguna IA respondió (sin key de Gemini/Groq/OpenAI en el workspace).
-  if (!out) return { campos: {}, razonamiento: '', sinIA: true };
+  const errores: string[] = [];
+  const out = await chatCheapCascade({ system: sys, user: texto.slice(0, maxChars), json: true, maxTokens: 2000, feature: 'El Archivero', motivo: 'Extraer campos de un documento del negocio', provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: esJsonObjeto, erroresOut: errores });
+  // out vacío: puede ser "sin ninguna key en el workspace" O "hay key pero la cascada
+  // falló igual" (cuota, rate-limit, key vencida). El caller (route) YA validó lo
+  // primero con docsIADisponible() antes de llegar hasta acá, así que si pasa por
+  // acá con vacío, es lo segundo — motivoDeErroresCascada interpreta los errores
+  // crudos para decir POR QUÉ, en vez del "reintentá en un momento" genérico que
+  // antes tapaba una cuota agotada (reporte de Martín).
+  if (!out) return { campos: {}, razonamiento: '', sinIA: true, motivoSinIA: motivoDeErroresCascada(errores) ?? undefined };
   const parsed = parseJsonLoose(out);
   const raw = (parsed.campos && typeof parsed.campos === 'object' ? parsed.campos : {}) as Record<string, unknown>;
   const campos: Record<string, string> = {};

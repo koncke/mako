@@ -29,6 +29,13 @@ export const maxDuration = 300;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const MAX_ARCHIVO_BYTES = 25 * 1024 * 1024;
+// El caller ya confirmó docsIADisponible() antes de llegar acá, así que "sinIA" en
+// este punto SIEMPRE significa "había key pero la cascada falló igual" — nunca
+// "no hay key". Si extraerDeArchivo pudo interpretar por qué (cuota, key vencida,
+// timeout), lo mostramos; si no, un genérico honesto (ya no dice "reintentá en un
+// momento" sin más, que sonaba a que ni valía la pena investigar).
+const mensajeSinIA = (nombre: string, motivo?: string) =>
+  motivo ? `No pude analizar "${nombre}": ${motivo}` : `Tu IA está conectada pero no pudo analizar "${nombre}" ahora mismo. Probá de nuevo en un momento.`;
 const LEER_DOC = 'Transcribí TODO el texto legible de este documento, tal cual, sin resumir ni omitir nada. Si es una imagen o captura, describí también lo que se ve. Devolvé solo el texto.';
 
 async function leerArchivo(file: File): Promise<{ texto: string; warning?: string }> {
@@ -100,8 +107,8 @@ async function procesarDirecto(ws: number, body: { fileId?: string; path?: strin
     else if (!texto.trim()) warnings.push(`No pude sacar texto de "${nombre}".`);
     else {
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
-      const { campos, razonamiento, sinIA } = await extraerDeArchivo(texto, fields, 24000);
-      if (sinIA) warnings.push(`No pude analizar "${nombre}" con la IA — reintentá en un momento.`);
+      const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
+      if (sinIA) warnings.push(mensajeSinIA(nombre, motivoSinIA));
       else { await insertFile(ws, { id: fileId, nombre, mime, tamano, storage_path: path, razonamiento, campos }); textoOk = texto; leido = true; }
     }
     if (!leido) await getSupabaseServer().storage.from('archivero').remove([path]).catch(() => {}); // binario huérfano
@@ -177,8 +184,8 @@ async function procesarLink(ws: number, body: { url?: string }): Promise<Respons
     else if (!texto.trim()) warnings.push(`No pude sacar texto de "${host}".`);
     else {
       const fields = (await flatFields()).map((f) => ({ key: f.key, label: `${f.grupo} — ${f.label}` }));
-      const { campos, razonamiento, sinIA } = await extraerDeArchivo(texto, fields, 24000);
-      if (sinIA) warnings.push(`No pude analizar "${host}" con la IA — reintentá en un momento.`);
+      const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
+      if (sinIA) warnings.push(mensajeSinIA(host, motivoSinIA));
       else {
         await insertFile(ws, { id: randomUUID(), nombre: titulo || host, mime: 'text/html', tamano: texto.length, storage_path: url, razonamiento, campos });
         leido = true;
@@ -237,8 +244,8 @@ export async function POST(req: NextRequest) {
         const { texto, warning } = await leerArchivo(file);
         if (warning) { warnings.push(warning); continue; }
         if (!texto.trim()) { warnings.push(`No pude sacar texto de "${file.name}".`); continue; }
-        const { campos, razonamiento, sinIA } = await extraerDeArchivo(texto, fields, 24000);
-        if (sinIA) { warnings.push(`No pude analizar "${file.name}" con la IA — reintentá en un momento.`); continue; }
+        const { campos, razonamiento, sinIA, motivoSinIA } = await extraerDeArchivo(texto, fields, 24000);
+        if (sinIA) { warnings.push(mensajeSinIA(file.name, motivoSinIA)); continue; }
         const id = randomUUID();
         const buf = Buffer.from(await file.arrayBuffer());
         const path = await subirBinario(ws, id, buf, file.type || '');
