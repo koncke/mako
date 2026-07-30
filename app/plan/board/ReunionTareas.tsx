@@ -180,7 +180,10 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
   URL.revokeObjectURL(a.href);
 }
 
-export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
+/** Una tarea de esta reunión que YA está en el plan (se cargó en una pasada anterior). */
+export type TareaYaCargada = { titulo: string; tareaId: string; minutos?: number[]; url?: string | null };
+
+export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea }: {
   filas: FilaTarea[];
   labels: Label[];
   /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
@@ -188,6 +191,10 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
   onFila: (i: number, patch: Partial<FilaTarea>) => void;
   /** texto que va arriba de la lista de MIS tareas. */
   cabecera?: string;
+  /** ya están en el plan: se muestran igual, pero como tarjeta real (no se re-cargan). */
+  yaCargadas?: TareaYaCargada[];
+  /** abrir el detalle de una tarea ya creada. */
+  onAbrirTarea?: (id: string) => void;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
   const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
@@ -267,7 +274,9 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
       {/* tabs: Mías + una por persona con tareas */}
       {grupos.length > 0 && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
-          <TabBtn activo={tab === 'mias'} onClick={() => setTab('mias')} label={`Mías`} n={mias.length} />
+          {/* Cuenta las que YA cargaste: si no, la tab dice "Mías 0" cuando adentro hay
+              diez tuyas, ya en el plan. */}
+          <TabBtn activo={tab === 'mias'} onClick={() => setTab('mias')} label={`Mías`} n={mias.length + yaCargadas.length} />
           {grupos.map((g) => (
             // Con varias reuniones la misma persona aparece una vez por reunión: se
             // aclara con la fecha para poder distinguirlas de un vistazo.
@@ -280,11 +289,36 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
 
       {tab === 'mias' ? (
         <>
-          {cabecera && <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cabecera}</div>}
-          {mias.length === 0
-            ? <div style={{ padding: '26px 12px', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, lineHeight: 1.5 }}>
-                De {miasPorReunion.length > 1 ? 'estas reuniones' : 'esta reunión'} no salió ninguna tarea tuya: todas quedaron del lado de las otras personas.
+          {cabecera && mias.length > 0 && <div style={{ fontSize: 13, color: 'var(--dim)' }}>{cabecera}</div>}
+          {/* Lo que ya cargaste de esta reunión. No se vuelve a ofrecer, pero sigue a la
+              vista: el borrador quedó abierto por las tareas de los demás y sin esto
+              parecía que las tuyas se habían perdido. Cada una abre su tarjeta real. */}
+          {yaCargadas.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--good)', background: 'var(--surface-2)' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--good)' }}>
+                ✓ Ya cargaste {yaCargadas.length} {yaCargadas.length === 1 ? 'tarea tuya' : 'tareas tuyas'} al plan
               </div>
+              {yaCargadas.map((y) => (
+                <div key={y.tareaId} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.35 }}>{y.titulo}</span>
+                  {(y.minutos ?? []).map((seg) => {
+                    const l = urlEnMinuto(y.url ?? reunion.url, seg);
+                    return l
+                      ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
+                          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
+                      : <span key={seg} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
+                  })}
+                  {onAbrirTarea && (
+                    <button type="button" onClick={() => onAbrirTarea(y.tareaId)} style={{ ...btnChico, color: 'var(--primary)' }}>ver la tarjeta →</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {mias.length === 0
+            ? (yaCargadas.length === 0 && <div style={{ padding: '26px 12px', textAlign: 'center', color: 'var(--faint)', fontSize: 13.5, lineHeight: 1.5 }}>
+                De {miasPorReunion.length > 1 ? 'estas reuniones' : 'esta reunión'} no salió ninguna tarea tuya: todas quedaron del lado de las otras personas.
+              </div>)
             : miasPorReunion.map((g, gi) => (
                 <div key={gi} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {/* Encabezado por reunión: solo si hay más de una en la pantalla. */}

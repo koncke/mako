@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
           return {
             id: String(o.id ?? ''),
             tareas: Array.isArray(o.tareas) ? (o.tareas as PropuestaTarea[]) : undefined,
+            // Las de otras personas: NO se cargan, pero el borrador tiene que seguir
+            // abierto con ellas adentro para poder repartirlas después.
+            restantes: Array.isArray(o.restantes) ? (o.restantes as PropuestaTarea[]) : undefined,
             contexto: typeof o.contexto === 'string' ? o.contexto : undefined,
           };
         })

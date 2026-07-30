@@ -21,7 +21,7 @@
 import { useEffect, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
-import { ReunionTareas, type FilaTarea } from './ReunionTareas';
+import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
 import { type Label, type Prio } from './types';
 
 const SANS = "'Geist', sans-serif";
@@ -34,6 +34,8 @@ export type PropuestaPendiente = {
   enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
   /** si trae preguntas, se confirma en el wizard /plan/revisar, no acá. */
   preguntas?: PropPregunta[];
+  /** las tuyas que ya cargaste: el borrador siguió abierto por las de los demás. */
+  aplicadas?: Array<{ titulo: string; tareaId: string; minutos?: number[] }>;
 };
 
 async function api(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
@@ -50,9 +52,11 @@ const recordingDeRef = (ref?: string): number | undefined => {
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
 type FilaConProp = FilaTarea & { propId: string };
 
-export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas }: {
+export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas, onAbrirTarea }: {
   props: PropuestaPendiente[];
   labels: Label[];
+  /** abrir la tarjeta de una tarea YA cargada (el modal se esconde detrás y vuelve al cerrarla). */
+  onAbrirTarea?: (id: string) => void;
   /** se aplicó: el board recarga para mostrar las tareas nuevas ya puntuadas. */
   onListo: () => void;
   /** cerrar SIN decidir: los borradores siguen esperando (se reabren desde Fathom). */
@@ -93,6 +97,9 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
   const nIncluidas = filas.filter((f) => f.incluir && !f.esDeOtro).length;
   const hayMias = filas.some((f) => !f.esDeOtro);
   const nOtras = filas.filter((f) => f.esDeOtro).length;
+  // Las que ya entraron al plan en una pasada anterior (el borrador quedó abierto por
+  // las de los demás). No se re-cargan: se muestran con link a su tarjeta.
+  const yaCargadas: TareaYaCargada[] = props.flatMap((p) => (p.aplicadas ?? []).map((a) => ({ ...a, url: p.fuenteUrl ?? null })));
 
   // Mientras se aplica NO se puede cerrar ni salir: son N tareas creadas + el Perro
   // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar. El
@@ -116,6 +123,10 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
       contexto: [contextoDe(p), dichas].filter(Boolean).join(' '),
       tareas: filas.filter((f) => f.propId === p.id && f.incluir && !f.esDeOtro)
         .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId), minuto: f.minuto, minutos: f.minutos })),
+      // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
+      // recién): el borrador NO se cierra mientras haya algo para repartir.
+      restantes: filas.filter((f) => f.propId === p.id && f.esDeOtro)
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: true, minuto: f.minuto, minutos: f.minutos })),
     })).filter((l) => l.tareas.length > 0);
     const j = await api({ action: 'aplicar-lote', lotes });
     setGuardando('');
@@ -141,6 +152,9 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
     : de ? `${de} te envió estas tareas`
       : varias ? `MaKo leyó tus ${props.length} reuniones` : 'MaKo leyó tu reunión';
   const sub = soloPreguntas ? 'Necesita que le aclares un par de cosas antes de cargarlas.'
+    // Ya cargaste lo tuyo y volviste: lo que queda es repartir lo de los demás.
+    : (!hayMias && yaCargadas.length)
+      ? `${yaCargadas.length === 1 ? 'Tu tarea ya está' : `Tus ${yaCargadas.length} tareas ya están`} en el plan. ${nOtras === 1 ? 'Queda 1 de otra persona' : `Quedan ${nOtras} de las otras personas`} para repartir.`
     : varias
       ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
       : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
@@ -232,12 +246,14 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
                 </div>
               ))}
             </div>
-          ) : filas.length > 0 && <ReunionTareas
+          ) : (filas.length > 0 || yaCargadas.length > 0) && <ReunionTareas
             filas={filas}
             labels={labels}
             onFila={(i, patch) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)))}
             reunion={{ titulo: props[0]?.fuenteTitulo ?? '', fecha: props[0]?.fuenteFecha ?? props[0]?.createdAt, url: props[0]?.fuenteUrl ?? null, recordingId: recordingDeRef(props[0]?.ref) }}
             cabecera="Destildá lo que no vaya. El perro les pone la prioridad final."
+            yaCargadas={yaCargadas}
+            onAbrirTarea={onAbrirTarea}
           />}
         </div>
 
@@ -246,7 +262,8 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
               ✕ las deja esperando para la próxima. */}
           <button type="button" onClick={() => (paso === 'preguntas' ? setPaso('tareas') : void descartar())} disabled={!!guardando}
             style={{ padding: '11px 18px', borderRadius: 11, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontWeight: 600, fontSize: 13.5, cursor: guardando ? 'default' : 'pointer', fontFamily: SANS }}>
-            {paso === 'preguntas' ? '← Volver' : guardando === 'descartar' ? 'Descartando…' : varias ? 'Descartar todo' : 'Descartar'}
+            {paso === 'preguntas' ? '← Volver' : guardando === 'descartar' ? 'Descartando…'
+              : (!hayMias && yaCargadas.length) ? 'Descartar lo que queda' : varias ? 'Descartar todo' : 'Descartar'}
           </button>
           {hayMias && (paso === 'tareas'
             ? <button type="button" onClick={() => (preguntas.length ? setPaso('preguntas') : void aplicar())} disabled={nIncluidas === 0 || !!guardando}

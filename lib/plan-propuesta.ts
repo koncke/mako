@@ -36,6 +36,12 @@ export type PropuestaTarea = {
   /** TODOS los momentos en que se habló de esto (una tarea puede volver varias veces). */
   minutos?: number[];
 };
+/**
+ * Una tarea del borrador que YA se creó. Queda guardada (mig 0105) para dos cosas:
+ * no volver a ofrecerla cuando el borrador se reabre por las de otras personas, y
+ * poder abrir la tarjeta REAL desde el modal (?tarea=<id>).
+ */
+export type PropuestaAplicada = { titulo: string; tareaId: string; minutos?: number[] };
 export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
 export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
@@ -50,7 +56,21 @@ export type Propuesta = {
   fuenteFecha?: string;
   /** clave del hecho que la generó (fathom:<recordingId>) — candado anti-duplicado. */
   ref?: string;
+  /** las que ya se cargaron al plan desde este borrador (sigue abierto por las de otros). */
+  aplicadas?: PropuestaAplicada[];
 };
+
+function limpiarAplicada(a: unknown): PropuestaAplicada | null {
+  if (!a || typeof a !== 'object') return null;
+  const o = a as Record<string, unknown>;
+  const tareaId = str(o.tareaId).trim().slice(0, 80);
+  const titulo = str(o.titulo).trim().slice(0, 200);
+  if (!tareaId || !titulo) return null;
+  const minutos = Array.isArray(o.minutos)
+    ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a2, b2) => a2 - b2)
+    : undefined;
+  return { titulo, tareaId, minutos: minutos?.length ? minutos : undefined };
+}
 
 function limpiarTarea(t: unknown): PropuestaTarea | null {
   if (!t || typeof t !== 'object') return null;
@@ -110,7 +130,7 @@ export async function crearPropuesta(draft: CrearPropuestaDraft): Promise<string
   return runWithWorkspace(destino, async () => {
     const db = await getTenantDb();
     const tareas = asArr<unknown>(draft.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
-    const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 8);
+    const preguntas = asArr<unknown>(draft.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 25);
     const eliminar = asArr<unknown>(draft.eliminar).map(limpiarEliminar).filter((e): e is PropuestaEliminar => !!e).slice(0, 30);
     const ref = draft.ref?.trim().slice(0, 120) || null;
     // Candado del cron: si esta reunión ya dejó su borrador acá, devolvemos el que hay.
@@ -144,6 +164,7 @@ function rowToPropuesta(r: Row): Propuesta {
     fuenteUrl: r.fuente_url ? str(r.fuente_url) : undefined,
     fuenteFecha: r.fuente_fecha ? String(r.fuente_fecha) : undefined,
     ref: r.ref ? str(r.ref) : undefined,
+    aplicadas: asArr<unknown>(r.aplicadas).map(limpiarAplicada).filter((a): a is PropuestaAplicada => !!a),
   };
 }
 
@@ -218,7 +239,16 @@ export async function profundizarPropuesta(id: string, respuestas: Array<{ pregu
   return asArr<unknown>(obj.preguntas).map(limpiarPregunta).filter((p): p is PropuestaPregunta => !!p).slice(0, 40);
 }
 
-export type LoteAplicar = { id: string; tareas?: PropuestaTarea[]; eliminarIds?: string[]; contexto?: string };
+export type LoteAplicar = {
+  id: string; tareas?: PropuestaTarea[]; eliminarIds?: string[]; contexto?: string;
+  /**
+   * Lo que NO se carga y tiene que seguir esperando en el borrador: las tareas que
+   * quedaron del lado de otras personas. Lo manda la pantalla porque ahí ya está el
+   * reparto CORREGIDO a mano (reasignaciones incluidas), que en la base todavía no
+   * está. Si no viene, se asume lo guardado (las marcadas como de otro).
+   */
+  restantes?: PropuestaTarea[];
+};
 export type ResultadoAplicar = { ok: boolean; ids: string[]; borradas: number; error?: string };
 
 /** Aplica el borrador: crea las tareas y marca 'aplicada'. Dueño → plan_tareas + Perro;
@@ -250,6 +280,8 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     const idsCreadas: string[] = [];
     const proyectosNuevos: string[] = [];
     const contextos: string[] = [];
+    /** Por borrador: qué se creó y qué le queda pendiente (define si se cierra o sigue vivo). */
+    const cierre = new Map<string, { creadas: PropuestaAplicada[]; restantes: PropuestaTarea[] }>();
     const aplicados: string[] = [];
     let borradas = 0;
     let ultimoError = '';
@@ -292,11 +324,19 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
         };
       };
 
+      const creadas: PropuestaAplicada[] = [];
+      const anotar = (t: PropuestaTarea, tareaId: string): void => {
+        creadas.push({ titulo: t.titulo, tareaId, minutos: t.minutos?.length ? t.minutos : (t.minuto != null ? [t.minuto] : undefined) });
+      };
+
       if (usaPlanBoard) {
         if (base.length) {
           const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente);
           idsCreadas.push(...r.ids);
           proyectosNuevos.push(...r.proyectoIds);
+          // Mismo orden que `base` (agregarTareasPlanOwner filtra solo los títulos
+          // vacíos, y acá no hay ninguno): la tarea i quedó con el id i.
+          r.ids.forEach((id, i) => { if (base[i]) anotar(base[i], id); });
         }
         for (const eid of aBorrar) { await borrarPlanTarea(eid).catch((e) => console.error('[plan-propuesta] borrar owner:', e instanceof Error ? e.message : String(e))); borradas += 1; }
       } else {
@@ -315,12 +355,17 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
               }
               const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t) });
               idsCreadas.push(String(tarea.id));
+              anotar(t, String(tarea.id));
             } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
           }
         }
         for (const eid of aBorrar) { const n = Number(eid); if (Number.isFinite(n)) { await borrarTarea(n).catch((e) => console.error('[plan-propuesta] borrar cliente:', e instanceof Error ? e.message : String(e))); borradas += 1; } }
       }
       if (lote.contexto?.trim()) contextos.push(lote.contexto.trim());
+      // Lo que le queda: por defecto, lo que está marcado como de otra persona.
+      const restantes = (lote.restantes ?? (prop?.tareas ?? []).filter((t) => t.esDeOtro))
+        .map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      cierre.set(lote.id, { creadas, restantes });
       aplicados.push(lote.id);
     }
 
@@ -333,8 +378,22 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     // están creadas y el borrador NO puede volver a aplicarse. Al revés —como estaba—
     // un timeout dejaba 69 tareas creadas y el borrador "pendiente", listo para
     // duplicarlas enteras al siguiente click.
+    //
+    // Y NO siempre se cierra: si de esa reunión quedaron compromisos de OTRAS personas
+    // sin repartir, el borrador sigue PENDIENTE con solo esos adentro. Cerrarlo era
+    // perderlos —el modal no se podía reabrir y esas tareas no vivían en ningún lado—.
+    // Las que sí se cargaron pasan a `aplicadas`: no se vuelven a ofrecer, pero se
+    // siguen viendo, ahora linkeadas a la tarjeta real del board.
     const now = new Date().toISOString();
-    for (const id of aplicados) await db.from('plan_propuestas').update({ estado: 'aplicada', applied_at: now }).eq('id', id);
+    for (const id of aplicados) {
+      const c = cierre.get(id);
+      const previas = (await getPropuesta(id))?.aplicadas ?? [];
+      const aplicadas = [...previas, ...(c?.creadas ?? [])];
+      const quedan = c?.restantes ?? [];
+      await db.from('plan_propuestas').update(quedan.length
+        ? { tareas: quedan, aplicadas, applied_at: now }
+        : { estado: 'aplicada', aplicadas, applied_at: now }).eq('id', id);
+    }
 
     // El Perro, POR TANDAS. Puntuar 69 tareas en una sola llamada no entra en el
     // tiempo de la función (y encima el modelo se queda sin salida). De a 20 cada

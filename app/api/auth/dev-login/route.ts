@@ -9,7 +9,10 @@
 // estamos en Vercel y NO estamos en producción; en cualquier otro caso devuelve
 // 404 (como si la ruta no existiera). Nunca abre una puerta en prod.
 //
-// GET /api/auth/dev-login[?next=/ruta]  → setea la cookie de sesión admin y redirige.
+// GET /api/auth/dev-login[?next=/ruta][?ws=9]  → setea la cookie de sesión admin y
+// redirige. `ws` elige el workspace del admin (sin impersonar): sin él, un admin sin
+// workspace propio cae al del dueño, y probar el tablero del super-admin —que vive en
+// otro workspace— era imposible desde acá.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, SESSION_DIAS, crearToken, destinoSeguro } from '@/lib/auth-session';
@@ -27,7 +30,9 @@ export async function GET(req: NextRequest) {
   if (!habilitado()) {
     return NextResponse.json({ ok: false, error: 'not found' }, { status: 404 });
   }
-  const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol: 'admin' });
+  const wsQ = Number(req.nextUrl.searchParams.get('ws'));
+  const ws = Number.isInteger(wsQ) && wsQ > 0 ? wsQ : undefined;
+  const token = crearToken({ sub: 'dev', email: 'dev@local', nombre: 'Dev (local)', rol: 'admin', ws });
   if (!token) {
     return NextResponse.json({ ok: false, error: 'falta AUTH_SECRET en .env.local' }, { status: 500 });
   }

@@ -404,7 +404,7 @@ Tu trabajo: hacer las preguntas MÍNIMAS que cambian cómo se prioriza o se ejec
 - Si la respuesta ya está en las tareas o en el detalle, NO la preguntes.
 - Si no cambia NADA de lo que va a pasar, no la hagas.
 - CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas para tocar. Nada de preguntas abiertas.
-- Pocas y buenas: entre 0 y 4. Cero es una respuesta válida si la reunión quedó clara.
+- HACÉ LAS QUE HAGAN FALTA, ni una más. Si la reunión dejó 9 cosas ambiguas, son 9 preguntas; si no dejó ninguna, devolvé cero. Lo que NO vale es inventar preguntas para llenar, ni comerte una que de verdad cambia la ejecución.
 
 Escribí como MaKo: rioplatense, corto, sin vueltas.
 
@@ -448,7 +448,9 @@ export async function preguntasDeContexto(
   let usage: UsageInfo | undefined;
   try {
     const raw = await chatClaude(sys, [{ role: 'user', content: user }], {
-      effort: 'high', maxTokens: 8000, feature: 'plan-fathom',
+      // Sin tope de preguntas, el techo de salida importa: Gemini gasta ~2.900 tokens
+      // PENSANDO dentro del mismo presupuesto y una respuesta cortada se pierde entera.
+      effort: 'high', maxTokens: 12000, feature: 'plan-fathom',
       motivo: usoMotivo || 'Preguntas de contexto de la reunión', onUsage: (u) => { usage = u; },
     });
     const obj = parseJsonObject(raw);
@@ -461,7 +463,9 @@ export async function preguntasDeContexto(
         opciones: (Array.isArray(o.opciones) ? o.opciones : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 4),
       }))
       .filter((p) => p.pregunta && (p.tipo === 'escala' || p.opciones.length >= 2))
-      .slice(0, 4);
+      // Tope alto y solo de seguridad (que un modelo desbocado no devuelva 200): la
+      // cantidad la decide la reunión, no un número que elegimos nosotros.
+      .slice(0, 25);
     return { preguntas, usage };
   } catch (e) {
     console.error(`[plan-fathom] preguntas: ${e instanceof Error ? e.message : String(e)}`);
