@@ -361,7 +361,11 @@ export function OnboardingWizard() {
   // conectar: está recorriendo el flujo, no dando de alta un cliente real.
   const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
     : esFaseQuiz ? faseResp[p.faseQ!] >= 0
-    : p.key === 'gemini' ? (geminiConectada || Boolean(data.esAdmin)) // la conexión la maneja el form
+    // Gemini NO tiene excepción de admin (a diferencia de los demás): sin una key que
+    // ande de verdad, Entregable/Avatares/Persona/Ángulos van a fallar con "no hay IA"
+    // más adelante — mejor frenar acá, con el mensaje claro, que dejar pasar y que
+    // truene 3 pantallas después.
+    : p.key === 'gemini' ? geminiConectada
     : p.key === 'archivero' ? (archiveroListo || Boolean(data.esAdmin)) // ≥1 doc analizado
     : true;
   // Archivero sin documentos: el botón Siguiente ni aparece (no tiene sentido avanzar
