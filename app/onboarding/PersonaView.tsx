@@ -22,6 +22,51 @@ const MIN_FOTOS = 5;
 const btnPrimaryStyle: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
 const btnGhostStyle: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
 
+// La descripción viene SECCIONADA (mismo patrón que el panorama del Archivero: un
+// encabezado en MAYÚSCULA por línea + su frase abajo) — la partimos en tarjetas
+// chicas en vez de mostrar un párrafo largo (pedido de Martín: "que se vea simple,
+// visual, que se entienda rápido").
+type SeccionPersona = { titulo: string; texto: string };
+const esSubPersona = (l: string) => l.length > 0 && l.length <= 30 && l === l.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(l) && !/[a-záéíóúñ]/.test(l);
+function parsearDescripcion(text: string): SeccionPersona[] {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const out: SeccionPersona[] = [];
+  let actual: SeccionPersona | null = null;
+  for (const raw of lines) {
+    const l = raw.trim().replace(/\*\*/g, '').replace(/^#+\s*/, '').trim();
+    if (!l) continue;
+    if (esSubPersona(l)) { actual = { titulo: l.replace(/[:：]$/, ''), texto: '' }; out.push(actual); }
+    else if (actual) actual.texto = actual.texto ? `${actual.texto} ${l}` : l;
+  }
+  return out;
+}
+const ICONO_SECCION: Record<string, string> = {
+  IDENTIDAD: '🧑', ROSTRO: '😐', OJOS: '👁️', CABELLO: '💇', COMPLEXIÓN: '📏',
+  'MARCAS DISTINTIVAS': '✨', VESTIMENTA: '👔', ACTITUD: '🎭',
+};
+
+function DescripcionSecciones({ texto }: { texto: string }) {
+  const secciones = parsearDescripcion(texto);
+  // Si el modelo no siguió el formato (texto viejo, o algo se coló), mostramos el
+  // texto crudo en vez de perderlo silenciosamente.
+  if (secciones.length < 3) {
+    return <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>{texto}</div>;
+  }
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10 }}>
+      {secciones.map((s) => (
+        <div key={s.titulo} style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <span aria-hidden style={{ flex: 'none', width: 28, height: 28, borderRadius: 8, background: 'var(--accent-soft)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>{ICONO_SECCION[s.titulo] ?? '📌'}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--faint)', marginBottom: 3 }}>{s.titulo}</div>
+            <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.45 }}>{s.texto}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function PersonaView({ onListo }: { onListo?: (listo: boolean) => void } = {}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -126,7 +171,7 @@ export function PersonaView({ onListo }: { onListo?: (listo: boolean) => void } 
         </div>
       ) : descripcion ? (
         <div>
-          <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.6, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)' }}>{descripcion}</div>
+          <DescripcionSecciones texto={descripcion} />
           <button type="button" onClick={describir} disabled={fotos.length === 0} style={{ ...btnGhostStyle, marginTop: 10, opacity: fotos.length === 0 ? 0.5 : 1 }}>↺ Regenerar descripción</button>
         </div>
       ) : (

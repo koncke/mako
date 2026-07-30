@@ -62,8 +62,8 @@ export const SeccionLabel = ({ children }: { children: ReactNode }) => (
 );
 
 // Ícono SVG por fase (1-5): una metáfora clara de cada etapa —
-// 1 Nacimiento (brote) · 2 Crecimiento (embudo) · 3 Monetización (moneda) ·
-// 4 Escalamiento (cohete) · 5 Priorización (corona).
+// 1 Validación (brote) · 2 Conversión (embudo) · 3 Automatización (moneda) ·
+// 4 Equipo (cohete) · 5 Escala (corona).
 export function FaseIcono({ id, size = 22 }: { id: number; size?: number }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none' as const, stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (id) {

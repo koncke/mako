@@ -79,7 +79,7 @@ export type FaseDef = {
 // Las 5 fases, adaptadas a un negocio que vende con VSL Funnel + pauta.
 export const FASES: FaseDef[] = [
   {
-    id: 1, nombre: 'Nacimiento', subtitulo: 'El primer anuncio ganador', emoji: '🐣',
+    id: 1, nombre: 'Validación', subtitulo: 'El primer anuncio ganador', emoji: '🐣',
     cuello: 'oferta', cuelloLabel: 'Oferta y Mensaje',
     rango: '$0 – $3k/mes · $0 – $20/día en ads',
     objetivo: 'Encontrar UN anuncio frío que traiga clientes potenciales a un costo que cierra, y UNA oferta que un desconocido te compra sin que lo persigas.',
@@ -118,7 +118,7 @@ export const FASES: FaseDef[] = [
     color: '#7C5CFB',
   },
   {
-    id: 2, nombre: 'Crecimiento', subtitulo: 'El funnel que convierte', emoji: '🌱',
+    id: 2, nombre: 'Conversión', subtitulo: 'El funnel que convierte', emoji: '🌱',
     cuello: 'conversion', cuelloLabel: 'Conversión',
     rango: '$3k – $10k/mes · $20 – $100/día en ads',
     objetivo: 'Que cada tramo de tu funnel convierta parejo, y encontrar el punto que te está tirando el dinero a la basura.',
@@ -155,7 +155,7 @@ export const FASES: FaseDef[] = [
     color: '#1E9E57',
   },
   {
-    id: 3, nombre: 'Monetización', subtitulo: 'La máquina que corre sola', emoji: '💰',
+    id: 3, nombre: 'Automatización', subtitulo: 'La máquina que corre sola', emoji: '💰',
     cuello: 'sistema', cuelloLabel: 'Sistema',
     rango: '$10k – $30k/mes · $100 – $300/día en ads',
     objetivo: 'Que los anuncios nuevos, el seguimiento y los recordatorios corran solos: la máquina depende del sistema, no de que tú empujes todos los días.',
@@ -192,7 +192,7 @@ export const FASES: FaseDef[] = [
     color: '#C8870C',
   },
   {
-    id: 4, nombre: 'Escalamiento', subtitulo: 'Escala rentable con equipo', emoji: '🚀',
+    id: 4, nombre: 'Equipo', subtitulo: 'Escala rentable con equipo', emoji: '🚀',
     cuello: 'delegacion', cuelloLabel: 'Delegación',
     rango: '$30k – $80k/mes · $300 – $1.000/día en ads',
     objetivo: 'Subir la inversión en Meta manteniendo el costo por venta, con un equipo que corre la operación y contigo fuera del cierre y de la pauta diaria.',
@@ -229,7 +229,7 @@ export const FASES: FaseDef[] = [
     color: '#2F6FED',
   },
   {
-    id: 5, nombre: 'Priorización', subtitulo: 'La escalera de valor', emoji: '👑',
+    id: 5, nombre: 'Escala', subtitulo: 'La escalera de valor', emoji: '👑',
     cuello: 'foco', cuelloLabel: 'Foco',
     rango: '$80k+/mes · $1.000+/día en ads',
     objetivo: 'Dejar de correr atrás del volumen: que cada peldaño de tu escalera venda con anuncios ya probados, y que el margen y la recompra crezcan más rápido que la facturación. Escalas solo lo rentable.',

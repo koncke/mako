@@ -83,14 +83,43 @@ export async function personaEstado(): Promise<{ descripcion: string; fotos: Per
 // ── MaKo describe a la persona a partir de sus fotos (para la IA generativa) ──
 // La competencia (100ads) guarda una descripción física MUY detallada de la cara de
 // marca: eso es lo que la IA de imágenes necesita para recrearla fiel en cada creativo.
-const PERSONA_DESC_PROMPT = `Sos un director de arte creando la FICHA de una persona para que una IA generativa de imágenes la recree con fidelidad en anuncios. Mirá la foto y describí a la persona de forma DETALLADA y objetiva, como una descripción de personaje para prompt de imagen:
-- Género aparente y rango de edad.
-- Rostro: forma, tono de piel, ojos (color/forma), cejas, nariz, boca, pómulos, mentón; vello facial (barba/bigote, largo) y lentes si tiene.
-- Pelo: color, largo, textura, peinado, línea de nacimiento/entradas o calvicie si aplica.
-- Complexión y contextura física.
-- Vestimenta y estilo que se ve en la foto (prendas, colores, accesorios).
-- Actitud / vibra que transmite (cercano, serio, enérgico…).
-Sé concreto y visual, como para un prompt. NO inventes nombre ni datos que no se vean. Español neutro, de "tú". Devolvé SOLO el texto de la descripción (4-7 frases densas, sin encabezados ni viñetas).`;
+//
+// Formato SECCIONADO (un encabezado en MAYÚSCULA por línea + una frase corta debajo),
+// NO un párrafo largo: (1) pedido de Martín — que se lea rápido y gráfico, no un texto
+// enorme; (2) el mismo criterio que ya usa el panorama del Archivero (ResumenView), así
+// que reusamos el MISMO patrón de parseo simple en vez de json:true — que ya demostró
+// ser más frágil entre proveedores (bug de las preguntas de Entregable/Avatares).
+export const PERSONA_DESC_SECCIONES = ['IDENTIDAD', 'ROSTRO', 'OJOS', 'CABELLO', 'COMPLEXIÓN', 'MARCAS DISTINTIVAS', 'VESTIMENTA', 'ACTITUD'] as const;
+
+const PERSONA_DESC_PROMPT = `Sos un director de arte creando la FICHA de una persona para que una IA generativa de imágenes la recree IDÉNTICA en cada anuncio. Mirá la foto y describí lo que ves, sección por sección — cada sección es UNA frase corta, concreta y visual (no un párrafo). NO inventes nombre ni ningún dato que no se vea en la foto. Español neutro, de "tú".
+
+Devolvé EXACTAMENTE este formato — un encabezado en MAYÚSCULA por línea y debajo su frase, sin viñetas ni markdown:
+
+IDENTIDAD
+Género aparente, rango de edad y complexión general en una frase.
+
+ROSTRO
+Forma de cara, pómulos, mentón, nariz, boca y cejas; vello facial si tiene.
+
+OJOS
+Color, forma y tamaño; algo distintivo si lo hay.
+
+CABELLO
+Color exacto (incluí canas o mechones si se ven), largo, textura y peinado; entradas o calvicie si aplica.
+
+COMPLEXIÓN
+Altura aproximada, contextura física y postura.
+
+MARCAS DISTINTIVAS
+Lunares, cicatrices, arrugas de expresión, lentes o tatuajes visibles — "Ninguna visible" si no hay.
+
+VESTIMENTA
+Prendas, colores y accesorios (reloj, lentes, joyas) que se ven en la foto.
+
+ACTITUD
+Qué transmite (cercano, serio, enérgico…) y por qué se percibe así.
+
+Estos rasgos son FIJOS: la IA que genere las imágenes de los anuncios los tiene que reproducir IDÉNTICOS cada vez — sé específico y visual, nunca genérico, para que no haya margen de inventar una cara distinta.`;
 
 /** Analiza las fotos con visión y genera una descripción física detallada de la persona. */
 export async function generarDescripcionPersona(): Promise<{ ok: true; descripcion: string } | { ok: false; error: string }> {
