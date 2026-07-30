@@ -369,9 +369,11 @@ function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p:
             <span title={f.enriquece.razon} style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 6, padding: '2px 7px' }}>⚠ ya existe en el plan · {f.enriquece.razon.slice(0, 50)}</span>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, flexWrap: 'wrap' }}>
+        {/* Editar a la izquierda; reasignar a la derecha, separados: son dos gestos
+            distintos y pegados se tocan sin querer. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => setEditando((v) => !v)}
-            style={{ ...btnChico, ...(editando ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}>
+            style={{ ...btnChico, ...(editando ? { color: 'var(--primary)' } : {}) }}>
             {editando ? '✓ listo' : '✎ corregir contexto'}
           </button>
           {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
@@ -400,6 +402,7 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
   personas: PersonaRef[];
 }) {
   const [reasignando, setReasignando] = useState<number | null>(null);
+  const [editando, setEditando] = useState<number | null>(null);
   // El email que la IA le atribuyó, aunque esa persona no tenga cuenta en la app.
   const emailConocido = items.find((x) => x.f.dueñoEmail)?.f.dueñoEmail ?? '';
   const filas = items.map((x) => x.f);
@@ -476,8 +479,17 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
                   style={{ marginLeft: 8, fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(f.minuto)}</a>
               )}
             </div>
-            {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+            {editando === idx
+              ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila(idx, { detalle: e.target.value })} rows={4}
+                  style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+              : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
+              {/* Corregir el contexto también acá: esta tarea se la vas a MANDAR a
+                  alguien, así que con más razón tiene que estar bien escrita. */}
+              <button type="button" onClick={() => setEditando(editando === idx ? null : idx)}
+                style={{ ...btnChico, ...(editando === idx ? { color: 'var(--primary)' } : {}) }}>
+                {editando === idx ? '✓ listo' : '✎ corregir contexto'}
+              </button>
               {/* Si la transcripción se equivocó de hablante, se reasigna acá: a vos, a
                   otro de la reunión, o a alguien que cargás en el momento. */}
               <button type="button" onClick={() => setReasignando(reasignando === idx ? null : idx)} style={btnChico}>

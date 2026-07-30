@@ -281,7 +281,12 @@ export function OnboardingWizard() {
       // pregunta propia de canal ("¿con cuál identificás tu funnel?"): define la métrica
       // de volumen y adapta su enunciado (llamadas/conversaciones/carrito/webinar).
       data.fasePreguntas.forEach((q, i) => {
-        if (q.id === 'volumen') pantallas.push({ key: 'fase:canal', paso, pregunta: '¿Con cuál de estos identificas tu funnel?', slides: SLIDES_MAKO });
+        // faseQ:i para que la banda negra muestre el MISMO panel "Tu diagnóstico"
+        // que el resto del quiz (si no, cae al carrusel de marketing genérico y
+        // "cambia" lo que se ve por una sola pantalla, algo que Martín reportó).
+        // esFaseQuiz de abajo excluye esta key a propósito: canal NO es una de las
+        // fasePreguntas (no tiene FaseQuiz ni cuenta para puedeAvanzar por faseResp).
+        if (q.id === 'volumen') pantallas.push({ key: 'fase:canal', paso, faseQ: i, pregunta: '¿Con cuál de estos identificas tu funnel?', slides: SLIDES_MAKO });
         pantallas.push({ key: `fase:${i}`, paso, faseQ: i, pregunta: q.id === 'volumen' ? VOLUMEN_POR_CANAL[canal].texto : q.texto, slides: SLIDES_MAKO });
       });
       pantallas.push({ key: 'fase:result', paso, faseQ: -1, pregunta: 'Tu diagnóstico', slides: SLIDES_MAKO });
@@ -356,7 +361,7 @@ export function OnboardingWizard() {
 
   const campoBrief = p.key.startsWith('brief:') ? data.brief.find((c) => c.key === p.key.slice(6)) : null;
   const servicioReq = p.servicio && data.requeridos.includes(p.servicio);
-  const esFaseQuiz = p.faseQ != null && p.faseQ >= 0;
+  const esFaseQuiz = p.faseQ != null && p.faseQ >= 0 && p.key !== 'fase:canal';
   // El super-admin (impersonando un cliente de prueba) puede adelantar sin
   // conectar: está recorriendo el flujo, no dando de alta un cliente real.
   const puedeAvanzar = servicioReq ? (Boolean(conectadas[p.servicio!]) || Boolean(data.esAdmin))
