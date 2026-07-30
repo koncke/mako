@@ -8,7 +8,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, listPropuestasPendientes, type PropuestaTarea } from '@/lib/plan-propuesta';
+import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPropuesta, listPropuestasPendientes, getPropuestaPorRef, type PropuestaTarea } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,6 +36,20 @@ export async function POST(req: NextRequest) {
     try {
       const propuestas = await listPropuestasPendientes();
       return NextResponse.json({ ok: true, propuestas });
+    } catch (err) {
+      return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    }
+  }
+
+  // El borrador de UNA reunión (pendiente o ya aplicado), para volver a verlo desde el
+  // selector de Fathom sin re-analizar nada. Es lo que hace que entrar a una reunión
+  // vieja muestre lo que ya salió de ahí en vez de cobrar tokens de nuevo.
+  if (action === 'por-reunion') {
+    try {
+      const rid = Number(body.recordingId);
+      if (!Number.isFinite(rid)) return NextResponse.json({ ok: false, error: 'recordingId requerido' }, { status: 400 });
+      const propuesta = await getPropuestaPorRef(`fathom:${rid}`);
+      return NextResponse.json({ ok: true, propuesta });
     } catch (err) {
       return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : String(err) }, { status: 500 });
     }

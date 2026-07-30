@@ -27,7 +27,10 @@ type Duda = { termino: string; porque: string };
 // enriquece = ya existe en el plan; el Perro sugiere sumarle a esa tarjeta en vez de duplicar.
 type Fila = FilaTarea;
 
-async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; usage?: unknown; error?: string }> {
+/** Lo que YA salió de una reunión (borrador pendiente o ya aplicado). */
+export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; creadas: number; pendientesMias: number; pendientesOtros: number };
+
+async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; reuniones?: ReunionMeta[]; nextCursor?: string | null; borradores?: Record<string, ResumenBorrador>; tareas?: Candidata[]; dudas?: Duda[]; cruces?: Array<{ i: number; idExistente: string | null; razon: string }>; usage?: unknown; error?: string }> {
   return fetch('/api/plan-fathom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
@@ -37,18 +40,23 @@ function fmtFecha(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; }
 }
 
-export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose }: {
+export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrear, onUsage, onClose, onAbrirBorrador }: {
   labels: Label[];
   existentes: Existente[];               // tareas abiertas del plan, para el dedup del Perro (punto 8)
   archivoInicial?: File | null;          // si entró por el botón "subir archivo" del toolbar (punto 7)
   onCrear: (cands: Candidata[], fuente?: Fuente) => void;
   onUsage?: (u: unknown) => void;
   onClose: () => void;
+  /** entrar a una reunión que YA fue leída: se muestra lo que salió, no se re-analiza. */
+  onAbrirBorrador?: (recordingId: number) => void;
 }) {
   const [fase, setFase] = useState<'lista' | 'extrayendo' | 'validar' | 'revisar'>('lista');
   const [reuniones, setReuniones] = useState<ReunionMeta[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);   // nextCursor de Fathom
   const [cargandoMas, setCargandoMas] = useState(false);
+  // Qué salió ya de cada reunión, por recordingId. Lo manda el server con la lista, así
+  // que no cuesta un round-trip: es lo que convierte "Extraer →" en "Ver lo que sacó →".
+  const [borradores, setBorradores] = useState<Record<number, ResumenBorrador>>({});
   const [q, setQ] = useState('');                              // búsqueda por título/email
   const [desde, setDesde] = useState('');                      // filtro por fecha (YYYY-MM-DD)
   const [elegida, setElegida] = useState<ReunionMeta | null>(null);
@@ -68,6 +76,12 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
     if (j.ok && j.reuniones) {
       setReuniones((prev) => (reset || !prev ? j.reuniones! : [...prev, ...j.reuniones!]));
       setCursor(j.nextCursor ?? null);
+      const porId: Record<number, ResumenBorrador> = {};
+      for (const [ref, v] of Object.entries(j.borradores ?? {})) {
+        const n = Number(ref.replace('fathom:', ''));
+        if (Number.isFinite(n)) porId[n] = v;
+      }
+      setBorradores((prev) => (reset ? porId : { ...prev, ...porId }));
     } else { setErr(j.error || 'No pude traer las reuniones.'); if (reset) setReuniones([]); }
   };
 
@@ -206,8 +220,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                   : <>
                       {visibles.map((r) => {
                         const t = TIPO_REUNION_UI[r.tipo];
+                        // Reunión ya leída: NO se vuelve a extraer (sería pagar de nuevo por
+                        // lo mismo). Se entra a ver lo que salió: las tarjetas que ya están
+                        // en el plan y lo que quedó del lado de otras personas.
+                        const b = borradores[r.recordingId];
+                        const yaLeida = !!b && !!onAbrirBorrador;
+                        const quedan = b ? b.pendientesMias + b.pendientesOtros : 0;
                         return (
-                          <button key={r.recordingId} type="button" onClick={() => extraer(r)}
+                          <button key={r.recordingId} type="button" onClick={() => (yaLeida ? onAbrirBorrador!(r.recordingId) : extraer(r))}
                             style={{ display: 'flex', alignItems: 'flex-start', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}
                             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; }}>
                             {/* logo de Fathom (punto 6): son grabaciones de Fathom, no un micrófono genérico */}
@@ -219,8 +239,14 @@ export function ReunionExtractModal({ labels, existentes, archivoInicial, onCrea
                               </span>
                               <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>{fmtFecha(r.fecha)}{r.durMin ? ` · ${r.durMin} min` : ''}</span>
                               {r.involucrados.length > 0 && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>👤 {r.involucrados.join(', ')}</span>}
+                              {yaLeida && (
+                                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--good)', fontWeight: 600, marginTop: 3 }}>
+                                  ✓ {b.creadas > 0 ? `${b.creadas} ${b.creadas === 1 ? 'tarea' : 'tareas'} ya en tu plan` : 'MaKo ya la leyó'}
+                                  {quedan > 0 && <span style={{ color: 'var(--dim)', fontWeight: 500 }}> · {quedan} sin repartir</span>}
+                                </span>
+                              )}
                             </span>
-                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>Extraer →</span>
+                            <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, whiteSpace: 'nowrap', marginTop: 2 }}>{yaLeida ? 'Ver lo que sacó →' : 'Extraer →'}</span>
                           </button>
                         );
                       })}

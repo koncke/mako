@@ -43,7 +43,11 @@ export type PropuestaTarea = {
  */
 export type PropuestaAplicada = { titulo: string; tareaId: string; minutos?: number[] };
 export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
-export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
+export type PropuestaPregunta = {
+  pregunta: string; opciones: string[]; tipo: TipoPregunta;
+  /** títulos de las tareas de las que habla (para no hacerla si ya no son tuyas). */
+  sobre?: string[];
+};
 export type PropuestaEliminar = { id: string; titulo?: string; motivo?: string };
 export type Propuesta = {
   id: string; estado: 'pendiente' | 'aplicada' | 'descartada'; resumen: string; origen?: string;
@@ -109,7 +113,8 @@ function limpiarPregunta(p: unknown): PropuestaPregunta | null {
   if (!pregunta) return null;
   const opciones = asArr<unknown>(o.opciones).map((x) => str(x).trim()).filter(Boolean).slice(0, 6);
   const tipo = TIPOS_PREGUNTA.includes(o.tipo as TipoPregunta) ? (o.tipo as TipoPregunta) : (opciones.length ? 'opcion' : 'texto');
-  return { pregunta, opciones, tipo };
+  const sobre = asArr<unknown>(o.sobre).map((x) => str(x).trim().slice(0, 200)).filter(Boolean).slice(0, 8);
+  return { pregunta, opciones, tipo, sobre: sobre.length ? sobre : undefined };
 }
 
 export type CrearPropuestaDraft = {
@@ -187,6 +192,48 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
     const db = await getTenantDb();
     const { data } = await db.from('plan_propuestas').select('*').eq('id', id).maybeSingle();
     return data ? rowToPropuesta(data as Row) : null;
+  });
+}
+
+/**
+ * El borrador de UNA reunión, esté pendiente o ya aplicado (los descartados no: si lo
+ * tiraste a la basura, la reunión vuelve a ser una reunión sin leer y se puede
+ * re-extraer). Es lo que deja volver a una reunión vieja desde el selector de Fathom y
+ * ver qué salió de ahí sin gastar un solo token en releerla.
+ */
+export async function getPropuestaPorRef(ref: string): Promise<Propuesta | null> {
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('*')
+      .eq('ref', ref).neq('estado', 'descartada').maybeSingle();
+    return data ? rowToPropuesta(data as Row) : null;
+  });
+}
+
+/** Qué salió de cada reunión (por ref), para marcar la lista del selector de un saque. */
+export type ResumenPorRef = { id: string; estado: Propuesta['estado']; creadas: number; pendientesMias: number; pendientesOtros: number };
+
+export async function resumenPropuestasPorRefs(refs: string[]): Promise<Record<string, ResumenPorRef>> {
+  const limpias = [...new Set(refs.filter(Boolean))].slice(0, 100);
+  if (!limpias.length) return {};
+  return enWs(async () => {
+    const db = await getTenantDb();
+    const { data } = await db.from('plan_propuestas').select('id, ref, estado, tareas, aplicadas')
+      .in('ref', limpias).neq('estado', 'descartada');
+    const out: Record<string, ResumenPorRef> = {};
+    for (const r of asArr<Row>(data)) {
+      const ref = str(r.ref);
+      if (!ref) continue;
+      const tareas = asArr<unknown>(r.tareas).map(limpiarTarea).filter((t): t is PropuestaTarea => !!t);
+      out[ref] = {
+        id: str(r.id),
+        estado: str(r.estado, 'pendiente') as Propuesta['estado'],
+        creadas: asArr<unknown>(r.aplicadas).length,
+        pendientesMias: tareas.filter((t) => !t.esDeOtro).length,
+        pendientesOtros: tareas.filter((t) => t.esDeOtro).length,
+      };
+    }
+    return out;
   });
 }
 
@@ -390,9 +437,12 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       const previas = (await getPropuesta(id))?.aplicadas ?? [];
       const aplicadas = [...previas, ...(c?.creadas ?? [])];
       const quedan = c?.restantes ?? [];
+      // `notas` (las preguntas) se vacía SIEMPRE: hablaban de las tareas que acaban de
+      // entrar al plan (o que destildaste). Dejarlas hacía que el borrador reabierto te
+      // volviera a preguntar por trabajo que ya está hecho.
       await db.from('plan_propuestas').update(quedan.length
-        ? { tareas: quedan, aplicadas, applied_at: now }
-        : { estado: 'aplicada', aplicadas, applied_at: now }).eq('id', id);
+        ? { tareas: quedan, aplicadas, notas: [], applied_at: now }
+        : { estado: 'aplicada', aplicadas, notas: [], applied_at: now }).eq('id', id);
     }
 
     // El Perro, POR TANDAS. Puntuar 69 tareas en una sola llamada no entra en el

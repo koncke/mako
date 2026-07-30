@@ -94,8 +94,13 @@ export function BoardShell({ board, scope }: {
   // Cerrar el modal con la ✕ NO descarta nada: solo lo esconde. Los borradores siguen
   // vivos y el botón de Fathom (que late) los vuelve a abrir.
   const [pendientesCerradas, setPendientesCerradas] = useState(false);
-  /** lo abrió a mano desde el botón de Fathom (aunque no le quede nada suyo). */
-  const [pendientesAbiertas, setPendientesAbiertas] = useState(false);
+  /** el borrador de UNA reunión, abierto desde el selector de Fathom ("ver lo que sacó"). */
+  const [borradorReunion, setBorradorReunion] = useState<PropuestaPendiente | null>(null);
+  const [cargandoBorrador, setCargandoBorrador] = useState(false);
+  // Lo que ESPERA ALGO TUYO. Es lo que hace esperar a los otros pop-ups — y tiene que ser
+  // esto y no "hay borrador": un borrador al que solo le quedan tareas de otras personas
+  // se queda abierto para siempre, y con él se quedaba tapado el resto de la cola.
+  const nPendientes = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => !t.esDeOtro).length ?? 0), 0);
   const pendientesRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
@@ -205,27 +210,27 @@ export function BoardShell({ board, scope }: {
   useEffect(() => {
     if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm) return;
     if (openId || openProj || peekProjId) return; // hay un detalle abierto: no apilar
-    if (hayPendientes) return;                    // hay un borrador esperando: ese va primero
+    if (nPendientes > 0) return;                  // hay tareas tuyas esperando: esas van primero
     if (hayImportante) {
       datosAutoRef.current = true;
       setDatosAuto(true);
       setDatosOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId]);
+  }, [dlLoaded, hayImportante, datosOff, openId, openProj, peekProjId, nPendientes]);
   // Auto-abrir la bienvenida UNA vez, DESPUÉS de que la secuencia del DatosModal (deadline +
   // su "no volver a pedir") termine — y sin apilar sobre un detalle abierto. Datos va PRIMERO.
   useEffect(() => {
     if (!hayWelcome || welcomeAutoRef.current) return;
     if (openId || openProj || peekProjId) return;
-    if (hayPendientes) return;                    // el borrador por confirmar va primero
+    if (nPendientes > 0) return;                  // el borrador por confirmar va primero
     const datosPendiente = hayImportante && !datosOff && !datosAutoRef.current;
     if (datosPendiente || datosOpen || datosConfirm) return; // datos (y su confirm) van PRIMERO
     welcomeAutoRef.current = true;
     marcarWelcomeVisto();
     setWelcomeVisible(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hayWelcome, hayImportante, datosOff, datosOpen, datosConfirm, openId, openProj, peekProjId]);
+  }, [hayWelcome, hayImportante, datosOff, datosOpen, datosConfirm, openId, openProj, peekProjId, nPendientes]);
 
   // Traer los borradores pendientes UNA vez por montaje. No los creó nadie en el board:
   // los dejó el cron de reuniones (MaKo leyó tu reunión) o los mandó otra persona.
@@ -243,16 +248,16 @@ export function BoardShell({ board, scope }: {
   // nada. Lo que alguien está esperando confirmar le gana a un recordatorio.
   // Espera a que NO haya otro pop-up: si el de "datos que faltan" está abierto (lo
   // abrió el ⚠ a mano), este se muestra recién cuando se cierre — no atrás de él.
-  // Cuando hay borradores, los OTROS pop-ups esperan su turno (si no, se apilan).
-  const hayPendientes = pendientes.length > 0;
-  const nPendientes = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => !t.esDeOtro).length ?? 0), 0);
-  const propPendiente = (pendientes.length && !pendientesCerradas && !openId && !openProj && !peekProjId && !extraerReunion && !datosOpen && !datosConfirm
-    // SOLO se abre solo si hay algo TUYO esperando. Un borrador al que solo le quedan
-    // tareas de otras personas sigue vivo (para repartirlas), pero saltarte encima en
-    // cada entrada al plan sería un recordatorio de algo que ya resolviste: queda a un
-    // click en el botón de Fathom.
-    && (nPendientes > 0 || pendientesAbiertas))
-    ? pendientes[0] : null;
+  // SOLO se abre solo si hay algo TUYO esperando. Un borrador al que solo le quedan
+  // tareas de otras personas sigue vivo (para repartirlas), pero saltarte encima en cada
+  // entrada al plan sería un recordatorio de algo que ya resolviste: queda a un click,
+  // dentro del selector de Fathom.
+  const hayRecibidas = !!borradorReunion || (pendientes.length > 0 && !pendientesCerradas && nPendientes > 0);
+  // Espera su turno detrás de cualquier otro pop-up (y del detalle de una tarjeta), pero
+  // SE ESCONDE, no se desmonta. Desmontarlo tiraba a la basura media revisión: los
+  // destildes, las reasignaciones y las respuestas viven en su estado, y abrir una
+  // tarjeta ya cargada —ahora una grilla de tarjetas clickeables— lo desmontaba.
+  const recibidasOculto = !!(openId || openProj || peekProjId || extraerReunion || datosOpen || datosConfirm || cargandoBorrador);
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -422,7 +427,7 @@ export function BoardShell({ board, scope }: {
   // G3: crear en lote las tareas que MaKo sacó de una reunión. Entran con la prioridad
   // sugerida; al cambiar la firma del plan, el guardián las re-puntúa solo (una corrida).
   // Deshacer = borrar las que se acaban de crear (fue una acción revisada, no un click suelto).
-  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null }>, fuente?: Fuente) => {
+  const crearDesdeReunion = async (cands: Array<{ titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null; minuto?: number; minutos?: number[] }>, fuente?: Fuente) => {
     // origen = MaKo (la IA extrajo estas tarjetas) + fuente (Fathom/archivo) + un alta
     // que deja rastro de DE DÓNDE salió (feedback jul-19 / regla del historial).
     const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
@@ -432,11 +437,25 @@ export function BoardShell({ board, scope }: {
     // que WhatsApp) y suprimimos el re-scoreo client-side para no puntuar dos veces.
     const usaServerPerro = !!board.repo?.priorizarNuevas;
     if (usaServerPerro) skipRePrio.current = true;
+    // El MINUTO en que se dijo, por tarjeta: el mismo chip que traen las que vienen del
+    // borrador. Sin esto, las creadas por el botón manual nacían sin forma de volver al
+    // momento de la grabación — dos tarjetas de la misma reunión, una con contexto y la
+    // otra no, conviviendo en la misma pantalla.
+    const reloj = (seg: number): string => (seg >= 3600
+      ? `${Math.floor(seg / 3600)}:${String(Math.floor((seg % 3600) / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}`
+      : `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`);
+    const fuenteDe = (c: { minuto?: number; minutos?: number[] }): Fuente | undefined => {
+      if (!fuente) return undefined;
+      const todos = c.minutos?.length ? c.minutos : (c.minuto != null ? [c.minuto] : []);
+      if (!todos.length) return fuente;
+      const url = fuente.url ? `${fuente.url}${fuente.url.includes('?') ? '&' : '?'}timestamp=${todos[0]}` : undefined;
+      return { ...fuente, etiqueta: [fuente.etiqueta, todos.map(reloj).join(', ')].filter(Boolean).join(' · '), url };
+    };
     const ids: string[] = [];
     for (const c of cands) {
       // el detalle va DENTRO del alta: si se escribiera después, el Perro server-side
       // podría leer la fila antes de que llegue y puntuar solo con el título.
-      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente, altaText, detalle: c.detalle });
+      const t = await board.create(c.titulo, c.prioridad, c.proyectoId ? [c.proyectoId] : undefined, { origen: 'ia', fuente: fuenteDe(c), altaText, detalle: c.detalle });
       if (!t) continue;
       ids.push(t.id);
     }
@@ -514,11 +533,10 @@ export function BoardShell({ board, scope }: {
               se vea que hay algo). El selector de reuniones de siempre vuelve recién
               cuando no queda nada pendiente: o las cargaste, o las descartaste. Antes,
               cerrar el modal era perderlo de vista sin forma de volver. */}
-          <button type="button" onClick={() => { if (hayPendientes) { setPendientesCerradas(false); setPendientesAbiertas(true); return; } setReunionArchivo(null); setExtraerReunion(true); }}
-            aria-label={hayPendientes ? `${pendientes.length} borrador(es) de reunión esperando` : 'Extraer tareas de una reunión de Fathom'}
+          <button type="button" onClick={() => { if (nPendientes > 0) { setPendientesCerradas(false); return; } setReunionArchivo(null); setExtraerReunion(true); }}
+            aria-label={nPendientes > 0 ? `${pendientes.length} borrador(es) de reunión esperando` : 'Extraer tareas de una reunión de Fathom'}
             title={nPendientes > 0 ? `Tenés ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} de reunión esperando que las confirmes`
-              : hayPendientes ? 'De esta reunión quedan tareas de otras personas para repartir'
-                : 'Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)'}
+              : 'Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)'}
             style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s', animation: nPendientes > 0 ? 'makoLatido 1.6s ease-in-out infinite' : undefined }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
             <SvcIcon k="fathom" size={22} box={38} radius={9} />
@@ -565,20 +583,38 @@ export function BoardShell({ board, scope }: {
       {/* Lo que MaKo dejó esperando: tareas de una reunión tuya que leyó sola, o que te
           mandó otra persona. Nunca se crearon: se confirman acá. Van DESPUÉS de Datos
           y de la bienvenida para no apilar modales. */}
-      {propPendiente && (
+      {hayRecibidas && (
         <TareasRecibidasModal
-          key={pendientes.map((p) => p.id).join('|')}
-          props={pendientes}
+          oculto={recibidasOculto}
+          key={borradorReunion ? borradorReunion.id : pendientes.map((p) => p.id).join('|')}
+          props={borradorReunion ? [borradorReunion] : pendientes}
           labels={labels}
           onListo={() => window.location.reload()}
-          onClose={() => { setPendientesCerradas(true); setPendientesAbiertas(false); }}
-          onDescartadas={() => { setPendientes([]); setPendientesCerradas(false); setPendientesAbiertas(false); }}
+          onClose={() => { if (borradorReunion) setBorradorReunion(null); else setPendientesCerradas(true); }}
+          onDescartadas={() => { setBorradorReunion(null); setPendientes([]); setPendientesCerradas(false); }}
           // Abrir una que ya cargaste: el detalle se pone adelante y este modal espera
           // atrás (la condición de arriba lo apaga mientras haya una tarea abierta).
           onAbrirTarea={(id) => setOpenId(id)}
+          // La MISMA tarjeta del kanban para lo que ya está en el plan (no una lista de
+          // texto): si ya es una tarea de verdad, tiene que verse como una tarea.
+          renderTaskCard={(id) => { const t = tasks.find((x) => x.id === id); return t ? <CardTile t={t} board={board} warn={false} onOpen={setOpenId} onWarn={setOpenId} /> : null; }}
         />
       )}
+      {cargandoBorrador && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 133, background: 'rgba(18,21,27,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ width: 30, height: 30, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', display: 'inline-block', animation: 'makoSpinBS .7s linear infinite' }} />
+          <style>{'@keyframes makoSpinBS{to{transform:rotate(360deg)}}'}</style>
+        </div>
+      )}
       {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo}
+        onAbrirBorrador={(rid) => {
+          setExtraerReunion(false); setReunionArchivo(null); setCargandoBorrador(true);
+          void fetch('/api/plan-propuesta', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'por-reunion', recordingId: rid }) })
+            .then((r) => r.json())
+            .then((j) => { if (j?.ok && j.propuesta) setBorradorReunion(j.propuesta as PropuestaPendiente); })
+            .catch(() => { /* si falla, simplemente no abre nada */ })
+            .finally(() => setCargandoBorrador(false));
+        }}
         existentes={tasks.filter((t) => t.progress < 100).map((t) => ({ id: t.id, titulo: t.title, detalle: t.detalle }))}
         onUsage={(u) => showUsage(u, 'extraer tareas de reunión')} onCrear={crearDesdeReunion} onClose={() => { setExtraerReunion(false); setReunionArchivo(null); }} />}
       {eliminarTask && <EliminarModal tipo="tarea" nombre={eliminarTask.title} task={{ id: eliminarTask.id, title: eliminarTask.title, detalle: eliminarTask.detalle }}

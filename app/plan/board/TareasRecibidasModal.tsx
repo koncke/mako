@@ -18,7 +18,7 @@
 // puntuándolas server-side —una sola pasada sobre todo el lote— igual que cualquier
 // otra tarea. "Ahora no" cierra sin descartar: siguen esperándote.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
@@ -28,7 +28,11 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number; minutos?: number[] };
-type PropPregunta = { pregunta: string; tipo?: string; opciones?: string[] };
+type PropPregunta = { pregunta: string; tipo?: string; opciones?: string[]; sobre?: string[] };
+
+/** Título comparable: sin acentos, sin puntuación, en minúscula. */
+const normTit = (t: string): string =>
+  t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 export type PropuestaPendiente = {
   id: string; resumen: string; origen?: string; tareas: PropTarea[]; createdAt: string;
   enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
@@ -52,11 +56,15 @@ const recordingDeRef = (ref?: string): number | undefined => {
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
 type FilaConProp = FilaTarea & { propId: string };
 
-export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas, onAbrirTarea }: {
+export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas, onAbrirTarea, renderTaskCard, oculto }: {
   props: PropuestaPendiente[];
   labels: Label[];
+  /** hay otro modal adelante: se esconde SIN desmontarse (para no perder la revisión). */
+  oculto?: boolean;
   /** abrir la tarjeta de una tarea YA cargada (el modal se esconde detrás y vuelve al cerrarla). */
   onAbrirTarea?: (id: string) => void;
+  /** pinta una tarea YA creada con la tarjeta real del board (null si ya no existe). */
+  renderTaskCard?: (id: string) => React.ReactNode;
   /** se aplicó: el board recarga para mostrar las tareas nuevas ya puntuadas. */
   onListo: () => void;
   /** cerrar SIN decidir: los borradores siguen esperando (se reabren desde Fathom). */
@@ -70,7 +78,7 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
   const props = todos.filter((p) => p.origen === 'fathom' || !p.preguntas?.length);
   const conPreguntas = todos.filter((p) => p.origen !== 'fathom' && !!p.preguntas?.length);
   // Las preguntas de los borradores que SÍ se confirman acá.
-  const preguntas = props.flatMap((p) => (p.preguntas ?? []).map((q) => ({ ...q, propId: p.id })));
+  const preguntasTodas = props.flatMap((p) => (p.preguntas ?? []).map((q) => ({ ...q, propId: p.id })));
   const [paso, setPaso] = useState<'tareas' | 'preguntas'>('tareas');
   const [respuestas, setRespuestas] = useState<Record<number, string>>({});
   // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
@@ -90,6 +98,25 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
       reunion: { recordingId: recordingDeRef(p.ref), titulo: p.fuenteTitulo ?? '', fecha: p.fuenteFecha ?? null, url: p.fuenteUrl ?? null },
     })));
   });
+
+  // Solo se pregunta por lo que REALMENTE vas a cargar. MaKo arma las preguntas cuando
+  // lee la reunión; vos reasignás ("no es mía") y destildás recién al confirmar, horas
+  // después. Sin esto te preguntaba por el trabajo de otro: cada pregunta declara de qué
+  // tareas habla (`sobre`) y se cae sola si ninguna sobrevivió de tu lado.
+  const preguntas = useMemo(() => {
+    const vivos = new Set(filas.filter((f) => f.incluir && !f.esDeOtro).map((f) => normTit(f.titulo)));
+    const hablaDeAlgoMio = (t: string): boolean => {
+      const n = normTit(t);
+      if (vivos.has(n)) return true;
+      // El modelo a veces recorta o alarga el título al citarlo: vale que uno contenga al otro.
+      for (const v of vivos) if (v.length > 12 && n.length > 12 && (v.includes(n) || n.includes(v))) return true;
+      return false;
+    };
+    // Sin `sobre` (borradores viejos) no hay con qué decidir: se muestran, como antes.
+    // Una comparación ("¿A o B?") pierde el sentido si B se fue: ahí se piden TODAS.
+    return preguntasTodas.filter((q) => !q.sobre?.length
+      || (q.tipo === 'comparacion' ? q.sobre.every(hablaDeAlgoMio) : q.sobre.some(hablaDeAlgoMio)));
+  }, [preguntasTodas, filas]);
 
   const [guardando, setGuardando] = useState<'' | 'aplicar' | 'descartar'>('');
   const [err, setErr] = useState('');
@@ -117,10 +144,14 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
     // Perro corre UNA sola vez sobre todo (lo arma el server).
     // Lo que respondió en el paso de preguntas viaja como CONTEXTO del Perro: es
     // justamente lo que la reunión no dejó claro.
-    const dichas = preguntas.map((q, i) => (respuestas[i] ? `${q.pregunta} → ${respuestas[i]}` : '')).filter(Boolean).join(' · ');
+    // Las respuestas viajan al Perro del borrador de ESA reunión, no al de todas: lo que
+    // aclaraste de la reunión con Fran no es contexto de la reunión con Mauricio.
+    const dichasDe = (propId: string): string => preguntas
+      .map((q, i) => (q.propId === propId && respuestas[i] ? `${q.pregunta} → ${respuestas[i]}` : ''))
+      .filter(Boolean).join(' · ');
     const lotes = props.map((p) => ({
       id: p.id,
-      contexto: [contextoDe(p), dichas].filter(Boolean).join(' '),
+      contexto: [contextoDe(p), dichasDe(p.id)].filter(Boolean).join(' '),
       tareas: filas.filter((f) => f.propId === p.id && f.incluir && !f.esDeOtro)
         .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId), minuto: f.minuto, minutos: f.minutos })),
       // Lo que queda del lado de otras personas (con las reasignaciones que hiciste
@@ -162,7 +193,7 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
   const aplicando = guardando === 'aplicar';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: oculto ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
       <div style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
 
         {/* Cargando: tapa TODO el modal. Crear N tareas + puntuarlas por tandas puede
@@ -232,6 +263,11 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
               {preguntas.map((q, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '13px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.35 }}>{q.pregunta}</div>
+                  {/* De qué tarea habla: sin esto, una pregunta suelta sobre 70 tareas es
+                      un acertijo ("¿de cuál de todas me está hablando?"). */}
+                  {!!q.sobre?.length && (
+                    <div style={{ fontSize: 11.5, color: 'var(--faint)', lineHeight: 1.4 }}>por: {q.sobre.map((t) => `«${t}»`).join(' · ')}</div>
+                  )}
                   <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                     {(q.tipo === 'escala' ? ['1', '2', '3', '4', '5'] : (q.opciones ?? [])).map((op) => {
                       const on = respuestas[i] === op;
@@ -254,6 +290,7 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, o
             cabecera="Destildá lo que no vaya. El perro les pone la prioridad final."
             yaCargadas={yaCargadas}
             onAbrirTarea={onAbrirTarea}
+            renderTaskCard={renderTaskCard}
           />}
         </div>
 

@@ -15,7 +15,7 @@
 // de un borrador pendiente (TareasRecibidasModal), así el reparto es el mismo venga
 // de donde venga.
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { type Label, type Prio } from './types';
 
@@ -183,7 +183,7 @@ function descargarMd(nombre: string, filas: FilaTarea[], reunion: ReunionRefUI) 
 /** Una tarea de esta reunión que YA está en el plan (se cargó en una pasada anterior). */
 export type TareaYaCargada = { titulo: string; tareaId: string; minutos?: number[]; url?: string | null };
 
-export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea }: {
+export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCargadas = [], onAbrirTarea, renderTaskCard }: {
   filas: FilaTarea[];
   labels: Label[];
   /** reunión por defecto, para cuando las filas no traen la suya (extracción manual). */
@@ -195,6 +195,14 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
   yaCargadas?: TareaYaCargada[];
   /** abrir el detalle de una tarea ya creada. */
   onAbrirTarea?: (id: string) => void;
+  /**
+   * La tarjeta REAL del board para una tarea ya creada. Es una render prop y no un
+   * import de CardTile a propósito: esa tarjeta vive dentro del BoardShell y necesita
+   * el `board` entero, que esta pantalla no tiene (la comparte con la extracción
+   * manual, donde las tareas todavía no existen). Si devuelve null —tarea borrada—
+   * cae a la fila de texto de siempre.
+   */
+  renderTaskCard?: (id: string) => ReactNode;
 }) {
   // Índices originales, para que el patch vuelva a la fila correcta del padre.
   const conIdx = useMemo(() => filas.map((f, i) => ({ f, i, r: f.reunion ?? reunion })), [filas, reunion]);
@@ -294,25 +302,41 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera, yaCarg
               vista: el borrador quedó abierto por las tareas de los demás y sin esto
               parecía que las tuyas se habían perdido. Cada una abre su tarjeta real. */}
           {yaCargadas.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--good)', background: 'var(--surface-2)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--good)' }}>
                 ✓ Ya cargaste {yaCargadas.length} {yaCargadas.length === 1 ? 'tarea tuya' : 'tareas tuyas'} al plan
               </div>
-              {yaCargadas.map((y) => (
-                <div key={y.tareaId} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.35 }}>{y.titulo}</span>
-                  {(y.minutos ?? []).map((seg) => {
-                    const l = urlEnMinuto(y.url ?? reunion.url, seg);
-                    return l
-                      ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
-                          style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
-                      : <span key={seg} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
-                  })}
-                  {onAbrirTarea && (
-                    <button type="button" onClick={() => onAbrirTarea(y.tareaId)} style={{ ...btnChico, color: 'var(--primary)' }}>ver la tarjeta →</button>
-                  )}
-                </div>
-              ))}
+              {/* Grilla de tarjetas REALES del board (misma medida que el kanban). Cuando
+                  no hay con qué pintarlas —extracción manual, o la tarea se borró— cae a
+                  la fila de texto de siempre. */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12, alignItems: 'start' }}>
+                {yaCargadas.map((y) => {
+                  const card = renderTaskCard?.(y.tareaId);
+                  return (
+                    <div key={y.tareaId} style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                      {card ?? (
+                        <div style={{ padding: '12px 13px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)', fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.35 }}>
+                          {y.titulo}
+                          {onAbrirTarea && <button type="button" onClick={() => onAbrirTarea(y.tareaId)} style={{ ...btnChico, color: 'var(--primary)', marginLeft: 8 }}>ver la tarjeta →</button>}
+                        </div>
+                      )}
+                      {/* El minuto de la reunión NO vive en la tarjeta del kanban: va abajo,
+                          que es la única forma de volver al momento en que se dijo. */}
+                      {(y.minutos ?? []).length > 0 && (
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 2 }}>
+                          {(y.minutos ?? []).map((seg) => {
+                            const l = urlEnMinuto(y.url ?? reunion.url, seg);
+                            return l
+                              ? <a key={seg} href={l} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
+                                  style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>▶ {relojDe(seg)}</a>
+                              : <span key={seg} style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>▶ {relojDe(seg)}</span>;
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
           {mias.length === 0

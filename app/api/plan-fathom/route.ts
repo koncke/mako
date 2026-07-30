@@ -15,6 +15,7 @@ import { glosarioTexto, guardarTermino } from '@/lib/glosario';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
+import { resumenPropuestasPorRefs } from '@/lib/plan-propuesta';
 
 export const dynamic = 'force-dynamic';
 // 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
@@ -73,7 +74,11 @@ export async function POST(req: NextRequest) {
       const cursor = typeof body.cursor === 'string' && body.cursor ? body.cursor : undefined;
       const recordedAfter = typeof body.recordedAfter === 'string' && esFechaValida(body.recordedAfter) ? body.recordedAfter : undefined;
       const { reuniones, nextCursor } = await listReunionesRecientes({ cursor, recordedAfter });
-      return Response.json({ ok: true, reuniones, nextCursor });
+      // Qué salió YA de cada una de estas reuniones (mismo request, mismo workspace).
+      // Sin esto, el selector ofrece "Extraer →" en una reunión de la que MaKo ya sacó
+      // 61 tareas: el usuario paga tokens para que le muestren lo que ya tiene.
+      const borradores = await resumenPropuestasPorRefs(reuniones.map((r) => `fathom:${r.recordingId}`)).catch(() => ({}));
+      return Response.json({ ok: true, reuniones, nextCursor, borradores });
     }
     // Guardar un término del glosario (punto 7): la respuesta del usuario a "¿qué es X?".
     if (body.action === 'glosario-guardar') {

@@ -404,6 +404,7 @@ Tu trabajo: hacer las preguntas MÍNIMAS que cambian cómo se prioriza o se ejec
 - Si la respuesta ya está en las tareas o en el detalle, NO la preguntes.
 - Si no cambia NADA de lo que va a pasar, no la hagas.
 - CERRADAS SIEMPRE: cada pregunta con 2-4 opciones concretas para tocar. Nada de preguntas abiertas.
+- CADA PREGUNTA DECLARA DE QUÉ TAREAS HABLA: en "sobre" va el título de cada una, copiado TAL CUAL de entre las comillas « » de la lista (sin el detalle que va después del guion). Si no podés atribuirla a ninguna tarea concreta de la lista, NO la hagas: es una pregunta sobre la reunión en general, y eso no lo necesitamos.
 - HACÉ LAS QUE HAGAN FALTA, ni una más. Si la reunión dejó 9 cosas ambiguas, son 9 preguntas; si no dejó ninguna, devolvé cero. Lo que NO vale es inventar preguntas para llenar, ni comerte una que de verdad cambia la ejecución.
 
 Escribí como MaKo: rioplatense, corto, sin vueltas.
@@ -421,7 +422,8 @@ const PREGUNTAS_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON válido (si
     {
       "pregunta": "<corta y concreta, sobre un HECHO>",
       "tipo": "opcion" | "multi" | "escala" | "comparacion",
-      "opciones": ["<2-4 respuestas cortas y concretas>"]
+      "opciones": ["<2-4 respuestas cortas y concretas>"],
+      "sobre": ["<el título de cada tarea afectada, copiado tal cual de entre las « » de la lista>"]
     }
   ]
 }
@@ -436,10 +438,12 @@ Si la reunión no dejó nada ambiguo, devolvé {"preguntas": []}.`;
  */
 export async function preguntasDeContexto(
   tareas: TareaCandidata[], reunion: string, usoMotivo?: string,
-): Promise<{ preguntas: Array<{ pregunta: string; tipo: string; opciones: string[] }>; usage?: UsageInfo }> {
+): Promise<{ preguntas: Array<{ pregunta: string; tipo: string; opciones: string[]; sobre: string[] }>; usage?: UsageInfo }> {
   const mias = tareas.filter((t) => !t.esDeOtro);
   if (mias.length < 3) return { preguntas: [] };   // un lote chico no necesita ceremonia
-  const lista = mias.map((t, i) => `${i + 1}. ${t.titulo}${t.detalle ? ` — ${t.detalle.slice(0, 120)}` : ''}`).join('\n');
+  // El título entre « » para que el modelo lo cite EXACTO en `sobre` sin arrastrar el
+  // detalle: eso es lo que después deja filtrar las preguntas que ya no te tocan.
+  const lista = mias.map((t, i) => `${i + 1}. «${t.titulo}»${t.detalle ? ` — ${t.detalle.slice(0, 120)}` : ''}`).join('\n');
   const sys = await brandSystem(await renderPrompt('plan-fathom.preguntas.system', PLAN_FATHOM_PREGUNTAS_SYSTEM_TEMPLATE, { jsonShape: PREGUNTAS_JSON_SHAPE }));
   const user = await renderPrompt('plan-fathom.preguntas.user', PLAN_FATHOM_PREGUNTAS_USER_TEMPLATE, {
     reunion: reunion || '(sin título)',
@@ -461,6 +465,10 @@ export async function preguntasDeContexto(
         pregunta: String(o.pregunta ?? '').trim().slice(0, 300),
         tipo: ['opcion', 'multi', 'escala', 'comparacion'].includes(String(o.tipo)) ? String(o.tipo) : 'opcion',
         opciones: (Array.isArray(o.opciones) ? o.opciones : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 4),
+        // De qué tareas habla. Es lo que después permite NO preguntártela si esa tarea
+        // terminó siendo de otra persona: las preguntas se generan cuando MaKo lee la
+        // reunión, y vos reasignás recién al confirmar, horas después.
+        sobre: (Array.isArray(o.sobre) ? o.sobre : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 8),
       }))
       .filter((p) => p.pregunta && (p.tipo === 'escala' || p.opciones.length >= 2))
       // Tope alto y solo de seguridad (que un modelo desbocado no devuelva 200): la
