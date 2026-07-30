@@ -166,16 +166,18 @@ export async function getPropuesta(id: string): Promise<Propuesta | null> {
  * Es lo que el board consulta al entrar para saltarle el modal "confirmá estas tareas"
  * (las que MaKo sacó sola de tu reunión, o las que te mandó otra persona).
  *
- * Deja afuera los que traen PREGUNTAS: esos son los borradores de WhatsApp, y su
- * gracia es el wizard de /plan/revisar que las va haciendo de a una. Meterlos en el
- * modal del board sería aplicarlos salteándose el contexto que el Perro necesita.
+ * Vienen TODOS, con y sin preguntas. Los que traen preguntas no se pueden confirmar
+ * de un toque (su gracia es el wizard de /plan/revisar, que las hace de a una), pero
+ * tienen que VERSE: filtrarlos acá los volvía invisibles y pasó lo peor —MaKo mandó
+ * "entrá al plan a confirmarlas", el dueño entró y no había nada—. El board los
+ * muestra como una fila que linkea al wizard.
  */
-export async function listPropuestasPendientes(limite = 5): Promise<Propuesta[]> {
+export async function listPropuestasPendientes(limite = 8): Promise<Propuesta[]> {
   return enWs(async () => {
     const db = await getTenantDb();
     const { data } = await db.from('plan_propuestas').select('*')
       .eq('estado', 'pendiente').order('created_at', { ascending: false }).limit(limite);
-    return (asArr<Row>(data)).map(rowToPropuesta).filter((p) => p.tareas.length > 0 && p.preguntas.length === 0);
+    return (asArr<Row>(data)).map(rowToPropuesta).filter((p) => p.tareas.length > 0);
   });
 }
 

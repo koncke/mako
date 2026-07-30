@@ -200,6 +200,7 @@ export function BoardShell({ board, scope }: {
   useEffect(() => {
     if (!dlLoaded || datosAutoRef.current || datosOff || datosOpen || datosConfirm) return;
     if (openId || openProj || peekProjId) return; // hay un detalle abierto: no apilar
+    if (hayPendientes) return;                    // hay un borrador esperando: ese va primero
     if (hayImportante) {
       datosAutoRef.current = true;
       setDatosAuto(true);
@@ -212,6 +213,7 @@ export function BoardShell({ board, scope }: {
   useEffect(() => {
     if (!hayWelcome || welcomeAutoRef.current) return;
     if (openId || openProj || peekProjId) return;
+    if (hayPendientes) return;                    // el borrador por confirmar va primero
     const datosPendiente = hayImportante && !datosOff && !datosAutoRef.current;
     if (datosPendiente || datosOpen || datosConfirm) return; // datos (y su confirm) van PRIMERO
     welcomeAutoRef.current = true;
@@ -230,10 +232,14 @@ export function BoardShell({ board, scope }: {
       .then((j) => { if (j?.ok && Array.isArray(j.propuestas)) setPendientes(j.propuestas as PropuestaPendiente[]); })
       .catch(() => { /* silencioso: es un extra al entrar */ });
   }, []);
-  // Se muestra de a UNA y solo con la pantalla libre: Datos y la bienvenida van primero
-  // (mismo criterio que el resto de los pop-ups del board).
-  const propPendiente = (pendientes[0] && !openId && !openProj && !peekProjId && !datosOpen && !datosConfirm && !welcomeVisible && !extraerReunion)
+  // Los borradores van PRIMEROS de la cola de pop-ups, no últimos. Antes cedían ante
+  // Datos y la bienvenida: con el tablero lleno, "faltan datos" salta siempre y el
+  // borrador no se veía nunca — MaKo decía "entrá al plan a confirmarlas" y no había
+  // nada. Lo que alguien está esperando confirmar le gana a un recordatorio.
+  const propPendiente = (pendientes.length && !openId && !openProj && !peekProjId && !extraerReunion)
     ? pendientes[0] : null;
+  // Cuando hay borradores, los OTROS pop-ups esperan su turno (si no, se apilan).
+  const hayPendientes = pendientes.length > 0;
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma

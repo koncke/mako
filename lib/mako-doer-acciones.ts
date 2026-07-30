@@ -312,7 +312,22 @@ const TTL_MIN = 120; // 2h de vigencia para el "sí".
 // `turnStart` = Date.now() del arranque del turno. Sirve para bloquear el auto-confirm:
 // una pendiente creada EN ESTE turno (createdAt >= turnStart) no puede confirmarse en el
 // mismo turno; el "sí" del dueño siempre llega en un mensaje aparte (otro turno posterior).
-export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0): ToolRunner {
+// Un "sí", "dale", "cargalo" pelado NO puede parir tareas. Es el candado del caso que
+// rompió todo: MaKo preguntó "saqué 97 compromisos, ¿los cargo?" desde otra ruta (un
+// aviso, que no quedaba registrado), Martín contestó "Si cargalo con lujo de detalle
+// cada una", y el doer —sin ese turno en su historial— agarró la conversación anterior
+// que encontró y recreó DOS tareas de cuatro días antes. Con este guard, en vez de
+// inventar, MaKo tiene que pedir la lista.
+const CONFIRMACION_PELADA = /^(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|claro|va|hacelo|cargalo|carg[áa]lo|agregalo|agreg[áa]lo|confirmo|adelante|de una|correcto|exacto|as[ií] es|todas?|todos)\b/i;
+const pareceConfirmacion = (msg: string): boolean => {
+  const t = (msg || '').trim();
+  if (!t) return true;                       // sin mensaje no hay de dónde sacar tareas
+  if (t.length > 160) return false;          // un mensaje largo trae contenido propio
+  if (/\n\s*[-*\d]/.test(t)) return false;   // trae una lista → hay material real
+  return CONFIRMACION_PELADA.test(t);
+};
+
+export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0, mensajeUsuario = ''): ToolRunner {
   const proponer = async (tipo: string, payload: Record<string, unknown>, resumen: string): Promise<string> => {
     const id = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen: 'hola-mako', ttlMin: TTL_MIN });
     if (id == null) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
@@ -405,6 +420,16 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0)
           .map((x) => ({ titulo: typeof x.titulo === 'string' ? x.titulo.trim().slice(0, 200) : '', prioridad: prioOk(x.prioridad), proyecto: x.proyecto ? String(x.proyecto).trim().slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 600) : undefined }))
           .filter((t) => t.titulo);
         if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resolvé lo deducible con ver_plan; si falta info, ponela en "preguntas" — no preguntes por acá.' });
+        // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
+        // de lo que el dueño acaba de decir, salen de la memoria del modelo. Cortarlo acá
+        // (no con una instrucción en el prompt) es lo único que evita que reviva
+        // conversaciones viejas y duplique lo que ya está en el board.
+        if (pareceConfirmacion(mensajeUsuario)) {
+          return JSON.stringify({
+            ok: false,
+            error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale" y no trae las tareas. NO inventes ni las saques del historial — pueden ser de otra conversación. Preguntá a QUÉ lista se refiere, o si venía de una reunión decile que entre al plan a confirmarla, o pedile que te la pegue.',
+          });
+        }
         const preguntasRaw = (input as { preguntas?: unknown }).preguntas;
         const preguntas = Array.isArray(preguntasRaw)
           ? preguntasRaw.map((p) => {

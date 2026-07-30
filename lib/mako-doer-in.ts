@@ -387,7 +387,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn): Prom
     // un subset chico → mucho más barato en Claude (y entran mejor en Groq). Los turnos
     // abiertos (dato/acción/razonamiento) mandan todas, para no quedarse sin una tool.
     const tools = toolsParaRuta(ruta.motivo, [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS]);
-    const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now()); // turnStart: bloquea el auto-confirm en el mismo turno
+    // turnStart bloquea el auto-confirm en el mismo turno; el texto del mensaje va para
+    // que las acciones puedan negarse a inventar tareas cuando lo único que dijo el
+    // dueño es "sí, dale" (ver pareceConfirmacion en mako-doer-acciones).
+    const runnerAcciones = crearRunnerAcciones(wsData, jid, Date.now(), texto);
     const runTool = async (name: string, input: Record<string, unknown>) =>
       NOMBRES_ACCION.has(name) ? runnerAcciones(name, input) : runMakoTool(name, input);
 

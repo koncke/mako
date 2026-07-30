@@ -10,13 +10,11 @@
 
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspaceActual } from '@/lib/workspace';
 import { listReunionesRecientes, extraerTareasDeReunion, extraerTareasDeTexto, cacheKeyReunion, type ProyectoRef, type Yo } from '@/lib/plan-fathom';
 import { glosarioTexto, guardarTermino } from '@/lib/glosario';
 import { getSetting, setSetting } from '@/lib/settings';
 import { cruzarCandidatas } from '@/lib/mako-guardian';
 import { esFechaValida } from '@/lib/date-utils';
-import { emitirDelCatalogo } from '@/lib/avisos';
 
 export const dynamic = 'force-dynamic';
 // 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
@@ -115,18 +113,14 @@ export async function POST(req: NextRequest) {
       // Los PARTICIPANTES van al cache a propósito: son la lista blanca contra la que
       // /api/plan-reunion valida a quién se le puede mandar algo de esta reunión.
       await setSetting(cacheKey, JSON.stringify({ tareas: out.tareas, participantes: out.participantes ?? [], ts: Date.now() })).catch(() => {});
-      // Aviso: MaKo sacó compromisos de la reunión → ofrece cargarlos al tablero.
-      if (out.tareas.length > 0) {
-        const ws = await getWorkspaceActual();
-        const titulo = String(body.titulo ?? '').trim();
-        const deReunion = titulo ? ` de la reunión *${titulo}*` : ' de la última reunión';
-        const n = out.tareas.length;
-        const lista = out.tareas.map((t, i) => `${i + 1}. ${t.titulo}`).join('\n');
-        await emitirDelCatalogo('reunion-compromisos-tareas', {
-          ws: ws ?? undefined,
-          texto: `📝 Saqué *${n} ${n === 1 ? 'compromiso' : 'compromisos'}*${deReunion}:\n${lista}\n\n¿Los cargo como tareas en tu tablero? — MaKo`,
-        });
-      }
+      // ACÁ NO SE MANDA NINGÚN WHATSAPP, a propósito. Antes esta ruta preguntaba
+      // "saqué N compromisos, ¿los cargo?" — y era una pregunta al vacío: el usuario
+      // está MIRANDO la lista en la app (la disparó él desde el modal), y la pregunta
+      // no quedaba anclada a nada. Cuando contestaba "sí, cargalo" por WhatsApp, el doer
+      // no tenía ese turno en su historial, se agarraba de la conversación anterior que
+      // encontrara y creaba tareas de OTRO día (pasó: duplicó dos del 26/07).
+      // El WhatsApp con lista y link lo manda el CRON (lib/reunion-auto), que es el que
+      // sí necesita avisar de algo que el dueño no está viendo.
       return Response.json({ ok: true, ...out });
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });

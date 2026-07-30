@@ -20,13 +20,22 @@ export async function guardarTurno(ws: number, grupoJid: string, role: 'user' | 
   });
 }
 
+// Cuánto para atrás mira MaKo. Sin corte, un "sí, dale" se pegaba a la última cosa
+// que hubiera en la tabla AUNQUE FUERA DE HACE CUATRO DÍAS: pasó de verdad — Martín
+// contestó "sí cargalo" a una pregunta de esa tarde y MaKo confirmó una charla del 26
+// de julio, duplicando dos tareas que ya estaban en el board. Una conversación de
+// WhatsApp de hace dos días no es contexto: es ruido.
+const HORAS_CONTEXTO = 48;
+
 /** Historial reciente de un grupo (los últimos `limite` turnos, en orden cronológico). */
 export async function historialGrupo(ws: number, grupoJid: string, limite = 24): Promise<TurnoConv[]> {
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
+    const desde = new Date(Date.now() - HORAS_CONTEXTO * 3600_000).toISOString();
     const { data } = await db.from('mako_doer_conv')
       .select('role, content, created_at')
       .eq('grupo_jid', grupoJid)
+      .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .limit(limite);
     const rows = ((data ?? []) as Array<{ role: string; content: string }>).reverse();

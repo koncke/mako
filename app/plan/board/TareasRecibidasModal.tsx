@@ -28,9 +28,12 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean };
+type PropPregunta = { pregunta: string };
 export type PropuestaPendiente = {
   id: string; resumen: string; origen?: string; tareas: PropTarea[]; createdAt: string;
   enviadoPor?: string; fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string; ref?: string;
+  /** si trae preguntas, se confirma en el wizard /plan/revisar, no acá. */
+  preguntas?: PropPregunta[];
 };
 
 async function api(body: Record<string, unknown>): Promise<Record<string, unknown> & { ok: boolean; error?: string }> {
@@ -47,7 +50,7 @@ const recordingDeRef = (ref?: string): number | undefined => {
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
 type FilaConProp = FilaTarea & { propId: string };
 
-export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
+export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }: {
   props: PropuestaPendiente[];
   labels: Label[];
   /** se aplicó: el board recarga para mostrar las tareas nuevas ya puntuadas. */
@@ -55,6 +58,10 @@ export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
   /** cerrar sin confirmar (siguen pendientes) o después de descartarlas. */
   onClose: () => void;
 }) {
+  // Los borradores CON preguntas no se confirman de un toque: los arma MaKo por
+  // WhatsApp y se responden en el wizard. Antes ni se listaban y quedaban invisibles.
+  const props = todos.filter((p) => !p.preguntas?.length);
+  const conPreguntas = todos.filter((p) => !!p.preguntas?.length);
   // Init perezoso (el padre monta con una key que depende de los ids: si cambian, es
   // un componente nuevo y no hace falta re-sincronizar por efecto).
   const [filas, setFilas] = useState<FilaConProp[]>(() => {
@@ -105,10 +112,14 @@ export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
 
   const de = props.find((p) => p.enviadoPor?.trim())?.enviadoPor?.trim();
   const varias = props.length > 1;
-  const titulo = de ? `${de} te envió estas tareas` : varias ? `MaKo leyó tus ${props.length} reuniones` : 'MaKo leyó tu reunión';
-  const sub = varias
-    ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
-    : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
+  const soloPreguntas = props.length === 0 && conPreguntas.length > 0;
+  const titulo = soloPreguntas ? 'MaKo te dejó un borrador para revisar'
+    : de ? `${de} te envió estas tareas`
+      : varias ? `MaKo leyó tus ${props.length} reuniones` : 'MaKo leyó tu reunión';
+  const sub = soloPreguntas ? 'Necesita que le aclares un par de cosas antes de cargarlas.'
+    : varias
+      ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
+      : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
@@ -140,13 +151,29 @@ export function TareasRecibidasModal({ props, labels, onListo, onClose }: {
 
           {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600 }}>{err}</div>}
 
-          <ReunionTareas
+          {/* Borradores que MaKo dejó con preguntas: no se confirman acá, pero TIENEN
+              que verse — si no, MaKo dice "entrá al plan" y no hay nada. */}
+          {conPreguntas.map((p) => (
+            <a key={p.id} href={`/plan/revisar/${p.id}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--warn)', background: 'var(--warn-bg, var(--surface-2))', textDecoration: 'none' }}>
+              <span style={{ fontSize: 18 }}>💬</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                  MaKo dejó {p.tareas.length} {p.tareas.length === 1 ? 'tarea' : 'tareas'} con {p.preguntas!.length} {p.preguntas!.length === 1 ? 'pregunta' : 'preguntas'}
+                </span>
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>{p.resumen || 'Necesita contexto tuyo antes de cargarlas.'}</span>
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Responder →</span>
+            </a>
+          ))}
+
+          {filas.length > 0 && <ReunionTareas
             filas={filas}
             labels={labels}
             onFila={(i, patch) => setFilas((fs) => fs.map((f, k) => (k === i ? { ...f, ...patch } : f)))}
             reunion={{ titulo: props[0]?.fuenteTitulo ?? '', fecha: props[0]?.fuenteFecha ?? props[0]?.createdAt, url: props[0]?.fuenteUrl ?? null, recordingId: recordingDeRef(props[0]?.ref) }}
             cabecera="Destildá lo que no vaya. El perro les pone la prioridad final."
-          />
+          />}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 22px', borderTop: '1px solid var(--border)', background: 'var(--surface-2)', flexWrap: 'wrap' }}>

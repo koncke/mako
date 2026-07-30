@@ -12,7 +12,7 @@
 
 import 'server-only';
 import { crearNotificacion, type NotifSeveridad } from './notificaciones';
-import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo } from './mako-grupo';
+import { enviarAlGrupoSuperAdmin, enviarAlGrupoMaKo, getGrupoJidMaKo, getGrupoSuperAdminJid } from './mako-grupo';
 import { getSetting, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS } from './workspace';
 import type { CategoriaAviso, SemaforoAviso, AvisoCatalogo } from './avisos-catalogo';
@@ -84,6 +84,16 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // de SuperAdmin — el cliente los recibe en SU grupo (creado en Config>Notif).
     const env = a.alDueno === true ? await enviarAlGrupoSuperAdmin(a.texto) : await enviarAlGrupoMaKo(ws, a.texto);
     if (!env.ok) console.error(`[avisos] ${a.tipo}: NO salió por WhatsApp (ws ${ws}) — ${env.error}`);
+    // El aviso queda EN LA CONVERSACIÓN del grupo. Sin esto, MaKo manda una pregunta
+    // ("saqué 97 compromisos, ¿los cargo?") y no le queda ningún registro: cuando el
+    // dueño contesta "sí, cargalo", el doer no sabe a qué le dijo que sí y se agarra
+    // del mensaje anterior que encuentre. Pasó: confirmó una charla de cuatro días
+    // antes y duplicó dos tareas.
+    if (env.ok) {
+      const { guardarTurno } = await import('./mako-doer-conv');
+      const jid = a.alDueno === true ? await getGrupoSuperAdminJid() : await getGrupoJidMaKo(ws);
+      if (jid) await guardarTurno(ws, jid, 'assistant', a.texto, env.id).catch(() => {});
+    }
     if (a.dedupTtlMin) await marcarAvisado(ws, a.tipo);
     return { ok: true, feedId, wa: env.ok, deduped: false, waError: env.ok ? undefined : env.error };
   } catch (e) {

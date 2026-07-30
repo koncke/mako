@@ -43,7 +43,19 @@ type Destinatario = {
 export const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'media' ? '#C8870C' : p === 'baja' ? '#1E9E57' : '#98A0AC');
 
 const KEY_SIN_DUEÑO = '__otros__';
-const personaDe = (f: FilaTarea): string => (f.dueñoEmail || '').trim().toLowerCase() || (f.dueño || '').trim().toLowerCase() || KEY_SIN_DUEÑO;
+/**
+ * Identidad de la persona para agrupar. Si hay email, ese manda. Si no, el PRIMER
+ * NOMBRE normalizado: el modelo escribe a la misma persona de dos formas según el
+ * tramo ("Francisco Di Giorno" y "Francisco Hugo Di Giorno") y con el nombre completo
+ * salían dos tabs de una tarea cada una. Juntar de más a dos personas con el mismo
+ * primer nombre en una misma reunión es raro; partir a una en dos, pasa siempre.
+ */
+const personaDe = (f: FilaTarea): string => {
+  const email = (f.dueñoEmail || '').trim().toLowerCase();
+  if (email) return email;
+  const nombre = (f.dueño || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  return nombre ? nombre.split(/\s+/)[0] : KEY_SIN_DUEÑO;
+};
 // La tab es de PERSONA × REUNIÓN, no solo de persona: los botones "Enviar" y "Cargar
 // en el plan de X" validan contra los participantes de UNA grabación, así que mezclar
 // dos reuniones en la misma tab mandaría tareas bajo la reunión equivocada.
