@@ -91,6 +91,9 @@ export function BoardShell({ board, scope }: {
   // Borradores PENDIENTES (plan_propuestas): las tareas que MaKo sacó sola de tu última
   // reunión de equipo, o las que te mandó otra persona. Se muestran de a una.
   const [pendientes, setPendientes] = useState<PropuestaPendiente[]>([]);
+  // Cerrar el modal con la ✕ NO descarta nada: solo lo esconde. Los borradores siguen
+  // vivos y el botón de Fathom (que late) los vuelve a abrir.
+  const [pendientesCerradas, setPendientesCerradas] = useState(false);
   const pendientesRef = useRef(false);
 
   const ask = (msg: string, onOk: () => void) => setConfirm({ msg, onOk });
@@ -236,10 +239,11 @@ export function BoardShell({ board, scope }: {
   // Datos y la bienvenida: con el tablero lleno, "faltan datos" salta siempre y el
   // borrador no se veía nunca — MaKo decía "entrá al plan a confirmarlas" y no había
   // nada. Lo que alguien está esperando confirmar le gana a un recordatorio.
-  const propPendiente = (pendientes.length && !openId && !openProj && !peekProjId && !extraerReunion)
+  const propPendiente = (pendientes.length && !pendientesCerradas && !openId && !openProj && !peekProjId && !extraerReunion)
     ? pendientes[0] : null;
   // Cuando hay borradores, los OTROS pop-ups esperan su turno (si no, se apilan).
   const hayPendientes = pendientes.length > 0;
+  const nPendientes = pendientes.reduce((s, p) => s + (p.tareas?.filter((t) => !t.esDeOtro).length ?? 0), 0);
 
   // ── el perro guardián re-puntúa el plan (score 1-100 / 1-10) ──
   // Sin botón: corre solo EN BACKGROUND, pero SOLO cuando el plan cambió de forma
@@ -497,11 +501,21 @@ export function BoardShell({ board, scope }: {
             reuniones; al lado, subir un archivo (punto 7) con ícono propio. */}
         {repo.fathomExtract && <>
           {/* El botón ES el logo de Fathom (feedback jul-18): sin contenedor blanco. Mismo 38×38 que el de subir. */}
-          <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); }} aria-label="Extraer tareas de una reunión de Fathom" title="Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)"
-            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s' }}
+          {/* Con borradores esperando, este botón ABRE ESOS BORRADORES (y late para que
+              se vea que hay algo). El selector de reuniones de siempre vuelve recién
+              cuando no queda nada pendiente: o las cargaste, o las descartaste. Antes,
+              cerrar el modal era perderlo de vista sin forma de volver. */}
+          <button type="button" onClick={() => { if (hayPendientes) { setPendientesCerradas(false); return; } setReunionArchivo(null); setExtraerReunion(true); }}
+            aria-label={hayPendientes ? `${pendientes.length} borrador(es) de reunión esperando` : 'Extraer tareas de una reunión de Fathom'}
+            title={hayPendientes ? `Tenés ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} de reunión esperando que las confirmes` : 'Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)'}
+            style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s', animation: hayPendientes ? 'makoLatido 1.6s ease-in-out infinite' : undefined }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
             <SvcIcon k="fathom" size={22} box={38} radius={9} />
+            {hayPendientes && (
+              <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: 'var(--primary)', color: '#fff', fontFamily: MONO, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{nPendientes}</span>
+            )}
           </button>
+          {hayPendientes && <style>{'@keyframes makoLatido{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(47,111,237,0))}50%{transform:scale(1.09);filter:drop-shadow(0 0 6px rgba(47,111,237,.65))}}'}</style>}
           <label aria-label="Subir un archivo de reunión (.md, .txt, transcript)" title="Subir un archivo de reunión (.md, .txt, transcript) y extraer tareas"
             style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', cursor: 'pointer', flex: 'none', color: 'var(--dim)' }}
             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--dim)'; }}>
@@ -546,7 +560,8 @@ export function BoardShell({ board, scope }: {
           props={pendientes}
           labels={labels}
           onListo={() => window.location.reload()}
-          onClose={() => setPendientes([])}
+          onClose={() => setPendientesCerradas(true)}
+          onDescartadas={() => { setPendientes([]); setPendientesCerradas(false); }}
         />
       )}
       {extraerReunion && <ReunionExtractModal labels={labels} archivoInicial={reunionArchivo}

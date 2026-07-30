@@ -55,6 +55,59 @@ type Destinatario = {
 
 export const banda = (p: Prio): string => (p === 'alta' ? '#D0504A' : p === 'media' ? '#C8870C' : p === 'baja' ? '#1E9E57' : '#98A0AC');
 
+/** Alguien a quien se le puede pasar una tarea (de la reunión, o cargado a mano). */
+export type PersonaRef = { nombre: string; email: string };
+
+const btnChico: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 8,
+  border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)',
+  fontFamily: MONO, fontSize: 11, fontWeight: 700, cursor: 'pointer', lineHeight: 1.6,
+};
+
+/**
+ * "¿De quién es esta tarea?" — el paso que faltaba. Antes "no es mía" la mandaba a una
+ * tab inventada con el nombre que hubiera adivinado la IA (llegó a crear una tab
+ * "Martin Carballo", o sea el propio dueño del tablero). Ahora se elige a quién va:
+ * alguien de la reunión, vos mismo, o una persona nueva que cargás en el momento.
+ */
+function ElegirDueño({ personas, actual, esMiaHoy, onElegir, onCancelar }: {
+  personas: PersonaRef[];
+  /** email/nombre del dueño actual, para no ofrecerlo de nuevo. */
+  actual: string;
+  esMiaHoy: boolean;
+  onElegir: (p: PersonaRef | null) => void;   // null = "es mía"
+  onCancelar: () => void;
+}) {
+  const [nueva, setNueva] = useState(false);
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const otros = personas.filter((p) => (p.email || p.nombre).toLowerCase() !== actual.toLowerCase());
+  return (
+    <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--primary)' }}>¿De quién es esta tarea?</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {!esMiaHoy && <button type="button" onClick={() => onElegir(null)} style={{ ...btnChico, borderColor: 'var(--primary)', color: 'var(--primary)' }}>Es mía</button>}
+        {otros.map((p) => (
+          <button key={p.email || p.nombre} type="button" onClick={() => onElegir(p)} style={btnChico}>{p.nombre || p.email}</button>
+        ))}
+        <button type="button" onClick={() => setNueva((v) => !v)} style={{ ...btnChico, borderStyle: 'dashed' }}>+ otra persona</button>
+        <button type="button" onClick={onCancelar} style={{ ...btnChico, border: 'none', background: 'transparent' }}>cancelar</button>
+      </div>
+      {nueva && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre"
+            style={{ flex: '1 1 120px', minWidth: 110, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }} />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email (para poder mandársela)"
+            style={{ flex: '2 1 170px', minWidth: 150, padding: '6px 9px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, outline: 'none', fontFamily: SANS }} />
+          <button type="button" disabled={!nombre.trim() && !email.trim()}
+            onClick={() => onElegir({ nombre: nombre.trim() || email.trim().split('@')[0], email: email.trim().toLowerCase() })}
+            style={{ ...btnChico, borderColor: 'var(--primary)', color: 'var(--primary)', opacity: (!nombre.trim() && !email.trim()) ? 0.5 : 1 }}>Asignar</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const KEY_SIN_DUEÑO = '__otros__';
 /**
  * Identidad de la persona para agrupar. Si hay email, ese manda. Si no, el PRIMER
@@ -162,7 +215,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
   // Quién es cada uno en la app (para saber si podemos mandarle o cargarle el plan).
   // Indexado por REUNIÓN: los participantes se validan por grabación, así que cada una
   // trae su propio mapa. Se piden solo cuando hay tareas de otros.
-  const ridsConOtros = useMemo(() => [...new Set(grupos.map((g) => g.r.recordingId).filter((x): x is number => !!x))].join(','), [grupos]);
+  const ridsConOtros = useMemo(() => [...new Set(conIdx.map((x) => x.r.recordingId).filter((x): x is number => !!x))].join(','), [conIdx]);
   const [dests, setDests] = useState<Record<number, Record<string, Destinatario>>>({});
   const [destsListos, setDestsListos] = useState(false);
   useEffect(() => {
@@ -176,6 +229,19 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
     })).then((pares) => { if (vivo) { setDests(Object.fromEntries(pares)); setDestsListos(true); } });
     return () => { vivo = false; };
   }, [ridsConOtros]);
+
+  // A quién se le puede pasar una tarea de ESTA reunión: los participantes que la app
+  // ya resolvió + los dueños que la IA detectó (aunque no tengan email).
+  const personasDe = (rid?: number): PersonaRef[] => {
+    const m = new Map<string, PersonaRef>();
+    for (const d of Object.values(dests[rid ?? 0] ?? {})) m.set(d.email, { nombre: d.nombre, email: d.email });
+    for (const x of conIdx) {
+      if (!x.f.esDeOtro || (x.r.recordingId ?? 0) !== (rid ?? 0)) continue;
+      const k = (x.f.dueñoEmail || x.f.dueño || '').toLowerCase();
+      if (k && !m.has(k)) m.set(k, { nombre: x.f.dueño || x.f.dueñoEmail || '', email: x.f.dueñoEmail || '' });
+    }
+    return [...m.values()].filter((p) => p.nombre || p.email);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -212,7 +278,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
                     </div>
                   )}
                   {g.items.map(({ f, i }) => (
-                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} />
+                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} personas={personasDe(g.r.recordingId)} />
                   ))}
                 </div>
               ))}
@@ -227,6 +293,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
           labels={labels}
           reunion={activo.r}
           onFila={onFila}
+          personas={personasDe(activo.r.recordingId)}
         />
       ) : null}
     </div>
@@ -262,8 +329,9 @@ function TabBtn({ activo, onClick, label, n }: { activo: boolean; onClick: () =>
  * app va a pisar dos segundos después). Lo que sí necesita mano humana es el DETALLE:
  * la IA escucha mal un número y queda escrito ("el grupal de $497" cuando son $1500).
  */
-function FilaCandidata({ f, onFila, url }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null }) {
+function FilaCandidata({ f, onFila, url, personas }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null; personas: PersonaRef[] }) {
   const [editando, setEditando] = useState(false);
+  const [reasignando, setReasignando] = useState(false);
   const link = urlEnMinuto(url, f.minuto);
   const reloj = relojDe(f.minuto);
   return (
@@ -271,9 +339,16 @@ function FilaCandidata({ f, onFila, url }: { f: FilaTarea; onFila: (p: Partial<F
       <button type="button" onClick={() => onFila({ incluir: !f.incluir })} aria-label="Incluir"
         style={{ width: 20, height: 20, flex: 'none', marginTop: 1, borderRadius: 6, border: `1.5px solid ${f.incluir ? 'var(--primary)' : 'var(--border-strong)'}`, background: f.incluir ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{f.incluir ? '✓' : ''}</button>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{f.titulo}</div>
+        {/* El minuto va PEGADO al título: es parte de "qué es esto", no una acción. */}
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
+          {f.titulo}
+          {reloj && (link
+            ? <a href={link} target="_blank" rel="noreferrer" title="Escuchar este momento de la reunión"
+                style={{ marginLeft: 7, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--surface)', fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>▶ {reloj}</a>
+            : <span style={{ marginLeft: 7, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>▶ {reloj}</span>)}
+        </div>
         {editando
-          ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} onBlur={() => setEditando(false)} rows={4}
+          ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} rows={4}
               style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
           : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
         {f.enriquece && (
@@ -281,35 +356,39 @@ function FilaCandidata({ f, onFila, url }: { f: FilaTarea; onFila: (p: Partial<F
             <span title={f.enriquece.razon} style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 6, padding: '2px 7px' }}>⚠ ya existe en el plan · {f.enriquece.razon.slice(0, 50)}</span>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 7, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, flexWrap: 'wrap' }}>
           <button type="button" onClick={() => setEditando((v) => !v)}
-            style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: editando ? 'var(--primary)' : 'var(--faint)' }}>
+            style={{ ...btnChico, ...(editando ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : {}) }}>
             {editando ? '✓ listo' : '✎ corregir contexto'}
           </button>
           {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
-              un bloque), así que la atribución falla y no hay prompt que lo arregle:
-              MaKo le está siendo fiel a una fuente equivocada. Que se corrija en un click. */}
-          <button type="button" onClick={() => onFila({ esDeOtro: true, incluir: false })}
-            title="Sacarla de tu plan y mandarla a la tab de la otra persona"
-            style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--faint)' }}>
-            ↪ no es mía
-          </button>
-          {/* El minuto exacto: se dijo acá, andá a escucharlo. */}
-          {reloj && (link
-            ? <a href={link} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>▶ {reloj}</a>
-            : <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>▶ {reloj}</span>)}
+              un bloque), así que la atribución falla y no hay prompt que lo arregle. Se
+              corrige acá — pero PREGUNTANDO de quién es, no mandándola a ciegas. */}
+          <button type="button" onClick={() => setReasignando((v) => !v)} style={btnChico}>↪ no es mía</button>
         </div>
+        {reasignando && (
+          <ElegirDueño personas={personas} actual="" esMiaHoy
+            onCancelar={() => setReasignando(false)}
+            onElegir={(p) => {
+              setReasignando(false);
+              if (p) onFila({ esDeOtro: true, incluir: false, dueño: p.nombre, dueñoEmail: p.email || undefined });
+            }} />
+        )}
       </div>
     </div>
   );
 }
 
 /** Tab de una persona: sus tareas (solo lectura) + qué hacer con ellas. */
-function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFila }: {
+function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFila, personas }: {
   nombre: string; dest?: Destinatario; cargandoDest: boolean;
   items: Array<{ f: FilaTarea; i: number }>; labels: Label[]; reunion: ReunionRefUI;
   onFila: (i: number, patch: Partial<FilaTarea>) => void;
+  personas: PersonaRef[];
 }) {
+  const [reasignando, setReasignando] = useState<number | null>(null);
+  // El email que la IA le atribuyó, aunque esa persona no tenga cuenta en la app.
+  const emailConocido = items.find((x) => x.f.dueñoEmail)?.f.dueñoEmail ?? '';
   const filas = items.map((x) => x.f);
   const [abrirEnvio, setAbrirEnvio] = useState(false);
   const [wa, setWa] = useState(true);
@@ -317,6 +396,9 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
   // El número que tenemos guardado se puede pisar a mano (null = todavía no lo tocó).
   const [telManual, setTelManual] = useState<string | null>(null);
   const telefono = telManual ?? dest?.telefono ?? '';
+  // Idem el email: si no lo sabemos (persona sin cuenta, o cargada a mano), se pide.
+  const [mailManual, setMailManual] = useState<string | null>(null);
+  const emailDest = (mailManual ?? dest?.email ?? emailConocido ?? '').trim();
   const [enviando, setEnviando] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [nota, setNota] = useState('');
@@ -325,12 +407,15 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
 
   const proyectoNombre = (id: string | null) => labels.find((l) => l.id === id)?.name;
   const payload = filas.map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: proyectoNombre(f.proyectoId) }));
-  const puedeMandar = !!dest && !!reunion.recordingId;
+  // Enviar SIEMPRE se puede abrir: si faltan datos, se piden adentro. Antes el botón
+  // quedaba gris y mudo cuando la persona no tenía cuenta — que es justo cuando más
+  // falta mandarle las tareas por mail.
+  const puedeMandar = !!reunion.recordingId;
 
   const enviar = async () => {
     setEnviando(true); setErr(''); setNota('');
     const j = await apiReunion({
-      action: 'enviar', recordingId: reunion.recordingId, email: dest!.email, tareas: payload,
+      action: 'enviar', recordingId: reunion.recordingId, email: emailDest, manual: !dest?.email, tareas: payload,
       reunion: { titulo: reunion.titulo, fecha: reunion.fecha, url: reunion.url },
       canales: { wa, email: mail }, telefono: telefono || undefined, link: linkPlan || undefined,
     });
@@ -371,20 +456,30 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
         <div key={i} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <span style={{ flex: 'none', marginTop: 2, fontSize: 13, color: 'var(--faint)', fontFamily: MONO }}>{i + 1}.</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{f.titulo}</div>
-            {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 5, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>
+              {f.titulo}
               {relojDe(f.minuto) && (
-                <a href={urlEnMinuto(reunion.url, f.minuto) ?? '#'} target="_blank" rel="noreferrer"
-                  style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>▶ {relojDe(f.minuto)}</a>
+                <a href={urlEnMinuto(reunion.url, f.minuto) ?? '#'} target="_blank" rel="noreferrer" title="Escuchar este momento"
+                  style={{ marginLeft: 7, display: 'inline-flex', alignItems: 'center', gap: 3, padding: '1px 7px', borderRadius: 999, border: '1px solid var(--primary-weak)', background: 'var(--surface)', fontFamily: MONO, fontSize: 10.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>▶ {relojDe(f.minuto)}</a>
               )}
-              {/* Si la transcripción se equivocó de hablante, devolvela a tu plan. */}
-              <button type="button" onClick={() => onFila(idx, { esDeOtro: false, incluir: true })}
-                title="Es tuya: pasala a la tab Mías"
-                style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--faint)' }}>
-                ↩ en realidad es mía
+            </div>
+            {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 7, flexWrap: 'wrap' }}>
+              {/* Si la transcripción se equivocó de hablante, se reasigna acá: a vos, a
+                  otro de la reunión, o a alguien que cargás en el momento. */}
+              <button type="button" onClick={() => setReasignando(reasignando === idx ? null : idx)} style={btnChico}>
+                ↩ no es de {nombre.split(' ')[0]}
               </button>
             </div>
+            {reasignando === idx && (
+              <ElegirDueño personas={personas} actual={dest?.email || nombre} esMiaHoy={false}
+                onCancelar={() => setReasignando(null)}
+                onElegir={(p) => {
+                  setReasignando(null);
+                  if (p) onFila(idx, { dueño: p.nombre, dueñoEmail: p.email || undefined });
+                  else onFila(idx, { esDeOtro: false, incluir: true, dueño: undefined, dueñoEmail: undefined });
+                }} />
+            )}
           </div>
         </div>
       ))}
@@ -393,10 +488,14 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
       {err && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--bad)' }}>{err}</div>}
 
       {/* confirmación de envío: se ve EXACTAMENTE a dónde va antes de mandar */}
-      {abrirEnvio && dest && (
+      {abrirEnvio && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>¿Se las mando a {nombre}?</div>
-          <Check on={mail} set={setMail} label={`Mail a ${dest.email}`} />
+          <Check on={mail} set={setMail} label={emailDest ? `Mail a ${emailDest}` : 'Mail'} />
+          {mail && !dest?.email && (
+            <input value={emailDest} onChange={(e) => setMailManual(e.target.value)} placeholder="Su email"
+              style={{ padding: '8px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 13, outline: 'none', fontFamily: SANS }} />
+          )}
           <Check on={wa} set={setWa} label="WhatsApp" />
           {wa && (
             <input value={telefono} onChange={(e) => setTelManual(e.target.value)} placeholder="Número con código de país (ej. 5215512345678)"
@@ -404,8 +503,8 @@ function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFi
           )}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => setAbrirEnvio(false)} style={ghost}>Cancelar</button>
-            <button type="button" onClick={() => void enviar()} disabled={enviando || (!wa && !mail) || (wa && !telefono.trim())}
-              style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: enviando ? 'default' : 'pointer', opacity: enviando || (!wa && !mail) || (wa && !telefono.trim()) ? 0.55 : 1, fontFamily: SANS }}>
+            <button type="button" onClick={() => void enviar()} disabled={enviando || (!wa && !mail) || (wa && !telefono.trim()) || (mail && !emailDest.includes('@'))}
+              style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: enviando ? 'default' : 'pointer', opacity: enviando || (!wa && !mail) || (wa && !telefono.trim()) || (mail && !emailDest.includes('@')) ? 0.55 : 1, fontFamily: SANS }}>
               {enviando ? 'Mandando…' : 'Mandar'}
             </button>
           </div>

@@ -96,9 +96,16 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true, destinatarios });
     }
 
-    // De acá para abajo se le manda algo a UNA persona: tiene que ser de la reunión.
+    // De acá para abajo se le manda algo a UNA persona. El candado es contra los emails
+    // que INVENTA la IA: por eso el default exige que la dirección sea de un invitado
+    // real de la grabación. Pero si el email lo ESCRIBIÓ el usuario en la pantalla
+    // (`manual`), es una decisión deliberada suya sobre su propia cuenta — no hay nada
+    // que proteger ahí, y bloquearlo dejaba sin poder mandarle nada a alguien que no
+    // figura en el calendario (que es el caso de media consultoría).
     const email = String(body.email ?? '').trim().toLowerCase();
-    const invitado = participantes.find((p) => p.email === email);
+    const manual = body.manual === true;
+    const invitado = participantes.find((p) => p.email === email)
+      ?? (manual && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? { nombre: '', email } : undefined);
     if (!invitado) return Response.json({ ok: false, error: 'Esa persona no estuvo en la reunión.' }, { status: 403 });
 
     const destinatarios = await resolverDestinatarios([invitado]);

@@ -50,13 +50,15 @@ const recordingDeRef = (ref?: string): number | undefined => {
 /** Fila con la marca de a qué borrador pertenece, para aplicar cada uno por separado. */
 type FilaConProp = FilaTarea & { propId: string };
 
-export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }: {
+export function TareasRecibidasModal({ props: todos, labels, onListo, onClose, onDescartadas }: {
   props: PropuestaPendiente[];
   labels: Label[];
   /** se aplicó: el board recarga para mostrar las tareas nuevas ya puntuadas. */
   onListo: () => void;
-  /** cerrar sin confirmar (siguen pendientes) o después de descartarlas. */
+  /** cerrar SIN decidir: los borradores siguen esperando (se reabren desde Fathom). */
   onClose: () => void;
+  /** se descartaron de verdad: ya no hay nada pendiente. */
+  onDescartadas: () => void;
 }) {
   // Los borradores CON preguntas no se confirman de un toque: los arma MaKo por
   // WhatsApp y se responden en el wizard. Antes ni se listaban y quedaban invisibles.
@@ -119,9 +121,9 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }:
 
   const descartar = async () => {
     setGuardando('descartar');
-    for (const p of props) await api({ action: 'descartar', id: p.id });
+    for (const p of todos) await api({ action: 'descartar', id: p.id });
     setGuardando('');
-    onClose();
+    onDescartadas();
   };
 
   const de = props.find((p) => p.enviadoPor?.trim())?.enviadoPor?.trim();
