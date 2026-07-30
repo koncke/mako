@@ -195,12 +195,25 @@ function limpiarPanorama(t: string): string {
 
 // Para el panorama preferimos modelos NO-thinking (Groq 70b primero): un modelo de
 // razonamiento (gemini-thinking) gasta el presupuesto de tokens "pensando" y devuelve
-// el panorama TRUNCADO a mitad de frase (bug reportado). Gemini queda al final.
+// el panorama TRUNCADO a mitad de frase (bug reportado). Gemini queda al final, y
+// además chatCheap le apaga el "thinking" (reasoning_effort:'none') para esta tarea.
 const CASCADA_PANORAMA: ProvName[] = ['groq', 'cerebras', 'openai', 'openrouter', 'mistral', 'gemini'];
+const SECCIONES_PANORAMA = [
+  'IDENTIDAD Y POSICIONAMIENTO', 'OFERTA Y PRECIOS', 'AVATAR Y CLIENTE IDEAL',
+  'NICHO Y MERCADO', 'TONO Y VOZ DE MARCA', 'OTROS DATOS RELEVANTES',
+];
+// Rechaza texto de "razonamiento" filtrado Y panoramas incompletos/cortados: si falta
+// algún subtítulo de los 6 obligatorios, es o un truncamiento a mitad de camino o el
+// modelo se salteó una sección — en ambos casos hay que reintentar con el próximo
+// proveedor de la cascada en vez de mostrarle al cliente un resumen roto.
+function panoramaCompleto(t: string): boolean {
+  if (pareceRazonamiento(t)) return false;
+  return SECCIONES_PANORAMA.every((s) => t.toUpperCase().includes(s));
+}
 export async function generarPanorama(textos: string[], contexto: string): Promise<string> {
   const material = textos.map((t, i) => `— DOCUMENTO ${i + 1} —\n${t.slice(0, 8000)}`).join('\n\n');
   const user = `${contexto ? `Lo que ya tenías del negocio:\n${contexto}\n\n` : ''}DOCUMENTOS:\n${material}`.slice(0, 60000);
-  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 3000, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_PANORAMA, modelos: MODELO_DOCS, validar: (t) => !pareceRazonamiento(t) });
+  const out = await chatCheapCascade({ system: ARCHIVERO_PANORAMA_TEMPLATE, user, maxTokens: 4500, feature: 'El Archivero', motivo: 'Panorama del negocio desde los documentos', provs: CASCADA_PANORAMA, modelos: MODELO_DOCS, validar: panoramaCompleto });
   return limpiarPanorama(out);
 }
 

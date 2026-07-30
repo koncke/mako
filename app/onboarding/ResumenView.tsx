@@ -133,7 +133,7 @@ export function ResumenView() {
         {nDatos > 0 && <div style={{ ...eyebrow, fontSize: 10 }}>{nDatos} dato{nDatos === 1 ? '' : 's'} extraídos</div>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {secciones.map((s, i) => <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 2} />)}
+        {secciones.map((s, i) => <SeccionCard key={s.titulo + i} s={s} abiertoDefault={i < 1} />)}
       </div>
     </div>
   );

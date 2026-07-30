@@ -199,7 +199,17 @@ CONVERSACIÓN HASTA AHORA:
 
 ¿Cuál es la siguiente pregunta (o ya das por terminado)? Devolvé solo el JSON.`;
 
-const PREGUNTA_AVATAR_FALLBACK: PreguntaAvatarDinamica = { pregunta: '¿Cuál de tus clientes te compra MÁS rápido: el que ya te conocía (referido, seguidor) o el que te descubre frío por un anuncio?', tipo: 'opciones', opciones: ['El que ya me conocía', 'El que llega frío', 'Compran parecido', 'No estoy seguro'] };
+// Respaldo por POSICIÓN (no solo la primera), y sobre la DIMENSIÓN de segmentación
+// (firmografía: tamaño/rubro/rol/geografía) — no sobre el embudo de venta. La versión
+// vieja ("¿te compra más rápido el que ya te conocía o el que llega frío?") medía
+// EMBUDO, no segmento, y encima se repetía siempre igual: quejado explícitamente
+// ("qué tiene que ver eso con el cliente, la respuesta es obvia"). Con una fallback
+// por posición además se evita la otra queja: cortar en silencio tras 1 respuesta
+// aunque decía "hasta 4 preguntas".
+const FALLBACKS_AVATAR: PreguntaAvatarDinamica[] = [
+  { pregunta: '¿Cuál es la diferencia MÁS grande entre tus distintos tipos de clientes hoy?', tipo: 'opciones', opciones: ['El tamaño de su negocio o facturación', 'El rubro o industria en la que están', 'Su rol o cargo (dueño, gerente, etc.)', 'La zona geográfica donde están'] },
+  { pregunta: '¿Tienes una lista o export de clientes (CRM, Excel) que puedas subir para identificar los segmentos ahí?', tipo: 'archivo', opciones: [] },
+];
 
 type SiguienteAvatar = { terminado: true } | { terminado: false; pregunta: PreguntaAvatarDinamica };
 function parseSiguientePreguntaAvatar(text: string): SiguienteAvatar | null {
@@ -236,7 +246,7 @@ export async function siguientePreguntaAvatares(historial: PasoHistorialAvatar[]
     });
     const parsed = text ? parseSiguientePreguntaAvatar(text) : null;
     if (parsed) return { ok: true, ...parsed };
-    if (historial.length === 0) return { ok: true, terminado: false, pregunta: PREGUNTA_AVATAR_FALLBACK };
+    if (historial.length < FALLBACKS_AVATAR.length) return { ok: true, terminado: false, pregunta: FALLBACKS_AVATAR[historial.length] };
     return { ok: true, terminado: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

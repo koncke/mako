@@ -118,7 +118,15 @@ CONVERSACIÓN HASTA AHORA:
 
 ¿Cuál es la siguiente pregunta (o ya das por terminado)? Devolvé solo el JSON.`;
 
-const PREGUNTA_ENT_FALLBACK: PreguntaDinamica = { pregunta: '¿Ya tienes un entregable tangible específico en mente?', tipo: 'opciones', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] };
+// Respaldo por POSICIÓN (no solo la primera): si la IA falla en la pregunta 1 caíamos
+// acá antes bien, pero si volvía a fallar en la 2 la conversación terminaba en
+// silencio SIN preguntar qué es el entregable ni pedir que lo suba (bug reportado:
+// "le puse 'Sí lo tengo claro' y no me preguntó nada"). Con una fallback por posición,
+// esa garantía no depende de que la IA responda bien las dos veces seguidas.
+const FALLBACKS_ENT: PreguntaDinamica[] = [
+  { pregunta: '¿Ya tienes un entregable tangible específico en mente?', tipo: 'opciones', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] },
+  { pregunta: '¿Puedes subir una foto o captura de eso que ya tienes?', tipo: 'archivo', opciones: [] },
+];
 
 type Siguiente = { terminado: true } | { terminado: false; pregunta: PreguntaDinamica };
 function parseSiguientePregunta(text: string): Siguiente | null {
@@ -155,11 +163,10 @@ export async function siguientePreguntaEntregable(historial: PasoHistorial[]): P
     });
     const parsed = text ? parseSiguientePregunta(text) : null;
     if (parsed) return { ok: true, ...parsed };
-    // La IA no respondió algo usable: si es la primera pregunta, caemos a la genérica
-    // de siempre (nunca dejamos la pantalla sin preguntar nada); si ya veníamos con
-    // algo de contexto, mejor cerrar y proponer con lo que hay que forzar más preguntas
-    // que puedan volver a fallar.
-    if (historial.length === 0) return { ok: true, terminado: false, pregunta: PREGUNTA_ENT_FALLBACK };
+    // La IA no respondió algo usable: avanzamos con la fallback de ESTA posición en
+    // vez de rendirnos — así la conversación nunca corta en silencio antes de haber
+    // preguntado lo básico (si ya tiene algo, y si puede mostrarlo).
+    if (historial.length < FALLBACKS_ENT.length) return { ok: true, terminado: false, pregunta: FALLBACKS_ENT[historial.length] };
     return { ok: true, terminado: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

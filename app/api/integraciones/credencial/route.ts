@@ -63,21 +63,27 @@ function autorDe(sesion: Awaited<ReturnType<typeof getUsuarioActual>>): string |
 
 /**
  * Guard EXTRA solo para 'revelar' (BYOK): ver una credencial en claro queda
- * reservado al admin del PROPIO workspace. La agencia no, ni impersonando.
+ * reservado a quien es dueño de ESE workspace puntual. La agencia impersonando
+ * el workspace de un cliente no, nunca — pero si el workspace objetivo ES el
+ * propio (`sesion.ws`, fijo por su fila en `usuarios`, no se mueve con la
+ * impersonación), sí puede, sea cliente o agencia: es su propia credencial.
  *
  * Por qué no alcanza el guard general: getRolWsEfectivo() devuelve 'admin' para
  * cualquiera con rol global 'admin' ANTES de mirar su rol_ws real
  * (lib/workspace.ts), y getWorkspaceActual() devuelve el ws impersonado. O sea
  * que "es admin de este workspace" da true para la agencia y no filtra nada.
- * El discriminante duro es `sesion.rol`: 'admin' = agencia; el cliente es
- * 'usuario' con su ws propio en `sesion.ws`. Las sesiones legacy/break-glass
+ * El discriminante duro es la comparación `sesion.ws === ws`: como `sesion.ws`
+ * viene de la fila real y la impersonación no la toca, un admin de agencia que
+ * impersona el workspace de un cliente sigue teniendo `sesion.ws` distinto de
+ * `ws` y queda afuera — pero si `ws` es su propio workspace (p.ej. la agencia
+ * también tiene uno propio para sus datos), pasa. Las sesiones legacy/break-glass
  * (contraseña maestra, dev-login) tampoco pasan: no son de nadie en particular.
  *
  * Escribir SÍ sigue permitido a la agencia (configurar integraciones en el
- * onboarding es parte del laburo). Lo que se cierra es la LECTURA.
+ * onboarding es parte del laburo). Lo que se cierra es la LECTURA ajena.
  */
 function puedeRevelar(sesion: NonNullable<Awaited<ReturnType<typeof getUsuarioActual>>>, ws: number): boolean {
-  if (sesion.legacy || sesion.rol === 'admin') return false;
+  if (sesion.legacy) return false;
   if (sesion.ws == null || sesion.ws !== ws) return false;
   return (sesion.rolWs ?? 'admin') === 'admin';
 }

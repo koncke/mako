@@ -144,6 +144,16 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
       max_tokens: opts.maxTokens ?? 512,
       temperature: opts.temperature ?? 0.2,
       ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+      // Gemini 2.5 Flash "piensa" por default y ese razonamiento oculto consume del
+      // mismo max_tokens: con un tope chico, el modelo gasta todo pensando y la
+      // respuesta VISIBLE sale cortada a mitad de frase (bug reportado: panorama del
+      // Archivero con solo 2 de 6 secciones — confirmado con un pedido de prueba real:
+      // SIN este campo, finish_reason daba "length" hasta para "decí hola y nada más").
+      // 'none' no es un valor válido para este endpoint (400 Invalid argument,
+      // probado); 'minimal' sí, y da finish_reason "stop" — es el mínimo real que
+      // acepta. Solo gemini entiende este campo: los demás proveedores tirarían 400
+      // con un campo que no reconocen, así que se limita a gemini.
+      ...(p.nombre === 'gemini' ? { reasoning_effort: 'minimal' } : {}),
     }),
     cache: 'no-store',
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),

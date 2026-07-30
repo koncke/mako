@@ -74,7 +74,7 @@ function DescripcionSecciones({ texto }: { texto: string }) {
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {secciones.map((s, i) => <SeccionPersonaCard key={s.titulo + i} s={s} abiertoDefault={i < 3} />)}
+      {secciones.map((s, i) => <SeccionPersonaCard key={s.titulo + i} s={s} abiertoDefault={i < 1} />)}
     </div>
   );
 }
