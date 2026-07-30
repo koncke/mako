@@ -17,7 +17,8 @@ const SANS = "'Geist', sans-serif";
 
 type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: string; situacion: string; dolor: string };
 type Estado = { avatares: Avatar[]; tieneBrief: boolean };
-type Pregunta = { pregunta: string; opciones: string[] };
+type PasoHistorial = { pregunta: string; respuesta: string };
+type PreguntaDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
 
 const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
 const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 };
@@ -46,13 +47,14 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
   const [gen, setGen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<'avatares' | 'contexto'>('avatares');
-  // Preguntas de segmentación (siempre antes de generar).
-  const [preguntas, setPreguntas] = useState<Pregunta[] | null>(null);
-  const [pregIdx, setPregIdx] = useState(0);
-  // Por ÍNDICE (no por inserción): así "← Atrás" pisa la respuesta anterior aunque
-  // alguna pregunta de en medio se haya saltado.
-  const [respuestas, setRespuestas] = useState<Array<string | null>>([]);
+  // Conversación de a 1, ADAPTATIVA: `historial` las ya contestadas, `preguntaActual`
+  // la que se muestra ahora, `vistas[i]` la pregunta que generó `historial[i]` (para
+  // que "← Atrás" pueda volver a mostrarla sin pedirle nada a la IA).
+  const [historial, setHistorial] = useState<PasoHistorial[]>([]);
+  const [vistas, setVistas] = useState<PreguntaDinamica[]>([]);
+  const [preguntaActual, setPreguntaActual] = useState<PreguntaDinamica | null>(null);
   const [cargandoPreg, setCargandoPreg] = useState(false);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
 
   const cargar = useCallback(async () => {
     try { const j = await (await fetch('/api/onboarding/avatares')).json(); if (j.ok) setEst(j as Estado); else setErr(j.error); }
@@ -61,34 +63,60 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => { onListo?.(!!est && est.avatares.length > 0); }, [est, onListo]);
 
-  // Arrancar la generación: SIEMPRE pide preguntas primero.
-  const empezar = async () => {
-    setCargandoPreg(true); setErr(null);
-    try {
-      const j = await (await fetch('/api/onboarding/avatares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'preguntas' }) })).json();
-      if (j.ok && Array.isArray(j.preguntas) && j.preguntas.length) { setPreguntas(j.preguntas as Pregunta[]); setPregIdx(0); setRespuestas([]); }
-      else generar([]); // sin preguntas usables → generar directo
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargandoPreg(false); }
-  };
-
-  const generar = async (rs: Array<{ pregunta: string; respuesta: string }>) => {
-    setPreguntas(null); setGen(true); setErr(null);
+  const generar = async (rs: PasoHistorial[]) => {
+    setPreguntaActual(null); setGen(true); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/avatares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'afinar', respuestas: rs }) })).json();
       if (j.ok) { setEst(j as Estado); setSubTab('avatares'); } else setErr(j.error || 'No se pudieron generar los avatares.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGen(false); }
   };
 
-  const responderPreg = (respuesta: string | null) => {
-    if (!preguntas) return;
-    const arr = [...respuestas]; arr[pregIdx] = respuesta;
-    setRespuestas(arr);
-    if (pregIdx + 1 >= preguntas.length) {
-      const rs = preguntas.map((q, i) => ({ pregunta: q.pregunta, respuesta: arr[i] })).filter((x): x is { pregunta: string; respuesta: string } => !!x.respuesta);
-      generar(rs);
-    } else setPregIdx((i) => i + 1);
+  const pedirSiguiente = async (hist: PasoHistorial[]) => {
+    setCargandoPreg(true); setErr(null);
+    try {
+      const j = await (await fetch('/api/onboarding/avatares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'siguiente', historial: hist }) })).json();
+      if (!j.ok) { setErr(j.error || 'No se pudo preparar la siguiente pregunta.'); setCargandoPreg(false); return; }
+      if (j.terminado) { generar(hist); return; }
+      setPreguntaActual(j.pregunta as PreguntaDinamica);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setCargandoPreg(false); }
   };
-  const atrasPreg = () => setPregIdx((i) => Math.max(0, i - 1));
+
+  // Arrancar la generación: SIEMPRE pide la primera pregunta.
+  const empezar = () => { setHistorial([]); setVistas([]); void pedirSiguiente([]); };
+
+  const responder = (respuesta: string) => {
+    if (!preguntaActual) return;
+    const paso: PasoHistorial = { pregunta: preguntaActual.pregunta, respuesta };
+    const nuevoHist = [...historial, paso];
+    const nuevasVistas = [...vistas, preguntaActual];
+    setHistorial(nuevoHist); setVistas(nuevasVistas);
+    void pedirSiguiente(nuevoHist);
+  };
+
+  const subirArchivo = async (file: File) => {
+    setSubiendoArchivo(true); setErr(null);
+    try {
+      const imagenDataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        r.readAsDataURL(file);
+      });
+      const j = await (await fetch('/api/onboarding/avatares', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'describir-archivo', imagenDataUrl }) })).json();
+      const descripcion = j.ok ? String(j.descripcion) : 'Subió un archivo, pero no pude leerlo.';
+      responder(`Subió un archivo — esto se ve: ${descripcion}`);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setSubiendoArchivo(false); }
+  };
+
+  const atras = () => {
+    if (!vistas.length) return;
+    const prev = vistas[vistas.length - 1];
+    setVistas(vistas.slice(0, -1));
+    setHistorial(historial.slice(0, -1));
+    setPreguntaActual(prev);
+  };
 
   const css = <style>{'@keyframes ava-spin{to{transform:rotate(360deg)}}'}</style>;
 
@@ -107,24 +135,43 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
     );
   }
 
-  // ── Preguntas de segmentación (siempre, antes de generar) ────────────────────
-  if (preguntas) {
-    const q = preguntas[pregIdx];
+  // Preparando la próxima pregunta — pantalla propia (antes se quedaba sin feedback).
+  if (cargandoPreg) {
+    return (
+      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {css}
+        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'ava-spin .8s linear infinite' }} />
+        <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', marginTop: 18 }}>Preparando la siguiente pregunta…</div>
+      </div>
+    );
+  }
+
+  // ── Preguntas de segmentación, ADAPTATIVAS (siempre antes de generar) ────────
+  if (preguntaActual) {
+    const q = preguntaActual;
     return (
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
         {css}
-        <div style={{ ...eyebrow, marginBottom: 18 }}>Para conocer a tus clientes · pregunta {pregIdx + 1} de {preguntas.length}</div>
+        <div style={{ ...eyebrow, marginBottom: 18 }}>Para conocer a tus clientes · pregunta {historial.length + 1} de hasta 4</div>
         <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.3 }}>{q.pregunta}</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
-          {q.opciones.map((o, i) => (
-            <button key={i} type="button" onClick={() => responderPreg(o)}
-              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>{o}</button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
-          {pregIdx > 0 && <button type="button" onClick={atrasPreg} style={linkBtn}>← Atrás</button>}
-          <button type="button" onClick={() => responderPreg(null)} style={linkBtn}>Saltar esta</button>
-        </div>
+        {q.tipo === 'archivo' ? (
+          <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '16px', borderRadius: 12, border: '1.5px dashed var(--border-strong)', color: subiendoArchivo ? 'var(--faint)' : 'var(--primary)', fontWeight: 600, fontSize: 14, cursor: subiendoArchivo ? 'default' : 'pointer', background: 'var(--surface-2)' }}>
+              <input type="file" accept="image/*,application/pdf" disabled={subiendoArchivo} style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirArchivo(f); }} />
+              {subiendoArchivo ? <><MiniSpin /> Leyendo…</> : '📎 Subir imagen o archivo'}
+            </label>
+            <button type="button" disabled={subiendoArchivo} onClick={() => responder('No tiene un archivo para mostrar ahora.')} style={{ ...btnGhost, justifyContent: 'center', opacity: subiendoArchivo ? 0.5 : 1 }}>No tengo, sigamos →</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
+            {q.opciones.map((o, i) => (
+              <button key={i} type="button" onClick={() => responder(o)}
+                style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>{o}</button>
+            ))}
+          </div>
+        )}
+        {historial.length > 0 && <div style={{ marginTop: 22 }}><button type="button" onClick={atras} style={linkBtn}>← Atrás</button></div>}
+        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
       </div>
     );
   }
@@ -137,7 +184,7 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
         <div style={{ fontSize: 40, marginBottom: 14 }}>👥</div>
         <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.25 }}>Tus avatares</h2>
         {est?.tieneBrief ? (
-          <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? <><MiniSpin light /> Preparando…</> : '✦ Generar mis avatares'}</button>
+          <button type="button" onClick={empezar} style={btnPrimary}>✦ Generar mis avatares</button>
         ) : (
           <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero carga tu negocio en <b>El Archivero</b>.</div>
         )}
@@ -156,7 +203,7 @@ export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void }
           <button type="button" onClick={() => setSubTab('avatares')} style={subPill(subTab === 'avatares')}>Avatares</button>
           <button type="button" onClick={() => setSubTab('contexto')} style={subPill(subTab === 'contexto')}>Contexto</button>
         </div>
-        {subTab === 'avatares' && <button type="button" onClick={empezar} disabled={cargandoPreg} style={btnGhost}>{cargandoPreg ? <><MiniSpin /> Preparando…</> : '↺ Regenerar'}</button>}
+        {subTab === 'avatares' && <button type="button" onClick={empezar} style={btnGhost}>↺ Regenerar</button>}
       </div>
 
       {subTab === 'contexto' ? (

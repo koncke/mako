@@ -23,7 +23,7 @@ import { perfilNegocioTexto } from './onboarding';
 import { faseNegocioTexto } from './fase-store';
 import { getPanorama } from './archivero';
 import { getSetting, setSetting } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible } from './ai-cheap';
 
 // Segmento de cliente SEGMENTABLE (no un retrato emocional):
 //  · segmento    = quién es en firmografía: industria/vertical + tamaño + rol + geografía.
@@ -148,7 +148,15 @@ export async function generarAvatares(): Promise<GenResult> {
       feature: 'avatares', motivo: 'Definir 3 avatares segmentables del negocio',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneAvatares,
     });
-    if (!text) return { ok: false, error: 'No hay IA para generar los avatares. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    if (!text) {
+      // Distinguir "no hay ninguna key cargada" de "hay key pero la cascada falló
+      // igual" (cuota, rate-limit, corte momentáneo) — antes ambos casos mostraban
+      // el mismo "conectá tu API key" aunque el dueño YA la había conectado.
+      const hayIA = await docsIADisponible();
+      return { ok: false, error: hayIA
+        ? 'Tu IA está conectada pero no pudo responder ahora mismo (puede ser un límite de uso momentáneo). Probá de nuevo en un momento.'
+        : 'No hay IA para generar los avatares. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    }
     const avatares = parseAvatares(text);
     if (!avatares.length) return { ok: false, error: 'MaKo no devolvió avatares. Reintenta en un momento.' };
     return { ok: true, avatares, uso: null };
@@ -157,70 +165,90 @@ export async function generarAvatares(): Promise<GenResult> {
   }
 }
 
-// ── Preguntas para AFINAR los avatares (cerradas, comparativas) ───────────────
-// MaKo hace preguntas cerradas —muchas comparativas ("¿quién te compra más rápido:
-// A vs B?")— para descubrir/priorizar los segmentos con info que el brief no tiene.
-// Las respuestas se guardan como contexto y sacan avatares más precisos.
-export type PreguntaAvatar = { pregunta: string; opciones: string[] };
+// ── Preguntas DINÁMICAS, de a UNA, adaptadas a lo que ya contestó ─────────────
+// Antes era un lote fijo de 3-5 preguntas pedidas de una — cuando la IA fallaba en
+// armar ese JSON grande (frecuente: era un array anidado), el fallback ESTÁTICO
+// (genérico, sin poder citar segmentos reales) terminaba pareciendo LA pregunta
+// normal. Ahora: una pregunta a la vez, comparativa de verdad y CITANDO lo que ya
+// se sabe del negocio real (brief + panorama de los documentos subidos) — la IA ve
+// el historial completo y decide la siguiente, o si ya alcanza para proponer.
+export type PasoHistorialAvatar = { pregunta: string; respuesta: string };
+export type PreguntaAvatarDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
 
-export const AVATARES_PREGUNTAS_TEMPLATE = `Sos MaKo, afinando los AVATARES (segmentos de cliente) de un negocio para sus anuncios de Meta. Ya conocés esto del negocio:
+const AVATARES_SIGUIENTE_SYSTEM = `Sos MaKo, ayudando a un dueño de negocio a descubrir y PRIORIZAR sus AVATARES (segmentos de cliente SEGMENTABLES en Meta — firmografía: industria, tamaño, rol, geografía, NO un retrato emocional). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabés.
+
+REGLAS:
+- CITÁ datos reales del negocio (del brief/panorama) en tus preguntas — nunca preguntes en abstracto pudiendo ser concreto. Ejemplo de BUENA pregunta (si el negocio menciona clientes de e-commerce y de servicios): "¿Quién te compra más rápido: una marca de e-commerce o un negocio de servicios?" — mal ejemplo (genérico, no usa nada del negocio real): "¿Ya tienes definidos tus segmentos?".
+- Preferí preguntas COMPARATIVAS entre dos perfiles plausibles de ESTE negocio (A vs B) por sobre preguntas de sí/no.
+- Si con lo que ya te contestó tenés suficiente para proponer 3 segmentos distintos y concretos, o ya van 3 preguntas, respondé {"terminado":true} — no sigas preguntando de más.
+- Si el dueño te dijo que ya tiene una lista de clientes, un CRM export o algo similar y tiene sentido pedirle que lo suba, la pregunta puede ser tipo "archivo". Si ya declinó subir algo antes, no se lo vuelvas a pedir.
+- Español neutro/mexicano, de "tú".
+
+Devolvé EXCLUSIVAMENTE uno de estos JSON (nada de texto afuera):
+{"terminado":true}
+{"terminado":false,"pregunta":"...","tipo":"opciones","opciones":["...","...","..."]}
+{"terminado":false,"pregunta":"...","tipo":"archivo","opciones":[]}`;
+const AVATARES_SIGUIENTE_USER = `CONTEXTO DEL NEGOCIO:
 {{brief}}
 {{panorama}}
-Generá entre 3 y 5 preguntas CERRADAS, cortas y CONCRETAS para descubrir y PRIORIZAR a qué segmentos apuntar. Muchas deben ser COMPARATIVAS entre dos perfiles plausibles de ESTE negocio (ej: "¿Quién crees que te compra más rápido: un CEO de empresa de tecnología o un CEO de una cadena de supermercados?"). Otras pueden ser de atributo (tamaño de empresa, industria, rol de quien decide, zona). Cada pregunta con 2 a 4 opciones concretas y a medida del negocio (nada de manual), más adelante el cliente elige.
 
-IDIOMA: español NEUTRO/MEXICANO, de "tú", SIN voseo argentino.
-Devolvé EXCLUSIVAMENTE un objeto JSON válido con esta forma EXACTA:
-{"preguntas":[{"pregunta":"","opciones":["",""]}]}`;
+CONVERSACIÓN HASTA AHORA:
+{{historial}}
 
-// Parseo + filtrado de las preguntas usables (pregunta + ≥2 opciones). Se usa tanto
-// en el `validar` de la cascada como en el resultado, para que NO diverjan: si un
-// modelo devuelve {"preguntas":[]} o preguntas sin opciones, `validar` da 0 → la
-// cascada sigue al próximo proveedor gratis (mismo criterio que tieneAvatares).
-export function parsePreguntasAvatares(text: string): PreguntaAvatar[] {
-  const arr = (() => { const p = parseJsonObject(text).preguntas; return Array.isArray(p) ? p : []; })();
-  const out: PreguntaAvatar[] = [];
-  for (const p of arr as Array<Record<string, unknown>>) {
-    const pregunta = str(p.pregunta);
-    const opciones = Array.isArray(p.opciones) ? p.opciones.map((o) => str(o)).filter(Boolean).slice(0, 4) : [];
-    if (pregunta && opciones.length >= 2) out.push({ pregunta, opciones });
-  }
-  return out;
+¿Cuál es la siguiente pregunta (o ya das por terminado)? Devolvé solo el JSON.`;
+
+const PREGUNTA_AVATAR_FALLBACK: PreguntaAvatarDinamica = { pregunta: '¿Cuál de tus clientes te compra MÁS rápido: el que ya te conocía (referido, seguidor) o el que te descubre frío por un anuncio?', tipo: 'opciones', opciones: ['El que ya me conocía', 'El que llega frío', 'Compran parecido', 'No estoy seguro'] };
+
+type SiguienteAvatar = { terminado: true } | { terminado: false; pregunta: PreguntaAvatarDinamica };
+function parseSiguientePreguntaAvatar(text: string): SiguienteAvatar | null {
+  const raw = parseJsonObject(text);
+  if (raw.terminado === true) return { terminado: true };
+  const pregunta = str(raw.pregunta);
+  if (!pregunta) return null;
+  const tipo = raw.tipo === 'archivo' ? 'archivo' : 'opciones';
+  const opciones = Array.isArray(raw.opciones) ? raw.opciones.map(str).filter(Boolean).slice(0, 5) : [];
+  if (tipo === 'opciones' && opciones.length < 2) return null;
+  return { terminado: false, pregunta: { pregunta, tipo, opciones } };
 }
 
-// Fallback ESTÁTICO (sin IA) si la cascada no devuelve preguntas usables — mismo
-// criterio que entregable.ts: "MaKo siempre pregunta antes de proponer" no puede
-// depender de que un JSON anidado estricto le salga bien al modelo de turno.
-//
-// Sin jerga ("segmentos" no se entiende) y COMPARATIVAS de verdad — no "¿tenés
-// definido X?" (no alimenta nada), sino "entre A y B, ¿cuál...?" (fuerza a pensar
-// en un eje real de diferencia entre clientes, mismo espíritu que las preguntas
-// que arma la IA cuando funciona).
-const PREGUNTAS_AVATAR_FALLBACK: PreguntaAvatar[] = [
-  { pregunta: '¿Cuál de tus clientes te compra MÁS rápido: el que ya te conocía (referido, seguidor) o el que te descubre frío por un anuncio?', opciones: ['El que ya me conocía', 'El que llega frío', 'Compran parecido', 'No estoy seguro'] },
-  { pregunta: 'Pensando en tus 2-3 mejores clientes (los que más te compraron o mejor resultado tuvieron), ¿qué tienen MÁS en común?', opciones: ['El tamaño de su negocio o presupuesto', 'El problema puntual que les resolví', 'La urgencia con la que compraron', 'El canal por el que llegaron'] },
-  { pregunta: '¿Cuál te resulta MÁS fácil de cerrar hoy: alguien que recién nota el problema, o alguien que ya lo sufre hace tiempo y probó de todo?', opciones: ['El que recién lo nota', 'El que ya lo sufre hace rato', 'Los dos por igual', 'No estoy seguro'] },
-];
+const MAX_PREGUNTAS_AVATAR = 4;
 
-export async function generarPreguntasAvatares(): Promise<{ ok: true; preguntas: PreguntaAvatar[] } | { ok: false; error: string }> {
+export async function siguientePreguntaAvatares(historial: PasoHistorialAvatar[]): Promise<
+  { ok: true; terminado: true } | { ok: true; terminado: false; pregunta: PreguntaAvatarDinamica } | { ok: false; error: string }
+> {
   try {
     const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
     if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
       return { ok: false, error: 'Primero carga tu negocio en El Archivero.' };
     }
-    const sys = await renderPrompt('avatares.preguntas', AVATARES_PREGUNTAS_TEMPLATE, {
-      brief,
-      panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 5000)}\n` : '',
+    if (historial.length >= MAX_PREGUNTAS_AVATAR) return { ok: true, terminado: true };
+    const histTxt = historial.length ? historial.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n') : '(nada todavía — es la primera pregunta)';
+    const sys = await renderPrompt('avatares.siguiente.system', AVATARES_SIGUIENTE_SYSTEM, {});
+    const user = await renderPrompt('avatares.siguiente.user', AVATARES_SIGUIENTE_USER, {
+      brief, panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 5000)}\n` : '', historial: histTxt,
     });
     const text = await chatCheapCascade({
-      system: sys, user: 'Generá las preguntas cerradas para afinar los avatares.', json: true, maxTokens: 1600,
-      feature: 'avatares', motivo: 'Preguntas para afinar los avatares',
-      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsePreguntasAvatares(t).length > 0,
+      system: sys, user, json: true, maxTokens: 500,
+      feature: 'avatares', motivo: 'Siguiente pregunta para afinar los avatares',
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseSiguientePreguntaAvatar(t) !== null,
     });
-    const preguntas = text ? parsePreguntasAvatares(text) : [];
-    // Sin preguntas usables de la IA → caemos a las genéricas en vez de dejar avanzar
-    // directo a generar: el dueño siempre tiene que poder afinar antes de proponerle algo.
-    return { ok: true, preguntas: (preguntas.length ? preguntas : PREGUNTAS_AVATAR_FALLBACK).slice(0, 5) };
-  } catch {
-    return { ok: true, preguntas: PREGUNTAS_AVATAR_FALLBACK };
+    const parsed = text ? parseSiguientePreguntaAvatar(text) : null;
+    if (parsed) return { ok: true, ...parsed };
+    if (historial.length === 0) return { ok: true, terminado: false, pregunta: PREGUNTA_AVATAR_FALLBACK };
+    return { ok: true, terminado: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/** Lee un archivo/imagen que el dueño subió como respuesta a una pregunta tipo "archivo". */
+export async function describirArchivoAvatar(imagenDataUrl: string): Promise<string> {
+  try {
+    const { text } = await leerDocumentoIA({
+      dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'avatares-archivo',
+      prompt: 'Describí en 2-4 frases qué muestra esta imagen o documento (una lista de clientes, un CRM, etc.) — qué tipos de cliente o segmentos se distinguen ahí. Español neutro.',
+      feature: 'avatares', motivo: 'Leer el archivo que subió para afinar los avatares', timeoutMs: 25000,
+    });
+    return text.trim();
+  } catch { return ''; }
 }

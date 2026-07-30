@@ -19,7 +19,7 @@ import { parseJsonObject } from './campaign-structurer';
 import { perfilNegocioTexto } from './onboarding';
 import { getPanorama } from './archivero';
 import { getSetting, setSetting } from './settings';
-import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA } from './ai-cheap';
+import { chatCheapCascade, CASCADA_DOCS, MODELO_DOCS, leerDocumentoIA, docsIADisponible } from './ai-cheap';
 
 // Un entregable tangible:
 //  · tipo  = qué clase de elemento es (Dashboard, Excel, Documento, Metodología…).
@@ -87,58 +87,95 @@ export function parseEntregables(text: string): Entregable[] {
   return arr.slice(0, 3).map(normalizarEntregable).filter((g) => g.nombre);
 }
 
-// ── Preguntas personalizadas antes de proponer (por si ya tiene uno específico) ─
-export type PreguntaEnt = { pregunta: string; opciones: string[] };
-export const ENTREGABLE_PREGUNTAS_TEMPLATE = `Sos MaKo. Antes de proponer el ENTREGABLE tangible del negocio (el elemento CONCRETO que genera FOMO en los ads: un dashboard, una planilla, una metodología con nombre, un checklist, un software), hacé 2 o 3 preguntas CERRADAS y CORTAS al dueño para afinar — por si ya tiene uno específico. Personalizá las preguntas según lo que YA sabés del negocio (usá el contexto). Cada pregunta con 3-4 opciones concretas (el usuario también podrá elegir "Otra").
-Ideas de qué preguntar (elegí las más útiles para ESTE negocio): si ya entrega un elemento tangible y de qué tipo; si su método/proceso tiene un nombre propio; en qué formato lo mostraría (dashboard, planilla, documento, software); qué parte de su servicio es la más "mostrable".
-REGLAS: aterrizá las preguntas en el negocio real; nada genérico. IDIOMA: español NEUTRO/MEXICANO, de "tú".
-Devolvé EXCLUSIVAMENTE un JSON: {"preguntas":[{"pregunta":"","opciones":["","",""]}]}`;
-export const ENTREGABLE_PREGUNTAS_USER = `CONTEXTO DEL NEGOCIO:
+// ── Preguntas DINÁMICAS, de a UNA, adaptadas a lo que ya contestó ─────────────
+// Antes era un lote fijo de 2-3 preguntas pedidas de una — genérico por diseño (no
+// podía reaccionar a la respuesta anterior) y encima cuando la IA fallaba, el
+// fallback estático quedaba pareciendo LA pregunta normal. Ahora: una pregunta a la
+// vez, la IA ve el historial completo y decide la siguiente (o si ya alcanza para
+// proponer). Si el dueño dice que ya tiene algo concreto, la propia IA puede pedirle
+// que lo suba (tipo "archivo") en vez de necesitar un botón aparte para eso.
+export type PreguntaDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
+export type PasoHistorial = { pregunta: string; respuesta: string };
+
+const ENTREGABLE_SIGUIENTE_SYSTEM = `Sos MaKo, ayudando a un dueño de negocio a definir su ENTREGABLE tangible: el elemento CONCRETO que genera FOMO en los ads (un dashboard, una planilla, una metodología con nombre, un checklist, un software, una plantilla). Vas de a UNA pregunta cerrada por vez, adaptando la siguiente a lo que ya te contestó — nunca repitas algo que ya sabés.
+
+REGLAS:
+- Si con lo que ya te contestó tenés suficiente para proponerle un entregable concreto con confianza, o ya van 3 preguntas, respondé {"terminado":true} — no sigas preguntando de más.
+- Si el dueño te dijo que YA TIENE algo concreto (ej: "una plantilla", "un dashboard que ya uso") y todavía no lo mostró, la siguiente pregunta puede ser tipo "archivo": invitalo a subir una imagen o captura de eso. Si en un paso anterior ya declinó subir algo, NO se lo vuelvas a pedir — seguí con preguntas de opciones.
+- Si no, hacé una pregunta tipo "opciones" con 3-4 opciones CONCRETAS y ACCIONABLES para ESTE negocio real (nunca genéricas de manual — usá el contexto de verdad).
+- Español neutro/mexicano, de "tú".
+
+Devolvé EXCLUSIVAMENTE uno de estos JSON (nada de texto afuera):
+{"terminado":true}
+{"terminado":false,"pregunta":"...","tipo":"opciones","opciones":["...","...","..."]}
+{"terminado":false,"pregunta":"...","tipo":"archivo","opciones":[]}`;
+const ENTREGABLE_SIGUIENTE_USER = `CONTEXTO DEL NEGOCIO:
 {{brief}}
 {{panorama}}
-Hacé 2-3 preguntas cerradas para afinar el entregable. Devolvé solo el JSON.`;
 
-export function parsePreguntasEnt(text: string): PreguntaEnt[] {
+CONVERSACIÓN HASTA AHORA:
+{{historial}}
+
+¿Cuál es la siguiente pregunta (o ya das por terminado)? Devolvé solo el JSON.`;
+
+const PREGUNTA_ENT_FALLBACK: PreguntaDinamica = { pregunta: '¿Ya tienes un entregable tangible específico en mente?', tipo: 'opciones', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] };
+
+type Siguiente = { terminado: true } | { terminado: false; pregunta: PreguntaDinamica };
+function parseSiguientePregunta(text: string): Siguiente | null {
   const raw = parseJsonObject(text);
-  const arr = Array.isArray(raw.preguntas) ? raw.preguntas : [];
-  return arr
-    .map((v) => { const o = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>; return { pregunta: str(o.pregunta), opciones: Array.isArray(o.opciones) ? o.opciones.map(str).filter(Boolean).slice(0, 4) : [] }; })
-    .filter((p) => p.pregunta && p.opciones.length >= 2)
-    .slice(0, 3);
+  if (raw.terminado === true) return { terminado: true };
+  const pregunta = str(raw.pregunta);
+  if (!pregunta) return null;
+  const tipo = raw.tipo === 'archivo' ? 'archivo' : 'opciones';
+  const opciones = Array.isArray(raw.opciones) ? raw.opciones.map(str).filter(Boolean).slice(0, 5) : [];
+  if (tipo === 'opciones' && opciones.length < 2) return null;
+  return { terminado: false, pregunta: { pregunta, tipo, opciones } };
 }
 
-// Fallback ESTÁTICO (sin IA) si la cascada no devuelve preguntas usables. El punto de
-// "MaKo siempre pregunta antes de proponer" es que el dueño pueda decir "ya tengo uno
-// específico" ANTES de que se le proponga algo genérico — eso no puede depender de que
-// el modelo de turno acierte un JSON anidado estricto. Genéricas pero siempre útiles.
-const PREGUNTAS_ENT_FALLBACK: PreguntaEnt[] = [
-  { pregunta: '¿Ya tienes un entregable tangible específico en mente?', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] },
-  { pregunta: 'Si ya lo tienes (o lo imaginas), ¿en qué formato es?', opciones: ['Dashboard o panel', 'Planilla o Excel', 'Documento o checklist', 'Software o app', 'Metodología con nombre propio'] },
-];
+const MAX_PREGUNTAS_ENT = 4;
 
-export async function generarPreguntasEntregable(): Promise<{ ok: true; preguntas: PreguntaEnt[] } | { ok: false; error: string }> {
+export async function siguientePreguntaEntregable(historial: PasoHistorial[]): Promise<
+  { ok: true; terminado: true } | { ok: true; terminado: false; pregunta: PreguntaDinamica } | { ok: false; error: string }
+> {
   try {
     const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
     if (!brief.trim() || brief.replace(/[—\-·\s]/g, '').length < 20) {
       return { ok: false, error: 'Primero carga tu negocio en El Archivero: de ahí salen las preguntas.' };
     }
-    const sys = await renderPrompt('entregable.preguntas.system', ENTREGABLE_PREGUNTAS_TEMPLATE, {});
-    const user = await renderPrompt('entregable.preguntas.user', ENTREGABLE_PREGUNTAS_USER, {
-      brief, panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 5000)}\n` : '',
+    if (historial.length >= MAX_PREGUNTAS_ENT) return { ok: true, terminado: true };
+    const histTxt = historial.length ? historial.map((h) => `- ${h.pregunta} → ${h.respuesta}`).join('\n') : '(nada todavía — es la primera pregunta)';
+    const sys = await renderPrompt('entregable.siguiente.system', ENTREGABLE_SIGUIENTE_SYSTEM, {});
+    const user = await renderPrompt('entregable.siguiente.user', ENTREGABLE_SIGUIENTE_USER, {
+      brief, panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 5000)}\n` : '', historial: histTxt,
     });
     const text = await chatCheapCascade({
-      system: sys, user, json: true, maxTokens: 1200,
-      feature: 'entregable', motivo: 'Preguntas para afinar el entregable',
-      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsePreguntasEnt(t).length > 0,
+      system: sys, user, json: true, maxTokens: 500,
+      feature: 'entregable', motivo: 'Siguiente pregunta para afinar el entregable',
+      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parseSiguientePregunta(t) !== null,
     });
-    const preguntas = text ? parsePreguntasEnt(text) : [];
-    // La IA no dio preguntas usables (json roto, cascada agotada, etc.) — caemos a las
-    // genéricas en vez de saltar directo a generar: el dueño SIEMPRE tiene que poder
-    // decir "ya tengo uno" antes de que se le proponga algo.
-    return { ok: true, preguntas: preguntas.length ? preguntas : PREGUNTAS_ENT_FALLBACK };
-  } catch {
-    return { ok: true, preguntas: PREGUNTAS_ENT_FALLBACK };
+    const parsed = text ? parseSiguientePregunta(text) : null;
+    if (parsed) return { ok: true, ...parsed };
+    // La IA no respondió algo usable: si es la primera pregunta, caemos a la genérica
+    // de siempre (nunca dejamos la pantalla sin preguntar nada); si ya veníamos con
+    // algo de contexto, mejor cerrar y proponer con lo que hay que forzar más preguntas
+    // que puedan volver a fallar.
+    if (historial.length === 0) return { ok: true, terminado: false, pregunta: PREGUNTA_ENT_FALLBACK };
+    return { ok: true, terminado: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/** Lee un archivo/imagen que el dueño subió como respuesta a una pregunta tipo "archivo". */
+export async function describirArchivoEntregable(imagenDataUrl: string): Promise<string> {
+  try {
+    const { text } = await leerDocumentoIA({
+      dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'entregable-archivo',
+      prompt: 'Describí en 2-4 frases qué muestra esta imagen o documento (qué es, qué se ve) — para entender qué ENTREGABLE tangible es, en el contexto del negocio de un cliente. Español neutro.',
+      feature: 'entregable', motivo: 'Leer el archivo que subió para el entregable', timeoutMs: 25000,
+    });
+    return text.trim();
+  } catch { return ''; }
 }
 
 // ── Generación (envelope {ok}; nunca lanza). IA gratis del cliente. ───────────
@@ -164,58 +201,18 @@ export async function generarEntregables(respuestas?: Array<{ pregunta: string; 
       feature: 'entregable', motivo: 'Detectar el entregable tangible de la oferta',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneEntregables,
     });
-    if (!text) return { ok: false, error: 'No hay IA para detectar el entregable. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    if (!text) {
+      // Distinguir "no hay ninguna key cargada" de "hay key pero la cascada falló
+      // igual" (cuota, rate-limit, corte momentáneo) — antes ambos casos mostraban
+      // el mismo "conectá tu API key" aunque el dueño YA la había conectado.
+      const hayIA = await docsIADisponible();
+      return { ok: false, error: hayIA
+        ? 'Tu IA está conectada pero no pudo responder ahora mismo (puede ser un límite de uso momentáneo). Probá de nuevo en un momento.'
+        : 'No hay IA para detectar el entregable. Conecta tu API key de Gemini (gratis) en Integraciones.' };
+    }
     const entregables = parseEntregables(text);
     if (!entregables.length) return { ok: false, error: 'MaKo no devolvió entregables. Reintenta en un momento.' };
     return { ok: true, entregables, uso: null };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-// ── El dueño YA TIENE su entregable — MaKo solo le da forma ───────────────────
-// Escape hatch desde las preguntas ("Ya lo tengo, contámelo"): no inventamos nada,
-// solo lo formateamos (nombre corto, tipo, qué es, línea de FOMO) con el contexto
-// del negocio de fondo. Si mandó una imagen, la leemos primero y su descripción
-// entra como parte de "lo que contó".
-const ENTREGABLE_PROPIO_SYSTEM = `Sos MaKo. El dueño del negocio te contó CUÁL es su entregable tangible — no lo inventes, ya lo tiene, tu trabajo es solo darle FORMA para los anuncios:
-- "nombre": nombre corto y concreto del entregable, basado en lo que contó.
-- "tipo": UNO de: Dashboard, Planilla Excel, Documento, Metodología, Software, Checklist, Plantilla, Otro.
-- "queEs": qué es concretamente y qué resuelve, en 1-2 frases claras, fiel a lo que contó (no inventes funciones que no dijo).
-- "fomo": UNA línea estilo anuncio que use ESE entregable para generar CURIOSIDAD/FOMO, anclada en el negocio real.
-IDIOMA: español neutro/mexicano, de "tú". Devolvé EXCLUSIVAMENTE JSON: {"entregables":[{"nombre":"","tipo":"","queEs":"","fomo":""}]} (un solo elemento).`;
-const ENTREGABLE_PROPIO_USER = `LO QUE EL DUEÑO CONTÓ SOBRE SU ENTREGABLE:\n{{propio}}\n\nCONTEXTO DEL NEGOCIO:\n{{brief}}\n{{panorama}}\nDevolvé solo el JSON con ese entregable, ya formateado.`;
-
-export async function generarEntregablePropio(texto: string, imagenDataUrl?: string): Promise<GenResult> {
-  try {
-    let propio = texto.trim();
-    if (imagenDataUrl) {
-      try {
-        const { text: descImg } = await leerDocumentoIA({
-          dataUrl: imagenDataUrl, isPdf: imagenDataUrl.startsWith('data:application/pdf'), nombreArchivo: 'entregable-propio',
-          prompt: 'Describí en 2-4 frases qué muestra esta imagen (captura de pantalla, foto de un documento, etc.) — qué es, qué se ve, para qué serviría como entregable de un negocio. Español neutro.',
-          feature: 'entregable', motivo: 'Leer la imagen del entregable propio del dueño', timeoutMs: 25000,
-        });
-        if (descImg.trim()) propio = propio ? `${propio}\n\nLo que se ve en la imagen adjunta: ${descImg.trim()}` : `Lo que se ve en la imagen adjunta: ${descImg.trim()}`;
-      } catch { /* seguimos solo con el texto si la imagen no se pudo leer */ }
-    }
-    if (!propio) return { ok: false, error: 'Contame algo sobre tu entregable, o adjuntá una imagen.' };
-    const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
-    const sys = await renderPrompt('entregable.propio.system', ENTREGABLE_PROPIO_SYSTEM, {});
-    const user = await renderPrompt('entregable.propio.user', ENTREGABLE_PROPIO_USER, {
-      propio, brief: brief.trim() || '(sin brief todavía)',
-      panorama: panorama.trim() ? `\nPANORAMA:\n${panorama.slice(0, 4000)}\n` : '',
-    });
-    const text = await chatCheapCascade({
-      system: sys, user, json: true, maxTokens: 1200,
-      feature: 'entregable', motivo: 'Formatear el entregable que el dueño ya tiene',
-      provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: tieneEntregables,
-    });
-    const entregables = text ? parseEntregables(text) : [];
-    if (entregables.length) return { ok: true, entregables, uso: null };
-    // Sin IA disponible: igual no perdemos lo que contó — lo guardamos tal cual,
-    // sin el formateo lindo, para que no tenga que escribirlo de nuevo después.
-    return { ok: true, entregables: [{ id: randomUUID(), nombre: propio.slice(0, 60), tipo: 'Otro', queEs: propio, fomo: '' }], uso: null };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

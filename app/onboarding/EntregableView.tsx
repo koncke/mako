@@ -3,10 +3,12 @@
 // =============================================================================
 // EntregableView — el elemento TANGIBLE de la oferta (el que genera FOMO)
 // =============================================================================
-// Self-contained: /api/onboarding/entregable. MaKo propone 1-3 entregables tangibles
-// (dashboard/excel/metodología…) desde el brief; cada uno con qué ES y una línea de
-// FOMO. Además el cliente puede CARGAR EL SUYO directo ("+ Agregar el mío") — muchas
-// veces ya lo tiene claro. Edición inline. Corre con la IA gratis del cliente.
+// Self-contained: /api/onboarding/entregable. MaKo pregunta de a UNA, ADAPTANDO la
+// siguiente pregunta a lo que ya contestaste (si decís que ya tenés algo concreto,
+// te puede pedir que lo subas) — nunca un lote fijo de preguntas genéricas, y nunca
+// "Saltar": cada pregunta trae opciones cerradas que siempre aplican. Cuando MaKo
+// decide que ya sabe suficiente, propone 1-3 entregables tangibles con su línea de
+// FOMO. Edición inline. Corre con la IA gratis del cliente.
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 
@@ -15,10 +17,13 @@ const SANS = "'Geist', sans-serif";
 
 type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
 type Estado = { entregables: Entregable[]; tieneBrief: boolean };
+type PasoHistorial = { pregunta: string; respuesta: string };
+type PreguntaDinamica = { pregunta: string; tipo: 'opciones' | 'archivo'; opciones: string[] };
 
 const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
 const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
+const linkBtn: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 
 function Edit({ valor, ph, onSave, style }: { valor: string; ph?: string; onSave: (v: string) => void; style?: CSSProperties }) {
   return (
@@ -28,9 +33,6 @@ function Edit({ valor, ph, onSave, style }: { valor: string; ph?: string; onSave
     >{valor}</div>
   );
 }
-
-type PreguntaEnt = { pregunta: string; opciones: string[] };
-const linkBtn: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 
 // Loader inline para botones que disparan una llamada a IA — sin esto un "Preparando…"
 // sin nada que gire parece que el botón se trabó (pedido de Martín, en varios lados).
@@ -43,19 +45,14 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
   const [cargando, setCargando] = useState(true);
   const [gen, setGen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // Preguntas personalizadas antes de detectar (por si ya tiene uno específico).
-  const [preguntas, setPreguntas] = useState<PreguntaEnt[] | null>(null);
-  const [pregIdx, setPregIdx] = useState(0);
-  // Por ÍNDICE (no por inserción): así "← Atrás" puede pisar la respuesta anterior
-  // aunque alguna pregunta de en medio se haya saltado.
-  const [respuestas, setRespuestas] = useState<Array<string | null>>([]);
+  // Conversación de a 1: `historial` son las ya contestadas, `preguntaActual` la que
+  // se está mostrando ahora. `vistas[i]` es la pregunta que generó `historial[i]` —
+  // así "← Atrás" puede volver a mostrarla sin pedirle otra vez a la IA.
+  const [historial, setHistorial] = useState<PasoHistorial[]>([]);
+  const [vistas, setVistas] = useState<PreguntaDinamica[]>([]);
+  const [preguntaActual, setPreguntaActual] = useState<PreguntaDinamica | null>(null);
   const [cargandoPreg, setCargandoPreg] = useState(false);
-  // Escape hatch: "ya lo tengo" — el dueño lo cuenta (texto + imagen opcional) en vez
-  // de contestar las preguntas genéricas, y MaKo solo le da forma.
-  const [capturando, setCapturando] = useState(false);
-  const [capturaTexto, setCapturaTexto] = useState('');
-  const [capturaFile, setCapturaFile] = useState<File | null>(null);
-  const [capturaBusy, setCapturaBusy] = useState(false);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
 
   const cargar = useCallback(async () => {
     try { const j = await (await fetch('/api/onboarding/entregable')).json(); if (j.ok) setEst(j as Estado); else setErr(j.error); }
@@ -64,55 +61,64 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => { onListo?.(!!est && est.entregables.length > 0); }, [est, onListo]);
 
-  // Arrancar: MaKo SIEMPRE pregunta primero (personalizado al negocio) y luego detecta.
-  const empezar = async () => {
-    setCargandoPreg(true); setErr(null);
-    try {
-      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'preguntas' }) })).json();
-      if (j.ok && Array.isArray(j.preguntas) && j.preguntas.length) { setPreguntas(j.preguntas as PreguntaEnt[]); setPregIdx(0); setRespuestas([]); }
-      else generar([]); // sin preguntas usables → detectar directo
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargandoPreg(false); }
-  };
-
-  const generar = async (rs: Array<{ pregunta: string; respuesta: string }>) => {
-    setPreguntas(null); setGen(true); setErr(null);
+  const generar = async (rs: PasoHistorial[]) => {
+    setPreguntaActual(null); setGen(true); setErr(null);
     try {
       const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'generar', respuestas: rs }) })).json();
       if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo detectar el entregable.');
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setGen(false); }
   };
 
-  const responderPreg = (respuesta: string | null) => {
-    if (!preguntas) return;
-    const arr = [...respuestas]; arr[pregIdx] = respuesta;
-    setRespuestas(arr);
-    if (pregIdx + 1 >= preguntas.length) {
-      const rs = preguntas.map((q, i) => ({ pregunta: q.pregunta, respuesta: arr[i] })).filter((x): x is { pregunta: string; respuesta: string } => !!x.respuesta);
-      generar(rs);
-    } else setPregIdx((i) => i + 1);
-  };
-  const atrasPreg = () => setPregIdx((i) => Math.max(0, i - 1));
-
-  // "Ya lo tengo" — lo cuenta (y opcionalmente adjunta algo) en vez de contestar
-  // las preguntas genéricas; MaKo solo le da forma, no inventa nada.
-  const enviarPropio = async () => {
-    if (!capturaTexto.trim() && !capturaFile) return;
-    setCapturaBusy(true); setErr(null);
+  // Pide la SIGUIENTE pregunta a la IA, dado el historial acumulado — o directamente
+  // genera si la IA ya considera que sabe suficiente.
+  const pedirSiguiente = async (hist: PasoHistorial[]) => {
+    setCargandoPreg(true); setErr(null);
     try {
-      let imagenDataUrl: string | undefined;
-      if (capturaFile) {
-        imagenDataUrl = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(String(r.result));
-          r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
-          r.readAsDataURL(capturaFile);
-        });
-      }
-      setPreguntas(null); setCapturando(false); setGen(true);
-      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'propio', texto: capturaTexto.trim(), imagenDataUrl }) })).json();
-      if (j.ok) setEst(j as Estado); else setErr(j.error || 'No se pudo guardar tu entregable.');
+      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'siguiente', historial: hist }) })).json();
+      if (!j.ok) { setErr(j.error || 'No se pudo preparar la siguiente pregunta.'); setCargandoPreg(false); return; }
+      if (j.terminado) { generar(hist); return; }
+      setPreguntaActual(j.pregunta as PreguntaDinamica);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-    finally { setGen(false); setCapturaBusy(false); }
+    finally { setCargandoPreg(false); }
+  };
+
+  const empezar = () => { setHistorial([]); setVistas([]); void pedirSiguiente([]); };
+
+  // Cualquier respuesta (opción elegida, archivo subido o declinado) sigue el MISMO
+  // camino: se agrega al historial y se pide la próxima pregunta.
+  const responder = (respuesta: string) => {
+    if (!preguntaActual) return;
+    const paso: PasoHistorial = { pregunta: preguntaActual.pregunta, respuesta };
+    const nuevoHist = [...historial, paso];
+    const nuevasVistas = [...vistas, preguntaActual];
+    setHistorial(nuevoHist); setVistas(nuevasVistas);
+    void pedirSiguiente(nuevoHist);
+  };
+
+  const subirArchivo = async (file: File) => {
+    setSubiendoArchivo(true); setErr(null);
+    try {
+      const imagenDataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+        r.readAsDataURL(file);
+      });
+      const j = await (await fetch('/api/onboarding/entregable', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'describir-archivo', imagenDataUrl }) })).json();
+      const descripcion = j.ok ? String(j.descripcion) : 'Subió un archivo, pero no pude leerlo.';
+      responder(`Subió un archivo — esto se ve: ${descripcion}`);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+    finally { setSubiendoArchivo(false); }
+  };
+
+  // Vuelve a la pregunta anterior (ya la tenemos guardada, no hace falta pedirle nada
+  // a la IA) para poder CAMBIAR la respuesta — de ahí en más sigue todo de nuevo.
+  const atras = () => {
+    if (!vistas.length) return;
+    const prev = vistas[vistas.length - 1];
+    setVistas(vistas.slice(0, -1));
+    setHistorial(historial.slice(0, -1));
+    setPreguntaActual(prev);
   };
 
   const guardar = async (entregables: Entregable[]) => {
@@ -142,50 +148,42 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
     );
   }
 
-  // "Ya lo tengo" — cuenta lo que ya sabe (texto + imagen opcional), sin las preguntas.
-  if (capturando) {
+  // Preparando la próxima pregunta — pantalla propia (antes se quedaba sin feedback).
+  if (cargandoPreg) {
     return (
-      <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
+      <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {css}
-        <div style={{ ...eyebrow, marginBottom: 18 }}>Contame tu entregable</div>
-        <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 18px', lineHeight: 1.3 }}>¿Qué es? Contámelo con tus palabras</h2>
-        <div style={{ maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
-          <textarea value={capturaTexto} onChange={(e) => setCapturaTexto(e.target.value)} autoFocus
-            placeholder="Ej: un dashboard en Google Sheets donde el cliente ve el avance de sus objetivos cada semana…"
-            style={{ width: '100%', padding: '13px 15px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14.5, minHeight: 110, resize: 'vertical', lineHeight: 1.5, outline: 'none' }} />
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, padding: '10px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)', color: 'var(--dim)', fontSize: 13, cursor: 'pointer' }}>
-            <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={(e) => setCapturaFile(e.target.files?.[0] ?? null)} />
-            📎 {capturaFile ? capturaFile.name : 'Adjuntar una captura o archivo (opcional)'}
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 20 }}>
-          <button type="button" onClick={() => { setCapturando(false); }} style={btnGhost}>← Volver a las preguntas</button>
-          <button type="button" onClick={enviarPropio} disabled={capturaBusy || (!capturaTexto.trim() && !capturaFile)} style={{ ...btnPrimary, opacity: capturaBusy || (!capturaTexto.trim() && !capturaFile) ? 0.5 : 1 }}>{capturaBusy ? <><MiniSpin light /> Guardando…</> : 'Usar esto →'}</button>
-        </div>
-        {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
+        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'ent-spin .8s linear infinite' }} />
+        <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)', marginTop: 18 }}>Preparando la siguiente pregunta…</div>
       </div>
     );
   }
 
-  // Preguntas 1×1 (personalizadas) antes de detectar.
-  if (preguntas) {
-    const q = preguntas[pregIdx];
+  // Pregunta 1×1, ADAPTATIVA — nunca "Saltar": las opciones siempre cubren el caso.
+  if (preguntaActual) {
+    const q = preguntaActual;
     return (
       <div style={{ maxWidth: 540, margin: '0 auto', textAlign: 'center', padding: '18px 0' }}>
         {css}
-        <div style={{ ...eyebrow, marginBottom: 18 }}>Para afinar tu entregable · pregunta {pregIdx + 1} de {preguntas.length}</div>
+        <div style={{ ...eyebrow, marginBottom: 18 }}>Para afinar tu entregable · pregunta {historial.length + 1} de hasta 4</div>
         <h2 style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.3 }}>{q.pregunta}</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
-          {q.opciones.map((o, i) => (
-            <button key={i} type="button" onClick={() => responderPreg(o)}
-              style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>{o}</button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center', flexWrap: 'wrap' }}>
-          {pregIdx > 0 && <button type="button" onClick={atrasPreg} style={linkBtn}>← Atrás</button>}
-          <button type="button" onClick={() => responderPreg(null)} style={linkBtn}>Saltar esta</button>
-          <button type="button" onClick={() => setCapturando(true)} style={linkBtn}>✎ Ya lo tengo — contármelo</button>
-        </div>
+        {q.tipo === 'archivo' ? (
+          <div style={{ maxWidth: 420, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '16px', borderRadius: 12, border: '1.5px dashed var(--border-strong)', color: subiendoArchivo ? 'var(--faint)' : 'var(--primary)', fontWeight: 600, fontSize: 14, cursor: subiendoArchivo ? 'default' : 'pointer', background: 'var(--surface-2)' }}>
+              <input type="file" accept="image/*,application/pdf" disabled={subiendoArchivo} style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirArchivo(f); }} />
+              {subiendoArchivo ? <><MiniSpin /> Leyendo…</> : '📎 Subir imagen o archivo'}
+            </label>
+            <button type="button" disabled={subiendoArchivo} onClick={() => responder('No tiene un archivo para mostrar ahora.')} style={{ ...btnGhost, justifyContent: 'center', opacity: subiendoArchivo ? 0.5 : 1 }}>No tengo, sigamos →</button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
+            {q.opciones.map((o, i) => (
+              <button key={i} type="button" onClick={() => responder(o)}
+                style={{ textAlign: 'left', cursor: 'pointer', fontFamily: SANS, fontSize: 14.5, padding: '13px 16px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', lineHeight: 1.4 }}>{o}</button>
+            ))}
+          </div>
+        )}
+        {historial.length > 0 && <div style={{ marginTop: 22 }}><button type="button" onClick={atras} style={linkBtn}>← Atrás</button></div>}
         {err && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 16 }}>{err}</div>}
       </div>
     );
@@ -198,7 +196,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
         <div style={{ fontSize: 40, marginBottom: 12 }}>🧲</div>
         <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 20px', lineHeight: 1.25 }}>Tu entregable</h2>
         {est?.tieneBrief
-          ? <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? <><MiniSpin light /> Preparando…</> : '✦ Que MaKo lo detecte'}</button>
+          ? <button type="button" onClick={empezar} style={btnPrimary}>✦ Que MaKo lo detecte</button>
           : <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero carga tu negocio en <b>El Archivero</b>.</div>}
         {/* Contexto: para qué es, siempre debajo del botón */}
         <div style={{ marginTop: 22, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
@@ -215,7 +213,7 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
       {css}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ ...eyebrow }}>Tu entregable · el elemento tangible</div>
-        {est?.tieneBrief && <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? <><MiniSpin /> Preparando…</> : '↺ Regenerar'}</button>}
+        {est?.tieneBrief && <button type="button" onClick={empezar} style={btnGhost}>↺ Regenerar</button>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>

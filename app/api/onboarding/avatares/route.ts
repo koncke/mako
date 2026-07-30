@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarAvatares, getAvatares, setAvatares, generarPreguntasAvatares, getContextoAvatares, setContextoAvatares, type Avatar } from '@/lib/avatares';
+import { generarAvatares, getAvatares, setAvatares, siguientePreguntaAvatares, describirArchivoAvatar, getContextoAvatares, setContextoAvatares, type Avatar, type PasoHistorialAvatar } from '@/lib/avatares';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,16 +46,24 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; avatares?: unknown; respuestas?: unknown };
+  let body: { action?: string; avatares?: unknown; respuestas?: unknown; historial?: unknown; imagenDataUrl?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
     try {
-      // Preguntas cerradas para afinar (comparativas). Solo las genera; no toca nada.
-      if (body.action === 'preguntas') {
-        const r = await generarPreguntasAvatares();
+      const historialDe = (v: unknown): PasoHistorialAvatar[] =>
+        Array.isArray(v) ? v.map((x) => { const o = (x ?? {}) as Record<string, unknown>; return { pregunta: s(o.pregunta), respuesta: s(o.respuesta) }; }).filter((x) => x.pregunta && x.respuesta) : [];
+
+      // Pregunta dinámica siguiente (o terminado). Solo consulta; no toca nada.
+      if (body.action === 'siguiente') {
+        const r = await siguientePreguntaAvatares(historialDe(body.historial));
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-        return Response.json({ ok: true, preguntas: r.preguntas });
+        return Response.json(r.terminado ? { ok: true, terminado: true } : { ok: true, terminado: false, pregunta: r.pregunta });
+      }
+      if (body.action === 'describir-archivo') {
+        if (typeof body.imagenDataUrl !== 'string' || !body.imagenDataUrl) return Response.json({ ok: false, error: 'Falta la imagen.' }, { status: 400 });
+        const descripcion = await describirArchivoAvatar(body.imagenDataUrl);
+        return Response.json({ ok: true, descripcion: descripcion || 'Subió un archivo, pero no pude leerlo.' });
       }
       // Afinar: guarda las respuestas como contexto y REGENERA los avatares con eso.
       if (body.action === 'afinar') {

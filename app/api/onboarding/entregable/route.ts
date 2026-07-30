@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { runWithWorkspace } from '@/lib/workspace';
 import { resolverWsAdmin } from '@/lib/archivero';
 import { getAnswers } from '@/lib/onboarding';
-import { generarEntregables, generarEntregablePropio, generarPreguntasEntregable, getEntregables, setEntregables, type Entregable } from '@/lib/entregable';
+import { generarEntregables, siguientePreguntaEntregable, describirArchivoEntregable, getEntregables, setEntregables, type Entregable, type PasoHistorial } from '@/lib/entregable';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -36,7 +36,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const ws = await resolverWsAdmin();
   if (ws == null) return Response.json({ ok: false, error: 'Solo el admin del workspace.' }, { status: 403 });
-  let body: { action?: string; entregables?: unknown; respuestas?: unknown; texto?: unknown; imagenDataUrl?: unknown };
+  let body: { action?: string; entregables?: unknown; respuestas?: unknown; historial?: unknown; imagenDataUrl?: unknown };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
 
   return runWithWorkspace(ws, async () => {
@@ -50,16 +50,18 @@ export async function POST(req: NextRequest) {
         await setEntregables(limpio);
         return Response.json({ ok: true, ...(await estado()) });
       }
-      if (body.action === 'preguntas') {
-        const r = await generarPreguntasEntregable();
+      const historialDe = (v: unknown): PasoHistorial[] =>
+        Array.isArray(v) ? v.map((x) => { const o = (x ?? {}) as Record<string, unknown>; return { pregunta: s(o.pregunta), respuesta: s(o.respuesta) }; }).filter((x) => x.pregunta && x.respuesta) : [];
+
+      if (body.action === 'siguiente') {
+        const r = await siguientePreguntaEntregable(historialDe(body.historial));
         if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-        return Response.json({ ok: true, preguntas: r.preguntas });
+        return Response.json(r.terminado ? { ok: true, terminado: true } : { ok: true, terminado: false, pregunta: r.pregunta });
       }
-      if (body.action === 'propio') {
-        const r = await generarEntregablePropio(s(body.texto), typeof body.imagenDataUrl === 'string' ? body.imagenDataUrl : undefined);
-        if (!r.ok) return Response.json({ ok: false, error: r.error }, { status: 422 });
-        await setEntregables(r.entregables);
-        return Response.json({ ok: true, ...(await estado()) });
+      if (body.action === 'describir-archivo') {
+        if (typeof body.imagenDataUrl !== 'string' || !body.imagenDataUrl) return Response.json({ ok: false, error: 'Falta la imagen.' }, { status: 400 });
+        const descripcion = await describirArchivoEntregable(body.imagenDataUrl);
+        return Response.json({ ok: true, descripcion: descripcion || 'Subió un archivo, pero no pude leerlo.' });
       }
       // 'generar' (default), con respuestas opcionales del dueño para afinar.
       const respuestas = Array.isArray(body.respuestas)

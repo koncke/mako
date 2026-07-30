@@ -442,7 +442,6 @@ export function Archivero({ onEstado, onListo, registro }: {
         {otroKey !== p.key && (
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 22, alignItems: 'center' }}>
             {gapIdx > 0 && <button type="button" onClick={() => { setOtroKey(null); setGapIdx((i) => Math.max(0, i - 1)); }} style={link}>← Atrás</button>}
-            <button type="button" onClick={() => responderGap(p.key, null)} style={link}>Saltar</button>
             <button type="button" onClick={() => { setHuecosRevisados(true); setVista('archivos'); }} style={link}>Terminar</button>
           </div>
         )}
