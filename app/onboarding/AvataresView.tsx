@@ -19,10 +19,16 @@ type Avatar = { id: string; nombre: string; segmento: string; senalesMeta: strin
 type Estado = { avatares: Avatar[]; tieneBrief: boolean };
 type Pregunta = { pregunta: string; opciones: string[] };
 
-const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer' };
-const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
+const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
+const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 const linkBtn: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
+
+// Mismo loader inline que EntregableView — "Preparando…" sin nada que gire parece
+// trabado.
+function MiniSpin({ light }: { light?: boolean }) {
+  return <span style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${light ? 'rgba(255,255,255,.35)' : 'var(--border)'}`, borderTopColor: light ? '#fff' : 'var(--primary)', animation: 'ava-spin .8s linear infinite', display: 'inline-block', flex: 'none' }} />;
+}
 
 // Campo etiquetado de SOLO LECTURA (los avatares no se editan; se regeneran).
 function Campo({ label, color, valor }: { label: string; color: string; valor: string }) {
@@ -34,7 +40,7 @@ function Campo({ label, color, valor }: { label: string; color: string; valor: s
   );
 }
 
-export function AvataresView() {
+export function AvataresView({ onListo }: { onListo?: (listo: boolean) => void } = {}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [cargando, setCargando] = useState(true);
   const [gen, setGen] = useState(false);
@@ -51,6 +57,7 @@ export function AvataresView() {
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargando(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { onListo?.(!!est && est.avatares.length > 0); }, [est, onListo]);
 
   // Arrancar la generación: SIEMPRE pide preguntas primero.
   const empezar = async () => {
@@ -123,7 +130,7 @@ export function AvataresView() {
         <div style={{ fontSize: 40, marginBottom: 14 }}>👥</div>
         <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 22px', lineHeight: 1.25 }}>Tus avatares</h2>
         {est?.tieneBrief ? (
-          <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : '✦ Generar mis avatares'}</button>
+          <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? <><MiniSpin light /> Preparando…</> : '✦ Generar mis avatares'}</button>
         ) : (
           <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero carga tu negocio en <b>El Archivero</b>.</div>
         )}
@@ -142,7 +149,7 @@ export function AvataresView() {
           <button type="button" onClick={() => setSubTab('avatares')} style={subPill(subTab === 'avatares')}>Avatares</button>
           <button type="button" onClick={() => setSubTab('contexto')} style={subPill(subTab === 'contexto')}>Contexto</button>
         </div>
-        {subTab === 'avatares' && <button type="button" onClick={empezar} disabled={cargandoPreg} style={btnGhost}>{cargandoPreg ? 'Preparando…' : '↺ Regenerar'}</button>}
+        {subTab === 'avatares' && <button type="button" onClick={empezar} disabled={cargandoPreg} style={btnGhost}>{cargandoPreg ? <><MiniSpin /> Preparando…</> : '↺ Regenerar'}</button>}
       </div>
 
       {subTab === 'contexto' ? (

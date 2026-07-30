@@ -187,6 +187,14 @@ export function parsePreguntasAvatares(text: string): PreguntaAvatar[] {
   return out;
 }
 
+// Fallback ESTÁTICO (sin IA) si la cascada no devuelve preguntas usables — mismo
+// criterio que entregable.ts: "MaKo siempre pregunta antes de proponer" no puede
+// depender de que un JSON anidado estricto le salga bien al modelo de turno.
+const PREGUNTAS_AVATAR_FALLBACK: PreguntaAvatar[] = [
+  { pregunta: '¿Ya tienes definidos tus segmentos de cliente?', opciones: ['Sí, tengo 2-3 bien claros', 'Tengo una idea general', 'No, que MaKo los proponga'] },
+  { pregunta: '¿Qué más distingue a tus mejores clientes entre sí?', opciones: ['El tamaño de su negocio o presupuesto', 'La industria o el rubro', 'El problema puntual que tienen', 'Dónde están en el proceso de compra'] },
+];
+
 export async function generarPreguntasAvatares(): Promise<{ ok: true; preguntas: PreguntaAvatar[] } | { ok: false; error: string }> {
   try {
     const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
@@ -202,10 +210,11 @@ export async function generarPreguntasAvatares(): Promise<{ ok: true; preguntas:
       feature: 'avatares', motivo: 'Preguntas para afinar los avatares',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsePreguntasAvatares(t).length > 0,
     });
-    const preguntas = parsePreguntasAvatares(text);
-    if (!preguntas.length) return { ok: false, error: 'MaKo no armó preguntas. Reintenta en un momento.' };
-    return { ok: true, preguntas: preguntas.slice(0, 5) };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    const preguntas = text ? parsePreguntasAvatares(text) : [];
+    // Sin preguntas usables de la IA → caemos a las genéricas en vez de dejar avanzar
+    // directo a generar: el dueño siempre tiene que poder afinar antes de proponerle algo.
+    return { ok: true, preguntas: (preguntas.length ? preguntas : PREGUNTAS_AVATAR_FALLBACK).slice(0, 5) };
+  } catch {
+    return { ok: true, preguntas: PREGUNTAS_AVATAR_FALLBACK };
   }
 }

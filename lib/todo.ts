@@ -45,6 +45,8 @@ export type Tarea = {
   score: number;                 // 1-100 del guardián (define la columna)
   score_razon: string | null;    // por qué el guardián le puso ese score
   origen: OrigenTarea;
+  /** de dónde salió: {tipo, etiqueta, url}. La url puede traer ?timestamp=<seg>. */
+  fuente: { tipo: string; etiqueta?: string; url?: string } | null;
   experimento_id: number | null;
   retro_id: number | null;
   orden: number;
@@ -146,6 +148,8 @@ export type NuevaTarea = {
   deadline?: string | null;
   categorias?: number[];
   origen?: OrigenTarea;
+  /** de dónde salió (reunión de Fathom con su minuto, WhatsApp, archivo…). */
+  fuente?: { tipo: string; etiqueta?: string; url?: string } | null;
   experimento_id?: number | null;
   retro_id?: number | null;
 };
@@ -177,6 +181,7 @@ export async function crearTarea(input: NuevaTarea): Promise<Tarea> {
     checklist: [] as ChecklistItem[],
     historial: [{ id: 'h' + Date.now(), ts: Date.now(), actor: origenActor(origen), text: 'Creó la tarjeta' }] as HistEntry[],
     en_prioridad: false,
+    fuente: input.fuente ?? null,
     score: scoreDePrioridad(prioridadOk(input.prioridad)),
     origen,
     experimento_id: input.experimento_id ?? null,

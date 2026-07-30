@@ -266,10 +266,27 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       const aBorrar = (lote.eliminarIds ?? [...propuestos]).map(String).filter((x) => propuestos.has(x));
       if (!base.length && !aBorrar.length) { ultimoError = 'No hay nada para crear ni borrar.'; continue; }
 
+      // La FUENTE de cada tarea: de qué reunión salió y EN QUÉ MINUTO se dijo. Con eso,
+      // el chip del detalle de la tarjeta abre la grabación parada en ese segundo — el
+      // contexto queda a un click para siempre, no solo mientras se revisa el borrador.
+      const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
+      const tituloFuente = prop?.fuenteTitulo?.trim() ?? '';
+      const urlFuente = prop?.fuenteUrl?.trim() ?? '';
+      const fuenteDe = (t: PropuestaTarea): Fuente => {
+        const seg = t.minuto;
+        const reloj = seg != null ? (seg >= 3600
+          ? `${Math.floor(seg / 3600)}:${String(Math.floor((seg % 3600) / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}`
+          : `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`) : '';
+        return {
+          tipo: fuenteTipo,
+          etiqueta: [tituloFuente, reloj].filter(Boolean).join(' · ') || undefined,
+          url: urlFuente ? (seg != null ? `${urlFuente}${urlFuente.includes('?') ? '&' : '?'}timestamp=${seg}` : urlFuente) : undefined,
+        };
+      };
+
       if (usaPlanBoard) {
         if (base.length) {
-          const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
-          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle })), { tipo: fuenteTipo } as Fuente);
+          const r = await agregarTareasPlanOwner(base.map((t) => ({ titulo: t.titulo, prioridad: t.prioridad, proyecto: t.proyecto, deadline: t.deadline, detalle: t.detalle, fuente: fuenteDe(t) })), { tipo: fuenteTipo } as Fuente);
           idsCreadas.push(...r.ids);
           proyectosNuevos.push(...r.proyectoIds);
         }
@@ -288,7 +305,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
                 catId = byName.get(k);
                 if (catId == null) { const c = await crearCategoria(nombre, '#2F6FED'); catId = c.id; byName.set(k, c.id); }
               }
-              const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako' });
+              const tarea = await crearTarea({ titulo: t.titulo, prioridad: (t.prioridad ?? 'media') as Prioridad, deadline: t.deadline ?? null, detalle: t.detalle ?? null, categorias: catId != null ? [catId] : [], origen: 'mako', fuente: fuenteDe(t) });
               idsCreadas.push(String(tarea.id));
             } catch (e) { console.error('[plan-propuesta] crearTarea cliente:', e instanceof Error ? e.message : String(e)); }
           }

@@ -94,7 +94,7 @@ export const FASES: FaseDef[] = [
     acciones: [
       { titulo: 'Define UNA oferta clara', texto: 'A quién, qué problema, qué resultado y a qué precio. Tan clara que un desconocido la entienda en 30 segundos.', critica: true },
       { titulo: 'Prepara dónde cae el que te escribe', texto: 'Un WhatsApp con un saludo listo, o una página de una sola pantalla. Nada de video de venta ni web completa todavía.', critica: false },
-      { titulo: 'Crea 3 a 5 anuncios, un ángulo cada uno', texto: 'La misma oferta, cada anuncio con un ángulo distinto (dolor, deseo, el error que todos cometen).', critica: false },
+      { titulo: 'Crea tus 9 anuncios (3 avatares × 3 razones)', texto: 'La misma oferta, un ángulo distinto por combinación de avatar y razón de compra — MaKo te arma esa matriz de 9 más adelante.', critica: false },
       { titulo: 'Prende Meta con poco', texto: '$10 a $20 por día. Alcanza para saber si funciona sin arriesgar de más.', critica: false },
       { titulo: 'Mira solo 2 números', texto: 'Cuánto te cuesta un cliente potencial y si ya te compró un desconocido. Lo demás es ruido.', critica: false },
       { titulo: 'Ten lista tu conversación de venta', texto: 'Qué dices cuando por fin te escriban: cómo abres, qué preguntas y cómo das el precio.', critica: false },
@@ -102,7 +102,7 @@ export const FASES: FaseDef[] = [
     estrategia: { prospeccion: 100, nutricion: 0, escala: 0,
       nota: 'Todo a tráfico frío. Todavía no hay audiencia a la que reimpactar (nadie te vio aún), así que no hay retargeting posible; y no se escala lo que no sabes si funciona.',
       inversion: '$300 a $600 el primer mes (unos $10 a $20 por día). Dale a cada anuncio 3 a 4 días y ~$50 antes de decidir si sirve o lo apagas.',
-      comoRepartir: 'Reparte parejo entre tus 3 a 5 anuncios para ver cuál engancha. Cuando UNO gane, vuelca casi todo el presupuesto a ese anuncio y súbelo de a poco.' },
+      comoRepartir: 'Reparte parejo entre tus 9 anuncios para ver cuál engancha. Cuando UNO gane, vuelca casi todo el presupuesto a ese anuncio y súbelo de a poco.' },
     noHacer: [
       'No sumes equipo ni delegues: todavía no hay un proceso que delegar.',
       'No armes una escalera de varios productos ni un webinar: es demasiado para esta etapa.',

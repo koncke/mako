@@ -147,6 +147,12 @@ export function OnboardingWizard() {
   const [cash, setCash] = useState('');
   const [geminiConectada, setGeminiConectada] = useState(false); // lo reporta ServicioConfigForm
   const [archiveroListo, setArchiveroListo] = useState(false); // ≥1 doc analizado (lo reporta Archivero)
+  // Los pasos self-contained reportan si ya tienen algo generado — sin esto el
+  // Siguiente del footer dejaba avanzar aunque el paso estuviera vacío.
+  const [entregableListo, setEntregableListo] = useState(false);
+  const [avataresListo, setAvataresListo] = useState(false);
+  const [personaListo, setPersonaListo] = useState(false);
+  const [angulosListo, setAngulosListo] = useState(false);
   const [funnelTipos, setFunnelTipos] = useState<string[]>([]);
   const [contacto, setContacto] = useState({ nombre: '', email: '', telefono: '' });
   // Diagnóstico de fase: respuesta por pregunta (-1 = sin responder) + resultado.
@@ -372,6 +378,13 @@ export function OnboardingWizard() {
     // truene 3 pantallas después.
     : p.key === 'gemini' ? geminiConectada
     : p.key === 'archivero' ? (archiveroListo || Boolean(data.esAdmin)) // ≥1 doc analizado
+    // Entregable/Avatares/Persona/Ángulos: TAMPOCO admiten excepción de admin. Martín
+    // (probando impersonado) pudo apretar Siguiente sin haber definido el entregable —
+    // "NO debería poder avanzar jamás si lo anterior no está listo" (pedido explícito).
+    : p.key === 'entregable' ? entregableListo
+    : p.key === 'avatares' ? avataresListo
+    : p.key === 'persona' ? personaListo
+    : p.key === 'angulos' ? angulosListo
     : true;
   // Archivero sin documentos: el botón Siguiente ni aparece (no tiene sentido avanzar
   // sin cargar nada). El super-admin queda exento para poder recorrer el flujo.
@@ -491,16 +504,16 @@ export function OnboardingWizard() {
         {p.key === 'archivero' && <Archivero onEstado={setAnswers} onListo={setArchiveroListo} registro={archiveroRef} />}
 
         {/* ── Entregable tangible de la oferta (self-contained) ── */}
-        {p.key === 'entregable' && <EntregableView />}
+        {p.key === 'entregable' && <EntregableView onListo={setEntregableListo} />}
 
         {/* ── Avatares: MaKo propone 3 subnichos desde el brief (self-contained) ── */}
-        {p.key === 'avatares' && <AvataresView />}
+        {p.key === 'avatares' && <AvataresView onListo={setAvataresListo} />}
 
         {/* ── Persona: la cara de marca (fotos + descripción), self-contained ── */}
-        {p.key === 'persona' && <PersonaView />}
+        {p.key === 'persona' && <PersonaView onListo={setPersonaListo} />}
 
         {/* ── La matriz de anuncios (avatar × razón), self-contained ── */}
-        {p.key === 'angulos' && <MatrizView />}
+        {p.key === 'angulos' && <MatrizView onListo={setAngulosListo} />}
 
         {/* ── Brief: una pregunta, un campo ── */}
         {campoBrief && (campoBrief.type === 'textarea'
@@ -681,24 +694,47 @@ function FasePanel({ modo, qIdx, total, diag }: { modo: 'quiz' | 'result'; qIdx:
       </div>
     );
   }
+  const actual = Math.min(qIdx, 4);
+  const pct = Math.round(((qIdx + 1) / Math.max(total, 1)) * 100);
   return (
     <div className="mk-svc-aside" style={{ display: 'flex', flexDirection: 'column', padding: 26, minWidth: 0 }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)', marginBottom: 6 }}>✦ Tu diagnóstico</div>
-      <div style={{ fontSize: 13, color: 'var(--sidebar-text)', lineHeight: 1.55, marginBottom: 18 }}>
-        Seis preguntas rápidas sobre tu situación real. Al final sé en qué fase estás y qué tienes que priorizar — todos los negocios comparten los mismos problemas según su etapa.
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        <div style={{ fontFamily: MONO, fontSize: 11, letterSpacing: '.11em', textTransform: 'uppercase', color: 'var(--faint)' }}>✦ Tu diagnóstico</div>
+        <div style={{ fontFamily: MONO, fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', color: 'var(--on-sidebar)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.12)', borderRadius: 999, padding: '3px 9px', flex: 'none' }}>
+          {qIdx + 1} / {total}
+        </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {FASES.map((f, i) => (
-          <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10, opacity: i === Math.min(qIdx, 4) ? 1 : 0.45 }}>
-            <span style={{ flex: 'none', color: f.color, display: 'inline-flex' }}><FaseIcono id={f.id} size={18} /></span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--on-sidebar)' }}>Fase {f.id} · {f.nombre}</div>
-              <div style={{ fontSize: 11, color: 'var(--sidebar-text)' }}>Cuello: {f.cuelloLabel}</div>
+      <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,.1)', overflow: 'hidden', marginBottom: 18 }}>
+        <div style={{ height: '100%', width: `${pct}%`, borderRadius: 999, background: 'linear-gradient(90deg, #F6D365, #EF9F27)', transition: 'width .35s ease' }} />
+      </div>
+      <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--on-sidebar)', lineHeight: 1.4, marginBottom: 20 }}>
+        En 6 preguntas sabés exactamente en qué fase estás — y qué priorizar hoy, no en teoría.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {FASES.map((f, i) => {
+          const on = i === actual;
+          return (
+            <div key={f.id} style={{
+              display: 'flex', alignItems: 'center', gap: 11, padding: on ? '9px 10px' : '9px 2px',
+              borderRadius: 11, background: on ? `${f.color}26` : 'transparent',
+              border: `1px solid ${on ? `${f.color}55` : 'transparent'}`,
+              opacity: on ? 1 : 0.4, transform: on ? 'scale(1.02)' : 'none', transition: 'all .25s ease',
+            }}>
+              <span style={{
+                flex: 'none', width: 30, height: 30, borderRadius: 9, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: on ? f.color : 'rgba(255,255,255,.08)', color: on ? '#171511' : f.color,
+              }}><FaseIcono id={f.id} size={16} /></span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--on-sidebar)' }}>Fase {f.id} · {f.nombre}</div>
+                <div style={{ fontSize: 11, color: 'var(--sidebar-text)' }}>Cuello: {f.cuelloLabel}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      <div style={{ marginTop: 'auto', paddingTop: 16, fontFamily: MONO, fontSize: 10.5, color: 'var(--faint)' }}>{qIdx + 1} / {total}</div>
+      <div style={{ marginTop: 'auto', paddingTop: 18, fontSize: 11.5, color: 'var(--sidebar-text)', lineHeight: 1.5, borderTop: '1px solid rgba(255,255,255,.1)' }}>
+        Todos los negocios pasan por estas 5 etapas — lo que cambia es qué hacer primero en cada una.
+      </div>
     </div>
   );
 }

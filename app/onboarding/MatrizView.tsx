@@ -34,7 +34,7 @@ function Edit({ valor, onSave, multiline, style }: { valor: string; onSave: (v: 
   );
 }
 
-export function MatrizView() {
+export function MatrizView({ onListo }: { onListo?: (listo: boolean) => void } = {}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [entregables, setEntregables] = useState<Entregable[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -56,6 +56,7 @@ export function MatrizView() {
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargando(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { onListo?.(!!est && est.razones.length > 0); }, [est, onListo]);
 
   const generar = async () => {
     setGen(true); setErr(null);

@@ -107,6 +107,15 @@ export function parsePreguntasEnt(text: string): PreguntaEnt[] {
     .slice(0, 3);
 }
 
+// Fallback ESTÁTICO (sin IA) si la cascada no devuelve preguntas usables. El punto de
+// "MaKo siempre pregunta antes de proponer" es que el dueño pueda decir "ya tengo uno
+// específico" ANTES de que se le proponga algo genérico — eso no puede depender de que
+// el modelo de turno acierte un JSON anidado estricto. Genéricas pero siempre útiles.
+const PREGUNTAS_ENT_FALLBACK: PreguntaEnt[] = [
+  { pregunta: '¿Ya tienes un entregable tangible específico en mente?', opciones: ['Sí, lo tengo muy claro', 'Tengo una idea, pero no está definida', 'No, que MaKo lo proponga'] },
+  { pregunta: 'Si ya lo tienes (o lo imaginas), ¿en qué formato es?', opciones: ['Dashboard o panel', 'Planilla o Excel', 'Documento o checklist', 'Software o app', 'Metodología con nombre propio'] },
+];
+
 export async function generarPreguntasEntregable(): Promise<{ ok: true; preguntas: PreguntaEnt[] } | { ok: false; error: string }> {
   try {
     const [brief, panorama] = await Promise.all([perfilNegocioTexto(), getPanorama()]);
@@ -122,12 +131,13 @@ export async function generarPreguntasEntregable(): Promise<{ ok: true; pregunta
       feature: 'entregable', motivo: 'Preguntas para afinar el entregable',
       provs: CASCADA_DOCS, modelos: MODELO_DOCS, validar: (t) => parsePreguntasEnt(t).length > 0,
     });
-    if (!text) return { ok: false, error: 'No hay IA para las preguntas. Conecta tu API key de Gemini (gratis).' };
-    const preguntas = parsePreguntasEnt(text);
-    if (!preguntas.length) return { ok: false, error: 'MaKo no devolvió preguntas. Reintenta.' };
-    return { ok: true, preguntas };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    const preguntas = text ? parsePreguntasEnt(text) : [];
+    // La IA no dio preguntas usables (json roto, cascada agotada, etc.) — caemos a las
+    // genéricas en vez de saltar directo a generar: el dueño SIEMPRE tiene que poder
+    // decir "ya tengo uno" antes de que se le proponga algo.
+    return { ok: true, preguntas: preguntas.length ? preguntas : PREGUNTAS_ENT_FALLBACK };
+  } catch {
+    return { ok: true, preguntas: PREGUNTAS_ENT_FALLBACK };
   }
 }
 

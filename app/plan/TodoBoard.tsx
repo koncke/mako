@@ -21,6 +21,8 @@ const toBoard = (t: Tarea): BoardTask => ({
   progress: t.progreso, deadline: t.deadline ?? '',
   labels: t.categorias.map(String), checklist: t.checklist, historial: t.historial,
   origen: t.origen === 'manual' ? 'user' : 'ia', enPrioridad: t.en_prioridad,
+  // De dónde salió: pinta el mismo chip que en el board del dueño (con link al minuto).
+  fuente: (t.fuente as BoardTask['fuente']) ?? undefined,
 });
 const toLabel = (c: Categoria): Label => ({ id: String(c.id), emoji: c.emoji, name: c.nombre, color: c.color, score: c.prioridad, scoreRazon: c.score_razon ?? undefined, deadline: c.deadline ?? undefined, detalle: c.detalle, historial: c.historial });
 
@@ -33,7 +35,7 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; tarea?
 const editPatch = (d: BoardTask) => ({
   titulo: d.title, detalle: d.detalle || null, prioridad: d.priority, progreso: d.progress,
   deadline: d.deadline || null, categorias: d.labels.map(Number).filter(Number.isFinite),
-  checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null,
+  checklist: d.checklist, historial: d.historial, en_prioridad: d.enPrioridad, score: d.score, score_razon: d.scoreRazon ?? null, fuente: d.fuente ?? null,
 });
 
 export function TodoBoard({ tareas, categorias, demo, user, wsId }: { tareas: Tarea[]; categorias: Categoria[]; demo: boolean; user: BoardUser; wsId?: number | null }) {

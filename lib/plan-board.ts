@@ -182,7 +182,9 @@ function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
   return { actor, desde: f?.etiqueta ? `${base} · ${f.etiqueta}` : base };
 }
 
-export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string };
+// `fuente` POR TAREA: dos tareas del mismo lote pueden apuntar a MINUTOS distintos de
+// la misma reunión (…?timestamp=754), que es lo que hace clickeable el chip del detalle.
+export type NuevaTareaPlan = { titulo: string; prioridad?: Prio; proyecto?: string; deadline?: string; detalle?: string; fuente?: Fuente };
 
 /** MaKo agrega tareas al board del dueño DIRECTO a la DB (antes iban a la bandeja
  *  localStorage, que el server no podía tocar). Resuelve/crea el proyecto por nombre,
@@ -270,7 +272,7 @@ export async function agregarTareasPlanOwner(items: NuevaTareaPlan[], fuente?: F
         detalle: it.detalle?.slice(0, 600) ?? '', priority: prio, score: scoreFromPrio[prio], progress: 0,
         deadline: it.deadline || '', labels: projId ? [projId] : [], checklist: [],
         historial: [{ id: genId('h'), ts: ahora, actor, text: `Creó la tarjeta — ${desde}` }],
-        origen: actor, fuente: fu, enPrioridad: false,
+        origen: actor, fuente: it.fuente ?? fu, enPrioridad: false,
       };
     });
     const { error } = await db.from('plan_tareas').insert(tareas.map(taskToRow));

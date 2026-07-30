@@ -58,6 +58,12 @@ const link: CSSProperties = { background: 'none', border: 'none', color: 'var(--
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 const iconBtn: CSSProperties = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', padding: 0 };
 
+// Loader inline para botones que disparan IA — "Preparando…" sin nada que gire
+// parece trabado (mismo patrón que Entregable/Avatares).
+function MiniSpin() {
+  return <span style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--primary)', animation: 'arch-spin .8s linear infinite', display: 'inline-block', flex: 'none' }} />;
+}
+
 // Íconos.
 const Ico = ({ d, size = 15 }: { d: string; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{d.split('|').map((p, i) => <path key={i} d={p} />)}</svg>
@@ -130,6 +136,7 @@ export function Archivero({ onEstado, onListo, registro }: {
   const [otroKey, setOtroKey] = useState<string | null>(null);
   const [otroVal, setOtroVal] = useState('');
   const [archTab, setArchTab] = useState<'resumen' | 'archivos'>('resumen'); // sub-toggle: Resumen primero (P6)
+  const [mostrarLink, setMostrarLink] = useState(false); // el input de web arranca oculto detrás de un botón
   const inputRef = useRef<HTMLInputElement>(null);
   const vistos = useRef<Set<string>>(new Set()); // qué animaciones de fade ya corrieron
   const primera = useRef(true); // primera carga: si ya hay docs, abrimos en la lista (P1)
@@ -425,29 +432,43 @@ export function Archivero({ onEstado, onListo, registro }: {
   if (vista === 'archivos') {
     const gaps = est.gaps.length;
     const subPill = (on: boolean): CSSProperties => ({ border: 'none', background: on ? 'var(--surface)' : 'transparent', color: on ? 'var(--ink)' : 'var(--dim)', fontWeight: on ? 600 : 500, fontSize: 12.5, padding: '6px 13px', borderRadius: 999, cursor: 'pointer', boxShadow: on ? '0 1px 2px rgba(18,21,27,.08)' : 'none', fontFamily: SANS });
+    const listo = hayArchivos && gaps === 0;
     return (
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
         {keyframes}
+        {listo && (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--good-bg)', border: '1px solid var(--good)', borderRadius: 12, padding: '12px 16px' }}>
+            <span style={{ flex: 'none', width: 30, height: 30, borderRadius: 999, background: 'var(--good)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 700 }}>✓</span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Listo, ya analicé tu negocio</div>
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ display: 'inline-flex', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, padding: 3 }}>
             <button type="button" onClick={() => setArchTab('resumen')} style={subPill(archTab === 'resumen')}>Resumen</button>
             <button type="button" onClick={() => setArchTab('archivos')} style={subPill(archTab === 'archivos')}>Archivos{hayArchivos ? ` · ${est.files.length}` : ''}</button>
           </div>
-          <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!mostrarLink && <button type="button" onClick={() => setMostrarLink(true)} style={btnGhost}>🌐 Agregar web</button>}
+            <button type="button" onClick={() => { setErr(null); setWarnings([]); setVista('inicio'); }} style={btnPrimary}><Ico d={I_SUBIR} size={16} /> Subir más</button>
+          </div>
         </div>
-        {/* Pegar una web (tu web/landing/IG) también desde acá, no solo en el dropzone (P2). */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarLinkYSubir(); } }}
-            placeholder="O pega el link de tu web, landing o Instagram…" style={{ ...input, flex: 1 }} />
-          <button type="button" onClick={agregarLinkYSubir} disabled={!linkUrl.trim()} style={{ ...btnGhost, flex: 'none', opacity: linkUrl.trim() ? 1 : 0.5 }}>Agregar</button>
-        </div>
+        {/* Pegar una web (tu web/landing/IG) también desde acá — oculto detrás del botón
+            de arriba por default, para no ensuciar la vista con un input siempre visible. */}
+        {mostrarLink && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={linkUrl} autoFocus onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarLinkYSubir(); } }}
+              placeholder="O pega el link de tu web, landing o Instagram…" style={{ ...input, flex: 1 }} />
+            <button type="button" onClick={agregarLinkYSubir} disabled={!linkUrl.trim()} style={{ ...btnGhost, flex: 'none', opacity: linkUrl.trim() ? 1 : 0.5 }}>Agregar</button>
+            <button type="button" onClick={() => { setMostrarLink(false); setLinkUrl(''); }} aria-label="Cancelar" style={{ ...btnGhost, flex: 'none' }}>✕</button>
+          </div>
+        )}
         {archTab === 'resumen' ? (
           <ResumenView />
         ) : (
           <>
             {gaps > 0 && (
-              <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, alignSelf: 'flex-start', color: 'var(--primary)', fontWeight: 600, borderColor: 'var(--primary)' }}>
-                {cargandoPreg ? 'Preparando…' : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} que faltan →`}
+              <button type="button" onClick={seguirDesdeMasDocs} disabled={cargandoPreg} style={{ ...btnGhost, alignSelf: 'flex-start', color: 'var(--primary)', fontWeight: 600, borderColor: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {cargandoPreg ? <><MiniSpin /> Preparando…</> : `Completar ${gaps} dato${gaps === 1 ? '' : 's'} que faltan →`}
               </button>
             )}
             {hayArchivos ? listaArchivos : <div style={{ ...card, fontSize: 14, color: 'var(--dim)', textAlign: 'center' }}>Todavía no subiste documentos.</div>}

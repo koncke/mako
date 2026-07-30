@@ -16,8 +16,8 @@ const SANS = "'Geist', sans-serif";
 type Entregable = { id: string; nombre: string; tipo: string; queEs: string; fomo: string };
 type Estado = { entregables: Entregable[]; tieneBrief: boolean };
 
-const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer' };
-const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer' };
+const btnPrimary: CSSProperties = { padding: '12px 22px', borderRadius: 11, border: 'none', background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 14.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };
+const btnGhost: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 7 };
 const eyebrow: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--faint)' };
 
 function Edit({ valor, ph, onSave, style }: { valor: string; ph?: string; onSave: (v: string) => void; style?: CSSProperties }) {
@@ -32,7 +32,13 @@ function Edit({ valor, ph, onSave, style }: { valor: string; ph?: string; onSave
 type PreguntaEnt = { pregunta: string; opciones: string[] };
 const linkBtn: CSSProperties = { background: 'none', border: 'none', color: 'var(--dim)', fontFamily: SANS, fontSize: 13, textDecoration: 'underline', cursor: 'pointer', padding: 0 };
 
-export function EntregableView() {
+// Loader inline para botones que disparan una llamada a IA — sin esto un "Preparando…"
+// sin nada que gire parece que el botón se trabó (pedido de Martín, en varios lados).
+function MiniSpin({ light }: { light?: boolean }) {
+  return <span style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${light ? 'rgba(255,255,255,.35)' : 'var(--border)'}`, borderTopColor: light ? '#fff' : 'var(--primary)', animation: 'ent-spin .8s linear infinite', display: 'inline-block', flex: 'none' }} />;
+}
+
+export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void } = {}) {
   const [est, setEst] = useState<Estado | null>(null);
   const [cargando, setCargando] = useState(true);
   const [gen, setGen] = useState(false);
@@ -48,6 +54,7 @@ export function EntregableView() {
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setCargando(false); }
   }, []);
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { onListo?.(!!est && est.entregables.length > 0); }, [est, onListo]);
 
   // Arrancar: MaKo SIEMPRE pregunta primero (personalizado al negocio) y luego detecta.
   const empezar = async () => {
@@ -130,7 +137,7 @@ export function EntregableView() {
         <div style={{ fontSize: 40, marginBottom: 12 }}>🧲</div>
         <h2 style={{ fontSize: 25, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--ink)', margin: '0 0 20px', lineHeight: 1.25 }}>Tu entregable</h2>
         {est?.tieneBrief
-          ? <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : '✦ Que MaKo lo detecte'}</button>
+          ? <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnPrimary, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? <><MiniSpin light /> Preparando…</> : '✦ Que MaKo lo detecte'}</button>
           : <div style={{ fontSize: 13.5, color: 'var(--warn)', lineHeight: 1.6 }}>Primero carga tu negocio en <b>El Archivero</b>.</div>}
         {/* Contexto: para qué es, siempre debajo del botón */}
         <div style={{ marginTop: 22, textAlign: 'left', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 15px' }}>
@@ -147,7 +154,7 @@ export function EntregableView() {
       {css}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ ...eyebrow }}>Tu entregable · el elemento tangible</div>
-        {est?.tieneBrief && <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? 'Preparando…' : '↺ Regenerar'}</button>}
+        {est?.tieneBrief && <button type="button" onClick={empezar} disabled={cargandoPreg} style={{ ...btnGhost, opacity: cargandoPreg ? 0.6 : 1 }}>{cargandoPreg ? <><MiniSpin /> Preparando…</> : '↺ Regenerar'}</button>}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
