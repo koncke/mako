@@ -20,7 +20,7 @@
 import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSetting } from '@/lib/settings';
-import { cacheKeyReunion, type Participante } from '@/lib/plan-fathom';
+import { cacheKeyReunion, listReunionesRecientes, type Participante } from '@/lib/plan-fathom';
 import { resolverDestinatarios, enviarTareasAPersona, cargarTareasEnPlanDe, type TareaDeOtro, type ReunionRef } from '@/lib/reunion-destinatarios';
 
 export const dynamic = 'force-dynamic';
@@ -28,15 +28,28 @@ export const maxDuration = 60;
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** Participantes cacheados de esa grabación (lista blanca). Vacío = no se extrajo acá. */
+/**
+ * Participantes de esa grabación: la LISTA BLANCA de a quién se le puede mandar algo.
+ * Primero del cache de la extracción; si no está (se limpió, o el borrador lo dejó el
+ * cron hace días), se le pregunta a Fathom. Sin este respaldo, los botones de "Enviar"
+ * y "Cargar en el plan de X" desaparecían sin explicación —le pasó a Martín con la
+ * reunión de Mauricio, que ES usuario de la app—.
+ */
 async function participantesDe(recordingId: number): Promise<Participante[]> {
   const raw = await getSetting(cacheKeyReunion(recordingId)).catch(() => null);
-  if (!raw) return [];
+  if (raw) {
+    try {
+      const prev = JSON.parse(raw) as { participantes?: unknown };
+      const arr = Array.isArray(prev.participantes)
+        ? (prev.participantes as Participante[]).filter((p) => p && typeof p.email === 'string')
+        : [];
+      if (arr.length) return arr;
+    } catch { /* cache corrupto → preguntamos a Fathom */ }
+  }
+  // Respaldo: buscar la reunión en Fathom (metadata liviana, sin transcript).
   try {
-    const prev = JSON.parse(raw) as { participantes?: unknown };
-    return Array.isArray(prev.participantes)
-      ? (prev.participantes as Participante[]).filter((p) => p && typeof p.email === 'string')
-      : [];
+    const { reuniones } = await listReunionesRecientes({ limit: 40 });
+    return reuniones.find((r) => r.recordingId === recordingId)?.participantes ?? [];
   } catch { return []; }
 }
 

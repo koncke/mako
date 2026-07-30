@@ -89,7 +89,21 @@ export type TareaCandidata = {
   dueño: string;               // quién la asume (nombre/email), '' si no quedó claro
   dueñoEmail: string;          // email del dueño SI matchea un participante de la reunión ('' si no)
   esDeOtro: boolean;           // true = NO es del que mira el board (va a la tab de esa persona)
+  /** segundo de la grabación donde se dijo — para ir a escucharlo. undefined si no se sabe. */
+  minuto?: number;
 };
+
+/** "[01:23:45]" o "1:23:45" o "12:34" → segundos. undefined si no parsea. */
+export function segundosDeTimestamp(v: unknown): number | undefined {
+  const s = String(v ?? '').trim().replace(/[[\]]/g, '');
+  if (!s) return undefined;
+  const partes = s.split(':').map((x) => Number(x.trim()));
+  if (partes.some((n) => !Number.isFinite(n) || n < 0)) return undefined;
+  const seg = partes.length === 3 ? partes[0] * 3600 + partes[1] * 60 + partes[2]
+    : partes.length === 2 ? partes[0] * 60 + partes[1]
+      : partes.length === 1 ? partes[0] : NaN;
+  return Number.isFinite(seg) && seg >= 0 && seg < 24 * 3600 ? Math.round(seg) : undefined;
+}
 
 /** Quién mira el board: para decidir qué tareas son suyas y cuáles de otros (punto 5). */
 export type Yo = { nombre: string; email: string };
@@ -153,9 +167,11 @@ export const PLAN_FATHOM_JSON_SHAPE = `Devolvé EXCLUSIVAMENTE un objeto JSON v�
       "detalle": "<1-3 frases con el contexto que se dijo en la reunión — por qué, quién, cuándo si se mencionó>",
       "prioridad": "alta" | "media" | "baja" | "futuro",
       "proyectoId": "<id EXACTO de la lista de proyectos, o null si ninguno encaja claro>",
-      "dueño": "<nombre de la persona que asumió esta tarea en la reunión, o '' si no quedó claro>",
+      "dichoPor": "<quién LO DIJO (el que habla en la transcripción). Puede ser distinto del dueño: el que aconseja no es el que ejecuta>",
+      "dueño": "<quién TIENE QUE HACERLA, o '' si no quedó claro>",
       "dueñoEmail": "<el email EXACTO de esa persona, copiado de la lista de PARTICIPANTES; '' si no podés atribuirla a ninguno>",
-      "esMio": <true si la tarea es de QUIEN MIRA EL TABLERO (te digo su nombre abajo); false si es de otra persona>
+      "esMio": <true si la tarea es de QUIEN MIRA EL TABLERO (te digo su nombre abajo); false si es de otra persona>,
+      "minuto": "<el timestamp [HH:MM:SS] de la línea donde se dijo, tal cual aparece en la transcripción. '' si no lo ves>"
     },
     { "titulo": "Cambiar la foto de perfil de Instagram", "detalle": "…", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true },
     { "titulo": "Reescribir la bio de Instagram apuntando al nicho", "detalle": "…", "prioridad": "media", "proyectoId": null, "dueño": "", "dueñoEmail": "", "esMio": true }
@@ -184,7 +200,20 @@ QUÉ NO es una tarea (IGNORALO):
 
 ESCALA (para que calibres): una reunión de trabajo deja del orden de UNA tarea cada 3 minutos. Una charla de 30 min deja ~10; una de dos horas deja 30, 40 o más. Si de una reunión larga te salen menos de 15, es que te quedaste corto: volvé a recorrerla por bloques y sacá lo que falta.
 
-DUEÑO (importante): el dueño es QUIEN TIENE QUE HACERLA, no quien la propuso. Si un consultor le recomienda algo al otro, el dueño es EL OTRO (el que va a ejecutar), no el consultor. Ponele el "dueño" a CADA tarea y marcá "esMio": true SOLO si esa persona es QUIEN MIRA EL TABLERO (te paso su nombre y su email en el user).
+DUEÑO — LEELO DOS VECES, es donde más se falla:
+
+⚠️ LA ETIQUETA DE QUIÉN HABLA NO ES CONFIABLE. La transcripción la genera un robot que se equivoca seguido y que además MEZCLA a dos personas en un mismo bloque. NO decidas el dueño por el nombre que figura arriba del párrafo. Decidilo por lo que DICE la frase.
+
+Para cada tarea, en este orden:
+  1. ¿DE QUIÉN ES LA COSA? Mirá el objeto: su negocio, su producto, su cliente, su evento, su cuenta, su equipo. Una tarea sobre "el próximo evento de YouTube DE ÉL" es de él aunque la etiqueta diga que lo dijo el otro. Una tarea sobre TU landing, TU oferta, TU perfil, es tuya aunque la etiqueta diga que la dijo el otro.
+  2. ¿HACIA DÓNDE APUNTA LA FRASE? "tenés que / deberías / te recomiendo / fijate / cambiá" = trabajo para EL QUE ESCUCHA. "voy a / te mando / me encargo / yo hago" = trabajo para EL QUE HABLA.
+  3. Recién ahí, si sigue empatado, usá la etiqueta del hablante.
+
+Ejemplos de la vida real (los dos salieron MAL por creerle a la etiqueta):
+  · "¿Te das cuenta de que tenías que leerte el PDF de Russell?" → es un reproche AL QUE ESCUCHA: la tarea de leer el PDF es del que escucha, no del que habla.
+  · "eso vamos a hacer en el próximo evento de YouTube" dicho en medio de un bloque donde se habla del evento DE LA OTRA PERSONA → es tarea de esa otra persona, no del dueño del tablero.
+
+"dichoPor" = quién creés que lo dijo de verdad. "dueño" = quién tiene que hacerlo. Marcá "esMio": true SOLO si el DUEÑO es quien mira el tablero (te paso su nombre y su email en el user).
 
 OJO CON EL NOMBRE: el nombre con el que la transcripción etiqueta a alguien puede no ser idéntico al que te paso (apellido distinto, apodo, nombre de la cuenta de la grabación). Si el EMAIL coincide, o es evidentemente la misma persona, es la misma persona → "esMio": true. Si la tarea es de otra persona de la reunión, "esMio": false. Ejemplo: si el que mira el tablero es Martín y en la reunión Mauricio se comprometió a arreglar su Fathom, esa tarea es de Mauricio → esMio:false. NO descartes las tareas de otros: marcalas, que después se reparten.
 
@@ -241,6 +270,7 @@ function coerceCandidatas(obj: Record<string, unknown>, proyectos: ProyectoRef[]
         dueño: d.dueño,
         dueñoEmail: d.dueñoEmail,
         esDeOtro: d.esDeOtro,
+        minuto: segundosDeTimestamp(o.minuto),
       };
     })
     .filter((t) => t.titulo);

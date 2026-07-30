@@ -18,7 +18,7 @@
 // puntuándolas server-side —una sola pasada sobre todo el lote— igual que cualquier
 // otra tarea. "Ahora no" cierra sin descartar: siguen esperándote.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GuardianIcon } from './GuardianIcon';
 import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea } from './ReunionTareas';
@@ -27,7 +27,7 @@ import { type Label, type Prio } from './types';
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean };
+type PropTarea = { titulo: string; proyecto?: string; deadline?: string; detalle?: string; prioridad?: Prio; dueno?: string; duenoEmail?: string; esDeOtro?: boolean; minuto?: number };
 type PropPregunta = { pregunta: string };
 export type PropuestaPendiente = {
   id: string; resumen: string; origen?: string; tareas: PropTarea[]; createdAt: string;
@@ -70,7 +70,7 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }:
       propId: p.id,
       titulo: t.titulo, detalle: t.detalle ?? '', prioridad: (t.prioridad ?? 'media') as Prio,
       proyectoId: t.proyecto ? idPorNombre.get(t.proyecto.trim().toLowerCase()) ?? null : null,
-      dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro,
+      dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto,
       incluir: !t.esDeOtro,
       // La fecha de la REUNIÓN. Si el borrador no la trae (lo dejó una versión vieja
       // del cron), va SIN fecha: caer a createdAt mostraba la hora a la que corrió el
@@ -87,6 +87,16 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }:
   const hayMias = filas.some((f) => !f.esDeOtro);
   const nOtras = filas.filter((f) => f.esDeOtro).length;
 
+  // Mientras se aplica NO se puede cerrar ni salir: son N tareas creadas + el Perro
+  // puntuándolas por tandas, y cortarlo a la mitad deja el board a medio armar. El
+  // navegador avisa si intentás refrescar o cerrar la pestaña.
+  useEffect(() => {
+    if (guardando !== 'aplicar') return;
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [guardando]);
+
   const aplicar = async () => {
     setGuardando('aplicar'); setErr('');
     // Un lote por borrador: cada reunión conserva su contexto para el Perro, pero el
@@ -95,12 +105,16 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }:
       id: p.id,
       contexto: contextoDe(p),
       tareas: filas.filter((f) => f.propId === p.id && f.incluir && !f.esDeOtro)
-        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId) })),
+        .map((f) => ({ titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto: nombreProyecto(f.proyectoId), minuto: f.minuto })),
     })).filter((l) => l.tareas.length > 0);
     const j = await api({ action: 'aplicar-lote', lotes });
     setGuardando('');
     if (j.ok) onListo();
-    else setErr(String(j.error ?? 'No pude cargarlas.'));
+    // El error crudo puede ser una página de error del server (no JSON). Traducirlo:
+    // "SyntaxError: Unexpected token 'A'" no le dice nada a nadie.
+    else setErr(/JSON|Unexpected token/i.test(String(j.error ?? ''))
+      ? 'Se cortó la conexión con el server antes de terminar. Revisá el plan: puede que algunas ya hayan entrado.'
+      : String(j.error ?? 'No pude cargarlas.'));
   };
 
   const descartar = async () => {
@@ -121,9 +135,25 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }:
       ? `${filas.length} compromisos en total: ${filas.length - nOtras} tuyos${nOtras ? ` y ${nOtras} de los demás` : ''}.`
       : (props[0]?.resumen || `${filas.length} compromisos de la reunión.`);
 
+  const aplicando = guardando === 'aplicar';
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 132, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: SANS }}>
-      <div style={{ width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 620, maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, boxShadow: '0 30px 70px rgba(18,21,27,.35)', overflow: 'hidden' }}>
+
+        {/* Cargando: tapa TODO el modal. Crear N tareas + puntuarlas por tandas puede
+            tardar más de un minuto, y hasta ahora no se veía nada pasar. */}
+        {aplicando && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'rgba(255,255,255,.86)', backdropFilter: 'blur(3px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, textAlign: 'center' }}>
+            <span style={{ width: 34, height: 34, borderRadius: '50%', border: '3px solid var(--border-strong)', borderTopColor: 'var(--primary)', display: 'inline-block', animation: 'makoSpinTR .7s linear infinite' }} />
+            <style>{'@keyframes makoSpinTR{to{transform:rotate(360deg)}}'}</style>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>Cargando {nIncluidas} {nIncluidas === 1 ? 'tarea' : 'tareas'} al plan…</div>
+            <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.5, maxWidth: 380 }}>
+              El perro las está puntuando contra tu plan y armando las checklists. Con muchas tareas puede tardar un par de minutos.
+              <br /><b>No cierres ni refresques</b> hasta que termine.
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
           <GuardianIcon size={34} />
@@ -131,7 +161,10 @@ export function TareasRecibidasModal({ props: todos, labels, onListo, onClose }:
             <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: 'var(--accent)' }}>✦ MAKO · TAREAS PARA CONFIRMAR</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginTop: 2 }}>{titulo}</div>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+          {/* Mientras carga no hay salida: cerrar a mitad deja tareas creadas y el
+              Perro sin correr. */}
+          <button onClick={onClose} aria-label="Cerrar" disabled={!!guardando}
+            style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', cursor: guardando ? 'not-allowed' : 'pointer', fontSize: 14, opacity: guardando ? 0.4 : 1 }}>✕</button>
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>

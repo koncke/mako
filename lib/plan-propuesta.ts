@@ -31,6 +31,8 @@ export type PropuestaTarea = {
   // dentro del borrador para que el modal de confirmación muestre las mismas tabs
   // (Mías + una por colaborador) que la extracción manual.
   dueno?: string; duenoEmail?: string; esDeOtro?: boolean;
+  /** segundo de la grabación donde se dijo (para ir a escuchar ese momento). */
+  minuto?: number;
 };
 export type TipoPregunta = 'opcion' | 'multi' | 'escala' | 'texto' | 'comparacion';
 export type PropuestaPregunta = { pregunta: string; opciones: string[]; tipo: TipoPregunta };
@@ -62,6 +64,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     dueno: o.dueno ? str(o.dueno).trim().slice(0, 80) : undefined,
     duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
     esDeOtro: o.esDeOtro === true ? true : undefined,
+    minuto: Number.isFinite(Number(o.minuto)) && Number(o.minuto) >= 0 ? Math.round(Number(o.minuto)) : undefined,
   };
 }
 function limpiarEliminar(e: unknown): PropuestaEliminar | null {
@@ -300,20 +303,32 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
     if (!aplicados.length) return { ok: false, ids: [], borradas: 0, error: ultimoError || 'No se pudo aplicar.' };
     if (!idsCreadas.length && !borradas) return { ok: false, ids: [], borradas: 0, error: 'No pude crear ninguna tarea.' };
 
-    // UNA sola pasada del Perro sobre TODO lo nuevo, con el contexto de todas las
-    // reuniones junto (así compara entre sí lo que entró de golpe).
-    if (idsCreadas.length) {
-      const contexto = contextos.join(' ');
-      if (usaPlanBoard) {
-        await priorizarNuevasOwner(idsCreadas, proyectosNuevos, contexto).catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
-      } else {
-        await priorizarNuevasCliente(idsCreadas.map(Number).filter(Number.isFinite), contexto)
-          .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return 0; });
-      }
-    }
-
+    // El borrador se marca APLICADO acá, ANTES del Perro. El Perro es una mejora
+    // (prioridad + checklist), no parte del alta: si tarda o se cae, las tareas ya
+    // están creadas y el borrador NO puede volver a aplicarse. Al revés —como estaba—
+    // un timeout dejaba 69 tareas creadas y el borrador "pendiente", listo para
+    // duplicarlas enteras al siguiente click.
     const now = new Date().toISOString();
     for (const id of aplicados) await db.from('plan_propuestas').update({ estado: 'aplicada', applied_at: now }).eq('id', id);
+
+    // El Perro, POR TANDAS. Puntuar 69 tareas en una sola llamada no entra en el
+    // tiempo de la función (y encima el modelo se queda sin salida). De a 20 cada
+    // pasada compara lo nuevo contra el plan sin pasarse de tiempo.
+    if (idsCreadas.length) {
+      const contexto = contextos.join(' ');
+      const TANDA = 20;
+      for (let i = 0; i < idsCreadas.length; i += TANDA) {
+        const lote = idsCreadas.slice(i, i + TANDA);
+        const nota = idsCreadas.length > TANDA ? `${contexto} (tanda ${Math.floor(i / TANDA) + 1} de ${Math.ceil(idsCreadas.length / TANDA)})` : contexto;
+        if (usaPlanBoard) {
+          // Los proyectos nuevos se describen en la primera tanda nomás.
+          await priorizarNuevasOwner(lote, i === 0 ? proyectosNuevos : [], nota).catch((e) => { console.error('[plan-propuesta] priorizar:', e instanceof Error ? e.message : String(e)); return null; });
+        } else {
+          await priorizarNuevasCliente(lote.map(Number).filter(Number.isFinite), nota)
+            .catch((e) => { console.error('[plan-propuesta] perro cliente:', e instanceof Error ? e.message : String(e)); return 0; });
+        }
+      }
+    }
     return { ok: true, ids: idsCreadas, borradas };
   });
 }

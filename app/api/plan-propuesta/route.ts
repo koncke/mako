@@ -12,7 +12,11 @@ import { aplicarPropuesta, aplicarPropuestas, descartarPropuesta, profundizarPro
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export const maxDuration = 120; // aplicar corre el Perro (varias pasadas)
+// 300s: aplicar un borrador grande crea N tareas y después corre el Perro POR TANDAS.
+// Con 120 y 69 tareas la función moría a mitad de camino: las tareas quedaban creadas,
+// el borrador seguía "pendiente" (o sea, listo para duplicarlas) y el navegador recibía
+// una página de error de Vercel en vez de JSON ("SyntaxError: Unexpected token 'A'").
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   // Sesión válida alcanza: NO alcanza con ser admin de la PLATAFORMA. Todo lo que hace

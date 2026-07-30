@@ -16,10 +16,8 @@
 // de donde venga.
 
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Dropdown } from '../../components/Dropdown';
 import { SvcIcon } from '../../_components/ServicioVisual';
-import { ScoreIcon } from './guardian-form';
-import { type Label, type Prio, PLABEL } from './types';
+import { type Label, type Prio } from './types';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -27,7 +25,22 @@ const MONO = "'Geist Mono', monospace";
 export type CandidataTarea = {
   titulo: string; detalle: string; prioridad: Prio; proyectoId: string | null;
   dueño?: string; dueñoEmail?: string; esDeOtro?: boolean;
+  /** segundo de la grabación donde se dijo — para ir a escuchar ese momento. */
+  minuto?: number;
 };
+
+/** 4530 → "1:15:30" (o "12:34" si no llega a la hora). */
+function relojDe(seg?: number): string {
+  if (seg == null || !Number.isFinite(seg) || seg < 0) return '';
+  const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60), s = Math.floor(seg % 60);
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+/** El link a la grabación PARADO en ese segundo (Fathom acepta ?timestamp=). */
+function urlEnMinuto(url?: string | null, seg?: number): string | null {
+  if (!url) return null;
+  if (seg == null) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}timestamp=${seg}`;
+}
 export type ReunionRefUI = { recordingId?: number; titulo: string; fecha?: string | null; url?: string | null };
 // `reunion` viaja EN LA FILA: cuando MaKo dejó varias reuniones esperando, la misma
 // pantalla mezcla tareas de todas y cada una tiene que saber de cuál salió (para
@@ -199,7 +212,7 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
                     </div>
                   )}
                   {g.items.map(({ f, i }) => (
-                    <FilaCandidata key={i} f={f} labels={labels} onFila={(p) => onFila(i, p)} />
+                    <FilaCandidata key={i} f={f} onFila={(p) => onFila(i, p)} url={g.r.url} />
                   ))}
                 </div>
               ))}
@@ -210,9 +223,10 @@ export function ReunionTareas({ filas, labels, reunion, onFila, cabecera }: {
           nombre={activo.nombre}
           dest={activo.email ? dests[activo.r.recordingId ?? 0]?.[activo.email] : undefined}
           cargandoDest={!!activo.email && !destsListos && !!activo.r.recordingId}
-          filas={activo.items.map((x) => x.f)}
+          items={activo.items}
           labels={labels}
           reunion={activo.r}
+          onFila={onFila}
         />
       ) : null}
     </div>
@@ -240,29 +254,50 @@ function TabBtn({ activo, onClick, label, n }: { activo: boolean; onClick: () =>
   );
 }
 
-/** Una tarea MÍA: se tilda/destilda y se le elige proyecto. */
-function FilaCandidata({ f, labels, onFila }: { f: FilaTarea; labels: Label[]; onFila: (p: Partial<FilaTarea>) => void }) {
+/**
+ * Una tarea MÍA: se tilda/destilda y se le puede corregir el contexto.
+ *
+ * NO tiene prioridad ni selector de proyecto a propósito: las dos cosas las decide el
+ * Perro cuando entran (mostrarlas acá era pedirle al usuario que adivine algo que la
+ * app va a pisar dos segundos después). Lo que sí necesita mano humana es el DETALLE:
+ * la IA escucha mal un número y queda escrito ("el grupal de $497" cuando son $1500).
+ */
+function FilaCandidata({ f, onFila, url }: { f: FilaTarea; onFila: (p: Partial<FilaTarea>) => void; url?: string | null }) {
+  const [editando, setEditando] = useState(false);
+  const link = urlEnMinuto(url, f.minuto);
+  const reloj = relojDe(f.minuto);
   return (
     <div style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: `1px solid ${f.incluir ? 'var(--primary)' : 'var(--border)'}`, background: f.incluir ? 'var(--primary-bg)' : 'var(--surface-2)', opacity: f.incluir ? 1 : 0.6 }}>
       <button type="button" onClick={() => onFila({ incluir: !f.incluir })} aria-label="Incluir"
         style={{ width: 20, height: 20, flex: 'none', marginTop: 1, borderRadius: 6, border: `1.5px solid ${f.incluir ? 'var(--primary)' : 'var(--border-strong)'}`, background: f.incluir ? 'var(--primary)' : 'transparent', color: '#fff', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{f.incluir ? '✓' : ''}</button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{f.titulo}</div>
-        {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+        {editando
+          ? <textarea autoFocus value={f.detalle} onChange={(e) => onFila({ detalle: e.target.value })} onBlur={() => setEditando(false)} rows={4}
+              style={{ width: '100%', marginTop: 5, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
+          : f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
         {f.enriquece && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
             <span title={f.enriquece.razon} style={{ fontSize: 11, fontWeight: 700, color: 'var(--warn)', background: 'var(--warn-bg, var(--surface))', border: '1px solid var(--warn)', borderRadius: 6, padding: '2px 7px' }}>⚠ ya existe en el plan · {f.enriquece.razon.slice(0, 50)}</span>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: banda(f.prioridad), fontFamily: MONO }}><ScoreIcon size={11} color={banda(f.prioridad)} />{PLABEL[f.prioridad]}</span>
-          <Dropdown
-            value={f.proyectoId ?? ''}
-            onChange={(v) => onFila({ proyectoId: v || null })}
-            ariaLabel="Proyecto de la tarea"
-            buttonStyle={{ padding: '4px 8px', borderRadius: 8, fontSize: 12, fontWeight: 600, maxWidth: 200 }}
-            options={[{ value: '', label: 'Sin proyecto' }, ...labels.map((l) => ({ value: l.id, label: `${l.emoji} ${l.name}`, color: l.color }))]}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 7, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setEditando((v) => !v)}
+            style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: editando ? 'var(--primary)' : 'var(--faint)' }}>
+            {editando ? '✓ listo' : '✎ corregir contexto'}
+          </button>
+          {/* La transcripción de Fathom etiqueta MAL a quien habla (mezcla dos voces en
+              un bloque), así que la atribución falla y no hay prompt que lo arregle:
+              MaKo le está siendo fiel a una fuente equivocada. Que se corrija en un click. */}
+          <button type="button" onClick={() => onFila({ esDeOtro: true, incluir: false })}
+            title="Sacarla de tu plan y mandarla a la tab de la otra persona"
+            style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--faint)' }}>
+            ↪ no es mía
+          </button>
+          {/* El minuto exacto: se dijo acá, andá a escucharlo. */}
+          {reloj && (link
+            ? <a href={link} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>▶ {reloj}</a>
+            : <span style={{ fontFamily: MONO, fontSize: 11.5, color: 'var(--faint)' }}>▶ {reloj}</span>)}
         </div>
       </div>
     </div>
@@ -270,10 +305,12 @@ function FilaCandidata({ f, labels, onFila }: { f: FilaTarea; labels: Label[]; o
 }
 
 /** Tab de una persona: sus tareas (solo lectura) + qué hacer con ellas. */
-function PanelPersona({ nombre, dest, cargandoDest, filas, labels, reunion }: {
+function PanelPersona({ nombre, dest, cargandoDest, items, labels, reunion, onFila }: {
   nombre: string; dest?: Destinatario; cargandoDest: boolean;
-  filas: FilaTarea[]; labels: Label[]; reunion: ReunionRefUI;
+  items: Array<{ f: FilaTarea; i: number }>; labels: Label[]; reunion: ReunionRefUI;
+  onFila: (i: number, patch: Partial<FilaTarea>) => void;
 }) {
+  const filas = items.map((x) => x.f);
   const [abrirEnvio, setAbrirEnvio] = useState(false);
   const [wa, setWa] = useState(true);
   const [mail, setMail] = useState(true);
@@ -330,12 +367,24 @@ function PanelPersona({ nombre, dest, cargandoDest, filas, labels, reunion }: {
         . No entra a tu plan: mandáselo. <LinkGrabacion url={reunion.url} />
       </div>
 
-      {filas.map((f, i) => (
+      {items.map(({ f, i: idx }, i) => (
         <div key={i} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <span style={{ flex: 'none', marginTop: 2, fontSize: 13, color: 'var(--faint)', fontFamily: MONO }}>{i + 1}.</span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.35 }}>{f.titulo}</div>
             {f.detalle && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, lineHeight: 1.5 }}>{f.detalle}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 5, flexWrap: 'wrap' }}>
+              {relojDe(f.minuto) && (
+                <a href={urlEnMinuto(reunion.url, f.minuto) ?? '#'} target="_blank" rel="noreferrer"
+                  style={{ fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>▶ {relojDe(f.minuto)}</a>
+              )}
+              {/* Si la transcripción se equivocó de hablante, devolvela a tu plan. */}
+              <button type="button" onClick={() => onFila(idx, { esDeOtro: false, incluir: true })}
+                title="Es tuya: pasala a la tab Mías"
+                style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: MONO, fontSize: 11.5, fontWeight: 700, color: 'var(--faint)' }}>
+                ↩ en realidad es mía
+              </button>
+            </div>
           </div>
         </div>
       ))}
